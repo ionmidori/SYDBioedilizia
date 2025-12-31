@@ -6,6 +6,32 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import type { createChatTools } from '@/lib/chat-tools';
 import { callAIWithRetry } from '@/lib/ai-retry';
 
+// ✅ Helper: Extract text content from various message formats
+function extractUserMessage(message: any): string {
+    // Case C: message.parts array (actual structure from AI SDK)
+    if (message?.parts && Array.isArray(message.parts)) {
+        return message.parts
+            .filter((part: any) => part.type === 'text')
+            .map((part: any) => part.text)
+            .join('\n');
+    }
+
+    // Case B: message.content is an array (Vercel multipart)
+    if (message?.content && Array.isArray(message.content)) {
+        return message.content
+            .filter((part: any) => part.type === 'text')
+            .map((part: any) => part.text)
+            .join('\n');
+    }
+
+    // Case A: message.content is a simple string
+    if (typeof message?.content === 'string') {
+        return message.content;
+    }
+
+    return '';
+}
+
 // Configurazione
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -154,6 +180,9 @@ export async function POST(req: Request) {
         const safeMessages = Array.isArray(messages) ? messages : [];
         const latestUserMessage = safeMessages[safeMessages.length - 1];
 
+        // 👇 DEBUG CRITICO: Stampa la struttura grezza per capire dove è il testo
+        console.log('🔍 [DEBUG RAW MESSAGE]:', JSON.stringify(latestUserMessage, null, 2));
+
         // Combine history + new message
         let coreMessages = [
             ...conversationHistory,
@@ -178,12 +207,12 @@ export async function POST(req: Request) {
         }
 
         // Save user message to Firestore (async, don't await)
-        const userMessageContent = typeof latestUserMessage?.content === 'string'
-            ? latestUserMessage.content
-            : JSON.stringify(latestUserMessage?.content || '');
+        // ✅ FIX: Use helper to correctly extract text from message.parts structure
+        const userTextContent = extractUserMessage(latestUserMessage);
 
-        console.log('[Firestore] Attempting to save user message...', { sessionId, content: userMessageContent.substring(0, 50) });
-        saveMessage(sessionId, 'user', userMessageContent)
+        console.log('[Firestore] Attempting to save user message...', { sessionId, content: userTextContent.substring(0, 50) });
+        console.log(`[API] Parsed User Message: "${userTextContent}"`);
+        saveMessage(sessionId, 'user', userTextContent)
             .then(() => console.log('[Firestore] ✅ User message saved successfully'))
             .catch((error) => {
                 console.error('[Firestore] ❌ ERROR saving user message:', error);
@@ -212,135 +241,120 @@ export async function POST(req: Request) {
         // The system prompt already instructs the AI to only use tools after confirmation
         const { createChatTools } = await import('@/lib/chat-tools');
         const tools = createChatTools(sessionId);
-        console.log('[Tools] ✅ Tools ENABLED (always available)');
+        console.log('[Tools] ✅ Tools ENABLEED (always available)');
 
-        // ✅ CRITICAL FIX #3: Use streamText with retry logic
-        const result = await callAIWithRetry({
-            model: googleProvider('gemini-3-flash-preview'),
-            system: SYSTEM_INSTRUCTION,
-            messages: coreMessages as any,
-            tools, // Now conditionally undefined or loaded
-            // @ts-ignore - maxSteps is available in newer AI SDK versions but types might be outdated
-            maxSteps: 5, // ✅ CRITICAL FIX: Allow multi-turn execution (tool call + response generation)
-            experimental_providerMetadata: {
-                sessionId // Pass sessionId to tools via context.metadata
-            },
+        // ✅ MANUAL DATA STREAM IMPLEMENTATION
+        // Since createDataStream is missing in ai@6.0.5, we manually construct the stream
+        // strictly following Vercel's Data Stream Protocol (v1)
 
-            onFinish: async ({ text, toolResults }: { text: string; toolResults: any[] }) => {
-                // Save the final message to database
-                let finalText = text;
+        // ✅ MANUAL DATA STREAM IMPLEMENTATION
+        // Since createDataStream is missing in certain versions, we manually construct the stream
+        // strictly following Vercel's Data Stream Protocol (v1)
 
-                // ✅ Still inject markdown for database storage
-                const renderTool = Array.isArray(toolResults)
-                    ? (toolResults as any[]).find(tr =>
-                        tr && typeof tr === 'object' && tr.toolName === 'generate_render'
-                    )
-                    : undefined;
+        const stream = new ReadableStream({
+            async start(controller) {
+                // Helper to write formatted data protocol chunks
+                const writeData = (key: string, value: any) => {
+                    const raw = JSON.stringify(value);
+                    controller.enqueue(new TextEncoder().encode(`${key}:${raw}\n`));
+                };
 
-                if (renderTool) {
-                    console.log('[onFinish] Tool results:', JSON.stringify(toolResults, null, 2));
-
-                    const result = renderTool.result || renderTool.output;
-
-                    if (result?.status === 'success' && result?.imageUrl) {
-                        const imageUrl = result.imageUrl;
-                        console.log('[onFinish] Found imageUrl:', imageUrl);
-
-                        // Inject Markdown image for database
-                        const imageMarkdown = `\n\n![](${imageUrl})\n\n`;
-                        finalText = finalText
-                            ? `${finalText}${imageMarkdown}`
-                            : `Ecco il tuo rendering!${imageMarkdown}`;
-
-                        console.log('[onFinish] ✅ Injected image Markdown for database');
-                    }
-                }
-
-                // ✅ BUG FIX #3: Error boundary for saveMessage
-                console.log('[onFinish] Saving assistant message');
                 try {
-                    await saveMessage(sessionId, 'assistant', finalText, {
-                        toolCalls: toolResults?.map((tr: any) => ({
-                            name: tr.toolName || 'unknown',
-                            args: tr.args || {},
-                            result: tr.result || {}
-                        }))
-                    });
-                    console.log('[onFinish] ✅ Message saved successfully');
-                } catch (error) {
-                    console.error('[onFinish] ❌ CRITICAL: Failed to save message', error);
-                    // Note: We don't throw here to avoid breaking the stream response
-                    // Consider implementing retry logic or dead letter queue
+                    // 1. Start the actual AI stream
+                    // Cast options to any to avoid strict type checks on experimental features
+                    const result = streamText({
+                        model: googleProvider('gemini-3-flash-preview'),
+                        system: SYSTEM_INSTRUCTION,
+                        messages: coreMessages as any,
+                        tools: tools as any,
+                        maxSteps: 5,
+                        experimental_providerMetadata: { sessionId },
+
+                        // Keep onFinish logic
+                        onFinish: async ({ text, toolResults }: { text: string; toolResults: any[] }) => {
+                            console.log('[onFinish] 🔍 AI Generated Text:', JSON.stringify(text));
+                            console.log('[onFinish] Text length:', text?.length || 0);
+
+                            let finalText = text;
+                            const renderTool = Array.isArray(toolResults)
+                                ? (toolResults as any[]).find(tr =>
+                                    tr && typeof tr === 'object' && tr.toolName === 'generate_render'
+                                )
+                                : undefined;
+
+                            if (renderTool) {
+                                console.log('[onFinish] Tool results:', JSON.stringify(toolResults, null, 2));
+                                const result = renderTool.result || renderTool.output;
+                                if (result?.status === 'success' && result?.imageUrl) {
+                                    const imageUrl = result.imageUrl;
+                                    console.log('[onFinish] Found imageUrl:', imageUrl);
+                                    const imageMarkdown = `\n\n![](${imageUrl})\n\n`;
+                                    finalText = finalText ? `${finalText}${imageMarkdown}` : `Ecco il tuo rendering!${imageMarkdown}`;
+                                    console.log('[onFinish] ✅ Injected image Markdown for database');
+                                }
+                            }
+
+                            console.log('[onFinish] Saving assistant message');
+                            try {
+                                await saveMessage(sessionId, 'assistant', finalText, {
+                                    toolCalls: toolResults?.map((tr: any) => ({
+                                        name: tr.toolName || 'unknown',
+                                        args: tr.args || {},
+                                        result: tr.result || {}
+                                    }))
+                                });
+                                console.log('[onFinish] ✅ Message saved successfully');
+                            } catch (error) {
+                                console.error('[onFinish] ❌ CRITICAL: Failed to save message', error);
+                            }
+                        },
+                    } as any);
+
+                    // 2. Consume the FULL stream to capture tools and text
+                    // We iterate over the full event stream to manually inject tool outputs (images) as text
+                    for await (const part of result.fullStream) {
+                        if (part.type === 'text-delta') {
+                            writeData('0', part.textDelta);
+                        }
+
+                        // Check for tool results (specifically our generation tool)
+                        if (part.type === 'tool-result' && part.toolName === 'generate_render') {
+                            const result = part.result;
+                            if (result?.status === 'success' && result?.imageUrl) {
+                                // Inject the image as a markdown text chunk
+                                // This trick forces the frontend to render the image as part of the message
+                                const imageMarkdown = `\n\n![](${result.imageUrl})\n\n`;
+                                console.log('[Stream] Injecting image to stream:', result.imageUrl);
+                                writeData('0', imageMarkdown);
+                            }
+                        }
+
+                        // We also likely need to send tool call info if we want to be "correct", 
+                        // but for this specific "Text + Image" requirement, injecting text is safer.
+                    }
+
+                    // 3. Close the stream cleanly
+                    controller.close();
+
+                } catch (error: any) {
+                    // Protocol: '3' key for error messages
+                    writeData('3', { error: error.message });
+                    console.error("Stream Error:", error);
+                    controller.close();
                 }
-            },
+            }
         });
 
-        // ✅ CRITICAL FIX: Use toDataStreamResponse to stream tool results to frontend
-        const response = result.toDataStreamResponse({
+        // Return the standard response with correct headers
+        return new Response(stream, {
+            status: 200,
             headers: {
+                'Content-Type': 'text/plain; charset=utf-8',
+                'X-Vercel-AI-Data-Stream': 'v1', // Activates frontend tool/image mode
                 'X-RateLimit-Limit': '20',
                 'X-RateLimit-Remaining': remaining.toString(),
                 'X-RateLimit-Reset': resetAt.toISOString(),
             },
-        });
-
-        // Intercept and transform the stream to append image URL when tool returns it
-        const originalBody = response.body;
-        if (!originalBody) {
-            return response;
-        }
-
-        const reader = originalBody.getReader();
-        const encoder = new TextEncoder();
-        const decoder = new TextDecoder();
-
-        const transformedStream = new ReadableStream({
-            async start(controller) {
-                let accumulatedText = '';
-                let foundImageUrl: string | null = null;
-
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-
-                        // Forward the chunk immediately
-                        if (value) {
-                            controller.enqueue(value);
-
-                            // Try to detect tool result with imageUrl in the stream
-                            const chunk = decoder.decode(value, { stream: true });
-                            accumulatedText += chunk;
-
-                            // Look for imageUrl in JSON format
-                            if (!foundImageUrl && accumulatedText.includes('"imageUrl"')) {
-                                const match = accumulatedText.match(/"imageUrl"\s*:\s*"([^"]+)"/);
-                                if (match) {
-                                    foundImageUrl = match[1];
-                                    console.log('[Stream Transform] 🖼️ Found imageUrl:', foundImageUrl);
-                                }
-                            }
-                        }
-
-                        if (done) {
-                            // Before closing stream, append image markdown if we found imageUrl
-                            if (foundImageUrl) {
-                                const imageMarkdown = `\n\n![](${foundImageUrl})\n\n`;
-                                controller.enqueue(encoder.encode(imageMarkdown));
-                                console.log('[Stream Transform] ✅ Appended image markdown to stream');
-                            }
-                            controller.close();
-                            break;
-                        }
-                    }
-                } catch (error) {
-                    console.error('[Stream Transform] ❌ Error:', error);
-                    controller.error(error);
-                }
-            },
-        });
-
-        return new Response(transformedStream, {
-            headers: response.headers,
         });
 
     } catch (error: any) {

@@ -6,10 +6,18 @@ import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
 import { cn } from '@/lib/utils';
 
+// ✅ Message interface compatible with AI SDK
 interface Message {
     id: string;
     role: string;
     content: string;
+    toolInvocations?: Array<{
+        toolCallId: string;
+        toolName: string;
+        state: 'call' | 'result';
+        args?: any;
+        result?: any;
+    }>;
 }
 
 interface ChatMessagesProps {
@@ -25,29 +33,29 @@ interface ChatMessagesProps {
  * Chat messages list component with markdown rendering
  * Extracted from ChatWidget.tsx (lines 528-559)
  * ✅ BUG FIX #14: Refactored to use ImagePreview component
+ * ✅ Memoized to prevent infinite re-render loops
  */
-export function ChatMessages({
+const ChatMessagesComponent = ({
     messages,
     isLoading,
     typingMessage,
     onImageClick,
     messagesContainerRef,
     messagesEndRef
-}: ChatMessagesProps) {
-    // Debug: Log message structure
-    console.log('[ChatMessages] Total messages:', messages.length);
-    messages.forEach((m, i) => {
-        const content = String(((m) as any).content || '');
-        console.log(`[ChatMessages] Message ${i} (${m.role}):`, {
-            hasToolInvocations: !!((m as any).toolInvocations),
-            contentLength: content.length,
-            hasMarkdownImage: content.includes('!['),
-            contentPreview: content.substring(0, 200)
-        });
-        if ((m as any).toolInvocations) {
-            console.log(`[ChatMessages] Message ${i} toolInvocations:`, (m as any).toolInvocations);
+}: ChatMessagesProps) => {
+
+    // ✅ Helper: Extract text from both old (content) and new (parts[]) formats
+    const getMessageText = (msg: any): string => {
+        // New format (AI SDK v3+): parts array
+        if (msg.parts && Array.isArray(msg.parts)) {
+            return msg.parts
+                .filter((part: any) => part.type === 'text')
+                .map((part: any) => part.text)
+                .join('');
         }
-    });
+        // Old format (legacy): content string
+        return msg.content || '';
+    };
 
     return (
         <div
@@ -57,7 +65,7 @@ export function ChatMessages({
         >
             {messages.map((msg, idx) => (
                 <motion.div
-                    key={idx}
+                    key={msg.id} // ✅ Use stable ID instead of index
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={cn("flex gap-3 max-w-[90%]", msg.role === 'user' ? "ml-auto flex-row-reverse" : "")}
@@ -76,24 +84,50 @@ export function ChatMessages({
                             : "bg-slate-800 border border-slate-700 text-slate-200 rounded-tl-none"
                     )}>
                         <div className="prose prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg max-w-none break-words">
-                            <ReactMarkdown
-                                urlTransform={(value) => value}
-                                components={{
-                                    img: ({ node, ...props }) => props.src ? (
-                                        <ImagePreview
-                                            src={String(props.src)}
-                                            alt={String(props.alt || 'Generated image')}
-                                            onClick={onImageClick}
-                                        />
-                                    ) : null
-                                }}
-                            >
-                                {String((msg as any).content || '')}
-                            </ReactMarkdown>
+                            {/* ✅ Render content from both formats */}
+                            {(() => {
+                                const messageText = getMessageText(msg);
+                                return messageText ? (
+                                    <ReactMarkdown
+                                        urlTransform={(value) => value}
+                                        components={{
+                                            img: ({ node, ...props }) => props.src ? (
+                                                <ImagePreview
+                                                    src={String(props.src)}
+                                                    alt={String(props.alt || 'Generated image')}
+                                                    onClick={onImageClick}
+                                                />
+                                            ) : null
+                                        }}
+                                    >
+                                        {messageText}
+                                    </ReactMarkdown>
+                                ) : null;
+                            })()}
 
-                            {/* ✅ Render tool invocations (e.g., generated images) */}
+                            {/* ✅ Render tool invocations */}
                             {(msg as any).toolInvocations?.map((tool: any, toolIdx: number) => {
-                                if (tool.toolName === 'generate_render' && tool.state === 'result') {
+                                // State 1: Tool is being called (loading)
+                                if (tool.state === 'call') {
+                                    if (tool.toolName === 'generate_render') {
+                                        return (
+                                            <div key={toolIdx} className="flex items-center gap-2 text-sm text-slate-400 italic mt-2">
+                                                <span className="animate-pulse">🎨</span>
+                                                Generando rendering...
+                                            </div>
+                                        );
+                                    }
+                                    if (tool.toolName === 'submit_lead_data') {
+                                        return (
+                                            <div key={toolIdx} className="text-sm text-slate-400 italic mt-2">
+                                                📝 Salvando i tuoi dati...
+                                            </div>
+                                        );
+                                    }
+                                }
+
+                                // State 2: Tool completed with result
+                                if (tool.state === 'result') {
                                     const result = tool.result || (tool as any).output;
                                     // Check for imageUrl
                                     if (result?.imageUrl) {
@@ -153,4 +187,7 @@ export function ChatMessages({
             <div ref={messagesEndRef} />
         </div>
     );
-}
+};
+
+// ✅ Memoize component to prevent re-renders when props haven't changed
+export const ChatMessages = React.memo(ChatMessagesComponent);

@@ -1,3 +1,5 @@
+import { streamText } from 'ai';
+
 /**
  * ✅ CRITICAL FIX #3: AI timeout and rate limit handling
  * Helper function to call AI with retry logic and timeout
@@ -11,7 +13,7 @@ async function callAIWithRetry(config: any, retries = 0): Promise<any> {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-        const streamPromise = import('ai').then(({ streamText }) =>
+        const streamPromise = Promise.resolve().then(() =>
             streamText({ ...config, abortSignal: controller.signal })
         );
 

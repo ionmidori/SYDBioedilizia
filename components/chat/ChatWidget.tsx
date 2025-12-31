@@ -42,33 +42,44 @@ export default function ChatWidget() {
     // Session Management
     const sessionId = useSessionId();
 
-    // Chat History
+    // Load conversation history
     const { historyLoaded, historyMessages } = useChatHistory(sessionId);
 
     // Chat State & Streaming
-    const welcomeMessage = {
+    // ✅ CRITICAL: Memoize welcome message to prevent re-render loop
+    const welcomeMessage = React.useMemo(() => ({
         id: 'welcome',
         role: 'assistant',
         content: "Posso aiutarti a:\n1. 📐 **Creare un Preventivo** dettagliato.\n2. 🎨 **Visualizzare un Rendering** 3D della tua idea.\n\nDa dove iniziamo?"
-    };
+    }), []);
 
-    const { messages, setMessages, isLoading, append } = useChat(
-        sessionId,
-        historyLoaded && historyMessages.length > 0 ? historyMessages : [welcomeMessage]
-    );
+    // ✅ CRITICAL: Stabilize initialMessages array reference
+    // Only pass real history to SDK to prevent auto-generation
+    const initialChatMessages = React.useMemo(() => {
+        // If we have history, use it. Otherwise, pass empty array to SDK
+        // (welcome message will be added only for UI display)
+        return historyMessages.length > 0 ? historyMessages : [];
+    }, [historyMessages]);
 
-    // Update messages when history loads
-    useEffect(() => {
-        if (historyLoaded && historyMessages.length > 0) {
-            setMessages(historyMessages);
+    // ✅ Initialize SDK hook with stable reference
+    const chatResponse = useChat(sessionId, initialChatMessages);
+    const { messages, isLoading, append, error } = chatResponse;
+
+    // ✅ Add welcome message ONLY for UI display, if no history exists
+    // Memoize to prevent infinite re-render loop
+    const displayMessages = React.useMemo(() => {
+        if (historyMessages.length > 0) {
+            return messages;
         }
-    }, [historyLoaded, historyMessages, setMessages]);
+        // Only add welcome if we have no history AND no messages from SDK yet
+        return messages.length === 0 ? [welcomeMessage] : messages;
+    }, [historyMessages.length, messages, welcomeMessage]);
 
     // Image Upload
     const { selectedImages, handleFileSelect, clearImages } = useImageUpload();
 
     // Scroll Management
-    const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(messages.length, isOpen);
+    const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(displayMessages.length, isOpen);
 
     // Mobile Viewport & Body Lock
     const { isMobile } = useMobileViewport(isOpen, chatContainerRef);
@@ -127,7 +138,6 @@ export default function ChatWidget() {
                     content: `🎤 ${transcribedText}`
                 }, {
                     body: {
-                        sessionId,
                         images: selectedImages
                     }
                 });
@@ -153,6 +163,12 @@ export default function ChatWidget() {
         window.addEventListener('OPEN_CHAT_WITH_MESSAGE' as any, handleOpenChat as any);
         return () => window.removeEventListener('OPEN_CHAT_WITH_MESSAGE' as any, handleOpenChat as any);
     }, [append]);
+
+    // 🛑 CRITICAL: Loading Guard - Moved here to follow Rules of Hooks
+    // We only return null for the UI, but hooks above must always run
+    if (!historyLoaded) {
+        return null;
+    }
 
     return (
         <>
@@ -189,7 +205,7 @@ export default function ChatWidget() {
                             <ChatHeader onMinimize={() => setIsOpen(false)} />
 
                             <ChatMessages
-                                messages={messages}
+                                messages={displayMessages as any[]}
                                 isLoading={isLoading}
                                 typingMessage={typingMessage}
                                 onImageClick={setSelectedImage}

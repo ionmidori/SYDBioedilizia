@@ -16,29 +16,59 @@ let storageInstance: Storage | undefined;
  * ✅ CRITICAL FIX #2: Validate Firebase credentials format
  * Prevents security risks from malformed credentials
  */
-function validateFirebaseCredentials(privateKey: string, clientEmail: string, projectId: string): void {
-    // Validate private key format
-    if (!privateKey.includes('BEGIN PRIVATE KEY') || !privateKey.includes('END PRIVATE KEY')) {
-        throw new Error('[Firebase] Invalid private key format - must be a valid RSA private key');
+/**
+ * ✅ CRITICAL FIX #2: Sanitize and Validate Firebase Private Key
+ * Prevents security risks from malformed credentials and ensures correct format.
+ * Returns the sanitized private key.
+ */
+function sanitizeAndValidatePrivateKey(privateKey: string): string {
+    if (!privateKey) {
+        throw new Error('[Firebase] Private key is missing');
     }
 
-    // Validate private key is not empty between markers
-    const keyContent = privateKey.split('BEGIN PRIVATE KEY')[1]?.split('END PRIVATE KEY')[0];
+    // 1. Sanitize: Handle both escaped (\n) and unescaped newlines
+    let sanitizedKey = privateKey.replace(/\\n/g, '\n');
+
+    // 2. Sanitize: Remove wrapping quotes if present (common env var issue)
+    if (sanitizedKey.startsWith('"') && sanitizedKey.endsWith('"')) {
+        sanitizedKey = sanitizedKey.slice(1, -1);
+    }
+    if (sanitizedKey.startsWith("'") && sanitizedKey.endsWith("'")) {
+        sanitizedKey = sanitizedKey.slice(1, -1);
+    }
+
+    // 3. Validation: Check for standard PEM format markers
+    if (!sanitizedKey.includes('BEGIN PRIVATE KEY') || !sanitizedKey.includes('END PRIVATE KEY')) {
+        throw new Error('[Firebase] Invalid private key format - must be a valid RSA private key (PEM format)');
+    }
+
+    // 4. Validation: content check
+    const keyContent = sanitizedKey.split('BEGIN PRIVATE KEY')[1]?.split('END PRIVATE KEY')[0];
     if (!keyContent || keyContent.trim().length < 100) {
         throw new Error('[Firebase] Private key appears to be truncated or empty');
     }
 
+    // 5. Re-verify newlines for PEM validity
+    if (!sanitizedKey.includes('\n')) {
+        throw new Error('[Firebase] Private key invalid: missing newlines after sanitization');
+    }
+
+    return sanitizedKey;
+}
+
+/**
+ * Validates other credential fields
+ */
+function validateServiceAccount(clientEmail: string, projectId: string): void {
     // Validate email format
-    if (!clientEmail.includes('@') || !clientEmail.endsWith('.gserviceaccount.com')) {
-        throw new Error('[Firebase] Invalid service account email - must end with .gserviceaccount.com');
+    if (!clientEmail || !clientEmail.includes('@') || !clientEmail.endsWith('.gserviceaccount.com')) {
+        throw new Error(`[Firebase] Invalid service account email: ${clientEmail} - must end with .gserviceaccount.com`);
     }
 
     // Validate project ID format
     if (!projectId || projectId.length < 6 || !/^[a-z0-9-]+$/.test(projectId)) {
-        throw new Error('[Firebase] Invalid project ID - must contain only lowercase letters, numbers, and hyphens');
+        throw new Error(`[Firebase] Invalid project ID: ${projectId} - must contain only lowercase letters, numbers, and hyphens`);
     }
-
-    console.log('[Firebase] ✅ Credentials validation passed');
 }
 
 /**
@@ -51,14 +81,16 @@ function initializeFirebase(): App {
 
         try {
             // Try environment variables first (Vercel-compatible)
-            const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+            // Try environment variables first (Vercel-compatible)
+            const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-            if (privateKey && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
+            if (rawPrivateKey && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
                 console.log('[Firebase] Loading credentials from environment variables');
 
-                // ✅ CRITICAL FIX #2: Validate credentials before use
-                validateFirebaseCredentials(
-                    privateKey,
+                // ✅ CRITICAL FIX #2: Sanitize & Validate
+                const privateKey = sanitizeAndValidatePrivateKey(rawPrivateKey);
+
+                validateServiceAccount(
                     process.env.FIREBASE_CLIENT_EMAIL,
                     process.env.FIREBASE_PROJECT_ID
                 );
@@ -73,8 +105,6 @@ function initializeFirebase(): App {
                 });
 
                 console.log('[Firebase] ✅ Successfully initialized from environment variables');
-                console.log('[Firebase] Project ID:', process.env.FIREBASE_PROJECT_ID);
-                console.log('[Firebase] Storage Bucket:', `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`);
 
                 return firebaseApp;
             }
@@ -94,22 +124,24 @@ function initializeFirebase(): App {
             const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
 
             // ✅ CRITICAL FIX #2: Validate JSON file credentials
-            validateFirebaseCredentials(
-                serviceAccount.private_key,
+            const privateKey = sanitizeAndValidatePrivateKey(serviceAccount.private_key);
+
+            validateServiceAccount(
                 serviceAccount.client_email,
                 serviceAccount.project_id
             );
 
             firebaseApp = initializeApp({
-                credential: cert(serviceAccount),
+                credential: cert({
+                    ...serviceAccount,
+                    private_key: privateKey // Use sanitized key
+                }),
                 storageBucket: serviceAccount.project_id + '.firebasestorage.app',
             });
 
             console.log('[Firebase] ✅ Successfully initialized from JSON file');
-            console.log('[Firebase] Project ID:', serviceAccount.project_id);
-            console.log('[Firebase] Storage Bucket:', serviceAccount.project_id + '.firebasestorage.app');
 
-            return firebaseApp;
+            return firebaseApp!; // Assert not null since we just initialized it
         } catch (error) {
             console.error('[Firebase] ❌ Initialization FAILED:', error);
             throw error;
