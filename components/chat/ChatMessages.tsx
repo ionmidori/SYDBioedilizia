@@ -1,8 +1,9 @@
 import React, { RefObject } from 'react';
 import { motion } from 'framer-motion';
-import { User, Minimize2 } from 'lucide-react';
+import { User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
+import { ImagePreview } from '@/components/chat/ImagePreview';
 import { cn } from '@/lib/utils';
 
 interface Message {
@@ -23,6 +24,7 @@ interface ChatMessagesProps {
 /**
  * Chat messages list component with markdown rendering
  * Extracted from ChatWidget.tsx (lines 528-559)
+ * ✅ BUG FIX #14: Refactored to use ImagePreview component
  */
 export function ChatMessages({
     messages,
@@ -35,8 +37,15 @@ export function ChatMessages({
     // Debug: Log message structure
     console.log('[ChatMessages] Total messages:', messages.length);
     messages.forEach((m, i) => {
+        const content = String(((m) as any).content || '');
+        console.log(`[ChatMessages] Message ${i} (${m.role}):`, {
+            hasToolInvocations: !!((m as any).toolInvocations),
+            contentLength: content.length,
+            hasMarkdownImage: content.includes('!['),
+            contentPreview: content.substring(0, 200)
+        });
         if ((m as any).toolInvocations) {
-            console.log(`[ChatMessages] Message ${i} has toolInvocations:`, (m as any).toolInvocations);
+            console.log(`[ChatMessages] Message ${i} toolInvocations:`, (m as any).toolInvocations);
         }
     });
 
@@ -71,46 +80,38 @@ export function ChatMessages({
                                 urlTransform={(value) => value}
                                 components={{
                                     img: ({ node, ...props }) => props.src ? (
-                                        <span
-                                            className="group relative mt-2 cursor-pointer overflow-hidden rounded-lg border border-white/10 block"
-                                            onClick={() => onImageClick(props.src as string)}
-                                        >
-                                            <img {...props} className="max-w-full h-auto transition-transform hover:scale-105" />
-                                            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <span className="text-xs text-white font-medium bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/20 flex items-center gap-1">
-                                                    <Minimize2 className="w-3 h-3 rotate-45" /> Espandi
-                                                </span>
-                                            </span>
-                                        </span>
+                                        <ImagePreview
+                                            src={String(props.src)}
+                                            alt={String(props.alt || 'Generated image')}
+                                            onClick={onImageClick}
+                                        />
                                     ) : null
                                 }}
                             >
                                 {String((msg as any).content || '')}
                             </ReactMarkdown>
 
-                            {/* ✅ NEW: Render tool invocations (e.g., generated images) */}
+                            {/* ✅ Render tool invocations (e.g., generated images) */}
                             {(msg as any).toolInvocations?.map((tool: any, toolIdx: number) => {
                                 if (tool.toolName === 'generate_render' && tool.state === 'result') {
-                                    const result = tool.result;
-                                    // Check for imageUrl (works for both old 'success' bool and new 'status' string)
+                                    const result = tool.result || (tool as any).output;
+                                    // Check for imageUrl
                                     if (result?.imageUrl) {
                                         return (
                                             <div key={toolIdx} className="mt-3">
-                                                <div
-                                                    className="group relative cursor-pointer overflow-hidden rounded-lg border border-white/10"
-                                                    onClick={() => onImageClick(result.imageUrl)}
-                                                >
-                                                    <img
-                                                        src={result.imageUrl}
-                                                        alt={result.description || 'Rendering generato'}
-                                                        className="w-full h-auto transition-transform hover:scale-105"
-                                                    />
-                                                    <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <span className="text-xs text-white font-medium bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/20 flex items-center gap-1">
-                                                            <Minimize2 className="w-3 h-3 rotate-45" /> Espandi
-                                                        </span>
-                                                    </span>
-                                                </div>
+                                                <ImagePreview
+                                                    src={result.imageUrl}
+                                                    alt={result.description || 'Rendering generato'}
+                                                    onClick={onImageClick}
+                                                    className="w-full"
+                                                />
+                                            </div>
+                                        );
+                                    } else if (result?.error || result?.status === 'error') {
+                                        return (
+                                            <div key={toolIdx} className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                                                <p className="font-medium">Errore generazione immagine:</p>
+                                                <p>{result?.error || 'Si è verificato un errore sconosciuto.'}</p>
                                             </div>
                                         );
                                     }

@@ -39,15 +39,35 @@ interface CachedRateLimit {
 // In-memory cache for fast lookups
 const cache = new Map<string, CachedRateLimit>();
 
-// Cleanup old cache entries periodically
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, value] of cache.entries()) {
-        if (now - value.timestamp > CACHE_TTL_MS) {
-            cache.delete(key);
+// ✅ BUG FIX #1: Proper interval cleanup to prevent memory leak
+let cleanupInterval: NodeJS.Timeout | null = null;
+
+function initializeCleanup() {
+    if (cleanupInterval) return; // Already initialized
+
+    cleanupInterval = setInterval(() => {
+        const now = Date.now();
+        for (const [key, value] of cache.entries()) {
+            if (now - value.timestamp > CACHE_TTL_MS) {
+                cache.delete(key);
+            }
         }
+    }, 30000); // Clean every 30 seconds
+
+    console.log('[RateLimit] Cache cleanup interval initialized');
+}
+
+// Initialize cleanup on module load
+initializeCleanup();
+
+// Cleanup on process termination (important for serverless)
+process.on('beforeExit', () => {
+    if (cleanupInterval) {
+        clearInterval(cleanupInterval);
+        cleanupInterval = null;
+        console.log('[RateLimit] Cache cleanup interval cleared');
     }
-}, 30000); // Clean every 30 seconds
+});
 
 /**
  * Check if IP is within rate limits

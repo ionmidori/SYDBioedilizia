@@ -1,7 +1,7 @@
 // Tool definitions for chat API
 import { tool } from 'ai';
 import { z } from 'zod';
-import { storage } from '@/lib/firebase-admin';
+// ✅ BUG FIX #12: Removed duplicate import (storage is imported dynamically below)
 import { saveLead } from '@/lib/db/leads';
 import { generateInteriorImage, buildInteriorDesignPrompt } from '@/lib/imagen/generate-interior';
 
@@ -29,7 +29,13 @@ export function createChatTools(sessionId: string) {
             description: `Generate a photorealistic 3D rendering of an interior design.
             
             IMPORTANT CONFIRMATION RULE:
-            DO NOT call without confirmation! First summarize collected details and ask: "Vuoi che proceda con la generazione?"`,
+            DO NOT call without confirmation! First summarize collected details and ask: "Vuoi che proceda con la generazione?"
+            
+            CRITICAL - AFTER THIS TOOL RETURNS:
+            You MUST include the returned imageUrl in your next response using markdown format.
+            Example: "Ecco il rendering!\\n\\n![](RETURNED_IMAGE_URL)\\n\\nTi piace?"
+            
+            The imageUrl will be in the tool result under result.imageUrl - you MUST display it with ![](url) syntax.`,
             parameters: GenerateRenderParameters,
             execute: async (args: z.infer<typeof GenerateRenderParameters>) => {
                 const { prompt, roomType, style } = args || {}; // Handle potential null args
@@ -55,13 +61,26 @@ export function createChatTools(sessionId: string) {
                         aspectRatio: '16:9',
                     });
 
+                    // ✅ BUG FIX #7: Validate image buffer before upload
+                    if (!imageBuffer || imageBuffer.length === 0) {
+                        throw new Error('Generated image is empty or invalid');
+                    }
+
+                    const maxSizeBytes = 10 * 1024 * 1024; // 10MB limit
+                    if (imageBuffer.length > maxSizeBytes) {
+                        throw new Error(`Generated image is too large: ${(imageBuffer.length / 1024 / 1024).toFixed(2)}MB (max 10MB)`);
+                    }
+
+                    console.log(`[generate_render] Image validated: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
+
                     // Upload to Firebase Storage with session-scoped path
                     const { storage } = await import('@/lib/firebase-admin');
                     const bucket = storage().bucket();
 
-                    // CRITICAL: Use sessionId in filename to avoid race conditions
+                    // ✅ BUG FIX #2: Add unique ID to prevent race conditions
                     const timestamp = Date.now();
-                    const fileName = `renders/${sessionId}/${timestamp}-${safeRoomType.replace(/\s+/g, '-')}.png`;
+                    const uniqueId = crypto.randomUUID().split('-')[0]; // First segment for brevity
+                    const fileName = `renders/${sessionId}/${timestamp}-${uniqueId}-${safeRoomType.replace(/\s+/g, '-')}.png`;
                     const file = bucket.file(fileName);
 
                     await file.save(imageBuffer, {

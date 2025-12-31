@@ -21,15 +21,21 @@ export async function generateInteriorImage(options: {
     const startTime = Date.now();
 
     try {
-        // Read service account credentials
-        const fs = require('fs');
-        const path = require('path');
-        const serviceAccountPath = path.join(process.cwd(), 'firebase-service-account.json');
-        const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+        // Initialize Google Auth with environment variables
+        const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+        const projectId = process.env.FIREBASE_PROJECT_ID;
 
-        // Initialize Google Auth with service account
+        if (!privateKey || !clientEmail || !projectId) {
+            throw new Error('Missing Firebase credentials in environment variables');
+        }
+
         const auth = new GoogleAuth({
-            keyFile: serviceAccountPath,
+            credentials: {
+                client_email: clientEmail,
+                private_key: privateKey,
+                project_id: projectId,
+            },
             scopes: ['https://www.googleapis.com/auth/cloud-platform'],
         });
 
@@ -41,12 +47,11 @@ export async function generateInteriorImage(options: {
         }
 
         console.log('[Imagen REST] Got access token');
-        console.log('[Imagen REST] Project:', serviceAccount.project_id);
+        console.log('[Imagen REST] Project:', projectId);
 
-        // Imagen 3 REST API endpoint
-        const projectId = serviceAccount.project_id;
+        // ✅ BUG FIX #8: Configurable Imagen model version
         const location = 'us-central1';
-        const model = 'imagegeneration@006'; // Imagen 3
+        const model = process.env.IMAGEN_MODEL_VERSION || 'imagegeneration@006'; // Imagen 3
 
         const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predict`;
 
@@ -111,17 +116,26 @@ export async function generateInteriorImage(options: {
     } catch (error) {
         console.error('[Imagen REST] Error:', error);
 
+        // ✅ BUG FIX #10: User-friendly error messages (don't expose internal details)
         if (error instanceof Error) {
+            // Log detailed error for debugging
+            console.error('[Imagen REST] Detailed error:', error.message, error.stack);
+
             if (error.message.includes('403')) {
-                throw new Error('Vertex AI API not enabled or service account lacks permissions. Enable at: https://console.cloud.google.com/apis/api/aiplatform.googleapis.com');
+                throw new Error('Image generation service is currently unavailable. Please try again later.');
             }
 
             if (error.message.includes('404')) {
-                throw new Error('Imagen model not found. Ensure you\'re using a supported region (us-central1)');
+                throw new Error('Image generation service is currently unavailable. Please try again later.');
+            }
+
+            if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT')) {
+                throw new Error('Image generation timed out. Please try again.');
             }
         }
 
-        throw new Error(`Image generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Generic user-friendly message
+        throw new Error('Image generation failed. Please try again in a few moments.');
     }
 }
 
