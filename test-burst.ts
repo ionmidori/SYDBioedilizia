@@ -47,3 +47,5 @@ async function burstTest() {
 }
 
 burstTest();
+
+export {};

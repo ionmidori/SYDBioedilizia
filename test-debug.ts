@@ -41,3 +41,5 @@ async function testRateLimit() {
 }
 
 testRateLimit();
+
+export {};
