@@ -10,9 +10,9 @@ export function createChatTools(sessionId: string) {
 
     // Define schemas first
     const GenerateRenderParameters = z.object({
-        prompt: z.string().max(1000).describe('Detailed description of the interior design to generate'),
-        roomType: z.string().max(100).describe('Type of room (e.g., living room, kitchen, bedroom)'),
-        style: z.string().max(100).describe('Design style (e.g., modern, industrial, minimalist)'),
+        prompt: z.string().max(1000).describe('Detailed visual description of the interior design to generate (IN ENGLISH). Include furniture, colors, textures, lighting.'),
+        roomType: z.string().max(100).describe('Type of room IN ENGLISH (e.g., "living room", "bathroom", "kitchen", "bedroom").'),
+        style: z.string().max(100).describe('Design style IN ENGLISH (e.g., "modern", "industrial", "minimalist").'),
     });
 
     const SubmitLeadParameters = z.object({
@@ -37,15 +37,17 @@ export function createChatTools(sessionId: string) {
             
             The imageUrl will be in the tool result under result.imageUrl - you MUST display it with ![](url) syntax.`,
             parameters: GenerateRenderParameters,
-            execute: async (args: z.infer<typeof GenerateRenderParameters>) => {
+            execute: async (args: any) => {
                 const { prompt, roomType, style } = args || {}; // Handle potential null args
                 try {
                     // Use sessionId from closure (injected via factory)
-                    const safeRoomType = (roomType || 'stanza').substring(0, 100);
-                    const safeStyle = (style || 'moderno').substring(0, 100);
-                    const safePrompt = (prompt || `Rendering di ${safeRoomType} in stile ${safeStyle}`);
+                    console.log('🔥🔥🔥 [generate_render] RECEIVED ARGS:', { prompt, roomType, style });
+                    const safeRoomType = (roomType || 'room').substring(0, 100);
+                    const safeStyle = (style || 'modern').substring(0, 100);
+                    // Use English for the default prompt logic to match the English template
+                    const safePrompt = (prompt || `Interior design of a ${safeRoomType} in ${safeStyle} style`);
 
-                    console.log('[generate_render] Tool called with:', { prompt: safePrompt, roomType: safeRoomType, style: safeStyle, sessionId });
+                    console.log('🔥🔥🔥 [generate_render] Safe Prompt used:', safePrompt);
                     console.log('[generate_render] Calling Imagen REST API...');
 
                     // Build enhanced prompt
@@ -111,12 +113,12 @@ export function createChatTools(sessionId: string) {
                     };
                 }
             },
-        }),
+        } as any),
 
         submit_lead_data: tool({
             description: 'Submit collected lead data (contact information and project details) to Firestore',
             parameters: SubmitLeadParameters,
-            execute: async (data: z.infer<typeof SubmitLeadParameters>) => {
+            execute: async (data: any) => {
                 try {
                     console.log('[submit_lead_data] Saving lead to Firestore:', data);
 
@@ -145,6 +147,6 @@ export function createChatTools(sessionId: string) {
                     };
                 }
             }
-        })
+        } as any)
     };
 }
