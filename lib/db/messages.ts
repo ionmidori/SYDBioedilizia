@@ -9,7 +9,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 export async function getConversationContext(
     sessionId: string,
     limit: number = 10
-): Promise<Array<{ role: string; content: string }>> {
+): Promise<Array<{ role: string; content: string; toolInvocations?: any[] }>> {
     try {
         const firestore = db();
 
@@ -35,6 +35,13 @@ export async function getConversationContext(
                 return {
                     role: data.role as 'user' | 'assistant' | 'system',
                     content: data.content as string,
+                    toolInvocations: data.toolCalls?.map((tc: any) => ({
+                        toolCallId: crypto.randomUUID(), // Generate transient ID
+                        toolName: tc.name,
+                        args: tc.args,
+                        state: 'result',
+                        result: tc.result
+                    }))
                 };
             })
             .reverse(); // Reverse to get chronological order
