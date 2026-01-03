@@ -62,4 +62,5 @@ firebase-service-account.json
 !vercel.json
 !.eslintrc.json
 !tailwind.config.json
+!package-root.json
 

@@ -1,0 +1,20 @@
+[00:00:02.439] Server  LOG      ✓ Ready in 1632ms
+[00:00:05.519] Server  LOG      ○ Compiling / ...
+[00:00:09.002] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:10.487] Browser LOG     [SessionID] Restored from localStorage: session-1767471252130-s3ykb
+[00:00:10.487] Browser LOG     [SessionID] Restored from localStorage: session-1767471252130-s3ykb
+[00:00:10.487] Browser LOG     [useChatHistory] Initialized with sessionId: session-1767471252130-s3ykb
+[00:00:10.487] Browser LOG     [useChatHistory] Loading conversation history...
+[00:00:10.487] Browser LOG     [Vercel Speed Insights] Failed to load script from https://va.vercel-scripts.com/v1/speed-insights/script.debug.js. Please check if any content blockers are enabled and try again.
+[00:00:10.487] Browser LOG     [Vercel Web Analytics] Failed to load script from https://va.vercel-scripts.com/v1/script.debug.js. Please check if any ad blockers are enabled and try again.
+[00:00:11.850] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767471252130-s3ykb"
+[00:00:11.851] Server  LOG     [Firebase] Initializing Firebase Admin SDK...
+[00:00:11.852] Server  LOG     [Firebase] Loading credentials from environment variables
+[00:00:11.920] Server  LOG     [Firebase] ✅ Successfully initialized from environment variables
+[00:00:12.295] Server  LOG     [getConversationContext] Loaded 10 messages for session: session-1767471252130-s3ykb
+[00:00:12.296] Server  LOG     [GET /api/chat/history] Loaded 10 "messages"
+[00:00:12.319] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767471252130-s3ykb"
+[00:00:12.390] Server  LOG     [getConversationContext] Loaded 10 messages for session: session-1767471252130-s3ykb
+[00:00:12.391] Server  LOG     [GET /api/chat/history] Loaded 10 "messages"
+[00:00:13.399] Browser LOG     [useChatHistory] Loaded 10 messages from history
+[00:03:45.716] Server  LOG      ✓ Compiled in 121ms
