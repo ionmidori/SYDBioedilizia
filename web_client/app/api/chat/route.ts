@@ -511,6 +511,26 @@ export async function POST(req: Request) {
 
                         // We also likely need to send tool call info if we want to be "correct", 
                         // but for this specific "Text + Image" requirement, injecting text is safer.
+
+                        // ✅ FIX: Forward tool calls to client (Protocol '9')
+                        if (part.type === 'tool-call') {
+                            const toolCall = {
+                                toolCallId: part.toolCallId,
+                                toolName: part.toolName,
+                                args: part.args
+                            };
+                            writeData('9', toolCall);
+                        }
+
+                        // ✅ FIX: Forward other tool results (Protocol 'a')
+                        // We skip generate_render because we handle it specially above (injecting text '0')
+                        if (part.type === 'tool-result' && part.toolName !== 'generate_render') {
+                            const toolResult = {
+                                toolCallId: part.toolCallId,
+                                result: part.result
+                            };
+                            writeData('a', toolResult);
+                        }
                     }
 
                     // 3. Close the stream cleanly
