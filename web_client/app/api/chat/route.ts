@@ -514,10 +514,11 @@ export async function POST(req: Request) {
 
                         // ✅ FIX: Forward tool calls to client (Protocol '9')
                         if (part.type === 'tool-call') {
+                            const p = part as any;
                             const toolCall = {
-                                toolCallId: part.toolCallId,
-                                toolName: part.toolName,
-                                args: part.args
+                                toolCallId: p.toolCallId,
+                                toolName: p.toolName,
+                                args: p.args || p.input || {}
                             };
                             writeData('9', toolCall);
                         }
@@ -525,9 +526,10 @@ export async function POST(req: Request) {
                         // ✅ FIX: Forward other tool results (Protocol 'a')
                         // We skip generate_render because we handle it specially above (injecting text '0')
                         if (part.type === 'tool-result' && part.toolName !== 'generate_render') {
+                            const p = part as any;
                             const toolResult = {
-                                toolCallId: part.toolCallId,
-                                result: part.result
+                                toolCallId: p.toolCallId,
+                                result: p.result
                             };
                             writeData('a', toolResult);
                         }
