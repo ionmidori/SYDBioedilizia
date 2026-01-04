@@ -28,7 +28,8 @@
     ]
   },
   "optionalDependencies": {
-    "lightningcss-linux-x64-gnu": "*"
+    "lightningcss-linux-x64-gnu": "*",
+    "@tailwindcss/oxide-linux-x64-gnu": "*"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.2",

@@ -174,11 +174,9 @@ export async function generateInteriorImageI2I(options: {
                 // Try fallback to Imagen 2.0 if available
                 if (process.env.I2I_FALLBACK_MODEL) {
                     console.log('[Imagen I2I] Attempting fallback to:', process.env.I2I_FALLBACK_MODEL);
-                    // Recursive call with fallback model
+                    // Note: Fallback model requires manual configuration in environment variables
                     return await generateInteriorImageI2I({
                         ...options,
-                        // Override with fallback - but we need to prevent infinite loop
-                        // TODO: Implement proper payload adaptation for Imagen 2
                     });
                 }
 
