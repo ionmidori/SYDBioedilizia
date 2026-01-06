@@ -355,7 +355,24 @@ export async function POST(req: Request) {
                         messages: coreMessages as any,
                         tools: tools as any,
                         maxSteps: 5,
+                        maxToolRoundtrips: 2, // Allow Gemini to use tools AND generate final response
                         experimental_providerMetadata: { sessionId },
+
+                        // ✅ DIRECT TOOL RESULT STREAMING
+                        // Write tool results directly to the stream instead of waiting for Gemini
+                        async onToolCall({ toolCall, toolResult }) {
+                            console.log('🔧 [Tool Call]', toolCall.toolName);
+
+                            // For market prices, write result directly to stream
+                            if (toolCall.toolName === 'get_market_prices' && toolResult) {
+                                const resultText = typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult);
+                                console.log('📤 [Direct Stream] Writing market prices directly to chat');
+
+                                // Write as text delta to appear in chat
+                                writeData('0', resultText);
+                                streamedContent += resultText;
+                            }
+                        },
 
                         // Keep onFinish logic
                         onFinish: async ({ text, toolResults }: { text: string; toolResults: any[] }) => {
@@ -388,6 +405,24 @@ export async function POST(req: Request) {
 
                         // Check for tool results (specifically our generation tool)
                         // ✅ SECURITY FIX: Robust error handling for tool failures
+
+                        // ✅ MARKET PRICES: Write directly to stream
+                        if (part.type === 'tool-result' && part.toolName === 'get_market_prices') {
+                            try {
+                                const result = (part as any).result || (part as any).output;
+                                const resultText = typeof result === 'string' ? result : JSON.stringify(result);
+
+                                console.log('📤 [Market Prices] Writing directly to stream');
+                                console.log('📤 [Market Prices] Content length:', resultText.length);
+
+                                // Write to chat
+                                writeData('0', resultText);
+                                streamedContent += resultText;
+                            } catch (error) {
+                                console.error('❌ [Market Prices] Failed to write to stream:', error);
+                            }
+                        }
+
                         if (part.type === 'tool-result' && part.toolName === 'generate_render') {
                             try {
                                 const result = (part as any).result || (part as any).output;

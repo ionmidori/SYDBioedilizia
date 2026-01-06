@@ -1,3 +1,0 @@
-module.exports=[54799,(a,b,c)=>{b.exports=a.x("crypto",()=>require("crypto"))},59639,(a,b,c)=>{b.exports=a.x("node:process",()=>require("node:process"))},50227,(a,b,c)=>{b.exports=a.x("node:path",()=>require("node:path"))},57764,(a,b,c)=>{b.exports=a.x("node:url",()=>require("node:url"))},87924,(a,b,c)=>{"use strict";b.exports=a.r(97877).vendored["react-ssr"].ReactJsxRuntime},38783,(a,b,c)=>{"use strict";b.exports=a.r(97877).vendored["react-ssr"].ReactServerDOMTurbopackClient},35112,(a,b,c)=>{"use strict";b.exports=a.r(97877).vendored["react-ssr"].ReactDOM}];
-
-//# sourceMappingURL=%5Broot-of-the-server%5D__645b21b6._.js.map

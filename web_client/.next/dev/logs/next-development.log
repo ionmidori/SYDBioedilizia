@@ -1,0 +1,188 @@
+[00:00:02.735] Server  LOG      ✓ Ready in 1878ms
+[00:00:05.835] Server  LOG      ○ Compiling / ...
+[00:00:10.491] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:12.291] Browser LOG     [SessionID] Restored from localStorage: session-1767720964463-i2zf6
+[00:00:12.291] Browser LOG     [SessionID] Restored from localStorage: session-1767720964463-i2zf6
+[00:00:12.291] Browser LOG     [useChatHistory] Initialized with sessionId: session-1767720964463-i2zf6
+[00:00:12.291] Browser LOG     [useChatHistory] Loading conversation history...
+[00:00:12.291] Browser LOG     [Vercel Speed Insights] Failed to load script from https://va.vercel-scripts.com/v1/speed-insights/script.debug.js. Please check if any content blockers are enabled and try again.
+[00:00:12.291] Browser LOG     [Vercel Web Analytics] Failed to load script from https://va.vercel-scripts.com/v1/script.debug.js. Please check if any ad blockers are enabled and try again.
+[00:00:14.437] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767720964463-i2zf6"
+[00:00:14.438] Server  LOG     [Firebase] Initializing Firebase Admin SDK...
+[00:00:14.439] Server  LOG     [Firebase] Loading credentials from environment variables
+[00:00:14.440] Server  LOG     [Firebase] Debug Key: {}
+[00:00:14.535] Server  LOG     [Firebase] ✅ Successfully initialized from environment variables
+[00:00:14.873] Server  LOG     [getConversationContext] Loaded 4 messages for session: session-1767720964463-i2zf6
+[00:00:14.874] Server  LOG     [GET /api/chat/history] Loaded 4 "messages"
+[00:00:14.918] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767720964463-i2zf6"
+[00:00:14.973] Server  LOG     [getConversationContext] Loaded 4 messages for session: session-1767720964463-i2zf6
+[00:00:14.974] Server  LOG     [GET /api/chat/history] Loaded 4 "messages"
+[00:00:15.298] Browser LOG     [useChatHistory] Loaded 4 messages from history
+[00:00:41.080] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:41.556] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767721257118-yzhxl"
+[00:00:41.618] Server  LOG     [getConversationContext] No messages found for session: session-1767721257118-yzhxl
+[00:00:41.632] Server  LOG     [GET /api/chat/history] Loaded 0 "messages"
+[00:00:41.682] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767721257118-yzhxl"
+[00:00:41.744] Browser LOG     [SessionID] Created new session: session-1767721257118-yzhxl
+[00:00:41.744] Browser LOG     [SessionID] Restored from localStorage: session-1767721257118-yzhxl
+[00:00:41.744] Browser LOG     [useChatHistory] Initialized with sessionId: session-1767721257118-yzhxl
+[00:00:41.744] Browser LOG     [useChatHistory] Loading conversation history...
+[00:00:41.744] Browser LOG     [Vercel Speed Insights] Failed to load script from https://va.vercel-scripts.com/v1/speed-insights/script.debug.js. Please check if any content blockers are enabled and try again.
+[00:00:41.744] Browser LOG     [Vercel Web Analytics] Failed to load script from https://va.vercel-scripts.com/v1/script.debug.js. Please check if any ad blockers are enabled and try again.
+[00:00:41.744] Browser LOG     [useChatHistory] No previous messages found - starting fresh
+[00:00:41.747] Server  LOG     [getConversationContext] No messages found for session: session-1767721257118-yzhxl
+[00:00:41.748] Server  LOG     [GET /api/chat/history] Loaded 0 "messages"
+[00:00:45.800] Server  LOG     [RateLimit] Cache cleanup interval initialized
+[00:00:45.809] Server  LOG     ---> API /api/chat HIT
+[00:00:45.810] Server  LOG     [RateLimit] Checking Firestore for IP: "::1"
+[00:00:45.953] Server  LOG     [RateLimit] IP ::1 allowed - 19 requests remaining
+[00:00:45.956] Server  LOG     API Request Debug: {}
+[00:00:46.071] Server  LOG     [ensureSession] Created new session: session-1767721257118-yzhxl
+[00:00:46.124] Server  LOG     [getConversationContext] No messages found for session: session-1767721257118-yzhxl
+[00:00:46.126] Server  LOG     🔍 [DEBUG RAW MESSAGE]: "{\n  \"id\": \"95a614c7-ab44-4431-baf5-d664ab222745\",\n  \"role\": \"user\",\n  \"content\": \"Cerca il prezzo di gres porcellanato\"\n}"
+[00:00:46.128] Server  LOG     [Firestore] Attempting to save user message... {}
+[00:00:46.129] Server  LOG     [API] Parsed User Message: "Cerca il prezzo di gres porcellanato"
+[00:00:46.147] Server  LOG     [Tools] ✅ Tools ENABLEED (always available)
+[00:00:46.256] Server  LOG     [saveMessage] Saved user message to session: session-1767721257118-yzhxl
+[00:00:46.256] Server  LOG     [Firestore] ✅ User message saved successfully
+[00:00:46.980] Server  LOG     🔍 [DEBUG] Tool called with query: "gres porcellanato"
+[00:00:46.983] Server  LOG     🔎 [Perplexity] Optimized Query: "gres porcellanato prezzo (site:.it OR site:leroymerlin.it OR site:iperceramica.it OR site:manomano.it)"
+[00:00:52.044] Server  LOG     🔍 [DEBUG] Response status: 200 "OK"
+[00:00:52.050] Server  LOG     ✅ [Perplexity] Found 10 citations.
+[00:00:52.052] Server  LOG     🔍 [DEBUG] Returning to Gemini (length: 1000 "chars)"
+[00:00:52.055] Server  LOG     🔍 [DEBUG] First 200 chars: "Ho trovato informazioni sui prezzi:\n\n# Prezzi del Gres Porcellanato\n\n## Fasce di prezzo generali\n\n**Gres smaltato**: 20-40 euro al metro quadro[1]\n\n**Gres tecnico**: 30-60 euro al metro quadro[1]\n\n**P"
+[00:00:52.070] Server  LOG     [onFinish] 🔍 Streamed Content Length: 0
+[00:00:52.072] Server  LOG     [onFinish] Saving assistant message
+[00:00:52.193] Server  LOG     [saveMessage] Saved assistant message to session: session-1767721257118-yzhxl
+[00:00:52.194] Server  LOG     [onFinish] ✅ Message saved successfully
+[00:02:08.353] Server  LOG     [RateLimit] Cache cleanup interval initialized
+[00:02:08.366] Server  LOG     ---> API /api/chat HIT
+[00:02:08.367] Server  LOG     [RateLimit] Checking Firestore for IP: "::1"
+[00:02:08.513] Server  LOG     [RateLimit] IP ::1 allowed - 19 requests remaining
+[00:02:08.516] Server  LOG     API Request Debug: {}
+[00:02:08.626] Server  LOG     [getConversationContext] Loaded 2 messages for session: session-1767721257118-yzhxl
+[00:02:08.627] Server  LOG     🔍 [DEBUG RAW MESSAGE]: "{\n  \"id\": \"8b004a69-4a02-42ad-8796-15d2fb368ef0\",\n  \"role\": \"user\",\n  \"content\": \"Cerca il prezzo di gres porcellanato\"\n}"
+[00:02:08.629] Server  LOG     [Firestore] Attempting to save user message... {}
+[00:02:08.629] Server  LOG     [API] Parsed User Message: "Cerca il prezzo di gres porcellanato"
+[00:02:08.641] Server  LOG     [Tools] ✅ Tools ENABLEED (always available)
+[00:02:08.813] Server  LOG     [saveMessage] Saved user message to session: session-1767721257118-yzhxl
+[00:02:08.814] Server  LOG     [Firestore] ✅ User message saved successfully
+[00:02:10.028] Server  LOG     🔍 [DEBUG] Tool called with query: "gres porcellanato"
+[00:02:10.030] Server  LOG     🔎 [Perplexity] Optimized Query: "gres porcellanato prezzo (site:.it OR site:leroymerlin.it OR site:iperceramica.it OR site:manomano.it)"
+[00:02:16.480] Server  LOG     🔍 [DEBUG] Response status: 200 "OK"
+[00:02:16.487] Server  LOG     ✅ [Perplexity] Found 10 citations.
+[00:02:16.488] Server  LOG     🔍 [DEBUG] Returning to Gemini (length: 1148 "chars)"
+[00:02:16.491] Server  LOG     🔍 [DEBUG] First 200 chars: "Ho trovato informazioni sui prezzi:\n\n# Prezzi del gres porcellanato\n\nI prezzi del gres porcellanato in Italia variano principalmente in base al tipo e alla qualità del prodotto:\n\n## Fasce di prezzo pe"
+[00:02:16.494] Server  LOG     📤 [Market Prices] Writing directly to stream
+[00:02:16.495] Server  LOG     📤 [Market Prices] Content length: 1148
+[00:02:16.504] Server  LOG     [onFinish] 🔍 Streamed Content Length: 1148
+[00:02:16.505] Server  LOG     [onFinish] Saving assistant message
+[00:02:16.639] Server  LOG     [saveMessage] Saved assistant message to session: session-1767721257118-yzhxl
+[00:02:16.640] Server  LOG     [onFinish] ✅ Message saved successfully
+[00:09:49.980] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:09:51.015] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767721257118-yzhxl"
+[00:09:51.032] Browser LOG     [SessionID] Restored from localStorage: session-1767721257118-yzhxl
+[00:09:51.032] Browser LOG     [SessionID] Restored from localStorage: session-1767721257118-yzhxl
+[00:09:51.032] Browser LOG     [useChatHistory] Initialized with sessionId: session-1767721257118-yzhxl
+[00:09:51.032] Browser LOG     [useChatHistory] Loading conversation history...
+[00:09:51.032] Browser LOG     [Vercel Speed Insights] Failed to load script from https://va.vercel-scripts.com/v1/speed-insights/script.debug.js. Please check if any content blockers are enabled and try again.
+[00:09:51.032] Browser LOG     [Vercel Web Analytics] Failed to load script from https://va.vercel-scripts.com/v1/script.debug.js. Please check if any ad blockers are enabled and try again.
+[00:09:51.195] Server  LOG     [getConversationContext] Loaded 4 messages for session: session-1767721257118-yzhxl
+[00:09:51.197] Server  LOG     [GET /api/chat/history] Loaded 4 "messages"
+[00:09:51.227] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767721257118-yzhxl"
+[00:09:51.291] Server  LOG     [getConversationContext] Loaded 4 messages for session: session-1767721257118-yzhxl
+[00:09:51.292] Server  LOG     [GET /api/chat/history] Loaded 4 "messages"
+[00:09:51.307] Browser LOG     [useChatHistory] Loaded 4 messages from history
+[00:10:03.097] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:10:03.661] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767721819268-tuk7cc"
+[00:10:03.759] Server  LOG     [getConversationContext] No messages found for session: session-1767721819268-tuk7cc
+[00:10:03.760] Server  LOG     [GET /api/chat/history] Loaded 0 "messages"
+[00:10:03.793] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767721819268-tuk7cc"
+[00:10:03.863] Server  LOG     [getConversationContext] No messages found for session: session-1767721819268-tuk7cc
+[00:10:03.864] Server  LOG     [GET /api/chat/history] Loaded 0 "messages"
+[00:10:03.867] Browser LOG     [SessionID] Created new session: session-1767721819268-tuk7cc
+[00:10:03.867] Browser LOG     [SessionID] Restored from localStorage: session-1767721819268-tuk7cc
+[00:10:03.867] Browser LOG     [useChatHistory] Initialized with sessionId: session-1767721819268-tuk7cc
+[00:10:03.867] Browser LOG     [useChatHistory] Loading conversation history...
+[00:10:03.867] Browser LOG     [Vercel Speed Insights] Failed to load script from https://va.vercel-scripts.com/v1/speed-insights/script.debug.js. Please check if any content blockers are enabled and try again.
+[00:10:03.867] Browser LOG     [Vercel Web Analytics] Failed to load script from https://va.vercel-scripts.com/v1/script.debug.js. Please check if any ad blockers are enabled and try again.
+[00:10:03.867] Browser LOG     [useChatHistory] No previous messages found - starting fresh
+[00:10:08.778] Server  LOG     [RateLimit] Cache cleanup interval initialized
+[00:10:08.788] Server  LOG     ---> API /api/chat HIT
+[00:10:08.789] Server  LOG     [RateLimit] Checking Firestore for IP: "::1"
+[00:10:08.904] Server  LOG     [RateLimit] IP ::1 allowed - 19 requests remaining
+[00:10:08.906] Server  LOG     API Request Debug: {}
+[00:10:08.991] Server  LOG     [ensureSession] Created new session: session-1767721819268-tuk7cc
+[00:10:09.046] Server  LOG     [getConversationContext] No messages found for session: session-1767721819268-tuk7cc
+[00:10:09.047] Server  LOG     🔍 [DEBUG RAW MESSAGE]: "{\n  \"id\": \"44eaec02-f2f4-4e08-9657-1ed9d7c3935a\",\n  \"role\": \"user\",\n  \"content\": \"Cerca il prezzo di gres porcellanato\"\n}"
+[00:10:09.049] Server  LOG     [Firestore] Attempting to save user message... {}
+[00:10:09.050] Server  LOG     [API] Parsed User Message: "Cerca il prezzo di gres porcellanato"
+[00:10:09.060] Server  LOG     [Tools] ✅ Tools ENABLEED (always available)
+[00:10:09.167] Server  LOG     [saveMessage] Saved user message to session: session-1767721819268-tuk7cc
+[00:10:09.168] Server  LOG     [Firestore] ✅ User message saved successfully
+[00:10:10.149] Server  LOG     🔍 [DEBUG] Tool called with query: "gres porcellanato"
+[00:10:10.150] Server  LOG     🔎 [Perplexity] Optimized Query: "gres porcellanato prezzo (site:.it OR site:leroymerlin.it OR site:iperceramica.it OR site:manomano.it)"
+[00:10:13.750] Server  LOG     🔍 [DEBUG] Response status: 200 "OK"
+[00:10:13.752] Server  LOG     ✅ [Perplexity] Found 10 citations.
+[00:10:13.752] Server  LOG     🔍 [DEBUG] Returning to Gemini (length: 572 "chars)"
+[00:10:13.753] Server  LOG     🔍 [DEBUG] First 200 chars: "Ho trovato informazioni sui prezzi:\n\n• **Gres smaltato** - €20-40/m² - Cego Ceramiche[1]\n• **Gres tecnico** - €30-60/m² - Cego Ceramiche[1]\n• **Piastrelle speciali/design** - €60+/m² - Cego Ceramiche["
+[00:10:13.754] Server  LOG     📤 [Market Prices] Writing directly to stream
+[00:10:13.755] Server  LOG     📤 [Market Prices] Content length: 572
+[00:10:13.758] Server  LOG     [onFinish] 🔍 Streamed Content Length: 572
+[00:10:13.759] Server  LOG     [onFinish] Saving assistant message
+[00:10:13.863] Server  LOG     [saveMessage] Saved assistant message to session: session-1767721819268-tuk7cc
+[00:10:13.864] Server  LOG     [onFinish] ✅ Message saved successfully
+[00:21:30.770] Server  LOG     [RateLimit] Cache cleanup interval initialized
+[00:21:30.779] Server  LOG     ---> API /api/chat HIT
+[00:21:30.779] Server  LOG     [RateLimit] Checking Firestore for IP: "::1"
+[00:21:31.019] Server  LOG     [RateLimit] IP ::1 allowed - 19 requests remaining
+[00:21:31.021] Server  LOG     API Request Debug: {}
+[00:21:31.173] Server  LOG     [getConversationContext] Loaded 2 messages for session: session-1767721819268-tuk7cc
+[00:21:31.177] Server  LOG     🔍 [DEBUG RAW MESSAGE]: "{\n  \"id\": \"a6a63ab4-fec5-426e-b903-9d02d4db8fb6\",\n  \"role\": \"user\",\n  \"content\": \"Cerca il prezzo di gres porcellanato\"\n}"
+[00:21:31.179] Server  LOG     [Firestore] Attempting to save user message... {}
+[00:21:31.180] Server  LOG     [API] Parsed User Message: "Cerca il prezzo di gres porcellanato"
+[00:21:31.192] Server  LOG     [Tools] ✅ Tools ENABLEED (always available)
+[00:21:31.326] Server  LOG     [saveMessage] Saved user message to session: session-1767721819268-tuk7cc
+[00:21:31.328] Server  LOG     [Firestore] ✅ User message saved successfully
+[00:21:32.800] Server  LOG     [onFinish] 🔍 Streamed Content Length: 285
+[00:21:32.801] Server  LOG     [onFinish] Saving assistant message
+[00:21:32.918] Server  LOG     [saveMessage] Saved assistant message to session: session-1767721819268-tuk7cc
+[00:21:32.919] Server  LOG     [onFinish] ✅ Message saved successfully
+[00:21:59.370] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:22:00.123] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767722535370-dwywqt"
+[00:22:00.136] Browser LOG     [SessionID] Created new session: session-1767722535370-dwywqt
+[00:22:00.136] Browser LOG     [SessionID] Restored from localStorage: session-1767722535370-dwywqt
+[00:22:00.136] Browser LOG     [useChatHistory] Initialized with sessionId: session-1767722535370-dwywqt
+[00:22:00.136] Browser LOG     [useChatHistory] Loading conversation history...
+[00:22:00.136] Browser LOG     [Vercel Speed Insights] Failed to load script from https://va.vercel-scripts.com/v1/speed-insights/script.debug.js. Please check if any content blockers are enabled and try again.
+[00:22:00.136] Browser LOG     [Vercel Web Analytics] Failed to load script from https://va.vercel-scripts.com/v1/script.debug.js. Please check if any ad blockers are enabled and try again.
+[00:22:00.178] Server  LOG     [getConversationContext] No messages found for session: session-1767722535370-dwywqt
+[00:22:00.180] Server  LOG     [GET /api/chat/history] Loaded 0 "messages"
+[00:22:00.210] Server  LOG     [GET /api/chat/history] Loading history for session: "session-1767722535370-dwywqt"
+[00:22:00.254] Server  LOG     [getConversationContext] No messages found for session: session-1767722535370-dwywqt
+[00:22:00.255] Server  LOG     [GET /api/chat/history] Loaded 0 "messages"
+[00:22:00.291] Browser LOG     [useChatHistory] No previous messages found - starting fresh
+[00:22:04.277] Server  LOG     ---> API /api/chat HIT
+[00:22:04.278] Server  LOG     [RateLimit] Checking Firestore for IP: "::1"
+[00:22:04.471] Server  LOG     [RateLimit] IP ::1 allowed - 18 requests remaining
+[00:22:04.474] Server  LOG     API Request Debug: {}
+[00:22:04.585] Server  LOG     [ensureSession] Created new session: session-1767722535370-dwywqt
+[00:22:04.634] Server  LOG     [getConversationContext] No messages found for session: session-1767722535370-dwywqt
+[00:22:04.635] Server  LOG     🔍 [DEBUG RAW MESSAGE]: "{\n  \"id\": \"028fcb78-783a-4e62-97bf-26dac0ff9dce\",\n  \"role\": \"user\",\n  \"content\": \"Cerca il prezzo di gres porcellanato\"\n}"
+[00:22:04.637] Server  LOG     [Firestore] Attempting to save user message... {}
+[00:22:04.638] Server  LOG     [API] Parsed User Message: "Cerca il prezzo di gres porcellanato"
+[00:22:04.647] Server  LOG     [Tools] ✅ Tools ENABLEED (always available)
+[00:22:04.744] Server  LOG     [saveMessage] Saved user message to session: session-1767722535370-dwywqt
+[00:22:04.745] Server  LOG     [Firestore] ✅ User message saved successfully
+[00:22:05.682] Server  LOG     🔍 [DEBUG] Tool called with query: "gres porcellanato"
+[00:22:05.683] Server  LOG     🔎 [Perplexity] Optimized Query: "gres porcellanato prezzo (site:.it OR site:leroymerlin.it OR site:iperceramica.it OR site:manomano.it)"
+[00:22:09.951] Server  LOG     🔍 [DEBUG] Response status: 200 "OK"
+[00:22:09.955] Server  LOG     ✅ [Perplexity] Found 10 citations.
+[00:22:09.956] Server  LOG     🔍 [DEBUG] Returning to Gemini (length: 488 "chars)"
+[00:22:09.957] Server  LOG     🔍 [DEBUG] First 200 chars: "Ho trovato informazioni sui prezzi:\n\n# Prezzi del Gres Porcellanato\n\n**Cego Ceramiche**: EUR 20-60/mq[1]\n\n**Italgres Outlet**: EUR 14,50-21,50/mq[2]\n\n**Leroy Merlin**: EUR 5,99-34,76/mq[3]\n\n**Materica"
+[00:22:09.959] Server  LOG     📤 [Market Prices] Writing directly to stream
+[00:22:09.959] Server  LOG     📤 [Market Prices] Content length: 488
+[00:22:09.963] Server  LOG     [onFinish] 🔍 Streamed Content Length: 488
+[00:22:09.964] Server  LOG     [onFinish] Saving assistant message
+[00:22:10.051] Server  LOG     [saveMessage] Saved assistant message to session: session-1767722535370-dwywqt
+[00:22:10.052] Server  LOG     [onFinish] ✅ Message saved successfully
