@@ -16,6 +16,7 @@ interface ChatInputProps {
     onVoiceRecorded: (file: File) => void;
     onScrollToBottom: () => void;
     fileInputRef: RefObject<HTMLInputElement | null>;
+    removeImage?: (index: number) => void;
 }
 
 /**
@@ -33,7 +34,8 @@ export function ChatInput({
     onFileSelect,
     onVoiceRecorded,
     onScrollToBottom,
-    fileInputRef
+    fileInputRef,
+    removeImage
 }: ChatInputProps) {
     return (
         <div
@@ -84,14 +86,13 @@ export function ChatInput({
                                     alt={`Selected ${idx + 1}`}
                                     className="w-full h-full object-cover"
                                 />
-                                {/* Optional: Add remove button per image
                                 <button
-                                    className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => removeImage(idx)}
+                                    className="absolute top-1 right-1 w-5 h-5 bg-red-500/90 hover:bg-red-600 rounded-full flex items-center justify-center opacity-100 transition-opacity shadow-sm backdrop-blur-sm"
+                                    onClick={() => removeImage && removeImage(idx)}
+                                    title="Rimuovi immagine"
                                 >
-                                    <X className="w-3 h-3 text-white" />
+                                    <span className="text-white font-bold text-xs leading-none" style={{ marginTop: '-1px' }}>×</span>
                                 </button>
-                                */}
                             </div>
                         ))}
                     </div>

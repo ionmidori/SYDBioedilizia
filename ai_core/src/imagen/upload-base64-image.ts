@@ -74,11 +74,15 @@ export async function uploadBase64Image(options: {
         console.log(`[Upload Base64] Target path: ${fileName}`);
 
         // 5. Import Firebase Storage dynamically (to avoid initialization issues)
+        // 5. Import Firebase Storage dynamically
+        console.log('[Upload Base64] Importing Firebase Admin...');
         const { storage } = await import('../firebase-admin');
         const bucket = storage().bucket();
+        console.log(`[Upload Base64] Using bucket: ${bucket.name}`);
 
         // 6. Upload to Firebase Storage
         const file = bucket.file(fileName);
+        console.log('[Upload Base64] Starting file.save()...');
 
         await file.save(imageBuffer, {
             contentType: mimeType,
@@ -92,12 +96,17 @@ export async function uploadBase64Image(options: {
             },
         });
 
-        console.log('[Upload Base64] File saved to Storage');
+        console.log('[Upload Base64] File saved to Storage. Making public...');
 
         // 7. Make file publicly accessible
-        await file.makePublic();
-
-        console.log('[Upload Base64] File made public');
+        try {
+            await file.makePublic();
+            console.log('[Upload Base64] File made public successfully');
+        } catch (pubError) {
+            console.warn('[Upload Base64] Warning: makePublic failed (permissions?), continuing with signed URL fallback may be needed', pubError);
+            // If makePublic fails, the public URL below (https://storage.googleapis.com...) won't work for unauthenticated users
+            // But we don't block the flow, just log it.
+        }
 
         // 8. Generate and return public URL
         const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;

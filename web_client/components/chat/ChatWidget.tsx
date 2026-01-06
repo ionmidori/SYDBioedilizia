@@ -50,7 +50,7 @@ export default function ChatWidget() {
     const welcomeMessage = React.useMemo(() => ({
         id: 'welcome',
         role: 'assistant',
-        content: "Posso aiutarti a:\n1. 📐 **Creare un Preventivo** dettagliato.\n2. 🎨 **Visualizzare un Rendering** 3D della tua idea.\n\nDa dove iniziamo?"
+        content: "Ciao! Sono **SYD**, il tuo Architetto personale. 🏗️\n\nPosso aiutarti a:\n1. 📐 **Creare un Preventivo** dettagliato.\n2. 🎨 **Visualizzare un Rendering** 3D (partendo da una tua foto o da una descrizione).\n\n💡 **Tip:** Per risultati migliori, scatta le foto in modalità **0.5x (grandangolo)**.\n\nDa dove iniziamo?"
     }), []);
 
     // ✅ CRITICAL: Stabilize initialMessages array reference
@@ -77,7 +77,7 @@ export default function ChatWidget() {
 
     // Image Upload (now with persistent Storage URLs)
     // Image Upload (now with persistent Storage URLs)
-    const { selectedImages, imageUrls, handleFileSelect, clearImages, isUploading, uploadStatus } = useImageUpload(sessionId);
+    const { selectedImages, imageUrls, handleFileSelect, clearImages, isUploading, uploadStatus, removeImage } = useImageUpload(sessionId);
 
     // Scroll Management
     const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(displayMessages.length, isOpen);
@@ -236,13 +236,14 @@ export default function ChatWidget() {
                                 setInputValue={setInputValue}
                                 onSubmit={submitMessage}
                                 isLoading={isLoading}
-                                isUploading={isUploading} // New prop
-                                uploadStatus={uploadStatus} // New prop
+                                isUploading={isUploading}
+                                uploadStatus={uploadStatus}
                                 selectedImages={selectedImages}
                                 onFileSelect={handleFileSelect}
                                 onVoiceRecorded={handleVoiceRecorded}
                                 onScrollToBottom={() => scrollToBottom('smooth')}
                                 fileInputRef={fileInputRef}
+                                removeImage={removeImage}
                             />
                         </motion.div>
                     </>

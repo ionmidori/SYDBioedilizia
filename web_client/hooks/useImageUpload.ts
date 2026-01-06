@@ -109,92 +109,85 @@ export function useImageUpload(sessionId?: string) {
         });
     };
 
-    // Handle File Selection with Immediate Upload to Storage
+    // Handle File Selection with Immediate Upload to Storage (Multi-file support)
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
+        if (e.target.files && e.target.files.length > 0) {
+            const newFiles = Array.from(e.target.files);
+            const currentCount = selectedImages.length;
+            const maxImages = 2;
+
+            if (currentCount + newFiles.length > maxImages) {
+                alert(`Puoi caricare al massimo ${maxImages} immagini.`);
+                e.target.value = ''; // Reset input
+                return;
+            }
 
             setIsUploading(true);
             setUploadStatus('Preparazione...');
 
-            // ℹ️ INFO: Inform user if file is large (will be compressed automatically)
-            const maxFileSize = 10 * 1024 * 1024; // 10MB
-            if (file.size > maxFileSize) {
-                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-                console.log(`[Image Upload] Large file detected: ${sizeMB}MB - Will compress automatically`);
-                setUploadStatus(`Compressione (${sizeMB}MB)...`);
-            }
-
             try {
-                // Step 1: Compress image (automatically handles large files)
-                const compressed = await compressImageForGemini(file);
-                const originalKB = (file.size / 1024).toFixed(0);
-                const compressedKB = (compressed.size / 1024).toFixed(0);
-                console.log(`[Image Upload] Compressed: ${originalKB}KB → ${compressedKB}KB`);
-
-                // Step 2: Convert to base64
-                const base64 = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result as string);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(compressed);
-                });
-
-                // Step 3: Upload to Firebase Storage (if sessionId available)
-                let publicUrl = '';
-
-                if (sessionId) {
-                    setUploadStatus('Caricamento...');
-                    console.log('[Image Upload] Uploading to Storage for persistent URL...');
-
-                    try {
-                        const uploadResponse = await fetch('/api/upload-image', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                image: base64,
-                                sessionId: sessionId,
-                            }),
-                        });
-
-                        if (!uploadResponse.ok) {
-                            throw new Error(`Upload failed: ${uploadResponse.status}`);
-                        }
-
-                        const uploadResult = await uploadResponse.json();
-
-                        if (uploadResult.success && uploadResult.url) {
-                            publicUrl = uploadResult.url;
-                            console.log('[Image Upload] ✅ Public URL:', publicUrl);
-                        } else {
-                            console.error('[Image Upload] Upload failed:', uploadResult.error);
-                        }
-                    } catch (uploadErr) {
-                        console.error('[Image Upload] Storage upload error:', uploadErr);
-                        console.warn('[Image Upload] Continuing without public URL (modification mode will not work)');
+                // Process all files in parallel
+                await Promise.all(newFiles.map(async (file) => {
+                    // ℹ️ INFO: Inform user if file is large
+                    const maxFileSize = 10 * 1024 * 1024; // 10MB
+                    if (file.size > maxFileSize) {
+                        const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                        console.log(`[Image Upload] Large file detected: ${sizeMB}MB - Will compress automatically`);
                     }
-                } else {
-                    console.warn('[Image Upload] No sessionId provided - skipping Storage upload');
-                }
 
-                // Step 4: Save to state
-                setSelectedImages(prev => [...prev, base64]); // For preview
-                if (publicUrl) {
-                    setImageUrls(prev => [...prev, publicUrl]); // For AI modification mode
-                }
+                    // Step 1: Compress image
+                    const compressed = await compressImageForGemini(file);
+
+                    // Step 2: Convert to base64
+                    const base64 = await new Promise<string>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result as string);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(compressed);
+                    });
+
+                    // Step 3: Upload to Firebase Storage
+                    let publicUrl = '';
+                    if (sessionId) {
+                        try {
+                            const uploadResponse = await fetch('/api/upload-image', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    image: base64,
+                                    sessionId: sessionId,
+                                }),
+                            });
+
+                            if (uploadResponse.ok) {
+                                const uploadResult = await uploadResponse.json();
+                                if (uploadResult.success && uploadResult.url) {
+                                    publicUrl = uploadResult.url;
+                                }
+                            }
+                        } catch (uploadErr) {
+                            console.error('[Image Upload] Storage upload error:', uploadErr);
+                        }
+                    }
+
+                    // Step 4: Update State (Functional updates to avoid race conditions)
+                    setSelectedImages(prev => [...prev, base64]);
+                    if (publicUrl) {
+                        setImageUrls(prev => [...prev, publicUrl]);
+                    }
+                }));
 
                 setUploadStatus('Pronto!');
-                // Clear status after delay
                 setTimeout(() => setUploadStatus(''), 2000);
 
             } catch (err) {
                 console.error('[Image Upload] Error:', err);
-                alert('⚠️ Errore durante il caricamento dell\'immagine. Prova con un file più piccolo.');
+                alert('⚠️ Errore durante il caricamento delle immagini.');
                 setUploadStatus('Errore');
-                // Reset input
-                e.target.value = '';
             } finally {
                 setIsUploading(false);
+                // Reset input to allow selecting the same file again if needed
+                e.target.value = '';
             }
         }
     };

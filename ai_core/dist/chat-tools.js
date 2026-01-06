@@ -2,10 +2,6 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { generateInteriorImage, buildInteriorDesignPrompt } from './imagen/generate-interior';
-import { generateInteriorImageI2I, buildI2IEditingPrompt } from './imagen/generate-interior-i2i';
-// ✅ VISION + T2I: Static imports (no I2I fallback needed)
-import { analyzeRoomStructure } from './vision/analyze-room';
-import crypto from 'node:crypto';
 // Factory function to create tools with injected sessionId
 export function createChatTools(sessionId) {
     // Define schemas first - ✅ CHAIN OF THOUGHT: Forza l'AI a riflettere sulla struttura prima del prompt
@@ -91,6 +87,7 @@ export function createChatTools(sessionId) {
                     // 🔀 ROUTING LOGIC: Choose T2I (creation) or I2I (modification)
                     let imageBuffer;
                     let enhancedPrompt;
+                    let triageResult = null; // Lifted scope for persistence
                     const actualMode = mode || 'creation'; // Default to creation for backward compatibility
                     // 🔍 DEBUG LOGGING
                     console.log('🔍 [DEBUG] actualMode:', actualMode);
@@ -100,41 +97,32 @@ export function createChatTools(sessionId) {
                     if (actualMode === 'modification' && sourceImageUrl) {
                         try {
                             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                            // 📸 PHOTO-BASED RENOVATION: Vision Analysis → T2I
+                            // 📸 NEW JIT PIPELINE: Triage -> Architect -> Painter
                             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                            console.log('[Vision] 📸 PHOTO-BASED MODE: Analyzing with Gemini Vision → T2I');
-                            console.log('[Vision] Reference photo:', sourceImageUrl);
-                            // Step 1: Analyze room structure with Gemini Vision
-                            console.log('[Vision] Step 1: Analyzing room structure...');
-                            const roomAnalysis = await analyzeRoomStructure(sourceImageUrl);
-                            console.log('[Vision] ✅ Analysis complete');
-                            console.log('[Vision] Detected:', roomAnalysis.room_type, `(~${roomAnalysis.approximate_size_sqm}sqm)`);
-                            console.log('[Vision] Features:', roomAnalysis.architectural_features.join(', '));
-                            // Step 2: Build super-detailed prompt from Vision analysis
-                            // ✅ REFACTOR: Use I2I Prompt Builder directly (preserving structure)
-                            enhancedPrompt = buildI2IEditingPrompt({
-                                userPrompt: safePrompt,
-                                structuralElements: roomAnalysis.architectural_features.join(', '),
-                                roomType: safeRoomType,
-                                style: safeStyle
-                            });
-                            console.log('[Vision] Step 2: Generating with I2I using Vision-guided prompt');
-                            console.log('[I2I] Prompt preview:', enhancedPrompt.substring(0, 150) + '...');
-                            // Step 3: Generate with Image-to-Image (I2I)
-                            // ✅ REFACTOR: Passing sourceImageUrl as referenceImage
-                            imageBuffer = await generateInteriorImageI2I({
-                                prompt: enhancedPrompt,
-                                referenceImage: sourceImageUrl,
-                                mode: 'inpainting-insert', // Default for renovation
-                                aspectRatio: '16:9',
-                                numberOfImages: 1,
-                                modificationType: modificationType || 'renovation'
-                            });
-                            console.log('[I2I] ✅ Generation complete using Vision-guided I2I');
-                            console.log('[T2I] ✅ Generation complete using Vision-guided T2I');
+                            console.log('[Vision] 📸 STARTING JIT PIPELINE');
+                            // 1. Fetch the image buffer
+                            const imageResponse = await fetch(sourceImageUrl);
+                            if (!imageResponse.ok)
+                                throw new Error(`Failed to fetch source image: ${imageResponse.statusText}`);
+                            const arrayBuffer = await imageResponse.arrayBuffer();
+                            imageBuffer = Buffer.from(arrayBuffer); // Assign to outer variable
+                            // 2. Triage (Analysis)
+                            console.log('[JIT] Step 1: Triage analysis...');
+                            const { analyzeImageForChat } = await import('./vision/triage');
+                            triageResult = await analyzeImageForChat(imageBuffer);
+                            console.log('[JIT] Triage Result:', JSON.stringify(triageResult, null, 2));
+                            // 3. Architect & Painter (Generation)
+                            console.log('[JIT] Step 2: Generating renovation...');
+                            const { generateRenovation } = await import('./imagen/generator');
+                            // Use the style from arguments, falling back to a default if needed
+                            const targetStyle = style || 'modern renovation';
+                            imageBuffer = await generateRenovation(imageBuffer, targetStyle);
+                            // Set enhancedPrompt for the return value
+                            enhancedPrompt = `[JIT PIPELINE] Style: ${targetStyle}. Analysis: ${JSON.stringify(triageResult)}`;
+                            console.log('[JIT] ✅ Pipeline generation complete');
                         }
-                        catch (visionError) {
-                            console.error('[Vision] ⚠️ Analysis failed, falling back to standard T2I:', visionError);
+                        catch (jitError) {
+                            console.error('[JIT] ⚠️ Pipeline failed, falling back to legacy T2I:', jitError);
                             // FALLBACK: Use standard T2I generation
                             console.log('[Fallback] Switching to standard Text-to-Image generation...');
                             enhancedPrompt = buildInteriorDesignPrompt({
@@ -167,7 +155,7 @@ export function createChatTools(sessionId) {
                         });
                     }
                     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                    // 📤 UPLOAD TO FIREBASE STORAGE (common for both modes)
+                    // 📤 UPLOAD TO FIREBASE STORAGE (New Utility)
                     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                     // ✅ BUG FIX #7: Validate image buffer before upload
                     if (!imageBuffer || imageBuffer.length === 0) {
@@ -178,28 +166,20 @@ export function createChatTools(sessionId) {
                         throw new Error(`Generated image is too large: ${(imageBuffer.length / 1024 / 1024).toFixed(2)}MB (max 10MB)`);
                     }
                     console.log(`[generate_render] Image validated: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
-                    // Upload to Firebase Storage with session-scoped path
-                    const { storage } = await import('./firebase-admin');
-                    const bucket = storage().bucket();
-                    // ✅ BUG FIX #2: Add unique ID to prevent race conditions
-                    const timestamp = Date.now();
-                    const uniqueId = crypto.randomUUID().split('-')[0]; // First segment for brevity
-                    const fileName = `renders/${sessionId}/${timestamp}-${uniqueId}-${safeRoomType.replace(/\s+/g, '-')}.png`;
-                    const file = bucket.file(fileName);
-                    await file.save(imageBuffer, {
-                        contentType: 'image/png',
-                        metadata: {
-                            cacheControl: 'public, max-age=31536000',
-                        },
-                    });
-                    // Generate Signed URL (valid for 7 days)
-                    // This replaces makePublic() for better security
-                    const [signedUrl] = await file.getSignedUrl({
-                        action: 'read',
-                        expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-                    });
-                    const imageUrl = signedUrl;
-                    console.log('[generate_render] ✅ Image uploaded (secure signed URL):', imageUrl.substring(0, 50) + '...');
+                    // Use new Storage Utility
+                    const { uploadGeneratedImage } = await import('./storage/upload');
+                    const safeSlug = safeRoomType.replace(/\s+/g, '-');
+                    // Upload and get Signed URL
+                    const imageUrl = await uploadGeneratedImage(imageBuffer, sessionId, safeSlug);
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    // 💾 PERSISTENCE (Save Quote if JIT data exists)
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    if (triageResult) {
+                        console.log('[JIT] Step 3: Saving quote draft with RENDER URL...');
+                        const { saveQuoteDraft } = await import('./db/quotes');
+                        // Now we pass the FINAL GENERATED IMAGE URL
+                        await saveQuoteDraft(sessionId, imageUrl, triageResult);
+                    }
                     // Return URL directly - Gemini will receive this and include it in response
                     return {
                         status: 'success',

@@ -60,8 +60,8 @@ const ChatMessagesComponent = ({
                 />
             ))}
 
-            {/* Loading indicator */}
-            {isLoading && (
+            {/* Loading indicator (Only show if NO active tool is running to prevent double messages) */}
+            {isLoading && !messages[messages.length - 1]?.toolInvocations?.some(t => t.state === 'call') && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

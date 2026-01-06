@@ -19,7 +19,7 @@ export async function analyzeRoomStructure(imageUrl) {
     }
     const genAI = new GoogleGenerativeAI(apiKey);
     // Configurable model with fallback
-    const modelVersion = process.env.VISION_MODEL_VERSION || 'gemini-3-pro-image-preview';
+    const modelVersion = process.env.CHAT_MODEL_VERSION || 'gemini-3-flash-preview';
     const model = genAI.getGenerativeModel({ model: modelVersion });
     // Structured analysis prompt
     const analysisPrompt = `You are a professional interior designer and architect. Analyze this interior photo and extract precise structural and architectural information.

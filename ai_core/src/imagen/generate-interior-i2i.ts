@@ -1,12 +1,8 @@
-import { GoogleAuth } from 'google-auth-library';
+import { VertexAI, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
 
 /**
- * Generate interior design image using Imagen 3 Capability (Image-to-Image Editing)
- * 
- * This function takes a reference image (user's photo) and modifies it based on the prompt
- * while preserving structural elements like windows, doors, and architectural features.
- * 
- * Using REST API instead of SDK for better compatibility with service accounts
+ * Generate interior design image using Gemini Multimodal Editing (Text+Image -> Image)
+ * Optimized for "Skeleton vs Skin" renovation logic.
  */
 export async function generateInteriorImageI2I(options: {
     prompt: string;
@@ -15,235 +11,152 @@ export async function generateInteriorImageI2I(options: {
     maskMode?: 'auto' | 'manual';
     aspectRatio?: '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
     numberOfImages?: number;
-    modificationType?: 'renovation' | 'detail'; // New parameter
+    modificationType?: 'renovation' | 'detail';
 }): Promise<Buffer> {
     const {
         prompt,
         referenceImage,
-        mode = 'inpainting-insert',
-        maskMode = 'auto',
-        aspectRatio = '16:9',
-        numberOfImages = 1,
-        modificationType = 'renovation', // Default to whole room renovation
+        modificationType = 'renovation',
     } = options;
 
-    console.log('[Imagen I2I] Starting image-to-image editing...');
-    console.log('[Imagen I2I] Modification Type:', modificationType);
-    console.log('[Imagen I2I] Prompt:', prompt.substring(0, 100) + '...');
-
+    // Logghiamo l'inizio per tracciabilità
     const startTime = Date.now();
+    console.log(`[Gemini I2I] 🎨 Starting generation (${modificationType})...`);
+    console.log(`[Gemini I2I] Prompt Preview: ${prompt.substring(0, 80)}...`);
 
     try {
-        // Initialize Google Auth with environment variables
-        const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
-        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
         const projectId = process.env.FIREBASE_PROJECT_ID;
-
-        if (!privateKey || !clientEmail || !projectId) {
-            throw new Error('Missing Firebase credentials in environment variables');
-        }
-
-        const auth = new GoogleAuth({
-            credentials: {
-                client_email: clientEmail,
-                private_key: privateKey,
-                project_id: projectId,
-            },
-            scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-        });
-
-        const client = await auth.getClient();
-        const accessToken = await client.getAccessToken();
-
-        if (!accessToken.token) {
-            throw new Error('Failed to get access token');
-        }
-
-        console.log('[Imagen I2I] Got access token');
-        console.log('[Imagen I2I] Project:', projectId);
-
-        // SELECT MODEL BASED ON MODIFICATION TYPE
         const location = 'us-central1';
-        let model = process.env.IMAGEN_I2I_MODEL || 'imagegeneration@006'; // Default General
 
-        if (modificationType === 'detail') {
-            // Use Capability model for detail editing
-            model = process.env.IMAGEN_CAPABILITY_MODEL || 'imagen-3.0-capability-001';
-            console.log('[Imagen I2I] DETAIL mode selected -> Switching to Capability model');
-        } else {
-            // Use Generate model for general renovation
-            console.log('[Imagen I2I] RENOVATION mode selected -> Using General model');
-        }
+        if (!projectId) throw new Error('Missing FIREBASE_PROJECT_ID');
 
-        const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predict`;
-
-        console.log('[Imagen I2I] Using model:', model);
-
-        // API request payload for image-to-image editing
-
-        // Convert HTTPS URL to GS URI if possible (preferred by Vertex AI)
-        let imageUri = referenceImage;
-        if (referenceImage.startsWith('https://storage.googleapis.com/')) {
-            // Format: https://storage.googleapis.com/BUCKET_NAME/PATH
-            const pathParts = referenceImage.replace('https://storage.googleapis.com/', '').split('/');
-            const bucket = pathParts.shift();
-            const path = pathParts.join('/');
-            if (bucket && path) {
-                imageUri = `gs://${bucket}/${path}`;
-                console.log('[Imagen I2I] Converted URL to GS URI:', imageUri);
-            }
-        }
-
-        const isCapabilityModel = model.includes('capability');
-        const isImagen3Generate = model.includes('imagen-3.0-generate');
-
-        // ✅ QUALITY WRAPPER: Hardcoded parameters for maximum quality
-        const parameters: any = {
-            sampleCount: numberOfImages,
-            // aspectRatio is not supported in I2I mode for some models (inherit from source)
-            safetySetting: 'block_some',
-            personGeneration: 'allow_adult',
-
-            // ✅ NEW: Negative prompt to prevent distortions and artifacts
-            negativePrompt: 'blurry, distorted, low resolution, cartoon, painting, melted objects, ' +
-                'bad perspective, floating structures, noise, ugly, deformed, watermark, ' +
-                'text overlay, amateur, sketch, low quality, pixelated',
-        };
-
-        // Strict Payload Logic based on Model Type
-        if (isCapabilityModel) {
-            // Capability models (editing) require editConfig
-            parameters.editConfig = {
-                editMode: mode,
-                maskMode: maskMode,
-            };
-        } else if (isImagen3Generate) {
-            // Imagen 3 Generate (Standard I2I) - STRICTLY NO editConfig
-            console.log('[Imagen I2I] Imagen 3 Generate detected - Using CLEAN payload with negative prompt');
-        } else {
-            // Legacy/Standard models (Imagen 2) - Standard payload
-            console.log('[Imagen I2I] Legacy/Standard Model detected - skipping editConfig');
-        }
-
-        const requestPayload = {
-            instances: [
-                {
-                    prompt: prompt,
-                    image: {
-                        gcsUri: imageUri, // gs:// URL preferred
-                    }
+        // Initialize Vertex AI with explicit auth support for local dev
+        const vertex_ai = new VertexAI({
+            project: projectId,
+            location: location,
+            googleAuthOptions: process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY ? {
+                credentials: {
+                    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+                    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
                 }
-            ],
-            parameters: parameters
-        };
-
-        // ✅ LOGGING FOR USER DEBUGGING (Excluding large image data if present)
-        console.log('--- [DEBUG] IMAGEN API PAYLOAD ---');
-        console.log('Model:', model);
-        console.log('Endpoint:', endpoint);
-        console.log('Payload:', JSON.stringify({
-            instances: requestPayload.instances.map(inst => ({
-                ...inst,
-                // Truncate image data if it were base64 for cleaner logs
-                image: inst.image?.gcsUri ? inst.image : '{base64_data_hidden}'
-            })),
-            parameters: requestPayload.parameters
-        }, null, 2));
-        console.log('--- [DEBUG] END PAYLOAD ---');
-
-        console.log('[Imagen I2I] Calling API with editMode:', mode, 'maskMode:', maskMode);
-
-        // Make REST API call
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken.token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestPayload),
+            } : undefined
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('[Imagen I2I] API Error:', response.status, errorText);
+        // Selezione modello: Usa la preview più recente per la qualità visiva
+        const modelName = process.env.VISION_MODEL_VERSION || 'gemini-2.5-flash-image';
+        console.log('[Gemini I2I] Using model:', modelName);
 
-            // Check if it's a 404/403 (model not available) and suggest fallback
-            if (response.status === 404 || response.status === 403) {
-                console.warn('[Imagen I2I] Capability model not available, trying fallback...');
-
-                // Try fallback to Imagen 2.0 if available
-                if (process.env.I2I_FALLBACK_MODEL) {
-                    console.log('[Imagen I2I] Attempting fallback to:', process.env.I2I_FALLBACK_MODEL);
-                    // Note: Fallback model requires manual configuration in environment variables
-                    return await generateInteriorImageI2I({
-                        ...options,
-                    });
-                }
-
-                throw new Error('Image editing is not available for your account. Please contact support.');
+        const generativeModel = vertex_ai.getGenerativeModel({
+            model: modelName,
+            // 🛡️ SAFETY: Blocchiamo solo l'estremo per permettere libertà artistica
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+            ],
+            generationConfig: {
+                maxOutputTokens: 8192,
+                // 🔥 CRITICAL CHANGE: Alziamo la temperatura per permettere "Allucinazioni Controllate" (Dettagli, luci, clutter)
+                // 0.2 era troppo rigido. 0.85 permette al modello di inventare texture HD.
+                temperature: 0.85,
+                topP: 0.95,
+                topK: 40,
             }
+        });
 
-            // Expose the real error for debugging
-            throw new Error(`Imagen API error: ${response.status} - ${errorText}`);
+        // 1. Fetch Image
+        console.log('[Gemini I2I] Fetching reference image...');
+        const { data: base64Image, mimeType } = await fetchImageAsBase64(referenceImage);
+
+        // 2. System Instruction "Skeleton vs Skin"
+        // Invece di "DO NOT CHANGE", diciamo "Use as 3D Wireframe".
+        const systemInstruction = `
+            ROLE: High-Fidelity Interior Design Renderer.
+            TASK: Renovate the input room.
+            
+            STRICT GEOMETRY RULES (The Skeleton):
+            1. Treat the input image as a 3D WIREFRAME or CLAY MODEL.
+            2. You MUST keep the exact perspective, vanishing points, and structural walls.
+            3. Do not move windows or structural pillars.
+
+            CREATIVE PERMISSIONS (The Skin):
+            1. You MUST completely re-render all surfaces (floors, walls, ceilings) with new 8k textures.
+            2. IGNORE the original lighting. Synthesize new cinematic studio lighting.
+            3. ALLOW furniture and rugs to occlude/cover the original floor to create a realistic layout.
+            4. If the room is empty, you MUST furnish it heavily ("Staging").
+        `;
+
+        // 3. Construct Request
+        const request = {
+            contents: [{
+                role: 'user',
+                parts: [
+                    { inlineData: { mimeType: mimeType, data: base64Image } }, // L'immagine va prima
+                    { text: `${systemInstruction}\n\nUSER PROMPT (Visual Style): ${prompt}` } // Il prompt va dopo
+                ]
+            }]
+        };
+
+        console.log('[Gemini I2I] Sending to Vertex AI...');
+        const response = await generativeModel.generateContent(request);
+        const result = await response.response;
+
+        // 4. Extract Image
+        if (!result.candidates || result.candidates.length === 0) {
+            // Gestione errori specifica di Vertex
+            console.error('[Gemini I2I] Full Response Dump:', JSON.stringify(result, null, 2));
+            throw new Error('No candidates returned. Possible safety block or filter.');
         }
 
-        const result = await response.json();
-        console.log('[Imagen I2I] API Response received');
+        const candidate = result.candidates[0];
 
-        // Extract base64 image from response
-        if (!result.predictions || result.predictions.length === 0) {
-            throw new Error('No image generated');
+        // Controllo Finish Reason (importante per debug)
+        if (candidate.finishReason !== 'STOP') {
+            console.warn(`[Gemini I2I] Warning: Finish reason is ${candidate.finishReason}`);
         }
 
-        // Imagen returns base64 encoded image in predictions[0].bytesBase64Encoded
-        const base64Image = result.predictions[0].bytesBase64Encoded;
-
-        if (!base64Image) {
-            console.error('[Imagen I2I] Response structure:', JSON.stringify(result, null, 2));
-            throw new Error('No image data in response');
+        let generatedImageBase64: string | undefined;
+        for (const part of candidate.content.parts) {
+            if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
+                generatedImageBase64 = part.inlineData.data;
+                break;
+            }
         }
 
-        // Convert base64 to Buffer
-        const imageBuffer = Buffer.from(base64Image, 'base64');
+        if (!generatedImageBase64) {
+            const textResponse = candidate.content.parts.find(p => p.text)?.text;
+            throw new Error(`Model generated text instead of image: "${textResponse?.substring(0, 100)}..."`);
+        }
 
+        const imageBuffer = Buffer.from(generatedImageBase64, 'base64');
         const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`[Imagen I2I] Image edited in ${elapsedTime}s`);
-        console.log(`[Imagen I2I] Image size: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
+
+        console.log(`[Gemini I2I] ✅ Success! Generated ${(imageBuffer.length / 1024).toFixed(2)} KB in ${elapsedTime}s`);
 
         return imageBuffer;
 
-    } catch (error) {
-        console.error('[Imagen I2I] Error:', error);
+    } catch (error: any) {
+        console.error('[Gemini I2I] ❌ Generation Failed:', error);
 
-        // User-friendly error messages (don't expose internal details)
-        if (error instanceof Error) {
-            // Log detailed error for debugging
-            console.error('[Imagen I2I] Detailed error:', error.message, error.stack);
+        // Error Mapping per facilitare il debug
+        if (error.message?.includes('429')) throw new Error('Quota esaurita su Vertex AI (Rate Limit).');
+        if (error.message?.includes('400')) throw new Error('Immagine non valida o prompt troppo lungo.');
 
-            if (error.message.includes('403')) {
-                throw new Error('Image editing service is currently unavailable. Please try again later.');
-            }
-
-            if (error.message.includes('404')) {
-                throw new Error('Image editing service is currently unavailable. Please try again later.');
-            }
-
-            // Allow API errors to propagate for debugging
-            if (error.message.includes('Imagen API error')) {
-                throw error;
-            }
-        }
-
-        // Generic user-friendly message
-        throw new Error('Image editing failed. Please try again in a few moments.');
+        throw error;
     }
 }
 
-/**
- * Build enhanced prompt for image-to-image editing
- * Optimized for preserving structural elements while changing style
- * ENHANCED: Quality Wrapper with mandatory Style Booster
- */
+// Helper per il fetch (Invariato, ma essenziale)
+async function fetchImageAsBase64(url: string): Promise<{ data: string; mimeType: string }> {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
+    const mimeType = response.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await response.arrayBuffer();
+    return { data: Buffer.from(arrayBuffer).toString('base64'), mimeType };
+}
+
+// Prompt Builder aggiornato per il nuovo approccio
 export function buildI2IEditingPrompt(options: {
     userPrompt: string;
     structuralElements?: string;
@@ -252,29 +165,11 @@ export function buildI2IEditingPrompt(options: {
 }): string {
     const { userPrompt, structuralElements, roomType, style } = options;
 
-    // ✅ MANDATORY STYLE BOOSTER: Injected into every prompt for max quality
-    const STYLE_BOOSTER = ', photorealistic 8k, highly detailed, architectural photography, ' +
-        'sharp focus, raytracing lighting, physically based rendering, ' +
-        'professional interior design portfolio';
-
-    // If we have structural elements, emphasize preservation
-    const structuralInstruction = structuralElements
-        ? `STRICTLY PRESERVE THE ARCHITECTURAL STRUCTURE AND LAYOUT: ${structuralElements}. `
-        : '';
-
-    // ✅ QUALITY WRAPPER: Every prompt gets the booster appended
-    const enhancedPrompt = `
-${structuralInstruction}
-Task: Professional total renovation of this ${roomType} into a high-end ${style} design.
-User request: ${userPrompt}
-
-Instructions:
-- Keep the exact position of windows, doors, and walls.
-- Replace all materials, textures, and furniture with premium ${style} alternatives.
-- Use realistic lighting (natural sunlight through windows + interior ambient lighting).
-- Quality requirements: ${STYLE_BOOSTER}
+    // Qui applichiamo il "Golden Stack" se non è stato fatto dall'Architetto
+    return `
+    [COMMAND]: Renovate this ${roomType} into a ${style} masterpiece.
+    [CONTEXT]: Preserve structural elements: ${structuralElements || 'Main walls and windows'}.
+    [DETAILS]: ${userPrompt}
+    [QUALITY]: Photorealistic, 8k, Volumetric Lighting, Highly Detailed, Magazine Quality.
     `.trim();
-
-    console.log('[I2I Prompt] Style Booster injected:', STYLE_BOOSTER);
-    return enhancedPrompt;
 }

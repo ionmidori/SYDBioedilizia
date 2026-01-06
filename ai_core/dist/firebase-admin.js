@@ -32,6 +32,13 @@ function sanitizeAndValidatePrivateKey(privateKey) {
         sanitizedKey = sanitizedKey.slice(1, -1);
     }
     // 3. Validation: Check for standard PEM format markers
+    console.log('[Firebase] Debug Key:', {
+        length: sanitizedKey.length,
+        hasNewlines: sanitizedKey.includes('\n'),
+        startsWith: sanitizedKey.substring(0, 30),
+        endsWith: sanitizedKey.substring(sanitizedKey.length - 30),
+        dotCount: (sanitizedKey.match(/\./g) || []).length // Check for weird conversions
+    });
     if (!sanitizedKey.includes('BEGIN PRIVATE KEY') || !sanitizedKey.includes('END PRIVATE KEY')) {
         throw new Error('[Firebase] Invalid private key format - must be a valid RSA private key (PEM format)');
     }
@@ -81,7 +88,7 @@ function initializeFirebase() {
                         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
                         privateKey: privateKey,
                     }),
-                    storageBucket: `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`,
+                    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`,
                 });
                 console.log('[Firebase] ✅ Successfully initialized from environment variables');
                 return firebaseApp;

@@ -9,6 +9,7 @@ import { generateInteriorImageI2I, buildI2IEditingPrompt } from './imagen/genera
 import { analyzeRoomStructure } from './vision/analyze-room';
 import { buildPromptFromRoomAnalysis } from './imagen/prompt-builders';
 import { uploadBase64Image } from './imagen/upload-base64-image';
+import { generateArchitecturalPrompt } from './vision/architect';
 import crypto from 'node:crypto';
 
 // Factory function to create tools with injected sessionId
@@ -69,6 +70,16 @@ export function createChatTools(sessionId: string) {
                 'Choose "detail" for small edits (e.g., "change sofa color", "add plant"). ' +
                 'This selects the appropriate AI model.'
             ),
+
+        // 7️⃣ Elements to Keep (Crucial for JIT)
+        keepElements: z.array(z.string())
+            .optional()
+            .default([])
+            .describe(
+                'List of specific structural or furniture elements the user explicitly asked to PRESERVE/KEEP. ' +
+                'Examples: ["terracotta floor", "fireplace", "wooden beams", "staircase"]. ' +
+                'This is CRITICAL for the "Modification" mode to ensure these objects remain untouched.'
+            ),
     });
 
     const SubmitLeadParameters = z.object({
@@ -95,13 +106,14 @@ export function createChatTools(sessionId: string) {
             parameters: GenerateRenderParameters,
             execute: async (args: any) => {
                 // Extract all parameters including new hybrid parameters
-                const { prompt, roomType, style, structuralElements, mode, sourceImageUrl, modificationType } = args || {};
+                const { prompt, roomType, style, structuralElements, mode, sourceImageUrl, modificationType, keepElements } = args || {};
 
                 try {
                     // Use sessionId from closure (injected via factory)
                     console.log('🏗️ [Chain of Thought] Structural elements detected:', structuralElements);
                     console.log('🛠️ [Hybrid Tool] Mode selected:', mode || 'creation (default)');
                     console.log('🔧 [Hybrid Tool] Modification Type:', modificationType || 'renovation (default)');
+                    console.log('🛡️ [Hybrid Tool] KEEP ELEMENTS:', keepElements);
                     console.log('🎨 [generate_render] RECEIVED ARGS:', { prompt, roomType, style, mode, hasSourceImage: !!sourceImageUrl });
 
                     const safeRoomType = (roomType || 'room').substring(0, 100);
@@ -119,7 +131,7 @@ export function createChatTools(sessionId: string) {
                     // 🔀 ROUTING LOGIC: Choose T2I (creation) or I2I (modification)
                     let imageBuffer: Buffer;
                     let enhancedPrompt: string;
-
+                    let triageResult: any = null; // Lifted scope for persistence
 
                     const actualMode = mode || 'creation'; // Default to creation for backward compatibility
 
@@ -132,48 +144,45 @@ export function createChatTools(sessionId: string) {
                     if (actualMode === 'modification' && sourceImageUrl) {
                         try {
                             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                            // 📸 PHOTO-BASED RENOVATION: Vision Analysis → T2I
+                            // 📸 NEW JIT PIPELINE: Triage -> Architect -> Painter
                             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                            console.log('[Vision] 📸 PHOTO-BASED MODE: Analyzing with Gemini Vision → T2I');
-                            console.log('[Vision] Reference photo:', sourceImageUrl);
+                            console.log('[Vision] 📸 STARTING JIT PIPELINE');
 
-                            // Step 1: Analyze room structure with Gemini Vision
-                            console.log('[Vision] Step 1: Analyzing room structure...');
-                            const roomAnalysis = await analyzeRoomStructure(sourceImageUrl);
+                            // 1. Fetch the image buffer
+                            const imageResponse = await fetch(sourceImageUrl);
+                            if (!imageResponse.ok) throw new Error(`Failed to fetch source image: ${imageResponse.statusText}`);
+                            const arrayBuffer = await imageResponse.arrayBuffer();
+                            imageBuffer = Buffer.from(arrayBuffer); // Assign to outer variable
 
-                            console.log('[Vision] ✅ Analysis complete');
-                            console.log('[Vision] Detected:', roomAnalysis.room_type, `(~${roomAnalysis.approximate_size_sqm}sqm)`);
-                            console.log('[Vision] Features:', roomAnalysis.architectural_features.join(', '));
+                            // 2. Triage (Analysis)
+                            console.log('[JIT] Step 1: Triage analysis...');
+                            const { analyzeImageForChat } = await import('./vision/triage');
+                            triageResult = await analyzeImageForChat(imageBuffer);
+                            console.log('[JIT] Triage Result:', JSON.stringify(triageResult, null, 2));
 
-                            // Step 2: Build super-detailed prompt from Vision analysis
-                            // ✅ REFACTOR: Use I2I Prompt Builder directly (preserving structure)
-                            enhancedPrompt = buildI2IEditingPrompt({
-                                userPrompt: safePrompt,
-                                structuralElements: roomAnalysis.architectural_features.join(', '),
-                                roomType: safeRoomType,
-                                style: safeStyle
-                            });
+                            // 3. Architect (Prompt Engineering)
+                            console.log('[JIT] Step 2: Architect designing... (Style: ' + (style || 'modern') + ')');
+                            // Use the style from arguments, falling back to a default if needed
+                            const targetStyle = style || 'modern renovation';
 
-                            console.log('[Vision] Step 2: Generating with I2I using Vision-guided prompt');
-                            console.log('[I2I] Prompt preview:', enhancedPrompt.substring(0, 150) + '...');
+                            // 🔒 GET LOCKED PROMPT
+                            const lockedPrompt = await generateArchitecturalPrompt(imageBuffer, targetStyle, keepElements || []);
+                            console.log('[JIT] 🔒 Locked Prompt obtained from Architect');
 
-                            // Step 3: Generate with Image-to-Image (I2I)
-                            // ✅ REFACTOR: Passing sourceImageUrl as referenceImage
-                            imageBuffer = await generateInteriorImageI2I({
-                                prompt: enhancedPrompt,
-                                referenceImage: sourceImageUrl,
-                                mode: 'inpainting-insert', // Default for renovation
-                                aspectRatio: '16:9',
-                                numberOfImages: 1,
-                                modificationType: modificationType || 'renovation'
-                            });
+                            // 4. Painter (Generation)
+                            console.log('[JIT] Step 3: Painter executing...');
+                            const { generateRenovation } = await import('./imagen/generator');
 
-                            console.log('[I2I] ✅ Generation complete using Vision-guided I2I');
+                            // ✅ PASS LOCKED PROMPT TO PAINTER (Pure String)
+                            imageBuffer = await generateRenovation(imageBuffer, lockedPrompt);
 
-                            console.log('[T2I] ✅ Generation complete using Vision-guided T2I');
+                            // Set enhancedPrompt for the return value
+                            enhancedPrompt = lockedPrompt; // Use the actual Architect prompt
 
-                        } catch (visionError) {
-                            console.error('[Vision] ⚠️ Analysis failed, falling back to standard T2I:', visionError);
+                            console.log('[JIT] ✅ Pipeline generation complete');
+
+                        } catch (jitError) {
+                            console.error('[JIT] ⚠️ Pipeline failed, falling back to legacy T2I:', jitError);
 
                             // FALLBACK: Use standard T2I generation
                             console.log('[Fallback] Switching to standard Text-to-Image generation...');
@@ -213,7 +222,7 @@ export function createChatTools(sessionId: string) {
                     }
 
                     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                    // 📤 UPLOAD TO FIREBASE STORAGE (common for both modes)
+                    // 📤 UPLOAD TO FIREBASE STORAGE (New Utility)
                     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
                     // ✅ BUG FIX #7: Validate image buffer before upload
@@ -228,32 +237,22 @@ export function createChatTools(sessionId: string) {
 
                     console.log(`[generate_render] Image validated: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
 
-                    // Upload to Firebase Storage with session-scoped path
-                    const { storage } = await import('./firebase-admin');
-                    const bucket = storage().bucket();
+                    // Use new Storage Utility
+                    const { uploadGeneratedImage } = await import('./storage/upload');
+                    const safeSlug = safeRoomType.replace(/\s+/g, '-');
 
-                    // ✅ BUG FIX #2: Add unique ID to prevent race conditions
-                    const timestamp = Date.now();
-                    const uniqueId = crypto.randomUUID().split('-')[0]; // First segment for brevity
-                    const fileName = `renders/${sessionId}/${timestamp}-${uniqueId}-${safeRoomType.replace(/\s+/g, '-')}.png`;
-                    const file = bucket.file(fileName);
+                    // Upload and get Signed URL
+                    const imageUrl = await uploadGeneratedImage(imageBuffer, sessionId, safeSlug);
 
-                    await file.save(imageBuffer, {
-                        contentType: 'image/png',
-                        metadata: {
-                            cacheControl: 'public, max-age=31536000',
-                        },
-                    });
-
-                    // Generate Signed URL (valid for 7 days)
-                    // This replaces makePublic() for better security
-                    const [signedUrl] = await file.getSignedUrl({
-                        action: 'read',
-                        expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
-                    });
-
-                    const imageUrl = signedUrl;
-                    console.log('[generate_render] ✅ Image uploaded (secure signed URL):', imageUrl.substring(0, 50) + '...');
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    // 💾 PERSISTENCE (Save Quote if JIT data exists)
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    if (triageResult) {
+                        console.log('[JIT] Step 3: Saving quote draft with RENDER URL...');
+                        const { saveQuoteDraft } = await import('./db/quotes');
+                        // Now we pass the FINAL GENERATED IMAGE URL
+                        await saveQuoteDraft(sessionId, imageUrl, triageResult);
+                    }
 
                     // Return URL directly - Gemini will receive this and include it in response
                     return {
