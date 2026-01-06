@@ -1,0 +1,12 @@
+var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/upload-image/route.js")
+R.c("server/chunks/node_modules_@opentelemetry_api_build_esm_101f9f5d._.js")
+R.c("server/chunks/[root-of-the-server]__2b3f69f3._.js")
+R.c("server/chunks/[root-of-the-server]__cf4bc56f._.js")
+R.c("server/chunks/node_modules_@google_generative-ai_dist_index_mjs_2be827c7._.js")
+R.c("server/chunks/[root-of-the-server]__1b83c1f0._.js")
+R.c("server/chunks/[root-of-the-server]__577464ef._.js")
+R.c("server/chunks/node_modules_next_0700e68e._.js")
+R.c("server/chunks/[root-of-the-server]__e7c7c4b0._.js")
+R.c("server/chunks/web_client__next-internal_server_app_api_upload-image_route_actions_b69f8509.js")
+R.m(71601)
+module.exports=R.m(71601).exports

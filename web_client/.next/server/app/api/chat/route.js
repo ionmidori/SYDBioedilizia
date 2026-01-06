@@ -1,0 +1,12 @@
+var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/chat/route.js")
+R.c("server/chunks/[root-of-the-server]__493eced7._.js")
+R.c("server/chunks/node_modules_@opentelemetry_api_build_esm_101f9f5d._.js")
+R.c("server/chunks/_2551f978._.js")
+R.c("server/chunks/[root-of-the-server]__cf4bc56f._.js")
+R.c("server/chunks/node_modules_@google_generative-ai_dist_index_mjs_2be827c7._.js")
+R.c("server/chunks/[root-of-the-server]__577464ef._.js")
+R.c("server/chunks/[root-of-the-server]__1b83c1f0._.js")
+R.c("server/chunks/[root-of-the-server]__18ff3156._.js")
+R.c("server/chunks/web_client__next-internal_server_app_api_chat_route_actions_aa494dbf.js")
+R.m(63194)
+module.exports=R.m(63194).exports

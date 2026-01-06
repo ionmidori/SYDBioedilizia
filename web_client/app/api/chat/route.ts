@@ -360,7 +360,7 @@ export async function POST(req: Request) {
 
                         // ✅ DIRECT TOOL RESULT STREAMING
                         // Write tool results directly to the stream instead of waiting for Gemini
-                        async onToolCall({ toolCall, toolResult }) {
+                        async onToolCall({ toolCall, toolResult }: { toolCall: any; toolResult: any }) {
                             console.log('🔧 [Tool Call]', toolCall.toolName);
 
                             // For market prices, write result directly to stream

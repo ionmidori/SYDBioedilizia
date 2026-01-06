@@ -1,0 +1,3 @@
+module.exports=[31877,e=>e.a(async(r,t)=>{try{var o=e.i(36444),a=r([o]);async function n(e,r,t){try{let a=(0,o.db)(),n={...t,clientId:e,renderUrl:r||t.renderUrl||null,status:"draft",createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),schemaVersion:1},s=await a.collection("quotes").add(n);return console.log(`[QuoteSystem] Draft saved with ID: ${s.id} for User: ${e}`),s.id}catch(e){throw console.error("[QuoteSystem] Error saving quote draft:",e),Error(`Failed to save quote draft: ${e instanceof Error?e.message:"Unknown error"}`)}}[o]=a.then?(await a)():a,e.s(["saveQuoteDraft",()=>n]),t()}catch(e){t(e)}},!1)];
+
+//# sourceMappingURL=ai_core_src_db_quotes_ts_6cfc3201._.js.map
