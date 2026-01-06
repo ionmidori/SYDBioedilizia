@@ -1,7 +1,6 @@
 import React, { RefObject } from 'react';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Loader2 } from 'lucide-react';
-import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { cn } from '@/lib/utils';
 
 interface ChatInputProps {
@@ -13,14 +12,13 @@ interface ChatInputProps {
     uploadStatus?: string; // New prop
     selectedImages: string[];
     onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    onVoiceRecorded: (file: File) => void;
     onScrollToBottom: () => void;
     fileInputRef: RefObject<HTMLInputElement | null>;
     removeImage?: (index: number) => void;
 }
 
 /**
- * Chat input component with textarea, file upload, voice recorder, and send button
+ * Chat input component with textarea, file upload, and send button
  * Extracted from ChatWidget.tsx (lines 561-581)
  */
 export function ChatInput({
@@ -32,7 +30,6 @@ export function ChatInput({
     uploadStatus = '',
     selectedImages,
     onFileSelect,
-    onVoiceRecorded,
     onScrollToBottom,
     fileInputRef,
     removeImage
@@ -114,9 +111,6 @@ export function ChatInput({
                         rows={1}
                         disabled={isLoading}
                     />
-                    <div className="flex items-center gap-1 pr-1 shrink-0">
-                        <VoiceRecorder onRecordingComplete={onVoiceRecorded} disabled={isLoading} />
-                    </div>
                 </div>
 
                 <Button

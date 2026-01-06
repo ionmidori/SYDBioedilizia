@@ -304,6 +304,98 @@ export function createChatTools(sessionId: string) {
                     };
                 }
             }
+        } as any),
+
+        get_market_prices: tool({
+            description: `Use this tool to find REAL-TIME market prices in Italy for specific renovation materials, furniture, or labor costs. 
+            It searches the live web to find current offers from major Italian suppliers (Leroy Merlin, Iperceramica, etc.).
+            Trigger this when the user asks "Quanto costa X?" or "Cerca il prezzo di Y".`,
+            parameters: z.object({
+                query: z.string().describe('The specific search query. Be specific. Example: "Prezzo gres porcellanato effetto legno Marazzi al mq", "Costo posa parquet Milano 2026", "Divano letto grigio 3 posti prezzi"'),
+                category: z.enum(['materials', 'furniture', 'labor']).optional().describe('Context of the search to refine sources'),
+            }),
+            execute: async ({ query, category }: { query: string; category?: 'materials' | 'furniture' | 'labor' }) => {
+                console.log(`🔎 [Perplexity] Searching market for: "${query}" (Category: ${category})`);
+
+                const apiKey = process.env.PERPLEXITY_API_KEY;
+                if (!apiKey) {
+                    console.error('❌ Missing PERPLEXITY_API_KEY');
+                    return {
+                        status: 'error',
+                        message: 'Errore configurazione: API Key mancante. Contatta l\'amministratore.'
+                    };
+                }
+
+                try {
+                    // Definiamo un "Persona" specifica per Perplexity
+                    // per evitare risposte generiche da chatbot
+                    const systemPrompt = `
+            Sei un esperto Computista Metrico specializzato nel mercato edile italiano.
+            Il tuo obiettivo è trovare PREZZI REALI e ATTUALI (2025/2026) sul web.
+            
+            REGOLE DI RICERCA:
+            1. Cerca SOLO su siti di fornitori italiani affidabili (es. Leroy Merlin, Iperceramica, Tecnomat, Bricoman, Marazzi, Amazon.it, IKEA Italia, preventivi.it).
+            2. Ignora siti americani o generici.
+            3. Per la manodopera, cerca tariffari regionali o portali di preventivi italiani recenti.
+            
+            FORMATO RISPOSTA (Obbligatorio):
+            - Nome Prodotto / Servizio
+            - Prezzo (o Range di prezzo)
+            - Nome del Fornitore
+            - Link diretto (se disponibile)
+            
+            Sii sintetico e tabellare. Se non trovi il prezzo esatto, dai una stima basata su prodotti simili.
+            `;
+
+                    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: 'llama-3.1-sonar-large-online', // Usa il modello "Online" più recente disponibile
+                            messages: [
+                                { role: 'system', content: systemPrompt },
+                                { role: 'user', content: query }
+                            ],
+                            temperature: 0.1, // Bassa temperatura per massima precisione fattuale
+                            max_tokens: 1000  // Limitiamo la verbosità
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Perplexity API Error: ${response.statusText}`);
+                    }
+
+                    const json = await response.json();
+                    const resultText = json.choices?.[0]?.message?.content || 'Nessun risultato trovato.';
+                    const citations = json.citations || [];
+
+                    console.log(`✅ [Perplexity] Search complete. Found ${citations.length} citations.`);
+
+                    // Formattiamo il risultato per il Chatbot Principale (Gemini)
+                    return {
+                        status: 'success',
+                        market_data: resultText,
+                        sources: citations,
+                        system_instruction: `
+                [PRICE SEARCH COMPLETE]
+                1. Present the prices found to the user clearly.
+                2. Use the sources provided to validate the data.
+                3. ASK: "Questi prezzi rientrano nel tuo budget? Vuoi che li inserisca nel preventivo finale?"
+                `
+                    };
+
+                } catch (error: any) {
+                    console.error('❌ [Perplexity] Request Failed:', error);
+                    return {
+                        status: 'error',
+                        message: 'Non sono riuscito a collegarmi ai fornitori in questo momento.',
+                        error_details: error.message
+                    };
+                }
+            }
         } as any)
     };
 }

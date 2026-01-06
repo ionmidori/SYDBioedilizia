@@ -74,15 +74,6 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
-// Validate ../../app/api/speech-to-text/route.ts
-{
-  type __IsExpected<Specific extends RouteHandlerConfig<"/api/speech-to-text">> = Specific
-  const handler = {} as typeof import("../../app/api/speech-to-text/route.js")
-  type __Check = __IsExpected<typeof handler>
-  // @ts-ignore
-  type __Unused = __Check
-}
-
 // Validate ../../app/api/upload-image/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/upload-image">> = Specific

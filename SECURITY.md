@@ -34,7 +34,7 @@ If you discover a security vulnerability within this project, please send an e-m
   - `X-Frame-Options`: set to `SAMEORIGIN` to prevent clickjacking.
   - `X-Content-Type-Options`: set to `nosniff`.
   - `Referrer-Policy`: set to `origin-when-cross-origin`.
-  - `Permissions-Policy`: Restrictive policy disabling camera, microphone, and geolocation by default.
+  - `Permissions-Policy`: Restrictive policy disabling camera, microphone, and geolocation.
   - `Content-Security-Policy`: Enforced with strict rules for scripts, styles, and frames.
 
 ### 4. Input Validation

@@ -46,24 +46,24 @@ Primary Rule: Classify intent immediately: MODE A (Designer) or MODE B (Surveyor
 1. **GREETINGS (Ciao)**: If the user says "Ciao" or greetings, DO NOT introduce yourself (you already did). Just answer: "Ciao! Come posso aiutarti con il tuo progetto?".
 2. **QUESTION LIMIT**: Ask MAXIMUM 1 or 2 questions at a time. NEVER ask a long list of questions. Wait for the user's answer before proceeding.
 
+[PHOTO UPLOAD DISAMBIGUATION]
+**CRITICAL RULE**: If the user's intent is UNCLEAR (e.g., uploads photo with only "Ciao", generic greetings, or vague text):
+1. DO NOT assume MODE A or MODE B
+2. MUST ask explicitly which service they want:
+
+Response Template:
+"Ciao! Ho ricevuto la tua foto. Come posso aiutarti?
+
+1. 🎨 **Visualizzare** come verrebbe ristrutturato con un rendering 3D
+2. 📋 **Ricevere un preventivo** dettagliato per i lavori
+
+Cosa preferisci?"
+
+**WAIT for user's choice** before proceeding to MODE A or MODE B.
+
+
 [EXISTING TOOL INSTRUCTIONS]
-## 🖼️ VISUALIZZAZIONE IMMAGINI - REGOLA CRITICA
-
-**Quando il tool generate_render restituisce un imageUrl, DEVI SEMPRE includere l'immagine usando Markdown:**
-
-FORMATO CORRETTO (Esempio):
-Ecco il tuo rendering!
-
-![Rendering soggiorno moderno](URL_IMMAGINE_DA_TOOL)
-
-Ho creato un ambiente luminoso con toni neutri come richiesto. Che ne pensi?
-
-**IMPORTANTE**: 
-- DEVI SEMPRE includere l'immagine subito dopo che il tool restituisce imageUrl
-- Usa SEMPRE la sintassi Markdown: ![](URL_IMMAGINE)
-- L'URL è nel campo imageUrl del risultato del tool
-
-## 📸 ANALISI IMMAGINI UPLOAD (FOTO UTENTE)
+##  ANALISI IMMAGINI UPLOAD (FOTO UTENTE)
 
 Quando l'utente carica una foto:
 1. **ANALIZZA SUBITO** la foto.
@@ -148,23 +148,37 @@ Action: Execute the "Convergence Protocol" question by question.
 
 Output (Mode B): End with a structured list: "Riepilogo Tecnico per Preventivo" containing all gathered Metrics and Works.
 
-[CROSS-MODE TRANSITIONS]
-CRITICAL: You must intelligently guide the user between Mode A (Vision) and Mode B (Technical).
+[STATE MACHINE & TRANSITIONS]
+Track session state based on tools used and conversation history:
 
-CHECK HISTORY:
-- IS "DESIGN_DONE"? (True if: You just generated an image OR User is discussing a generated image).
-- IS "QUOTE_DONE"? (True if: You just generated "Riepilogo Tecnico" OR User submitted technical data).
+STATE 1: VISUAL_ONLY (Render generated, No Quote)
+- Condition: generate_render was called successfully
+- NEXT ACTION: You MUST propose Mode B (Technical Quote)
+- Prompt: "Ti piace questo stile? Se vuoi, posso prepararti un preventivo gratuito per realizzarlo. Ti servono solo pochi dettagli tecnici."
 
-TRANSITION LOGIC:
-1. IF (DESIGN_DONE == TRUE) AND (QUOTE_DONE == FALSE):
-   - PROPOSE: "Ti piace questo stile? Se vuoi, posso prepararti un preventivo gratuito per realizzarlo. Ti servono solo pochi dettagli tecnici."
-   
-2. IF (QUOTE_DONE == TRUE) AND (DESIGN_DONE == FALSE):
-   - PROPOSE: "Ora che abbiamo i dettagli tecnici, vuoi vedere come verrebbe? Posso generare un rendering fotorealistico per te."
+STATE 2: TECHNICAL_ONLY (Quote/Data done, No Render)
+- Condition: submit_lead_data was called successfully
+- CHECK: Has render been generated for THIS project in conversation history?
+- NEXT ACTION: Offer dual choice based on render existence
 
-3. IF (DESIGN_DONE == TRUE) AND (QUOTE_DONE == TRUE):
-   - STOP PROPOSING FLOWS.
-   - ASK: "Abbiamo sia il progetto visivo che i dati tecnici. C'è altro che vuoi modificare o approfondire prima di procedere?"
+  SCENARIO A (Render MISSING):
+  "Dati salvati correttamente! Ora abbiamo due strade:
+  1. 🎨 **Visualizzare**: Vuoi vedere un Rendering 3D di come verrebbe?
+  2. 💰 **Prezzi Reali**: Vuoi che cerchi i prezzi di mercato attuali per i materiali o gli arredi di cui abbiamo parlato?
+  Dimmi tu come preferisci procedere."
+  
+  SCENARIO B (Render ALREADY DONE in history):
+  "Dati salvati! Visto che abbiamo già il rendering, vuoi che cerchi i **prezzi reali di mercato** per gli elementi (pavimenti, arredi) che abbiamo visualizzato, per darti una stima dei costi d'acquisto?"
+
+STATE 3: COMPLETE (Both Render AND Quote/Data exist)
+- Condition: Both generate_render AND submit_lead_data were called successfully in this session
+- NEXT ACTION: STOP proposing new flows. Focus on refining details or closing.
+- Prompt: "Abbiamo tutto: progetto visivo e stima tecnica. Come vuoi procedere?"
+
+**ANTI-LOOP RULE:**
+Never propose a flow that has already been completed in the current session.
+If user has already generated render, DO NOT propose it again.
+If user has already submitted quote data, DO NOT propose it again.
 `;
 
 
@@ -329,6 +343,9 @@ export async function POST(req: Request) {
                     controller.enqueue(new TextEncoder().encode(`${key}:${raw} \n`));
                 };
 
+                // ✅ ACCUMULATE STREAM: Track exactly what user sees for database persistence
+                let streamedContent = '';
+
                 try {
                     // 1. Start the actual AI stream
                     // Cast options to any to avoid strict type checks on experimental features
@@ -342,31 +359,12 @@ export async function POST(req: Request) {
 
                         // Keep onFinish logic
                         onFinish: async ({ text, toolResults }: { text: string; toolResults: any[] }) => {
-                            console.log('[onFinish] 🔍 AI Generated Text:', JSON.stringify(text));
-                            console.log('[onFinish] Text length:', text?.length || 0);
-
-                            let finalText = text;
-                            const renderTool = Array.isArray(toolResults)
-                                ? (toolResults as any[]).find(tr =>
-                                    tr && typeof tr === 'object' && tr.toolName === 'generate_render'
-                                )
-                                : undefined;
-
-                            if (renderTool) {
-                                console.log('[onFinish] Tool results:', JSON.stringify(toolResults, null, 2));
-                                const result = renderTool.result || renderTool.output;
-                                if (result?.status === 'success' && result?.imageUrl) {
-                                    const imageUrl = result.imageUrl;
-                                    console.log('[onFinish] Found imageUrl:', imageUrl);
-                                    const imageMarkdown = `\n\n![](${imageUrl}) \n\n`;
-                                    finalText = finalText ? `${finalText}${imageMarkdown} ` : `Ecco il tuo rendering!${imageMarkdown} `;
-                                    console.log('[onFinish] ✅ Injected image Markdown for database');
-                                }
-                            }
-
+                            console.log('[onFinish] 🔍 Streamed Content Length:', streamedContent.length);
                             console.log('[onFinish] Saving assistant message');
+
                             try {
-                                await saveMessage(sessionId, 'assistant', finalText, {
+                                // ✅ SINGLE SOURCE OF TRUTH: Save exactly what was streamed to user
+                                await saveMessage(sessionId, 'assistant', streamedContent, {
                                     toolCalls: toolResults?.map((tr: any) => ({
                                         name: tr.toolName || 'unknown',
                                         args: tr.args || {},
@@ -384,6 +382,7 @@ export async function POST(req: Request) {
                     // We iterate over the full event stream to manually inject tool outputs (images) as text
                     for await (const part of result.fullStream) {
                         if (part.type === 'text-delta') {
+                            streamedContent += part.text;
                             writeData('0', part.text);
                         }
 
@@ -397,22 +396,27 @@ export async function POST(req: Request) {
                                 if (result?.status === 'error') {
                                     const errorMessage = '\n\n⚠️ Mi dispiace, il servizio di rendering è temporaneamente non disponibile. Riprova tra qualche minuto.\n\n';
                                     console.error('[Stream] Tool returned error:', result.error);
+                                    streamedContent += errorMessage;
                                     writeData('0', errorMessage);
                                 } else if (result?.status === 'success' && result?.imageUrl) {
                                     // Inject the image as a markdown text chunk
-                                    // This trick forces the frontend to render the image as part of the message
                                     const imageMarkdown = `\n\n![](${result.imageUrl}) \n\n`;
-                                    console.log('[Stream] Injecting image only to stream:', result.imageUrl);
+                                    console.log('[Stream] Injecting image to stream:', result.imageUrl);
+                                    streamedContent += imageMarkdown;
                                     writeData('0', imageMarkdown);
                                 } else {
                                     // Unexpected result format
+                                    const unexpectedError = '\n\n⚠️ Si è verificato un errore imprevisto. Riprova.\n\n';
                                     console.warn('[Stream] Unexpected tool result format:', result);
-                                    writeData('0', '\n\n⚠️ Si è verificato un errore imprevisto. Riprova.\n\n');
+                                    streamedContent += unexpectedError;
+                                    writeData('0', unexpectedError);
                                 }
                             } catch (toolError) {
                                 // Catch any unexpected errors during tool result processing
+                                const processingError = '\n\n⚠️ Si è verificato un errore durante la generazione. Riprova.\n\n';
                                 console.error('[Stream] Error processing tool result:', toolError);
-                                writeData('0', '\n\n⚠️ Si è verificato un errore durante la generazione. Riprova.\n\n');
+                                streamedContent += processingError;
+                                writeData('0', processingError);
                             }
                         }
 
@@ -430,9 +434,9 @@ export async function POST(req: Request) {
                             writeData('9', toolCall);
                         }
 
-                        // ✅ FIX: Forward other tool results (Protocol 'a')
-                        // We skip generate_render because we handle it specially above (injecting text '0')
-                        if (part.type === 'tool-result' && part.toolName !== 'generate_render') {
+                        // ✅ Forward ALL tool results (Protocol 'a') for frontend metadata access
+                        // User-facing content sent via Protocol '0', metadata via Protocol 'a'
+                        if (part.type === 'tool-result') {
                             const p = part as any;
                             const toolResult = {
                                 toolCallId: p.toolCallId,

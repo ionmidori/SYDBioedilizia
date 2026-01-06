@@ -3,23 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { RefObject } from 'react';
 import { ChatInput } from '../ChatInput';
 
-// Mock VoiceRecorder
-jest.mock('@/components/VoiceRecorder', () => ({
-    VoiceRecorder: ({ onRecordingComplete, disabled }: { onRecordingComplete: (file: File) => void; disabled?: boolean }) => {
-        return (
-            <button
-                data-testid="voice-recorder"
-                disabled={disabled}
-                onClick={() => {
-                    const mockFile = new File(['audio'], 'test.webm', { type: 'audio/webm' });
-                    onRecordingComplete(mockFile);
-                }}
-            >
-                Record Voice
-            </button>
-        );
-    }
-}));
 
 // Mock Lucide React
 jest.mock('lucide-react', () => ({
@@ -38,7 +21,6 @@ describe('ChatInput', () => {
         setInputValue: jest.fn(),
         onSubmit: jest.fn(),
         onFileSelect: jest.fn(),
-        onVoiceRecorded: jest.fn(),
         onScrollToBottom: jest.fn(),
         isLoading: false,
         selectedImages: [],
@@ -91,16 +73,6 @@ describe('ChatInput', () => {
         expect(defaultProps.onSubmit).not.toHaveBeenCalled();
     });
 
-    it('should call onVoiceRecorded from VoiceRecorder', () => {
-        render(<ChatInput {...defaultProps} />);
-
-        const voiceRecorder = screen.getByTestId('voice-recorder');
-        fireEvent.click(voiceRecorder);
-
-        expect(defaultProps.onVoiceRecorded).toHaveBeenCalledWith(
-            expect.any(File)
-        );
-    });
 
     it('should disable textarea when isLoading is true', () => {
         render(<ChatInput {...defaultProps} isLoading={true} />);

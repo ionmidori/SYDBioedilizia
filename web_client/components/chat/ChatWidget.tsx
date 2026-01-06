@@ -121,52 +121,6 @@ export default function ChatWidget() {
         }
     };
 
-    // Voice Recording Handler
-    const handleVoiceRecorded = async (file: File) => {
-        try {
-            // Step 1: Transcribe audio to text using speech-to-text API
-            const formData = new FormData();
-            formData.append('audio', file);
-
-            const sttResponse = await fetch('/api/speech-to-text', {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!sttResponse.ok) {
-                throw new Error('Speech-to-text transcription failed');
-            }
-
-            const { text: transcribedText } = await sttResponse.json();
-
-            if (transcribedText && transcribedText.trim()) {
-                // Step 2: Send transcribed text to chat using append from useChat
-                const message: any = {
-                    role: 'user',
-                    content: `🎤 ${transcribedText}`
-                };
-
-                // ✅ NEW: Include attachments if images are selected
-                if (selectedImages.length > 0) {
-                    message.attachments = {
-                        images: imageUrls.length > 0 ? imageUrls : selectedImages
-                    };
-                }
-
-                await append(message, {
-                    body: {
-                        images: selectedImages,
-                        imageUrls: imageUrls
-                    }
-                });
-            } else {
-                console.warn('No text transcribed from audio');
-            }
-        } catch (error) {
-            console.error('Voice recording error:', error);
-            // Show error to user (optional: add toast notification)
-        }
-    };
 
     // External Triggers (for opening chat from other components)
     useEffect(() => {
@@ -240,7 +194,6 @@ export default function ChatWidget() {
                                 uploadStatus={uploadStatus}
                                 selectedImages={selectedImages}
                                 onFileSelect={handleFileSelect}
-                                onVoiceRecorded={handleVoiceRecorded}
                                 onScrollToBottom={() => scrollToBottom('smooth')}
                                 fileInputRef={fileInputRef}
                                 removeImage={removeImage}
