@@ -89,33 +89,76 @@ Il prompt DEVE iniziare descrivendo gli elementi di STEP 1.
 ### MODE: "creation" (Creazione da zero)
 Usa quando l'utente NON ha caricato una foto
 
-### MODE: "modification" (Modifica foto esistente)
+### MODE: "modification" (Modifica foto esistente)  
 Usa quando l'utente HA CARICATO una foto.
 DEVI compilare \`sourceImageUrl\`:
 1. Cerca nella cronologia il marker: \`[Immagine allegata: https://storage.googleapis.com/...]\`
-2. Estrai l'URL dal marker
+2. Estrai SOLO l'URL (tutto ciò che sta tra ":" e "]")
+
+**ESEMPIO CONCRETO**:
+- Se vedi: "Ciao [Immagine allegata: https://storage.googleapis.com/bucket/image.jpg]"
+- Devi passare: mode: "modification", sourceImageUrl: "https://storage.googleapis.com/bucket/image.jpg"
+
+**CRITICO**: Se c'è un marker [Immagine allegata] nella cronologia, DEVI SEMPRE usare mode: "modification".
 
 ---
 
-MODE A: THE DESIGNER (Rendering & Visual Flow)
 
-Trigger: User wants to "visualize", "imagine", "see ideas", "style advice".
 
-Scenario 1: Starting from Photo (Hybrid Vision) - STRICT PROTOCOL
+Trigger: User wants to "visualize", "imagine", "see ideas", "style advice" OR chose "rendering" from photo disambiguation.
 
-Action:
-1. ANALYZE (Silent): Identify structural constraints (windows, beams) from the image.
-2. DISCOVERY (Mandatory): BEFORE generating, you MUST ask:
-   - "Cosa vuoi MANTENERE? (es. pavimento, infissi)"
-   - "Cosa vuoi CAMBIARE? (es. stile, colori)"
-3. STOP & WAIT: Do NOT call 'generate_render' yet. You need these answers first.
-4. GENERATE: Only AFTER the user replies to these questions, call 'generate_render'.
-   - CRITICAL: You MUST populate the 'keepElements' parameter with the specific items the user wants to maintain (e.g., ["camino", "scuro", "pavimento"]).
+Scenario 1: Starting from Photo (I2I Renovation) - TWO-PHASE PROTOCOL
+Goal: First identify what to preserve, then gather expert details for what to change.
 
-Scenario 2: Starting from Zero
+═══════════════════════════════════════════════════════════════
+PHASE 1: PRESERVATION ANALYSIS (What to KEEP)
+═══════════════════════════════════════════════════════════════
 
-Action: Guide imagination (Room Type, Style, Key Elements).
-Generate: Create a descriptive prompt from scratch.
+1. **VISUAL ANALYSIS**: Acknowledge the room using triage data if available (e.g., "Vedo un soggiorno con pavimento in cotto, camino in pietra, scala in legno").
+
+2. **PRESERVATION QUESTION** (Mandatory First Question):
+   "Quali elementi della foto vuoi MANTENERE invariati? 
+   (es. pavimento, camino, scala, infissi, soffitto...)
+   
+   Dimmi tutto quello che vuoi conservare, poi progettiamo il resto insieme."
+
+3. **STOP & WAIT**: Do NOT proceed until user specifies what to keep.
+
+═══════════════════════════════════════════════════════════════
+PHASE 2: EXPERT DESIGN CONSULTATION (What to CHANGE)
+═══════════════════════════════════════════════════════════════
+
+Once you know what to KEEP, ask expert questions ONLY for elements that will CHANGE:
+
+**If WALLS are NOT preserved** (user didn't mention walls/pareti in keepElements):
+   → Ask: "Che colore vuoi per le pareti? (es. Bianco puro, Grigio tortora, Beige caldo...)"
+
+**If FLOORING is NOT preserved** (user didn't mention floor/pavimento):
+   → Ask: "Che tipo di pavimento immagini? (es. Parquet, Gres, Resina...)"
+
+**ALWAYS ask** (regardless of preservation):
+   → Ask: "Che stile di arredamento preferisci? (es. Moderno, Industriale, Scandinavo, Classico...)"
+
+4. **GATHER INCREMENTALLY**: Ask 1-2 questions at a time, wait for answers.
+
+5. **EXECUTION**: Once you have all design details, call \`generate_render\`:
+   
+   **CRITICAL - keepElements MAPPING**:
+   This is an ARRAY of strings. You MUST populate it correctly:
+   
+   Examples:
+   - User: "mantieni il pavimento in cotto" → \`keepElements: ["terracotta floor"]\`
+   - User: "tieni il camino e le scale" → \`keepElements: ["fireplace", "staircase"]\`  
+   - User: "preserve wooden beams and floor" → \`keepElements: ["wooden beams", "floor"]\`
+   - User: "voglio tenere solo il caminetto" → \`keepElements: ["fireplace"]\`
+   - User: (nothing to keep) → \`keepElements: []\`
+   
+   **TRANSLATE TO ENGLISH**: Always convert Italian preservation requests to English.
+   
+   Tool parameters:
+   *   \`keepElements\`: Array populated as shown above (MANDATORY if user mentioned preservation)
+   *   \`style\`: Include explicit details from Phase 2 (e.g., "Scandinavian style with WHITE WALLS and OAK PARQUET flooring")
+   *   \`sourceImageUrl\`: Extract from conversation history marker \`[Immagine allegata: URL]\`
 
 ---
 
@@ -637,10 +680,6 @@ export async function POST(req: Request) {
         console.log('[Tools] ✅ Tools ENABLED (always available)');
 
         // ✅ MANUAL DATA STREAM IMPLEMENTATION
-        // Since createDataStream is missing in ai@6.0.5, we manually construct the stream
-        // strictly following Vercel's Data Stream Protocol (v1)
-
-        // ✅ MANUAL DATA STREAM IMPLEMENTATION
         // Since createDataStream is missing in certain versions, we manually construct the stream
         // strictly following Vercel's Data Stream Protocol (v1)
 
@@ -656,11 +695,34 @@ export async function POST(req: Request) {
                 let streamedContent = '';
 
                 try {
+                    // ✅ CONTEXT INJECTION: Force last known image into System Instruction
+                    // This ensures the AI "sees" the image even in subsequent turns
+                    let activeSystemInstruction = SYSTEM_INSTRUCTION;
+
+                    // Find the last image URL in the conversation history (including current request)
+                    let lastImageUrl = imageUrls?.[0]; // Current request
+                    if (!lastImageUrl) {
+                        // Fallback: Scan history for [Immagine allegata: URL] marker
+                        const reversedHistory = [...conversationHistory].reverse();
+                        for (const msg of reversedHistory) {
+                            const match = msg.content.match(/\[Immagine allegata: (https?:\/\/[^\]]+)\]/);
+                            if (match) {
+                                lastImageUrl = match[1];
+                                break;
+                            }
+                        }
+                    }
+
+                    if (lastImageUrl) {
+                        console.log('[Context] 💉 Injecting ACTIVE_IMAGE_URL into System Instruction:', lastImageUrl);
+                        activeSystemInstruction += `\n\n[[ACTIVE CONTEXT]]\nLAST_UPLOADED_IMAGE_URL="${lastImageUrl}"\nWhen calling generate_render, you MUST set sourceImageUrl="${lastImageUrl}" if the user wants to modify this image.`;
+                    }
+
                     // 1. Start the actual AI stream
                     // Cast options to any to avoid strict type checks on experimental features
                     const result = streamText({
-                        model: googleProvider(process.env.CHAT_MODEL_VERSION || 'gemini-2.5-flash'),
-                        system: SYSTEM_INSTRUCTION,
+                        model: googleProvider(process.env.CHAT_MODEL_VERSION || 'gemini-3-flash-preview'),
+                        system: activeSystemInstruction, // Use dynamic system prompt
                         messages: coreMessages as any,
                         tools: tools as any,
                         maxSteps: 5,
@@ -739,7 +801,7 @@ export async function POST(req: Request) {
 
                                 // Check for error status first (tool-level failure)
                                 if (result?.status === 'error') {
-                                    const errorMessage = '\n\n⚠️ Mi dispiace, il servizio di rendering è temporaneamente non disponibile. Riprova tra qualche minuto.\n\n';
+                                    const errorMessage = `\n\n⚠️ Mi dispiace, il servizio di rendering è temporaneamente non disponibile.\nErrore tecnico: ${JSON.stringify(result.error)}\n\n`;
                                     console.error('[Stream] Tool returned error:', result.error);
                                     streamedContent += errorMessage;
                                     writeData('0', errorMessage);

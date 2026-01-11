@@ -164,11 +164,44 @@ export function createChatTools(sessionId: string, ip: string) {
                             // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                             console.log('[Vision] 📸 STARTING JIT PIPELINE');
 
-                            // 1. Fetch the image buffer
-                            const imageResponse = await fetch(sourceImageUrl);
-                            if (!imageResponse.ok) throw new Error(`Failed to fetch source image: ${imageResponse.statusText}`);
-                            const arrayBuffer = await imageResponse.arrayBuffer();
-                            imageBuffer = Buffer.from(arrayBuffer); // Assign to outer variable
+                            // 1. Fetch the image buffer (Securely via Admin SDK)
+                            console.log('[JIT] Downloading source image...', sourceImageUrl);
+
+                            // Check if it's a storage URL
+                            // Extract path from URL: https://storage.googleapis.com/.../app/user-uploads/...
+                            // or https://firebasestorage.googleapis.com/.../o/user-uploads%2F...
+
+                            // Simple fetch attempt first (for public URLs)
+                            let buffer: Buffer;
+                            const fetchResponse = await fetch(sourceImageUrl);
+
+                            if (fetchResponse.ok) {
+                                const arrayBuffer = await fetchResponse.arrayBuffer();
+                                buffer = Buffer.from(arrayBuffer);
+                            } else {
+                                // Fallback: Try Admin SDK if forbidden (private bucket)
+                                console.log('[JIT] Fetch failed (403/404), trying Admin SDK...');
+                                const { getStorage } = await import('firebase-admin/storage');
+                                const bucket = getStorage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
+
+                                // Extract relative path from URL (hacky but effective for standard Firebase URLs)
+                                // Remove domain and bucket name to get object path
+                                let objectPath = sourceImageUrl;
+                                if (sourceImageUrl.includes('/o/')) {
+                                    // Firebase Client URL
+                                    objectPath = decodeURIComponent(sourceImageUrl.split('/o/')[1].split('?')[0]);
+                                } else if (sourceImageUrl.includes('storage.googleapis.com')) {
+                                    // Public HTTP URL
+                                    const parts = sourceImageUrl.split(process.env.FIREBASE_STORAGE_BUCKET + '/');
+                                    if (parts.length > 1) objectPath = parts[1].split('?')[0];
+                                }
+
+                                console.log('[JIT] Admin SDK downloading path:', objectPath);
+                                const [fileBuffer] = await bucket.file(objectPath).download();
+                                buffer = fileBuffer;
+                            }
+
+                            imageBuffer = buffer; // Assign to outer variable
 
                             // 2. Triage (Analysis)
                             console.log('[JIT] Step 1: Triage analysis...');
@@ -181,19 +214,24 @@ export function createChatTools(sessionId: string, ip: string) {
                             // Use the style from arguments, falling back to a default if needed
                             const targetStyle = style || 'modern renovation';
 
-                            // 🔒 GET LOCKED PROMPT
-                            const lockedPrompt = await generateArchitecturalPrompt(imageBuffer, targetStyle, keepElements || []);
-                            console.log('[JIT] 🔒 Locked Prompt obtained from Architect');
+                            // 🔒 GET STRUCTURED OUTPUT (Anchors + Vision)
+                            // Ensure keepElements is always an array (coerce if string)
+                            const safeKeepElements = Array.isArray(keepElements)
+                                ? keepElements
+                                : (keepElements ? [keepElements] : []);
+
+                            const architectOutput = await generateArchitecturalPrompt(imageBuffer, targetStyle, safeKeepElements);
+                            console.log('[JIT] ✅ Architect output received:', architectOutput.structuralAnchors.length, 'anchors');
 
                             // 4. Painter (Generation)
-                            console.log('[JIT] Step 3: Painter executing...');
+                            console.log('[JIT] Step 3: Painter executing with bifocal prompt...');
                             const { generateRenovation } = await import('./imagen/generator');
 
-                            // ✅ PASS LOCKED PROMPT TO PAINTER (Pure String)
-                            imageBuffer = await generateRenovation(imageBuffer, lockedPrompt);
+                            // ✅ PASS ARCHITECT OUTPUT TO PAINTER (Bifocal Strategy)
+                            imageBuffer = await generateRenovation(imageBuffer, architectOutput);
 
-                            // Set enhancedPrompt for the return value
-                            enhancedPrompt = lockedPrompt; // Use the actual Architect prompt
+                            // Set enhancedPrompt for the return value (combine for legacy compatibility)
+                            enhancedPrompt = `${architectOutput.styleVision} | Anchors: ${architectOutput.structuralAnchors.join(', ')}`;
 
                             console.log('[JIT] ✅ Pipeline generation complete');
 
