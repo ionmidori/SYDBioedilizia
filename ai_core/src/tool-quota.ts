@@ -36,7 +36,7 @@ const IP_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2
 
 // Configuration
 const QUOTA_WINDOW_MS = 86400000; // 24 hours
-const MAX_RENDERS_PER_DAY = 2;
+const MAX_RENDERS_PER_DAY = 50;
 const MAX_QUOTES_PER_DAY = 2;
 
 /**

@@ -1,36 +1,48 @@
 import { VertexAI } from '@google-cloud/vertexai';
 
 /**
- * Structured output from the Architect for bifocal prompt generation.
- * Separates structural constraints from creative vision.
+ * Structured output from the Architect for narrative prompt generation.
+ * Uses the "Skeleton & Skin" methodology: neutral geometry + material overlay + furnishing.
  */
 export interface ArchitectOutput {
-    /** Geometric elements that MUST be preserved from the original image */
-    structuralAnchors: string[];
-    /** Creative vision and styling instructions with high artistic freedom */
-    styleVision: string;
-    /** Technical metadata (lighting, perspective, camera settings) */
+    /** 
+     * Neutral description of fixed geometry (walls, ceiling, windows, doors, stairs).
+     * Example: "The room features a high vaulted ceiling, a spiral staircase on the left, and a large bay window on the right."
+     */
+    structuralSkeleton: string;
+
+    /** 
+     * Material palette mapped to structural elements based on requested style.
+     * Example: "Walls finished in matte lime wash, staircase in blonde oak wood, flooring in polished concrete."
+     */
+    materialPlan: string;
+
+    /** 
+     * Description of NEW furniture and decor to populate the space.
+     * Example: "Low-profile minimalist beige sofas, paper lanterns, and woven jute rugs."
+     */
+    furnishingStrategy: string;
+
+    /** 
+     * Technical metadata (lighting quality, camera perspective).
+     * Example: "Soft volumetric natural lighting, wide-angle view from corner."
+     */
     technicalNotes: string;
-    /** Geometric constraints for structural preservation (optional for backward compatibility) */
-    geometricConstraints?: string[];
 }
 
-
 /**
- * The Architect: Generates a strictly controlled prompt for the Painter.
- * Uses Gemini Flash (via Vertex AI) to "lock" the geometry before generation.
+ * The Architect: Generates a narrative-based structural plan for the Painter.
+ * Uses Gem ini Flash (via Vertex AI) to extract geometry and material planning.
  * 
  * @param imageBuffer - The source image buffer
- * @param targetStyle - The desired renovation style (e.g., "Minimalist", "Industrial")
+ * @param targetStyle - The desired renovation style (e.g., "Japandi", "Industrial")
  * @param keepElements - List of elements to explicitly preserve (from user chat)
- * @returns ArchitectOutput object with structural anchors and creative vision separated
+ * @returns ArchitectOutput object with skeleton, materials, and furnishing separated
  */
 export async function generateArchitecturalPrompt(imageBuffer: Buffer, targetStyle: string, keepElements: string[] = []): Promise<ArchitectOutput> {
-    // 1. Define model in a SINGLE variable
     const modelName = process.env.CHAT_MODEL_VERSION || 'gemini-2.5-flash';
 
-    // 2. Dynamic logging (now tells the truth)
-    console.log(`[Architect] Analyzing geometry to build Locked Prompt (Style: ${targetStyle}, Keep: ${keepElements.length})...`);
+    console.log(`[Architect] Building narrative plan (Style: ${targetStyle}, Keep: ${keepElements.length})...`);
     console.log(`[Architect] Model: ${modelName} (Vertex AI)`);
 
     const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -40,101 +52,126 @@ export async function generateArchitecturalPrompt(imageBuffer: Buffer, targetSty
         throw new Error('FIREBASE_PROJECT_ID not found');
     }
 
-    // Initialize Vertex AI
-    // CHANGE: Using ADC for broader permissions
     const vertexAI = new VertexAI({
         project: projectId,
         location: location,
         // @ts-ignore
-        apiVersion: 'v1beta1', // REQUIRED for Preview models
+        apiVersion: 'v1beta1',
     });
 
-    // 3. Use the variable
     const model = vertexAI.getGenerativeModel({ model: modelName });
     const base64Image = imageBuffer.toString('base64');
 
-    // Preservation Logic Injection
     const preservationList = keepElements.length > 0
         ? keepElements.join(', ')
-        : "None specified (preserve structural shell only)";
+        : "None specified (renovate freely)";
 
     const systemPrompt = `
-    ROLE: Senior Architectural Analyst & Prompt Engineer for AI Image Generation.
-    
-    GOAL: Analyze the input room image and extract TWO DISTINCT LAYERS for renovation in style: "${targetStyle}".
+ROLE: You are an Architectural Surveyor and Interior Design Specialist.
 
-    --- LAYER 1: STRUCTURAL ANCHORS (Sacred Geometry - DO NOT CHANGE) ---
-    
-    Identify and list what MUST remain unchanged from the original image:
-    - **Wall positions and angles** (e.g., "Left wall at 45° angle")
-    - **Window/door placements** (e.g., "Large window centered on north wall")
-    - **Ceiling height and structural beams** (e.g., "Exposed wooden beam running east-west")
-    - **Floor plan topology** (room shape, alcoves, niches)
-    - **Perspective and camera angle** (e.g., "Wide-angle view from corner entrance")
-    - **User-specified preservation**: ${preservationList}
-    
-    **CRITICAL: MATERIAL NORMALIZATION**
-    When outputting preserved materials, you MUST use TECHNICAL, CLEAN terminology:
-    - Remove condition qualifiers: "old", "damaged", "dirty", "worn", "vecchio", "sporco", "rovinato"
-    - Use professional material names: "terracotta tile flooring" NOT "cotto vecchio"
-    - Examples:
-      * Input: "pavimento in cotto vecchio" → Output: "terracotta tile flooring"
-      * Input: "pareti sporche" → Output: "painted wall surface"
-      * Input: "legno rovinato" → Output: "natural wood flooring"
-    
-    IMPORTANT nuance for preservation:
-    - **RULE: INTEGRATION OVER ISOLATION.** Preserved elements must NOT remain empty/isolated. They must "blend" (immischiare) with the new design.
-    - If user keeps the **FLOOR**: Preserve the TILES/MATERIAL, but **MUST** place rugs, sofas, tables, and decor ON it.
-    - If user keeps the **WALLS**: Preserve the COLOR/TEXTURE, but **MUST** hang art, place shelves, or position furniture AGAINST them.
-    - If user keeps the **CEILING**: Preserve the BEAMS/STRUCTURE, but **MUST** hang lighting fixtures from it.
-    - **General Rule**: The preserved structure is the STAGE; the furniture is the PERFORMANCE. Do not leave the stage empty.
-    
-    Output these as a JSON array under key "structuralAnchors".
+GOAL: Analyze the input room image and generate a structured plan for renovation in the "${targetStyle}" style.
 
-    --- LAYER 2: STYLE VISION (Creative Freedom - GO WILD) ---
-    
-    Define the TRANSFORMATIVE vision for the space using high-impact language:
-    
-    1. **Interior Design Style**: Specify the aesthetic (e.g., "Industrial Loft with raw materials", "Scandinavian Minimalism with warm accents")
-    2. **Color Palette & Mood**: Define atmosphere (e.g., "Moody charcoal tones with brass accents", "Bright whites with natural oak warmth")
-    3. **Furniture Typology**: Describe pieces (e.g., "Mid-century modern leather sofa, marble coffee table, vintage rug")
-    4. **Material Finishes**: Specify textures (e.g., "Reclaimed wood flooring, exposed brick accent wall, linen curtains")
-    5. **Lighting Atmosphere**: Set the mood (e.g., "Dramatic side lighting with warm 2700K temperature, volumetric god rays from window")
-    6. **Staging & Details**: Add realism (e.g., "Heavily furnished with layered textiles, coffee table books, indoor olive tree in corner")
-    
-    95:     Use TRANSFORMATION PHRASES like:
-    96:     - "ELEVATE the space to luxury boutique hotel quality..."
-    97:     - "TRANSFORM the atmosphere into a cozy reading sanctuary..."
-    98:     - "REIMAGINE the furniture with high-end Italian designer pieces..."
-    99:
-    100:    **MANDATORY**: You MUST end the styleVision string with a specific directive for wall color, derived from the user's request (e.g. " Walls: Painted in [Specific Color]"). If user didn't specify, choose a color that fits the style perfectly.
-    101:     
-    102:     Output this as a string under key "styleVision".
+USER-SPECIFIED PRESERVATION: ${preservationList}
 
-    --- LAYER 3: TECHNICAL SPECIFICATIONS ---
-    
-    Provide rendering metadata focusing on PHOTOREALISTIC LIGHTING:
-    - Camera: "24mm wide-angle lens, f/8 aperture, sharp focus throughout"
-    - Rendering Engine: "Physically-Based Rendering (PBR) with Global Illumination enabled"
-    - Lighting Physics: "Natural daylight (5500-6500K), soft volumetric shadows, ambient occlusion at surface junctions, color bounce from floor to walls"
-    - Material Quality: "High-resolution PBR textures (8K diffuse/normal/specular maps), anisotropic filtering for wood grain, subsurface scattering for fabrics"
-    
-    Output as string under key "technicalNotes".
+YOUR TASK: Generate FOUR FIELDS for a narrative-based image generation prompt.
 
+---
 
-    --- CRITICAL OUTPUT FORMAT ---
-    
-    You MUST respond with ONLY valid JSON. No explanations, no markdown code blocks. Just raw JSON:
-    
-    {
-      "structuralAnchors": [
-        "Anchor 1 description",
-        "Anchor 2 description"
-      ],
-      "styleVision": "TRANSFORM this living room into a sophisticated Industrial Loft...",
-      "technicalNotes": "24mm wide-angle lens, f/8, photorealistic 4K, global illumination"
-    }
-  `;
+FIELD 1: structuralSkeleton (Neutral Geometry Description)
+
+Describe the FIXED GEOMETRY of the room. Focus ONLY on structure:
+- Wall configuration and angles
+- Ceiling type (flat/vaulted/beamed) and height
+- Architectural features (fireplaces, alcoves, archways)
+- Window and door placements
+- Permanent fixtures (stairs, columns, beams)
+- Room shape and spatial layout
+- Camera perspective
+
+**RULES:**
+- DO NOT mention condition (old/damaged/dirty)
+- DO NOT use imperative language ("preserve", "keep")
+- DESCRIBE what exists
+- Be specific about positions
+
+**Material Normalization:**
+If preserving items: "${preservationList}", use CLEAN names:
+- "vecchio cotto" → "terracotta tile flooring"
+- "scala legno rovinato" → "wooden staircase"
+
+**Example:**
+"The room features a high vaulted ceiling with exposed beams, a wooden staircase on the left with glass balustrade, a large rectangular window in a recessed alcove on the right, and a fireplace on the back wall. Terracotta tile flooring throughout."
+
+---
+
+FIELD 2: materialPlan (Style-Specific Material Mapping)
+
+Based on "${targetStyle}", specify materials for structural elements.
+
+CRITICAL INSTRUCTION FOR MATERIALS:
+1. For NEW elements (furniture, decor, changed walls): Apply the requested style strictly (e.g., if 'Minimalist', use 'Light Oak', 'White Plaster').
+2. For EXISTING STRUCTURAL elements (Stairs, Fireplace, Window Frames) that are kept:
+   - DO NOT automatically change their material to fit the style unless explicitly asked.
+   - Instead, DETECT the current material/color in the image (e.g., "Dark Mahogany", "Red Brick").
+   - Describe it as "RESTORED" or "REFINISHED" to improve quality without changing the essence.
+   - Use adjectives like: "polished", "varnished", "cleaned", "rich tone", "high-quality grain".
+
+OUTPUT RULE:
+In the 'materialPlan', for existing structures, write: "The existing [Structure Name] is preserved in its original [Color/Material] tone, refinished to a pristine condition."
+
+Examples:
+- Walls: "Walls finished in pure matte white plaster"
+- Floor: "Restored terracotta tiles with polished surface catching warm daylight"
+- Stairs (PRESERVED): "The staircase retains its original deep walnut hue but is refinished with a smooth satin varnish"
+- Fireplace (PRESERVED): "The original stone fireplace is cleaned to reveal its natural grey texture"
+
+**Example:**
+"Walls finished in soft matte white, the staircase refinished in blonde oak wood catching ambientlight, flooring featuring restored terracotta with polished finish, and fireplace clad in white marble."
+
+---
+
+FIELD 3: furnishingStrategy (New Furniture & Decor)
+
+Describe furniture/decor for "${targetStyle}".
+
+Be EXTREMELY specific:
+- "Low-profile sectional sofa in textured beige bouclé"
+- "Noguchi-style coffee table with walnut base and glass top"
+- "Hand-woven jute area rug, linen throw pillows in terracotta"
+- "Sculptural ceramic vases, potted fiddle-leaf fig, art books"
+
+Include:
+1. Seating, tables
+2. Lighting fixtures
+3. Textiles (rugs, pillows, curtains)
+4. Decor (plants, art, ceramics)
+5. Atmosphere
+
+**Example:**
+"Low-profile beige linen sofa, natural oak coffee table, hand-woven jute rug, sheer linen curtains, potted fiddle-leaf fig, ceramic vases, paper pendant lights casting soft glow."
+
+---
+
+FIELD 4: technicalNotes (Lighting & Camera)
+
+Brief technical specs:
+
+**Example:**
+"24mm wide-angle lens, f/8, soft volumetric natural lighting (5500K), warm accents (2700K), 8K photorealistic, global illumination."
+
+---
+
+OUTPUT FORMAT
+
+Respond with ONLY valid JSON. No markdown, no explanations:
+
+{
+  "structuralSkeleton": "The room features...",
+  "materialPlan": "Walls finished in...",
+  "furnishingStrategy": "Low-profile sofa...",
+  "technicalNotes": "24mm lens, f/8..."
+}
+`;
 
     try {
         const result = await model.generateContent({
@@ -150,64 +187,51 @@ export async function generateArchitecturalPrompt(imageBuffer: Buffer, targetSty
         const rawOutput = result.response.candidates?.[0].content.parts[0].text;
 
         if (!rawOutput) {
-            console.warn('[Architect] No output from model, using fallback');
+            console.warn('[Architect] No output, using fallback');
             return {
-                structuralAnchors: keepElements.length > 0 ? keepElements : [preservationList],
-                styleVision: `TRANSFORM this space into a ${targetStyle} interior with high-end furnishings and materials`,
-                technicalNotes: "24mm lens, f/8, photorealistic 4K, global illumination"
+                structuralSkeleton: `A standard living room with ${preservationList || 'typical architectural features'}`,
+                materialPlan: `Walls in ${targetStyle.toLowerCase()} style finish, flooring in complementary material`,
+                furnishingStrategy: `${targetStyle} furniture and decor appropriate to the space`,
+                technicalNotes: "24mm lens, f/8, photorealistic 8K, natural lighting"
             };
         }
 
+        let cleanedOutput = '';
         try {
-            // Parse JSON response
-            const parsed = JSON.parse(rawOutput.trim());
+            cleanedOutput = rawOutput.replace(/```json/g, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(cleanedOutput);
 
-            // Validate structure
-            if (!parsed.structuralAnchors || !parsed.styleVision || !parsed.technicalNotes) {
-                throw new Error('Missing required fields in JSON output');
+            if (!parsed.structuralSkeleton || !parsed.materialPlan || !parsed.furnishingStrategy) {
+                throw new Error('Missing required fields');
             }
 
-            console.log('[Architect] ✅ Structured Output Generated (Vertex AI)');
-            console.log(`[Architect] Anchors: ${parsed.structuralAnchors.length}, Vision length: ${parsed.styleVision.length} chars`);
+            console.log(`[Architect] ✅ Structured Output Generated (Vertex AI)`);
+            console.log(`[Architect] Skeleton: ${parsed.structuralSkeleton.length} chars`);
+            console.log(`[Architect] Materials: ${parsed.materialPlan.length} chars`);
+            console.log(`[Architect] Furnishing: ${parsed.furnishingStrategy.length} chars`);
 
             return {
-                structuralAnchors: parsed.structuralAnchors,
-                styleVision: parsed.styleVision,
-                technicalNotes: parsed.technicalNotes,
-                geometricConstraints: [
-                    "Maintain wall geometry and room proportions",
-                    "Preserve window and door placements",
-                    "Keep ceiling height"
-                ]
+                structuralSkeleton: parsed.structuralSkeleton,
+                materialPlan: parsed.materialPlan,
+                furnishingStrategy: parsed.furnishingStrategy,
+                technicalNotes: parsed.technicalNotes || "24mm lens, f/8, photorealistic 8K, natural lighting"
             };
 
         } catch (parseError) {
-            console.warn('[Architect] JSON parsing failed, attempting fallback parsing:', parseError);
+            console.error('[Architect] JSON Parse Error:', parseError);
+            console.log('[Architect] Raw output:', cleanedOutput || rawOutput);
 
-            // Fallback: Try to extract sections manually
+            // Fallback with cleaned output
             return {
-                structuralAnchors: keepElements.length > 0 ? keepElements : [preservationList],
-                styleVision: rawOutput, // Use raw output as style vision
-                technicalNotes: "24mm lens, f/8, photorealistic 4K, global illumination",
-                geometricConstraints: [
-                    "Maintain wall geometry and room proportions",
-                    "Preserve window and door placements",
-                    "Keep ceiling height"
-                ]
+                structuralSkeleton: `A standard living room with ${preservationList || 'typical architectural features'}`,
+                materialPlan: `Walls in ${targetStyle.toLowerCase()} style finish`,
+                furnishingStrategy: (cleanedOutput || rawOutput || '').substring(0, 500) || `${targetStyle} furniture`,
+                technicalNotes: "24mm lens, f/8, photorealistic 8K"
             };
         }
 
     } catch (error) {
-        console.error("[Architect] Error:", error);
-        return {
-            structuralAnchors: keepElements.length > 0 ? keepElements : [preservationList],
-            styleVision: `${targetStyle} interior renovation with photorealistic materials`,
-            technicalNotes: "24mm lens, f/8, photorealistic 4K",
-            geometricConstraints: [
-                "Maintain wall geometry and room proportions",
-                "Preserve window and door placements",
-                "Keep ceiling height"
-            ]
-        };
+        console.error('[Architect] Generation Error:', error);
+        throw new Error(`Architect generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }

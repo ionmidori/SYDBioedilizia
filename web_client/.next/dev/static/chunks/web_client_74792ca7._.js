@@ -2477,9 +2477,9 @@ function useChatHistory(sessionId) {
         "useChatHistory.useEffect": ()=>{
             console.log("[useChatHistory] Initialized with sessionId:", sessionId);
             const loadHistory = {
-                "useChatHistory.useEffect.loadHistory": async ()=>{
+                "useChatHistory.useEffect.loadHistory": async (retries = 3, delay = 1000)=>{
                     try {
-                        console.log("[useChatHistory] Loading conversation history...");
+                        console.log(`[useChatHistory] Loading conversation history... (Attempt ${4 - retries})`);
                         const response = await fetch(`/api/chat/history?sessionId=${sessionId}`);
                         if (response.ok) {
                             const data = await response.json();
@@ -2496,13 +2496,21 @@ function useChatHistory(sessionId) {
                             } else {
                                 console.log("[useChatHistory] No previous messages found - starting fresh");
                             }
+                            setHistoryLoaded(true);
                         } else {
                             console.error("[useChatHistory] Failed to load history:", response.status);
+                            throw new Error(`Server returned ${response.status}`);
                         }
-                        setHistoryLoaded(true);
                     } catch (error) {
                         console.error("[useChatHistory] Error loading history:", error);
-                        setHistoryLoaded(true);
+                        if (retries > 0) {
+                            console.log(`[useChatHistory] Retrying in ${delay}ms...`);
+                            setTimeout({
+                                "useChatHistory.useEffect.loadHistory": ()=>loadHistory(retries - 1, delay * 2)
+                            }["useChatHistory.useEffect.loadHistory"], delay);
+                        } else {
+                            setHistoryLoaded(true); // Give up but unblock UI
+                        }
                     }
                 }
             }["useChatHistory.useEffect.loadHistory"];

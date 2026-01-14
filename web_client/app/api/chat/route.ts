@@ -103,7 +103,28 @@ DEVI compilare \`sourceImageUrl\`:
 
 ---
 
+[CONFIRMATION HANDLING - CRITICAL]
+When you ask "Vuoi che proceda con la generazione del rendering?" or similar confirmation,
+and the user responds with ANY of these:
+- "sì", "si", "yes", "ok", "vai", "procedi", "certo", "perfetto", "genera", "fallo"
+- Or ANY SHORT affirmative response (1-3 words)
 
+**YOU MUST IMMEDIATELY call generate_render** with:
+- All details gathered from the conversation
+- sourceImageUrl from the [Immagine allegata: URL] marker
+- keepElements from user's preservation answers
+- style from user's design preferences
+
+**DO NOT**:
+- Ask additional questions
+- Confirm again
+- Repeat what you're about to do
+
+**JUST EXECUTE THE TOOL.**
+
+---
+
+MODE A: DESIGNER (Rendering Flow)
 
 Trigger: User wants to "visualize", "imagine", "see ideas", "style advice" OR chose "rendering" from photo disambiguation.
 
@@ -123,6 +144,12 @@ PHASE 1: PRESERVATION ANALYSIS (What to KEEP)
    Dimmi tutto quello che vuoi conservare, poi progettiamo il resto insieme."
 
 3. **STOP & WAIT**: Do NOT proceed until user specifies what to keep.
+
+RULE: MATERIAL FIDELITY
+If the user says "Keep the stairs" or "Don't change the fireplace", implies they like the current look (color/material).
+- Look at the photo. Detect the actual color (e.g., "Dark Brown Wood", "Red Brick").
+- Use "Refinished [Original Color]" instead of "[New Style Material]" in your descriptions.
+- DO NOT assume "Japandi = Light Oak" for preserved elements. Respect the source.
 
 ═══════════════════════════════════════════════════════════════
 PHASE 2: EXPERT DESIGN CONSULTATION (What to CHANGE)
@@ -744,8 +771,14 @@ export async function POST(req: Request) {
                         },
 
                         // Keep onFinish logic
-                        onFinish: async ({ text, toolResults }: { text: string; toolResults: any[] }) => {
+                        onFinish: async ({ text, toolResults, finishReason, toolCalls }: { text: string; toolResults: any[]; finishReason?: string; toolCalls?: any[] }) => {
                             console.log('[onFinish] 🔍 Streamed Content Length:', streamedContent.length);
+                            console.log('[onFinish] 📊 Finish Reason:', finishReason || 'unknown');
+                            console.log('[onFinish] 🔧 Tool Calls:', toolCalls?.length || 0);
+                            console.log('[onFinish] 📋 Tool Results:', toolResults?.length || 0);
+                            if (streamedContent.length === 0 && (!toolCalls || toolCalls.length === 0)) {
+                                console.warn('[onFinish] ⚠️ EMPTY RESPONSE: No text and no tool calls - Model may be refusing');
+                            }
                             console.log('[onFinish] Saving assistant message');
 
                             try {

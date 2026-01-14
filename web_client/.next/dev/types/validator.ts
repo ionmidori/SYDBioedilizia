@@ -74,6 +74,24 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../../app/api/debug/logs/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/debug/logs">> = Specific
+  const handler = {} as typeof import("../../../app/api/debug/logs/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../../app/api/debug/models/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/debug/models">> = Specific
+  const handler = {} as typeof import("../../../app/api/debug/models/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../../app/api/upload-image/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/upload-image">> = Specific

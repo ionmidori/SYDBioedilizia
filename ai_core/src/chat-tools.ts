@@ -20,11 +20,11 @@ export function createChatTools(sessionId: string, ip: string) {
     const GenerateRenderParameters = z.object({
         // 1️⃣ STEP 1: Analizza la struttura (Chain of Thought)
         structuralElements: z.string()
-            .min(20)
+            .min(5)
             .describe(
                 'MANDATORY: List ALL structural elements visible in the user photo or mentioned in the request (in ENGLISH). ' +
-                'Examples: "arched window on left wall", "exposed wooden ceiling beams", "parquet flooring", "high ceilings 3.5m". ' +
-                'If no photo was uploaded, describe the structural requests from the conversation (e.g., "large kitchen island", "walk-in shower").'
+                'Examples: "arched window", "beams". ' +
+                'If no photo was uploaded, describe the structural requests.'
             ),
 
         // 2️⃣ STEP 2: Type & Style (già esistenti)
@@ -33,11 +33,10 @@ export function createChatTools(sessionId: string, ip: string) {
 
         // 3️⃣ STEP 3: Prompt finale (DEVE usare structuralElements)
         prompt: z.string()
-            .min(30)
+            .min(10)
             .describe(
                 'MANDATORY: The final detailed prompt for the image generator IN ENGLISH. ' +
-                'MUST start by describing the structuralElements listed above. ' +
-                'Example: "A modern living room featuring a large arched window on the left wall, exposed wooden beams on the ceiling, and oak parquet flooring. The space includes..."'
+                'MUST start by describing the structuralElements listed above.'
             ),
 
         // 🆕 HYBRID TOOL PARAMETERS (Optional - backward compatible)
@@ -149,23 +148,20 @@ export function createChatTools(sessionId: string, ip: string) {
                     let enhancedPrompt: string;
                     let triageResult: any = null; // Lifted scope for persistence
 
-                    const actualMode = mode || 'creation'; // Default to creation for backward compatibility
+                    // 🔥 AUTO-DETECT MODE FROM IMAGE PRESENCE
+                    // If sourceImageUrl exists, we MUST be in modification mode (I2I), 
+                    // unless explicitly told otherwise (rare).
+                    // This fixes cases where the LLM forgets to pass mode="modification".
+                    const actualMode = (sourceImageUrl && (!mode || mode === 'modification'))
+                        ? 'modification'
+                        : (mode || 'creation');
 
-                    // 🔍 DEBUG LOGGING
-                    console.log('🔍 [DEBUG] actualMode:', actualMode);
-                    console.log('🔍 [DEBUG] sourceImageUrl:', sourceImageUrl);
-                    console.log('🔍 [DEBUG] mode param:', mode);
-                    console.log('🔍 [DEBUG] Condition met?', actualMode === 'modification' && sourceImageUrl);
+                    console.log(`🔍 [DEBUG] actualMode: "${actualMode}" derived from mode="${mode}" and hasImage=${!!sourceImageUrl}`);
 
+                    // Use Triage logic
                     if (actualMode === 'modification' && sourceImageUrl) {
                         try {
-                            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                            // 📸 NEW JIT PIPELINE: Triage -> Architect -> Painter
-                            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                            console.log('[Vision] 📸 STARTING JIT PIPELINE');
-
-                            // 1. Fetch the image buffer (Securely via Admin SDK)
-                            console.log('[JIT] Downloading source image...', sourceImageUrl);
+                            console.log('[Hybrid Tool] 📸 Detected Renovation Mode (I2I)');
 
                             // Check if it's a storage URL
                             // Extract path from URL: https://storage.googleapis.com/.../app/user-uploads/...
@@ -221,17 +217,17 @@ export function createChatTools(sessionId: string, ip: string) {
                                 : (keepElements ? [keepElements] : []);
 
                             const architectOutput = await generateArchitecturalPrompt(imageBuffer, targetStyle, safeKeepElements);
-                            console.log('[JIT] ✅ Architect output received:', architectOutput.structuralAnchors.length, 'anchors');
+                            console.log('[JIT] ✅ Architect output received:', architectOutput.structuralSkeleton.length, 'chars skeleton');
 
                             // 4. Painter (Generation)
                             console.log('[JIT] Step 3: Painter executing with bifocal prompt...');
                             const { generateRenovation } = await import('./imagen/generator');
 
                             // ✅ PASS ARCHITECT OUTPUT TO PAINTER (Bifocal Strategy)
-                            imageBuffer = await generateRenovation(imageBuffer, architectOutput);
+                            imageBuffer = await generateRenovation(imageBuffer, architectOutput, targetStyle);
 
                             // Set enhancedPrompt for the return value (combine for legacy compatibility)
-                            enhancedPrompt = `${architectOutput.styleVision} | Anchors: ${architectOutput.structuralAnchors.join(', ')}`;
+                            enhancedPrompt = `${architectOutput.materialPlan} | Skeleton: ${architectOutput.structuralSkeleton.substring(0, 100)}`;
 
                             console.log('[JIT] ✅ Pipeline generation complete');
 

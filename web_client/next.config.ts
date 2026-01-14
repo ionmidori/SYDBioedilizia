@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Enable verbose logging in development
+  logging: {
+    fetches: {
+      fullUrl: true,
+    },
+  },
   images: {
     remotePatterns: [
       {
@@ -11,6 +17,12 @@ const nextConfig: NextConfig = {
   },
   transpilePackages: ['ai-core'],
   async headers() {
+    // Only apply strict security headers in production
+    // Development mode needs looser CSP for Turbopack HMR
+    if (process.env.NODE_ENV !== 'production') {
+      return [];
+    }
+
     return [
       {
         source: '/:path*',
