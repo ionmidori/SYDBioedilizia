@@ -78,82 +78,55 @@ export function Hero() {
                     </div>
                 </motion.div>
 
-                {/* Visual Content - Dashboard Preview */}
                 <motion.div
-                    initial={{ opacity: 0, x: 30 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
-                    className="relative"
+                    className="relative px-4 sm:px-0"
                 >
-                    <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-900/50 shadow-2xl shadow-blue-900/20 backdrop-blur-sm group">
-                        {/* Fake UI Header */}
-                        <div className="flex items-center gap-2 px-4 py-3 border-b border-white/5 bg-slate-900/80">
-                            <div className="w-3 h-3 rounded-full bg-red-500/50" />
-                            <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
-                            <div className="w-3 h-3 rounded-full bg-green-500/50" />
-                            <div className="ml-4 w-60 h-6 rounded-full bg-slate-800/50" />
-                        </div>
+                    {/* Abstract Shapes/Blobs behind */}
+                    <div className="absolute -top-20 -right-20 w-72 h-72 bg-blue-500/20 rounded-full blur-[80px] -z-10" />
+                    <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-cyan-500/20 rounded-full blur-[80px] -z-10" />
 
-                        {/* Content Area - Clickable to trigger rendering */}
-                        <div
-                            className="p-1 min-h-[400px] relative bg-slate-950 cursor-pointer transition-all hover:ring-2 hover:ring-blue-500/50"
-                            onClick={() => {
-                                const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
-                                    detail: { message: "Vorrei vedere un rendering 3D della mia idea." }
-                                });
-                                window.dispatchEvent(event);
-                            }}
-                            title="Clicca per iniziare la visualizzazione AI"
-                        >
-                            <div className="absolute inset-0 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
-                                <div className="text-center">
-                                    <div className="w-20 h-20 mx-auto bg-blue-500/10 rounded-full flex items-center justify-center mb-4">
-                                        <Zap className="w-10 h-10 text-blue-400" />
-                                    </div>
-                                    <p className="text-slate-500 font-mono text-sm">AI Visualization Engine</p>
-                                    <p className="text-slate-600 text-xs mt-2">Clicca per generare...</p>
+                    {/* Main Video Container - Asymmetric Dynamic Shape */}
+                    <div
+                        className="relative rounded-3xl rounded-tr-[100px] rounded-bl-[40px] overflow-hidden border border-white/10 shadow-2xl shadow-blue-900/40 group cursor-pointer"
+                        onClick={() => {
+                            const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
+                                detail: { message: "voglio creare un render 3D" }
+                            });
+                            window.dispatchEvent(event);
+                        }}
+                    >
+                        <div className="relative aspect-video bg-slate-950">
+                            <video
+                                src="/videos/ai-visualization.mp4"
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            />
+                            {/* Subtle inner shadow and gradient */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/20 pointer-events-none" />
+
+                            {/* Play overlay on hover */}
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-black/20 backdrop-blur-[2px]">
+                                <div className="w-16 h-16 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                                    <Zap className="w-8 h-8 text-white fill-current" />
                                 </div>
                             </div>
-
-                            {/* Floating Badges */}
-                            <motion.div
-                                animate={{ y: [0, -10, 0] }}
-                                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                                className="absolute top-10 right-10 p-4 bg-slate-900/90 border border-slate-700/50 rounded-xl shadow-xl backdrop-blur-md"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
-                                        <ShieldCheck className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-400">Preventivo Garantito</p>
-                                        <p className="text-sm font-bold text-white">€1.200 di risparmio</p>
-                                    </div>
-                                </div>
-                            </motion.div>
-
-                            <motion.div
-                                animate={{ y: [0, 10, 0] }}
-                                transition={{ repeat: Infinity, duration: 5, ease: "easeInOut", delay: 1 }}
-                                className="absolute bottom-10 left-10 p-4 bg-slate-900/90 border border-slate-700/50 rounded-xl shadow-xl backdrop-blur-md"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-amber-500/20 rounded-lg text-amber-400">
-                                        <Star className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs text-slate-400">Design Score</p>
-                                        <p className="text-sm font-bold text-white">98/100 Excellent</p>
-                                    </div>
-                                </div>
-                            </motion.div>
                         </div>
                     </div>
 
-                    {/* Glow backing */}
-                    <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-20 -z-10" />
+
+
+
                 </motion.div>
-            </div>
-        </section>
+            </div >
+
+            {/* Glow backing */}
+            < div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-20 -z-10" />
+        </section >
     );
 }
