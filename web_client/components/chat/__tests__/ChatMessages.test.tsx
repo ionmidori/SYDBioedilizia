@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { RefObject } from 'react';
+import { MutableRefObject } from 'react';
 import { ChatMessages } from '../ChatMessages';
 
 // Mock ReactMarkdown
@@ -10,12 +10,12 @@ jest.mock('react-markdown', () => {
 });
 
 describe('ChatMessages', () => {
-    const mockMessagesContainerRef: RefObject<HTMLDivElement> = {
+    const mockMessagesContainerRef = {
         current: null,
-    };
-    const mockMessagesEndRef: RefObject<HTMLDivElement> = {
+    } as MutableRefObject<HTMLDivElement | null>;
+    const mockMessagesEndRef = {
         current: null,
-    };
+    } as MutableRefObject<HTMLDivElement | null>;
 
     const defaultProps = {
         messages: [],

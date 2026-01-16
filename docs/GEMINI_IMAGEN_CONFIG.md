@@ -1,16 +1,28 @@
 # Configurazione Gemini 2.5 Flash & Imagen - Logica Modelli
 
-Questa documentazione centralizza tutte le impostazioni relative all'utilizzo dei modelli **Gemini 2.5 Flash** e **Imagen** nel progetto di ristrutturazione.
+Questa documentazione centralizza tutte le impostazioni relative all'utilizzo dei modelli **Gemini** (Chat & Vision), **Imagen** (Generazione) e **Perplexity** (Market Intel) nel progetto di ristrutturazione.
 
 ---
 
 ## 🎯 Panoramica Architettura
 
-Il sistema utilizza un'architettura **JIT (Just-In-Time)** per la generazione di immagini:
+Il sistema utilizza un'architettura ibrida **Multi-Model** che orchestra diversi LLM e modelli generativi in base al compito specifico:
 
-```
-User Photo → Triage → Architect → Painter → Final Image
-             (Flash)   (Flash)     (Flash-Image)
+```mermaid
+graph TD
+    UserInput --> Router{Intent Analysis}
+    Router -->|Visualizza| JITPipeline
+    Router -->|Preventivo| QuoteSystem
+    Router -->|Prezzi| MarketIntel
+    
+    subgraph JITPipeline [JIT Pipeline]
+        Triage(Gemini Flash - Vision) --> Architect(Gemini Flash - Logic)
+        Architect --> Painter(Gemini Pro Image - Generazione)
+    end
+    
+    subgraph MarketIntel [Market Intel]
+        Perplexity(Sonar - Search Engine)
+    end
 ```
 
 ---
@@ -18,294 +30,127 @@ User Photo → Triage → Architect → Painter → Final Image
 ## 📦 Modelli Utilizzati
 
 ### 1. **Gemini 3 Flash Preview** (Text/Vision)
-- **Scopo**: Chat, Analisi, Prompt Engineering
+- **Scopo**: Chatbot (SYD), Analisi Visione, Prompt Engineering (Architect)
 - **File di configurazione**: `CHAT_MODEL_VERSION`
 - **Default**: `gemini-3-flash-preview`
-- **Località**: `us-central1`
+- **Capacità**: Alta velocità, Multimodal input (Testo + Immagini)
 
-### 2. **Gemini 3 Pro Image Preview** (Multimodal per I2I - "Nano Banana Pro")
+### 2. **Gemini 3 Pro Image Preview** (Multimodal Generative)
 - **Scopo**: Image-to-Image renovation (Painter)
 - **File di configurazione**: `VISION_MODEL_VERSION`  
 - **Default**: `gemini-3-pro-image-preview`
-- **Località**: `us-central1`
+- **Capacità**: Mantiene la geometria strutturale dell'input (ControlNet-like behavior)
 
-### 3. **Imagen 3.0 Generate** (Text-to-Image fallback)
-- **Scopo**: Creazione da zero (T2I)
+### 3. **Imagen 3.0 Generate** (Text-to-Image Fallback)
+- **Scopo**: Creazione da zero (Text-to-Image) quando non c'è foto input
 - **File di configurazione**: `IMAGEN_MODEL_VERSION`
 - **Default**: `imagen-3.0-generate-001`
-- **Località**: `us-central1`
+
+### 4. **Perplexity Sonar** (Online Search)
+- **Scopo**: Analisi prezzi di mercato in tempo reale
+- **Modello**: `sonar`
+- **Capacità**: Ricerca web live con citazioni (focalizzato sull'Italia)
 
 ---
 
 ## ⚙️ Variabili d'Ambiente
 
-### File: `.env.local` (web_client)
+### File: `web_client/.env`
 
 ```env
-# Chat & Vision Models
+# Google AI (Chat & Vision)
+GEMINI_API_KEY=your-gemini-key
 CHAT_MODEL_VERSION=gemini-3-flash-preview
 VISION_MODEL_VERSION=gemini-3-pro-image-preview
 
-# Imagen Fallback Model
+# Imagen Fallback (Vertex AI)
 IMAGEN_MODEL_VERSION=imagen-3.0-generate-001
-
-# Firebase/GCP Project
 FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=your-service-account@project.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+FIREBASE_CLIENT_EMAIL=...
+FIREBASE_PRIVATE_KEY=...
 
-# Gemini API Key (for chat)
-GEMINI_API_KEY=your-gemini-api-key
+# Market Intelligence (Perplexity)
+PERPLEXITY_API_KEY=pplx-your-key
 ```
 
 ---
 
 ## 🔧 Configurazioni per Componente
 
-### A. **Chat API** (route.ts)
+### A. **Chat API** (`route.ts`)
 
-**File**: `web_client/app/api/chat/route.ts`
+- **Modello**: `gemini-3-flash-preview`
+- **Ruolo**: Orchestratore conversazionale. Decide quando chiamare i tool.
+- **Configurazione Streaming**:
+  - `maxSteps`: 5 (per permettere ragionamenti complessi)
+  - `maxToolRoundtrips`: 2 (Chat -> Tool -> Chat -> User)
 
-```typescript
-// Linea 662
-model: googleProvider(process.env.CHAT_MODEL_VERSION || 'gemini-3-flash-preview')
-```
+### B. **Hybrid Rendering Pipeline** (`ai_core/src/imagen/`)
 
-**Configurazione**:
-- Modello utilizzato per il chatbot SYD
-- Tools: `generate_render`, `submit_lead_data`, `get_market_prices`
-- MaxSteps: 5
-- MaxToolRoundtrips: 2
+La pipeline decide dinamicamente quale modello usare:
 
----
+1.  **Creation Mode (T2I)**:
+    -   Utente: "Voglio vedere un salotto moderno" (Nessuna foto)
+    -   Modello: `Imagen 3.0 Generate`
+    -   Temperatura: Standard
 
-### B. **Triage** (Analisi Immagine)
+2.  **Renovation Mode (I2I)**:
+    -   Utente: Carica foto + "Ristruttura questo bagno"
+    -   Modello: `Gemini 3 Pro Image Preview`
+    -   Temperatura: **0.2** (Molto bassa per preservare struttura)
+    -   **Prompt "Locked"**: Istruzioni geometriche rigide generate dall'Architect.
 
-**File**: `ai_core/src/vision/triage.ts`
+### C. **Market Intelligence** (`get_market_prices` tool)
 
-```typescript
-// Linea 29
-const modelName = process.env.CHAT_MODEL_VERSION || 'gemini-3-flash-preview';
-```
-
-**Ruolo**: Analizza l'immagine caricata dall'utente per estrarre:
-- Tipo di stanza
-- Dimensioni approssimative
-- Elementi strutturali presenti
-
-**Output**: JSON con dati tecnici per quote e rendering
+-   **Provider**: Perplexity AI
+-   **Endpoint**: `https://api.perplexity.ai/chat/completions`
+-   **System Prompt**: Forzata la ricerca su domini italiani (.it) e grandi retailer (Leroy Merlin, Iperceramica) per coerenza prezzi.
 
 ---
 
-### C. **Architect** (Prompt Engineering)
+## �️ Sistema di Quote (Rate Limits)
 
-**File**: `ai_core/src/vision/architect.ts`
+Per gestire i costi e l'abuso, è implementato un sistema di quote a due livelli:
 
-```typescript
-// Linea 14
-const modelName = process.env.CHAT_MODEL_VERSION || 'gemini-3-flash-preview';
-```
+1.  **API Rate Limit (Middleware)**
+    -   Limite: 20 richieste / minuto per IP
+    -   Gestione: Rifiuto immediato (429 Too Many Requests)
 
-**Ruolo**: Genera un "Locked Prompt" professionale per il Painter
-
-**System Prompt Highlights**:
-- PHASE 1: Structural Analysis (preserve geometry)
-- PHASE 2: Furnishing Rules (occlusion permission)
-- PHASE 3: Styling & Atmosphere (magazine quality)
-- PHASE 4: Prompt Engineering (golden stack)
-
-**Mandatory Keywords**:
-- **Lighting**: "Volumetric lighting", "Global illumination", "Cinematic soft light"
-- **Realism**: "Photorealistic", "8k resolution", "Unreal Engine 5 render"
-- **Camera**: "24mm wide angle lens", "f/8 aperture", "Depth of field"
-
-**Output**: String prompt ottimizzato (200-500 chars)
-
----
-
-### D. **Painter** (Image Generation)
-
-**File**: `ai_core/src/imagen/generator.ts`
-
-```typescript
-// Linea 41-42
-const envModel = process.env.VISION_MODEL_VERSION;
-const modelName = envModel || 'gemini-3-pro-image-preview';
-```
-
-**Configurazione Vertex AI**:
-
-```typescript
-const generativeModel = vertex_ai.getGenerativeModel({
-    model: 'gemini-3-pro-image-preview',
-    safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-    ],
-    generationConfig: {
-        maxOutputTokens: 8192,
-        temperature: 0.2,  // LOW: respect Locked Prompt instructions
-        topP: 0.95,
-    }
-});
-```
-
-**Input**: 
-- Immagine originale (JPEG base64)
-- Locked Prompt dall'Architect
-
-**Output**: Buffer immagine generata (JPEG)
-
----
-
-## 🎨 Logica di Generazione
-
-### Pipeline JIT (Image-to-Image)
-
-1. **Triage** (Gemini 2.5 Flash)
-   - Analizza immagine utente
-   - Estrae dati tecnici (dimensioni, tipo stanza, elementi)
-
-2. **Architect** (Gemini 2.5 Flash)
-   - Riceve: immagine + stile target + keepElements
-   - Genera: Locked Prompt professionale
-   - Temperature: default (0.7-0.9)
-
-3. **Painter** (Gemini 2.5 Flash Image)
-   - Riceve: immagine + Locked Prompt
-   - Genera: Immagine renovata
-   - Temperature: 0.2 (bassa per fedeltà)
-
-### Fallback T2I (Text-to-Image)
-
-Se l'utente **non carica foto**:
-- Usa `imagen-3.0-generate-001` (Imagen 3 REST API)
-- Genera da prompt testuale
-- File: `ai_core/src/imagen/generate-interior.ts`
-
----
-
-## 🔐 Safety Settings
-
-**Configurazione uniforme** per tutti i modelli generativi:
-
-```typescript
-safetySettings: [
-    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-]
-```
-
-**Rationale**: BLOCK_ONLY_HIGH permette contenuti architettonici (mattoni, armi decorative) senza false positives
-
----
-
-## 📍 Località e Endpoint
-
-### Vertex AI
-- **Project ID**: da `FIREBASE_PROJECT_ID`
-- **Location**: `us-central1` (OBBLIGATORIO per modelli preview)
-- **Auth**: Service Account credentials o Application Default Credentials
-
-### Gemini API (Chat)
-- **Endpoint**: automatico via `@ai-sdk/google`
-- **Auth**: `GEMINI_API_KEY`
-
----
-
-## 🔄 Temperatura per Caso d'Uso
-
-| Componente | Modello | Temperature | Rationale |
-|------------|---------|-------------|-----------|
-| **Chat** | gemini-2.5-flash | Default (SDK) | Conversazione naturale |
-| **Triage** | gemini-2.5-flash | Default | Analisi factual |
-| **Architect** | gemini-2.5-flash | Default | Creatività prompt engineering |
-| **Painter** | gemini-2.5-flash-image | **0.2** | Fedeltà al Locked Prompt |
+2.  **Tool Quota (Business Logic)**
+    -   Gestito in: `ai_core/src/tool-quota.ts`
+    -   **Render**: Max 2 generazioni / 24h per IP
+    -   **Preventivi**: Max 2 richieste / 24h per IP
+    -   **Reset**: Automatico a mezzanotte o dopo 24h (rolling window).
 
 ---
 
 ## 🧪 Test e Debug
 
-### File di Test
-- `ai_core/src/test-jit-pipeline.ts` - Test completo JIT
-- `ai_core/src/test-architect.ts` - Test singolo Architect
-- `ai_core/src/debug-models.ts` - Lista modelli disponibili
-
-### Comandi Utili
+### Comandi Disponibili
 
 ```bash
-# Test pipeline completo
+# Test Integrazione Pipeline JIT
 npm run test:jit
 
-# Debug modelli disponibili
+# Test Quota System
+npm run test:quota
+
+# Verifica Modelli Disponibili
 npm run debug:models
-```
-
----
-
-## 📝 Note Tecniche
-
-### Gemini 3 Flash Preview vs Pro Image Preview
-
-| Caratteristica | Gemini 3 Flash Preview | Gemini 3 Pro Image Preview |
-|----------------|------------------------|----------------------------|
-| **Input** | Text, Image (vision) | Text, Image (multimodal) |
-| **Output** | **Text only** | **Text + Image** |
-| **I2I** | ❌ No | ✅ Yes |
-| **Prompt** | Text prompt | Text + Image prompt |
-
-**Critical**: Per generazione immagini, DEVI usare `gemini-3-pro-image-preview`, NON `gemini-3-flash-preview`
-
-### Nano Banana Pro
-
-"Nano Banana Pro" è il codename interno di Google per **Gemini 3 Pro Image Preview**:
-- Nano: lightweight runtime
-- Banana: riferimento scherzoso alla pipeline di preprocessing
-- Pro: versione potenziata con capacità architettoniche avanzate
-
----
-
-## 🚀 Quick Reference
-
-### Per cambiare modello Chat:
-```env
-CHAT_MODEL_VERSION=gemini-3-flash-preview
-```
-
-### Per cambiare modello Image Generation:
-```env
-VISION_MODEL_VERSION=gemini-3-pro-image-preview
-```
-
-### Per fallback Imagen:
-```env
-IMAGEN_MODEL_VERSION=imagen-3.0-generate-001
 ```
 
 ---
 
 ## ⚠️ Troubleshooting
 
-### "Model not found" error
-- **Causa**: Modello non disponibile in `us-central1`
-- **Fix**: Verifica allowlist progetto o usa altro modello
+### "Perplexity API Error: 401"
+- **Causa**: API Key mancante o errata in `.env`
+- **Fix**: Verificare `PERPLEXITY_API_KEY`
 
-### "No image in response"
-- **Causa**: Usato `gemini-3-flash-preview` invece di `gemini-3-pro-image-preview`
-- **Fix**: Cambia `VISION_MODEL_VERSION`
+### "Quota Exceeded" in Chat
+- **Causa**: L'IP ha superato il limite di 2 render/preventivi.
+- **Fix**: Attendere il reset o cambiare IP (in dev use VPN o restart router).
 
-### "Temperature too high, images vary too much"
-- **Causa**: Temperature default per Painter
-- **Fix**: Abbassa a 0.1-0.2 in `generator.ts` linea 56
-
----
-
-## 📚 Riferimenti
-
-- [Vertex AI Gemini](https://cloud.google.com/vertex-ai/docs/generative-ai/model-reference/gemini)
-- [Imagen 3 API](https://cloud.google.com/vertex-ai/docs/generative-ai/image/generate-images)
-- [AI SDK Google Provider](https://sdk.vercel.ai/providers/ai-sdk-providers/google-generative-ai)
+### "Image generation failed: Blocked"
+- **Causa**: Safety filters hanno bloccato l'output.
+- **Fix**: I filtri sono impostati su `BLOCK_ONLY_HIGH` per permettere contenuti edili (es. "demolizione"), ma richieste esplicite vengono bloccate.

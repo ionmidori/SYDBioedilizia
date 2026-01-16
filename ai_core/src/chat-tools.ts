@@ -13,8 +13,8 @@ import { generateArchitecturalPrompt } from './vision/architect';
 import { checkToolQuota, incrementToolQuota } from './tool-quota';
 import crypto from 'node:crypto';
 
-// Factory function to create tools with injected sessionId and IP for quota checks
-export function createChatTools(sessionId: string, ip: string) {
+// Factory function to create tools with injected sessionId, UID, and guest status
+export function createChatTools(sessionId: string, uid: string, isGuest: boolean = false) {
 
     // Define schemas first - ✅ CHAIN OF THOUGHT: Forza l'AI a riflettere sulla struttura prima del prompt
     const GenerateRenderParameters = z.object({
@@ -109,13 +109,27 @@ export function createChatTools(sessionId: string, ip: string) {
                 const { prompt, roomType, style, structuralElements, mode, sourceImageUrl, modificationType, keepElements } = args || {};
 
                 try {
-                    // ✅ CHECK RENDER QUOTA (2 per IP per 24h)
-                    console.log(`[generate_render] Checking quota for IP: ${ip}`);
-                    const quotaCheck = await checkToolQuota(ip, 'render');
+                    // 🔒 FREEMIUM: Dynamic Limit (1 for Guest, 2 for User)
+                    const limit = isGuest ? 1 : 2;
+                    // 🕒 WINDOW: 48h for Guest, 24h for User
+                    const windowMs = isGuest ? 172800000 : undefined; // 48h in ms for Guest
+
+                    console.log(`[generate_render] Checking quota for UID: ${uid} (Limit: ${limit}, Window: ${windowMs ? '48h' : '24h'})`);
+                    const quotaCheck = await checkToolQuota(uid, 'render', limit, windowMs);
 
                     if (!quotaCheck.allowed) {
+                        if (isGuest) {
+                            // Guest exceeded free trial
+                            console.warn(`[generate_render] Guest ${uid} exceeded free trial`);
+                            return {
+                                status: 'error',
+                                error: '🔒 **Prova Gratuita Terminata**\n\nHai utilizzato il tuo rendering gratuito giornaliero.\n\n👉 **Effettua l\'accesso** (in alto a destra) per sbloccare altri 2 rendering al giorno!'
+                            };
+                        }
+
+                        // Registered user exceeded limit
                         const resetTime = quotaCheck.resetAt.toLocaleString('it-IT');
-                        console.warn(`[generate_render] Quota exceeded for IP ${ip}. Reset at: ${resetTime}`);
+                        console.warn(`[generate_render] Quota exceeded for UID ${uid}. Reset at: ${resetTime}`);
                         return {
                             status: 'error',
                             error: `Hai raggiunto il limite di ${quotaCheck.currentCount} rendering giornalieri. Potrai generare nuovi rendering dopo le ${resetTime}.`
@@ -162,6 +176,35 @@ export function createChatTools(sessionId: string, ip: string) {
                     if (actualMode === 'modification' && sourceImageUrl) {
                         try {
                             console.log('[Hybrid Tool] 📸 Detected Renovation Mode (I2I)');
+
+                            // 🛡️ SSRF PROTECTION: Validate URL domain before fetching
+                            const ALLOWED_DOMAINS = [
+                                'storage.googleapis.com',
+                                'firebasestorage.googleapis.com'
+                            ];
+
+                            let urlObj: URL;
+                            try {
+                                urlObj = new URL(sourceImageUrl);
+                            } catch (urlError) {
+                                console.error('[SSRF] Invalid URL format:', sourceImageUrl);
+                                throw new Error('Invalid image URL format');
+                            }
+
+                            if (!ALLOWED_DOMAINS.includes(urlObj.hostname)) {
+                                // Dev-only exception: Allow localhost for testing
+                                const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+                                const isLocalhost = urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1';
+
+                                if (isDevelopment && isLocalhost) {
+                                    console.warn(`[SSRF] ⚠️ DEV MODE: Allowing localhost (${urlObj.hostname})`);
+                                } else {
+                                    console.error(`[SSRF] Blocked unauthorized domain: ${urlObj.hostname}`);
+                                    throw new Error(`Security: Image URL must be from Firebase Storage (got: ${urlObj.hostname})`);
+                                }
+                            } else {
+                                console.log(`[SSRF] ✅ URL validation passed: ${urlObj.hostname}`);
+                            }
 
                             // Check if it's a storage URL
                             // Extract path from URL: https://storage.googleapis.com/.../app/user-uploads/...
@@ -296,8 +339,8 @@ export function createChatTools(sessionId: string, ip: string) {
 
                     // ✅ INCREMENT QUOTA COUNTER (render successful)
                     try {
-                        await incrementToolQuota(ip, 'render', { roomType: safeRoomType, style: safeStyle, imageUrl });
-                        console.log(`[generate_render] ✅ Quota incremented for IP ${ip}`);
+                        await incrementToolQuota(uid, 'render', { roomType: safeRoomType, style: safeStyle, imageUrl });
+                        console.log(`[generate_render] ✅ Quota incremented for UID ${uid}`);
                     } catch (quotaError) {
                         // ⚠️ Non-blocking: Log but don't fail the entire operation
                         console.error(`[generate_render] ❌ Failed to increment quota:`, quotaError);
@@ -335,13 +378,13 @@ export function createChatTools(sessionId: string, ip: string) {
             parameters: SubmitLeadParameters,
             execute: async (data: any) => {
                 try {
-                    // ✅ CHECK QUOTE QUOTA (2 per IP per 24h)
-                    console.log(`[submit_lead_data] Checking quota for IP: ${ip}`);
-                    const quotaCheck = await checkToolQuota(ip, 'quote');
+                    // ✅ CHECK QUOTE QUOTA (2 per User per 24h)
+                    console.log(`[submit_lead_data] Checking quota for UID: ${uid}`);
+                    const quotaCheck = await checkToolQuota(uid, 'quote');
 
                     if (!quotaCheck.allowed) {
                         const resetTime = quotaCheck.resetAt.toLocaleString('it-IT');
-                        console.warn(`[submit_lead_data] Quota exceeded for IP ${ip}. Reset at: ${resetTime}`);
+                        console.warn(`[submit_lead_data] Quota exceeded for UID ${uid}. Reset at: ${resetTime}`);
                         return {
                             success: false,
                             message: `Hai raggiunto il limite di ${quotaCheck.currentCount} preventivi giornalieri. Potrai richiedere nuovi preventivi dopo le ${resetTime}.`
@@ -350,7 +393,23 @@ export function createChatTools(sessionId: string, ip: string) {
 
                     console.log(`[submit_lead_data] Quota OK. Remaining: ${quotaCheck.remaining} quotes`);
 
-                    console.log('[submit_lead_data] Saving lead to Firestore:', data);
+                    // 🛡️ PRIVACY: Mask PII before logging (GDPR Compliance)
+                    const maskPII = (value: string | undefined) => {
+                        if (!value) return '[empty]';
+                        if (value.length <= 3) return '***';
+                        return value.substring(0, 2) + '*'.repeat(value.length - 4) + value.substring(value.length - 2);
+                    };
+
+                    const maskedData = {
+                        name: maskPII(data.name),
+                        email: data.email ? data.email.split('@')[0].substring(0, 2) + '***@' + (data.email.split('@')[1] || 'domain.com') : '[empty]',
+                        phone: maskPII(data.phone),
+                        projectDetails: data.projectDetails ? `${data.projectDetails.substring(0, 30)}... [${data.projectDetails.length} chars]` : '[empty]',
+                        roomType: data.roomType,
+                        style: data.style
+                    };
+
+                    console.log('[submit_lead_data] Saving lead to Firestore (PII masked):', maskedData);
 
                     const { getFirestore, Timestamp, FieldValue } = await import('firebase-admin/firestore');
                     const { db } = await import('./firebase-admin');
@@ -367,8 +426,8 @@ export function createChatTools(sessionId: string, ip: string) {
 
                     //✅ INCREMENT QUOTA COUNTER (quote successful)
                     try {
-                        await incrementToolQuota(ip, 'quote', { email: data.email, roomType: data.roomType });
-                        console.log(`[submit_lead_data] ✅ Quota incremented for IP ${ip}`);
+                        await incrementToolQuota(uid, 'quote', { email: data.email, roomType: data.roomType });
+                        console.log(`[submit_lead_data] ✅ Quota incremented for UID ${uid}`);
                     } catch (quotaError) {
                         // ⚠️ Non-blocking: Log but don't fail the entire operation
                         console.error(`[submit_lead_data] ❌ Failed to increment quota:`, quotaError);
@@ -398,17 +457,35 @@ export function createChatTools(sessionId: string, ip: string) {
             execute: async ({ query }: { query: string }) => {
                 console.log('🔍 [get_market_prices] Query:', query);
 
-                // Optimize query for Italian market
-                const optimizedQuery = `${query} prezzo Italia 2026 (site:.it OR site:leroymerlin.it OR site:iperceramica.it OR site:manomano.it)`;
-                console.log('🔎 [Perplexity] Optimized:', optimizedQuery);
-
-                const apiKey = process.env.PERPLEXITY_API_KEY;
-                if (!apiKey) {
-                    console.error('❌ Missing PERPLEXITY_API_KEY');
-                    return 'Errore: API Key mancante.';
-                }
-
                 try {
+                    // 🔒 FREEMIUM: Dynamic Limit (1 for Guest, 2 for User)
+                    const limit = isGuest ? 1 : 2;
+
+                    console.log(`[get_market_prices] Checking quota for UID: ${uid} (Limit: ${limit})`);
+                    const quotaCheck = await checkToolQuota(uid, 'market_prices', limit);
+
+                    if (!quotaCheck.allowed) {
+                        if (isGuest) {
+                            return '🔒 **Prova Gratuita Terminata**\n\nHai utilizzato la tua ricerca prezzi gratuita.\n\n👉 **Effettua l\'accesso** per continuare a cercare i migliori prezzi di mercato!';
+                        }
+
+                        const resetTime = quotaCheck.resetAt.toLocaleString('it-IT');
+                        console.warn(`[get_market_prices] Quota exceeded for UID ${uid}. Reset at: ${resetTime}`);
+                        return `⚠️ Hai raggiunto il limite di ${quotaCheck.currentCount} ricerche prezzi giornaliere. Potrai effettuare nuove ricerche dopo le ${resetTime}.`;
+                    }
+
+                    console.log(`[get_market_prices] Quota OK. Remaining: ${quotaCheck.remaining} searches`);
+
+                    // Optimize query for Italian market
+                    const optimizedQuery = `${query} prezzo Italia 2026 (site:.it OR site:leroymerlin.it OR site:iperceramica.it OR site:manomano.it)`;
+                    console.log('🔎 [Perplexity] Optimized:', optimizedQuery);
+
+                    const apiKey = process.env.PERPLEXITY_API_KEY;
+                    if (!apiKey) {
+                        console.error('❌ Missing PERPLEXITY_API_KEY');
+                        return 'Errore: API Key mancante.';
+                    }
+
                     const response = await fetch('https://api.perplexity.ai/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -441,6 +518,15 @@ export function createChatTools(sessionId: string, ip: string) {
                     const content = json.choices?.[0]?.message?.content || 'Nessun risultato trovato.';
 
                     console.log('✅ [Perplexity] Response length:', content.length, 'chars');
+
+                    // ✅ INCREMENT QUOTA COUNTER (search successful)
+                    try {
+                        await incrementToolQuota(uid, 'market_prices', { query: query });
+                        console.log(`[get_market_prices] ✅ Quota incremented for UID ${uid}`);
+                    } catch (quotaError) {
+                        // ⚠️ Non-blocking: Log but don't fail the entire operation
+                        console.error(`[get_market_prices] ❌ Failed to increment quota:`, quotaError);
+                    }
 
                     return content;
 

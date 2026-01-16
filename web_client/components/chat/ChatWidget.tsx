@@ -11,6 +11,7 @@ import { useImageUpload } from '@/hooks/useImageUpload';
 import { useChatScroll } from '@/hooks/useChatScroll';
 import { useMobileViewport } from '@/hooks/useMobileViewport';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
+import { useAuth } from '@/hooks/useAuth';
 
 // Components
 import { ChatHeader } from '@/components/chat/ChatHeader';
@@ -19,6 +20,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatToggleButton } from '@/components/chat/ChatToggleButton';
 import { WelcomeBadge } from '@/components/chat/WelcomeBadge';
 import { ImageLightbox } from '@/components/chat/ImageLightbox';
+import { AuthPrompt } from '@/components/auth/AuthPrompt';
 
 /**
  * ChatWidget Component (Refactored)
@@ -38,6 +40,9 @@ export default function ChatWidget() {
     // Refs
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // 🔒 Authentication Check
+    const { user, loading: authLoading } = useAuth();
 
     // Session Management
     const sessionId = useSessionId();

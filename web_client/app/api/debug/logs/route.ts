@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readdir, stat, readFile } from 'fs/promises';
+import { stat, readFile } from 'fs/promises';
 import { join } from 'path';
 
 export async function GET() {
@@ -10,7 +10,6 @@ export async function GET() {
         // Leggi gli ultimi 200 caratteri del log
         const stats = await stat(logFile);
         const fileSize = stats.size;
-        const startPos = Math.max(0, fileSize - 2000);
 
         const content = await readFile(logFile, 'utf-8');
         const lastLines = content.split('\n').slice(-30);

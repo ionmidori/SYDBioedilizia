@@ -69,7 +69,7 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
 
         // Create Assistant Placeholder
         const assistantMsgId = uuidv4();
-        let assistantContent = '';
+        const assistantContent = '';
 
         setMessages(prev => [...prev, {
             id: assistantMsgId,
@@ -80,11 +80,30 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
         try {
             abortControllerRef.current = new AbortController();
 
+            // 🔒 HYBRID AUTH: Get Firebase ID Token if available (optional for Guest mode)
+            const { auth } = await import('@/lib/firebase');
+            const user = auth.currentUser;
+
+            let idToken: string | null = null;
+
+            if (user) {
+                // User is authenticated - get token
+                idToken = await user.getIdToken();
+            }
+            // If no user, proceed as Guest (idToken remains null)
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+
+            // Only add Authorization header if we have a token
+            if (idToken) {
+                headers['Authorization'] = `Bearer ${idToken}`;
+            }
+
             const res = await fetch('/api/chat', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers,
                 body: JSON.stringify({
                     messages: [...messages, userMsg],
                     sessionId,
@@ -105,7 +124,7 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
             const decoder = new TextDecoder();
             let buffer = '';
             let assistantContent = '';
-            let assistantTools: ToolInvocation[] = [];
+            const assistantTools: ToolInvocation[] = [];
 
             while (true) {
                 const { done, value } = await reader.read();

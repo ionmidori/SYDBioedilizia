@@ -9,6 +9,7 @@
  * Limits:
  * - Max 2 renders per IP per 24h
  * - Max 2 quotes per IP per 24h
+ * - Max 2 market price searches per IP per 24h
  * 
  * This is separate from the general rate limiter (20 req/min)
  * and protects expensive AI operations.
@@ -36,13 +37,14 @@ const IP_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2
 
 // Configuration
 const QUOTA_WINDOW_MS = 86400000; // 24 hours
-const MAX_RENDERS_PER_DAY = 50;
-const MAX_QUOTES_PER_DAY = 2;
+const MAX_RENDERS_PER_DAY = 5;
+const MAX_QUOTES_PER_DAY = 10;
+const MAX_MARKET_PRICES_PER_DAY = 5;
 
 /**
  * Supported tool types for quota tracking
  */
-export type ToolQuotaType = 'render' | 'quote';
+export type ToolQuotaType = 'render' | 'quote' | 'market_prices';
 
 /**
  * Quota data structure stored in Firestore
@@ -91,24 +93,20 @@ function isValidIP(ip: string): boolean {
  * Check if IP is within quota for a specific tool
  * 
  * Uses Firestore transactions to ensure atomicity and prevent race conditions.
- * Implements a sliding 24-hour window that automatically resets.
+ * Implements a sliding window that automatically resets.
  * 
  * @param ip - User's IP address (IPv4 or IPv6)
  * @param toolType - Type of tool ('render' or 'quote')
+ * @param customLimit - Optional custom limit to override default (e.g., for guest users)
+ * @param customWindow - Optional custom window duration in ms (e.g., 48h for guests)
  * @returns Promise resolving to quota check result
  * @throws Error if IP is invalid or Firestore operation fails
- * 
- * @example
- * ```typescript
- * const result = await checkToolQuota('192.168.1.1', 'render');
- * if (!result.allowed) {
- *   console.log(`Quota exceeded. Reset at: ${result.resetAt}`);
- * }
- * ```
  */
 export async function checkToolQuota(
     ip: string,
-    toolType: ToolQuotaType
+    toolType: ToolQuotaType,
+    customLimit?: number,
+    customWindow?: number
 ): Promise<QuotaCheckResult> {
     // ✅ Input validation
     if (!ip || typeof ip !== 'string') {
@@ -120,7 +118,7 @@ export async function checkToolQuota(
         // Don't throw - might be proxy/forwarded IP
     }
 
-    if (!toolType || !['render', 'quote'].includes(toolType)) {
+    if (!toolType || !['render', 'quote', 'market_prices'].includes(toolType)) {
         throw new Error(`[ToolQuota] Invalid tool type: ${toolType}`);
     }
     const firestore = db();
@@ -130,7 +128,17 @@ export async function checkToolQuota(
         const doc = await transaction.get(quotaRef);
         const now = Date.now();
 
-        const limit = toolType === 'render' ? MAX_RENDERS_PER_DAY : MAX_QUOTES_PER_DAY;
+        // Use custom window if provided, otherwise default to 24h
+        const windowMs = customWindow !== undefined ? customWindow : QUOTA_WINDOW_MS;
+
+        // Use custom limit if provided, otherwise use default
+        const limit = customLimit !== undefined ? customLimit : (
+            toolType === 'render'
+                ? MAX_RENDERS_PER_DAY
+                : toolType === 'market_prices'
+                    ? MAX_MARKET_PRICES_PER_DAY
+                    : MAX_QUOTES_PER_DAY
+        );
 
         if (!doc.exists) {
             // First request from this IP
@@ -148,7 +156,7 @@ export async function checkToolQuota(
             return {
                 allowed: true,
                 remaining: limit,
-                resetAt: now + QUOTA_WINDOW_MS,
+                resetAt: now + windowMs,
                 currentCount: 0,
             };
         }
@@ -173,16 +181,16 @@ export async function checkToolQuota(
             return {
                 allowed: true,
                 remaining: limit,
-                resetAt: now + QUOTA_WINDOW_MS,
+                resetAt: now + windowMs,
                 currentCount: 0,
             };
         }
 
         const timeSinceWindowStart = now - toolData.windowStart;
 
-        // Check if we need a new window (24h passed)
-        if (timeSinceWindowStart >= QUOTA_WINDOW_MS) {
-            // Reset quota for new 24h window
+        // Check if we need a new window
+        if (timeSinceWindowStart >= windowMs) {
+            // Reset quota for new window
             const updates = {
                 ...data,
                 [toolType]: {
@@ -198,7 +206,7 @@ export async function checkToolQuota(
             return {
                 allowed: true,
                 remaining: limit,
-                resetAt: now + QUOTA_WINDOW_MS,
+                resetAt: now + windowMs,
                 currentCount: 0,
             };
         }
@@ -209,7 +217,7 @@ export async function checkToolQuota(
             return {
                 allowed: false,
                 remaining: 0,
-                resetAt: toolData.windowStart + QUOTA_WINDOW_MS,
+                resetAt: toolData.windowStart + windowMs,
                 currentCount: toolData.count,
             };
         }
@@ -218,7 +226,7 @@ export async function checkToolQuota(
         return {
             allowed: true,
             remaining: limit - toolData.count,
-            resetAt: toolData.windowStart + QUOTA_WINDOW_MS,
+            resetAt: toolData.windowStart + windowMs,
             currentCount: toolData.count,
         };
     });
@@ -260,7 +268,7 @@ export async function incrementToolQuota(
         throw new Error('[ToolQuota] Invalid IP: must be a non-empty string');
     }
 
-    if (!toolType || !['render', 'quote'].includes(toolType)) {
+    if (!toolType || !['render', 'quote', 'market_prices'].includes(toolType)) {
         throw new Error(`[ToolQuota] Invalid tool type: ${toolType}`);
     }
     const firestore = db();
@@ -272,7 +280,11 @@ export async function incrementToolQuota(
 
         if (!doc.exists) {
             console.error('[ToolQuota] Document should exist before increment. Creating it now.');
-            const limit = toolType === 'render' ? MAX_RENDERS_PER_DAY : MAX_QUOTES_PER_DAY;
+            const limit = toolType === 'render'
+                ? MAX_RENDERS_PER_DAY
+                : toolType === 'market_prices'
+                    ? MAX_MARKET_PRICES_PER_DAY
+                    : MAX_QUOTES_PER_DAY;
 
             transaction.set(quotaRef, {
                 [toolType]: {

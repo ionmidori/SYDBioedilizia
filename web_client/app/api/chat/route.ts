@@ -1,10 +1,7 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { streamText } from 'ai';
-import { google as googleProvider } from '@ai-sdk/google';
 import { getConversationContext, saveMessage, ensureSession } from '@ai-core';
 import { checkRateLimit } from '@/lib/rate-limit';
-import type { createChatTools } from '@ai-core';
-import { callAIWithRetry } from '@ai-core';
 
 // ✅ Helper: Extract text content from various message formats
 function extractUserMessage(message: any): string {
@@ -573,17 +570,59 @@ QUANDO L'UTENTE CHIEDE PREZZI:
 export async function POST(req: Request) {
     console.log("---> API /api/chat HIT");
 
-    // ✅ Hybrid Rate Limiting (Firestore + In-Memory Cache)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🔒 HYBRID AUTH: Optional Firebase ID Token Verification
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    const authHeader = req.headers.get('Authorization');
+    let uid: string;
+    let isGuest = false;
+
+    // Get IP for fallback identification
     const ip = (req.headers.get('x-forwarded-for') ?? '127.0.0.1').split(',')[0];
 
-    const { allowed, remaining, resetAt } = await checkRateLimit(ip);
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        // User provided a token - verify it
+        const idToken = authHeader.split('Bearer ')[1];
+
+        try {
+            const { getAuth } = await import('firebase-admin/auth');
+            const decodedToken = await getAuth().verifyIdToken(idToken);
+            uid = decodedToken.uid;
+            isGuest = false;
+            console.log(`[Auth] ✅ Token verified for UID: ${uid}`);
+        } catch (authError: any) {
+            console.error('[Auth] ❌ Token verification failed:', authError.message);
+            return new Response(JSON.stringify({
+                error: 'Unauthorized',
+                details: 'Invalid or expired Firebase ID Token'
+            }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+    } else {
+        // No token provided - Guest mode
+        uid = `guest_${ip}`;
+        isGuest = true;
+        console.log(`[Auth] 👤 Guest user identified by IP: ${ip}`);
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🛡️ SECURITY IMPROVEMENT: User-based Rate Limiting
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Use UID (or guest_IP) for rate limiting
+    const { allowed, remaining, resetAt } = await checkRateLimit(uid);
 
     if (!allowed) {
-        console.warn(`[RateLimit] IP ${ip} exceeded rate limit`);
-        return new Response('Too Many Requests - Please wait before trying again', {
+        console.warn(`[RateLimit] User ${uid} exceeded rate limit`);
+        return new Response(JSON.stringify({
+            error: 'Too Many Requests',
+            details: 'Please wait before trying again',
+            resetAt: resetAt.toISOString()
+        }), {
             status: 429,
             headers: {
-                'Content-Type': 'text/plain',
+                'Content-Type': 'application/json',
                 'X-RateLimit-Limit': '20',
                 'X-RateLimit-Remaining': remaining.toString(),
                 'X-RateLimit-Reset': resetAt.toISOString(),
@@ -592,7 +631,7 @@ export async function POST(req: Request) {
         });
     }
 
-    console.log(`[RateLimit] IP ${ip} allowed - ${remaining} requests remaining`);
+    console.log(`[RateLimit] User ${uid} allowed - ${remaining} requests remaining`);
 
     try {
         const body = await req.json();
@@ -609,6 +648,11 @@ export async function POST(req: Request) {
                 headers: { 'Content-Type': 'application/json' }
             });
         }
+
+        // 🔒 SECURITY: Validate session ownership
+        // The sessionId should be associated with the authenticated user
+        // For enhanced security, you could store uid in Firestore session and verify it here
+        console.log(`[API] Processing request for user ${uid}, session ${sessionId}`);
 
         console.log("API Request Debug:", {
             hasMessages: !!messages,
@@ -633,7 +677,7 @@ export async function POST(req: Request) {
         console.log('🔍 [DEBUG RAW MESSAGE]:', JSON.stringify(latestUserMessage, null, 2));
 
         // Combine history + new message
-        let coreMessages = [
+        const coreMessages = [
             ...conversationHistory,
             {
                 role: latestUserMessage?.role || 'user',
@@ -696,14 +740,10 @@ export async function POST(req: Request) {
         // Only enable tools when user has explicitly requested them
         // This prevents Gemini from calling generate_render on simple greetings
 
-        const conversationText = coreMessages.map((m: any) =>
-            typeof m.content === 'string' ? m.content.toLowerCase() : ''
-        ).join(' ');
-
         // ✅ ALWAYS enable tools - let the AI decide when to use them
         // The system prompt already instructs the AI to only use tools after confirmation
         const { createChatTools } = await import('@ai-core');
-        const tools = createChatTools(sessionId, ip);
+        const tools = createChatTools(sessionId, uid, isGuest); // 🔒 Pass UID and guest status
         console.log('[Tools] ✅ Tools ENABLED (always available)');
 
         // ✅ MANUAL DATA STREAM IMPLEMENTATION
@@ -771,7 +811,7 @@ export async function POST(req: Request) {
                         },
 
                         // Keep onFinish logic
-                        onFinish: async ({ text, toolResults, finishReason, toolCalls }: { text: string; toolResults: any[]; finishReason?: string; toolCalls?: any[] }) => {
+                        onFinish: async ({ toolResults, finishReason, toolCalls }: { text?: string; toolResults: any[]; finishReason?: string; toolCalls?: any[] }) => {
                             console.log('[onFinish] 🔍 Streamed Content Length:', streamedContent.length);
                             console.log('[onFinish] 📊 Finish Reason:', finishReason || 'unknown');
                             console.log('[onFinish] 🔧 Tool Calls:', toolCalls?.length || 0);

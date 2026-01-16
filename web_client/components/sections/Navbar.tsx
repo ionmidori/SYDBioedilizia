@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Hammer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SignInButton } from '@/components/auth/SignInButton';
 import { cn } from '@/lib/utils';
 
 export function Navbar() {
@@ -64,6 +65,7 @@ export function Navbar() {
                         <Button variant="premium" size="sm">
                             Richiedi Preventivo
                         </Button>
+                        <SignInButton />
                     </div>
 
                     {/* Mobile Menu Toggle */}
@@ -119,6 +121,9 @@ export function Navbar() {
                                 <Button variant="premium" className="w-full py-6 text-lg">
                                     Inizia Progetto
                                 </Button>
+                                <div className="mt-4 flex justify-center">
+                                    <SignInButton />
+                                </div>
                             </motion.div>
                         </div>
                     </motion.div>
