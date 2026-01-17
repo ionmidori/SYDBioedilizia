@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Hammer } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignInButton } from '@/components/auth/SignInButton';
 import { cn } from '@/lib/utils';
@@ -42,12 +43,15 @@ export function Navbar() {
             >
                 <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2 group">
-                        <div className="bg-gradient-to-br from-blue-600 to-cyan-500 p-2 rounded-lg group-hover:shadow-[0_0_20px_rgba(59,130,246,0.5)] transition-all duration-300">
-                            <Hammer className="w-5 h-5 text-white" />
+                        <div className="relative h-16 w-64">
+                            <Image
+                                src="/syd-logo-v2.png"
+                                alt="SYD BIOEDILIZIA"
+                                fill
+                                className="object-contain object-left"
+                                priority
+                            />
                         </div>
-                        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-                            SYD<span className="font-light">BIOEDILIZIA</span>
-                        </span>
                     </Link>
 
                     {/* Desktop Nav */}
