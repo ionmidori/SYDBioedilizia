@@ -1,6 +1,6 @@
-import os
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Depends
 from pydantic import BaseModel
+from src.auth.jwt_handler import verify_token
 
 app = FastAPI(title="SYD Brain 🧠", version="0.1.0")
 
@@ -14,9 +14,9 @@ def health_check():
     return {"status": "ok", "service": "syd-brain"}
 
 @app.post("/chat/stream")
-async def chat_stream(request: ChatRequest):
-    """Mock endpoint for chat streaming (Phase 1 placeholder)."""
-    return {"message": "Endpoint not implemented yet", "input": request}
+async def chat_stream(request: ChatRequest, user_payload: dict = Depends(verify_token)):
+    """Mock endpoint - Secured by Internal JWT."""
+    return {"message": "You are authorized!", "user": user_payload.get("email"), "input": request}
 
 if __name__ == "__main__":
     import uvicorn

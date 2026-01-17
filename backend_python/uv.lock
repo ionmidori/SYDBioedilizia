@@ -50,6 +50,7 @@ dependencies = [
     { name = "langchain-google-vertexai" },
     { name = "langgraph" },
     { name = "pinecone-client" },
+    { name = "pyjwt" },
     { name = "python-dotenv" },
     { name = "uvicorn", extra = ["standard"] },
 ]
@@ -63,6 +64,7 @@ requires-dist = [
     { name = "langchain-google-vertexai", specifier = ">=3.2.1" },
     { name = "langgraph", specifier = ">=1.0.6" },
     { name = "pinecone-client", specifier = ">=6.0.0" },
+    { name = "pyjwt", specifier = ">=2.10.1" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.40.0" },
 ]
