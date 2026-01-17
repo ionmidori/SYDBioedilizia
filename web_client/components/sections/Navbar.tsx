@@ -45,7 +45,7 @@ export function Navbar() {
                     <Link href="/" className="flex items-center gap-2 group">
                         <div className="relative h-16 w-64">
                             <Image
-                                src="/syd-logo-v2.png"
+                                src="/syd-logo-v3.png"
                                 alt="SYD BIOEDILIZIA"
                                 fill
                                 className="object-contain object-left"
