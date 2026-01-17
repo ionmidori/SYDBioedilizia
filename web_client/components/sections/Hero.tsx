@@ -97,7 +97,7 @@ export function Hero() {
                         className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-blue-900/30 group cursor-pointer"
                         onClick={() => {
                             const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
-                                detail: { message: "voglio creare un render 3D" }
+                                detail: {}
                             });
                             window.dispatchEvent(event);
                         }}
