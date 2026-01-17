@@ -46,7 +46,7 @@ export function Navbar() {
                             <Hammer className="w-5 h-5 text-white" />
                         </div>
                         <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-                            Renovation<span className="font-light">AI</span>
+                            SYD<span className="font-light">BIOEDILIZIA</span>
                         </span>
                     </Link>
 
