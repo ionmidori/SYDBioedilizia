@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 
 const SLIDES = [
-    '/Slide/ilovepdf_pages-to-jpg/SYD_Personal_Architect_Demo (1)_pages-to-jpg-0001.jpg',
-    '/Slide/ilovepdf_pages-to-jpg/SYD_Personal_Architect_Demo (1)_pages-to-jpg-0002.jpg',
-    '/Slide/ilovepdf_pages-to-jpg/SYD_Personal_Architect_Demo (1)_pages-to-jpg-0003.jpg',
-    '/Slide/ilovepdf_pages-to-jpg/SYD_Personal_Architect_Demo (1)_pages-to-jpg-0004.jpg',
-    '/Slide/ilovepdf_pages-to-jpg/SYD_Personal_Architect_Demo (1)_pages-to-jpg-0005.jpg',
-    '/Slide/ilovepdf_pages-to-jpg/SYD_Personal_Architect_Demo (1)_pages-to-jpg-0006.jpg',
-    '/Slide/ilovepdf_pages-to-jpg/SYD_Personal_Architect_Demo (1)_pages-to-jpg-0007.jpg',
-    '/Slide/ilovepdf_pages-to-jpg/SYD_Personal_Architect_Demo (1)_pages-to-jpg-0008.jpg',
+    '/slides/slide-1.jpg',
+    '/slides/slide-2.jpg',
+    '/slides/slide-3.jpg',
+    '/slides/slide-4.jpg',
+    '/slides/slide-5.jpg',
+    '/slides/slide-6.jpg',
+    '/slides/slide-7.jpg',
+    '/slides/slide-8.jpg',
 ];
 
 interface SlideShowModalProps {
@@ -102,7 +102,7 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
                     </button>
 
                     {/* Content Container */}
-                    <div className="relative w-full max-w-6xl aspect-video mx-4 z-[105] flex items-center justify-center">
+                    <div className="relative w-full h-[90vh] md:h-auto md:max-w-6xl md:aspect-video mx-4 z-[105] flex items-center justify-center">
 
                         {/* Previous Button */}
                         <button
@@ -149,7 +149,7 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
                         </button>
 
                         {/* Dots Indicator */}
-                        <div className="absolute -bottom-10 left-0 right-0 flex justify-center gap-2">
+                        <div className="absolute bottom-4 md:-bottom-10 left-0 right-0 flex justify-center gap-2">
                             {SLIDES.map((_, idx) => (
                                 <button
                                     key={idx}
