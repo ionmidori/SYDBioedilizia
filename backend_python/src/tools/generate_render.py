@@ -1,26 +1,36 @@
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 from typing import Optional
-from src.api.gemini_imagen import generate_image_t2i
+from src.api.gemini_imagen import generate_image_t2i, generate_image_i2i
 from src.storage.upload import upload_base64_image
+from src.vision.triage import analyze_image_triage
+import httpx
 
 class GenerateRenderInput(BaseModel):
     """Input schema for generate_render tool."""
     prompt: str = Field(
         ..., 
-        description="Detailed description of the interior design to generate (e.g., 'Modern kitchen with white cabinets and marble countertops')"
+        description="Detailed description of the interior design to generate"
     )
     room_type: str = Field(
         ..., 
-        description="Type of room (e.g., 'kitchen', 'living room', 'bathroom')"
+        description="Type of room (e.g., 'kitchen', 'living room')"
     )
     style: str = Field(
         ..., 
-        description="Design style (e.g., 'modern', 'industrial', 'minimalist')"
+        description="Design style (e.g., 'modern', 'industrial')"
     )
-    structural_elements: Optional[str] = Field(
+    mode: str = Field(
+        default="creation",
+        description="creation (new design) or modification (transform existing photo)"
+    )
+    source_image_url: Optional[str] = Field(
         None,
-        description="Structural elements to include (e.g., 'arched windows, wooden beams')"
+        description="URL of user's room photo (required for modification mode)"
+    )
+    keep_elements: Optional[list[str]] = Field(
+        default_factory=list,
+        description="Elements to preserve in modification mode"
     )
 
 async def generate_render_wrapper(
@@ -28,25 +38,51 @@ async def generate_render_wrapper(
     room_type: str,
     style: str,
     session_id: str,
-    structural_elements: Optional[str] = None
+    mode: str = "creation",
+    source_image_url: Optional[str] = None,
+    keep_elements: Optional[list[str]] = None
 ) -> str:
     """
-    Generate a photorealistic interior design rendering from text description.
-    This creates a brand new design visualization (Text-to-Image mode).
+    Generate a photorealistic interior design rendering.
+    Supports both creation (T2I) and modification (I2I) modes.
     """
     try:
-        # Build enhanced prompt
-        full_prompt = f"{style} style {room_type}. {prompt}"
-        if structural_elements:
-            full_prompt = f"{structural_elements}. {full_prompt}"
+        negative_prompt = "low quality, blurry, distorted, cartoon"
         
-        negative_prompt = "low quality, blurry, distorted, unrealistic, cartoon, sketch"
+        # MODE: MODIFICATION (I2I)
+        if mode == "modification" and source_image_url:
+            # Download source image
+            async with httpx.AsyncClient() as client:
+                response = await client.get(source_image_url)
+                source_bytes = response.content
+            
+            # Analyze source image (optional, for context)
+            try:
+                analysis = await analyze_image_triage(source_bytes)
+                if analysis.get("success"):
+                    room_type = analysis.get("roomType", room_type)
+            except:
+                pass  # Continue without analysis
+            
+            # Build I2I prompt
+            full_prompt = f"Transform this {room_type} to {style} style. {prompt}"
+            
+            # Generate I2I
+            result = await generate_image_i2i(
+                source_image_bytes=source_bytes,
+                prompt=full_prompt,
+                keep_elements=keep_elements or [],
+                negative_prompt=negative_prompt
+            )
         
-        # Generate image
-        result = await generate_image_t2i(
-            prompt=full_prompt,
-            negative_prompt=negative_prompt
-        )
+        # MODE: CREATION (T2I)
+        else:
+            full_prompt = f"{style} style {room_type}. {prompt}"
+            
+            result = await generate_image_t2i(
+                prompt=full_prompt,
+                negative_prompt=negative_prompt
+            )
         
         if not result["success"]:
             return "Failed to generate image. Please try again."
@@ -58,7 +94,8 @@ async def generate_render_wrapper(
             prefix="renders"
         )
         
-        return f"✅ Rendering generated successfully!\n\n![Generated Design]({image_url})\n\nWhat do you think of this design?"
+        mode_label = "transformed" if mode == "modification" else "generated"
+        return f"✅ Rendering {mode_label} successfully!\n\n![Design]({image_url})\n\nWhat do you think?"
         
     except Exception as e:
         return f"Error generating render: {str(e)}"
@@ -66,6 +103,6 @@ async def generate_render_wrapper(
 # Tool definition
 GENERATE_RENDER_TOOL_DEF = {
     "name": "generate_render",
-    "description": "Generate a photorealistic interior design rendering based on text description.",
+    "description": "Generate photorealistic interior design renderings (creation or modification).",
     "args_schema": GenerateRenderInput
 }
