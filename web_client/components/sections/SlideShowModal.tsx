@@ -1,14 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { X } from 'lucide-react';
 import Image from 'next/image';
-
-const SLIDES = [
-    '/slides/summary-slide.png'
-];
 
 interface SlideShowModalProps {
     isOpen: boolean;
@@ -17,8 +12,6 @@ interface SlideShowModalProps {
 
 export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
     const [currentIndex, setCurrentIndex] = useState(0);
-    // direction state is no longer needed as there's only one slide and no pagination
-    // const [direction, setDirection] = useState(0);
 
     // Reset index when opening
     useEffect(() => {
@@ -31,45 +24,29 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
         return () => { document.body.style.overflow = 'unset'; };
     }, [isOpen]);
 
-    // paginate function is no longer needed as there's only one slide
-    // const paginate = useCallback((newDirection: number) => {
-    //     setDirection(newDirection);
-    //     setCurrentIndex((prev) => {
-    //         let next = prev + newDirection;
-    //         if (next < 0) next = SLIDES.length - 1;
-    //         if (next >= SLIDES.length) next = 0;
-    //         return next;
-    //     });
-    // }, []);
-
     // Keyboard navigation (only Escape needed now)
     useEffect(() => {
         if (!isOpen) return;
         const handleKeyDown = (e: KeyboardEvent) => {
-            // if (e.key === 'ArrowRight') paginate(1); // No pagination
-            // if (e.key === 'ArrowLeft') paginate(-1); // No pagination
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]); // paginate removed from dependencies
+    }, [isOpen, onClose]);
 
     // Slide variants for animations
     const variants = {
-        enter: () => ({ // direction parameter removed
-            // x: direction > 0 ? 1000 : -1000, // x property removed
+        enter: () => ({
             opacity: 0,
             scale: 0.95
         }),
         center: {
             zIndex: 1,
-            // x: 0, // x property removed
             opacity: 1,
             scale: 1
         },
-        exit: () => ({ // direction parameter removed
+        exit: () => ({
             zIndex: 0,
-            // x: direction < 0 ? 1000 : -1000, // x property removed
             opacity: 0,
             scale: 0.95
         })
@@ -99,17 +76,13 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
                     {/* Content Container */}
                     <div className="relative w-full h-[90vh] md:h-auto md:max-w-6xl md:aspect-video mx-4 z-[105] flex items-center justify-center">
 
-                        {/* Previous Button - Removed */}
-                        {/* Next Button - Removed */}
-
                         {/* Image Carousel */}
                         <div className="relative w-full h-full overflow-hidden rounded-xl shadow-2xl bg-black">
 
                             {/* Ambient Background (Mobile/Fill effect) */}
-                            <AnimatePresence initial={false} mode='popLayout'> {/* custom={direction} removed */}
+                            <AnimatePresence initial={false} mode='popLayout'>
                                 <motion.div
                                     key={`bg-${currentIndex}`}
-                                    // custom={direction} // custom prop removed
                                     variants={variants}
                                     initial="enter"
                                     animate="center"
@@ -117,44 +90,69 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
                                     transition={{ opacity: { duration: 0.5 } }}
                                     className="absolute inset-0 w-full h-full"
                                 >
-                                    <Image
-                                        src={SLIDES[currentIndex]}
-                                        alt=""
-                                        fill
-                                        className="object-cover blur-3xl opacity-50 scale-110"
-                                        aria-hidden="true"
-                                    />
+                                    {/* Mobile Ambient Background Image */}
+                                    <div className="md:hidden relative w-full h-full">
+                                        <Image
+                                            src="/slides/summary-mobile.png"
+                                            alt=""
+                                            fill
+                                            className="object-cover blur-3xl opacity-50 scale-110"
+                                            aria-hidden="true"
+                                        />
+                                    </div>
+
+                                    {/* Desktop Ambient Background Image */}
+                                    <div className="hidden md:block relative w-full h-full">
+                                        <Image
+                                            src="/slides/summary-desktop.png"
+                                            alt=""
+                                            fill
+                                            className="object-cover blur-3xl opacity-50 scale-110"
+                                            aria-hidden="true"
+                                        />
+                                    </div>
                                 </motion.div>
                             </AnimatePresence>
 
                             {/* Main Slide */}
-                            <AnimatePresence initial={false} mode='popLayout'> {/* custom={direction} removed */}
+                            <AnimatePresence initial={false} mode='popLayout'>
                                 <motion.div
                                     key={currentIndex}
-                                    // custom={direction} // custom prop removed
                                     variants={variants}
                                     initial="enter"
                                     animate="center"
                                     exit="exit"
                                     transition={{
-                                        // x: { type: "spring", stiffness: 300, damping: 30 }, // x transition removed
                                         opacity: { duration: 0.2 }
                                     }}
                                     className="absolute inset-0 w-full h-full z-10"
                                 >
-                                    <Image
-                                        src={SLIDES[currentIndex]}
-                                        alt="Come funziona SYD" // Alt text updated
-                                        fill
-                                        priority
-                                        className="object-contain"
-                                        sizes="(max-width: 768px) 100vw, 80vw"
-                                    />
+                                    {/* Mobile Image */}
+                                    <div className="md:hidden relative w-full h-full">
+                                        <Image
+                                            src="/slides/summary-mobile.png"
+                                            alt="Come funziona SYD - Mobile"
+                                            fill
+                                            priority
+                                            className="object-contain"
+                                            sizes="100vw"
+                                        />
+                                    </div>
+
+                                    {/* Desktop Image */}
+                                    <div className="hidden md:block relative w-full h-full">
+                                        <Image
+                                            src="/slides/summary-desktop.png"
+                                            alt="Come funziona SYD - Desktop"
+                                            fill
+                                            priority
+                                            className="object-contain"
+                                            sizes="80vw"
+                                        />
+                                    </div>
                                 </motion.div>
                             </AnimatePresence>
                         </div>
-
-                        {/* Dots Indicator - Removed */}
                     </div>
                 </div>
             )}
