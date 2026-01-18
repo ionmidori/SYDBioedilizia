@@ -1,107 +1,65 @@
-import { VertexAI, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
-import { generateArchitecturalPrompt } from '../vision/architect.js';
+import { generateImagenRenovation } from './imagen_client';
 /**
- * The Painter: Executes the renovation using the Architect's strict instructions.
+ * Builds a professional narrative prompt from ArchitectOutput using Positive Anchoring.
+ * Implements the "Skeleton & Skin" methodology.
+ *
+ * @param architectData - Output from the Architect containing skeleton, materials, and furnishing
+ * @param style - Target style name (e.g., "Japandi", "Industrial")
+ * @returns Fluent narrative prompt for image generation
+ */
+function buildProfessionalPrompt(architectData, style) {
+    // Block 1: Context & Subject
+    const context = `Professional architectural photography of a living space designed in ${style}, shot for an interior design magazine.`;
+    // Block 2: Structural Anchoring (The Skeleton)
+    // Describes the geometry Gemini MUST see and respect
+    // Note: structuralSkeleton already starts with "The room features..."
+    const structure = architectData.structuralSkeleton;
+    // Block 3: Material Application (The New Skin)
+    // Removed "The space is finished with" prefix to avoid stuttering ("...with Walls finished in...")
+    const surfaces = architectData.materialPlan;
+    // Block 4: Furnishing & Atmosphere
+    // Removed "The area is furnished with" prefix to avoid stuttering ("...with A low-profile sofa...")
+    const decor = architectData.furnishingStrategy;
+    // Block 5: Quality & Lighting
+    const techSpecs = `Soft volumetric natural lighting, photorealistic, 8k resolution, sharp focus, highly detailed textures, raytracing.`;
+    // Fluent Assembly
+    return `${context} ${structure} ${surfaces} ${decor} ${techSpecs}`;
+}
+/**
+ * The Painter: Executes the renovation using narrative prompting strategy.
  * Uses Gemini 3 Pro Image Preview (Multimodal) for high-fidelity generation.
  *
- * ROLE: Senior AI Engineer Implementation
+ * ROLE: Prompt Builder & Image Generator
  * MODEL: gemini-3-pro-image-preview
- * REGION: us-central1
  */
-export async function generateRenovation(imageBuffer, targetStyle) {
-    console.log(`[Painter] Starting renovation pipeline for style: "${targetStyle}"`);
-    // STEP 1: The Architect (Geometry Lock)
-    // We get the strict prompt *before* touching the generative model
-    const lockedPrompt = await generateArchitecturalPrompt(imageBuffer, targetStyle);
-    const finalPrompt = `${lockedPrompt}\n\nOutput a high-res renovation image.`;
-    // STEP 2: The Painter (Vertex AI Generation)
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    const location = 'us-central1'; // REQUIRED for preview models
-    if (!projectId) {
-        throw new Error('FIREBASE_PROJECT_ID not found');
-    }
-    // Initialize Vertex AI with explicit auth support for local dev
-    const vertex_ai = new VertexAI({
-        project: projectId,
-        location: location,
-        googleAuthOptions: process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY ? {
-            credentials: {
-                client_email: process.env.FIREBASE_CLIENT_EMAIL,
-                private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
-            }
-        } : undefined
-    });
-    // Use the model version from env (User requested: gemini-2.5-flash-image)
-    const envModel = process.env.VISION_MODEL_VERSION;
-    const modelName = envModel || 'gemini-2.5-flash-image';
-    console.log(`[Painter] ENV VISION_MODEL_VERSION: ${envModel}`);
-    console.log(`[Painter] Initializing model: ${modelName} in ${location}`);
-    const generativeModel = vertex_ai.getGenerativeModel({
-        model: modelName,
-        safetySettings: [
-            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-            { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-        ],
-        generationConfig: {
-            maxOutputTokens: 8192,
-            temperature: 0.2, // Keep low to respect the "Locked" instructions
-            topP: 0.95,
-        }
-    });
+export async function generateRenovation(imageBuffer, architectOutput, style) {
+    console.log(`[Painter] Starting renovation generation with style: ${style}`);
+    console.log(`[Painter] Skeleton: ${architectOutput.structuralSkeleton.substring(0, 80)}...`);
+    console.log(`[Painter] Materials: ${architectOutput.materialPlan.substring(0, 80)}...`);
+    console.log(`[Painter] Furnishing: ${architectOutput.furnishingStrategy.substring(0, 80)}...`);
+    // BUILD PROFESSIONAL NARRATIVE PROMPT
+    const professionalPrompt = buildProfessionalPrompt(architectOutput, style);
+    console.log(`[Painter] PROFESSIONAL PROMPT LENGTH: ${professionalPrompt.length} chars`);
+    console.log(`[Painter] Full Prompt:`, professionalPrompt);
+    // Negative constraints (what to avoid)
+    const NEGATIVE_CONSTRAINTS = `AVOID: blurry, low quality, distorted perspective, bad architecture, debris remaining, messy, cluttered, ugly furniture, watermark, text, signature, oversaturated, CGI looking, cartoon, unrealistic lighting, motion blur, spinning objects.`;
+    // EXECUTE IMAGE GENERATION
+    console.log('[Painter] Starting Gemini 3 Pro Image generation...');
     try {
         const base64Image = imageBuffer.toString('base64');
-        const mimeType = 'image/jpeg';
-        const multimodalPrompt = {
-            inlineData: {
-                mimeType: mimeType,
-                data: base64Image
-            }
-        };
-        const textPart = {
-            text: finalPrompt
-        };
-        const request = {
-            contents: [{
-                    role: 'user',
-                    parts: [multimodalPrompt, textPart]
-                }]
-        };
-        console.log('[Painter] Sending request to Vertex AI...');
-        const response = await generativeModel.generateContent(request);
-        const result = await response.response;
-        // Extract Image
-        if (!result.candidates || result.candidates.length === 0) {
-            throw new Error('No candidates returned');
-        }
-        const candidate = result.candidates[0];
-        let generatedImageBase64;
-        for (const part of candidate.content.parts) {
-            // Check for inlineData (Base64)
-            if (part.inlineData && part.inlineData.mimeType.startsWith('image/')) {
-                generatedImageBase64 = part.inlineData.data;
-                break;
-            }
-            // Future-proofing: Check for fileData (URI) if returned by some versions
-            // @ts-ignore
-            if (part.fileData && part.fileData.mimeType.startsWith('image/')) {
-                console.warn('[Painter] Received fileData URL instead of inlineData, functionality might need update.');
-            }
-        }
-        if (!generatedImageBase64) {
-            console.error('[Painter] Full Response:', JSON.stringify(result, null, 2));
-            throw new Error('Model returned valid response but NO image data found.');
-        }
-        const generatedBuffer = Buffer.from(generatedImageBase64, 'base64');
+        // Call ImagenClient with narrative prompt
+        const response = await generateImagenRenovation({
+            imageBase64: base64Image,
+            mimeType: 'image/jpeg',
+            prompt: professionalPrompt,
+            negativePrompt: NEGATIVE_CONSTRAINTS.replace('AVOID: ', ''),
+        });
+        const generatedBuffer = Buffer.from(response.imageBase64, 'base64');
         console.log(`[Painter] ✅ Generation complete! Image size: ${(generatedBuffer.length / 1024).toFixed(2)} KB`);
         return generatedBuffer;
     }
     catch (error) {
         console.error('[Painter] Error:', error);
-        if (error instanceof Error && error.message.includes('404')) {
-            throw new Error(`Model ${modelName} not found in ${location}. Ensure Project ID is allowlisted.`);
-        }
         throw new Error(`Painter generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }

@@ -6,8 +6,8 @@ LangChain tools don't support async directly, so we create sync wrappers.
 import asyncio
 from typing import Optional
 from src.db.leads import save_lead
-from src.models.lead import LeadInput
-from src.api.perplexity import get_market_price_info
+from src.models.lead import LeadData
+from src.api.perplexity import fetch_market_prices
 from src.tools.generate_render import generate_render_wrapper
 
 def submit_lead_sync(
@@ -19,11 +19,11 @@ def submit_lead_sync(
 ) -> str:
     """Sync wrapper for submit_lead tool."""
     try:
-        lead_data = LeadInput(
+        lead_data = LeadData(
             name=name,
             email=email,
             phone=phone,
-            projectDetails=project_details
+            project_details=project_details
         )
         
         # Run async function in sync context
@@ -43,8 +43,8 @@ def get_market_prices_sync(query: str) -> str:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            result = loop.run_until_complete(get_market_price_info(query))
-            return result
+            result = loop.run_until_complete(fetch_market_prices(query))
+            return result.get("content", "Informazione non disponibile")
         finally:
             loop.close()
     except Exception as e:

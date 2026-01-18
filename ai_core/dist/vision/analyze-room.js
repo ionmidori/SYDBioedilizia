@@ -11,16 +11,19 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
  */
 export async function analyzeRoomStructure(imageUrl) {
     const startTime = Date.now();
+    // 1. Define model in a SINGLE variable
+    const modelName = process.env.CHAT_MODEL_VERSION || 'gemini-2.5-flash';
+    // 2. Dynamic logging
     console.log('[Vision] Initializing Gemini Vision analysis...');
+    console.log(`[Vision] Model: ${modelName}`);
     console.log('[Vision] Image URL:', imageUrl);
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
         throw new Error('GEMINI_API_KEY not found in environment variables');
     }
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Configurable model with fallback
-    const modelVersion = process.env.CHAT_MODEL_VERSION || 'gemini-3-flash-preview';
-    const model = genAI.getGenerativeModel({ model: modelVersion });
+    // 3. Use the variable
+    const model = genAI.getGenerativeModel({ model: modelName });
     // Structured analysis prompt
     const analysisPrompt = `You are a professional interior designer and architect. Analyze this interior photo and extract precise structural and architectural information.
 

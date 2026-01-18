@@ -2,32 +2,40 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 /**
  * Phase 1: The Triage Analyzer
  * Analyzes the room image to provide immediate context to the Chatbot.
- * Uses the fast 'gemini-3-flash-preview' model.
+ * Uses the fast 'gemini-2.5-flash' model.
  *
  * @param imageBuffer - The image data as a Buffer
  * @returns Parsed TriageAnalysis JSON
  */
 export async function analyzeImageForChat(imageBuffer) {
-    console.log('[Triage] Starting analysis (Model: Flash)...');
+    // 1. Define model in a SINGLE variable
+    const modelName = process.env.CHAT_MODEL_VERSION || 'gemini-2.5-flash';
+    // 2. Dynamic logging
+    console.log('[Triage] Starting analysis...');
+    console.log(`[Triage] Model: ${modelName}`);
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
         throw new Error('GEMINI_API_KEY not found');
     }
     const genAI = new GoogleGenerativeAI(apiKey);
-    // Use the Chat/Analysis model (Flash) as requested
-    const modelVersion = process.env.CHAT_MODEL_VERSION || 'gemini-3-flash-preview';
+    // 3. Use the variable
     const model = genAI.getGenerativeModel({
-        model: modelVersion,
+        model: modelName,
         generationConfig: {
             responseMimeType: "application/json" // Force JSON mode if supported by the model version
         }
     });
-    const prompt = `Analyze this room for renovation. 
+    const prompt = `Analyze this image for a home renovation context. 
+    First, determine if this is an image of a room, building interior, or architectural space suitable for renovation.
+    If it is a picture of a pet, food, person (without room context), car, or landscape without buildings, set "is_relevant" to false.
+
     Return ONLY a JSON object with this structure: 
     { 
-        "summary_for_chat": "A brief, natural language description of what you see (max 2 sentences) to be used by a chatbot.", 
+        "is_relevant": boolean,
+        "relevance_reason": "Brief explanation of why it is relevant or not",
+        "summary_for_chat": "A brief, natural language description of what you see (max 2 sentences) to be used by a chatbot. If irrelevant, describe what it is.", 
         "technical_data": { 
-            "room_type": "string", 
+            "room_type": "string (or 'unknown' if irrelevant)", 
             "condition": "good|average|poor|shell", 
             "complexity_score": number (1-10), 
             "detected_materials": ["string"] 

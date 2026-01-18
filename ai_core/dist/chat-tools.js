@@ -2,25 +2,26 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { generateInteriorImage, buildInteriorDesignPrompt } from './imagen/generate-interior';
-// Factory function to create tools with injected sessionId
-export function createChatTools(sessionId) {
+import { generateArchitecturalPrompt } from './vision/architect';
+import { checkToolQuota, incrementToolQuota } from './tool-quota';
+// Factory function to create tools with injected sessionId, UID, and guest status
+export function createChatTools(sessionId, uid, isGuest = false) {
     // Define schemas first - ✅ CHAIN OF THOUGHT: Forza l'AI a riflettere sulla struttura prima del prompt
     const GenerateRenderParameters = z.object({
         // 1️⃣ STEP 1: Analizza la struttura (Chain of Thought)
         structuralElements: z.string()
-            .min(20)
+            .min(5)
             .describe('MANDATORY: List ALL structural elements visible in the user photo or mentioned in the request (in ENGLISH). ' +
-            'Examples: "arched window on left wall", "exposed wooden ceiling beams", "parquet flooring", "high ceilings 3.5m". ' +
-            'If no photo was uploaded, describe the structural requests from the conversation (e.g., "large kitchen island", "walk-in shower").'),
+            'Examples: "arched window", "beams". ' +
+            'If no photo was uploaded, describe the structural requests.'),
         // 2️⃣ STEP 2: Type & Style (già esistenti)
         roomType: z.string().min(3).describe('MANDATORY: Type of room in ENGLISH (e.g. "kitchen", "bathroom").'),
         style: z.string().min(3).describe('MANDATORY: Design style in ENGLISH (e.g. "industrial", "modern").'),
         // 3️⃣ STEP 3: Prompt finale (DEVE usare structuralElements)
         prompt: z.string()
-            .min(30)
+            .min(10)
             .describe('MANDATORY: The final detailed prompt for the image generator IN ENGLISH. ' +
-            'MUST start by describing the structuralElements listed above. ' +
-            'Example: "A modern living room featuring a large arched window on the left wall, exposed wooden beams on the ceiling, and oak parquet flooring. The space includes..."'),
+            'MUST start by describing the structuralElements listed above.'),
         // 🆕 HYBRID TOOL PARAMETERS (Optional - backward compatible)
         // 4️⃣ Mode selection (creation vs modification)
         mode: z.enum(['creation', 'modification'])
@@ -44,6 +45,13 @@ export function createChatTools(sessionId) {
             .describe('Choose "renovation" for whole-room transformation (default). ' +
             'Choose "detail" for small edits (e.g., "change sofa color", "add plant"). ' +
             'This selects the appropriate AI model.'),
+        // 7️⃣ Elements to Keep (Crucial for JIT)
+        keepElements: z.array(z.string())
+            .optional()
+            .default([])
+            .describe('List of specific structural or furniture elements the user explicitly asked to PRESERVE/KEEP. ' +
+            'Examples: ["terracotta floor", "fireplace", "wooden beams", "staircase"]. ' +
+            'This is CRITICAL for the "Modification" mode to ensure these objects remain untouched.'),
     });
     const SubmitLeadParameters = z.object({
         name: z.string().max(100).describe('Customer name'),
@@ -68,12 +76,37 @@ export function createChatTools(sessionId) {
             parameters: GenerateRenderParameters,
             execute: async (args) => {
                 // Extract all parameters including new hybrid parameters
-                const { prompt, roomType, style, structuralElements, mode, sourceImageUrl, modificationType } = args || {};
+                const { prompt, roomType, style, structuralElements, mode, sourceImageUrl, modificationType, keepElements } = args || {};
                 try {
-                    // Use sessionId from closure (injected via factory)
+                    // 🔒 FREEMIUM: Dynamic Limit (1 for Guest, 2 for User)
+                    const limit = isGuest ? 1 : 2;
+                    // 🕒 WINDOW: 48h for Guest, 24h for User
+                    const windowMs = isGuest ? 172800000 : undefined; // 48h in ms for Guest
+                    console.log(`[generate_render] Checking quota for UID: ${uid} (Limit: ${limit}, Window: ${windowMs ? '48h' : '24h'})`);
+                    const quotaCheck = await checkToolQuota(uid, 'render', limit, windowMs);
+                    if (!quotaCheck.allowed) {
+                        if (isGuest) {
+                            // Guest exceeded free trial
+                            console.warn(`[generate_render] Guest ${uid} exceeded free trial`);
+                            return {
+                                status: 'error',
+                                error: '🔒 **Prova Gratuita Terminata**\n\nHai utilizzato il tuo rendering gratuito giornaliero.\n\n👉 **Effettua l\'accesso** (in alto a destra) per sbloccare altri 2 rendering al giorno!'
+                            };
+                        }
+                        // Registered user exceeded limit
+                        const resetTime = quotaCheck.resetAt.toLocaleString('it-IT');
+                        console.warn(`[generate_render] Quota exceeded for UID ${uid}. Reset at: ${resetTime}`);
+                        return {
+                            status: 'error',
+                            error: `Hai raggiunto il limite di ${quotaCheck.currentCount} rendering giornalieri. Potrai generare nuovi rendering dopo le ${resetTime}.`
+                        };
+                    }
+                    console.log(`[generate_render] Quota OK. Remaining: ${quotaCheck.remaining} renders`);
+                    // Use sessionId and ip from closure (injected via factory)
                     console.log('🏗️ [Chain of Thought] Structural elements detected:', structuralElements);
                     console.log('🛠️ [Hybrid Tool] Mode selected:', mode || 'creation (default)');
                     console.log('🔧 [Hybrid Tool] Modification Type:', modificationType || 'renovation (default)');
+                    console.log('🛡️ [Hybrid Tool] KEEP ELEMENTS:', keepElements);
                     console.log('🎨 [generate_render] RECEIVED ARGS:', { prompt, roomType, style, mode, hasSourceImage: !!sourceImageUrl });
                     const safeRoomType = (roomType || 'room').substring(0, 100);
                     const safeStyle = (style || 'modern').substring(0, 100);
@@ -88,37 +121,102 @@ export function createChatTools(sessionId) {
                     let imageBuffer;
                     let enhancedPrompt;
                     let triageResult = null; // Lifted scope for persistence
-                    const actualMode = mode || 'creation'; // Default to creation for backward compatibility
-                    // 🔍 DEBUG LOGGING
-                    console.log('🔍 [DEBUG] actualMode:', actualMode);
-                    console.log('🔍 [DEBUG] sourceImageUrl:', sourceImageUrl);
-                    console.log('🔍 [DEBUG] mode param:', mode);
-                    console.log('🔍 [DEBUG] Condition met?', actualMode === 'modification' && sourceImageUrl);
+                    // 🔥 AUTO-DETECT MODE FROM IMAGE PRESENCE
+                    // If sourceImageUrl exists, we MUST be in modification mode (I2I), 
+                    // unless explicitly told otherwise (rare).
+                    // This fixes cases where the LLM forgets to pass mode="modification".
+                    const actualMode = (sourceImageUrl && (!mode || mode === 'modification'))
+                        ? 'modification'
+                        : (mode || 'creation');
+                    console.log(`🔍 [DEBUG] actualMode: "${actualMode}" derived from mode="${mode}" and hasImage=${!!sourceImageUrl}`);
+                    // Use Triage logic
                     if (actualMode === 'modification' && sourceImageUrl) {
                         try {
-                            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                            // 📸 NEW JIT PIPELINE: Triage -> Architect -> Painter
-                            // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                            console.log('[Vision] 📸 STARTING JIT PIPELINE');
-                            // 1. Fetch the image buffer
-                            const imageResponse = await fetch(sourceImageUrl);
-                            if (!imageResponse.ok)
-                                throw new Error(`Failed to fetch source image: ${imageResponse.statusText}`);
-                            const arrayBuffer = await imageResponse.arrayBuffer();
-                            imageBuffer = Buffer.from(arrayBuffer); // Assign to outer variable
+                            console.log('[Hybrid Tool] 📸 Detected Renovation Mode (I2I)');
+                            // 🛡️ SSRF PROTECTION: Validate URL domain before fetching
+                            const ALLOWED_DOMAINS = [
+                                'storage.googleapis.com',
+                                'firebasestorage.googleapis.com'
+                            ];
+                            let urlObj;
+                            try {
+                                urlObj = new URL(sourceImageUrl);
+                            }
+                            catch (urlError) {
+                                console.error('[SSRF] Invalid URL format:', sourceImageUrl);
+                                throw new Error('Invalid image URL format');
+                            }
+                            if (!ALLOWED_DOMAINS.includes(urlObj.hostname)) {
+                                // Dev-only exception: Allow localhost for testing
+                                const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+                                const isLocalhost = urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1';
+                                if (isDevelopment && isLocalhost) {
+                                    console.warn(`[SSRF] ⚠️ DEV MODE: Allowing localhost (${urlObj.hostname})`);
+                                }
+                                else {
+                                    console.error(`[SSRF] Blocked unauthorized domain: ${urlObj.hostname}`);
+                                    throw new Error(`Security: Image URL must be from Firebase Storage (got: ${urlObj.hostname})`);
+                                }
+                            }
+                            else {
+                                console.log(`[SSRF] ✅ URL validation passed: ${urlObj.hostname}`);
+                            }
+                            // Check if it's a storage URL
+                            // Extract path from URL: https://storage.googleapis.com/.../app/user-uploads/...
+                            // or https://firebasestorage.googleapis.com/.../o/user-uploads%2F...
+                            // Simple fetch attempt first (for public URLs)
+                            let buffer;
+                            const fetchResponse = await fetch(sourceImageUrl);
+                            if (fetchResponse.ok) {
+                                const arrayBuffer = await fetchResponse.arrayBuffer();
+                                buffer = Buffer.from(arrayBuffer);
+                            }
+                            else {
+                                // Fallback: Try Admin SDK if forbidden (private bucket)
+                                console.log('[JIT] Fetch failed (403/404), trying Admin SDK...');
+                                const { getStorage } = await import('firebase-admin/storage');
+                                const bucket = getStorage().bucket(process.env.FIREBASE_STORAGE_BUCKET);
+                                // Extract relative path from URL (hacky but effective for standard Firebase URLs)
+                                // Remove domain and bucket name to get object path
+                                let objectPath = sourceImageUrl;
+                                if (sourceImageUrl.includes('/o/')) {
+                                    // Firebase Client URL
+                                    objectPath = decodeURIComponent(sourceImageUrl.split('/o/')[1].split('?')[0]);
+                                }
+                                else if (sourceImageUrl.includes('storage.googleapis.com')) {
+                                    // Public HTTP URL
+                                    const parts = sourceImageUrl.split(process.env.FIREBASE_STORAGE_BUCKET + '/');
+                                    if (parts.length > 1)
+                                        objectPath = parts[1].split('?')[0];
+                                }
+                                console.log('[JIT] Admin SDK downloading path:', objectPath);
+                                const [fileBuffer] = await bucket.file(objectPath).download();
+                                buffer = fileBuffer;
+                            }
+                            imageBuffer = buffer; // Assign to outer variable
                             // 2. Triage (Analysis)
                             console.log('[JIT] Step 1: Triage analysis...');
                             const { analyzeImageForChat } = await import('./vision/triage');
                             triageResult = await analyzeImageForChat(imageBuffer);
                             console.log('[JIT] Triage Result:', JSON.stringify(triageResult, null, 2));
-                            // 3. Architect & Painter (Generation)
-                            console.log('[JIT] Step 2: Generating renovation...');
-                            const { generateRenovation } = await import('./imagen/generator');
+                            // 3. Architect (Prompt Engineering)
+                            console.log('[JIT] Step 2: Architect designing... (Style: ' + (style || 'modern') + ')');
                             // Use the style from arguments, falling back to a default if needed
                             const targetStyle = style || 'modern renovation';
-                            imageBuffer = await generateRenovation(imageBuffer, targetStyle);
-                            // Set enhancedPrompt for the return value
-                            enhancedPrompt = `[JIT PIPELINE] Style: ${targetStyle}. Analysis: ${JSON.stringify(triageResult)}`;
+                            // 🔒 GET STRUCTURED OUTPUT (Anchors + Vision)
+                            // Ensure keepElements is always an array (coerce if string)
+                            const safeKeepElements = Array.isArray(keepElements)
+                                ? keepElements
+                                : (keepElements ? [keepElements] : []);
+                            const architectOutput = await generateArchitecturalPrompt(imageBuffer, targetStyle, safeKeepElements);
+                            console.log('[JIT] ✅ Architect output received:', architectOutput.structuralSkeleton.length, 'chars skeleton');
+                            // 4. Painter (Generation)
+                            console.log('[JIT] Step 3: Painter executing with bifocal prompt...');
+                            const { generateRenovation } = await import('./imagen/generator');
+                            // ✅ PASS ARCHITECT OUTPUT TO PAINTER (Bifocal Strategy)
+                            imageBuffer = await generateRenovation(imageBuffer, architectOutput, targetStyle);
+                            // Set enhancedPrompt for the return value (combine for legacy compatibility)
+                            enhancedPrompt = `${architectOutput.materialPlan} | Skeleton: ${architectOutput.structuralSkeleton.substring(0, 100)}`;
                             console.log('[JIT] ✅ Pipeline generation complete');
                         }
                         catch (jitError) {
@@ -171,6 +269,15 @@ export function createChatTools(sessionId) {
                     const safeSlug = safeRoomType.replace(/\s+/g, '-');
                     // Upload and get Signed URL
                     const imageUrl = await uploadGeneratedImage(imageBuffer, sessionId, safeSlug);
+                    // ✅ INCREMENT QUOTA COUNTER (render successful)
+                    try {
+                        await incrementToolQuota(uid, 'render', { roomType: safeRoomType, style: safeStyle, imageUrl });
+                        console.log(`[generate_render] ✅ Quota incremented for UID ${uid}`);
+                    }
+                    catch (quotaError) {
+                        // ⚠️ Non-blocking: Log but don't fail the entire operation
+                        console.error(`[generate_render] ❌ Failed to increment quota:`, quotaError);
+                    }
                     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                     // 💾 PERSISTENCE (Save Quote if JIT data exists)
                     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -189,7 +296,7 @@ export function createChatTools(sessionId) {
                     };
                 }
                 catch (error) {
-                    console.error('[generate_render] Error:', error);
+                    console.error('[generate_render] ❌ Error:', error);
                     return {
                         status: 'error',
                         error: error instanceof Error ? error.message : 'Image generation failed'
@@ -202,7 +309,35 @@ export function createChatTools(sessionId) {
             parameters: SubmitLeadParameters,
             execute: async (data) => {
                 try {
-                    console.log('[submit_lead_data] Saving lead to Firestore:', data);
+                    // ✅ CHECK QUOTE QUOTA (2 per User per 24h)
+                    console.log(`[submit_lead_data] Checking quota for UID: ${uid}`);
+                    const quotaCheck = await checkToolQuota(uid, 'quote');
+                    if (!quotaCheck.allowed) {
+                        const resetTime = quotaCheck.resetAt.toLocaleString('it-IT');
+                        console.warn(`[submit_lead_data] Quota exceeded for UID ${uid}. Reset at: ${resetTime}`);
+                        return {
+                            success: false,
+                            message: `Hai raggiunto il limite di ${quotaCheck.currentCount} preventivi giornalieri. Potrai richiedere nuovi preventivi dopo le ${resetTime}.`
+                        };
+                    }
+                    console.log(`[submit_lead_data] Quota OK. Remaining: ${quotaCheck.remaining} quotes`);
+                    // 🛡️ PRIVACY: Mask PII before logging (GDPR Compliance)
+                    const maskPII = (value) => {
+                        if (!value)
+                            return '[empty]';
+                        if (value.length <= 3)
+                            return '***';
+                        return value.substring(0, 2) + '*'.repeat(value.length - 4) + value.substring(value.length - 2);
+                    };
+                    const maskedData = {
+                        name: maskPII(data.name),
+                        email: data.email ? data.email.split('@')[0].substring(0, 2) + '***@' + (data.email.split('@')[1] || 'domain.com') : '[empty]',
+                        phone: maskPII(data.phone),
+                        projectDetails: data.projectDetails ? `${data.projectDetails.substring(0, 30)}... [${data.projectDetails.length} chars]` : '[empty]',
+                        roomType: data.roomType,
+                        style: data.style
+                    };
+                    console.log('[submit_lead_data] Saving lead to Firestore (PII masked):', maskedData);
                     const { getFirestore, Timestamp, FieldValue } = await import('firebase-admin/firestore');
                     const { db } = await import('./firebase-admin');
                     const firestore = db();
@@ -213,6 +348,15 @@ export function createChatTools(sessionId) {
                         status: 'new'
                     });
                     console.log('[submit_lead_data] ✅ Lead saved successfully');
+                    //✅ INCREMENT QUOTA COUNTER (quote successful)
+                    try {
+                        await incrementToolQuota(uid, 'quote', { email: data.email, roomType: data.roomType });
+                        console.log(`[submit_lead_data] ✅ Quota incremented for UID ${uid}`);
+                    }
+                    catch (quotaError) {
+                        // ⚠️ Non-blocking: Log but don't fail the entire operation
+                        console.error(`[submit_lead_data] ❌ Failed to increment quota:`, quotaError);
+                    }
                     return {
                         success: true,
                         message: 'Dati salvati con successo! Ti contatteremo presto.'
@@ -226,6 +370,83 @@ export function createChatTools(sessionId) {
                     };
                 }
             }
-        })
+        }),
+        get_market_prices: tool({
+            description: `Search REAL-TIME Italian market prices for renovation materials, furniture, or labor costs.
+            Trigger when user asks: "Quanto costa X?" or "Cerca il prezzo di Y".
+            Returns concise price ranges from Italian suppliers (max 5 lines).`,
+            parameters: z.object({
+                query: z.string().describe('Specific Italian search query. Examples: "prezzo gres porcellanato Italia 2026", "costo posa parquet al mq Milano"'),
+            }),
+            execute: async ({ query }) => {
+                console.log('🔍 [get_market_prices] Query:', query);
+                try {
+                    // 🔒 FREEMIUM: Dynamic Limit (1 for Guest, 2 for User)
+                    const limit = isGuest ? 1 : 2;
+                    console.log(`[get_market_prices] Checking quota for UID: ${uid} (Limit: ${limit})`);
+                    const quotaCheck = await checkToolQuota(uid, 'market_prices', limit);
+                    if (!quotaCheck.allowed) {
+                        if (isGuest) {
+                            return '🔒 **Prova Gratuita Terminata**\n\nHai utilizzato la tua ricerca prezzi gratuita.\n\n👉 **Effettua l\'accesso** per continuare a cercare i migliori prezzi di mercato!';
+                        }
+                        const resetTime = quotaCheck.resetAt.toLocaleString('it-IT');
+                        console.warn(`[get_market_prices] Quota exceeded for UID ${uid}. Reset at: ${resetTime}`);
+                        return `⚠️ Hai raggiunto il limite di ${quotaCheck.currentCount} ricerche prezzi giornaliere. Potrai effettuare nuove ricerche dopo le ${resetTime}.`;
+                    }
+                    console.log(`[get_market_prices] Quota OK. Remaining: ${quotaCheck.remaining} searches`);
+                    // Optimize query for Italian market
+                    const optimizedQuery = `${query} prezzo Italia 2026 (site:.it OR site:leroymerlin.it OR site:iperceramica.it OR site:manomano.it)`;
+                    console.log('🔎 [Perplexity] Optimized:', optimizedQuery);
+                    const apiKey = process.env.PERPLEXITY_API_KEY;
+                    if (!apiKey) {
+                        console.error('❌ Missing PERPLEXITY_API_KEY');
+                        return 'Errore: API Key mancante.';
+                    }
+                    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${apiKey}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: 'sonar',
+                            messages: [
+                                {
+                                    role: 'system',
+                                    content: 'Sei un PRICE AGGREGATOR. REGOLE OBBLIGATORIE: 1) Cerca SOLO nei 5 siti più visitati per il materiale richiesto in Italia. 2) Output SOLO lista a puntini. 3) Formato ESATTO: "• [Nome Sito]: €[Min]-€[Max] /[unità]". 4) VIETATO scrivere introduzioni, titoli, note, o spiegazioni. 5) MAX 5 righe.'
+                                },
+                                {
+                                    role: 'user',
+                                    content: optimizedQuery
+                                }
+                            ],
+                            temperature: 0.1
+                        })
+                    });
+                    if (!response.ok) {
+                        const errorBody = await response.text();
+                        console.error('❌ [Perplexity] Error:', errorBody);
+                        throw new Error(`Perplexity API Error: ${response.status}`);
+                    }
+                    const json = await response.json();
+                    const content = json.choices?.[0]?.message?.content || 'Nessun risultato trovato.';
+                    console.log('✅ [Perplexity] Response length:', content.length, 'chars');
+                    // ✅ INCREMENT QUOTA COUNTER (search successful)
+                    try {
+                        await incrementToolQuota(uid, 'market_prices', { query: query });
+                        console.log(`[get_market_prices] ✅ Quota incremented for UID ${uid}`);
+                    }
+                    catch (quotaError) {
+                        // ⚠️ Non-blocking: Log but don't fail the entire operation
+                        console.error(`[get_market_prices] ❌ Failed to increment quota:`, quotaError);
+                    }
+                    return content;
+                }
+                catch (error) {
+                    console.error('❌ [Perplexity] Failed:', error);
+                    return `Errore nella ricerca prezzi: ${error.message}`;
+                }
+            }
+        }),
     };
 }

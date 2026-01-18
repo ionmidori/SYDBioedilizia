@@ -28,7 +28,13 @@ async def chat_stream_generator(request: ChatRequest, user_email: str):
     lc_messages = []
     for msg in request.messages:
         if msg.get("role") == "user":
-            lc_messages.append(HumanMessage(content=msg.get("content", "")))
+            content = msg.get("content", "").strip()
+            if content:  # Only add non-empty messages
+                lc_messages.append(HumanMessage(content=content))
+    
+    # Ensure at least one message exists
+    if not lc_messages:
+        lc_messages.append(HumanMessage(content="Ciao"))
     
     # Prepare agent state
     state: AgentState = {

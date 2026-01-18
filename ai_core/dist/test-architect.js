@@ -18,13 +18,15 @@ async function runTest() {
         console.log(`📸 Image loaded (${(imageBuffer.length / 1024).toFixed(2)} KB)`);
         // Execute Architect
         const targetStyle = "Modern Industrial";
-        const lockedPrompt = await generateArchitecturalPrompt(imageBuffer, targetStyle);
+        const architectOutput = await generateArchitecturalPrompt(imageBuffer, targetStyle, []);
         // Verification
-        console.log('\n--- 🔒 Locked Prompt Result ---');
-        console.log(lockedPrompt);
+        console.log('\n--- 🔒 Architect Output ---');
+        console.log('Skeleton:', architectOutput.structuralSkeleton.substring(0, 100) + '...');
+        console.log('Materials:', architectOutput.materialPlan.substring(0, 100) + '...');
+        console.log('Furnishing:', architectOutput.furnishingStrategy.substring(0, 100) + '...');
         // Assertions
-        if (lockedPrompt.includes('[GEO-LOCK]') && lockedPrompt.includes('[STYLE]')) {
-            console.log('\n✅ TEST PASSED: Prompt contains required lock tags.');
+        if (architectOutput.structuralSkeleton && architectOutput.materialPlan) {
+            console.log('\n✅ TEST PASSED: ArchitectOutput contains required fields.');
         }
         else {
             console.error('\n❌ TEST FAILED: Output format incorrect.');

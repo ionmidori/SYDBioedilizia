@@ -1,4 +1,4 @@
-import { storage } from '../firebase-admin.js';
+import { storage } from '../firebase-admin';
 /**
  * Uploads a generated image buffer to Firebase Storage.
  *

@@ -33,7 +33,7 @@ export async function generateInteriorImage(options) {
         console.log('[Imagen REST] Project:', projectId);
         // ✅ BUG FIX #8: Configurable Imagen model version
         const location = 'us-central1';
-        const model = process.env.IMAGEN_MODEL_VERSION || 'imagen-4.0-generate-001';
+        const model = process.env.IMAGEN_MODEL_VERSION || 'imagen-3.0-generate-001';
         const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/${model}:predict`;
         // API request payload
         const requestPayload = {

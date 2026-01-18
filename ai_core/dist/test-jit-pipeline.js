@@ -27,8 +27,13 @@ async function runTest() {
         const imageBuffer = fs.readFileSync(testImagePath);
         console.log(`📸 Input Image loaded (${(imageBuffer.length / 1024).toFixed(2)} KB)`);
         const targetStyle = "Scandinavian Minimalist with warm lighting";
-        // 1. GENERATE (Architect + Painter)
-        const resultBuffer = await generateRenovation(imageBuffer, targetStyle);
+        // 1. ARCHITECT (Generate structural analysis and prompt)
+        console.log('\\n🏗️ Running Architect analysis...');
+        const { generateArchitecturalPrompt } = await import('./vision/architect.js');
+        const architectOutput = await generateArchitecturalPrompt(imageBuffer, targetStyle, []);
+        console.log(`✅ Architect complete! Skeleton: ${architectOutput.structuralSkeleton.substring(0, 50)}...`);
+        // 2. PAINTER (Generate renovation image)
+        const resultBuffer = await generateRenovation(imageBuffer, architectOutput, targetStyle);
         if (!resultBuffer || resultBuffer.length === 0) {
             throw new Error('PIPELINE FAILED: Empty result buffer.');
         }

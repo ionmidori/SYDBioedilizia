@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -33,8 +33,8 @@ def generate_render(
     style: str,
     session_id: str = "default",
     mode: str = "creation",
-    source_image_url: str = None,
-    keep_elements: list = None
+    source_image_url: Optional[str] = None,
+    keep_elements: Optional[List[str]] = None
 ) -> str:
     """Generate photorealistic interior design rendering (T2I or I2I mode)."""
     return generate_render_sync(

@@ -1,4 +1,4 @@
-import { db } from '../firebase-admin.js';
+import { db } from '../firebase-admin';
 /**
  * Saves a new quote draft to the 'quotes' collection in Firestore.
  *
