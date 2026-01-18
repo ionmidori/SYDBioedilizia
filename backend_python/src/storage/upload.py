@@ -62,8 +62,10 @@ def upload_base64_image(
         extension = mime_type.split('/')[1]
         file_name = f"{prefix}/{session_id}/{timestamp}-{unique_id}.{extension}"
         
-        # Upload to Firebase Storage
-        client = storage.Client()
+        # Upload to Firebase Storage using centralized client
+        # ✅ Now uses same credentials as Firestore
+        from src.storage.firebase_storage import get_storage_client
+        client = get_storage_client()
         bucket = client.bucket(FIREBASE_STORAGE_BUCKET)
         blob = bucket.blob(file_name)
         

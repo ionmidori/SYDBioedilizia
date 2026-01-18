@@ -14,14 +14,39 @@ from firebase_admin import firestore
 
 logger = logging.getLogger(__name__)
 
-# Quota limits (configurable via environment or constants)
-QUOTA_LIMITS = {
-    "generate_render": 2,  # Max renders per 24h
-    "get_market_prices": 2,  # Max price searches per 24h
-    # submit_lead doesn't need quota (it's a conversion action)
+# Quota limits - Tiered based on authentication
+# Anonymous users: 1 render per 24h (to encourage signup)
+# Authenticated users: 3 renders per 24h
+QUOTA_LIMITS_ANONYMOUS = {
+    "generate_render": 1,
+    "get_market_prices": 2,
+}
+
+QUOTA_LIMITS_AUTHENTICATED = {
+    "generate_render": 3,
+    "get_market_prices": 5,
 }
 
 QUOTA_WINDOW_HOURS = 24
+
+
+def _is_authenticated_user(user_id: str) -> bool:
+    """
+    Check if user is authenticated based on user_id format.
+    
+    Authenticated users have Firebase UIDs (alphanumeric format).
+    Anonymous users have IDs like 'default', 'guest_*', or session IDs.
+    """
+    if not user_id or user_id == "default":
+        return False
+    
+    # Check if it's a Firebase UID pattern (28 chars alphanumeric)
+    # or any non-guest identifier
+    if user_id.startswith("guest_") or user_id.startswith("session_"):
+        return False
+    
+    # Assume authenticated if it looks like a real UID
+    return len(user_id) > 10 and user_id.isalnum()
 
 
 class QuotaExceededError(Exception):
@@ -54,15 +79,31 @@ def check_quota(user_id: str, tool_name: str) -> Tuple[bool, int, datetime]:
         >>> if not allowed:
         ...     raise QuotaExceededError("generate_render", reset_at)
     """
-    db = firestore.client()
-    quota_ref = db.collection("usage_quotas").document(f"{user_id}_{tool_name}")
-    
     # ✅ FIX: Move `now` outside try block to ensure it's always defined
     now = datetime.utcnow()
     
+    # ENVIRONMENT OVERRIDE: Unlimited quota in development
+    env = os.getenv("ENV", "development")
+    if env == "development":
+        logging.info(f"[Quota] Dev mode active: Bypassing quota for {tool_name}")
+        # Return infinite remaining and a reset in the far future
+        return True, 9999, now + timedelta(days=365)
+    
+    db = firestore.client()
+    quota_ref = db.collection("usage_quotas").document(f"{user_id}_{tool_name}")
+    
     try:
         doc = quota_ref.get()
-        limit = QUOTA_LIMITS.get(tool_name, float('inf'))
+        
+        # ✅ Use tiered limits based on authentication
+        is_authenticated = _is_authenticated_user(user_id)
+        limits = QUOTA_LIMITS_AUTHENTICATED if is_authenticated else QUOTA_LIMITS_ANONYMOUS
+        limit = limits.get(tool_name, float('inf'))
+        
+        logger.info(
+            f"[Quota] User {user_id} ({'authenticated' if is_authenticated else 'anonymous'}) "
+            f"quota for {tool_name}: limit={limit}"
+        )
         
         if not doc.exists:
             # First use: Create quota document

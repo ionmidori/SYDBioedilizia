@@ -51,10 +51,22 @@ async def generate_render_wrapper(
         
         # MODE: MODIFICATION (I2I)
         if mode == "modification" and source_image_url:
+            import logging
+            logging.info(f"[Render] 📥 Downloading source image from: {source_image_url}")
+            
             # Download source image
             async with httpx.AsyncClient() as client:
                 response = await client.get(source_image_url)
                 source_bytes = response.content
+                source_mime_type = response.headers.get("content-type", "image/jpeg")
+            
+            # VALIDATION: Check if we got an actual image (not error XML/HTML)
+            if not source_mime_type.startswith("image/"):
+                logging.error(f"[Render] ❌ Downloaded content is NOT an image! MIME: {source_mime_type}")
+                logging.error(f"[Render] ❌ First 200 bytes: {source_bytes[:200]}")
+                return f"Errore: L'immagine non è accessibile. Il server ha restituito: {source_mime_type}"
+            
+            logging.info(f"[Render] ✅ Image downloaded: {len(source_bytes)} bytes, MIME: {source_mime_type}")
             
             # Analyze source image (optional, for context)
             try:
@@ -64,20 +76,45 @@ async def generate_render_wrapper(
             except:
                 pass  # Continue without analysis
             
-            # Build I2I prompt
-            full_prompt = f"Transform this {room_type} to {style} style. {prompt}"
+            # 🎨 USE ARCHITECT FOR ENHANCED PROMPT GENERATION
+            try:
+                from src.vision.architect import generate_architectural_prompt
+                
+                arch_output = await generate_architectural_prompt(
+                    image_bytes=source_bytes,
+                    target_style=style,
+                    keep_elements=keep_elements or [],
+                    mime_type=source_mime_type
+                )
+                
+                # Combine structured fields into final prompt
+                full_prompt = f"{arch_output.structural_skeleton} {arch_output.material_plan} {arch_output.furnishing_strategy} {arch_output.technical_notes}"
+                
+            except Exception as arch_error:
+                # Fallback to simple prompt if Architect fails
+                import logging
+                logging.warning(f"[Render] Architect failed, using fallback: {arch_error}")
+                full_prompt = f"Transform this {room_type} to {style} style. {prompt}"
             
             # Generate I2I
             result = await generate_image_i2i(
                 source_image_bytes=source_bytes,
                 prompt=full_prompt,
                 keep_elements=keep_elements or [],
-                negative_prompt=negative_prompt
+                negative_prompt=negative_prompt,
+                mime_type=source_mime_type
             )
         
         # MODE: CREATION (T2I)
         else:
-            full_prompt = f"{style} style {room_type}. {prompt}"
+            # Enhanced T2I prompt matching legacy quality
+            full_prompt = (
+                f"Photorealistic interior design rendering of a {room_type}, {style} style. "
+                f"{prompt}. "
+                "Professional architectural visualization quality with natural lighting, "
+                "realistic materials and textures, proper perspective, modern high-end interior design, "
+                "clean composition, 4K quality."
+            )
             
             result = await generate_image_t2i(
                 prompt=full_prompt,

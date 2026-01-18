@@ -14,8 +14,8 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # Models for image generation
-T2I_MODEL = "imagen-3.0-generate-001"  # Text-to-Image
-I2I_MODEL = "gemini-3-pro-image-preview"  # Image-to-Image
+T2I_MODEL = "gemini-2.5-flash-image"  # Testing targeted image generation model
+I2I_MODEL = "gemini-3-pro-image-preview"  # Image-to-Image (Verified available)
 
 
 async def generate_image_t2i(
@@ -99,7 +99,8 @@ async def generate_image_i2i(
     source_image_bytes: bytes,
     prompt: str,
     keep_elements: List[str] = None,
-    negative_prompt: Optional[str] = None
+    negative_prompt: Optional[str] = None,
+    mime_type: str = "image/jpeg"
 ) -> Dict[str, Any]:
     """
     Generate an interior design image from an existing image using Gemini (I2I mode).
@@ -109,6 +110,7 @@ async def generate_image_i2i(
         prompt: Description of the desired renovation/transformation
         keep_elements: Optional list of elements to preserve
         negative_prompt: Optional constraints (what to avoid)
+        mime_type: MIME type of the source image (default: image/jpeg)
         
     Returns:
         Dictionary with base64 encoded image and metadata
@@ -144,7 +146,7 @@ async def generate_image_i2i(
         # Build multimodal content
         contents = [
             types.Part(text=full_prompt),
-            types.Part(inline_data=types.Blob(mime_type="image/jpeg", data=source_image_bytes))
+            types.Part(inline_data=types.Blob(mime_type=mime_type, data=source_image_bytes))
         ]
         
         # Generate content with new SDK

@@ -8,19 +8,13 @@ logger = logging.getLogger(__name__)
 
 async def save_message(
     session_id: str,
-    role: str,  # 'user' or 'assistant'
+    role: str,  # 'user', 'assistant', or 'tool'
     content: str,
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None,
+    tool_calls: Optional[List[Dict[str, Any]]] = None, # 🔥 New
+    tool_call_id: Optional[str] = None # 🔥 New
 ) -> None:
-    """
-    Save a message to Firestore conversation history.
-    
-    Args:
-        session_id: Unique session identifier
-        role: Message role ('user' or 'assistant')
-        content: Message text content
-        metadata: Optional metadata (tool calls, timestamps, etc.)
-    """
+    """Save a message to Firestore with tool support."""
     try:
         db = get_firestore_client()
         
@@ -32,9 +26,14 @@ async def save_message(
         
         if metadata:
             message_data['metadata'] = metadata
+            
+        if tool_calls:
+            message_data['tool_calls'] = tool_calls
+            
+        if tool_call_id:
+            message_data['tool_call_id'] = tool_call_id
         
         # Add to messages subcollection
-        # Schema: sessions/{sessionId}/messages/{messageId}
         db.collection('sessions').document(session_id).collection('messages').add(message_data)
         
         # Update session metadata
@@ -48,7 +47,6 @@ async def save_message(
         
     except Exception as e:
         logger.error(f"[Firestore] Error saving message: {str(e)}", exc_info=True)
-        # Don't crash on persistence failure
         pass
 
 
@@ -56,20 +54,10 @@ async def get_conversation_context(
     session_id: str,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
-    """
-    Retrieve conversation history from Firestore.
-    
-    Args:
-        session_id: Session identifier
-        limit: Maximum number of messages to retrieve
-        
-    Returns:
-        List of messages in format [{'role': 'user', 'content': '...'}, ...]
-    """
+    """Retrieve conversation history including tool data."""
     try:
         db = get_firestore_client()
         
-        # Query messages ordered by timestamp
         messages_ref = (
             db.collection('sessions')
             .document(session_id)
@@ -83,10 +71,16 @@ async def get_conversation_context(
         messages = []
         for doc in docs:
             data = doc.to_dict()
-            messages.append({
+            msg = {
                 'role': data.get('role', 'user'),
                 'content': data.get('content', '')
-            })
+            }
+            if 'tool_calls' in data:
+                msg['tool_calls'] = data['tool_calls']
+            if 'tool_call_id' in data:
+                msg['tool_call_id'] = data['tool_call_id']
+                
+            messages.append(msg)
         
         logger.info(f"[Firestore] Retrieved {len(messages)} messages for session {session_id}")
         return messages

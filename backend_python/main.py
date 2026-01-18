@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # ✅ Load .env file BEFORE other imports
+
 from fastapi import FastAPI, Header, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -11,6 +14,18 @@ from langchain_core.messages import HumanMessage, AIMessage
 import asyncio
 
 app = FastAPI(title="SYD Brain 🧠", version="0.1.0")
+
+@app.on_event("startup")
+async def startup_event():
+    """Validate Firebase configuration on startup."""
+    from src.db.firebase_client import validate_firebase_config
+    try:
+        validate_firebase_config()
+    except RuntimeError as e:
+        import sys
+        print(f"\n{'='*60}\n{e}\n{'='*60}\n")
+        sys.exit(1)
+
 
 class ChatRequest(BaseModel):
     messages: list[dict]
@@ -91,15 +106,34 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
             role = msg.get("role")
             content = _parse_content(msg.get("content", ""))
             
-            # 🔥 INJECT IMAGE MARKERS: If this is the last message and we have images
-            if i == len(request.messages) - 1 and role == "user" and request.image_urls:
-                for url in request.image_urls:
-                    content += f"\n\n[Immagine allegata: {url}]"
-            
             if role == "user":
-                lc_messages.append(HumanMessage(content=content))
+                # 🔥 MULTIMODAL SUPPORT: If this is the last message and we have images
+                if i == len(request.messages) - 1 and request.image_urls:
+                    print(f"👁️ Injecting {len(request.image_urls)} images into prompt")
+                    multimodal_content = [{"type": "text", "text": content}]
+                    for url in request.image_urls:
+                        multimodal_content.append({
+                            "type": "image_url", 
+                            "image_url": {"url": url}
+                        })
+                    lc_messages.append(HumanMessage(content=multimodal_content))
+                else:
+                    # Standard text message
+                    lc_messages.append(HumanMessage(content=content))
             elif role == "assistant":
-                lc_messages.append(AIMessage(content=content))
+                # 🔥 Fix: Handle tool calls in assistant messages
+                tool_calls = msg.get("tool_calls")
+                if tool_calls:
+                    lc_messages.append(AIMessage(content=content or "", tool_calls=tool_calls))
+                else:
+                    lc_messages.append(AIMessage(content=content))
+            
+            elif role == "tool":
+                # 🔥 Fix: Handle tool results
+                lc_messages.append(ToolMessage(
+                    content=content,
+                    tool_call_id=msg.get("tool_call_id") or msg.get("name") # Fallback
+                ))
 
         
         # Prepare agent state with user_id for quota tracking
@@ -137,9 +171,17 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
                 # ──────────────────────────────────────────────────
                 # CASE 1: AI Message with Tool Calls
                 # ──────────────────────────────────────────────────
-                if isinstance(last_msg, AIMessage) and hasattr(last_msg, 'tool_calls'):
-                    tool_calls = last_msg.tool_calls or []
+                if isinstance(last_msg, AIMessage) and hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
+                    tool_calls = last_msg.tool_calls
                     
+                    # 🔥 SAVE AIMessage with Tool Calls to DB
+                    serialized_tool_calls = [
+                        {"id": tc["id"], "name": tc["name"], "args": tc["args"]}
+                        for tc in tool_calls
+                    ]
+                    await save_message(request.session_id, "assistant", last_msg.content or "", tool_calls=serialized_tool_calls)
+                    print(f"💾 Saved assistant tool call message ({len(tool_calls)} calls)")
+
                     for tool_call in tool_calls:
                         # Emit tool call event (9:)
                         async for chunk in stream_tool_call(
@@ -153,6 +195,10 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
                 # CASE 2: Tool Result Message
                 # ──────────────────────────────────────────────────
                 if isinstance(last_msg, ToolMessage):
+                    # 🔥 SAVE ToolMessage to DB
+                    await save_message(request.session_id, "tool", last_msg.content, tool_call_id=last_msg.tool_call_id)
+                    print(f"💾 Saved tool result message")
+
                     # Emit tool result event (a:)
                     async for chunk in stream_tool_result(
                         tool_call_id=last_msg.tool_call_id,

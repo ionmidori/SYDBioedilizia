@@ -6,9 +6,10 @@ service firebase.storage {
     // ==========================================
     // RENDERS FOLDER (Generated Images)
     // ==========================================
+    // FIXED: Use recursive wildcard to match nested paths like /renders/{session}/{file}
     // Public read so users can view images in chat
     // Server-only write via Admin SDK
-    match /renders/{fileName} {
+    match /renders/{allPaths=**} {
       // Anyone can read (view images)
       allow read: if true;
       

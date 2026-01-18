@@ -7,6 +7,9 @@ export type Message = {
     content: string;
     parts?: any[];
     toolInvocations?: ToolInvocation[];
+    attachments?: {
+        images?: string[];
+    };
 };
 
 export interface ToolInvocation {
@@ -50,7 +53,7 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
     };
 
     const append = useCallback(async (
-        message: { role: string; content: string },
+        message: { role: string; content: string; attachments?: any },
         options?: { body?: { images?: string[]; imageUrls?: string[] } }
     ) => {
         setIsLoading(true);
@@ -60,8 +63,9 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
         const userMsgId = uuidv4();
         const userMsg: Message = {
             id: userMsgId,
-            role: 'user',
-            content: message.content
+            role: 'user' as const,
+            content: message.content,
+            attachments: message.attachments
         };
 
         setMessages(prev => [...prev, userMsg]);

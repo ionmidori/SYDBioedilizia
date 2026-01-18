@@ -9,7 +9,14 @@ from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, Tool
 from langchain_core.tools import tool
 
 from src.graph.state import AgentState
-from src.tools.sync_wrappers import submit_lead_sync, get_market_prices_sync, generate_render_sync
+from src.tools.sync_wrappers import (
+    submit_lead_sync, 
+    get_market_prices_sync, 
+    generate_render_sync,
+    save_quote_sync,      # 🆕
+    analyze_room_sync,    # 🆕
+    plan_renovation_sync  # 🆕
+)
 from src.prompts.system_instruction import SYSTEM_INSTRUCTION
 
 logger = logging.getLogger(__name__)
@@ -39,12 +46,48 @@ def generate_render(
     user_id: str = "default"
 ) -> str:
     """Generate photorealistic interior design rendering (T2I or I2I mode)."""
+    logger.info(f"[Tool] 🎨 generate_render called:")
+    logger.info(f"  - prompt: {prompt[:50]}...")
+    logger.info(f"  - room_type: {room_type}")
+    logger.info(f"  - style: {style}")
+    logger.info(f"  - mode: {mode}")
+    logger.info(f"  - source_image_url: {source_image_url}")
+    logger.info(f"  - keep_elements: {keep_elements}")
+    
     return generate_render_sync(
         prompt, room_type, style, session_id, mode, source_image_url, keep_elements, user_id
     )
 
+@tool
+def save_quote(
+    user_id: str,
+    ai_data: Dict[str, Any],
+    image_url: Optional[str] = None
+) -> str:
+    """
+    Save a structured quote draft to the database.
+    Use this when the user completes the 'Technical Surveyor' interview.
+    """
+    return save_quote_sync(user_id, image_url, ai_data)
+
+@tool
+def analyze_room(image_url: str) -> str:
+    """
+    Analyze room structure, dimensions, and features from an image.
+    Use this when the user asks technical questions about the room (e.g. "How big is it?", "List windows").
+    """
+    return analyze_room_sync(image_url)
+
+@tool
+def plan_renovation(image_url: str, style: str, keep_elements: Optional[List[str]] = None) -> str:
+    """
+    Generate a text-only architectural plan using the 'Skeleton & Skin' methodology.
+    Use this to PROPOSE a design before generating the render, or if the user asks for design advice without an image.
+    """
+    return plan_renovation_sync(image_url, style, keep_elements)
+
 # Tool list
-tools = [submit_lead, get_market_prices, generate_render]
+tools = [submit_lead, get_market_prices, generate_render, save_quote, analyze_room, plan_renovation]
 
 # Initialize Gemini LLM with tools
 llm = ChatGoogleGenerativeAI(
@@ -85,32 +128,54 @@ def create_agent_graph():
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # 🧠 CONTEXT INJECTION: Scan for last uploaded image URL
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        last_image_url = None
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # 🧠 CONTEXT INJECTION: Scan for last uploaded images
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        found_images = []
         
-        # Traverse messages backwards to find most recent image
+        # Traverse messages backwards to find most recent image(s)
         for msg in reversed(messages):
-            # Check for [Immagine allegata: URL] marker in text content
+            # Case 1: Legacy Text Marker
             if hasattr(msg, 'content') and isinstance(msg.content, str):
                 match = re.search(r'\[Immagine allegata: (https?://[^\]]+)\]', msg.content)
                 if match:
-                    last_image_url = match.group(1)
-                    logger.info(f"[Context] 💉 Found image URL: {last_image_url}")
-                    break
+                    found_images.append(match.group(1))
+            
+            # Case 2: Multimodal Content (List)
+            elif hasattr(msg, 'content') and isinstance(msg.content, list):
+                for part in msg.content:
+                    if isinstance(part, dict) and part.get("type") == "image_url":
+                        img_field = part.get("image_url")
+                        # Handle {"url": "..."} or string
+                        url = img_field.get("url") if isinstance(img_field, dict) else img_field
+                        if url:
+                            found_images.append(url)
+            
+            if found_images:
+                logger.info(f"[Context] 💉 Found {len(found_images)} images in message")
+                break
         
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         # 📝 DYNAMIC SYSTEM INSTRUCTION: Inject active context
         # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         active_system_instruction = SYSTEM_INSTRUCTION
         
-        if last_image_url:
+        if found_images:
+            # Inject ALL images found
+            import json
+            images_json = json.dumps(found_images)
+            last_image_url = found_images[-1] # Default to the last one
+            
             # Best Practice: Append context without mutating the original constant
             active_system_instruction += f"""
 
 [[ACTIVE CONTEXT]]
+AVAILABLE_IMAGES={images_json}
 LAST_UPLOADED_IMAGE_URL="{last_image_url}"
 When calling generate_render, you MUST set sourceImageUrl="{last_image_url}" if the user wants to modify this image.
+If the user specifically asks for another image from the list, use that URL instead.
 """
-            logger.info("[Context] 💉 Injected image URL into system instruction")
+            logger.info(f"[Context] 💉 Injected {len(found_images)} image URLs into system instruction")
         
         # Add system instruction to first message if not present
         if not any(isinstance(msg, SystemMessage) for msg in messages):

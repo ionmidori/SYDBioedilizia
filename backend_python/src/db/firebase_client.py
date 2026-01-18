@@ -35,3 +35,28 @@ def get_firestore_client():
     """Get Firestore client, initializing Firebase if needed."""
     _init_firebase()
     return firestore.client()
+
+def validate_firebase_config():
+    """
+    Validate all required Firebase environment variables are present.
+    
+    Raises:
+        RuntimeError: If any required environment variable is missing
+    """
+    required_vars = [
+        'FIREBASE_PROJECT_ID',
+        'FIREBASE_PRIVATE_KEY',
+        'FIREBASE_CLIENT_EMAIL',
+        'FIREBASE_STORAGE_BUCKET'
+    ]
+    
+    missing = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing:
+        raise RuntimeError(
+            f"❌ Missing Firebase configuration: {', '.join(missing)}\n"
+            f"Please set these environment variables before starting the server."
+        )
+    
+    logger.info("✅ Firebase configuration validated")
+

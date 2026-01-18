@@ -1,0 +1,56 @@
+name: Backend Python Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend_python/**'
+      - '.github/workflows/backend-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'backend_python/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./backend_python
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "latest"
+    
+    - name: Install dependencies
+      run: |
+        uv sync
+    
+    - name: Run tests with pytest
+      env:
+        ENV: development  # Use development mode to bypass quota/Firebase in tests
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        FIREBASE_STORAGE_BUCKET: test-bucket.firebasestorage.app
+      run: |
+        uv run pytest -v --tb=short --cov=src --cov-report=term-missing
+    
+    - name: Upload coverage reports
+      if: always()
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./backend_python/coverage.xml
+        flags: backend-python
+        fail_ci_if_error: false
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
