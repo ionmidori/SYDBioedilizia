@@ -1,24 +1,29 @@
 import os
 import logging
 import base64
-from typing import Optional, Dict, Any
-import google.generativeai as genai
-from PIL import Image
-import io
+from typing import Optional, Dict, Any, List
+from google import genai
+from google.genai import types
 
 logger = logging.getLogger(__name__)
 
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+
+# Create client with API key
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+# Models for image generation
+T2I_MODEL = "imagen-3.0-generate-001"  # Text-to-Image
+I2I_MODEL = "gemini-3-pro-image-preview"  # Image-to-Image
+
 
 async def generate_image_t2i(
     prompt: str,
     negative_prompt: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    Generate an interior design image from text using Gemini 2.0 Flash Experimental.
+    Generate an interior design image from text using Gemini 2.0 Flash.
     
     Args:
         prompt: Detailed description of the desired interior design
@@ -30,13 +35,10 @@ async def generate_image_t2i(
     Raises:
         Exception: If API call fails or no API key configured
     """
-    if not GEMINI_API_KEY:
+    if not client:
         raise Exception("GEMINI_API_KEY not configured in environment")
     
     try:
-        # Use Gemini 2.0 Flash Experimental (imagen-3.0-generate-001 via Gemini)
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
-        
         # Build full prompt
         safety_instruction = (
             "Generate a photorealistic interior design image. "
@@ -49,25 +51,25 @@ async def generate_image_t2i(
         
         logger.info(f"Generating T2I image with prompt length: {len(full_prompt)} chars")
         
-        # Generate content
-        response = model.generate_content(
-            full_prompt,
-            generation_config=genai.GenerationConfig(
-                response_modalities=["image"],
-                temperature=0.4,  # Lower for more predictable architectural results
+        # Generate content with new SDK
+        response = client.models.generate_content(
+            model=T2I_MODEL,
+            contents=full_prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+                temperature=0.4,
             )
         )
         
         # Extract image from response
-        if not response.parts:
+        if not response.candidates or not response.candidates[0].content.parts:
             raise Exception("No content returned from Gemini API")
         
         image_part = None
-        for part in response.parts:
-            if hasattr(part, 'inline_data') and part.inline_data:
-                if part.inline_data.mime_type.startswith('image/'):
-                    image_part = part
-                    break
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.mime_type.startswith('image/'):
+                image_part = part
+                break
         
         if not image_part:
             raise Exception("No image found in API response")
@@ -83,7 +85,7 @@ async def generate_image_t2i(
             "image_base64": image_base64,
             "mime_type": image_part.inline_data.mime_type,
             "metadata": {
-                "model": "gemini-2.0-flash-exp",
+                "model": T2I_MODEL,
                 "mode": "text-to-image"
             }
         }
@@ -96,7 +98,7 @@ async def generate_image_t2i(
 async def generate_image_i2i(
     source_image_bytes: bytes,
     prompt: str,
-    keep_elements: list[str] = None,
+    keep_elements: List[str] = None,
     negative_prompt: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -114,12 +116,10 @@ async def generate_image_i2i(
     Raises:
         Exception: If API call fails or no API key configured
     """
-    if not GEMINI_API_KEY:
+    if not client:
         raise Exception("GEMINI_API_KEY not configured in environment")
     
     try:
-        model = genai.GenerativeModel("gemini-2.0-flash-exp")
-        
         # Build I2I prompt with geometry preservation instructions
         preservation_note = ""
         if keep_elements:
@@ -138,34 +138,34 @@ async def generate_image_i2i(
         
         logger.info(f"Generating I2I image with prompt length: {len(full_prompt)} chars")
         
-        # Convert source image to base64
+        # Create image part for multimodal input
         source_base64 = base64.b64encode(source_image_bytes).decode('utf-8')
         
-        # Generate content with both prompt and source image
-        response = model.generate_content(
-            [
-                full_prompt,
-                {
-                    "mime_type": "image/jpeg",
-                    "data": source_base64
-                }
-            ],
-            generation_config=genai.GenerationConfig(
-                response_modalities=["image"],
+        # Build multimodal content
+        contents = [
+            types.Part(text=full_prompt),
+            types.Part(inline_data=types.Blob(mime_type="image/jpeg", data=source_image_bytes))
+        ]
+        
+        # Generate content with new SDK
+        response = client.models.generate_content(
+            model=I2I_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
                 temperature=0.4,
             )
         )
         
         # Extract image from response
-        if not response.parts:
+        if not response.candidates or not response.candidates[0].content.parts:
             raise Exception("No content returned from Gemini API")
         
         image_part = None
-        for part in response.parts:
-            if hasattr(part, 'inline_data') and part.inline_data:
-                if part.inline_data.mime_type.startswith('image/'):
-                    image_part = part
-                    break
+        for part in response.candidates[0].content.parts:
+            if part.inline_data and part.inline_data.mime_type.startswith('image/'):
+                image_part = part
+                break
         
         if not image_part:
             raise Exception("No image found in API response")
@@ -180,7 +180,7 @@ async def generate_image_i2i(
             "image_base64": image_base64,
             "mime_type": image_part.inline_data.mime_type,
             "metadata": {
-                "model": "gemini-2.0-flash-exp",
+                "model": I2I_MODEL,
                 "mode": "image-to-image"
             }
         }

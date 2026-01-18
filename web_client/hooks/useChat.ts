@@ -101,7 +101,9 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
                 headers['Authorization'] = `Bearer ${idToken}`;
             }
 
-            const res = await fetch('/api/chat-python', {
+            // ✅ PYTHON BACKEND (Default): Uses new Python/LangGraph implementation
+            // Legacy TypeScript endpoint available at /api/chat if needed for rollback
+            const res = await fetch('/api/chat', {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConversationContext } from '@ai-core';
+import { getConversationContext } from '@/lib/legacy-api';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

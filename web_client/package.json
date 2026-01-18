@@ -32,11 +32,7 @@
     "lightningcss-linux-x64-gnu": "*"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.2",
     "@ai-sdk/react": "^3.0.5",
-    "@google-cloud/aiplatform": "^6.0.0",
-    "@google-cloud/vertexai": "^1.10.0",
-    "@google/generative-ai": "^0.24.1",
     "@radix-ui/react-slot": "^1.2.4",
     "@types/jsonwebtoken": "^9.0.10",
     "@vercel/analytics": "^1.6.1",

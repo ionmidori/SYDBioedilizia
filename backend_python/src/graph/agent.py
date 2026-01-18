@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 from typing import Any, Dict, List, Optional
 from langgraph.graph import StateGraph, END
@@ -22,9 +23,9 @@ def submit_lead(name: str, email: str, phone: str, project_details: str, session
     return submit_lead_sync(name, email, phone, project_details, session_id)
 
 @tool
-def get_market_prices(query: str) -> str:
+def get_market_prices(query: str, user_id: str = "default") -> str:
     """Get current market prices for renovation materials or services."""
-    return get_market_prices_sync(query)
+    return get_market_prices_sync(query, user_id)
 
 @tool
 def generate_render(
@@ -34,11 +35,12 @@ def generate_render(
     session_id: str = "default",
     mode: str = "creation",
     source_image_url: Optional[str] = None,
-    keep_elements: Optional[List[str]] = None
+    keep_elements: Optional[List[str]] = None,
+    user_id: str = "default"
 ) -> str:
     """Generate photorealistic interior design rendering (T2I or I2I mode)."""
     return generate_render_sync(
-        prompt, room_type, style, session_id, mode, source_image_url, keep_elements
+        prompt, room_type, style, session_id, mode, source_image_url, keep_elements, user_id
     )
 
 # Tool list
@@ -46,7 +48,7 @@ tools = [submit_lead, get_market_prices, generate_render]
 
 # Initialize Gemini LLM with tools
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.5-flash",
     google_api_key=GEMINI_API_KEY,
     temperature=0.7,
 )
@@ -70,12 +72,56 @@ def create_agent_graph():
     
     # Define the agent node
     def agent_node(state: AgentState) -> Dict[str, Any]:
-        """Run the agent with current state."""
+        """
+        Run the agent with current state.
+        
+        Implements intelligent context injection by:
+        1. Scanning conversation history for image upload markers
+        2. Dynamically enriching system instruction with image URLs
+        3. Ensuring AI awareness of visual context across conversation turns
+        """
         messages = state["messages"]
+        
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # 🧠 CONTEXT INJECTION: Scan for last uploaded image URL
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        last_image_url = None
+        
+        # Traverse messages backwards to find most recent image
+        for msg in reversed(messages):
+            # Check for [Immagine allegata: URL] marker in text content
+            if hasattr(msg, 'content') and isinstance(msg.content, str):
+                match = re.search(r'\[Immagine allegata: (https?://[^\]]+)\]', msg.content)
+                if match:
+                    last_image_url = match.group(1)
+                    logger.info(f"[Context] 💉 Found image URL: {last_image_url}")
+                    break
+        
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        # 📝 DYNAMIC SYSTEM INSTRUCTION: Inject active context
+        # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        active_system_instruction = SYSTEM_INSTRUCTION
+        
+        if last_image_url:
+            # Best Practice: Append context without mutating the original constant
+            active_system_instruction += f"""
+
+[[ACTIVE CONTEXT]]
+LAST_UPLOADED_IMAGE_URL="{last_image_url}"
+When calling generate_render, you MUST set sourceImageUrl="{last_image_url}" if the user wants to modify this image.
+"""
+            logger.info("[Context] 💉 Injected image URL into system instruction")
         
         # Add system instruction to first message if not present
         if not any(isinstance(msg, SystemMessage) for msg in messages):
-            messages = [SystemMessage(content=SYSTEM_INSTRUCTION)] + list(messages)
+            messages = [SystemMessage(content=active_system_instruction)] + list(messages)
+        else:
+            # Replace existing SystemMessage with enriched version
+            # This ensures the latest context is always present
+            messages = [
+                SystemMessage(content=active_system_instruction) if isinstance(msg, SystemMessage) else msg
+                for msg in messages
+            ]
         
         # Invoke LLM with tools
         response = llm_with_tools.invoke(messages)

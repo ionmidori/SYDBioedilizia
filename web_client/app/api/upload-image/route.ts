@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadBase64Image } from '@ai-core';
+import { uploadBase64Image } from '@/lib/legacy-api';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 /**

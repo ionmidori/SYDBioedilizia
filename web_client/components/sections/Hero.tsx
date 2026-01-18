@@ -111,7 +111,7 @@ export function Hero() {
                     >
                         <div className="relative aspect-video bg-slate-950">
                             <video
-                                src="/videos/ai-visualization.mp4"
+                                src="/videos/ai-interior-design.mp4"
                                 autoPlay
                                 muted
                                 playsInline

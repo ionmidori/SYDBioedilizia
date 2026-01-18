@@ -6,3 +6,4 @@ class AgentState(TypedDict):
     """State for the conversational AI agent."""
     messages: Annotated[Sequence[BaseMessage], add_messages]
     session_id: str
+    user_id: str  # ✅ Added for quota tracking

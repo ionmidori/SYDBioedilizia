@@ -177,6 +177,22 @@ export function getFirebaseStorage(): Storage {
     return storageInstance;
 }
 
+import { getAuth, Auth } from 'firebase-admin/auth';
+
+let authInstance: Auth | undefined;
+
+/**
+ * Get Firebase Auth instance (singleton)
+ */
+export function getFirebaseAuth(): Auth {
+    if (!authInstance) {
+        const app = initializeFirebase();
+        authInstance = getAuth(app);
+    }
+    return authInstance;
+}
+
 // Export convenient aliases
 export const db = getFirestoreDb;
 export const storage = getFirebaseStorage;
+export const auth = getFirebaseAuth;

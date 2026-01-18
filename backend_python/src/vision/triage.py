@@ -46,8 +46,8 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
             contents=[
                 types.Content(
                     parts=[
-                        types.Part.from_text(text=TRIAGE_PROMPT),
-                        types.Part.from_bytes(data=image_data, mime_type="image/jpeg"),
+                        types.Part(text=TRIAGE_PROMPT),
+                        types.Part(inline_data=types.Blob(mime_type="image/jpeg", data=image_data)),
                     ]
                 )
             ]
