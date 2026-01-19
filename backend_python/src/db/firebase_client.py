@@ -15,6 +15,11 @@ def _init_firebase():
         if os.path.exists('/app/service-account.json'):
             # Production: mounted secret
             cred = credentials.Certificate('/app/service-account.json')
+            logger.info("Using production service account: /app/service-account.json")
+        elif os.path.exists('firebase-service-account.json'):
+            # Development: local file (PRIORITY)
+            cred = credentials.Certificate('firebase-service-account.json')
+            logger.info("Using local service account: firebase-service-account.json")
         else:
             # Development: use environment variables
             cred = credentials.Certificate({

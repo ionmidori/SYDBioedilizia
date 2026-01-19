@@ -93,6 +93,34 @@ def generate_render_sync(
     logger.info(f"[Tool] 🎨 generate_render called: mode={mode}, style={style}")
     effective_user_id = user_id if user_id != "default" else get_current_user_id()
     
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # 🔄 FALLBACK: Auto-recover image URL from session if AI forgot
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if mode == "modification" and not source_image_url:
+        logger.warning("[Tool] ⚠️ modification mode but no source_image_url - attempting recovery from session")
+        try:
+            import re
+            from src.db.messages import get_messages
+            messages = get_messages(session_id, limit=20)
+            for msg in reversed(messages):
+                content = msg.get("content", "")
+                if isinstance(content, str):
+                    # Fix: Use a pattern that captures the full URL including query params
+                    # Signed URLs have format: https://...?X-Goog-Algorithm=...&X-Goog-Signature=...
+                    match = re.search(r'\[Immagine allegata: (https?://[^\]]+)\]', content)
+                    if match:
+                        source_image_url = match.group(1)
+                        # Log full URL for debugging
+                        logger.info(f"[Tool] ✅ Recovered image URL from session: {source_image_url[:100]}...")
+                        logger.debug(f"[Tool] 🔗 Full recovered URL: {source_image_url}")
+                        break
+            if not source_image_url:
+                logger.error("[Tool] ❌ Could not recover image URL from session")
+                return "❌ Non ho trovato un'immagine da modificare. Per favore, carica nuovamente la foto."
+        except Exception as e:
+            logger.error(f"[Tool] ❌ Failed to recover image URL: {e}")
+            return "❌ Errore nel recuperare l'immagine. Ricarica la foto e riprova."
+    
     try:
         allowed, remaining, reset_at = check_quota(effective_user_id, "generate_render")
         if not allowed:

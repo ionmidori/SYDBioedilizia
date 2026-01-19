@@ -2,7 +2,7 @@ import os
 import logging
 import base64
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any
 from google.cloud import storage
 
@@ -74,17 +74,17 @@ def upload_base64_image(
             content_type=mime_type
         )
         
-        # Make publicly accessible
-        try:
-            blob.make_public()
-            logger.info(f"Image made public: {file_name}")
-        except Exception as e:
-            logger.warning(f"Could not make image public: {e}")
+        # Use Signed URLs instead of make_public (works with Uniform Bucket Access)
+        # Valid for 7 days - ample time for user session and AI processing
+        public_url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(days=7),
+            method="GET"
+        )
         
-        # Generate public URL
-        public_url = f"https://storage.googleapis.com/{FIREBASE_STORAGE_BUCKET}/{file_name}"
-        
-        logger.info(f"Upload complete: {public_url}")
+        # Redact signature from logs
+        safe_log_url = public_url.split("?")[0] + "?[REDACTED]"
+        logger.info(f"Upload complete: {safe_log_url}")
         return public_url
         
     except Exception as e:

@@ -43,11 +43,26 @@ export async function uploadBase64Image(options: {
             },
         });
 
-        await file.makePublic();
+        // Use Signed URL instead of makePublic (works with Uniform Bucket Level Access)
+        // Valid for 7 days - ample time for user session and AI processing
+        console.log(`[Upload] 🔑 Generating signed URL for: ${fileName}`);
 
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-        console.log(`[Upload] ✅ Uploaded to ${publicUrl}`);
-        return publicUrl;
+        try {
+            const [signedUrl] = await file.getSignedUrl({
+                action: 'read',
+                expires: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
+            });
+
+            console.log(`[Upload] ✅ Signed URL generated successfully`);
+            console.log(`[Upload] 🔗 URL starts with: ${signedUrl.substring(0, 80)}...`);
+            return signedUrl;
+        } catch (signError) {
+            console.error(`[Upload] ❌ Signed URL generation FAILED:`, signError);
+            // Fallback to public URL (will fail with UBLA but useful for debugging)
+            const fallbackUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+            console.warn(`[Upload] ⚠️ Falling back to public URL: ${fallbackUrl}`);
+            return fallbackUrl;
+        }
 
     } catch (error) {
         console.error('[Upload] Error:', error);

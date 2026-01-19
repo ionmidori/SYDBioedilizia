@@ -12,6 +12,35 @@ from src.graph.agent import agent_graph
 from src.graph.state import AgentState
 from langchain_core.messages import HumanMessage, AIMessage
 import asyncio
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# 🔥 FILE LOGGING CONFIGURATION
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+log_file = os.path.join(os.path.dirname(__file__), "server.log")
+file_handler = RotatingFileHandler(
+    log_file,
+    maxBytes=5 * 1024 * 1024,  # 5 MB
+    backupCount=3
+)
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+))
+
+# Configure root logger
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[
+        file_handler,
+        logging.StreamHandler()  # Keep console output
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SYD Brain 🧠", version="0.1.0")
 
@@ -30,9 +59,20 @@ async def startup_event():
 class ChatRequest(BaseModel):
     messages: list[dict]
     session_id: str = Field(..., alias="sessionId")
-    image_urls: list[str] | None = Field(None, alias="imageUrls")
+    # ✅ Support both images and videos
+    media_urls: list[str] | None = Field(None, alias="mediaUrls") 
+    image_urls: list[str] | None = Field(None, alias="imageUrls")  # Backward compatibility
+    media_types: list[str] | None = Field(None, alias="mediaTypes")  # Optional MIME type hints
     
     model_config = {"populate_by_name": True}
+    
+    def __init__(self, **data):
+        # Backward compatibility: if imageUrls provided, use it as mediaUrls
+        if "imageUrls" in data or "image_urls" in data:
+            image_urls = data.get("imageUrls") or data.get("image_urls")
+            if image_urls and not data.get("mediaUrls") and not data.get("media_urls"):
+                data["mediaUrls"] = image_urls
+        super().__init__(**data)
 
 @app.get("/health")
 def health_check():
@@ -90,10 +130,26 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
 
         user_content = _parse_content(latest_user_message.get("content", ""))
         
-        # 🔥 INJECT IMAGE MARKERS if present
-        if request.image_urls:
-            for url in request.image_urls:
-                user_content += f"\n\n[Immagine allegata: {url}]"
+        # ✅ INJECT MEDIA MARKERS if present (images or videos)
+        media_urls = request.media_urls or request.image_urls  # Backward compatibility
+        media_types = request.media_types or []
+        
+        if media_urls:
+            for idx, url in enumerate(media_urls):
+                # Determine media type (prefer explicit media_types, fallback to guessing from URL)
+                mime_type = media_types[idx] if idx < len(media_types) else None
+                if not mime_type:
+                    # Guess mime type from URL extension
+                    if any(url.lower().endswith(ext) for ext in ['.mp4', '.webm', '.mov', '.avi']):
+                        media_label = "Video allegato"
+                    else:
+                        media_label = "Immagine allegata"
+                elif mime_type.startswith('video/'):
+                    media_label = "Video allegato"
+                else:
+                    media_label = "Immagine allegata"
+                    
+                user_content += f"\n\n[{media_label}: {url}]"
         
         # 🔥 SAVE USER MESSAGE to DB
         await save_message(request.session_id, "user", user_content)
@@ -107,15 +163,23 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
             content = _parse_content(msg.get("content", ""))
             
             if role == "user":
-                # 🔥 MULTIMODAL SUPPORT: If this is the last message and we have images
-                if i == len(request.messages) - 1 and request.image_urls:
-                    print(f"👁️ Injecting {len(request.image_urls)} images into prompt")
+                # 🔥 MULTIMODAL SUPPORT: If this is the last message and we have media
+                if i == len(request.messages) - 1 and media_urls:
+                    print(f"👁️ Injecting {len(media_urls)} media files into prompt")
                     multimodal_content = [{"type": "text", "text": content}]
-                    for url in request.image_urls:
-                        multimodal_content.append({
-                            "type": "image_url", 
-                            "image_url": {"url": url}
-                        })
+                    for idx, url in enumerate(media_urls):
+                        # Determine if image or video
+                        mime_type = media_types[idx] if idx < len(media_types) else None
+                        if mime_type and mime_type.startswith('video/'):
+                            # For videos, just include as text reference for now
+                            # (LangChain video support may vary by model)
+                            multimodal_content[0]["text"] += f"\n\n[Video: {url}]"
+                        else:
+                            # Standard image handling
+                            multimodal_content.append({
+                                "type": "image_url", 
+                                "image_url": {"url": url}
+                            })
                     lc_messages.append(HumanMessage(content=multimodal_content))
                 else:
                     # Standard text message
@@ -129,10 +193,11 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
                     lc_messages.append(AIMessage(content=content))
             
             elif role == "tool":
-                # 🔥 Fix: Handle tool results
+                # 🔥 Fix: Handle tool results - ensure tool_call_id is never None
+                tool_call_id = msg.get("tool_call_id") or msg.get("name") or f"tool-{i}"
                 lc_messages.append(ToolMessage(
                     content=content,
-                    tool_call_id=msg.get("tool_call_id") or msg.get("name") # Fallback
+                    tool_call_id=tool_call_id
                 ))
 
         

@@ -20,6 +20,7 @@ class TestUpload:
         # Valid base64 jpeg 1x1 pixel
         base64_data = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAAFhAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAP/aAAgBAQAAPwA="
         mock_blob = MagicMock()
+        mock_blob.generate_signed_url.return_value = "https://storage.googleapis.com/test-bucket/signed-url"
         mock_bucket = MagicMock()
         mock_bucket.blob.return_value = mock_blob
         
@@ -34,11 +35,12 @@ class TestUpload:
                 url = upload_base64_image(base64_data, "test-session")
         
         # Assert
-        assert "https://storage.googleapis.com/test-bucket/renders/test-session/" in url
-        assert ".jpeg" in url
+        assert "https://storage.googleapis.com/test-bucket/signed-url" in url
         mock_bucket.blob.assert_called_once()
         mock_blob.upload_from_string.assert_called_once()
-        mock_blob.make_public.assert_called_once()
+        mock_blob.generate_signed_url.assert_called_once()
+        # make_public should NOT be called
+        mock_blob.make_public.assert_not_called()
     
     def test_missing_bucket_config(self):
         """GIVEN FIREBASE_STORAGE_BUCKET not set
@@ -96,6 +98,7 @@ class TestUpload:
         raw_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
         
         mock_blob = MagicMock()
+        mock_blob.generate_signed_url.return_value = "https://storage.googleapis.com/test-bucket/signed-url"
         mock_bucket = MagicMock()
         mock_bucket.blob.return_value = mock_blob
         mock_client = MagicMock()
@@ -107,6 +110,5 @@ class TestUpload:
                 url = upload_base64_image(raw_base64, "test", prefix="uploads")
         
         # Assert
-        assert "uploads/test/" in url
-        # Should default to png extension if no data uri
-        assert ".png" in url
+        # Assert
+        assert "signed-url" in url

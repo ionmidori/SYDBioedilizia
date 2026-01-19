@@ -82,3 +82,38 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
             "condition": "good",
             "renovationNotes": f"Unable to perform detailed analysis: {str(e)}"
         }
+
+
+async def analyze_media_triage(media_data: bytes, mime_type: str) -> Dict[str, Any]:
+    """
+    Unified entry point for media triage analysis.
+    
+    Routes to appropriate handler based on MIME type:
+    - image/* -> analyze_image_triage()
+    - video/* -> analyze_video_triage()
+    
+    Args:
+        media_data: Raw media file bytes
+        mime_type: MIME type (e.g., 'image/jpeg', 'video/mp4')
+        
+    Returns:
+        Dict with triage analysis results
+        
+    Raises:
+        ValueError: If MIME type is not supported
+    """
+    logger.info(f"Media triage requested for type: {mime_type}")
+    
+    # Route based on MIME type
+    if mime_type.startswith("image/"):
+        return await analyze_image_triage(media_data)
+    
+    elif mime_type.startswith("video/"):
+        # Import video module only when needed (avoid circular imports)
+        from src.vision.video_triage import analyze_video_triage
+        result = await analyze_video_triage(media_data)
+        # Convert VideoTriageResult to dict for compatibility
+        return result.model_dump()
+    
+    else:
+        raise ValueError(f"Unsupported media type: {mime_type}. Only image/* and video/* are supported.")

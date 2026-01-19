@@ -1,9 +1,9 @@
 # Development server script with hot-reload
 # Usage: .\dev.ps1
 
-Write-Host "🐍 Starting SYD Backend Development Server..." -ForegroundColor Cyan
-Write-Host "📍 Port: 8080" -ForegroundColor Yellow
-Write-Host "🔄 Hot-reload: Enabled" -ForegroundColor Green
+Write-Host "Starting SYD Backend Development Server..." -ForegroundColor Cyan
+Write-Host "Port: 8080" -ForegroundColor Yellow
+Write-Host "Hot-reload: Enabled" -ForegroundColor Green
 Write-Host ""
 
 # Run uvicorn with reload flag via uv

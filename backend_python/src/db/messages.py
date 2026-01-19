@@ -90,6 +90,40 @@ async def get_conversation_context(
         return []
 
 
+def get_messages(session_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    """
+    SYNCHRONOUS version of get_conversation_context.
+    Used by sync_wrappers.py for fallback image URL recovery.
+    """
+    try:
+        db = get_firestore_client()
+        
+        messages_ref = (
+            db.collection('sessions')
+            .document(session_id)
+            .collection('messages')
+            .order_by('timestamp', direction=firestore.Query.ASCENDING)
+            .limit(limit)
+        )
+        
+        docs = messages_ref.stream()
+        
+        messages = []
+        for doc in docs:
+            data = doc.to_dict()
+            messages.append({
+                'role': data.get('role', 'user'),
+                'content': data.get('content', '')
+            })
+        
+        logger.info(f"[Firestore] (sync) Retrieved {len(messages)} messages for session {session_id}")
+        return messages
+        
+    except Exception as e:
+        logger.error(f"[Firestore] (sync) Error retrieving messages: {str(e)}", exc_info=True)
+        return []
+
+
 async def ensure_session(session_id: str) -> None:
     """
     Ensure session document exists in Firestore.

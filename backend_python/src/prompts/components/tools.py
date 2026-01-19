@@ -67,6 +67,12 @@ Ask ONLY for elements NOT preserved:
 
 PHASE 3: EXECUTION
 Call generate_render with all gathered parameters.
+
+⚠️ POST-EXECUTION CRITICAL:
+When generate_render returns, your response MUST include the EXACT image markdown from the tool output.
+The tool returns: "![Design](https://storage...)"
+You MUST copy this EXACTLY into your response. Do NOT paraphrase or summarize.
+Example response: "Ecco il tuo rendering! ![Design](https://...) Ti piace?"
 </workflow>
 </tool>"""
 

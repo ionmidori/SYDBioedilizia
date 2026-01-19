@@ -65,7 +65,7 @@ export function ChatInput({
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
-                    accept="image/*"
+                    accept="image/*,video/mp4,video/webm,video/quicktime,video/x-m4v"
                     onChange={onFileSelect}
                     multiple
                 />

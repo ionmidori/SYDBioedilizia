@@ -51,11 +51,8 @@ async def generate_render_wrapper(
         
         # MODE: MODIFICATION (I2I)
         if mode == "modification" and source_image_url:
-            import logging
-            logging.info(f"[Render] 📥 Downloading source image from: {source_image_url}")
-            
             # Download source image
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.get(source_image_url)
                 source_bytes = response.content
                 source_mime_type = response.headers.get("content-type", "image/jpeg")
