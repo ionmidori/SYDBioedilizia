@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from './useAuth';
 
 export type Message = {
     id: string;
@@ -21,6 +22,7 @@ export interface ToolInvocation {
 }
 
 export function useChat(sessionId: string, initialMessages: any[] = []) {
+    const { idToken, loading: authLoading } = useAuth();
     const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +56,7 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
 
     const append = useCallback(async (
         message: { role: string; content: string; attachments?: any },
-        options?: { body?: { images?: string[]; imageUrls?: string[] } }
+        options?: { body?: { images?: string[]; imageUrls?: string[]; mediaUrls?: string[]; mediaTypes?: string[]; mediaMetadata?: any } }
     ) => {
         setIsLoading(true);
         setError(undefined);
@@ -82,28 +84,18 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
         }]);
 
         try {
+            // ✅ Best Practice: Wait for auth to be ready
+            if (authLoading || !idToken) {
+                throw new Error('Authentication not ready. Please wait...');
+            }
+
             abortControllerRef.current = new AbortController();
 
-            // 🔒 HYBRID AUTH: Get Firebase ID Token if available (optional for Guest mode)
-            const { auth } = await import('@/lib/firebase');
-            const user = auth.currentUser;
-
-            let idToken: string | null = null;
-
-            if (user) {
-                // User is authenticated - get token
-                idToken = await user.getIdToken();
-            }
-            // If no user, proceed as Guest (idToken remains null)
-
+            // 🔒 FIREBASE ANONYMOUS AUTH: All users (including anonymous) have ID tokens
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`, // ✅ Always required now
             };
-
-            // Only add Authorization header if we have a token
-            if (idToken) {
-                headers['Authorization'] = `Bearer ${idToken}`;
-            }
 
             // ✅ PYTHON BACKEND (Default): Uses new Python/LangGraph implementation
             // Legacy TypeScript endpoint available at /api/chat if needed for rollback
@@ -114,7 +106,10 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
                     messages: [...messages, userMsg],
                     sessionId,
                     images: options?.body?.images,
-                    imageUrls: options?.body?.imageUrls  // Public URLs for modification mode
+                    imageUrls: options?.body?.imageUrls,
+                    mediaUrls: options?.body?.mediaUrls,
+                    mediaTypes: options?.body?.mediaTypes,
+                    mediaMetadata: options?.body?.mediaMetadata
                 }),
                 signal: abortControllerRef.current.signal
             });
@@ -206,7 +201,7 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
             abortControllerRef.current = null;
         }
 
-    }, [messages, sessionId]);
+    }, [messages, sessionId, authLoading, idToken]);
 
     const handleSubmit = useCallback(async (e?: any, options?: any) => {
         if (e) e.preventDefault();

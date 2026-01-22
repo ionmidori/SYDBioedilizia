@@ -14,6 +14,12 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8080';
+const SECRET_PREFIX = process.env.INTERNAL_JWT_SECRET ? process.env.INTERNAL_JWT_SECRET.substring(0, 3) : 'UNDEFINED';
+
+console.log('[Proxy Config] URL:', PYTHON_BACKEND_URL);
+const secret = process.env.INTERNAL_JWT_SECRET;
+console.log('[Proxy Config] Secret starts with:', secret ? secret.substring(0, 3) : 'UNDEFINED');
+console.log('[Proxy Config] Secret length:', secret ? secret.length : 0);
 
 export async function POST(req: Request) {
     console.log('----> [Proxy] Chat request received');
@@ -21,12 +27,15 @@ export async function POST(req: Request) {
     try {
         // Extract request body
         const body = await req.json();
-        const { messages, images, imageUrls, sessionId } = body;
+        const { messages, images, imageUrls, mediaUrls, mediaTypes, mediaMetadata, sessionId } = body;
 
         console.log('[Proxy] Request details:', {
             messagesCount: messages?.length || 0,
             hasImages: !!images,
             imageUrlsCount: imageUrls?.length || 0,
+            mediaUrlsCount: mediaUrls?.length || 0,
+            mediaTypesCount: mediaTypes?.length || 0,
+            hasMediaMetadata: !!mediaMetadata,
             sessionId
         });
 
@@ -45,7 +54,10 @@ export async function POST(req: Request) {
         const pythonPayload = {
             messages: messages || [],
             sessionId: sessionId,
-            imageUrls: imageUrls || []
+            imageUrls: imageUrls || [],
+            mediaUrls: mediaUrls || [],
+            mediaTypes: mediaTypes || [],
+            mediaMetadata: mediaMetadata || {}
         };
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -56,36 +68,38 @@ export async function POST(req: Request) {
 
         const authHeader = req.headers.get('Authorization');
 
+        // ✅ Best Practice: Require auth header for ALL requests (including anonymous users)
+        if (!authHeader?.startsWith('Bearer ')) {
+            return new Response(JSON.stringify({
+                error: 'Authentication required',
+                details: 'Missing or invalid Authorization header. Please ensure Firebase authentication is enabled.'
+            }), {
+                status: 401,
+                headers: { 'Content-Type': 'application/json' }
+            });
+        }
+
         let internalToken: string;
 
         try {
-            if (authHeader?.startsWith('Bearer ')) {
-                // 1. Verify User Token
-                const idToken = authHeader.split('Bearer ')[1];
-                const decodedToken = await auth().verifyIdToken(idToken);
+            // Verify Firebase ID Token (works for both anonymous and authenticated users)
+            const idToken = authHeader.split('Bearer ')[1];
+            const decodedToken = await auth().verifyIdToken(idToken);
 
-                // 2. Create Internal JWT for authenticated user
-                internalToken = createInternalToken({
-                    uid: decodedToken.uid,
-                    email: decodedToken.email || 'unknown',
-                });
-                console.log(`[Proxy] Authenticated user: ${decodedToken.uid}`);
-            } else {
-                // 1. Guest Mode
-                const guestUid = `guest-${sessionId.substring(0, 8)}`;
+            // Create Internal JWT
+            internalToken = createInternalToken({
+                uid: decodedToken.uid,
+                email: decodedToken.email || 'anonymous',
+            });
 
-                // 2. Create Internal JWT for guest
-                internalToken = createInternalToken({
-                    uid: guestUid,
-                    email: 'guest@renovation.ai',
-                });
-                console.log(`[Proxy] Guest access: ${guestUid}`);
-            }
+            const userType = decodedToken.firebase?.sign_in_provider === 'anonymous' ? 'Anonymous' : 'Authenticated';
+            console.log(`[Proxy] ${userType} user: ${decodedToken.uid}`);
+            console.log('[Proxy] DEBUG Internal Token:', internalToken);
         } catch (authError) {
             console.error('[Proxy] Auth verification failed:', authError);
             return new Response(JSON.stringify({
                 error: 'Authentication failed',
-                details: authError instanceof Error ? authError.message : 'Unknown auth error'
+                details: authError instanceof Error ? authError.message : 'Invalid Firebase token'
             }), { status: 401 });
         }
 

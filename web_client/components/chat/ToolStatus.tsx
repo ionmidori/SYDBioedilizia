@@ -39,6 +39,15 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
             );
         }
 
+        if (tool.toolName === 'analyze_room') {
+            return (
+                <div className="flex items-center gap-2 text-sm text-slate-400 italic mt-2">
+                    <span className="animate-spin">🔍</span>
+                    Analisi della stanza in corso...
+                </div>
+            );
+        }
+
         return null;
     }
 

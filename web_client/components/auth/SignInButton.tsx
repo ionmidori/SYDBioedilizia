@@ -1,37 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { GoogleAuthProvider, signInWithPopup, signOut, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { useState } from 'react';
+import { signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
-import { cn } from '@/lib/utils'; // Assuming this exists
+import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { AuthDialog } from './AuthDialog';
 
 export function SignInButton({ className }: { className?: string }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((u) => {
-            setUser(u);
-            setLoading(false);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    const handleLogin = async () => {
-        try {
-            const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
-        } catch (error) {
-            console.error("Login failed:", error);
-            alert("Login fallito. Riprova.");
-        }
-    };
+    const { user, loading } = useAuth();
+    const [dialogOpen, setDialogOpen] = useState(false);
 
     const handleLogout = async () => {
         try {
-            await signOut(auth);
+            await signOut((await import('@/lib/firebase')).auth);
         } catch (error) {
             console.error("Logout failed:", error);
         }
@@ -39,6 +22,24 @@ export function SignInButton({ className }: { className?: string }) {
 
     if (loading) {
         return <Button variant="ghost" size="sm" className={className} disabled>Loading...</Button>;
+    }
+
+    // Don't show anything for anonymous users (they're already "logged in" technically)
+    if (user?.isAnonymous) {
+        return (
+            <>
+                <Button
+                    onClick={() => setDialogOpen(true)}
+                    variant="outline"
+                    size="sm"
+                    className={cn("gap-2 border-slate-700 hover:bg-slate-800", className)}
+                >
+                    <LogIn className="w-4 h-4" />
+                    Accedi
+                </Button>
+                <AuthDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+            </>
+        );
     }
 
     if (user) {
@@ -57,7 +58,7 @@ export function SignInButton({ className }: { className?: string }) {
                         </div>
                     )}
                     <span className="text-sm font-medium text-slate-300 hidden lg:block">
-                        {user.displayName?.split(' ')[0]}
+                        {user.displayName?.split(' ')[0] || user.email?.split('@')[0]}
                     </span>
                 </div>
                 <Button
@@ -74,14 +75,17 @@ export function SignInButton({ className }: { className?: string }) {
     }
 
     return (
-        <Button
-            onClick={handleLogin}
-            variant="outline"
-            size="sm"
-            className={cn("gap-2 border-slate-700 hover:bg-slate-800", className)}
-        >
-            <LogIn className="w-4 h-4" />
-            Accedi
-        </Button>
+        <>
+            <Button
+                onClick={() => setDialogOpen(true)}
+                variant="outline"
+                size="sm"
+                className={cn("gap-2 border-slate-700 hover:bg-slate-800", className)}
+            >
+                <LogIn className="w-4 h-4" />
+                Accedi
+            </Button>
+            <AuthDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+        </>
     );
 }

@@ -35,12 +35,12 @@ export function Hero() {
                         La Nuova Era della Ristrutturazione
                     </div>
 
-                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.1] mb-6">
-                        Progetta la <br />
-                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400">
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.3] mb-6 relative">
+                        Realizza la <br />
+                        <span className="relative z-20 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400">
                             Casa dei Sogni
                         </span>
-                        <br /> con l'AI.
+                        <br /> con SYD BIOEDILIZIA.
                     </h1>
 
                     <p className="text-lg md:text-xl text-slate-400 mb-8 max-w-xl leading-relaxed">

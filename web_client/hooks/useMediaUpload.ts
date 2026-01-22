@@ -90,6 +90,14 @@ export function useMediaUpload(sessionId: string) {
             // 2. Upload with XHR for Progress
             return new Promise<void>((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
+
+                console.log('[Upload] Starting XHR upload:', {
+                    fileName: item.file.name,
+                    fileSize: item.file.size,
+                    fileType: item.file.type,
+                    uploadUrlPrefix: uploadUrl.substring(0, 50) + '...',
+                });
+
                 xhr.open('PUT', uploadUrl, true);
                 xhr.setRequestHeader('Content-Type', item.file.type || 'application/octet-stream');
 
@@ -97,23 +105,59 @@ export function useMediaUpload(sessionId: string) {
                     if (e.lengthComputable) {
                         const percent = Math.round((e.loaded / e.total) * 100);
                         updateItem(item.id, { progress: percent });
+                        console.log(`[Upload] Progress: ${percent}%`);
                     }
                 };
 
                 xhr.onload = () => {
+                    console.log('[Upload] XHR onload triggered:', {
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        readyState: xhr.readyState,
+                        responseText: xhr.responseText?.substring(0, 200)
+                    });
+
                     if (xhr.status >= 200 && xhr.status < 300) {
                         updateItem(item.id, {
                             status: 'done',
                             progress: 100,
                             publicUrl: publicUrl
                         });
+                        console.log('[Upload] Upload successful!');
                         resolve();
                     } else {
-                        reject(new Error(`Upload failed: ${xhr.statusText}`));
+                        const errorMsg = `Upload failed: HTTP ${xhr.status} ${xhr.statusText}`;
+                        console.error('[Upload] Upload failed:', {
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            response: xhr.responseText
+                        });
+                        reject(new Error(errorMsg));
                     }
                 };
 
-                xhr.onerror = () => reject(new Error('Network error during upload'));
+                xhr.onerror = (e) => {
+                    console.error('[Upload] XHR onerror triggered:', {
+                        event: e,
+                        readyState: xhr.readyState,
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        uploadUrl: uploadUrl.substring(0, 100),
+                    });
+                    reject(new Error('Network error during upload. Check console for details.'));
+                };
+
+                xhr.ontimeout = () => {
+                    console.error('[Upload] XHR timeout');
+                    reject(new Error('Upload timeout'));
+                };
+
+                xhr.onabort = () => {
+                    console.error('[Upload] XHR aborted');
+                    reject(new Error('Upload aborted'));
+                };
+
+                console.log('[Upload] Sending file...');
                 xhr.send(fileToUpload);
             });
 

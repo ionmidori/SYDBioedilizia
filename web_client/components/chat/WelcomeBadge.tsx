@@ -41,7 +41,7 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                 i++;
             } else {
                 clearInterval(interval);
-                setTimeout(() => setShowWelcomeBadge(false), 6000);
+                setTimeout(() => setShowWelcomeBadge(false), 9000);
             }
         }, 50);
 

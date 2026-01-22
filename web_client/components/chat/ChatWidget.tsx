@@ -117,7 +117,7 @@ export default function ChatWidget() {
 
         // Block if uploading or empty
         const hasActiveUploads = mediaItems.some(i => i.status === 'uploading' || i.status === 'compressing');
-        if (hasActiveUploads || isLoading) return;
+        if (hasActiveUploads || isLoading || authLoading) return;
         if (!inputValue.trim() && mediaItems.length === 0) return;
 
         if (mediaItems.length > 0) {
@@ -239,6 +239,7 @@ export default function ChatWidget() {
                                 fileInputRef={fileInputRef}
                                 removeMedia={removeMedia}
                                 updateMediaItem={updateMediaItem}
+                                authLoading={authLoading}
                             />
                         </motion.div>
                     </>

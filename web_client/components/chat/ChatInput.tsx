@@ -17,6 +17,7 @@ interface ChatInputProps {
     fileInputRef: RefObject<HTMLInputElement | null>;
     removeMedia: (id: string) => void;
     updateMediaItem: (id: string, partial: Partial<MediaUploadState>) => void;
+    authLoading?: boolean;
 }
 
 /**
@@ -34,20 +35,21 @@ export function ChatInput({
     onScrollToBottom,
     fileInputRef,
     removeMedia,
-    updateMediaItem
+    updateMediaItem,
+    authLoading = false
 }: ChatInputProps) {
     const [trimmingItem, setTrimmingItem] = useState<MediaUploadState | null>(null);
 
     // Check if any item is still uploading
     const hasActiveUploads = mediaItems.some(i => i.status === 'uploading' || i.status === 'compressing');
-    const isSendDisabled = isLoading || (!inputValue.trim() && mediaItems.length === 0) || hasActiveUploads;
+    const isSendDisabled = isLoading || authLoading || (!inputValue.trim() && mediaItems.length === 0) || hasActiveUploads;
 
     return (
         <div
             className="px-4 border-t border-white/10 backdrop-blur-md flex-shrink-0 w-full"
             style={{ backgroundColor: '#0b1120', paddingTop: '10px', paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}
         >
-            {/* Trimmer Overlay */}
+            {/* ... Trimmer Overlay ... */}
             {trimmingItem && (
                 <VideoTrimmer
                     file={trimmingItem.file}
@@ -67,7 +69,7 @@ export function ChatInput({
                     size="icon"
                     className="text-slate-400 hover:text-white shrink-0 relative"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={isLoading || isGlobalUploading}
+                    disabled={isLoading || isGlobalUploading || authLoading}
                 >
                     {isGlobalUploading ? (
                         <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
@@ -167,10 +169,10 @@ export function ChatInput({
                                     }
                                 }}
                                 onFocus={() => setTimeout(() => onScrollToBottom(), 100)}
-                                placeholder="Descrivi cosa vuoi ristrutturare..."
+                                placeholder={authLoading ? "Connessione in corso..." : "Descrivi cosa vuoi ristrutturare..."}
                                 className="w-full bg-slate-900/50 text-slate-50 caret-blue-500 placeholder:text-slate-400 text-[16px] px-3 py-2 max-h-24 min-h-[44px] focus:outline-none resize-none scrollbar-hide block opacity-100"
                                 rows={1}
-                                disabled={isLoading}
+                                disabled={isLoading || authLoading}
                             />
                         </div>
                     </div>
@@ -189,10 +191,10 @@ export function ChatInput({
                                 }
                             }}
                             onFocus={() => setTimeout(() => onScrollToBottom(), 100)}
-                            placeholder="Descrivi cosa vuoi ristrutturare..."
+                            placeholder={authLoading ? "Connessione in corso..." : "Descrivi cosa vuoi ristrutturare..."}
                             className="w-full bg-slate-900/50 text-slate-50 caret-blue-500 placeholder:text-slate-400 text-[16px] px-3 py-2 max-h-24 min-h-[44px] focus:outline-none resize-none scrollbar-hide block opacity-100"
                             rows={1}
-                            disabled={isLoading}
+                            disabled={isLoading || authLoading}
                         />
                     </div>
                 )}
