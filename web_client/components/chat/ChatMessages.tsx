@@ -68,18 +68,18 @@ const ChatMessagesComponent = ({
                     className="flex gap-3"
                 >
                     <ArchitectAvatar className="w-8 h-8 shrink-0" />
-                    <div className="bg-slate-800 border border-slate-700 p-4 rounded-2xl rounded-tl-none">
+                    <div className="bg-luxury-bg/80 border border-luxury-gold/10 p-4 rounded-2xl rounded-tl-none">
                         <div className="flex items-center gap-3">
                             <div className="flex gap-1">
-                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" />
+                                <span className="w-2 h-2 bg-luxury-teal rounded-full animate-bounce [animation-delay:-0.3s]" />
+                                <span className="w-2 h-2 bg-luxury-teal rounded-full animate-bounce [animation-delay:-0.15s]" />
+                                <span className="w-2 h-2 bg-luxury-teal rounded-full animate-bounce" />
                             </div>
                             <motion.span
                                 key={typingMessage}
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="text-xs text-slate-400 font-medium"
+                                className="text-xs text-luxury-text/60 font-medium"
                             >
                                 {typingMessage}
                             </motion.span>

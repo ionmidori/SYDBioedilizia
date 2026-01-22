@@ -11,6 +11,8 @@ from typing import Optional
 
 # Context variable for the current user's ID
 # Used by tools to access user identity for quota tracking
+current_user_id: ContextVar[str] = ContextVar("current_user_id", default="default")
+
 # Context variable for media metadata (e.g. video trim ranges)
 current_media_metadata: ContextVar[Optional[dict]] = ContextVar("current_media_metadata", default=None)
 

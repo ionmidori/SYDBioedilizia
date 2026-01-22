@@ -32,7 +32,7 @@ export default function RootLayout({
   return (
     <html lang="it" className="scroll-smooth" suppressHydrationWarning>
       <body
-        className={`${outfit.variable} antialiased font-sans bg-slate-950 text-slate-50`}
+        className={`${outfit.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
         suppressHydrationWarning
       >
         {children}

@@ -2,7 +2,7 @@
 
 export function SydLogo({ className = "" }: { className?: string }) {
     return (
-        <div className={`flex items-center gap-3 ${className} drop-shadow-[0_0_12px_rgba(255,255,255,0.8)] filter`}>
+        <div className={`flex items-center gap-3 ${className}`}>
             {/* Metallic Bars */}
             <div className="flex flex-col gap-1">
                 <div className="h-1.5 w-12 rounded-sm bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300" />
@@ -14,11 +14,11 @@ export function SydLogo({ className = "" }: { className?: string }) {
             {/* Text */}
             <div className="flex flex-col">
                 <h1 className="text-2xl font-bold leading-none tracking-tight">
-                    <span className="bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">
+                    <span className="text-luxury-gold">
                         SYD BIOEDILIZIA
                     </span>
                 </h1>
-                <p className="text-[10px] font-bold bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent tracking-wide mt-0.5">
+                <p className="text-[10px] font-bold text-luxury-gold tracking-wide mt-0.5">
                     IMPRESA EDILE - COIBENTAZIONI TERMICHE
                 </p>
             </div>

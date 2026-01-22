@@ -46,8 +46,8 @@ export function ChatInput({
 
     return (
         <div
-            className="px-4 border-t border-white/10 backdrop-blur-md flex-shrink-0 w-full"
-            style={{ backgroundColor: '#0b1120', paddingTop: '10px', paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}
+            className="px-4 border-t border-luxury-gold/10 backdrop-blur-md flex-shrink-0 w-full"
+            style={{ backgroundColor: 'rgb(var(--luxury-bg-rgb) / 0.95)', paddingTop: '10px', paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)' }}
         >
             {/* ... Trimmer Overlay ... */}
             {trimmingItem && (
@@ -67,12 +67,12 @@ export function ChatInput({
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="text-slate-400 hover:text-white shrink-0 relative"
+                    className="text-luxury-text/60 hover:text-luxury-gold shrink-0 relative hover:bg-luxury-gold/5"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading || isGlobalUploading || authLoading}
                 >
                     {isGlobalUploading ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                        <Loader2 className="w-5 h-5 animate-spin text-luxury-teal" />
                     ) : (
                         <Paperclip className="w-5 h-5" />
                     )}
@@ -94,7 +94,7 @@ export function ChatInput({
                             {mediaItems.map((item) => (
                                 <div
                                     key={item.id}
-                                    className="relative group w-20 h-20 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 shadow-lg"
+                                    className="relative group w-20 h-20 rounded-lg overflow-hidden border border-luxury-gold/20 bg-luxury-bg/50 shadow-lg"
                                 >
                                     {/* Preview Content */}
                                     {item.type === 'image' ? (
@@ -104,8 +104,8 @@ export function ChatInput({
                                             className="w-full h-full object-cover opacity-80"
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-slate-800">
-                                            <FileVideo className="w-8 h-8 text-blue-400" />
+                                        <div className="w-full h-full flex items-center justify-center bg-luxury-bg">
+                                            <FileVideo className="w-8 h-8 text-luxury-teal" />
                                         </div>
                                     )}
 
@@ -114,7 +114,7 @@ export function ChatInput({
                                         <button
                                             className={cn(
                                                 "absolute bottom-1 right-1 w-6 h-6 rounded-full flex items-center justify-center transition-colors z-10",
-                                                item.trimRange ? "bg-green-600 hover:bg-green-500" : "bg-blue-600 hover:bg-blue-500"
+                                                item.trimRange ? "bg-green-600 hover:bg-green-500" : "bg-luxury-teal hover:bg-luxury-teal/80"
                                             )}
                                             onClick={() => setTrimmingItem(item)}
                                             title="Taglia Video"
@@ -130,7 +130,7 @@ export function ChatInput({
                                             {item.progress > 0 && (
                                                 <div className="w-full bg-slate-700 h-1 rounded-full overflow-hidden">
                                                     <div
-                                                        className="h-full bg-blue-500 transition-all duration-300"
+                                                        className="h-full bg-luxury-teal transition-all duration-300"
                                                         style={{ width: `${item.progress}%` }}
                                                     />
                                                 </div>
@@ -158,7 +158,7 @@ export function ChatInput({
                         </div>
 
                         {/* Text Input Area */}
-                        <div className="bg-slate-950 border border-slate-800 rounded-2xl flex items-center p-1 focus-within:border-blue-500/50 transition-colors">
+                        <div className="bg-luxury-bg/30 border border-luxury-gold/10 rounded-2xl flex items-center p-1 focus-within:border-luxury-gold/50 transition-colors">
                             <textarea
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
@@ -170,7 +170,7 @@ export function ChatInput({
                                 }}
                                 onFocus={() => setTimeout(() => onScrollToBottom(), 100)}
                                 placeholder={authLoading ? "Connessione in corso..." : "Descrivi cosa vuoi ristrutturare..."}
-                                className="w-full bg-slate-900/50 text-slate-50 caret-blue-500 placeholder:text-slate-400 text-[16px] px-3 py-2 max-h-24 min-h-[44px] focus:outline-none resize-none scrollbar-hide block opacity-100"
+                                className="w-full bg-transparent text-luxury-text caret-luxury-gold placeholder:text-luxury-text/30 text-[16px] px-3 py-2 max-h-24 min-h-[44px] focus:outline-none resize-none scrollbar-hide block opacity-100"
                                 rows={1}
                                 disabled={isLoading || authLoading}
                             />
@@ -180,7 +180,7 @@ export function ChatInput({
 
                 {/* Standard Text Input ONLY if no media (fallback layout) */}
                 {mediaItems.length === 0 && (
-                    <div className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl flex items-center p-1 focus-within:border-blue-500/50 transition-colors min-w-0">
+                    <div className="flex-1 bg-luxury-bg/30 border border-luxury-gold/10 rounded-2xl flex items-center p-1 focus-within:border-luxury-gold/50 transition-colors min-w-0">
                         <textarea
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
@@ -192,7 +192,7 @@ export function ChatInput({
                             }}
                             onFocus={() => setTimeout(() => onScrollToBottom(), 100)}
                             placeholder={authLoading ? "Connessione in corso..." : "Descrivi cosa vuoi ristrutturare..."}
-                            className="w-full bg-slate-900/50 text-slate-50 caret-blue-500 placeholder:text-slate-400 text-[16px] px-3 py-2 max-h-24 min-h-[44px] focus:outline-none resize-none scrollbar-hide block opacity-100"
+                            className="w-full bg-transparent text-luxury-text caret-luxury-gold placeholder:text-luxury-text/30 text-[16px] px-3 py-2 max-h-24 min-h-[44px] focus:outline-none resize-none scrollbar-hide block opacity-100"
                             rows={1}
                             disabled={isLoading || authLoading}
                         />
@@ -205,8 +205,8 @@ export function ChatInput({
                     className={cn(
                         "rounded-xl transition-all duration-300 shrink-0 mb-1",
                         !isSendDisabled
-                            ? "bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-500/20"
-                            : "bg-slate-800 text-slate-500"
+                            ? "bg-luxury-teal hover:bg-luxury-teal/90 text-white shadow-lg shadow-luxury-teal/20"
+                            : "bg-luxury-gold/10 text-luxury-text/20"
                     )}
                     size="icon"
                 >

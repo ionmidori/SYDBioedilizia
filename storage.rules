@@ -18,6 +18,20 @@ service firebase.storage {
     }
     
     // ==========================================
+    // USER UPLOADS FOLDER (Client-side uploads)
+    // ==========================================
+    // Allow client-side uploads via signed URLs
+    // Signed URLs bypass these rules, but we allow writes for additional safety
+    match /user-uploads/{sessionId}/{fileName} {
+      // Public read access for uploaded images
+      allow read: if true;
+      
+      // Allow writes - signed URLs will enforce expiration and permissions
+      // This enables direct browser uploads without going through server
+      allow write: if false;
+    }
+    
+    // ==========================================
     // DEFAULT RULE - DENY ALL
     // ==========================================
     // Deny access to all other folders

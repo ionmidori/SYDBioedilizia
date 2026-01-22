@@ -29,6 +29,12 @@
   
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+
+  /* Luxury Tech Palette */
+  --color-luxury-bg: #264653;
+  --color-luxury-gold: #E9C46A;
+  --color-luxury-teal: #2A9D8F;
+  --color-luxury-text: #F4F1DE;
 }
 
 :root {

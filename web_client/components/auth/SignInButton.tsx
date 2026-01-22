@@ -32,7 +32,7 @@ export function SignInButton({ className }: { className?: string }) {
                     onClick={() => setDialogOpen(true)}
                     variant="outline"
                     size="sm"
-                    className={cn("gap-2 border-slate-700 hover:bg-slate-800", className)}
+                    className={cn("gap-2 border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold hover:text-luxury-bg transition-colors", className)}
                 >
                     <LogIn className="w-4 h-4" />
                     Accedi
@@ -80,7 +80,7 @@ export function SignInButton({ className }: { className?: string }) {
                 onClick={() => setDialogOpen(true)}
                 variant="outline"
                 size="sm"
-                className={cn("gap-2 border-slate-700 hover:bg-slate-800", className)}
+                className={cn("gap-2 border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold hover:text-luxury-bg transition-colors", className)}
             >
                 <LogIn className="w-4 h-4" />
                 Accedi

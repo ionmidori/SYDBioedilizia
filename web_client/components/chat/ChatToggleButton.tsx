@@ -23,12 +23,12 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                 className={cn(
                     "w-32 h-28 rounded-full transition-all duration-300 relative flex items-center justify-center !overflow-visible",
                     isOpen
-                        ? "bg-slate-800 text-white shadow-2xl border border-white/10 w-16 h-16"
+                        ? "bg-luxury-bg text-luxury-text shadow-2xl border border-luxury-gold/20 w-16 h-16"
                         : "bg-transparent shadow-none border-none hover:scale-105"
                 )}
             >
                 {isOpen ? (
-                    <X className="w-8 h-8" />
+                    <X className="w-8 h-8 text-luxury-gold" />
                 ) : (
                     <>
                         <div className="relative w-full h-full flex items-center justify-center !overflow-visible">
@@ -38,7 +38,6 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                                 className="w-full h-full max-w-none object-contain drop-shadow-xl transform transition-transform duration-300"
                             />
                         </div>
-                        <span className="absolute top-1 right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-slate-900 animate-pulse z-10" />
                     </>
                 )}
             </Button>

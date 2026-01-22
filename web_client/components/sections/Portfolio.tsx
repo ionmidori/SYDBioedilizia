@@ -76,15 +76,15 @@ export function Portfolio() {
         : projects.filter(p => p.category === activeCategory);
 
     return (
-        <section id="portfolio" className="py-24 bg-slate-950 relative overflow-hidden">
+        <section id="portfolio" className="py-24 bg-luxury-bg relative overflow-hidden border-t border-luxury-gold/5">
             <div className="container mx-auto px-4 md:px-6 relative z-10">
 
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-8">
                     <div>
-                        <h2 className="text-3xl md:text-5xl font-bold text-white mb-4">
-                            I Nostri Progetti
+                        <h2 className="text-3xl md:text-5xl font-serif font-bold text-luxury-text mb-4">
+                            I Nostri <span className="text-luxury-gold italic">Capolavori</span>
                         </h2>
-                        <p className="text-slate-400 max-w-lg text-lg">
+                        <p className="text-luxury-text/70 max-w-lg text-lg font-light">
                             Esplora una selezione delle nostre migliori ristrutturazioni. Ogni progetto è unico, proprio come chi lo abita.
                         </p>
                     </div>
@@ -97,8 +97,8 @@ export function Portfolio() {
                                 className={cn(
                                     "px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 border",
                                     activeCategory === cat
-                                        ? "bg-white text-slate-950 border-white"
-                                        : "bg-transparent text-slate-400 border-slate-800 hover:border-slate-600 hover:text-white"
+                                        ? "bg-luxury-gold text-luxury-bg border-luxury-gold"
+                                        : "bg-transparent text-luxury-text/60 border-luxury-gold/20 hover:border-luxury-gold/50 hover:text-luxury-text"
                                 )}
                             >
                                 {cat}
@@ -120,7 +120,7 @@ export function Portfolio() {
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.9 }}
                                 transition={{ duration: 0.3 }}
-                                className="group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-900"
+                                className="group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors"
                                 onMouseEnter={() => setHoveredProject(project.id)}
                                 onMouseLeave={() => setHoveredProject(null)}
                             >
@@ -133,33 +133,33 @@ export function Portfolio() {
                                 />
 
                                 {/* Overlay Gradient */}
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
 
                                 {/* Content */}
                                 <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                                     <div className="relative z-20">
-                                        <p className="text-blue-400 text-sm font-medium mb-2 transform -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
+                                        <p className="text-white text-sm font-medium mb-2 transform -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
                                             {project.category}
                                         </p>
 
-                                        <h3 className="text-2xl font-bold text-white mb-2">{project.title}</h3>
+                                        <h3 className="text-2xl font-bold text-luxury-text mb-2">{project.title}</h3>
 
-                                        <p className="text-slate-300 text-sm line-clamp-2 max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 delay-100 mb-4">
+                                        <p className="text-luxury-text/80 text-sm line-clamp-2 max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 delay-100 mb-4 font-light">
                                             {project.description}
                                         </p>
 
-                                        <div className="flex gap-4 border-t border-white/10 pt-4 mt-2 max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 delay-150">
+                                        <div className="flex gap-4 border-t border-luxury-text/10 pt-4 mt-2 max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 delay-150">
                                             <div>
-                                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Area</p>
-                                                <p className="text-xs text-white font-medium">{project.stats.area}</p>
+                                                <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">Area</p>
+                                                <p className="text-xs text-luxury-text font-medium">{project.stats.area}</p>
                                             </div>
                                             <div>
-                                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Tempo</p>
-                                                <p className="text-xs text-white font-medium">{project.stats.duration}</p>
+                                                <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">Tempo</p>
+                                                <p className="text-xs text-luxury-text font-medium">{project.stats.duration}</p>
                                             </div>
                                             <div>
-                                                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Budget</p>
-                                                <p className="text-xs text-white font-medium">{project.stats.budget}</p>
+                                                <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">Budget</p>
+                                                <p className="text-xs text-luxury-text font-medium">{project.stats.budget}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -167,7 +167,7 @@ export function Portfolio() {
 
                                 {/* Corner Button */}
                                 <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
-                                    <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 text-white hover:bg-white hover:text-black transition-colors">
+                                    <div className="w-10 h-10 rounded-full bg-luxury-teal/20 backdrop-blur-md flex items-center justify-center border border-luxury-teal/50 text-luxury-text hover:bg-luxury-teal hover:text-white transition-colors">
                                         <ArrowUpRight className="w-5 h-5" />
                                     </div>
                                 </div>
@@ -177,7 +177,10 @@ export function Portfolio() {
                 </motion.div>
 
                 <div className="mt-16 text-center">
-                    <Button variant="outline" size="lg" className="px-8 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800">
+                    <Button
+                        size="lg"
+                        className="px-10 h-14 text-base bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all hover:scale-[1.02]"
+                    >
                         Visualizza tutti i progetti
                     </Button>
                 </div>

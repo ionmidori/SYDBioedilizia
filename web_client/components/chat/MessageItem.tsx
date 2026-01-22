@@ -77,7 +77,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, onIma
         >
             {/* Avatar */}
             {message.role === 'user' ? (
-                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border mt-1 bg-blue-600 border-blue-500 text-white">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border mt-1 bg-luxury-teal border-luxury-teal text-white">
                     <User className="w-4 h-4" />
                 </div>
             ) : (
@@ -88,8 +88,8 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, onIma
             <div className={cn(
                 "p-4 rounded-2xl text-sm leading-relaxed shadow-sm",
                 message.role === 'user'
-                    ? "bg-blue-600 text-white rounded-tr-none"
-                    : "bg-slate-800 border border-slate-700 text-slate-200 rounded-tl-none"
+                    ? "bg-luxury-teal text-white rounded-tr-none"
+                    : "bg-luxury-bg/80 border border-luxury-gold/10 text-luxury-text rounded-tl-none"
             )}>
                 {/* User Image Attachments */}
                 {message.role === 'user' && message.attachments?.images && message.attachments.images.length > 0 && (

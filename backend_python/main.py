@@ -113,7 +113,7 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
         
         # 🔥 LOAD CONVERSATION HISTORY from Firestore
         conversation_history = await get_conversation_context(request.session_id, limit=10)
-        print(f"📜 Loaded {len(conversation_history)} messages from DB")
+        logger.info(f"📜 Loaded {len(conversation_history)} messages from DB")
         
         # 🔥 GET LATEST USER MESSAGE from request
         latest_user_message = request.messages[-1] if request.messages else {"role": "user", "content": "Ciao"}
@@ -156,7 +156,7 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
         
         # 🔥 SAVE USER MESSAGE to DB
         await save_message(request.session_id, "user", user_content)
-        print(f"💾 Saved user message to DB")
+        logger.info(f"💾 Saved user message to DB")
         
         # Convert messages to LangChain format
         lc_messages = []
@@ -168,7 +168,7 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
             if role == "user":
                 # 🔥 MULTIMODAL SUPPORT: If this is the last message and we have media
                 if i == len(request.messages) - 1 and media_urls:
-                    print(f"👁️ Injecting {len(media_urls)} media files into prompt")
+                    logger.info(f"👁️ Injecting {len(media_urls)} media files into prompt")
                     multimodal_content = [{"type": "text", "text": content}]
                     for idx, url in enumerate(media_urls):
                         # Determine if image or video
@@ -221,85 +221,112 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
         async for event in agent_graph.astream(state):
             # LangGraph emits events as {node_name: {...}}
             # We need to extract messages and tool calls
-            print(f"🔄 Event received: {event.keys()}")
+            logger.info(f"Event received: {list(event.keys())}")
             
             for node_name, node_output in event.items():
-                print(f"📍 Checking NODE: {node_name}")
-                if "messages" not in node_output:
-                    print("   Creation: No messages found")
-                    continue
-                
-                # Get the last message from this node
-                messages = node_output["messages"]
-                if not messages:
-                    continue
-                
-                last_msg = messages[-1]
-                
-                # ──────────────────────────────────────────────────
-                # CASE 1: AI Message with Tool Calls
-                # ──────────────────────────────────────────────────
-                if isinstance(last_msg, AIMessage) and hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
-                    tool_calls = last_msg.tool_calls
+                try:
+                    logger.info(f"Checking NODE: {node_name}")
+                    logger.info(f"   Node output keys: {list(node_output.keys())}")
                     
-                    # 🔥 SAVE AIMessage with Tool Calls to DB
-                    serialized_tool_calls = [
-                        {"id": tc["id"], "name": tc["name"], "args": tc["args"]}
-                        for tc in tool_calls
-                    ]
-                    await save_message(request.session_id, "assistant", last_msg.content or "", tool_calls=serialized_tool_calls)
-                    print(f"💾 Saved assistant tool call message ({len(tool_calls)} calls)")
+                    if "messages" not in node_output:
+                        logger.info("   No 'messages' key found")
+                        continue
+                    
+                    # Get the last message from this node
+                    messages = node_output["messages"]
+                    logger.info(f"   Type of messages: {type(messages)}")
+                    logger.info(f"   Found {len(messages)} messages")
+                    
+                    if not messages:
+                        logger.info("   Messages list is empty")
+                        continue
+                    
+                    last_msg = messages[-1]
+                    logger.info(f"   Last message type: {type(last_msg).__name__}")
+                    logger.info(f"   RAW CONTENT: {repr(last_msg.content)}")
+                    logger.info(f"   HAS TOOL_CALLS? {hasattr(last_msg, 'tool_calls')}")
+                    if hasattr(last_msg, 'tool_calls'):
+                        logger.info(f"   TOOL_CALLS: {last_msg.tool_calls}")
+                    logger.info(f"   ADDITIONAL_KWARGS: {last_msg.additional_kwargs}")
+                    
+                    if hasattr(last_msg, 'response_metadata'):
+                        logger.info(f"   METADATA: {last_msg.response_metadata}")
 
-                    for tool_call in tool_calls:
-                        # Emit tool call event (9:)
-                        async for chunk in stream_tool_call(
-                            tool_call_id=tool_call.get("id", "unknown"),
-                            tool_name=tool_call.get("name", "unknown"),
-                            args=tool_call.get("args", {})
+                    # ──────────────────────────────────────────────────
+                    # CASE 1: AI Message with Tool Calls
+                    # ──────────────────────────────────────────────────
+                    if isinstance(last_msg, AIMessage) and hasattr(last_msg, 'tool_calls') and last_msg.tool_calls:
+                        tool_calls = last_msg.tool_calls
+                        logger.info(f"DETECTED TOOL CALLS: {len(tool_calls)}")
+                        
+                        # 🔥 SAVE AIMessage with Tool Calls to DB
+                        serialized_tool_calls = [
+                            {"id": tc["id"], "name": tc["name"], "args": tc["args"]}
+                            for tc in tool_calls
+                        ]
+                        await save_message(request.session_id, "assistant", last_msg.content or "", tool_calls=serialized_tool_calls)
+                        logger.info(f"Saved assistant tool call message ({len(tool_calls)} calls)")
+
+                        for tool_call in tool_calls:
+                            logger.info(f"STREAMING TOOL CALL: {tool_call.get('name')}")
+                            # Emit tool call event (9:)
+                            async for chunk in stream_tool_call(
+                                tool_call_id=tool_call.get("id", "unknown"),
+                                tool_name=tool_call.get("name", "unknown"),
+                                args=tool_call.get("args", {})
+                            ):
+                                yield chunk
+                    
+                    # ──────────────────────────────────────────────────
+                    # CASE 2: Tool Result Message
+                    # ──────────────────────────────────────────────────
+                    if isinstance(last_msg, ToolMessage):
+                        logger.info(f"DETECTED TOOL RESULT: {last_msg.tool_call_id}")
+                        # 🔥 SAVE ToolMessage to DB
+                        await save_message(request.session_id, "tool", last_msg.content, tool_call_id=last_msg.tool_call_id)
+                        print(f"💾 Saved tool result message")
+
+                        # Emit tool result event (a:)
+                        async for chunk in stream_tool_result(
+                            tool_call_id=last_msg.tool_call_id,
+                            result=last_msg.content
                         ):
                             yield chunk
-                
-                # ──────────────────────────────────────────────────
-                # CASE 2: Tool Result Message
-                # ──────────────────────────────────────────────────
-                if isinstance(last_msg, ToolMessage):
-                    # 🔥 SAVE ToolMessage to DB
-                    await save_message(request.session_id, "tool", last_msg.content, tool_call_id=last_msg.tool_call_id)
-                    print(f"💾 Saved tool result message")
+                    
+                    # ──────────────────────────────────────────────────
+                    # CASE 3: AI Message with Text Content
+                    # ──────────────────────────────────────────────────
+                    if isinstance(last_msg, AIMessage) and last_msg.content:
+                        # Robust content extraction (handle List vs String)
+                        raw = last_msg.content
+                        text_content = ""
+                        if isinstance(raw, str):
+                            text_content = raw
+                        elif isinstance(raw, list):
+                            # Extract text from complex content blocks
+                            text_content = "\n".join([
+                                p if isinstance(p, str) else p.get("text", "") 
+                                for p in raw 
+                                if isinstance(p, str) or p.get("type") == "text"
+                            ])
+                        
+                        logger.info(f"AI TEXT RESPONSE: {text_content[:100]}...")
 
-                    # Emit tool result event (a:)
-                    async for chunk in stream_tool_result(
-                        tool_call_id=last_msg.tool_call_id,
-                        result=last_msg.content
-                    ):
-                        yield chunk
-                
-                # ──────────────────────────────────────────────────
-                # CASE 3: AI Message with Text Content
-                # ──────────────────────────────────────────────────
-                if isinstance(last_msg, AIMessage) and last_msg.content:
-                    # Robust content extraction (handle List vs String)
-                    raw = last_msg.content
-                    text_content = ""
-                    if isinstance(raw, str):
-                        text_content = raw
-                    elif isinstance(raw, list):
-                        # Extract text from complex content blocks
-                        text_content = "\n".join([
-                            p if isinstance(p, str) else p.get("text", "") 
-                            for p in raw 
-                            if isinstance(p, str) or p.get("type") == "text"
-                        ])
-                    
-                    # 🔥 ACCUMULATE for DB
-                    accumulated_response += text_content
-                    
-                    # Stream text word by word for smooth UX
-                    if text_content:
-                        for word in text_content.split():
-                            async for chunk in stream_text(word + " "):
-                                yield chunk
-                            await asyncio.sleep(0.05)  # Natural typing effect
+                        # 🔥 ACCUMULATE for DB
+                        accumulated_response += text_content
+                        
+                        # Stream text word by word for smooth UX
+                        if text_content:
+                            for word in text_content.split():
+                                async for chunk in stream_text(word + " "):
+                                    yield chunk
+                                await asyncio.sleep(0.05)  # Natural typing effect
+
+                except Exception as node_error:
+                    logger.error(f"   Error processing node {node_name}: {node_error}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    continue
         
         # 🔥 SAVE ASSISTANT RESPONSE to DB after streaming completes
         if accumulated_response:
@@ -309,7 +336,7 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
     except Exception as e:
         import traceback
         error_trace = traceback.format_exc()
-        print(f"❌ STREAM ERROR: {str(e)}\n{error_trace}")  # Debug log
+        logger.error(f"❌ STREAM ERROR: {str(e)}\n{error_trace}")  # Debug log
         # Emit error event (3:)
         async for chunk in stream_error(str(e)):
             yield chunk

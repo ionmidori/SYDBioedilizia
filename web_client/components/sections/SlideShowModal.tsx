@@ -89,13 +89,13 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="absolute inset-0 bg-black/90 backdrop-blur-md"
+                        className="absolute inset-0 bg-luxury-bg/95 backdrop-blur-md"
                     />
 
                     {/* Close Button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 z-[110] p-2 text-white/70 hover:text-white transition-colors"
+                        className="absolute top-4 right-4 z-[110] p-2 text-luxury-text/70 hover:text-luxury-gold transition-colors"
                     >
                         <X className="w-8 h-8" />
                     </button>
@@ -106,13 +106,13 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
                         {/* Desktop Previous Button */}
                         <button
                             onClick={(e) => { e.stopPropagation(); paginate(-1); }}
-                            className="hidden md:block absolute -left-16 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all"
+                            className="hidden md:block absolute -left-16 z-10 p-2 rounded-full bg-luxury-bg/30 border border-luxury-gold/10 hover:bg-luxury-gold/10 text-luxury-text backdrop-blur-sm transition-all hover:scale-110"
                         >
                             <ChevronLeft className="w-8 h-8" />
                         </button>
 
                         {/* Image Carousel */}
-                        <div className="relative w-full h-full overflow-hidden rounded-xl shadow-2xl bg-black">
+                        <div className="relative w-full h-full overflow-hidden rounded-xl shadow-2xl bg-black border border-luxury-gold/10">
 
                             {/* Ambient Background */}
                             <AnimatePresence initial={false} custom={direction} mode='popLayout'>
@@ -194,7 +194,7 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
                         {/* Desktop Next Button */}
                         <button
                             onClick={(e) => { e.stopPropagation(); paginate(1); }}
-                            className="hidden md:block absolute -right-16 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all"
+                            className="hidden md:block absolute -right-16 z-10 p-2 rounded-full bg-luxury-bg/30 border border-luxury-gold/10 hover:bg-luxury-gold/10 text-luxury-text backdrop-blur-sm transition-all hover:scale-110"
                         >
                             <ChevronRight className="w-8 h-8" />
                         </button>
@@ -208,7 +208,7 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
                                         setDirection(idx > currentIndex ? 1 : -1);
                                         setCurrentIndex(idx);
                                     }}
-                                    className={`w-2 h-2 rounded-full transition-all ${idx === currentIndex ? 'bg-white w-4' : 'bg-white/30 hover:bg-white/50'
+                                    className={`w-2 h-2 rounded-full transition-all ${idx === currentIndex ? 'bg-luxury-gold w-4' : 'bg-luxury-text/30 hover:bg-luxury-gold/50'
                                         }`}
                                 />
                             ))}

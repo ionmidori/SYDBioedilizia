@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, PlayCircle, Star, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowRight, PlayCircle, Star, ShieldCheck, Zap, Palette, FileText } from 'lucide-react';
 import { SlideShowModal } from './SlideShowModal';
 
 export function Hero() {
@@ -12,12 +12,11 @@ export function Hero() {
     const [isSlideShowOpen, setIsSlideShowOpen] = useState(false);
 
     return (
-        <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
-            {/* Background Elements */}
-            <div className="absolute inset-0 bg-slate-950 z-0" />
-            <div className="absolute inset-0 bg-[#020617] bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:40px_40px] opacity-20 z-0" />
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-cyan-600/10 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2" />
+        <section className="relative min-h-screen flex items-center pt-20 overflow-hidden bg-luxury-bg">
+            {/* Background Elements - Luxury Tech */}
+            <div className="absolute inset-0 bg-luxury-bg z-0" />
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-luxury-teal/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-luxury-gold/5 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
             <div className="container mx-auto px-4 md:px-6 relative z-10 grid lg:grid-cols-2 gap-12 items-center">
 
@@ -27,81 +26,110 @@ export function Hero() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8 }}
                 >
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-900/30 border border-blue-500/30 text-blue-300 text-xs font-semibold uppercase tracking-wider mb-6">
+                    {/* Badge */}
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-luxury-bg border border-luxury-gold/30 text-white text-xs font-semibold uppercase tracking-wider mb-8 shadow-sm shadow-luxury-gold/10">
                         <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-luxury-gold opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-luxury-gold"></span>
                         </span>
                         La Nuova Era della Ristrutturazione
                     </div>
 
-                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-[1.3] mb-6 relative">
+                    {/* Headline */}
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold tracking-tight text-luxury-text leading-[1.2] mb-6">
                         Realizza la <br />
-                        <span className="relative z-20 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400">
+                        <span className="text-luxury-gold italic relative">
                             Casa dei Sogni
+                            <span className="absolute -bottom-2 left-0 w-full h-1 bg-luxury-teal/30 rounded-full blur-sm"></span>
                         </span>
-                        <br /> con SYD BIOEDILIZIA.
+                        <br /> con SYD BIOEDILIZIA
                     </h1>
 
-                    <p className="text-lg md:text-xl text-slate-400 mb-8 max-w-xl leading-relaxed">
+                    <p className="text-lg md:text-xl text-luxury-text/80 mb-10 max-w-xl leading-relaxed font-light">
                         Dall'idea alla realtà in pochi click. Ottieni preventivi istantanei, visualizzazioni 3D fotorealistiche e un team di esperti pronto a realizzare il tuo progetto.
                     </p>
 
-                    <div className="flex flex-col sm:flex-row gap-4 mb-12">
-                        <Button
-                            variant="premium"
-                            size="lg"
-                            className="h-14 px-8 text-base"
-                            onClick={() => {
-                                const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
-                                    detail: { message: "Vorrei richiedere un preventivo gratuito per la mia ristrutturazione." }
-                                });
-                                window.dispatchEvent(event);
-                            }}
-                        >
-                            Richiedi Preventivo Gratuito
-                            <ArrowRight className="ml-2 w-5 h-5" />
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="lg"
-                            className="h-14 px-8 text-base border-slate-700 hover:bg-slate-800 text-slate-300"
-                            onClick={() => setIsSlideShowOpen(true)}
-                        >
-                            <PlayCircle className="mr-2 w-5 h-5" />
-                            Guarda come funziona
-                        </Button>
+                    <div className="flex flex-col gap-6 mb-12">
+                        {/* Primary CTA - Quote */}
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <Button
+                                size="lg"
+                                className="h-14 px-8 text-base min-w-[300px] bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all hover:scale-[1.02]"
+                                onClick={() => {
+                                    const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
+                                        detail: { message: "Vorrei richiedere un preventivo gratuito per la mia ristrutturazione." }
+                                    });
+                                    window.dispatchEvent(event);
+                                }}
+                            >
+                                Richiedi Preventivo Gratuito
+                                <FileText className="ml-2 w-5 h-5" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="h-14 px-8 text-base min-w-[300px] border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold/10 hover:border-luxury-gold rounded-lg"
+                                onClick={() => setIsSlideShowOpen(true)}
+                            >
+                                <PlayCircle className="mr-2 w-5 h-5" />
+                                Guarda come funziona
+                            </Button>
+                        </div>
+
+                        {/* Secondary CTA - Rendering */}
+                        <div className="flex flex-col sm:flex-row gap-4">
+                            <Button
+                                size="lg"
+                                className="h-14 px-8 text-base min-w-[300px] bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all hover:scale-[1.02]"
+                                onClick={() => {
+                                    const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
+                                        detail: {}
+                                    });
+                                    window.dispatchEvent(event);
+                                }}
+                            >
+                                Crea Rendering Gratuito
+                                <Palette className="ml-2 w-5 h-5" />
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="lg"
+                                className="h-14 px-8 text-base min-w-[300px] border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold/10 hover:border-luxury-gold rounded-lg"
+                                onClick={() => setIsSlideShowOpen(true)}
+                            >
+                                <PlayCircle className="mr-2 w-5 h-5" />
+                                Guarda come funziona
+                            </Button>
+                        </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-6 border-t border-white/5 pt-8">
+                    {/* Stats - Luxury Style */}
+                    <div className="grid grid-cols-3 gap-6 border-t border-luxury-gold/20 pt-8">
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-white">100+</h4>
-                            <p className="text-sm text-slate-500">Progetti Completati</p>
+                            <h4 className="text-2xl font-bold text-luxury-text">100+</h4>
+                            <p className="text-sm text-luxury-text/60">Progetti Completati</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-white">24h</h4>
-                            <p className="text-sm text-slate-500">Tempo Preventivo</p>
+                            <h4 className="text-2xl font-bold text-luxury-text">24h</h4>
+                            <p className="text-sm text-luxury-text/60">Tempo Preventivo</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-white">4.9/5</h4>
-                            <p className="text-sm text-slate-500">Soddisfazione Clienti</p>
+                            <h4 className="text-2xl font-bold text-luxury-text">4.9/5</h4>
+                            <p className="text-sm text-luxury-text/60">Soddisfazione Clienti</p>
                         </div>
                     </div>
                 </motion.div>
 
+                {/* Media Content - Framed Render */}
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
                     className="relative"
                 >
-                    {/* Abstract Light Glows - Minimalist */}
-                    <div className="absolute -inset-4 bg-blue-500/10 rounded-full blur-[60px] -z-10" />
-
-
-                    {/* Main Video Container - 'The Architect's Lens' */}
+                    {/* Media Container */}
                     <div
-                        className="relative rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-blue-900/30 group cursor-pointer"
+                        className="relative rounded-2xl overflow-hidden border-2 border-luxury-gold shadow-[0_0_40px_rgba(42,157,143,0.3)] group cursor-pointer bg-slate-950"
                         onClick={() => {
                             const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
                                 detail: {}
@@ -109,30 +137,29 @@ export function Hero() {
                             window.dispatchEvent(event);
                         }}
                     >
-                        <div className="relative aspect-video bg-slate-950">
+                        {/* Aspect Ratio Wrapper */}
+                        <div className="aspect-[4/3] md:aspect-video relative">
                             <video
                                 src="/videos/ai-interior-design.mp4"
                                 autoPlay
                                 muted
                                 playsInline
                                 onEnded={(e) => {
-                                    // Play one more time (total 2 loops) then stop at last frame
                                     if (loopCountRef.current < 1) {
                                         e.currentTarget.play();
                                         loopCountRef.current++;
                                     }
                                 }}
-                                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 opacity-90 group-hover:opacity-100"
                             />
 
-                            {/* Inner Glow - Tech Vibe */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/10 pointer-events-none" />
-                            <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded-2xl pointer-events-none" />
+                            {/* Overlay Gradient for consistency */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg/40 via-transparent to-transparent pointer-events-none" />
 
                             {/* Play overlay on hover */}
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-black/10 backdrop-blur-[1px]">
-                                <div className="w-20 h-20 rounded-full bg-white/5 backdrop-blur-xl flex items-center justify-center border border-white/20 shadow-2xl">
-                                    <Zap className="w-8 h-8 text-white fill-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-luxury-bg/20 backdrop-blur-[2px]">
+                                <div className="w-20 h-20 rounded-full bg-luxury-teal/20 backdrop-blur-xl flex items-center justify-center border border-luxury-teal/50 shadow-2xl">
+                                    <Zap className="w-8 h-8 text-luxury-text fill-luxury-text drop-shadow-[0_0_10px_rgba(42,157,143,0.8)]" />
                                 </div>
                             </div>
                         </div>
@@ -140,9 +167,7 @@ export function Hero() {
                 </motion.div>
             </div>
 
-            {/* Glow backing */}
-            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-20 -z-10" />
-
+            {/* Modal */}
             <SlideShowModal isOpen={isSlideShowOpen} onClose={() => setIsSlideShowOpen(false)} />
         </section>
     );
