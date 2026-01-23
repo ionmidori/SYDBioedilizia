@@ -122,9 +122,29 @@
   }
 
   /* 4. MOMENTUM SCROLLING */
-  * {
-    -webkit-overflow-scrolling: touch;
-  }
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+  /* 3. TOUCH FEEDBACK: Remove native tap highlight */
+}
+
+/* 3. TOUCH FEEDBACK: Physical Tap Feel */
+button:active {
+  transform: scale(0.98);
+  transition: transform 0.1s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+}
+
+/* 1. CINEMATIC FOCUS: Spotlight Effect */
+.cinematic-focus {
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.cinematic-focus:focus-within {
+  transform: scale(1.02);
+  box-shadow: 0 10px 40px -10px rgba(42, 157, 143, 0.2),
+    0 0 20px rgba(233, 196, 106, 0.1);
+  border-color: rgba(233, 196, 106, 0.6);
+  background-color: rgb(var(--luxury-bg-rgb) / 0.95);
 }
 
 /* Utilities for hiding scrollbars if needed */

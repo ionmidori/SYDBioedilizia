@@ -41,6 +41,7 @@ export function ChatInput({
     authLoading = false
 }: ChatInputProps) {
     const [trimmingItem, setTrimmingItem] = useState<MediaUploadState | null>(null);
+    const [isFocused, setIsFocused] = useState(false); // Track focus for cinematic effect
 
     // Check if any item is still uploading
     const hasActiveUploads = mediaItems.some(i => i.status === 'uploading' || i.status === 'compressing');
@@ -162,8 +163,13 @@ export function ChatInput({
                             ))}
                         </div>
 
-                        {/* Text Input Area */}
-                        <div className="bg-luxury-bg/30 border border-luxury-gold/10 rounded-2xl flex items-center p-1 focus-within:border-luxury-gold/50 transition-colors">
+                        {/* Text Input Area - Cinematic Focus Wrapper */}
+                        <div
+                            className={cn(
+                                "bg-luxury-bg/30 border border-luxury-gold/10 rounded-2xl flex items-center p-1 transition-all duration-300 cinematic-focus",
+                                isFocused ? "ring-1 ring-luxury-gold/30" : ""
+                            )}
+                        >
                             <textarea
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
@@ -173,7 +179,15 @@ export function ChatInput({
                                         if (!isSendDisabled) onSubmit(e);
                                     }
                                 }}
-                                onFocus={() => setTimeout(() => onScrollToBottom(), 100)}
+                                onFocus={(e) => {
+                                    setIsFocused(true);
+                                    // 4. KEYBOARD AWARENESS: Smooth scroll with delay for keyboard animation
+                                    setTimeout(() => {
+                                        e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        onScrollToBottom();
+                                    }, 300);
+                                }}
+                                onBlur={() => setIsFocused(false)}
                                 placeholder={authLoading ? "Connessione in corso..." : "Descrivi cosa vuoi ristrutturare..."}
                                 className="w-full bg-transparent text-luxury-text caret-luxury-gold placeholder:text-luxury-text/30 text-[16px] px-3 py-2 max-h-24 min-h-[44px] focus:outline-none resize-none scrollbar-hide block opacity-100"
                                 rows={1}
