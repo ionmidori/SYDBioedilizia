@@ -1,21 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 import { CheckCircle, XCircle, Loader2, Mail } from "lucide-react";
 
 /**
- * Magic Link Verification Page
- * 
- * Security Flow:
- * 1. Check localStorage for pending email request
- * 2. If missing (cross-device): Show email input for confirmation
- * 3. Verify with Firebase
- * 4. Redirect to dashboard
+ * Magic Link Verification Content
+ * Separated for Suspense boundary optimization
  */
-export default function VerifyPage() {
+function VerifyContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { completeMagicLink } = useAuth();
@@ -163,5 +158,21 @@ export default function VerifyPage() {
                 )}
             </motion.div>
         </div>
+    );
+}
+
+/**
+ * Magic Link Verification Page
+ * Wraps content in Suspense to fix prerendering errors with useSearchParams
+ */
+export default function VerifyPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+            </div>
+        }>
+            <VerifyContent />
+        </Suspense>
     );
 }
