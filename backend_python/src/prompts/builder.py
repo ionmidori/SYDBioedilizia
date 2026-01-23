@@ -10,6 +10,7 @@ from .components.tools import TOOLS
 from .components.modes import MODES
 from .components.protocol import PROTOCOL
 from .components.video import VIDEO_ANALYSIS_PROTOCOL  # 🎬 NEW
+from .components.security import SECURITY_GUARDRAILS  # 🛡️ SECURITY
 
 
 def build_system_instruction() -> str:
@@ -29,6 +30,7 @@ def build_system_instruction() -> str:
     """
     components = [
         "<!-- SYD SYSTEM INSTRUCTION - MODULAR ARCHITECTURE -->",
+        SECURITY_GUARDRAILS,  # 🛡️ MUST BE FIRST - Highest precedence
         IDENTITY,
         OUTPUT_RULES,
         CRITICAL_PROTOCOLS,
