@@ -24,6 +24,9 @@ RUN uv sync
 # Place the virtual environment in the PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
+# Verify codebase integrity (compile python to catch syntax errors during build)
+RUN python -m compileall src main.py
+
 # Expose the port used by Cloud Run
 EXPOSE 8080
 
