@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
 from firebase_admin import firestore
 from src.auth.jwt_handler import verify_token
-from src.db.firebase_client import get_firestore_db
+from src.db.firebase_client import get_firestore_client
 import secrets
 import base64
 import logging
@@ -148,7 +148,7 @@ async def verify_registration(
     # In production, validate the attestation object here
     # For MVP, we trust the client (acceptable for platform authenticators)
     
-    db = get_firestore_db()
+    db = get_firestore_client()
     
     # Store credential in Firestore
     credential_doc = {
@@ -192,7 +192,7 @@ async def get_authentication_options(
     _challenge_store[user_id] = challenge_b64
     
     # Get user's registered passkeys
-    db = get_firestore_db()
+    db = get_firestore_client()
     passkeys = db.collection("users").document(user_id).collection("passkeys").stream()
     
     allow_credentials = [
@@ -230,7 +230,7 @@ async def verify_authentication(assertion: PasskeyAssertion):
     # For MVP: Accept assertion (in production, verify signature)
     
     # Find user by credential ID
-    db = get_firestore_db()
+    db = get_firestore_client()
     users = db.collection("users").stream()
     
     user_id = None
