@@ -117,7 +117,8 @@ async def get_registration_options(
         ],
         authenticatorSelection={
             "authenticatorAttachment": "platform",  # FaceID/TouchID only
-            "requireResidentKey": False,
+            "requireResidentKey": True,   # ✅ Enable discoverable credentials
+            "residentKey": "required",     # Explicit requirement for WebAuthn Level 2
             "userVerification": "required"  # Biometric required
         },
         timeout=60000
@@ -179,11 +180,9 @@ async def get_authentication_options(
     """
     user_id = request.user_id
     
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User ID required"
-        )
+    # ✅ Support email-free login via Resident Keys
+    # If user_id is provided, filter credentials (legacy flow)
+    # If not provided, browser will discover credentials automatically
     
     # Generate challenge
     challenge_bytes = secrets.token_bytes(32)
@@ -193,18 +192,24 @@ async def get_authentication_options(
     
     # Get user's registered passkeys
     db = get_firestore_client()
-    passkeys = db.collection("users").document(user_id).collection("passkeys").stream()
     
-    allow_credentials = [
-        {
-            "type": "public-key",
-            "id": pk.id,
-            "transports": ["internal"]  # Platform authenticator
-        }
-        for pk in passkeys
-    ]
+    if user_id:
+        # Legacy flow: Filter by user
+        passkeys = db.collection("users").document(user_id).collection("passkeys").stream()
+        allow_credentials = [
+            {
+                "type": "public-key",
+                "id": pk.id,
+                "transports": ["internal"]  # Platform authenticator
+            }
+            for pk in passkeys
+        ]
+    else:
+        # ✅ Resident Keys flow: Empty array = browser discovers all credentials
+        allow_credentials = []
     
-    if not allow_credentials:
+    # Only check for empty credentials if user_id was provided
+    if user_id and not allow_credentials:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Nessuna passkey registrata per questo utente"
@@ -229,18 +234,31 @@ async def verify_authentication(assertion: PasskeyAssertion):
     """
     # For MVP: Accept assertion (in production, verify signature)
     
-    # Find user by credential ID
+    # ✅ Extract user_id from userHandle (Resident Keys)
+    user_handle_b64 = assertion.response.get("userHandle")
+    
+    if not user_handle_b64:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing userHandle in WebAuthn response"
+        )
+    
+    # Decode userHandle to get user_id
+    try:
+        # Add padding if needed for base64 decoding
+        padding = "==" if len(user_handle_b64) % 4 else ""
+        user_id = base64.urlsafe_b64decode(user_handle_b64 + padding).decode('utf-8')
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid userHandle: {str(e)}"
+        )
+    
+    # Verify the credential exists for this user
     db = get_firestore_client()
-    users = db.collection("users").stream()
+    passkey = db.collection("users").document(user_id).collection("passkeys").document(assertion.id).get()
     
-    user_id = None
-    for user in users:
-        passkey = db.collection("users").document(user.id).collection("passkeys").document(assertion.id).get()
-        if passkey.exists:
-            user_id = user.id
-            break
-    
-    if not user_id:
+    if not passkey.exists:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Passkey non riconosciuta"

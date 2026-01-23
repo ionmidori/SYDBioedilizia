@@ -137,8 +137,10 @@ export function usePasskey() {
      * 2. Call navigator.credentials.get()
      * 3. Send assertion to backend for verification
      * 4. Receive JWT token
+     * 
+     * @param userId - Optional. If omitted, browser will discover credentials automatically (Resident Keys)
      */
-    const authenticateWithPasskey = useCallback(async (userId: string) => {
+    const authenticateWithPasskey = useCallback(async (userId?: string) => {
         setIsAuthenticating(true);
 
         try {
@@ -146,7 +148,7 @@ export function usePasskey() {
             const optionsRes = await fetch('/api/passkey/authenticate/options', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: userId })
+                body: JSON.stringify({ user_id: userId || null })  // ✅ Null for Resident Keys
             });
 
             if (!optionsRes.ok) {
@@ -159,10 +161,13 @@ export function usePasskey() {
             const publicKey = {
                 ...options,
                 challenge: base64urlToBuffer(options.challenge),
-                allowCredentials: options.allowCredentials.map((cred: any) => ({
-                    ...cred,
-                    id: base64urlToBuffer(cred.id)
-                }))
+                // ✅ allowCredentials may be empty for Resident Keys
+                allowCredentials: options.allowCredentials?.length > 0
+                    ? options.allowCredentials.map((cred: any) => ({
+                        ...cred,
+                        id: base64urlToBuffer(cred.id)
+                    }))
+                    : undefined  // Undefined = browser discovers credentials
             };
 
             // Get credential
@@ -188,7 +193,11 @@ export function usePasskey() {
                         clientDataJSON: bufferToBase64url(assertion.response.clientDataJSON),
                         signature: bufferToBase64url(
                             (assertion.response as AuthenticatorAssertionResponse).signature
-                        )
+                        ),
+                        // ✅ Include userHandle for Resident Keys
+                        userHandle: (assertion.response as AuthenticatorAssertionResponse).userHandle
+                            ? bufferToBase64url((assertion.response as AuthenticatorAssertionResponse).userHandle!)
+                            : null
                     },
                     type: assertion.type
                 })
