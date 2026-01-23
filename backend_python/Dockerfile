@@ -28,4 +28,8 @@ ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8080
 
 # Run the application using uvicorn directly (via the venv)
-CMD ["/app/.venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Make entrypoint executable
+RUN chmod +x /app/entrypoint.sh
+
+# Use entrypoint script
+CMD ["/app/entrypoint.sh"]
