@@ -10,8 +10,17 @@ logger = logging.getLogger(__name__)
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Create client with API key
-client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+# Create client with API key (Lazy)
+_client = None
+
+def _get_client():
+    """Lazy-load GenAI client."""
+    global _client
+    if _client is None:
+        if not GEMINI_API_KEY:
+            raise Exception("GEMINI_API_KEY not configured in environment")
+        _client = genai.Client(api_key=GEMINI_API_KEY)
+    return _client
 
 # Models for image generation
 T2I_MODEL = "gemini-2.5-flash-image"  # Testing targeted image generation model
@@ -35,6 +44,7 @@ async def generate_image_t2i(
     Raises:
         Exception: If API call fails or no API key configured
     """
+    client = _get_client()
     if not client:
         raise Exception("GEMINI_API_KEY not configured in environment")
     
@@ -118,6 +128,7 @@ async def generate_image_i2i(
     Raises:
         Exception: If API call fails or no API key configured
     """
+    client = _get_client()
     if not client:
         raise Exception("GEMINI_API_KEY not configured in environment")
     
