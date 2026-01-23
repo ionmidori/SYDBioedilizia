@@ -367,10 +367,21 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
     
     except Exception as e:
         import traceback
+        import os
         error_trace = traceback.format_exc()
-        logger.error(f"❌ STREAM ERROR: {str(e)}\n{error_trace}")  # Debug log
-        # Emit error event (3:)
-        async for chunk in stream_error(str(e)):
+        logger.error(f"❌ STREAM ERROR: {str(e)}\n{error_trace}")
+        
+        # 🛡️ SECURITY: Sanitize errors in production
+        env = os.getenv("ENV", "development")
+        if env == "production":
+            # Never leak internal details to clients
+            safe_error_msg = "An internal processing error occurred. Please try again or contact support."
+        else:
+            # Development: Show full error for debugging
+            safe_error_msg = str(e)
+        
+        # Emit sanitized error event (3:)
+        async for chunk in stream_error(safe_error_msg):
             yield chunk
 
 @app.post("/chat/stream")

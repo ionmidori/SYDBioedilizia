@@ -1351,3 +1351,8 @@ You can install "python-multipart" with:
 
 pip install python-multipart
 
+2026-01-24 00:23:40 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
