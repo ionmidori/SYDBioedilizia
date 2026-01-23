@@ -133,7 +133,7 @@ export function Portfolio() {
                                 onViewportEnter={() => isMobile && setHoveredProject(project.id)}
                                 onViewportLeave={() => isMobile && setHoveredProject(null)}
                                 className={cn(
-                                    "relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
+                                    "relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors snap-center scroll-mt-32",
                                     hoveredProject === project.id && "border-luxury-gold/50"
                                 )}
                                 onMouseEnter={() => !isMobile && setHoveredProject(project.id)}
