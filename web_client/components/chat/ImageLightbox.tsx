@@ -1,7 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { X, Send } from 'lucide-react';
+import { X, Send, Share2 } from 'lucide-react';  // Added Share2
+import { useParallax } from '@/hooks/useParallax';  // 🎮 Gyroscope
+import { useWebShare } from '@/hooks/useWebShare';  // 📤 Native Share
 
 interface ImageLightboxProps {
     imageUrl: string | null;
@@ -9,10 +11,23 @@ interface ImageLightboxProps {
 }
 
 /**
- * Image lightbox modal for fullscreen image preview
- * Extracted from ChatWidget.tsx (lines 587-600)
+ * Image lightbox modal for fullscreen image preview.
+ * Now includes:
+ * - 🎮 Gyroscope parallax effect (subtle holographic tilt)
+ * - 📤 Native Web Share API
  */
 export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
+    // 🎮 Parallax effect (enabled only when lightbox is open)
+    const { getTransform, isSupported: parallaxSupported } = useParallax(!!imageUrl);
+
+    // 📤 Web Share API
+    const { canShare, shareRender } = useWebShare();
+
+    const handleShare = async () => {
+        if (imageUrl) {
+            await shareRender(imageUrl, 'Rendering');
+        }
+    };
     return (
         <AnimatePresence>
             {imageUrl && (
@@ -35,6 +50,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                             src={imageUrl}
                             alt="Full preview"
                             className="max-w-full max-h-[80vh] rounded-lg shadow-2xl border border-white/10"
+                            style={parallaxSupported ? getTransform(15) : {}}  // 🎮 Apply parallax
                         />
                         <div className="mt-4 flex gap-4">
                             <Button
@@ -46,6 +62,20 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                                 <X className="w-4 h-4 mr-2" />
                                 Chiudi
                             </Button>
+
+                            {/* 📤 Native Share Button (if supported) */}
+                            {canShare && (
+                                <Button
+                                    onClick={handleShare}
+                                    variant="outline"
+                                    aria-label="Condividi rendering"
+                                    className="border-white/20 text-white hover:bg-white/10"
+                                >
+                                    <Share2 className="w-4 h-4 mr-2" />
+                                    Condividi
+                                </Button>
+                            )}
+
                             <a
                                 href={imageUrl}
                                 download={`renovation-ai-vision-${Date.now()}.png`}

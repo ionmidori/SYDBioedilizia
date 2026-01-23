@@ -42,7 +42,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="SYD Brain 🧠", version="0.1.0")
+app = FastAPI(title="SYD Brain 🧠", version="0.3.0")
 
 @app.on_event("startup")
 async def startup_event():
@@ -55,6 +55,20 @@ async def startup_event():
         print(f"\n{'='*60}\n{e}\n{'='*60}\n")
         sys.exit(1)
 
+# Register upload router
+from src.api.upload import router as upload_router
+app.include_router(upload_router)
+
+# Register magic link router
+from src.api.magic_link import router as magic_link_router
+app.include_router(magic_link_router)
+
+# Register passkey router
+from src.api.passkey import router as passkey_router
+app.include_router(passkey_router)
+
+
+
 
 class ChatRequest(BaseModel):
     messages: list[dict]
@@ -64,6 +78,8 @@ class ChatRequest(BaseModel):
     image_urls: list[str] | None = Field(None, alias="imageUrls")  # Backward compatibility
     media_types: list[str] | None = Field(None, alias="mediaTypes")  # Optional MIME type hints
     media_metadata: dict[str, dict] | None = Field(None, alias="mediaMetadata") # New: Trim Ranges
+    # 🎬 NEW: Native Video Support (File API URIs)
+    video_file_uris: list[str] | None = Field(None, alias="videoFileUris")  # File API URIs from /upload endpoint
     
     model_config = {"populate_by_name": True}
     
@@ -159,49 +175,67 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
         logger.info(f"💾 Saved user message to DB")
         
         # Convert messages to LangChain format
+        # Convert messages to LangChain format - USING DB HISTORY + CURRENT MESSAGE
+        # This ensures we consistently see [Immagine: URL] markers saved in DB
         lc_messages = []
         
-        for i, msg in enumerate(request.messages):
+        # 1. Add History from DB
+        for msg in conversation_history:
             role = msg.get("role")
-            content = _parse_content(msg.get("content", ""))
+            content = msg.get("content", "")
             
             if role == "user":
-                # 🔥 MULTIMODAL SUPPORT: If this is the last message and we have media
-                if i == len(request.messages) - 1 and media_urls:
-                    logger.info(f"👁️ Injecting {len(media_urls)} media files into prompt")
-                    multimodal_content = [{"type": "text", "text": content}]
-                    for idx, url in enumerate(media_urls):
-                        # Determine if image or video
-                        mime_type = media_types[idx] if idx < len(media_types) else None
-                        if mime_type and mime_type.startswith('video/'):
-                            # For videos, just include as text reference for now
-                            # (LangChain video support may vary by model)
-                            multimodal_content[0]["text"] += f"\n\n[Video: {url}]"
-                        else:
-                            # Standard image handling
-                            multimodal_content.append({
-                                "type": "image_url", 
-                                "image_url": {"url": url}
-                            })
-                    lc_messages.append(HumanMessage(content=multimodal_content))
-                else:
-                    # Standard text message
-                    lc_messages.append(HumanMessage(content=content))
+                lc_messages.append(HumanMessage(content=content))
             elif role == "assistant":
-                # 🔥 Fix: Handle tool calls in assistant messages
                 tool_calls = msg.get("tool_calls")
                 if tool_calls:
                     lc_messages.append(AIMessage(content=content or "", tool_calls=tool_calls))
                 else:
                     lc_messages.append(AIMessage(content=content))
-            
             elif role == "tool":
-                # 🔥 Fix: Handle tool results - ensure tool_call_id is never None
-                tool_call_id = msg.get("tool_call_id") or msg.get("name") or f"tool-{i}"
                 lc_messages.append(ToolMessage(
                     content=content,
-                    tool_call_id=tool_call_id
+                    tool_call_id=msg.get("tool_call_id", "unknown")
                 ))
+
+        # 2. Add Current User Message (Multimodal)
+        # 🎬 Handle both traditional media_urls AND File API video URIs
+        has_media = bool(media_urls or request.video_file_uris)
+        
+        if has_media:
+            multimodal_content = [{"type": "text", "text": user_content}]
+            
+            # Handle traditional media URLs (images, legacy video markers)
+            if media_urls:
+                logger.info(f"👁️ Injecting {len(media_urls)} media files into prompt")
+                for idx, url in enumerate(media_urls):
+                    mime_type = media_types[idx] if media_types and idx < len(media_types) else None
+                    if mime_type and mime_type.startswith('video/'):
+                        # Video handled as text marker (already in user_content)
+                        pass
+                    else:
+                        multimodal_content.append({
+                            "type": "image_url", 
+                            "image_url": {"url": url}
+                        })
+            
+            # 🎬 Handle File API Video URIs (Native Video)
+            if request.video_file_uris:
+                logger.info(f"🎬 Injecting {len(request.video_file_uris)} File API video(s) for native processing")
+                for video_uri in request.video_file_uris:
+                    # Inject as native video part for Gemini
+                    # Format: {"type": "file_data", "file_data": {"file_uri": "..."} }
+                    multimodal_content.append({
+                        "type": "file_data",
+                        "file_data": {
+                            "file_uri": video_uri
+                        }
+                    })
+                    logger.info(f"🎬 Added native video: {video_uri}")
+            
+            lc_messages.append(HumanMessage(content=multimodal_content))
+        else:
+            lc_messages.append(HumanMessage(content=user_content))
 
         
         # Prepare agent state with user_id for quota tracking

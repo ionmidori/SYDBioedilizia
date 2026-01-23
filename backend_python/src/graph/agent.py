@@ -237,6 +237,33 @@ If the user specifically asks for another image from the list, use that URL inst
              # If analyzed, move to design/survey
              if current_phase == "TRIAGE":
                  current_phase = "DESIGN"
+
+        # ⚡ RULE: Explicit render request -> Force generate_render
+        # This fixes the issue where the model acknowledges but fails to call the tool
+        user_text = ""
+        if isinstance(latest_msg.content, str):
+            user_text = latest_msg.content.lower()
+        elif isinstance(latest_msg.content, list):
+            # Multimodal content - extract text parts
+            for part in latest_msg.content:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    user_text += part.get("text", "").lower() + " "
+                elif isinstance(part, str):
+                    user_text += part.lower() + " "
+        
+        # Keywords that trigger render generation
+        render_keywords = [
+            "procedi", "vai", "fallo", "genera", "crea", "renderizza",
+            "fai il rendering", "crea il rendering", "genera il rendering",
+            "rendering", "render", "mostrami", "fammi vedere"
+        ]
+        
+        if any(kw in user_text for kw in render_keywords):
+            # Only force if we have an image context
+            if found_images or state.get("active_image_url"):
+                logger.info(f"⚡ RULE: Explicit render request detected in: '{user_text[:50]}...'")
+                logger.info(f"⚡ RULE: Found images: {found_images}, active_url: {state.get('active_image_url')}")
+                forced_tool = "generate_render"
         
         # 3. Filter Tools to Prevent Loops/Hallucinations
         if current_phase == "TRIAGE" and not forced_tool:

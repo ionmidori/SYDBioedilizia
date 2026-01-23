@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Mail, Lock, AlertCircle } from 'lucide-react';
+import { mapAuthError, triggerHapticFeedback } from '@/utils/auth-utils';
 
 interface EmailAuthFormProps {
     onSuccess?: () => void;
@@ -19,6 +20,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [resetSent, setResetSent] = useState(false);
+    const [shake, setShake] = useState(false);
 
     const validateEmail = (email: string) => {
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,21 +28,28 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
     };
 
     const validatePassword = (password: string) => {
-        return password.length >= 6; // Firebase minimum
+        return password.length >= 6;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setShake(false);
 
         // Validation
         if (!validateEmail(email)) {
             setError('Inserisci un indirizzo email valido');
+            setShake(true);
+            triggerHapticFeedback('medium');
+            setTimeout(() => setShake(false), 500);
             return;
         }
 
         if (mode !== 'reset' && !validatePassword(password)) {
             setError('La password deve essere di almeno 6 caratteri');
+            setShake(true);
+            triggerHapticFeedback('medium');
+            setTimeout(() => setShake(false), 500);
             return;
         }
 
@@ -62,18 +71,11 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                 onSuccess?.();
             }
         } catch (err: any) {
-            // User-friendly error messages
-            if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-                setError('Credenziali non valide');
-            } else if (err.code === 'auth/email-already-in-use') {
-                setError('Questo indirizzo email è già registrato');
-            } else if (err.code === 'auth/weak-password') {
-                setError('Password troppo debole');
-            } else if (err.code === 'auth/invalid-email') {
-                setError('Indirizzo email non valido');
-            } else {
-                setError('Si è verificato un errore. Riprova.');
-            }
+            const friendlyError = mapAuthError(err.code);
+            setError(friendlyError);
+            setShake(true);
+            triggerHapticFeedback('heavy');
+            setTimeout(() => setShake(false), 500);
         } finally {
             setLoading(false);
         }
@@ -105,7 +107,8 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                         value={email}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                         placeholder="nome@esempio.com"
-                        className="pl-10 bg-slate-800/50 border-slate-700 text-white"
+                        className={`pl-10 bg-slate-800/50 border-slate-700 text-white transition-all ${shake ? 'animate-shake border-red-500' : ''
+                            }`}
                         required
                     />
                 </div>
@@ -122,7 +125,8 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                             value={password}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                             placeholder="••••••••"
-                            className="pl-10 bg-slate-800/50 border-slate-700 text-white"
+                            className={`pl-10 bg-slate-800/50 border-slate-700 text-white transition-all ${shake ? 'animate-shake border-red-500' : ''
+                                }`}
                             required
                         />
                     </div>

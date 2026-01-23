@@ -11,8 +11,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProviderButton } from './ProviderButton';
 import { EmailAuthForm } from './EmailAuthForm';
-import { GoogleAuthProvider, OAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { MagicLinkForm } from './MagicLinkForm';
+import { PasskeyButton } from './PasskeyButton';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AuthDialogProps {
     open: boolean;
@@ -20,17 +21,17 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
+    const { loginWithGoogle, loginWithApple } = useAuth();
     const [loading, setLoading] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'social' | 'email'>('social');
+    const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
 
     const handleGoogleSignIn = async () => {
         if (loading) return;
         setLoading('google');
 
         try {
-            const provider = new GoogleAuthProvider();
-            await signInWithPopup(auth, provider);
-            onOpenChange(false); // Close dialog on success
+            await loginWithGoogle();
+            onOpenChange(false);
         } catch (error: any) {
             console.error('Google sign-in error:', error);
             if (error.code !== 'auth/popup-closed-by-user') {
@@ -46,10 +47,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
         setLoading('apple');
 
         try {
-            const provider = new OAuthProvider('apple.com');
-            provider.addScope('email');
-            provider.addScope('name');
-            await signInWithPopup(auth, provider);
+            await loginWithApple();
             onOpenChange(false);
         } catch (error: any) {
             console.error('Apple sign-in error:', error);
@@ -77,10 +75,13 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     </DialogDescription>
                 </DialogHeader>
 
-                <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v as 'social' | 'email')} className="mt-4">
-                    <TabsList className="grid w-full grid-cols-2 bg-slate-800/50">
+                <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v as 'social' | 'magic' | 'email')} className="mt-4">
+                    <TabsList className="grid w-full grid-cols-3 bg-slate-800/50">
                         <TabsTrigger value="social" className="data-[state=active]:bg-slate-700">
                             Social
+                        </TabsTrigger>
+                        <TabsTrigger value="magic" className="data-[state=active]:bg-slate-700">
+                            Magic Link
                         </TabsTrigger>
                         <TabsTrigger value="email" className="data-[state=active]:bg-slate-700">
                             Email
@@ -88,6 +89,18 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     </TabsList>
 
                     <TabsContent value="social" className="space-y-3 mt-6">
+                        {/* Passkey (Biometric) Button - Premium Option */}
+                        <PasskeyButton mode="login" onSuccess={handleEmailSuccess} />
+
+                        <div className="relative my-4">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-700"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-slate-900 px-2 text-slate-500">Oppure</span>
+                            </div>
+                        </div>
+
                         <ProviderButton
                             provider="google"
                             onClick={handleGoogleSignIn}
@@ -116,6 +129,10 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                         >
                             Usa Email e Password →
                         </button>
+                    </TabsContent>
+
+                    <TabsContent value="magic" className="mt-6">
+                        <MagicLinkForm onSuccess={handleEmailSuccess} />
                     </TabsContent>
 
                     <TabsContent value="email" className="mt-6">

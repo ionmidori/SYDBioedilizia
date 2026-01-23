@@ -785,3 +785,439 @@ Che colore vuoi per le pareti? (es. Bianco puro, Grigio...
 2026-01-22 18:40:15 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
 2026-01-22 18:40:15 [INFO] AI TEXT RESPONSE: Assolutamente! Per iniziare, avrei bisogno di una foto dello spazio che vuoi rinnovare. Puoi caricar...
 2026-01-22 18:40:17 [INFO] [Firestore] Saved assistant message to session session-1769103343075-oi1igx
+2026-01-23 19:01:07 [INFO] Using local service account: firebase-service-account.json
+2026-01-23 19:01:07 [INFO] Firebase Admin SDK initialized
+2026-01-23 19:01:08 [INFO] [Firestore] Created new session session-1769124450735-c9o8kw
+2026-01-23 19:01:08 [INFO] [Firestore] Retrieved 0 messages for session session-1769124450735-c9o8kw
+2026-01-23 19:01:08 [INFO] [Firestore] Saved user message to session session-1769124450735-c9o8kw
+2026-01-23 19:01:16 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 19:01:16 [INFO] Event received: ['agent']
+2026-01-23 19:01:16 [INFO] Checking NODE: agent
+2026-01-23 19:01:16 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 19:01:16 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:01:16 [INFO]    Found 1 messages
+2026-01-23 19:01:16 [INFO]    Last message type: AIMessage
+2026-01-23 19:01:16 [INFO]    RAW CONTENT: ''
+2026-01-23 19:01:16 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 19:01:16 [INFO]    TOOL_CALLS: [{'name': 'analyze_room', 'args': {'image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769124450735-c9o8kw/1769191257050-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T180057Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=31faa57c6f06f9846732b3e525ef9cae4702b6ab90b33f2497fa02149e633b372433514985c70daf6e8db9819b7881388ec5a7ea055a1a4cfd1b6cc5b930f4fdbc137a33e486452f4f6ea3ef8f10b417b20c539275c99928d0147edba2f17a4cb44633f498953fe971d4d7d0d93ad94bcd6856789a1512424af8e8a917b085a53069e4aa4a0f167b2379fc3b1ed3984b38113c379e2fd38adcdbb662f0b3134539df682650f58ad0bab1f1c9c35d1f1d7253f673b389f1022f2fca602f752f3431756563a171882eca2f644ca2ffa010ffca9dade573b230b07f149ce40b4b0c8cb84076c6b4328be5bfb04bf717f50f8bb664bcc8d9dba0e049beb0d59700c8'}, 'id': '61d6bf0b-416b-4f54-9dc0-84ba19298482', 'type': 'tool_call'}]
+2026-01-23 19:01:16 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'analyze_room', 'arguments': '{"image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769124450735-c9o8kw/1769191257050-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T180057Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=31faa57c6f06f9846732b3e525ef9cae4702b6ab90b33f2497fa02149e633b372433514985c70daf6e8db9819b7881388ec5a7ea055a1a4cfd1b6cc5b930f4fdbc137a33e486452f4f6ea3ef8f10b417b20c539275c99928d0147edba2f17a4cb44633f498953fe971d4d7d0d93ad94bcd6856789a1512424af8e8a917b085a53069e4aa4a0f167b2379fc3b1ed3984b38113c379e2fd38adcdbb662f0b3134539df682650f58ad0bab1f1c9c35d1f1d7253f673b389f1022f2fca602f752f3431756563a171882eca2f644ca2ffa010ffca9dade573b230b07f149ce40b4b0c8cb84076c6b4328be5bfb04bf717f50f8bb664bcc8d9dba0e049beb0d59700c8"}'}, '__gemini_function_call_thought_signatures__': {'61d6bf0b-416b-4f54-9dc0-84ba19298482': 'CtICAXLI2nyOEFA/FIqLhMOuT75URENzMNGPwK7pOdEcIyKAoD2PSJjJjjozvWJkNLzXQhOk74u7ZSwS8cyElkb8RnRaoI8Cqp2ueTH6g9ffI85T1Yl9JX+efe0gfAbeEnDCYCsGlzpDqHFo8BVJGu7BOWgRf09BU6izkbjKGS3TVR9pXfm3oZ3Put15kMfR0sEoFr5H9DzkTjdGkzAkZ2eKGRnEljpIcsj6UB/Lwxdgbe8HtOi7nqWjao6w8XRvfKYkpRGKJ7SSCN9MhNnZwYJmRbAvSOgk9Oz1gq5oCsYowUUD8ddltt0MH/2+lps1j94puxucadimiGUeGKE0jvGux7isfZFtONTh7prMUnms/TNr9K1jWVO2GcAWvs5IqGaVEsIoXcdUS3e1mNf+Sw5zbzRUb7DYRf+gJxY5yvf2nzXldd9TdNP2NAdYxSHv4sw/E4Q='}}
+2026-01-23 19:01:16 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 19:01:16 [INFO] DETECTED TOOL CALLS: 1
+2026-01-23 19:01:16 [INFO] [Firestore] Saved assistant message to session session-1769124450735-c9o8kw
+2026-01-23 19:01:16 [INFO] Saved assistant tool call message (1 calls)
+2026-01-23 19:01:16 [INFO] STREAMING TOOL CALL: analyze_room
+2026-01-23 19:01:16 [INFO] HTTP Request: GET https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769124450735-c9o8kw/1769191257050-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T180057Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=31faa57c6f06f9846732b3e525ef9cae4702b6ab90b33f2497fa02149e633b372433514985c70daf6e8db9819b7881388ec5a7ea055a1a4cfd1b6cc5b930f4fdbc137a33e486452f4f6ea3ef8f10b417b20c539275c99928d0147edba2f17a4cb44633f498953fe971d4d7d0d93ad94bcd6856789a1512424af8e8a917b085a53069e4aa4a0f167b2379fc3b1ed3984b38113c379e2fd38adcdbb662f0b3134539df682650f58ad0bab1f1c9c35d1f1d7253f673b389f1022f2fca602f752f3431756563a171882eca2f644ca2ffa010ffca9dade573b230b07f149ce40b4b0c8cb84076c6b4328be5bfb04bf717f50f8bb664bcc8d9dba0e049beb0d59700c8 "HTTP/1.1 200 OK"
+2026-01-23 19:01:17 [INFO] [Tool] Detected MIME type: image/jpeg
+2026-01-23 19:01:17 [INFO] [Vision] Initializing Gemini Vision analysis...
+2026-01-23 19:01:17 [INFO] [Vision] Model: gemini-2.5-flash
+2026-01-23 19:01:17 [INFO] AFC is enabled with max remote calls: 10.
+2026-01-23 19:01:28 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 19:01:28 [INFO] [Vision] Analyzed room: kitchen, 25mq
+2026-01-23 19:01:28 [ERROR] Task was destroyed but it is pending!
+task: <Task pending name='Task-17' coro=<AsyncClient.aclose() running at C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\.venv\Lib\site-packages\google\genai\client.py:247>>
+2026-01-23 19:01:28 [INFO] Event received: ['tools']
+2026-01-23 19:01:28 [INFO] Checking NODE: tools
+2026-01-23 19:01:28 [INFO]    Node output keys: ['messages']
+2026-01-23 19:01:28 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:01:28 [INFO]    Found 1 messages
+2026-01-23 19:01:28 [INFO]    Last message type: ToolMessage
+2026-01-23 19:01:28 [INFO]    RAW CONTENT: '{\n  "room_type": "kitchen",\n  "approximate_size_sqm": 25,\n  "architectural_features": [\n    "structural column/bulkhead at corner between left wall and back wall",\n    "tiled wainscoting on lower half of left, back, and right walls",\n    "wooden base cabinet with double sink under window on left wall",\n    "wooden upper wall cabinets on back wall"\n  ],\n  "flooring_type": "terracotta tiles",\n  "wall_color": "white",\n  "ceiling_type": "flat",\n  "windows": [\n    {\n      "position": "left wall center",\n      "size": "large"\n    }\n  ],\n  "doors": [],\n  "special_features": [\n    "built-in_shelving",\n    "wall_tiles"\n  ]\n}'
+2026-01-23 19:01:28 [INFO]    HAS TOOL_CALLS? False
+2026-01-23 19:01:28 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 19:01:28 [INFO]    METADATA: {}
+2026-01-23 19:01:28 [INFO] DETECTED TOOL RESULT: 61d6bf0b-416b-4f54-9dc0-84ba19298482
+2026-01-23 19:01:28 [INFO] [Firestore] Saved tool message to session session-1769124450735-c9o8kw
+2026-01-23 19:01:33 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 19:01:33 [INFO] Event received: ['agent']
+2026-01-23 19:01:33 [INFO] Checking NODE: agent
+2026-01-23 19:01:33 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 19:01:33 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:01:33 [INFO]    Found 1 messages
+2026-01-23 19:01:33 [INFO]    Last message type: AIMessage
+2026-01-23 19:01:33 [INFO]    RAW CONTENT: [{'type': 'text', 'text': "Ho analizzato la foto! Vedo una cucina di circa 25mq con pavimentazione in piastrelle di cotto, pareti bianche e piastrelle a mezza altezza sulle pareti. C'è una finestra grande sulla parete sinistra e mobili in legno con un lavello doppio.\n\nQuali elementi della foto vuoi MANTENERE invariati? (es. il pavimento in cotto, gli infissi della finestra, i pensili in legno)\n\nDimmi tutto quello che vuoi conservare, poi progettiamo il resto insieme.", 'extras': {'signature': 'CskEAXLI2nw/Vu6cY8A/mhP5hPUqlCvjYEEnHFRwoXpOIDbgNMYGU1qWuAG+vpQrWGHtiHRFrB8n4CpcU0Q43kZGpu1U+16FzapdV7JziRlt6P40LLZpy+50wlEcHQpuiBXBQDrfnTGynHTvhmqjhOn6pRriAGBsClQUrB2qJxGefLY6GzIh0XdkPrHABvKKwNR27tlRzNFvs6qvFTQE2D2tlbiaDhOluH8eAFlkksuzHfIkLsjVVCcu0bSkbnuAOy10mnOycb2TyNG4kE9jI3eMZtbUDjxdecOMuepwSy7RVtOl9cEGw36wEbMUNpLNe/L1b4moTs0GNTD2kWtSGi5ObB+n78k80l4f7eWnbniUrlA+48Ijs2ij8SKuZkvfj6y6JSADWlssbGxxUguBUTJlvtYsbKWIAbA7cua8vN3dFuE6Z1zN9Kubqif25wapLuTZxDrSQ3H+5rhmOj54oscQOydWaMUx+X9z/YzouP2HqlJks7PGa/Uaso2mnzHPpOx9uWj3EQ9CIKSMXsaMpzp6WhVOhqWzSut3QQeDZiWkKgFhvOBSVdyIJ5I1joK+FlWmNWRAOgKgvrgM0rTHXXcNW60BUxh6TLPFQM9VR3PzSXJGWfUB3+MMtxYnDDa5CzuzRsbkIJGBke1SUjIc1F1/m6fGrYL7pqjC8CjPWjZSILn/huEBJkDd7VvL8hZfvRfe1scy5gdzSIHUcx0+ZmjPf+g+LAs/xkp8WiGthgeDpoNB3XQibUL/O8dlo5FC6WWsmCg67UchZzBc'}}]
+2026-01-23 19:01:33 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 19:01:33 [INFO]    TOOL_CALLS: []
+2026-01-23 19:01:33 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 19:01:33 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 19:01:33 [INFO] AI TEXT RESPONSE: Ho analizzato la foto! Vedo una cucina di circa 25mq con pavimentazione in piastrelle di cotto, pare...
+2026-01-23 19:01:37 [INFO] [Firestore] Saved assistant message to session session-1769124450735-c9o8kw
+2026-01-23 19:02:04 [INFO] [Firestore] Retrieved 4 messages for session session-1769124450735-c9o8kw
+2026-01-23 19:02:04 [INFO] [Firestore] Saved user message to session session-1769124450735-c9o8kw
+2026-01-23 19:02:05 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 19:02:05 [INFO] Event received: ['agent']
+2026-01-23 19:02:05 [INFO] Checking NODE: agent
+2026-01-23 19:02:05 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 19:02:05 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:02:05 [INFO]    Found 1 messages
+2026-01-23 19:02:05 [INFO]    Last message type: AIMessage
+2026-01-23 19:02:05 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Perfetto, il pavimento in cotto rimarrà invariato.\n\nOra, per le pareti, che colore o finitura desideri? E che stile di arredamento preferisci per la tua cucina? (es. Moderno, Industriale, Scandinavo...)', 'extras': {'signature': 'CtwBAXLI2nxj00czhLdgj1ho98Nbt0r/hrbxpMOUai8acbKlvpfnP5q5p73CC4pu6FR/DP3kMn5KGTbiqD6jJ1owz0WIq9Ow94e7mgrj9wGIgLmJ4R6yOL5XadAvkYz5dd2VgI3ckgtwpr0qA7bfmNw8qGJnWna3zpDp2KObitkbUL7ZU6kEkKrk7zGayru1c5CuHLEF+Z2uc1+Zgc+PUnnSUduXnG9XD4WMLjeDX3Ql1Z9WsETpPCHA5Dczuo44Wr0u9bu8mRtvib6yVLHet76rvVSMHHsUTTWtk5t9lQ=='}}]
+2026-01-23 19:02:05 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 19:02:05 [INFO]    TOOL_CALLS: []
+2026-01-23 19:02:05 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 19:02:05 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 19:02:05 [INFO] AI TEXT RESPONSE: Perfetto, il pavimento in cotto rimarrà invariato.
+
+Ora, per le pareti, che colore o finitura deside...
+2026-01-23 19:02:07 [INFO] [Firestore] Saved assistant message to session session-1769124450735-c9o8kw
+2026-01-23 19:02:25 [INFO] [Firestore] Retrieved 6 messages for session session-1769124450735-c9o8kw
+2026-01-23 19:02:25 [INFO] [Firestore] Saved user message to session session-1769124450735-c9o8kw
+2026-01-23 19:02:29 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 19:02:29 [INFO] Event received: ['agent']
+2026-01-23 19:02:29 [INFO] Checking NODE: agent
+2026-01-23 19:02:29 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 19:02:29 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:02:29 [INFO]    Found 1 messages
+2026-01-23 19:02:29 [INFO]    Last message type: AIMessage
+2026-01-23 19:02:29 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 19:02:29 [INFO]    TOOL_CALLS: []
+2026-01-23 19:02:29 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 19:02:29 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 19:02:31 [INFO] [Firestore] Saved assistant message to session session-1769124450735-c9o8kw
+2026-01-23 19:03:41 [INFO] [Firestore] Retrieved 8 messages for session session-1769124450735-c9o8kw
+2026-01-23 19:03:42 [INFO] [Firestore] Saved user message to session session-1769124450735-c9o8kw
+2026-01-23 19:03:43 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 19:03:43 [INFO] Event received: ['agent']
+2026-01-23 19:03:43 [INFO] Checking NODE: agent
+2026-01-23 19:03:43 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 19:03:43 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:03:43 [INFO]    Found 1 messages
+2026-01-23 19:03:43 [INFO]    Last message type: AIMessage
+2026-01-23 19:03:43 [INFO]    RAW CONTENT: ''
+2026-01-23 19:03:43 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 19:03:43 [INFO]    TOOL_CALLS: []
+2026-01-23 19:03:43 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 19:03:43 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 19:08:45 [INFO] Using local service account: firebase-service-account.json
+2026-01-23 19:08:45 [INFO] Firebase Admin SDK initialized
+2026-01-23 19:08:45 [INFO] [Firestore] Retrieved 9 messages for session session-1769124450735-c9o8kw
+2026-01-23 19:08:45 [INFO] [Firestore] Saved user message to session session-1769124450735-c9o8kw
+2026-01-23 19:08:49 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 19:08:49 [INFO] Event received: ['agent']
+2026-01-23 19:08:49 [INFO] Checking NODE: agent
+2026-01-23 19:08:49 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 19:08:49 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:08:49 [INFO]    Found 1 messages
+2026-01-23 19:08:49 [INFO]    Last message type: AIMessage
+2026-01-23 19:08:49 [INFO]    RAW CONTENT: ''
+2026-01-23 19:08:49 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 19:08:49 [INFO]    TOOL_CALLS: [{'name': 'generate_render', 'args': {'prompt': 'A kitchen with original terracotta tile flooring. White walls. Japandi style furniture and decor, with a large window on the left wall.', 'mode': 'modification', 'source_image_url': 'https://storage.googleapis.com/gemini-prd/image/c2a79201-cf5e-4404-b903-a1ed57b8c71d_cucina.png', 'style': 'japandi', 'keep_elements': ['terracotta tile flooring'], 'room_type': 'kitchen'}, 'id': '79f11849-17a7-44f2-8d24-3e04a74edf2e', 'type': 'tool_call'}]
+2026-01-23 19:08:49 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'generate_render', 'arguments': '{"prompt": "A kitchen with original terracotta tile flooring. White walls. Japandi style furniture and decor, with a large window on the left wall.", "mode": "modification", "source_image_url": "https://storage.googleapis.com/gemini-prd/image/c2a79201-cf5e-4404-b903-a1ed57b8c71d_cucina.png", "style": "japandi", "keep_elements": ["terracotta tile flooring"], "room_type": "kitchen"}'}, '__gemini_function_call_thought_signatures__': {'79f11849-17a7-44f2-8d24-3e04a74edf2e': 'CqoLAXLI2nznlU2ZrOHcWMsk6h4Fk32qZHPB7FktckFtJWQ3l3z6ndAes5g1SnRT0xy+mrii9jFjlfJpC6UIAgl2lbdXhHytM8OBkdQSnst+jpRBWTkP+id4TGO8v6B7pY5ZepQ0nyejpTECJ0xD8cAawZPyhyXCKwgoKilU6rOXasc9586+rPZ8hwjIYdgCYb2QfsYPkpDVwlAGuHxIKH9H3+fJ64AyBd0eRD7ZqchSlLS5aHk97Bouk5PgemXacjKvuA06i4PDI42Rp9skvVPQvp9ceR1G9bTqnn6uRw22D1IdttrXTufvNv/HRzhuC8fqrbopxkWxP2MrSm6+8Jy03QtHR8gDcCG0xfMI7jOQpVzCdGhOLUxPRTKwTrwZ5dNCUn/H2ufchdwyJKjTah23vxN09gnpZZdQ5vlHNskbNQtxq5hFxcPkWqI4WhtgQmXGcJoNjPqFI4qnydJH6cLl1v3P0pYU6dZ0ksy6BkdqVnZ/RseCn0+RJenwXsINZ/2N24KV6Z16ysWL5pZWw2cekWh6QiVPBv/D1T1Op+XDXPyPtdngD41GFnB6Lda7OkhvfZLKeDLLrPtVduCKE0r7byRwqXc97ndnk8GgIzQy1t0B4QA3Sen2yhQHjFy6EDAeD7UfhZtRsRRtiGNoNmRQxF1BhwNRBBmIXBeU19RW9HNghzcNPoz39hBzl9Dj1elTQF3DeGUAIQLbfIOfJ18HGhRLJYzzYaa4N+rMZbWWq1v9EoBoV3RPYP+K17Ifc1IHrMEuTYhml25H+IuSox1v/MCLZRnw3z5Icxbd2CeMmkr+B74/uHGaCHzmas/gYoz6MY0/Y+U4RqjzpjEK5aZyKjKANs6/AuXAzaj+H+Df7GOgSIaP0v4FWmmVlAc6kg8E1IkOt2aiIwyUNmnaFvEb/LMBl9a06v7nHKPYFJH1t0oFsxAT0AvmG3tZ9X1iSmyqnvhEaServebFTNmuzoVWg1jkdXliOy8ybJp6asgwgmllj4YK4iAe8nfF+XqYsk0KFKePgvFMK8KvzTU8lwsjWtZ2ySNCutbWJ0rk6ZDQTcfNI0J/TsqDQ7YbPsx1s2km3Sel9ZY5hAmhCwR6FhQMx/bfV23og6qebv+AlJAQQI1AScfa05EmOfMaGyHkEeNVChxcwqL0Q6IIjBW/FXyuUoVWPld3af0vKwQbxSAE+kxaKrXPTLbfDAxGahjJZmUSn9pdecHc6jXqsokWiTtJAOpA/lp3a8huCuQjNsnoCGvtLvmMsSsIxtnBWp/3v5hV96HHUt5/gbl5aUfm+YbQLB1xionuMUezWaQE52UbR9lVmXrMjo1jZywdCSqyWxAfP8evBxt6SbDglGDhKMn1mNVstbZ6uCD1DebBcZBlr6Wyu8/epP6jZ6uJWIo1lS2fGzLmx4j1wYISB9fCJHyJrJ8QqFsTMWD553S77F2H9vRX3I9gP87ERkE9fesL3fctO5sjJ34uP4rlvw9Fv1zJrQaqY4Kz4mcZUuhMSpF9X4YVRe3sk3FlFikndfU3rW+s/VyVIVQmKOuiNf1guPIM3RjD+TdyFxpdWHsWI7z+orabsTRNO4TGXMeV2FRLG5tN5y04eiDcr1+2NfniFWpfjppDvXV/nbnqSEZnhnDcTtdI3NW9R8m+QioQKotKT4lGFnzUqi/wbD8lGZ1WE5SuIrNdP2FkL1JRQPXy/9OrHJW9YwQNDCBBiKPCwep3Zi4oh7IOkMi9CH0E+gKle4RptIcrCFiIkpsbilOKt0A86SdrstlBIv830mWyOpgNko4EZz3oOe7pO0kUQkoUK/+6xriuGwiSTpcdkiCoSIRgpGdL5KLrKPlPDkx34SPk04qkxy0r5lNICs2mD9fx4SJY7bn/uDFJR9VJqsHLjvyhyxLyWvdzIKXA+nHs4eee98zdw5cEhXGu1CN0Vw=='}}
+2026-01-23 19:08:49 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 19:08:49 [INFO] DETECTED TOOL CALLS: 1
+2026-01-23 19:08:49 [INFO] [Firestore] Saved assistant message to session session-1769124450735-c9o8kw
+2026-01-23 19:08:49 [INFO] Saved assistant tool call message (1 calls)
+2026-01-23 19:08:49 [INFO] STREAMING TOOL CALL: generate_render
+2026-01-23 19:08:49 [INFO]   - prompt: A kitchen with original terracotta tile flooring. ...
+2026-01-23 19:08:49 [INFO]   - room_type: kitchen
+2026-01-23 19:08:49 [INFO]   - style: japandi
+2026-01-23 19:08:49 [INFO]   - mode: modification
+2026-01-23 19:08:49 [INFO]   - source_image_url: https://storage.googleapis.com/gemini-prd/image/c2a79201-cf5e-4404-b903-a1ed57b8c71d_cucina.png
+2026-01-23 19:08:49 [INFO]   - keep_elements: ['terracotta tile flooring']
+2026-01-23 19:08:49 [INFO] [Quota] Dev mode active: Bypassing quota for generate_render
+2026-01-23 19:08:49 [INFO] [Quota] User zii32nfPsvYjTOAfl9RtMdNio6J3 has 9999 renders remaining
+2026-01-23 19:08:49 [INFO] [Tool] Starting async generation...
+2026-01-23 19:08:49 [INFO] HTTP Request: GET https://storage.googleapis.com/gemini-prd/image/c2a79201-cf5e-4404-b903-a1ed57b8c71d_cucina.png "HTTP/1.1 403 Forbidden"
+2026-01-23 19:08:49 [INFO] [Quota] Incremented quota for user zii32nfPsvYjTOAfl9RtMdNio6J3, tool generate_render
+2026-01-23 19:08:49 [INFO] Event received: ['tools']
+2026-01-23 19:08:49 [INFO] Checking NODE: tools
+2026-01-23 19:08:49 [INFO]    Node output keys: ['messages']
+2026-01-23 19:08:49 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:08:49 [INFO]    Found 1 messages
+2026-01-23 19:08:49 [INFO]    Last message type: ToolMessage
+2026-01-23 19:08:49 [INFO]    RAW CONTENT: "Error generating render: cannot access local variable 'logging' where it is not associated with a value"
+2026-01-23 19:08:49 [INFO]    HAS TOOL_CALLS? False
+2026-01-23 19:08:49 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 19:08:49 [INFO]    METADATA: {}
+2026-01-23 19:08:49 [INFO] DETECTED TOOL RESULT: 79f11849-17a7-44f2-8d24-3e04a74edf2e
+2026-01-23 19:08:49 [INFO] [Firestore] Saved tool message to session session-1769124450735-c9o8kw
+2026-01-23 19:08:52 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 19:08:52 [INFO] Event received: ['agent']
+2026-01-23 19:08:52 [INFO] Checking NODE: agent
+2026-01-23 19:08:52 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 19:08:52 [INFO]    Type of messages: <class 'list'>
+2026-01-23 19:08:52 [INFO]    Found 1 messages
+2026-01-23 19:08:52 [INFO]    Last message type: AIMessage
+2026-01-23 19:08:52 [INFO]    RAW CONTENT: "Mi scuso, c'è stato un errore tecnico durante la generazione del rendering. Non sono riuscito a crearlo in questo momento.\n\nPossiamo comunque continuare a definire il progetto per un preventivo, se lo desideri, oppure posso provare a generare il rendering più tardi."
+2026-01-23 19:08:52 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 19:08:52 [INFO]    TOOL_CALLS: []
+2026-01-23 19:08:52 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 19:08:52 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 19:08:52 [INFO] AI TEXT RESPONSE: Mi scuso, c'è stato un errore tecnico durante la generazione del rendering. Non sono riuscito a crea...
+2026-01-23 19:08:54 [INFO] [Firestore] Saved assistant message to session session-1769124450735-c9o8kw
+2026-01-23 20:09:28 [INFO] Using local service account: firebase-service-account.json
+2026-01-23 20:09:28 [INFO] Firebase Admin SDK initialized
+2026-01-23 20:09:28 [INFO] [Firestore] Created new session session-1769195327674-exaihr
+2026-01-23 20:09:28 [INFO] [Firestore] Retrieved 0 messages for session session-1769195327674-exaihr
+2026-01-23 20:09:29 [INFO] [Firestore] Saved user message to session session-1769195327674-exaihr
+2026-01-23 20:09:35 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:09:35 [INFO] Event received: ['agent']
+2026-01-23 20:09:35 [INFO] Checking NODE: agent
+2026-01-23 20:09:35 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:09:35 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:09:35 [INFO]    Found 1 messages
+2026-01-23 20:09:35 [INFO]    Last message type: AIMessage
+2026-01-23 20:09:35 [INFO]    RAW CONTENT: ''
+2026-01-23 20:09:35 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:09:35 [INFO]    TOOL_CALLS: [{'name': 'analyze_room', 'args': {'image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769195327674-exaihr/1769195350739-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T190910Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=44e596bb7c7070dd3ff3bfdbdb8d9ba67fe95dd5e8a6dc424fc7dfe62bd02a7fea82097ab9f805f3017de43aa159582667d0551c9f83f4bb082d2da582de721c686aca682ad182d3c55a293e1a3a88dfa15d82613b065834b4dfa1c5dc5eac78ce61c75990c8fe8ce9e1c9720ce0252c8008250fdaaa32dd38674ac960395bc54eefd89a555f1f538a03f3b1cc3ba0168c980b9f2d2e834dc2ffe3d47abf01f9689eb31f69e4b9df6fc417e304ee922fcd04ddfd91fae1d9ec04415ef9251c907e94539d246d4f0887364ea570f61ab2b54882808e0f8900f88eaf4c6b6856ae6ea3338058ce6593a113d6aaae85ec2ae49f835379d2928669389ffcc3af3e89'}, 'id': 'd31a3960-96d6-450c-b840-44cbb7fc16c4', 'type': 'tool_call'}]
+2026-01-23 20:09:35 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'analyze_room', 'arguments': '{"image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769195327674-exaihr/1769195350739-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T190910Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=44e596bb7c7070dd3ff3bfdbdb8d9ba67fe95dd5e8a6dc424fc7dfe62bd02a7fea82097ab9f805f3017de43aa159582667d0551c9f83f4bb082d2da582de721c686aca682ad182d3c55a293e1a3a88dfa15d82613b065834b4dfa1c5dc5eac78ce61c75990c8fe8ce9e1c9720ce0252c8008250fdaaa32dd38674ac960395bc54eefd89a555f1f538a03f3b1cc3ba0168c980b9f2d2e834dc2ffe3d47abf01f9689eb31f69e4b9df6fc417e304ee922fcd04ddfd91fae1d9ec04415ef9251c907e94539d246d4f0887364ea570f61ab2b54882808e0f8900f88eaf4c6b6856ae6ea3338058ce6593a113d6aaae85ec2ae49f835379d2928669389ffcc3af3e89"}'}, '__gemini_function_call_thought_signatures__': {'d31a3960-96d6-450c-b840-44cbb7fc16c4': 'CoAEAXLI2nxYPXuQ2qi4u+N6eD3dZ63I/rTkvoAfgmvERtrRbC7WSu3QHHwYcTMzvY2Y0WyrUp4lJ/rC2k1JOlyGuQDs6/crk2MDStrGY8rUJX7SmgwRMXecjC4heHdfJoZEnivuR9iXdJbRw02MSOm0Ypxb0czYjM9+fB4izWAJ9hhbGm5mkZF/EOS5uhVaMhGL8IwpKrLKGPesPsfpYClTJyBrdK/rTTTFhlVNcq/mDVOpqekSqaME2z6yuR6g9ThTkTAscJCrtQeE6tKsQCGFKFv/wkIWMckBqcAQlkynHirCFB/NYlJuZtubaucwgwm62OIA0hhEoA9t/gCtFBYnHdUuied5LLe+cTswSSyrnFPTgq3U+A0RZn9BPOQg/HFMNLJxvQL8X4Y7GSF45rzT9FtnzCiaG3yzaFWfQPN9p00oVPkIMN2nQtxHZmFhs1InzmEOqL3k1RBLAGpmG4IpjD8+MjTqbCs9atFkrwRVLPUvmVbizFWa7YW+9KeKJJf4z/kvQHz1MHQR+vdCmvJT+sUdB2KENZ7Em45Ra4A1EzP4l7bvHrgIMpRaHO1kKJ3IgLGoSmeYyS6NcFnDLpegwUrqV6iRY9I2jZYG9c0pw2Hxd6sBUMLLauGkfKfGX9/+D2pSSTwxRKq4E+bjIShrhH4z/uCj+WFmh5pE3BX4C0Y='}}
+2026-01-23 20:09:35 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:09:35 [INFO] DETECTED TOOL CALLS: 1
+2026-01-23 20:09:35 [INFO] [Firestore] Saved assistant message to session session-1769195327674-exaihr
+2026-01-23 20:09:35 [INFO] Saved assistant tool call message (1 calls)
+2026-01-23 20:09:35 [INFO] STREAMING TOOL CALL: analyze_room
+2026-01-23 20:09:35 [INFO] HTTP Request: GET https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769195327674-exaihr/1769195350739-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T190910Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=44e596bb7c7070dd3ff3bfdbdb8d9ba67fe95dd5e8a6dc424fc7dfe62bd02a7fea82097ab9f805f3017de43aa159582667d0551c9f83f4bb082d2da582de721c686aca682ad182d3c55a293e1a3a88dfa15d82613b065834b4dfa1c5dc5eac78ce61c75990c8fe8ce9e1c9720ce0252c8008250fdaaa32dd38674ac960395bc54eefd89a555f1f538a03f3b1cc3ba0168c980b9f2d2e834dc2ffe3d47abf01f9689eb31f69e4b9df6fc417e304ee922fcd04ddfd91fae1d9ec04415ef9251c907e94539d246d4f0887364ea570f61ab2b54882808e0f8900f88eaf4c6b6856ae6ea3338058ce6593a113d6aaae85ec2ae49f835379d2928669389ffcc3af3e89 "HTTP/1.1 200 OK"
+2026-01-23 20:09:36 [INFO] [Tool] Detected MIME type: image/jpeg
+2026-01-23 20:09:36 [INFO] [Vision] Initializing Gemini Vision analysis...
+2026-01-23 20:09:36 [INFO] [Vision] Model: gemini-2.5-flash
+2026-01-23 20:09:36 [INFO] AFC is enabled with max remote calls: 10.
+2026-01-23 20:09:42 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:09:42 [INFO] [Vision] Analyzed room: kitchen, 18mq
+2026-01-23 20:09:42 [ERROR] Task was destroyed but it is pending!
+task: <Task pending name='Task-15' coro=<AsyncClient.aclose() running at C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\.venv\Lib\site-packages\google\genai\client.py:247>>
+2026-01-23 20:09:42 [INFO] Event received: ['tools']
+2026-01-23 20:09:42 [INFO] Checking NODE: tools
+2026-01-23 20:09:42 [INFO]    Node output keys: ['messages']
+2026-01-23 20:09:42 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:09:42 [INFO]    Found 1 messages
+2026-01-23 20:09:42 [INFO]    Last message type: ToolMessage
+2026-01-23 20:09:42 [INFO]    RAW CONTENT: '{\n  "room_type": "kitchen",\n  "approximate_size_sqm": 18,\n  "architectural_features": [\n    "white square ceramic tiles on lower walls",\n    "wooden base kitchen cabinet with double sink on left wall under window",\n    "wooden upper kitchen cabinets on back wall",\n    "structural column/bulkhead on left wall corner",\n    "exposed electrical wiring on back wall"\n  ],\n  "flooring_type": "terracotta tiles",\n  "wall_color": "white",\n  "ceiling_type": "flat",\n  "windows": [\n    {\n      "position": "left wall center",\n      "size": "large"\n    }\n  ],\n  "doors": [],\n  "special_features": [\n    "sink",\n    "wall_cabinets",\n    "base_cabinet"\n  ]\n}'
+2026-01-23 20:09:42 [INFO]    HAS TOOL_CALLS? False
+2026-01-23 20:09:42 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:09:42 [INFO]    METADATA: {}
+2026-01-23 20:09:42 [INFO] DETECTED TOOL RESULT: d31a3960-96d6-450c-b840-44cbb7fc16c4
+2026-01-23 20:09:43 [INFO] [Firestore] Saved tool message to session session-1769195327674-exaihr
+2026-01-23 20:09:47 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:09:47 [INFO] Event received: ['agent']
+2026-01-23 20:09:47 [INFO] Checking NODE: agent
+2026-01-23 20:09:47 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:09:47 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:09:47 [INFO]    Found 1 messages
+2026-01-23 20:09:47 [INFO]    Last message type: AIMessage
+2026-01-23 20:09:47 [INFO]    RAW CONTENT: [{'type': 'text', 'text': "Ho analizzato la foto! Vedo una cucina di circa 18mq con piastrelle in ceramica bianche sulle pareti inferiori, un mobile base in legno con doppio lavello sotto la finestra sulla parete sinistra e pensili in legno sulla parete di fondo. Il pavimento è in cotto e c'è una grande finestra sulla parete sinistra.\n\nQuali elementi della foto vuoi MANTENERE invariati?\n(es. il pavimento in cotto, gli infissi della finestra, i pensili in legno)\nDimmi tutto quello che vuoi conservare, poi progettiamo il resto insieme.", 'extras': {'signature': 'CpsGAXLI2nzRek9HJDhk9ZvMCQR6VdlqmHR9r6c/MW2/yyEFq6pKkTytMKAJZkcbPF+/8hxUrdYCrG4B1sqgcbD92VfWpro7tMIB4hWseRrahE88EPHpqjz71GTpJNHhIPbXmvoI5kBQTyJHyUvfrEQF84Ja1aADrT7NDk64RjIhtLe0bxABgB5S2LExXtctYLdVRUo2N5qLVUZPBsGyoYIpX4rSJE+eSm7FDRtjdNM5SnJ1Q01OX1IYNPlQL5n8ZrS3rv1Nr7LnWgOaOHx4dwoC6xVQfgdiOLemg4faAdMIQudvGp6mLQhXsltN0HpKYb5jOMlB1EnusQmX1sFawDMhFT1tA2aNTnZNorqFiLxnIJgP/LJqhiYpnU55GF8AhH892ll1KeGLgywY1cFpOYzl/LsdmDC8K/n91fYdx0YJReLvMc88ZhpsakoY6cIpY4DDlwXuDR7miAVtw5e+JeUrDaaBteIiZCkQynAJsmOC30ASvDKFdtN9Pvkb7id83TFyVNDH8m2BD/b2hY14KIiTeorUZMINzz5NA+42VFRefBLvPfLDfm4+7nHAse2RuzmjCMbKT9aKbAVVTfp4pWXXTdrlafjMOVCHaiQBtt8OEDNQrpcNc5bqr+aJbtis5BHSo5Mr+itDNTgahe7R+alt+scgUjFuGNPzATOaJ3245wtYfRPwRCShWRuw5PlHCbT1HLoLEBLd6AHSVm+JhvN7IV2BAB7SxziQNgxzSIDIL9I83wy8jO3xxcfJBS3W0eqMuK/xd4/G6JjJHPs5nLxwtirRbunWnuIU+OGM0QaQG6FmlamrrvFDrcsSswD1V7PH6IC6bPXzC6OsI0yscizOORrhq03tnPY9cgarKPc7jt1z9BjIWP5sBywyCvggeieFTnWbLzKuw5LNrc0uSZ85kqgQOUuQuLb752J1MTiwzApONvMsKQMdFnLA9GJqWcHQTTR5pIquIcThbOl/+VKnyGurXyQVupfLK50kU44ssE84KWnshaNPBnT0UeXRLikuPYLPsNEoMlveYj/hQpBAFMgkOK06isd4YpQD'}}]
+2026-01-23 20:09:47 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:09:47 [INFO]    TOOL_CALLS: []
+2026-01-23 20:09:47 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:09:47 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:09:47 [INFO] AI TEXT RESPONSE: Ho analizzato la foto! Vedo una cucina di circa 18mq con piastrelle in ceramica bianche sulle pareti...
+2026-01-23 20:09:52 [INFO] [Firestore] Saved assistant message to session session-1769195327674-exaihr
+2026-01-23 20:10:12 [INFO] [Firestore] Retrieved 4 messages for session session-1769195327674-exaihr
+2026-01-23 20:10:12 [INFO] [Firestore] Saved user message to session session-1769195327674-exaihr
+2026-01-23 20:10:14 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:10:14 [INFO] Event received: ['agent']
+2026-01-23 20:10:14 [INFO] Checking NODE: agent
+2026-01-23 20:10:14 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:10:14 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:10:14 [INFO]    Found 1 messages
+2026-01-23 20:10:14 [INFO]    Last message type: AIMessage
+2026-01-23 20:10:14 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Perfetto, manteniamo il pavimento in cotto.\n\nChe colore vuoi per le pareti? (es. Bianco puro, Grigio tortora...)\nChe stile di arredamento preferisci? (es. Moderno, Industriale, Scandinavo...)', 'extras': {'signature': 'CswCAXLI2nxp4sqKGWXTc42V/sm1cXoBnW6Bbx3asAnEsA4BCTPP2PEmlbgDgBQrSgM2VexH4yywGj83FiJs/f8L4IFwdmdGtTtbTlizxxdSSPJOqu/FGqD2vBELnaQA0QYsAUy6w4fySfHCcq7SmcKQdVdqwhRQ4ia3HpmGN5DTNYyU2nm9jDuRRb01OGXpFf/dUnBccWaC1iXucUA+MoOxssmk42K73V6muGep16q4PE1b84of5skBWJaUftXJfwcGk0ewKXhKzNLWtNWS5Te0gc6yoiMphYyEaK2tm80QT6fqWBhPsOOi5MLiJp+h7rMWo6I3hUxu1rgtmguhb7pb8EbP7Ak3sESwotAS7fWlxIUimeQGLnR8hJlEIgByaRun3XJMcrLRG/zrN6+psLLr5h5D0ckfhak4fsgraeIFapDXqIGnsfLqHic1WPI='}}]
+2026-01-23 20:10:14 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:10:14 [INFO]    TOOL_CALLS: []
+2026-01-23 20:10:14 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:10:14 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:10:14 [INFO] AI TEXT RESPONSE: Perfetto, manteniamo il pavimento in cotto.
+
+Che colore vuoi per le pareti? (es. Bianco puro, Grigio...
+2026-01-23 20:10:15 [INFO] [Firestore] Saved assistant message to session session-1769195327674-exaihr
+2026-01-23 20:10:31 [INFO] [Firestore] Retrieved 6 messages for session session-1769195327674-exaihr
+2026-01-23 20:10:31 [INFO] [Firestore] Saved user message to session session-1769195327674-exaihr
+2026-01-23 20:10:34 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:10:34 [INFO] Event received: ['agent']
+2026-01-23 20:10:34 [INFO] Checking NODE: agent
+2026-01-23 20:10:34 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:10:34 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:10:34 [INFO]    Found 1 messages
+2026-01-23 20:10:34 [INFO]    Last message type: AIMessage
+2026-01-23 20:10:34 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:10:34 [INFO]    TOOL_CALLS: []
+2026-01-23 20:10:34 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:10:34 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:10:36 [INFO] [Firestore] Saved assistant message to session session-1769195327674-exaihr
+2026-01-23 20:10:47 [INFO] [Firestore] Retrieved 8 messages for session session-1769195327674-exaihr
+2026-01-23 20:10:48 [INFO] [Firestore] Saved user message to session session-1769195327674-exaihr
+2026-01-23 20:10:54 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:10:54 [INFO] Event received: ['agent']
+2026-01-23 20:10:54 [INFO] Checking NODE: agent
+2026-01-23 20:10:54 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:10:54 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:10:54 [INFO]    Found 1 messages
+2026-01-23 20:10:54 [INFO]    Last message type: AIMessage
+2026-01-23 20:10:54 [INFO]    RAW CONTENT: ''
+2026-01-23 20:10:54 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:10:54 [INFO]    TOOL_CALLS: [{'name': 'generate_render', 'args': {'mode': 'modification', 'style': 'japandi', 'source_image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769195327674-exaihr/1769195350739-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T190910Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=44e596bb7c7070dd3ff3bfdbdb8d9ba67fe95dd5e8a6dc424fc7dfe62bd02a7fea82097ab9f805f3017de43aa159582667d0551c9f83f4bb082d2da582de721c686aca682ad182d3c55a293e1a3a88dfa15d82613b065834b4dfa1c5dc5eac78ce61c75990c8fe8ce9e1c9720ce0252c8008250fdaaa32dd38674ac960395bc54eefd89a555f1f538a03f3b1cc3ba0168c980b9f2d2e834dc2ffe3d47abf01f9689eb31f69e4b9df6fc417e304ee922fcd04ddfd91fae1d9ec04415ef9251c907e94539d246d4f0887364ea570f61ab2b54882808e0f8900f88eaf4c6b6856ae6ea3338058ce6593a113d6aaae85ec2ae49f835379d2928669389ffcc3af3e89', 'prompt': 'kitchen with terracotta floor, a large window on the left wall, and a structural column on the left wall corner, with white walls, new kitchen cabinets and appliances in japandi style', 'keep_elements': ['terracotta floor'], 'room_type': 'kitchen'}, 'id': '881fb958-2e7e-4354-beb0-9fa9830883ce', 'type': 'tool_call'}]
+2026-01-23 20:10:54 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'generate_render', 'arguments': '{"mode": "modification", "style": "japandi", "source_image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769195327674-exaihr/1769195350739-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T190910Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=44e596bb7c7070dd3ff3bfdbdb8d9ba67fe95dd5e8a6dc424fc7dfe62bd02a7fea82097ab9f805f3017de43aa159582667d0551c9f83f4bb082d2da582de721c686aca682ad182d3c55a293e1a3a88dfa15d82613b065834b4dfa1c5dc5eac78ce61c75990c8fe8ce9e1c9720ce0252c8008250fdaaa32dd38674ac960395bc54eefd89a555f1f538a03f3b1cc3ba0168c980b9f2d2e834dc2ffe3d47abf01f9689eb31f69e4b9df6fc417e304ee922fcd04ddfd91fae1d9ec04415ef9251c907e94539d246d4f0887364ea570f61ab2b54882808e0f8900f88eaf4c6b6856ae6ea3338058ce6593a113d6aaae85ec2ae49f835379d2928669389ffcc3af3e89", "prompt": "kitchen with terracotta floor, a large window on the left wall, and a structural column on the left wall corner, with white walls, new kitchen cabinets and appliances in japandi style", "keep_elements": ["terracotta floor"], "room_type": "kitchen"}'}, '__gemini_function_call_thought_signatures__': {'881fb958-2e7e-4354-beb0-9fa9830883ce': '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'}}
+2026-01-23 20:10:54 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:10:54 [INFO] DETECTED TOOL CALLS: 1
+2026-01-23 20:10:54 [INFO] [Firestore] Saved assistant message to session session-1769195327674-exaihr
+2026-01-23 20:10:54 [INFO] Saved assistant tool call message (1 calls)
+2026-01-23 20:10:54 [INFO] STREAMING TOOL CALL: generate_render
+2026-01-23 20:10:54 [INFO]   - prompt: kitchen with terracotta floor, a large window on t...
+2026-01-23 20:10:54 [INFO]   - room_type: kitchen
+2026-01-23 20:10:54 [INFO]   - style: japandi
+2026-01-23 20:10:54 [INFO]   - mode: modification
+2026-01-23 20:10:54 [INFO]   - source_image_url: https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769195327674-exaihr/1769195350739-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T190910Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=44e596bb7c7070dd3ff3bfdbdb8d9ba67fe95dd5e8a6dc424fc7dfe62bd02a7fea82097ab9f805f3017de43aa159582667d0551c9f83f4bb082d2da582de721c686aca682ad182d3c55a293e1a3a88dfa15d82613b065834b4dfa1c5dc5eac78ce61c75990c8fe8ce9e1c9720ce0252c8008250fdaaa32dd38674ac960395bc54eefd89a555f1f538a03f3b1cc3ba0168c980b9f2d2e834dc2ffe3d47abf01f9689eb31f69e4b9df6fc417e304ee922fcd04ddfd91fae1d9ec04415ef9251c907e94539d246d4f0887364ea570f61ab2b54882808e0f8900f88eaf4c6b6856ae6ea3338058ce6593a113d6aaae85ec2ae49f835379d2928669389ffcc3af3e89
+2026-01-23 20:10:54 [INFO]   - keep_elements: ['terracotta floor']
+2026-01-23 20:10:54 [INFO] [Quota] Dev mode active: Bypassing quota for generate_render
+2026-01-23 20:10:54 [INFO] [Quota] User exnUn0rVCLalqlXSg9OYUmZCY6s2 has 9999 renders remaining
+2026-01-23 20:10:54 [INFO] [Tool] Starting async generation...
+2026-01-23 20:10:54 [INFO] HTTP Request: GET https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769195327674-exaihr/1769195350739-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T190910Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=44e596bb7c7070dd3ff3bfdbdb8d9ba67fe95dd5e8a6dc424fc7dfe62bd02a7fea82097ab9f805f3017de43aa159582667d0551c9f83f4bb082d2da582de721c686aca682ad182d3c55a293e1a3a88dfa15d82613b065834b4dfa1c5dc5eac78ce61c75990c8fe8ce9e1c9720ce0252c8008250fdaaa32dd38674ac960395bc54eefd89a555f1f538a03f3b1cc3ba0168c980b9f2d2e834dc2ffe3d47abf01f9689eb31f69e4b9df6fc417e304ee922fcd04ddfd91fae1d9ec04415ef9251c907e94539d246d4f0887364ea570f61ab2b54882808e0f8900f88eaf4c6b6856ae6ea3338058ce6593a113d6aaae85ec2ae49f835379d2928669389ffcc3af3e89 "HTTP/1.1 200 OK"
+2026-01-23 20:10:55 [INFO] [Quota] Incremented quota for user exnUn0rVCLalqlXSg9OYUmZCY6s2, tool generate_render
+2026-01-23 20:10:55 [INFO] Event received: ['tools']
+2026-01-23 20:10:55 [INFO] Checking NODE: tools
+2026-01-23 20:10:55 [INFO]    Node output keys: ['messages']
+2026-01-23 20:10:55 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:10:55 [INFO]    Found 1 messages
+2026-01-23 20:10:55 [INFO]    Last message type: ToolMessage
+2026-01-23 20:10:55 [INFO]    RAW CONTENT: "Error generating render: cannot access local variable 'logging' where it is not associated with a value"
+2026-01-23 20:10:55 [INFO]    HAS TOOL_CALLS? False
+2026-01-23 20:10:55 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:10:55 [INFO]    METADATA: {}
+2026-01-23 20:10:56 [INFO] DETECTED TOOL RESULT: 881fb958-2e7e-4354-beb0-9fa9830883ce
+2026-01-23 20:10:56 [INFO] [Firestore] Saved tool message to session session-1769195327674-exaihr
+2026-01-23 20:10:57 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:10:57 [INFO] Event received: ['agent']
+2026-01-23 20:10:57 [INFO] Checking NODE: agent
+2026-01-23 20:10:57 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:10:57 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:10:57 [INFO]    Found 1 messages
+2026-01-23 20:10:57 [INFO]    Last message type: AIMessage
+2026-01-23 20:10:57 [INFO]    RAW CONTENT: 'Si è verificato un errore durante la generazione del rendering. Sembra che ci sia un problema tecnico.\n\nPossiamo comunque lavorare sul preventivo o provare un altro rendering più tardi!'
+2026-01-23 20:10:57 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:10:57 [INFO]    TOOL_CALLS: []
+2026-01-23 20:10:57 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:10:57 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:10:57 [INFO] AI TEXT RESPONSE: Si è verificato un errore durante la generazione del rendering. Sembra che ci sia un problema tecnic...
+2026-01-23 20:10:58 [INFO] [Firestore] Saved assistant message to session session-1769195327674-exaihr
+2026-01-23 20:23:22 [INFO] Using local service account: firebase-service-account.json
+2026-01-23 20:23:22 [INFO] Firebase Admin SDK initialized
+2026-01-23 20:23:22 [INFO] [Firestore] Created new session session-1769196187877-xtcf6o
+2026-01-23 20:23:22 [INFO] [Firestore] Retrieved 0 messages for session session-1769196187877-xtcf6o
+2026-01-23 20:23:22 [INFO] [Firestore] Saved user message to session session-1769196187877-xtcf6o
+2026-01-23 20:23:30 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:23:30 [INFO] Event received: ['agent']
+2026-01-23 20:23:30 [INFO] Checking NODE: agent
+2026-01-23 20:23:30 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:23:30 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:23:30 [INFO]    Found 1 messages
+2026-01-23 20:23:30 [INFO]    Last message type: AIMessage
+2026-01-23 20:23:30 [INFO]    RAW CONTENT: ''
+2026-01-23 20:23:30 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:23:30 [INFO]    TOOL_CALLS: [{'name': 'analyze_room', 'args': {'image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769196187877-xtcf6o/1769196193375-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T192313Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=9d0beda64c8cc549b67ee9fd6959254d1b963dba938c674c1439ef4b898c68b8db7d4c2ed0fe57e8f07d767ac5572f24dc533cbebf8e26638ddddafd78d42eed3cb7d7896a0c96ca6c39231cd1e079eb1386b703fcc1a3888ad89a71d2b50c6064a10cc3b290aa3ee7d8502f602e9449b9f6cd9df41a5da7e8ff0040fc2ca435aa4ac806320f1266daf48ba5a6fee6f3746bb6129dfad05b85b46bfb338be01b466c3465edd5c28ea4de4ff36aeb40591bd0094a39cdfa02b6aedf5314ce935127ced36dbac28dd12d56c95c2ca63886d9a9f9f92f9cb390aa4077e7d5fbbcdc2a253184f72228ff21fce97f71eba39c5674aa6a56727a19f86cf9ba8fb718aa'}, 'id': '85f793de-3e0f-45f8-8e7a-683b6b8eee08', 'type': 'tool_call'}]
+2026-01-23 20:23:30 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'analyze_room', 'arguments': '{"image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769196187877-xtcf6o/1769196193375-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T192313Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=9d0beda64c8cc549b67ee9fd6959254d1b963dba938c674c1439ef4b898c68b8db7d4c2ed0fe57e8f07d767ac5572f24dc533cbebf8e26638ddddafd78d42eed3cb7d7896a0c96ca6c39231cd1e079eb1386b703fcc1a3888ad89a71d2b50c6064a10cc3b290aa3ee7d8502f602e9449b9f6cd9df41a5da7e8ff0040fc2ca435aa4ac806320f1266daf48ba5a6fee6f3746bb6129dfad05b85b46bfb338be01b466c3465edd5c28ea4de4ff36aeb40591bd0094a39cdfa02b6aedf5314ce935127ced36dbac28dd12d56c95c2ca63886d9a9f9f92f9cb390aa4077e7d5fbbcdc2a253184f72228ff21fce97f71eba39c5674aa6a56727a19f86cf9ba8fb718aa"}'}, '__gemini_function_call_thought_signatures__': {'85f793de-3e0f-45f8-8e7a-683b6b8eee08': 'CqQGAXLI2nwbrIkKtMKnVwZbBBRS7BI1TFqpkZdhHTP744W0zaR8fH9PY/p8trtJmkCT9QLSGOHohnO2rHO1gVqiu7oJr8/rd1Cf2PV6ZX4o+4Udwxz68/netmr8/4f72Tk6MSfG8k8wcYc6nJwe6hHYE41RIVvfBQen49si/CJsAAIGvopPJAAXXz0awcxCAsuPzw1T5xjl9x4cSZqyqdOZirq8SfszyGXICG9FoPjB8HwStnU4FVn/U2PbQ/cC+8nEhuJ4lJQ1kAZJ2sGWIHUs7Z1X44/UYYmFWdmhuS/ZOu/KjrD/u04O6hgqWVgEoAjehBpUAYo0GMiKXEMw/YMfa4oXxw2INWZ5l6Zgie7zoOn1Dbl8dOfBIbN4GbDMRhETv+VQWmkYI+vBBMJDlTxyMkCfC+UaE16Wwb+2BKDnh9NY5ydJRpkNdBfkpT2WsqaoI9ZZusIm38YYZKXv6bue1gn7iLFCZWGr9jH+Vdw6TiRB3tfUQW7kqPjAaNFZJhKMISvL7sbSpSlZns0HAci1ok8UgbK3Er9fOr4War+ol0FM8iQLZXSzB15W8wafF2D0hHaVeldvi0wJQlnNullCr1RVeNU/n1UmGp5fsNH/3uIToqT9SfoYBaUgRQdibvBnHv0RUqy5irWbtn8/2jWR/6tG8Vsdezq4GLAefBeZ7rF19C01VcjW5+9ug7XoW6QGRHi5TldufSbUsSLLrzaTUTGU8S5f/qjiNPliL03qGD30CnaP6lPm9l3hCstBH5/uqTzQyLuzqitza7NnpaOMzDE0m2CnuWR9ehLZoX8RSeBPztQkXfgRbbyYATpLzZvEQ+6/VISm1sohMDFOB+w9qOtH3YUa6H4PsIyOAriLgGX03A6hJl3re8MAFX+rpAKbkTVDuE33wjmB3SuZElwi6Skeg/TAM/ztCjRMcnj/31OqKqTsKk5ltHM70vBggzSzszGSlzgTotLOP39Zfr9uZHQhwlngkdneJFU7y8tnpGOWVrOmtCya1r3dl67ctEVK2lm2Oj+faEuRQH/MR8sNMx/L9KIugeoecdyN6gyaYRl5NGVA'}}
+2026-01-23 20:23:30 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:23:30 [INFO] DETECTED TOOL CALLS: 1
+2026-01-23 20:23:30 [INFO] [Firestore] Saved assistant message to session session-1769196187877-xtcf6o
+2026-01-23 20:23:30 [INFO] Saved assistant tool call message (1 calls)
+2026-01-23 20:23:30 [INFO] STREAMING TOOL CALL: analyze_room
+2026-01-23 20:23:30 [INFO] HTTP Request: GET https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769196187877-xtcf6o/1769196193375-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260123%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260123T192313Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=9d0beda64c8cc549b67ee9fd6959254d1b963dba938c674c1439ef4b898c68b8db7d4c2ed0fe57e8f07d767ac5572f24dc533cbebf8e26638ddddafd78d42eed3cb7d7896a0c96ca6c39231cd1e079eb1386b703fcc1a3888ad89a71d2b50c6064a10cc3b290aa3ee7d8502f602e9449b9f6cd9df41a5da7e8ff0040fc2ca435aa4ac806320f1266daf48ba5a6fee6f3746bb6129dfad05b85b46bfb338be01b466c3465edd5c28ea4de4ff36aeb40591bd0094a39cdfa02b6aedf5314ce935127ced36dbac28dd12d56c95c2ca63886d9a9f9f92f9cb390aa4077e7d5fbbcdc2a253184f72228ff21fce97f71eba39c5674aa6a56727a19f86cf9ba8fb718aa "HTTP/1.1 200 OK"
+2026-01-23 20:23:31 [INFO] [Tool] Detected MIME type: image/jpeg
+2026-01-23 20:23:31 [INFO] [Vision] Initializing Gemini Vision analysis...
+2026-01-23 20:23:31 [INFO] [Vision] Model: gemini-2.5-flash
+2026-01-23 20:23:31 [INFO] AFC is enabled with max remote calls: 10.
+2026-01-23 20:23:40 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:23:41 [INFO] [Vision] Analyzed room: kitchen, 18mq
+2026-01-23 20:23:41 [ERROR] Task was destroyed but it is pending!
+task: <Task pending name='Task-15' coro=<AsyncClient.aclose() running at C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\.venv\Lib\site-packages\google\genai\client.py:247>>
+2026-01-23 20:23:41 [INFO] Event received: ['tools']
+2026-01-23 20:23:41 [INFO] Checking NODE: tools
+2026-01-23 20:23:41 [INFO]    Node output keys: ['messages']
+2026-01-23 20:23:41 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:23:41 [INFO]    Found 1 messages
+2026-01-23 20:23:41 [INFO]    Last message type: ToolMessage
+2026-01-23 20:23:41 [INFO]    RAW CONTENT: '{\n  "room_type": "kitchen",\n  "approximate_size_sqm": 18,\n  "architectural_features": [\n    "white square ceramic tiles on lower and mid sections of left, back, and right walls",\n    "wooden base cabinet with double sink on left wall under window",\n    "wooden upper cabinets on back wall",\n    "tiled structural column in back left corner"\n  ],\n  "flooring_type": "terracotta tiles",\n  "wall_color": "white",\n  "ceiling_type": "flat",\n  "windows": [\n    {\n      "position": "left wall center",\n      "size": "large"\n    }\n  ],\n  "doors": [],\n  "special_features": [\n    "sink",\n    "wall_cabinets",\n    "base_cabinet"\n  ]\n}'
+2026-01-23 20:23:41 [INFO]    HAS TOOL_CALLS? False
+2026-01-23 20:23:41 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:23:41 [INFO]    METADATA: {}
+2026-01-23 20:23:41 [INFO] DETECTED TOOL RESULT: 85f793de-3e0f-45f8-8e7a-683b6b8eee08
+2026-01-23 20:23:41 [INFO] [Firestore] Saved tool message to session session-1769196187877-xtcf6o
+2026-01-23 20:23:46 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:23:46 [INFO] Event received: ['agent']
+2026-01-23 20:23:46 [INFO] Checking NODE: agent
+2026-01-23 20:23:46 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:23:46 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:23:46 [INFO]    Found 1 messages
+2026-01-23 20:23:46 [INFO]    Last message type: AIMessage
+2026-01-23 20:23:46 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Ho analizzato la tua cucina! Vedo un ambiente di circa 18 mq con piastrelle in ceramica bianca nella parte inferiore e centrale delle pareti, un pavimento in cotto e mobili in legno, sia a colonna con doppio lavello sotto la finestra che pensili sulla parete di fondo.\n\nQuali elementi della foto vuoi MANTENERE invariati? (es. il pavimento in cotto, gli infissi della finestra, i pensili in legno)\nDimmi tutto quello che vuoi conservare, poi progettiamo il resto insieme.', 'extras': {'signature': 'CqwGAXLI2nzhkwKPyubzslklV3uMAqfO41uedXYaYfWQl26RBg3VcUhhH34nI6geDLYyyjmoiplVws4EI5ClTKpGUkD0VMYZOz5h5EF6Wpr+gRcXJAlsJYUKLEKx8XPA2hk2SiRpeqgwLE4yFqjPBrLfmBd9pP+kXIXazeFfhRSf+PhGDzNYwKitl4oaKjsUKv0+NBNrnXQq8BiqgC73P24dOdcdnYepDlhzSbOufVefzuY2H3tTRBSXQ3sYyR7oSJ+KpIXyG8/6PgOU6Gs4aDM79Y0lcoEUsTW0Swdq0jhVMYzRnieSorEO3JC91FnTDEs3g/HUJF/eHqlzYzmJWwnsILwxiyP2XwNup3262DPbQpyMtMTynTufwFSY/Y9G5IM8WO6GECj0Ag0d4mTVD/mljUfm7NqSn6s4YMqXX4Z3L3RqNkv30nsrFW+LANoDqdDC51RECo8YVY7iGbVNZF/umkTv+OHgi2Hl4VIGvnusyCCtEu8Ne9t8il9zVelxqgnKZyCtGEJJFmJyhlsjRgqPr8YyaUxj8hLaE05UyVLF4KJVrCHtSVSjX91clOvewg8a/9KJ5VOrh6107HekXXvH5f7/8tFdZPrmIfRFYiFRHqMxIV3WEOCLgBR75U/9AWlYS9OEn2/u+Uqx21axbGs03tBCs5usGHPgpinm6eDZzKNaxzvmtr7wIbFYTDO4pJJHuTCSU8NuJCBtfUk9TSZdKsRhgyUKS56sl0keB4VlnQuwD7NLi7ynnRtB0PY0NZSAm4xyuZTJ3+g8xSDA9vT9Q7JGVJEMDMI0LyIz6UoN3EjzialfE2tK1TOf7Q6kH6RBzDAUttobJjuzbd5lex0l2TYc5VUUm5YPGrmDk9bwZ3liNgTVtVsyNG8q7vvVi6rGV7Fx7y8NVNgJDnlI9NbbuRJb3kpll1i3gjnE2YO7BLbJhHpXIHyw47V/XnZ3Rbx4dWNnq2P7tCNOlpu2UWeu5fpZyl+ezsCCY5FHP+cW8Tu/w1sajeJFE6e6A1e739mU5Ci8p7L7JUrzK3mtikZOWzvqz8btoJoRNPKGHTRWhD6A8ldpF0NgnW/WfZE='}}]
+2026-01-23 20:23:46 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:23:46 [INFO]    TOOL_CALLS: []
+2026-01-23 20:23:46 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:23:46 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:23:46 [INFO] AI TEXT RESPONSE: Ho analizzato la tua cucina! Vedo un ambiente di circa 18 mq con piastrelle in ceramica bianca nella...
+2026-01-23 20:23:50 [INFO] [Firestore] Saved assistant message to session session-1769196187877-xtcf6o
+2026-01-23 20:42:48 [INFO] [Firestore] Retrieved 4 messages for session session-1769196187877-xtcf6o
+2026-01-23 20:42:48 [INFO] [Firestore] Saved user message to session session-1769196187877-xtcf6o
+2026-01-23 20:42:49 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-23 20:42:49 [INFO] Event received: ['agent']
+2026-01-23 20:42:49 [INFO] Checking NODE: agent
+2026-01-23 20:42:49 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-23 20:42:49 [INFO]    Type of messages: <class 'list'>
+2026-01-23 20:42:49 [INFO]    Found 1 messages
+2026-01-23 20:42:49 [INFO]    Last message type: AIMessage
+2026-01-23 20:42:49 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Perfetto, manteniamo il pavimento in cotto.\n\nChe colore vuoi per le pareti? (es. Bianco puro, Grigio tortora...)\nE che stile di arredamento preferisci per la tua cucina? (es. Moderno, Industriale, Scandinavo...)', 'extras': {'signature': 'CvUCAXLI2nz/ctcl3kQd8Q3q2Z8fX3PJnK+S1LO2F9VAs7DPQEgyZDGOVJ2Jiu575rfMg7k1W39Gn45Hw6Kp6f0tDrXecXDpfaFvuak10CYZjqcgO9DuwlFqTjUxkhb4KNQbtbYyXNTU9cXOO0qbCd6r2rKkebiSQQen0aB4XplIm6rlNqnQj4K71r6uauQNWTEx8hPx1M8Jovc3v9T1/d1/+G0tgihUvlpKr0rWM73/z2odrcIpjy8tz2jKGjWaBWVCKnzERRUyArBnrX4YeF+wHPcDqgef8+Z7jWl2zBsPgYb1D5z3u8T0lJF4VWB0Ck5T+O5hBBCLHkdYCSI6ZlfFcKrHS9DRTBx9Xb8KFTWjXszljCN3dfLxhhmsczBDrsGcFIH/xEkFpI9sxMsI2eecc0km8Ecf0+7TPyOY+26qp7Vr437AI1b0XRP0C37qvdLMy2q8kNp2oE016dnLJq/B8JlpIIlLhZTuQppYZZUEAVe5PzHqPA=='}}]
+2026-01-23 20:42:49 [INFO]    HAS TOOL_CALLS? True
+2026-01-23 20:42:49 [INFO]    TOOL_CALLS: []
+2026-01-23 20:42:49 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-23 20:42:49 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-23 20:42:49 [INFO] AI TEXT RESPONSE: Perfetto, manteniamo il pavimento in cotto.
+
+Che colore vuoi per le pareti? (es. Bianco puro, Grigio...
+2026-01-23 20:42:51 [INFO] [Firestore] Saved assistant message to session session-1769196187877-xtcf6o
+2026-01-23 21:13:14 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:13:19 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:13:44 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:14:23 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:14:29 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:31:54 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:53:39 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:53:48 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:53:53 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 21:58:52 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 22:00:38 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+
+2026-01-23 22:01:03 [ERROR] Form data requires "python-multipart" to be installed. 
+You can install "python-multipart" with: 
+
+pip install python-multipart
+

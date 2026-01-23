@@ -153,18 +153,23 @@ TOOL_PRICE_SEARCH = """<tool name="price_search">
 <trigger>User asks for specific market prices</trigger>
 
 <rules>
-1. Search Italian market 2025-2026
+1. Search Italian market 2025-2026 **for Rome/Lazio region** (default)
 2. FORMAT STRICT LIMIT (Max 5 lines total):
    * **[Fornitore]:** €[Min]-€[Max] /[unità]
 3. NO intros, NO outros, NO explanations
 4. Just pure data
+5. **REGION CONTEXT**: Use Roma/Lazio labor and material costs as baseline
 
-Example:
+Example Query to Perplexity:
+"Prezzi attuali 2025-2026 per [materiale/lavoro] nella regione Lazio (Roma)"
+
+Example Output:
 * **Leroy Merlin:** €18-€35 /mq
 * **Iperceramica:** €22-€50 /mq
 * **Bricoman:** €15-€28 /mq
 </rules>
 </tool>"""
+
 
 TOOL_ANALYZE_ROOM = """<tool name="analyze_room">
 <trigger>User uploads an image OR wants "technical analysis", "room dimensions", "list of features"</trigger>

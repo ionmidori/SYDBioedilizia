@@ -8,6 +8,7 @@ import { useSessionId } from '@/hooks/useSessionId';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useChat } from '@/hooks/useChat';
 import { useMediaUpload, MediaUploadState } from '@/hooks/useMediaUpload';
+import { useVideoUpload, VideoUploadState } from '@/hooks/useVideoUpload';  // 🎬 NEW
 import { useChatScroll } from '@/hooks/useChatScroll';
 import { useMobileViewport } from '@/hooks/useMobileViewport';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
@@ -90,10 +91,38 @@ export default function ChatWidget() {
         isGlobalUploading
     } = useMediaUpload(sessionId);
 
+    // 🎬 Video Upload (File API for Native Processing)
+    const {
+        videos,
+        addVideos,
+        removeVideo,
+        clearVideos,
+        isUploading: isVideoUploading
+    } = useVideoUpload();
+
     // File Selection Handler
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            addFiles(Array.from(e.target.files));
+            const files = Array.from(e.target.files);
+
+            // Separate videos from images
+            const videoFiles = files.filter(f => f.type.startsWith('video/'));
+            const imageFiles = files.filter(f => f.type.startsWith('image/'));
+
+            // Upload images to Firebase Storage (existing flow)
+            if (imageFiles.length > 0) {
+                addFiles(imageFiles);
+            }
+
+            // Upload videos to File API (native processing)
+            if (videoFiles.length > 0) {
+                try {
+                    await addVideos(videoFiles);
+                } catch (error) {
+                    console.error('[ChatWidget] Video upload failed:', error);
+                }
+            }
+
             // Reset input so same file can be selected again
             e.target.value = '';
         }
@@ -117,11 +146,16 @@ export default function ChatWidget() {
 
         // Block if uploading or empty
         const hasActiveUploads = mediaItems.some(i => i.status === 'uploading' || i.status === 'compressing');
-        if (hasActiveUploads || isLoading || authLoading) return;
-        if (!inputValue.trim() && mediaItems.length === 0) return;
+        const hasActiveVideoUploads = videos.some(v => v.status === 'uploading' || v.status === 'processing');
 
-        if (mediaItems.length > 0) {
-            // Extract successfully uploaded URLs
+        if (hasActiveUploads || hasActiveVideoUploads || isLoading || authLoading) return;
+        if (!inputValue.trim() && mediaItems.length === 0 && videos.length === 0) return;
+
+        // Prepare data
+        const hasMedia = mediaItems.length > 0 || videos.length > 0;
+
+        if (hasMedia) {
+            // Extract successfully uploaded image URLs (Firebase Storage)
             const mediaUrls = mediaItems
                 .filter((i: MediaUploadState) => i.status === 'done' && i.publicUrl)
                 .map((i: MediaUploadState) => i.publicUrl!);
@@ -129,6 +163,11 @@ export default function ChatWidget() {
             const mediaTypes = mediaItems
                 .filter((i: MediaUploadState) => i.status === 'done' && i.publicUrl)
                 .map((i: MediaUploadState) => i.file.type);
+
+            // 🎬 Extract File API video URIs
+            const videoFileUris = videos
+                .filter((v: VideoUploadState) => v.status === 'done' && v.fileUri)
+                .map((v: VideoUploadState) => v.fileUri!);
 
             // Collect metadata (trim ranges)
             const mediaMetadata: Record<string, any> = {};
@@ -141,18 +180,21 @@ export default function ChatWidget() {
             append({
                 role: 'user',
                 content: inputValue,
-                // Attachments for UI Preview
+                // Attachments for UI Preview (combine images and videos)
                 attachments: {
-                    images: mediaUrls.length > 0 ? mediaUrls : undefined // Pass URLs for preview
+                    images: [...mediaUrls, ...videos.map(v => v.previewUrl)] // Show both in UI
                 }
             } as any, {
                 body: {
-                    mediaUrls: mediaUrls,     // Universal Media URLs
-                    mediaTypes: mediaTypes,    // MIME types for backend triage
-                    mediaMetadata: mediaMetadata // New: Trim metadata
+                    mediaUrls: mediaUrls,           // Firebase Storage images
+                    mediaTypes: mediaTypes,          // MIME types
+                    mediaMetadata: mediaMetadata,    // Trim metadata
+                    videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined  // 🎬 File API videos
                 } as any
             });
+
             clearMedia();
+            clearVideos();
             setInputValue('');
         } else {
             append({

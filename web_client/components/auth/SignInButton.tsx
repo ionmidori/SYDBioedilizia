@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { signOut } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { LogIn, LogOut, User as UserIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,12 +8,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { AuthDialog } from './AuthDialog';
 
 export function SignInButton({ className }: { className?: string }) {
-    const { user, loading } = useAuth();
+    const { user, loading, logout } = useAuth();
     const [dialogOpen, setDialogOpen] = useState(false);
 
     const handleLogout = async () => {
         try {
-            await signOut((await import('@/lib/firebase')).auth);
+            await logout();
         } catch (error) {
             console.error("Logout failed:", error);
         }

@@ -22,7 +22,7 @@ export interface ToolInvocation {
 }
 
 export function useChat(sessionId: string, initialMessages: any[] = []) {
-    const { idToken, loading: authLoading } = useAuth();
+    const { refreshToken, loading: authLoading } = useAuth();
     const [messages, setMessages] = useState<Message[]>(initialMessages);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +56,16 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
 
     const append = useCallback(async (
         message: { role: string; content: string; attachments?: any },
-        options?: { body?: { images?: string[]; imageUrls?: string[]; mediaUrls?: string[]; mediaTypes?: string[]; mediaMetadata?: any } }
+        options?: {
+            body?: {
+                images?: string[];
+                imageUrls?: string[];
+                mediaUrls?: string[];
+                mediaTypes?: string[];
+                mediaMetadata?: any;
+                videoFileUris?: string[];  // 🎬 NEW: File API video URIs
+            }
+        }
     ) => {
         setIsLoading(true);
         setError(undefined);
@@ -85,8 +94,15 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
 
         try {
             // ✅ Best Practice: Wait for auth to be ready
-            if (authLoading || !idToken) {
+            if (authLoading) {
                 throw new Error('Authentication not ready. Please wait...');
+            }
+
+            // 🔄 CRITICAL FIX: Always get a fresh token before API calls
+            // This prevents 401 auth/id-token-expired errors
+            const freshToken = await refreshToken();
+            if (!freshToken) {
+                throw new Error('Failed to get authentication token. Please reload the page.');
             }
 
             abortControllerRef.current = new AbortController();
@@ -94,7 +110,7 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
             // 🔒 FIREBASE ANONYMOUS AUTH: All users (including anonymous) have ID tokens
             const headers: Record<string, string> = {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`, // ✅ Always required now
+                'Authorization': `Bearer ${freshToken}`, // ✅ Fresh token for every request
             };
 
             // ✅ PYTHON BACKEND (Default): Uses new Python/LangGraph implementation
@@ -109,7 +125,8 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
                     imageUrls: options?.body?.imageUrls,
                     mediaUrls: options?.body?.mediaUrls,
                     mediaTypes: options?.body?.mediaTypes,
-                    mediaMetadata: options?.body?.mediaMetadata
+                    mediaMetadata: options?.body?.mediaMetadata,
+                    videoFileUris: options?.body?.videoFileUris  // 🎬 NEW
                 }),
                 signal: abortControllerRef.current.signal
             });
@@ -201,7 +218,7 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
             abortControllerRef.current = null;
         }
 
-    }, [messages, sessionId, authLoading, idToken]);
+    }, [messages, sessionId, authLoading, refreshToken]);
 
     const handleSubmit = useCallback(async (e?: any, options?: any) => {
         if (e) e.preventDefault();

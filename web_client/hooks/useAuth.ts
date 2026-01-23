@@ -1,7 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { User, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import {
+    User,
+    signInAnonymously,
+    onAuthStateChanged,
+    signInWithPopup,
+    GoogleAuthProvider,
+    OAuthProvider,
+    signOut,
+    sendSignInLinkToEmail,
+    isSignInWithEmailLink,
+    signInWithEmailLink
+} from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
 /**
@@ -71,11 +82,80 @@ export function useAuth() {
         }
     };
 
+    /**
+     * Sign in with Google using popup
+     * @throws {Error} If sign-in fails
+     */
+    const loginWithGoogle = async (): Promise<void> => {
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+    };
+
+    /**
+     * Sign in with Apple using popup
+     * @throws {Error} If sign-in fails
+     */
+    const loginWithApple = async (): Promise<void> => {
+        const provider = new OAuthProvider('apple.com');
+        provider.addScope('email');
+        provider.addScope('name');
+        await signInWithPopup(auth, provider);
+    };
+
+    /**
+     * Sign out current user (reverts to anonymous)
+     * @throws {Error} If sign-out fails
+     */
+    const logout = async (): Promise<void> => {
+        await signOut(auth);
+    };
+
+    /**
+     * Send a magic link (passwordless) to user's email
+     * @param email - User's email address
+     * @throws {Error} If sending fails
+     */
+    const sendMagicLink = async (email: string): Promise<void> => {
+        const actionCodeSettings = {
+            url: window.location.origin + '/auth/verify',
+            handleCodeInApp: true,
+        };
+
+        await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+        // Store email in localStorage for verification
+        window.localStorage.setItem('emailForSignIn', email);
+    };
+
+    /**
+     * Complete magic link sign-in
+     * @param emailLink - The link from the user's email
+     * @param email - Optional email (will use stored if not provided)
+     * @throws {Error} If verification fails
+     */
+    const completeMagicLink = async (emailLink: string, email?: string): Promise<void> => {
+        if (!isSignInWithEmailLink(auth, emailLink)) {
+            throw new Error('Invalid email link');
+        }
+
+        const userEmail = email || window.localStorage.getItem('emailForSignIn');
+        if (!userEmail) {
+            throw new Error('Email not found');
+        }
+
+        await signInWithEmailLink(auth, userEmail, emailLink);
+        window.localStorage.removeItem('emailForSignIn');
+    };
+
     return {
         user,
         loading,
         idToken,
         refreshToken,
         isAnonymous: user?.isAnonymous ?? true,
+        loginWithGoogle,
+        loginWithApple,
+        logout,
+        sendMagicLink,
+        completeMagicLink,
     };
 }
