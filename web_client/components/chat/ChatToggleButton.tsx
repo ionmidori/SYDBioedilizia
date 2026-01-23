@@ -50,7 +50,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
             // Added flex container for badge + button
             // Base position via CSS - bottom-right corner
             // Added flex container for badge + button
-            className="fixed bottom-8 right-6 z-50 flex items-center justify-end gap-0"
+            className="fixed bottom-1 right-1 z-50 flex items-center justify-end gap-0"
 
             // Drag configuration
             drag
