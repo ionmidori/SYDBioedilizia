@@ -328,5 +328,14 @@ If the user specifically asks for another image from the list, use that URL inst
     # Compile graph
     return workflow.compile()
 
-# Export compiled graph
-agent_graph = create_agent_graph()
+# Lazy initialization singleton
+_agent_graph = None
+
+def get_agent_graph():
+    """Lazy loade the agent graph to prevent startup blockers."""
+    global _agent_graph
+    if _agent_graph is None:
+        logger.info("⚡ Initializing Agent Graph...")
+        _agent_graph = create_agent_graph()
+        logger.info("✅ Agent Graph Initialized")
+    return _agent_graph

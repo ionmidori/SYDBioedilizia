@@ -8,7 +8,7 @@ from src.auth.jwt_handler import verify_token
 from src.utils.stream_protocol import stream_text
 from src.utils.context import set_current_user_id, set_current_media_metadata  # ✅ Context for quota & metadata
 from src.db.messages import save_message, get_conversation_context, ensure_session  # 🔥 DB persistence
-from src.graph.agent import agent_graph
+from src.graph.agent import get_agent_graph
 from src.graph.state import AgentState
 from langchain_core.messages import HumanMessage, AIMessage
 import asyncio
@@ -62,6 +62,12 @@ async def validate_firebase_async():
     except RuntimeError as e:
         logger.error(f"❌ Firebase validation failed: {e}")
         logger.error("Server will continue but Firebase features may not work")
+        
+    # Pre-warm AI Agent (Lazy Load)
+    logger.info("⚡ Pre-warming AI Agent Graph...")
+    from src.graph.agent import get_agent_graph
+    get_agent_graph()
+    logger.info("✅ AI Agent Graph pre-warmed")
 
 # Register upload router
 from src.api.upload import router as upload_router
@@ -257,6 +263,10 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
         
         # 🔥 ACCUMULATE ASSISTANT RESPONSE for DB persistence
         accumulated_response = ""
+        
+        # Lazy load agent graph (singleton)
+        from src.graph.agent import get_agent_graph
+        agent_graph = get_agent_graph()
         
         async for event in agent_graph.astream(state):
             # LangGraph emits events as {node_name: {...}}
