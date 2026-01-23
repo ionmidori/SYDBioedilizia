@@ -198,7 +198,7 @@ export default function ChatWidget() {
     return (
         <>
             {/* Floating Toggle Button Area */}
-            <div className="fixed bottom-8 right-6 z-50 flex items-center gap-4">
+            <div className="fixed bottom-4 right-2 md:bottom-8 md:right-6 z-50 flex items-center gap-4">
                 {/* Badge is now inside ChatToggleButton for unified dragging */}
                 <ChatToggleButton isOpen={isOpen} onClick={() => setIsOpen(!isOpen)} />
             </div>
