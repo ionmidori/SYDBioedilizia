@@ -86,17 +86,31 @@ def plan_renovation(image_url: str, style: str, keep_elements: Optional[List[str
     """
     return plan_renovation_sync(image_url, style, keep_elements)
 
-# Tool list
+# Tool list (lightweight - just function references)
 tools = [submit_lead, get_market_prices, generate_render, save_quote, analyze_room, plan_renovation]
 
-# Initialize Gemini LLM with tools
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    google_api_key=GEMINI_API_KEY,
-    temperature=0.7,
-)
+# LLM initialization is deferred to get_agent_graph() to prevent blocking at import time
+_llm = None
+_llm_with_tools = None
 
-llm_with_tools = llm.bind_tools(tools)
+def _get_llm():
+    """Lazy-load LLM instance."""
+    global _llm
+    if _llm is None:
+        logger.info("⚡ Initializing Gemini LLM...")
+        _llm = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            google_api_key=GEMINI_API_KEY,
+            temperature=0.7,
+        )
+    return _llm
+
+def _get_llm_with_tools():
+    """Lazy-load LLM with tools bound."""
+    global _llm_with_tools
+    if _llm_with_tools is None:
+        _llm_with_tools = _get_llm().bind_tools(tools)
+    return _llm_with_tools
 
 def should_continue(state: AgentState) -> str:
     """Routing function: determine if we should call tools or end."""
@@ -274,11 +288,12 @@ If the user specifically asks for another image from the list, use that URL inst
         # 4. Invoke LLM
         if forced_tool:
             logger.info(f"⚡ FORCE MODE: {forced_tool}")
-            response = llm.bind_tools(tools, tool_choice=forced_tool).invoke(messages)
+            # Bind tools dynamically to the lazy-loaded LLM
+            response = _get_llm().bind_tools(tools, tool_choice=forced_tool).invoke(messages)
         else:
             # Bind only allowed tools (future: strictly filter `allowed_tools` list)
             # For now, binding all is safe as long as key triggers are handled above
-            response = llm_with_tools.invoke(messages)
+            response = _get_llm_with_tools().invoke(messages)
         
         logger.info(f"🐛 RAW LLM RESPONSE: {response}")
         
