@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()  # ✅ Load .env file BEFORE other imports
 
-from fastapi import FastAPI, Header, HTTPException, Depends
+from fastapi import FastAPI, Header, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from src.auth.jwt_handler import verify_token

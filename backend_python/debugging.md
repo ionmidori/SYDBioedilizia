@@ -1,272 +1,120 @@
-# 🛠️ Debugging Guide: Security & SDK Migration (2026-01-24)
+# 🛠️ POST-MORTEM & DEBUGGING: Cloud Run Crash Analysis (2026-01-24)
 
-> **Purpose:** Professional debugging documentation for the recent security hardening and SDK migration changes. Use this guide to verify deployment stability and troubleshoot any issues.
-
----
-
-## 📋 Summary of Changes
-
-| File | Change | Risk Level |
-|:-----|:-------|:-----------|
-| `src/auth/jwt_handler.py` | Switched from custom JWT to Firebase ID Token verification | **HIGH** |
-| `src/api/upload.py` | Migrated from `google.generativeai` to `google.genai` SDK | **MEDIUM** |
-| `src/api/passkey.py` | Updated to use `get_current_user_id` + Firebase Custom Tokens | **MEDIUM** |
-| `src/db/firebase_client.py` | Made `init_firebase()` public | **LOW** |
-| `web_client/app/api/chat/route.ts` | Removed `INTERNAL_JWT_SECRET`, now forwards raw ID Token | **HIGH** |
+> **Incident:** Cloud Run Deployment Failure (`Container failed to start`)
+> **Severity:** Critical (Service Unavailable)
+> **Cause:** `NameError: name 'Request' is not defined` in `main.py`
+> **Fix:** Added missing import `from fastapi import Request`
 
 ---
 
-## 🔍 Pre-Deployment Verification Checklist
+## 🚨 Root Cause Analysis (RCA)
 
-### 1. Syntax Check (Build-Time)
-The Dockerfile includes a syntax check step. Run locally to verify:
+### 1. The Startup Crash
+The recent **App Check Middleware** integration introduced this code block in `main.py`:
+```python
+@app.middleware("http")
+async def app_check_middleware(request: Request, call_next):  # <--- 'Request' type hint used here
+```
 
-```bash
+However, `Request` was **not imported** from `fastapi`.
+When Python parsed `main.py` at startup, it hit the undefined `Request` symbol and immediately raised `NameError`, causing the Uvicorn server to crash before binding to port 8080.
+Cloud Run detected the health check failure and rolled back the deployment.
+
+### 2. Why Tests Didn't Catch It?
+- Only `check_imports.py` was run (which checks *packages*, not internal syntax/logic errors).
+- `python -m compileall` checks *syntax* (valid Python grammar), but `NameError` is a *runtime* error (unresolved symbol), not a syntax error.
+- Full integration test/local startup was skipped in the rush to push.
+
+---
+
+## 🔍 Debugging Steps (Standard Operating Procedure)
+
+When Cloud Run fails to deploy, follow this checklist **in order**:
+
+### Phase 1: Local Verification (Dev Environment)
+
+**1. Syntax & Import Validity (Static Analysis)**
+```powershell
 cd backend_python
+# Compile checks pure grammar
 python -m compileall src main.py
 ```
 
-**Expected:** No output (success). Any `SyntaxError` will be printed.
-
-### 2. Import Check (Runtime Simulation)
-Run the diagnostic script:
-
-```bash
-cd backend_python
-python check_imports.py
+**2. Simulation (Runtime Analysis)**
+This is the **GOLD STANDARD**. If it runs here, it runs on Cloud Run.
+```powershell
+# ACTUALLY START the server locally
+python -m uvicorn main:app --port 8080
 ```
+*   **Result:** It would have crashed immediately with:
+    `NameError: name 'Request' is not defined`
+*   **Action:** Read the stack trace → Fix the import.
 
-**Expected Output:**
-```
-✅ Import successful: fastapi
-✅ Import successful: uvicorn
-✅ Import successful: firebase_admin
-✅ Import successful: google.cloud.firestore
-✅ Import successful: google.genai
-✅ Import successful: langchain_core
-✅ Import successful: langgraph
-✅ Import successful: dotenv
-✅ Import successful: multipart
-✅ All core dependencies verified.
-```
+### Phase 2: Cloud Run Logs Investigation
 
-**If `google.genai` fails:** Run `pip install google-genai`
+If local works but Cloud Run fails:
 
-### 3. Local Server Startup
-Start the server and check logs:
+1.  Go to [Google Cloud Console > Cloud Run](https://console.cloud.google.com/run).
+2.  Select the service `syd-brain`.
+3.  Click **Logs** tab.
+4.  Filter Severity to `Error` or `Critical`.
+5.  Look for "Payload" messages just before "Container terminated".
 
-```bash
-cd backend_python
-python -m uvicorn main:app --host 0.0.0.0 --port 8080
-```
+**Common Cloud Run Errors & Fixes:**
 
-**Expected Startup Logs:**
-```
-INFO:     Uvicorn running on http://0.0.0.0:8080
-INFO:main:🚀 SYD Brain API starting on port 8080...
-```
-
-**Watch for these FATAL errors:**
-- `ModuleNotFoundError: No module named 'google.genai'` → Install SDK
-- `firebase_admin._apps is empty` → Check service account credentials
-- `RuntimeError: GEMINI_API_KEY not found` → Check `.env` file
+| Error Message | Meaning | Fix |
+|:--------------|:--------|:----|
+| `ModuleNotFoundError: No module named 'xyz'` | Missing dependency | Add to `pyproject.toml` |
+| `NameError: name 'X' is not defined` | Missing import | Check imports in failing file |
+| `Container failed to start. Failed to listen on port 8080.` | Timeout / Crash | Check server logs for Python errors |
+| `Memory limit exceeded` | OOM Kill | Increase Memory Limit (e.g., 512MB -> 1GB) |
 
 ---
 
-## 🚨 Common Failure Points & Solutions
+## ✅ Deployment Checklist (Prevention)
 
-### Issue 1: `401 Unauthorized` on All Requests
-**Symptom:** Frontend receives 401 for every `/chat/stream` call.
+Before every `git push`, run this single command to prove the server breathes:
 
-**Root Cause:** The backend now expects a **Firebase ID Token**, not a custom JWT.
-
-**Verification:**
-```bash
-# Check what token is being sent
-curl -X POST http://localhost:8080/chat/stream \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-  -d '{"messages":[], "sessionId":"test"}'
-```
-
-**Fix:** Ensure the frontend (`route.ts`) is forwarding the original Firebase ID Token:
-```typescript
-// CORRECT
-'Authorization': `Bearer ${idToken}`  // Raw Firebase token from client
-
-// WRONG (OLD CODE)
-'Authorization': `Bearer ${internalToken}`  // Custom minted JWT
+```powershell
+# The "Does It Boot?" Test
+python -m uvicorn main:app --host 127.0.0.1 --port 8080 --reload
+# Wait 5 seconds. If you see "Uvicorn running...", CTRL+C.
 ```
 
 ---
 
-### Issue 2: `ImportError: cannot import name 'types' from 'google.genai'`
-**Symptom:** Server crashes on startup when importing `upload.py`.
+## 🔧 Critical Security Components Check
 
-**Root Cause:** Old `google-genai` package version installed.
+### 1. App Check Middleware (`src/middleware/app_check.py`)
+- **Role:** Validates `X-Firebase-AppCheck` header.
+- **Fail Safe:** If `ENABLE_APP_CHECK=false`, it **must** return `None` and let traffic pass.
+- **Dependency:** Requires `firebase-admin` initialized.
 
-**Fix:**
-```bash
-pip install --upgrade google-genai
-```
+### 2. Magic Bytes Validation (`src/utils/security.py`)
+- **Role:** Checks file hex signatures (MP4, WebM) to prevent rename attacks (`virus.exe` -> `video.mp4`).
+- **Dependency:** **PURE PYTHON** (No `libmagic` required). This design choice ensures compatibility with Alpine/Slim Linux containers without ensuring system packages.
 
-**Verify:**
-```python
-from google.genai import types
-print(types.UploadFileConfig)  # Should not error
-```
-
----
-
-### Issue 3: `auth.RevokedIdTokenError` for Valid Users
-**Symptom:** Authenticated users suddenly get 401 errors.
-
-**Root Cause:** The new `check_revoked=True` flag is working correctly, but the user's session was invalidated in Firebase Console.
-
-**Verification:**
-1. Go to Firebase Console → Authentication → Users
-2. Find the user and check if they are disabled or if "Revoke refresh tokens" was triggered
-
-**Fix:** User must re-authenticate on the client.
-
----
-
-### Issue 4: Video Upload Returns `500 Internal Server Error`
-**Symptom:** `/upload/video` endpoint fails.
-
-**Possible Causes:**
-1. `GEMINI_API_KEY` not set
-2. Magic Bytes validation failing (file is not a real video)
-3. Google GenAI File API quota exceeded
-
-**Debugging Steps:**
-```bash
-# Check logs for specific error
-tail -f server.log | grep -i "upload"
-```
-
-**Expected Log Pattern for Success:**
-```
-🛡️ Magic Bytes check passed: video/mp4
-📹 User abc123 uploading video: safe_filename.mp4 (video/mp4)
-✅ Video uploaded successfully: googleapi://...
-```
-
----
-
-### Issue 5: Passkey Registration Fails with `403 Forbidden`
-**Symptom:** User cannot register a passkey.
-
-**Root Cause:** The `user_id` from the token doesn't match the `user_id` in the request body.
-
-**Verification:**
-Check that the frontend is sending the correct user ID:
-```typescript
-body: JSON.stringify({ user_id: user.uid })  // Must match token's uid
-```
+### 3. Firebase Auth (`jwt_handler.py`)
+- **Role:** Replaces JWT secret with `verify_id_token`.
+- **Key Check:** `check_revoked=True` requires a network call to Firebase. If networking fails, auth fails safe (401).
 
 ---
 
 ## 🔄 Rollback Procedures
 
-### Rollback: Authentication (jwt_handler.py)
-If Firebase ID Token verification causes widespread auth failures:
+If Cloud Run enters a "Crash Loop":
 
-```python
-# TEMPORARY ROLLBACK - jwt_handler.py
-# Replace verify_token with original custom JWT logic
-
-import os
-import jwt
-from dotenv import load_dotenv
-load_dotenv()
-
-INTERNAL_JWT_SECRET = os.getenv("INTERNAL_JWT_SECRET")
-
-def verify_token(credentials):
-    token = credentials.credentials
-    payload = jwt.decode(token, INTERNAL_JWT_SECRET, algorithms=["HS256"])
-    return payload
-```
-
-**Also rollback `route.ts` to mint internal tokens:**
-```typescript
-const { createInternalToken } = await import('@/lib/auth/jwt');
-internalToken = createInternalToken({ uid: decodedToken.uid, email: decodedToken.email });
-```
+1.  **Immediate:** Revert the main branch.
+    ```bash
+    git revert HEAD
+    git push
+    ```
+2.  **Manual:** Deploy previous revision in Cloud Run Console.
+    *   "Revisions" tab → Select previous green checkmark → "Manage Traffic" → Send 100% to old revision.
 
 ---
 
-### Rollback: Video Upload SDK (upload.py)
-If the new `google.genai` SDK causes upload failures:
-
-```python
-# TEMPORARY ROLLBACK - upload.py
-# Replace google.genai with google.generativeai
-
-import google.generativeai as genai
-
-# In the route handler:
-genai.configure(api_key=GEMINI_API_KEY)
-uploaded_file = genai.upload_file(
-    path=file.file,
-    display_name=file.filename,
-    mime_type=file.content_type
-)
-```
-
----
-
-## 📊 Health Check Endpoints
-
-### Backend Health
-```bash
-curl http://localhost:8080/health
-# Expected: {"status":"ok","service":"syd-brain"}
-```
-
-### Full Auth Flow Test
-```bash
-# 1. Get a valid Firebase ID Token from frontend console
-# 2. Test the protected endpoint
-curl -X POST http://localhost:8080/chat/stream \
-  -H "Authorization: Bearer <FIREBASE_ID_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"messages":[{"role":"user","content":"test"}],"sessionId":"debug-session"}'
-```
-
----
-
-## 🔐 Environment Variables Required
-
-### Backend (`.env`)
-```bash
-GEMINI_API_KEY=<required>
-FIREBASE_PROJECT_ID=<required>
-FIREBASE_PRIVATE_KEY=<required>
-FIREBASE_CLIENT_EMAIL=<required>
-FIREBASE_STORAGE_BUCKET=<required>
-# INTERNAL_JWT_SECRET is NO LONGER USED
-```
-
-### Frontend (`.env.local`)
-```bash
-PYTHON_BACKEND_URL=http://localhost:8080  # or Cloud Run URL
-NEXT_PUBLIC_FIREBASE_API_KEY=<required>
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=<required>
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=<required>
-# INTERNAL_JWT_SECRET is NO LONGER USED
-```
-
----
-
-## ✅ Post-Deployment Validation
-
-After a successful Cloud Run deployment, run these checks:
-
-1. **Service Health:** `curl https://<service-url>/health`
-2. **Auth Smoke Test:** Send a request with a valid Firebase token
-3. **Upload Test:** Upload a small video file (< 1MB)
-4. **Passkey Test:** Register a passkey on a mobile device
-
-If all pass, the deployment is stable. 🎉
+**Status:**
+- `Request` import fixed in `main.py`.
+- Server verified locally.
+- Ready for re-deployment.
