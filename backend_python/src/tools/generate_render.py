@@ -5,6 +5,9 @@ from src.api.gemini_imagen import generate_image_t2i, generate_image_i2i
 from src.storage.upload import upload_base64_image
 from src.vision.triage import analyze_image_triage
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 class GenerateRenderInput(BaseModel):
     """Input schema for generate_render tool."""
@@ -59,11 +62,11 @@ async def generate_render_wrapper(
             
             # VALIDATION: Check if we got an actual image (not error XML/HTML)
             if not source_mime_type.startswith("image/"):
-                logging.error(f"[Render] ❌ Downloaded content is NOT an image! MIME: {source_mime_type}")
-                logging.error(f"[Render] ❌ First 200 bytes: {source_bytes[:200]}")
+                logger.error(f"[Render] ❌ Downloaded content is NOT an image! MIME: {source_mime_type}")
+                logger.error(f"[Render] ❌ First 200 bytes: {source_bytes[:200]}")
                 return f"Errore: L'immagine non è accessibile. Il server ha restituito: {source_mime_type}"
             
-            logging.info(f"[Render] ✅ Image downloaded: {len(source_bytes)} bytes, MIME: {source_mime_type}")
+            logger.info(f"[Render] ✅ Image downloaded: {len(source_bytes)} bytes, MIME: {source_mime_type}")
             
             # Analyze source image (optional, for context)
             try:
@@ -89,8 +92,7 @@ async def generate_render_wrapper(
                 
             except Exception as arch_error:
                 # Fallback to simple prompt if Architect fails
-                import logging
-                logging.warning(f"[Render] Architect failed, using fallback: {arch_error}")
+                logger.warning(f"[Render] Architect failed, using fallback: {arch_error}")
                 full_prompt = f"Transform this {room_type} to {style} style. {prompt}"
             
             # Generate I2I
