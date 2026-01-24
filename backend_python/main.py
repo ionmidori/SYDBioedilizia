@@ -44,6 +44,41 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SYD Brain 🧠", version="0.3.0")
 
+# 🔒 App Check Middleware
+from src.middleware.app_check import validate_app_check_token
+from fastapi.responses import JSONResponse
+
+@app.middleware("http")
+async def app_check_middleware(request: Request, call_next):
+    """
+    Global middleware to enforce Firebase App Check.
+    Skips validation for:
+    - OPTIONS (CORS preflight)
+    - Health checks
+    - Documentation
+    - Public assets
+    """
+    # Allow CORS preflight always
+    if request.method == "OPTIONS":
+        return await call_next(request)
+        
+    # Public endpoints whitelist
+    public_paths = ["/health", "/docs", "/openapi.json", "/favicon.ico"]
+    if request.url.path in public_paths:
+        return await call_next(request)
+
+    try:
+        # Validate token (if enforcement enabled)
+        await validate_app_check_token(request)
+    except HTTPException as e:
+        # Middleware cannot raise HTTPException directly, must return JSONResponse
+        return JSONResponse(
+            status_code=e.status_code,
+            content={"detail": e.detail}
+        )
+
+    return await call_next(request)
+
 @app.on_event("startup")
 async def startup_event():
     """Minimal startup - just log. All heavy init is lazy-loaded on first request."""

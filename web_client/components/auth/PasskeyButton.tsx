@@ -46,10 +46,9 @@ export function PasskeyButton({ mode, userId, onSuccess }: PasskeyButtonProps) {
                 await registerPasskey();
                 onSuccess?.();
             } else {
-                if (!userId) {
-                    setError('Email richiesta');
-                    return;
-                }
+                // ✅ Email-free authentication: userId is optional for Resident Keys
+                // If userId is provided, backend will filter credentials by user
+                // If omitted, browser will discover all available credentials
                 await authenticateWithPasskey(userId);
                 onSuccess?.();
             }
