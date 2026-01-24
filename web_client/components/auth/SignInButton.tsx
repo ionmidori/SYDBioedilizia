@@ -7,7 +7,12 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthDialog } from './AuthDialog';
 
-export function SignInButton({ className }: { className?: string }) {
+export interface SignInButtonProps {
+    className?: string;
+    onLoginClick?: () => void;
+}
+
+export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
     const { user, loading, logout } = useAuth();
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -19,16 +24,26 @@ export function SignInButton({ className }: { className?: string }) {
         }
     };
 
+    const handleLoginClick = () => {
+        if (onLoginClick) {
+            onLoginClick();
+        } else {
+            setDialogOpen(true);
+        }
+    };
+
     if (loading) {
         return <Button variant="ghost" size="sm" className={className} disabled>Loading...</Button>;
     }
 
     // Don't show anything for anonymous users (they're already "logged in" technically)
+    // we normally show the login button for anonymous users to allow them to "upgrade"
+    // checking isAnonymous === true means they haven't signed in with social/email yet.
     if (user?.isAnonymous) {
         return (
             <>
                 <Button
-                    onClick={() => setDialogOpen(true)}
+                    onClick={handleLoginClick}
                     variant="outline"
                     size="sm"
                     className={cn("gap-2 border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold hover:text-luxury-bg transition-colors", className)}
@@ -36,7 +51,7 @@ export function SignInButton({ className }: { className?: string }) {
                     <LogIn className="w-4 h-4" />
                     Accedi
                 </Button>
-                <AuthDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+                {!onLoginClick && <AuthDialog open={dialogOpen} onOpenChange={setDialogOpen} />}
             </>
         );
     }
@@ -76,7 +91,7 @@ export function SignInButton({ className }: { className?: string }) {
     return (
         <>
             <Button
-                onClick={() => setDialogOpen(true)}
+                onClick={handleLoginClick}
                 variant="outline"
                 size="sm"
                 className={cn("gap-2 border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold hover:text-luxury-bg transition-colors", className)}
@@ -84,7 +99,7 @@ export function SignInButton({ className }: { className?: string }) {
                 <LogIn className="w-4 h-4" />
                 Accedi
             </Button>
-            <AuthDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+            {!onLoginClick && <AuthDialog open={dialogOpen} onOpenChange={setDialogOpen} />}
         </>
     );
 }

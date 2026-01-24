@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
+import { AppCheckProvider } from "@/components/providers/AppCheckProvider";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -35,7 +36,9 @@ export default function RootLayout({
         className={`${outfit.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
         suppressHydrationWarning
       >
-        {children}
+        <AppCheckProvider>
+          {children}
+        </AppCheckProvider>
         <SpeedInsights />
         <Analytics />
       </body>

@@ -7,12 +7,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignInButton } from '@/components/auth/SignInButton';
+import { AuthDialog } from '@/components/auth/AuthDialog'; // Import AuthDialog
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
 
 export function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [authDialogOpen, setAuthDialogOpen] = useState(false); // Hoisted state
 
     useEffect(() => {
         const handleScroll = () => {
@@ -121,7 +123,8 @@ export function Navbar() {
                                 Crea Rendering
                             </Button>
                         </div>
-                        <SignInButton />
+                        {/* Desktop SignIn Button -> Uses global dialog */}
+                        <SignInButton onLoginClick={() => setAuthDialogOpen(true)} />
                     </div>
 
                     {/* Mobile Menu Toggle */}
@@ -178,13 +181,22 @@ export function Navbar() {
                                     Inizia Progetto
                                 </Button>
                                 <div className="mt-4 flex justify-center">
-                                    <SignInButton />
+                                    {/* Mobile SignIn Button -> Closes menu AND opens dialog */}
+                                    <SignInButton
+                                        onLoginClick={() => {
+                                            setMobileMenuOpen(false);
+                                            setAuthDialogOpen(true);
+                                        }}
+                                    />
                                 </div>
                             </motion.div>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Global Auth Dialog - Lives here, safe from mobile menu unmounting */}
+            <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
         </>
     );
 }

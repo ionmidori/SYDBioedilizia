@@ -23,6 +23,7 @@ const auth = getAuth(app);
 
 // Initialize App Check (reCAPTCHA v3) - Feature Flag Controlled
 // Set NEXT_PUBLIC_ENABLE_APP_CHECK=true to activate bot protection
+let appCheck: any = null;
 if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
@@ -30,7 +31,7 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_APP_CHECK ==
         console.warn('[Firebase] App Check enabled but NEXT_PUBLIC_RECAPTCHA_SITE_KEY is missing');
     } else {
         try {
-            initializeAppCheck(app, {
+            appCheck = initializeAppCheck(app, {
                 provider: new ReCaptchaV3Provider(siteKey),
                 isTokenAutoRefreshEnabled: true  // Auto-refresh tokens before expiry
             });
@@ -41,5 +42,5 @@ if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_APP_CHECK ==
     }
 }
 
-export { app, auth };
+export { app, auth, appCheck };
 export type { Auth };

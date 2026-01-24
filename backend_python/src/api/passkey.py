@@ -15,13 +15,16 @@ from src.db.firebase_client import get_firestore_client
 import secrets
 import base64
 import logging
+import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/passkey", tags=["auth"])
 
-# In-memory challenge store (use Redis in production for distributed systems)
-_challenge_store: dict[str, str] = {}
+# In-memory challenge store
+# Format: { "challenge_string": { "user_id": str | None, "expires_at": float } }
+# Use Redis in production for distributed systems
+_challenge_store: dict[str, dict] = {}
 
 
 class PasskeyRegistrationRequest(BaseModel):
@@ -68,6 +71,14 @@ class PasskeyAssertion(BaseModel):
     type: str = "public-key"
 
 
+def _cleanup_challenges():
+    """Remove expired challenges."""
+    now = time.time()
+    expired = [k for k, v in _challenge_store.items() if v["expires_at"] < now]
+    for k in expired:
+        del _challenge_store[k]
+
+
 @router.post("/register/options", response_model=PasskeyRegistrationOptions)
 async def get_registration_options(
     request: PasskeyRegistrationRequest,
@@ -75,14 +86,6 @@ async def get_registration_options(
 ) -> PasskeyRegistrationOptions:
     """
     Generate WebAuthn registration options.
-    
-    Security:
-    - Challenge is cryptographically random (32 bytes)
-    - User must be authenticated (JWT required)
-    - Challenge expires after use
-    
-    Returns:
-        WebAuthn PublicKeyCredentialCreationOptions
     """
     # Verify the requesting user matches the token
     if user_id != request.user_id:
@@ -91,12 +94,17 @@ async def get_registration_options(
             detail="Cannot register passkey for another user"
         )
     
+    _cleanup_challenges()
+    
     # Generate cryptographic challenge
     challenge_bytes = secrets.token_bytes(32)
     challenge_b64 = base64.urlsafe_b64encode(challenge_bytes).decode('utf-8').rstrip('=')
     
-    # Store challenge for verification (expires after 60s)
-    _challenge_store[user_id] = challenge_b64
+    # Store challenge (Key is now the CHALLENGE itself)
+    _challenge_store[challenge_b64] = {
+        "user_id": user_id,
+        "expires_at": time.time() + 60  # 60s expiration
+    }
     
     logger.info(f"Generated passkey registration challenge for user {user_id}")
     
@@ -108,18 +116,18 @@ async def get_registration_options(
         },
         user={
             "id": base64.urlsafe_b64encode(user_id.encode()).decode('utf-8').rstrip('='),
-            "name": user_id,  # Could be email if available
+            "name": user_id,
             "displayName": "SYD User"
         },
         pubKeyCredParams=[
-            {"type": "public-key", "alg": -7},   # ES256 (preferred)
-            {"type": "public-key", "alg": -257}  # RS256 (fallback)
+            {"type": "public-key", "alg": -7},   # ES256
+            {"type": "public-key", "alg": -257}  # RS256
         ],
         authenticatorSelection={
-            "authenticatorAttachment": "platform",  # FaceID/TouchID only
-            "requireResidentKey": True,   # ✅ Enable discoverable credentials
-            "residentKey": "required",     # Explicit requirement for WebAuthn Level 2
-            "userVerification": "required"  # Biometric required
+            "authenticatorAttachment": "platform",
+            "requireResidentKey": True,
+            "residentKey": "required",
+            "userVerification": "required"
         },
         timeout=60000
     )
@@ -132,22 +140,25 @@ async def verify_registration(
 ):
     """
     Verify and store passkey credential.
-    
-    Security:
-    - Validates challenge matches
-    - Stores public key in Firestore (private key stays on device)
-    - Credential ID is unique per user
     """
-    # Verify challenge
-    stored_challenge = _challenge_store.pop(user_id, None)
-    if not stored_challenge:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No pending registration challenge"
-        )
+    import json
     
-    # In production, validate the attestation object here
-    # For MVP, we trust the client (acceptable for platform authenticators)
+    # Extract challenge from clientDataJSON
+    try:
+        client_data_json = base64.urlsafe_b64decode(credential.response["clientDataJSON"] + "==").decode('utf-8')
+        client_data = json.loads(client_data_json)
+        challenge_b64 = client_data.get("challenge")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid clientDataJSON")
+
+    # Verify challenge existence directly
+    challenge_data = _challenge_store.pop(challenge_b64, None)
+    
+    if not challenge_data:
+        raise HTTPException(status_code=400, detail="Challenge expired or invalid")
+        
+    if challenge_data["user_id"] != user_id:
+        raise HTTPException(status_code=403, detail="Challenge mismatch")
     
     db = get_firestore_client()
     
@@ -159,6 +170,7 @@ async def verify_registration(
         "created_at": firestore.SERVER_TIMESTAMP
     }
     
+    # Use credential.id as document ID
     db.collection("users").document(user_id).collection("passkeys").document(credential.id).set(credential_doc)
     
     logger.info(f"Passkey registered for user {user_id}")
@@ -175,23 +187,22 @@ async def get_authentication_options(
 ) -> PasskeyAuthenticationOptions:
     """
     Generate WebAuthn authentication options.
-    
-    Note: This is public (no JWT) because user hasn't authenticated yet.
     """
     user_id = request.user_id
-    
-    # ✅ Support email-free login via Resident Keys
-    # If user_id is provided, filter credentials (legacy flow)
-    # If not provided, browser will discover credentials automatically
+    _cleanup_challenges()
     
     # Generate challenge
     challenge_bytes = secrets.token_bytes(32)
     challenge_b64 = base64.urlsafe_b64encode(challenge_bytes).decode('utf-8').rstrip('=')
     
-    _challenge_store[user_id] = challenge_b64
+    # Store challenge (user_id might be None for Resident Keys)
+    _challenge_store[challenge_b64] = {
+        "user_id": user_id,
+        "expires_at": time.time() + 60
+    }
     
-    # Get user's registered passkeys
     db = get_firestore_client()
+    allow_credentials = []
     
     if user_id:
         # Legacy flow: Filter by user
@@ -200,26 +211,22 @@ async def get_authentication_options(
             {
                 "type": "public-key",
                 "id": pk.id,
-                "transports": ["internal"]  # Platform authenticator
+                "transports": ["internal"]
             }
             for pk in passkeys
         ]
-    else:
-        # ✅ Resident Keys flow: Empty array = browser discovers all credentials
-        allow_credentials = []
-    
-    # Only check for empty credentials if user_id was provided
-    if user_id and not allow_credentials:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Nessuna passkey registrata per questo utente"
-        )
-    
-    logger.info(f"Generated passkey authentication challenge for user {user_id}")
+        
+        if not allow_credentials:
+             raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Nessuna passkey registrata per questo utente"
+            )
+            
+    logger.info(f"Generated passkey authentication challenge (user_id={user_id})")
     
     return PasskeyAuthenticationOptions(
         challenge=challenge_b64,
-        rpId="localhost",  # Change to your domain
+        rpId="localhost",
         allowCredentials=allow_credentials,
         timeout=60000
     )
@@ -229,52 +236,48 @@ async def get_authentication_options(
 async def verify_authentication(assertion: PasskeyAssertion):
     """
     Verify passkey authentication assertion.
-    
-    Returns JWT token on success (same as other login methods).
     """
-    # For MVP: Accept assertion (in production, verify signature)
+    import json
     
-    # ✅ Extract user_id from userHandle (Resident Keys)
-    user_handle_b64 = assertion.response.get("userHandle")
-    
-    if not user_handle_b64:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing userHandle in WebAuthn response"
-        )
-    
-    # Decode userHandle to get user_id
+    # 1. Extract challenge from clientDataJSON
     try:
-        # Add padding if needed for base64 decoding
-        padding = "==" if len(user_handle_b64) % 4 else ""
-        user_id = base64.urlsafe_b64decode(user_handle_b64 + padding).decode('utf-8')
+        client_data_json = base64.urlsafe_b64decode(assertion.response["clientDataJSON"] + "==").decode('utf-8')
+        client_data = json.loads(client_data_json)
+        challenge_b64 = client_data.get("challenge")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid userHandle: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail="Invalid clientDataJSON")
+
+    # 2. Verify challenge
+    challenge_data = _challenge_store.pop(challenge_b64, None)
+    if not challenge_data:
+        raise HTTPException(status_code=400, detail="Challenge scaduta o invalida")
+
+    # 3. Extract user_id from userHandle (Resident Keys)
+    user_handle_b64 = assertion.response.get("userHandle")
+    user_id = None
     
-    # Verify the credential exists for this user
+    if user_handle_b64:
+        # Resident Key flow: User ID comes from handle
+        try:
+            padding = "==" if len(user_handle_b64) % 4 else ""
+            user_id = base64.urlsafe_b64decode(user_handle_b64 + padding).decode('utf-8')
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Invalid userHandle")
+    else:
+        # Legacy flow: Use stored user_id from challenge
+        user_id = challenge_data.get("user_id")
+
+    if not user_id:
+         raise HTTPException(status_code=400, detail="Impossibile identificare l'utente (userHandle mancante)")
+
+    # 4. Verify credential exists
     db = get_firestore_client()
-    passkey = db.collection("users").document(user_id).collection("passkeys").document(assertion.id).get()
+    passkey_ref = db.collection("users").document(user_id).collection("passkeys").document(assertion.id).get()
     
-    if not passkey.exists:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Passkey non riconosciuta"
-        )
+    if not passkey_ref.exists:
+        raise HTTPException(status_code=404, detail="Passkey non riconosciuta")
     
-    # Verify challenge
-    stored_challenge = _challenge_store.pop(user_id, None)
-    if not stored_challenge:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Sfida scaduta"
-        )
-    
-    # Generate JWT token
-    # Generate Firebase Custom Token
-    # Client will use this to signInWithCustomToken()
+    # 5. Generate Token
     try:
         custom_token_bytes = auth.create_custom_token(user_id)
         token = custom_token_bytes.decode('utf-8')

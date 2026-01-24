@@ -113,6 +113,33 @@ export function useChat(sessionId: string, initialMessages: any[] = []) {
                 'Authorization': `Bearer ${freshToken}`, // ✅ Fresh token for every request
             };
 
+            // 🛡️ APP CHECK: Get token if enabled
+            try {
+                if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
+                    // Dynamically import to avoid SSR issues
+                    const { getToken, getAppCheck } = await import('firebase/app-check');
+                    const { app } = await import('@/lib/firebase');
+
+                    // Get the existing App Check instance initialized in lib/firebase.ts or AppCheckProvider
+                    // Use getAppCheck instead of initializeAppCheck to avoid re-init errors
+                    const appCheckInstance = getAppCheck(app);
+
+                    if (appCheckInstance) {
+                        // Get token (forceRefresh = false to use cached token if valid)
+                        const appCheckTokenResult = await getToken(appCheckInstance, false);
+                        headers['X-Firebase-AppCheck'] = appCheckTokenResult.token;
+                        console.log('[useChat] App Check token attached');
+                    } else {
+                        console.warn('[useChat] App Check enabled but instance not found. skipping header.');
+                    }
+                }
+            } catch (error) {
+                console.warn('[useChat] Failed to get App Check token:', error);
+                // We don't block the request here, backend will decide if it's fatal
+            }
+
+
+
             // ✅ VERCEL TIMEOUT FIX: Direct connection to Cloud Run
             // This bypasses the Vercel Proxy (which kills requests > 60s)
             // Use environment variable for backend URL (must be set in .env.local)
