@@ -66,7 +66,6 @@ async def upload_video(
         if not GEMINI_API_KEY:
              raise RuntimeError("GEMINI_API_KEY not found")
         
-    try:
         # Initialize new SDK Client
         client = genai.Client(api_key=GEMINI_API_KEY, http_options={'api_version': 'v1beta'})
         

@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, Any
-from src.db.firebase_client import get_firestore_client
+from src.db.firebase_client import get_async_firestore_client
 from src.models.lead import LeadData, LeadDocument
 
 logger = logging.getLogger(__name__)
@@ -11,21 +11,10 @@ async def save_lead(
     session_id: str
 ) -> Dict[str, Any]:
     """
-    Save a customer lead to Firestore.
-    
-    Args:
-        lead_data: Customer contact and project information
-        uid: User's Firebase UID
-        session_id: Current chat session ID
-        
-    Returns:
-        Dictionary with lead_id and success status
-        
-    Raises:
-        Exception: If Firestore write fails
+    Save a customer lead to Firestore (Async).
     """
     try:
-        db = get_firestore_client()
+        db = get_async_firestore_client()
         
         # Create complete document with metadata
         lead_doc = LeadDocument(
@@ -38,9 +27,10 @@ async def save_lead(
         lead_dict = lead_doc.model_dump()
         lead_dict['created_at'] = lead_doc.created_at  # Firestore handles datetime
         
-        # Write to Firestore
-        doc_ref = db.collection('leads').add(lead_dict)
-        lead_id = doc_ref[1].id
+        # Write to Firestore (Async)
+        # add() returns (timestamp, doc_ref)
+        result = await db.collection('leads').add(lead_dict)
+        lead_id = result[1].id
         
         logger.info(f"Lead saved successfully: {lead_id} for user {uid}")
         

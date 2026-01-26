@@ -196,26 +196,64 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
         media_urls = request.media_urls or request.image_urls  # Backward compatibility
         media_types = request.media_types or []
         
+        # 🔥 STRUCTURED MEDIA HANDLING (Phase 2)
+        from src.models.chat import MediaAttachment
+        attachments_data = []
+        
+        # 1. Handle HTTP URLs (Legacy + Standard)
         if media_urls:
             for idx, url in enumerate(media_urls):
-                # Determine media type (prefer explicit media_types, fallback to guessing from URL)
+                # Determine media type
                 mime_type = media_types[idx] if idx < len(media_types) else None
+                guessed_type = "image"
+                
                 if not mime_type:
-                    # Guess mime type from URL extension
                     if any(url.lower().endswith(ext) for ext in ['.mp4', '.webm', '.mov', '.avi']):
-                        media_label = "Video allegato"
+                         guessed_type = "video"
+                         mime_type = "video/mp4" # Basic fallback
                     else:
-                        media_label = "Immagine allegata"
+                         mime_type = "image/jpeg"
                 elif mime_type.startswith('video/'):
-                    media_label = "Video allegato"
-                else:
-                    media_label = "Immagine allegata"
-                    
+                     guessed_type = "video"
+                
+                # Add to structured list
+                attachment = MediaAttachment(
+                    url=url,
+                    media_type=guessed_type,
+                    mime_type=mime_type
+                )
+                attachments_data.append(attachment.to_firestore())
+
+                # Legacy String Marker (Keep for Safety during transition)
+                media_label = "Video allegato" if guessed_type == "video" else "Immagine allegata"
                 user_content += f"\n\n[{media_label}: {url}]"
+
+        # 2. Handle File API Video URIs (Native Video)
+        if request.video_file_uris:
+            for video_uri in request.video_file_uris:
+                attachment = MediaAttachment(
+                    url=video_uri, # Use URI as URL for internal reference
+                    media_type='video',
+                    mime_type='video/mp4', # Assumed for Gemini File API
+                    file_uri=video_uri
+                )
+                # attachments_data.append(attachment.to_firestore())
+                # Wait, video_file_uris are usually just internal handles. 
+                # Ideally we want the public URL too if available. 
+                # But for now, let's store the URI so the Agent knows a video exists.
+                attachments_data.append(attachment.to_firestore())
+                
+                # Marker for Agent (Legacy)
+                user_content += f"\n\n[Video allegato: {video_uri}]"
         
-        # 🔥 SAVE USER MESSAGE to DB
-        await save_message(request.session_id, "user", user_content)
-        logger.info(f"💾 Saved user message to DB")
+        # 🔥 SAVE USER MESSAGE to DB (Structured)
+        await save_message(
+            request.session_id, 
+            "user", 
+            user_content,
+            attachments=attachments_data
+        )
+        logger.info(f"💾 Saved user message to DB (with {len(attachments_data)} attachments)")
         
         # Convert messages to LangChain format
         # Convert messages to LangChain format - USING DB HISTORY + CURRENT MESSAGE
@@ -226,9 +264,30 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
         for msg in conversation_history:
             role = msg.get("role")
             content = msg.get("content", "")
+            attachments = msg.get("attachments", [])
             
             if role == "user":
-                lc_messages.append(HumanMessage(content=content))
+                if attachments:
+                    # Convert to Multimodal HumanMessage
+                    multimodal_blocks = [{"type": "text", "text": content}]
+                    for att in attachments:
+                        if att.get("media_type") == "image":
+                            multimodal_blocks.append({
+                                "type": "image_url",
+                                "image_url": {"url": att["url"]}
+                            })
+                        elif att.get("media_type") == "video" and att.get("file_uri"):
+                             # Native Video via File API
+                             multimodal_blocks.append({
+                                "type": "file_data",
+                                "file_data": {"file_uri": att["file_uri"]}
+                             })
+                        # Note: Legacy URLs for videos in text will be handled by text content
+                            
+                    lc_messages.append(HumanMessage(content=multimodal_blocks))
+                else:
+                    lc_messages.append(HumanMessage(content=content))
+                    
             elif role == "assistant":
                 tool_calls = msg.get("tool_calls")
                 if tool_calls:

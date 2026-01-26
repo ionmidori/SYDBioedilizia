@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 import logging
-from src.db.firebase_client import get_firestore_client
+from src.db.firebase_client import get_async_firestore_client
 from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ async def save_quote_draft(
         The ID of the created document
     """
     try:
-        db = get_firestore_client()
+        db = get_async_firestore_client()
         
         # Prepare data structure from loose AI dictionary
         quote_model = QuoteDraftData(
@@ -84,13 +84,9 @@ async def save_quote_draft(
             status='draft'
         )
         
-        # Add to 'quotes' collection
-        # Note: firestore.AsyncClient.collection().add() returns a tuple (timestamp, doc_ref)
-        # But verify if we are using async or sync client. `firebase_client.py` usually returns sync client.
-        # Let's check firebase_client.py usage.
-        
+        # Add to 'quotes' collection (Async)
         collection_ref = db.collection('quotes')
-        _, doc_ref = collection_ref.add(quote_model.to_firestore())
+        _, doc_ref = await collection_ref.add(quote_model.to_firestore())
         
         logger.info(f"[QuoteSystem] Draft saved with ID: {doc_ref.id} for User: {user_id}")
         return doc_ref.id

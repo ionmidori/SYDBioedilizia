@@ -195,8 +195,8 @@ Respond with ONLY valid JSON. No markdown, no explanations:
             ]
         )
         
-        # Generate response
-        response = llm.invoke([message])
+        # Generate response (Async)
+        response = await llm.ainvoke([message])
         raw_output = response.content
         
         if not raw_output:

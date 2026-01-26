@@ -7,9 +7,15 @@ import firebase_admin
 
 logger = logging.getLogger(__name__)
 
+# Global credential cache
+_cached_cred = None
+_async_db_client = None
+
 # Initialize Firebase Admin SDK (singleton pattern)
 def init_firebase():
     """Initialize Firebase Admin SDK if not already initialized."""
+    global _cached_cred
+    
     if not firebase_admin._apps:
         # Check for service account JSON file or use environment variables
         if os.path.exists('/secrets/service-account.json'):
@@ -34,12 +40,43 @@ def init_firebase():
             })
         
         initialize_app(cred)
+        _cached_cred = cred  # Cache for generic Google Cloud clients
         logger.info("Firebase Admin SDK initialized")
+    
+    elif _cached_cred is None:
+        pass
 
 def get_firestore_client():
-    """Get Firestore client, initializing Firebase if needed."""
+    """Get Sync Firestore client."""
     init_firebase()
     return firestore.client()
+
+def get_async_firestore_client():
+    """
+    Get Asynchronous Firestore client (google-cloud-firestore).
+    Singleton pattern to reuse gRPC channel.
+    """
+    global _async_db_client
+    if _async_db_client:
+        return _async_db_client
+
+    from google.cloud import firestore as google_firestore
+    
+    init_firebase()
+    
+    # Use cached credentials if available
+    if _cached_cred:
+         # _cached_cred.get_credential() returns google.oauth2.service_account.Credentials
+         client = google_firestore.AsyncClient(
+             project=_cached_cred.project_id,
+             credentials=_cached_cred.get_credential()
+         )
+    else:
+        # Fallback (should rarely happen if init_firebase runs first)
+        client = google_firestore.AsyncClient()
+        
+    _async_db_client = client
+    return client
 
 def validate_firebase_config():
     """

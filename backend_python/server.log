@@ -4150,3 +4150,74 @@ task: <Task pending name='Task-18' coro=<AsyncClient.aclose() running at C:\User
 2026-01-25 23:34:44 [INFO] SYD Brain API starting on port 8080...
 2026-01-25 23:34:44 [INFO] SYD Brain API starting on port 8080...
 2026-01-25 23:34:44 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 19:59:46 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 19:59:59 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:03:59 [INFO] Using local service account: firebase-service-account.json
+2026-01-26 20:03:59 [INFO] Firebase Admin SDK initialized
+2026-01-26 20:04:00 [INFO] [Firestore] Created new session session-1769454092132-dj9p1r
+2026-01-26 20:04:00 [INFO] [Firestore] Retrieved 0 messages for session session-1769454092132-dj9p1r
+2026-01-26 20:04:01 [INFO] [Firestore] Saved user message to session session-1769454092132-dj9p1r
+2026-01-26 20:04:09 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-26 20:04:09 [INFO] Event received: ['agent']
+2026-01-26 20:04:09 [INFO] Checking NODE: agent
+2026-01-26 20:04:09 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-26 20:04:09 [INFO]    Type of messages: <class 'list'>
+2026-01-26 20:04:09 [INFO]    Found 1 messages
+2026-01-26 20:04:09 [INFO]    Last message type: AIMessage
+2026-01-26 20:04:09 [INFO]    RAW CONTENT: ''
+2026-01-26 20:04:09 [INFO]    HAS TOOL_CALLS? True
+2026-01-26 20:04:09 [INFO]    TOOL_CALLS: [{'name': 'analyze_room', 'args': {'image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769454092132-dj9p1r/1769454161737-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260126%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260126T190241Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=94986f73a21f05092dc4a6229c110307d395be0fb6484575e5427c3e234bf15bf9a3cb302bfc42a024ee26a6d40b693ad710628dea1555d7b94c755e906cf76fcbfeb6c948b3f499ed40184f1f49662188b25f20cb46530138d18c848f980aca96a57d316b1ed4d342f9700fd1cee7393495d00c875a51531672025e0bb902dc26028f74385139cac136194a228e0834f7b33dd9fec412d67ced64490fd3713a67c2f236406d0cce71aa52a5239d9b593272f89f7c5dcaa9dcb523a63349b4c888dde9d2854016f3d5e426d13c5bb02d7f348cb6e2b80a2414b2a966bacf8e48aeb3026942f5bf817192f6d85d15c73c2324b8f67f7e22dda68858438d6e15ba'}, 'id': 'c455f5f5-1f6c-4aaa-a9f6-b371337b3850', 'type': 'tool_call'}]
+2026-01-26 20:04:09 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'analyze_room', 'arguments': '{"image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769454092132-dj9p1r/1769454161737-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260126%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260126T190241Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=94986f73a21f05092dc4a6229c110307d395be0fb6484575e5427c3e234bf15bf9a3cb302bfc42a024ee26a6d40b693ad710628dea1555d7b94c755e906cf76fcbfeb6c948b3f499ed40184f1f49662188b25f20cb46530138d18c848f980aca96a57d316b1ed4d342f9700fd1cee7393495d00c875a51531672025e0bb902dc26028f74385139cac136194a228e0834f7b33dd9fec412d67ced64490fd3713a67c2f236406d0cce71aa52a5239d9b593272f89f7c5dcaa9dcb523a63349b4c888dde9d2854016f3d5e426d13c5bb02d7f348cb6e2b80a2414b2a966bacf8e48aeb3026942f5bf817192f6d85d15c73c2324b8f67f7e22dda68858438d6e15ba"}'}, '__gemini_function_call_thought_signatures__': {'c455f5f5-1f6c-4aaa-a9f6-b371337b3850': 'CocDAXLI2nyzZBM/Rh03iJFcK3K5hHG+Ud1Oz49N2E/DMHbnVpbyIDKtgv9W/A8vsAm0Smo0LLi9uW7SHwAfTNy/IkFwZglmox8t2sXMUFGYjAITcjeNh+i7nmo0cbNldPn06gWuY0KY9vmKwUv7KJDpjZoakuk6S8dCKvjuGWT4MN1ZdOjg1WDKGhqTXZ9uXW8XxVyrZdc8o8k1fJv16vm/GeKHBJltB6DYaBTcQt1v8l89WhR5dIWNmZ25QYHaf2oCmEElc03gdcyVObB8Fu9zEq0uui5yQ7KhmP+KNoMPar3M1p9XGiYRG8dBB+0u2W/LiJGri2AiBvJ8QNNDLv7izpBK6lL8s1VUbWgzUKIBFnmC3Reft8PrONxrwrwNu/yi/JerCmJd/xXcauaGpJmhmEX0t5zMRFbxVNmbhLStRVgyLpevbq+rDt35lH/wC7RABGL/gdbPF1YUFEFUW+pnwl5A+NQE/d2UZnK9D4x4/kbTZ9hlQEpTUzBJbvnkXM5NmLhqpayXZg=='}}
+2026-01-26 20:04:09 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-26 20:04:09 [INFO] DETECTED TOOL CALLS: 1
+2026-01-26 20:04:09 [INFO] [Firestore] Saved assistant message to session session-1769454092132-dj9p1r
+2026-01-26 20:04:09 [INFO] Saved assistant tool call message (1 calls)
+2026-01-26 20:04:09 [INFO] STREAMING TOOL CALL: analyze_room
+2026-01-26 20:04:09 [INFO] [Tool]  analyze_room called for https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769454092132-dj9p1r/1769454161737-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260126%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260126T190241Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=94986f73a21f05092dc4a6229c110307d395be0fb6484575e5427c3e234bf15bf9a3cb302bfc42a024ee26a6d40b693ad710628dea1555d7b94c755e906cf76fcbfeb6c948b3f499ed40184f1f49662188b25f20cb46530138d18c848f980aca96a57d316b1ed4d342f9700fd1cee7393495d00c875a51531672025e0bb902dc26028f74385139cac136194a228e0834f7b33dd9fec412d67ced64490fd3713a67c2f236406d0cce71aa52a5239d9b593272f89f7c5dcaa9dcb523a63349b4c888dde9d2854016f3d5e426d13c5bb02d7f348cb6e2b80a2414b2a966bacf8e48aeb3026942f5bf817192f6d85d15c73c2324b8f67f7e22dda68858438d6e15ba
+2026-01-26 20:04:09 [INFO]   - Bucket: chatbotluca-a8a73.firebasestorage.app
+2026-01-26 20:04:09 [INFO]   - Path: user-uploads/session-1769454092132-dj9p1r/1769454161737-IMG_20171216_093439.jpg
+2026-01-26 20:04:10 [INFO] [Tool] Detected MIME type: image/jpeg
+2026-01-26 20:04:10 [INFO] [Vision] Initializing Gemini Vision analysis...
+2026-01-26 20:04:10 [INFO] [Vision] Model: gemini-2.5-flash
+2026-01-26 20:04:10 [INFO] AFC is enabled with max remote calls: 10.
+2026-01-26 20:04:21 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-26 20:04:21 [INFO] [Vision] Analyzed room: kitchen, 12mq
+2026-01-26 20:04:21 [ERROR] Task was destroyed but it is pending!
+task: <Task pending name='Task-18' coro=<AsyncClient.aclose() running at C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\.venv\Lib\site-packages\google\genai\client.py:247>>
+2026-01-26 20:04:21 [INFO] Event received: ['tools']
+2026-01-26 20:04:21 [INFO] Checking NODE: tools
+2026-01-26 20:04:21 [INFO]    Node output keys: ['messages']
+2026-01-26 20:04:21 [INFO]    Type of messages: <class 'list'>
+2026-01-26 20:04:21 [INFO]    Found 1 messages
+2026-01-26 20:04:21 [INFO]    Last message type: ToolMessage
+2026-01-26 20:04:21 [INFO]    RAW CONTENT: '{\n  "room_type": "kitchen",\n  "approximate_size_sqm": 12,\n  "architectural_features": [\n    "white square tiles covering lower two-thirds of left, back, and right walls",\n    "structural column/bulkhead on left wall, right of window",\n    "built-in wooden base cabinet with double sink and light-colored countertop on left wall under window",\n    "built-in wooden upper cabinets on back wall"\n  ],\n  "flooring_type": "terracotta tiles",\n  "wall_color": "white tiles, cream paint above",\n  "ceiling_type": "flat",\n  "windows": [\n    {\n      "position": "left wall center",\n      "size": "large"\n    }\n  ],\n  "doors": [],\n  "special_features": [\n    "kitchen_cabinets",\n    "sink"\n  ]\n}'
+2026-01-26 20:04:21 [INFO]    HAS TOOL_CALLS? False
+2026-01-26 20:04:21 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-26 20:04:21 [INFO]    METADATA: {}
+2026-01-26 20:04:21 [INFO] DETECTED TOOL RESULT: c455f5f5-1f6c-4aaa-a9f6-b371337b3850
+2026-01-26 20:04:22 [INFO] [Firestore] Saved tool message to session session-1769454092132-dj9p1r
+2026-01-26 20:04:26 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent "HTTP/1.1 200 OK"
+2026-01-26 20:04:26 [INFO] Event received: ['agent']
+2026-01-26 20:04:26 [INFO] Checking NODE: agent
+2026-01-26 20:04:26 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-26 20:04:26 [INFO]    Type of messages: <class 'list'>
+2026-01-26 20:04:26 [INFO]    Found 1 messages
+2026-01-26 20:04:26 [INFO]    Last message type: AIMessage
+2026-01-26 20:04:26 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Ho analizzato la foto! Vedo una cucina di circa 12mq con piastrelle bianche, mobili in legno e pavimento in cotto.\n\nPrima di iniziare: quali elementi di questa stanza vuoi **conservare** esattamente così come sono? (es. il pavimento, le finestre, il soffitto...)', 'extras': {'signature': 'CrUEAXLI2nwWwusrSJxunILcrKCBBcBI2WyEzlpbbGruONB7eGXMGD1sk2cnAUO8est+EWCi8BoAaghPT8eg41xpn+OsBMXICdj1ddmUGv3sGV1TLMDzsCt3yOTUECGMN5pnaQzwHpTF5ncFW8tWB3OqkmleTYuGmvpfZiR00peiJcN1kboL44PPO/UHs9jXNbz1EKxbUp6skgiBe7WgazsN6EN+PcguVR8ha0koCmtRdAF/IDbp7EeZrVCtUkYX+pg7BAV4xMP0OGGkcX77GOjkJqOT6GpyZzp+bCLyNa8XgB2eOhNhJOxYNtjNwBU3+gsofm/NQYAl7piHz9GJYaUOFEoXyOMGun8z1FnjEGS2jdGqXWGGREA+UdpFPpWuTg0WWFBhZ3e200MbDvfUGF7teC1ahGYIZLXeAxBIeBD0NuKUnqfjkmsMsX2BegC6yMUVxLjZBQu7yIaKizA2x5cJyTARbulG6nN2Fc9GsB7o3Qjdav/9ip5voy2YXwM/K99cnBw5bWBzxmvjLPMTqEKLzOuqKs5R94D0zXXvrF1PY8MMXRN+1uEBQ6+6UZuh/kJrpW5HswTSbd/rjrh6wdBGMtYuygGhxPlYjxizD14TWhUZL+o7rR+CRQAq6pNGSxKBmGCQ0Hoe5gbd6YRduJDEd3GLMc8aQQnHI/Uu6L9jX2fYbUIbBVTHiJ7jpuz6V9C1iMczhJBST3++6sVXuCTAHVDt8aT3i48k0PEcLZGID6ELu8aK9g=='}}]
+2026-01-26 20:04:26 [INFO]    HAS TOOL_CALLS? True
+2026-01-26 20:04:26 [INFO]    TOOL_CALLS: []
+2026-01-26 20:04:26 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-26 20:04:26 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-2.5-flash', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-26 20:04:26 [INFO] AI TEXT RESPONSE: Ho analizzato la foto! Vedo una cucina di circa 12mq con piastrelle bianche, mobili in legno e pavim...
+2026-01-26 20:04:29 [INFO] [Firestore] Saved assistant message to session session-1769454092132-dj9p1r
+2026-01-26 20:29:25 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:29:54 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:30:30 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:30:34 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:30:55 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:30:59 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:31:52 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:32:33 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:32:56 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:46:50 [INFO] SYD Brain API starting on port 8080...
+2026-01-26 20:50:21 [INFO] SYD Brain API starting on port 8080...

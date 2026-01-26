@@ -37,10 +37,18 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
     # - https://firebasestorage.googleapis.com/v0/b/<bucket>/o/<path>?...
     # - https://storage.googleapis.com/<bucket>/<path>
     
-    # Updated Regex to handle both formats:
     # 1. client: firebasestorage.googleapis.com/v0/b/<bucket>/o/<path>
     # 2. signed: storage.googleapis.com/<bucket>/<path>
     firebase_pattern = r"https?://(?:firebasestorage\.googleapis\.com/v0/b|storage\.googleapis\.com)/([^/]+)(?:/o/|/)(.+?)(?:\?|$)"
+    
+    # -------------------------------------------------------------------------
+    # STRATEGY 0: Check for Gemini File API / Internal URIs (Pass-through)
+    # -------------------------------------------------------------------------
+    if url.startswith("https://generativelanguage.googleapis.com") or url.startswith("files/"):
+        logger.info(f"[SmartDownload] ⏩ Identified Gemini File API URI. Skipping download.")
+        # Return the URI as encoded bytes, with special MIME type
+        return url.encode("utf-8"), "application/vnd.google-apps.file"
+
     match = re.match(firebase_pattern, url)
     
     if match:

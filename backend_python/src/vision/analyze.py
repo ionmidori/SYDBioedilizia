@@ -86,9 +86,37 @@ CRITICAL RULES:
             temperature=0.1 # Low temperature for factual analysis
         )
         
-        # Convert image to base64
-        import base64
-        base64_image = base64.b64encode(image_bytes).decode('utf-8')
+        # Determine content block based on input type
+        multimodal_block = {}
+        
+        # Check if it's a Native File API URI (passed as encoded bytes from download_image_smart)
+        is_file_uri = False
+        uri_string = ""
+        
+        try:
+            # Attempt to decode as UTF-8 string to check for URI
+            candidate_str = image_bytes.decode('utf-8')
+            if candidate_str.startswith("https://generativelanguage.googleapis.com") or candidate_str.startswith("files/"):
+                is_file_uri = True
+                uri_string = candidate_str
+        except Exception:
+            # decoding failed, definitely binary image data
+            pass
+
+        if is_file_uri:
+             logger.info(f"[Vision] 🎬 Using Native File API URI: {uri_string}")
+             multimodal_block = {
+                "type": "file_data",
+                "file_data": {"file_uri": uri_string}
+             }
+        else:
+             # Standard Image Bytes -> Base64
+             import base64
+             base64_image = base64.b64encode(image_bytes).decode('utf-8')
+             multimodal_block = {
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+             }
         
         # Create multimodal message
         from langchain_core.messages import HumanMessage
@@ -96,10 +124,7 @@ CRITICAL RULES:
         message = HumanMessage(
             content=[
                 {"type": "text", "text": system_prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                }
+                multimodal_block
             ]
         )
         
@@ -107,8 +132,8 @@ CRITICAL RULES:
         import time
         start_time = time.time()
         
-        # Generate response
-        response = llm.invoke([message])
+        # Generate response (Async)
+        response = await llm.ainvoke([message])
         
         elapsed = time.time() - start_time
         logger.info(f"[Vision] ✅ Analysis complete in {elapsed:.1f}s")

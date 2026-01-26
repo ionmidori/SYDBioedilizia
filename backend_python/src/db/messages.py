@@ -11,10 +11,11 @@ async def save_message(
     role: str,  # 'user', 'assistant', or 'tool'
     content: str,
     metadata: Optional[Dict[str, Any]] = None,
-    tool_calls: Optional[List[Dict[str, Any]]] = None, # 🔥 New
-    tool_call_id: Optional[str] = None # 🔥 New
+    tool_calls: Optional[List[Dict[str, Any]]] = None,
+    tool_call_id: Optional[str] = None,
+    attachments: Optional[List[Dict[str, Any]]] = None # 🔥 New: Structured Media
 ) -> None:
-    """Save a message to Firestore with tool support."""
+    """Save a message to Firestore with tool support and media attachments."""
     try:
         db = get_firestore_client()
         
@@ -32,6 +33,9 @@ async def save_message(
             
         if tool_call_id:
             message_data['tool_call_id'] = tool_call_id
+
+        if attachments:
+            message_data['attachments'] = attachments
         
         # Add to messages subcollection
         db.collection('sessions').document(session_id).collection('messages').add(message_data)
@@ -54,7 +58,7 @@ async def get_conversation_context(
     session_id: str,
     limit: int = 10
 ) -> List[Dict[str, Any]]:
-    """Retrieve conversation history including tool data."""
+    """Retrieve conversation history including tool data and attachments."""
     try:
         db = get_firestore_client()
         
@@ -79,6 +83,8 @@ async def get_conversation_context(
                 msg['tool_calls'] = data['tool_calls']
             if 'tool_call_id' in data:
                 msg['tool_call_id'] = data['tool_call_id']
+            if 'attachments' in data:
+                msg['attachments'] = data['attachments']
                 
             messages.append(msg)
         
