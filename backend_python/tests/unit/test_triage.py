@@ -5,7 +5,7 @@ Tests for the image triage/analysis module.
 """
 import pytest
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, AsyncMock
 from src.vision.triage import analyze_image_triage
 
 
@@ -33,10 +33,10 @@ class TestImageTriage:
         })
         
         mock_models = MagicMock()
-        mock_models.generate_content.return_value = mock_response
+        mock_models.generate_content = AsyncMock(return_value=mock_response)
         
         mock_client = MagicMock()
-        mock_client.models = mock_models
+        mock_client.aio.models = mock_models
         
         # Patch both the Client and the module-level API key constant
         with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
@@ -75,10 +75,10 @@ class TestImageTriage:
 ```'''
         
         mock_models = MagicMock()
-        mock_models.generate_content.return_value = mock_response
+        mock_models.generate_content = AsyncMock(return_value=mock_response)
         
         mock_client = MagicMock()
-        mock_client.models = mock_models
+        mock_client.aio.models = mock_models
         
         with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
             with patch('src.vision.triage.genai.Client', return_value=mock_client):
@@ -102,10 +102,10 @@ class TestImageTriage:
         """
         # Arrange: Mock API error
         mock_models = MagicMock()
-        mock_models.generate_content.side_effect = Exception("API quota exceeded")
+        mock_models.generate_content = AsyncMock(side_effect=Exception("API quota exceeded"))
         
         mock_client = MagicMock()
-        mock_client.models = mock_models
+        mock_client.aio.models = mock_models
         
         with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
             with patch('src.vision.triage.genai.Client', return_value=mock_client):
@@ -132,10 +132,10 @@ class TestImageTriage:
         mock_response.text = None
         
         mock_models = MagicMock()
-        mock_models.generate_content.return_value = mock_response
+        mock_models.generate_content = AsyncMock(return_value=mock_response)
         
         mock_client = MagicMock()
-        mock_client.models = mock_models
+        mock_client.aio.models = mock_models
         
         with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
             with patch('src.vision.triage.genai.Client', return_value=mock_client):
@@ -161,10 +161,10 @@ class TestImageTriage:
         mock_response.text = "This is not JSON at all!"
         
         mock_models = MagicMock()
-        mock_models.generate_content.return_value = mock_response
+        mock_models.generate_content = AsyncMock(return_value=mock_response)
         
         mock_client = MagicMock()
-        mock_client.models = mock_models
+        mock_client.aio.models = mock_models
         
         with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
             with patch('src.vision.triage.genai.Client', return_value=mock_client):
@@ -193,10 +193,10 @@ class TestImageTriage:
         })
         
         mock_models = MagicMock()
-        mock_models.generate_content.return_value = mock_response
+        mock_models.generate_content = AsyncMock(return_value=mock_response)
         
         mock_client = MagicMock()
-        mock_client.models = mock_models
+        mock_client.aio.models = mock_models
         
         with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
             with patch('src.vision.triage.genai.Client', return_value=mock_client):

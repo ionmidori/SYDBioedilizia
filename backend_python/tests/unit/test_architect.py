@@ -32,9 +32,9 @@ class TestArchitectPromptGeneration:
  "technicalNotes": "{mock_gemini_vision_response['technicalNotes']}"}}
 ```"""
         
-        # Create sync mock with proper return value
+        # Create async mock for ainvoke
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_llm_response
+        mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
         
         with patch('src.vision.architect.ChatGoogleGenerativeAI', return_value=mock_llm):
             # Act
@@ -70,7 +70,7 @@ class TestArchitectPromptGeneration:
 ```'''
         
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_llm_response
+        mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
         
         with patch('src.vision.architect.ChatGoogleGenerativeAI', return_value=mock_llm):
             # Act
@@ -99,7 +99,7 @@ class TestArchitectPromptGeneration:
         mock_llm_response.content = "This is not JSON at all!"
         
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_llm_response
+        mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
         
         with patch('src.vision.architect.ChatGoogleGenerativeAI', return_value=mock_llm):
             # Act
@@ -130,7 +130,7 @@ class TestArchitectPromptGeneration:
         mock_llm_response.content = '{"structuralSkeleton": "test", "materialPlan": "test", "furnishingStrategy": "test", "technicalNotes": "test"}'
         
         mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_llm_response
+        mock_llm.ainvoke = AsyncMock(return_value=mock_llm_response)
         
         with patch('src.vision.architect.ChatGoogleGenerativeAI', return_value=mock_llm):
             # Act
@@ -141,7 +141,7 @@ class TestArchitectPromptGeneration:
             )
         
         # Assert: Check that the message content used the PNG MIME type
-        call_args = mock_llm.invoke.call_args[0][0]
+        call_args = mock_llm.ainvoke.call_args[0][0]
         message_content = call_args[0].content
         
         # Find the image part

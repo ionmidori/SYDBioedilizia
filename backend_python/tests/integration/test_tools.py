@@ -38,8 +38,9 @@ class TestRenderGeneration:
                 )
         
         # Assert
-        assert "✅ Rendering generated successfully" in result
-        assert "![Design](https://storage.googleapis.com/" in result
+        assert result["status"] == "success"
+        assert "Rendering generated successfully" in result["description"]
+        assert "https://storage.googleapis.com/" in result["imageUrl"]
         mock_t2i.assert_called_once()
         mock_upload.assert_called_once()
     
@@ -56,18 +57,16 @@ class TestRenderGeneration:
         THEN should download image, run Architect, generate I2I, and upload
         """
         # Arrange: Mock HTTP download
-        mock_http_response = MagicMock()
-        mock_http_response.content = sample_image_bytes
-        mock_http_response.headers = {"content-type": "image/jpeg"}
-        
-        mock_http_client = AsyncMock()
-        mock_http_client.__aenter__.return_value.get.return_value = mock_http_response
+
         
         # NOTE: Patch src.vision.architect.generate_architectural_prompt because it is imported LOCALLY in the function
-        with patch('src.tools.generate_render.httpx.AsyncClient', return_value=mock_http_client):
+        # NOTE: Patch src.vision.architect.generate_architectural_prompt because it is imported LOCALLY in the function
+        with patch('src.tools.generate_render.download_image_smart', new_callable=AsyncMock) as mock_download:
+            mock_download.return_value = (sample_image_bytes, "image/jpeg")
+            
             with patch('src.vision.architect.generate_architectural_prompt', new_callable=AsyncMock) as mock_architect:
                 with patch('src.tools.generate_render.generate_image_i2i', new_callable=AsyncMock) as mock_i2i:
-                    with patch('src.tools.generate_render.upload_base64_image') as mock_upload:
+                     with patch('src.tools.generate_render.upload_base64_image') as mock_upload:
                         # Configure mocks
                         from src.vision.architect import ArchitectOutput
                         mock_architect.return_value = ArchitectOutput(
@@ -91,8 +90,9 @@ class TestRenderGeneration:
                         )
         
         # Assert
-        assert "✅ Rendering transformed successfully" in result
-        assert "![Design]" in result
+        assert result["status"] == "success"
+        assert "Rendering transformed successfully" in result["description"]
+        assert "https://storage.googleapis.com/" in result["imageUrl"]
         
         # Verify Architect was called with correct params
         mock_architect.assert_called_once()
@@ -114,14 +114,10 @@ class TestRenderGeneration:
         THEN should detect non-image MIME type and return error
         """
         # Arrange: Mock HTTP download returning XML error
-        mock_http_response = MagicMock()
-        mock_http_response.content = b'<?xml version="1.0"?><Error>Access Denied</Error>'
-        mock_http_response.headers = {"content-type": "application/xml; charset=UTF-8"}
+
         
-        mock_http_client = AsyncMock()
-        mock_http_client.__aenter__.return_value.get.return_value = mock_http_response
-        
-        with patch('src.tools.generate_render.httpx.AsyncClient', return_value=mock_http_client):
+        with patch('src.tools.generate_render.download_image_smart', new_callable=AsyncMock) as mock_download:
+            mock_download.return_value = (b'Error', 'application/xml')
             # Act
             result = await generate_render_wrapper(
                 prompt="Transform",
@@ -148,18 +144,16 @@ class TestRenderGeneration:
         THEN should use fallback prompt and still generate image
         """
         # Arrange
-        mock_http_response = MagicMock()
-        mock_http_response.content = sample_image_bytes
-        mock_http_response.headers = {"content-type": "image/jpeg"}
-        
-        mock_http_client = AsyncMock()
-        mock_http_client.__aenter__.return_value.get.return_value = mock_http_response
+
         
         # NOTE: Patch src.vision.architect since it's locally imported
-        with patch('src.tools.generate_render.httpx.AsyncClient', return_value=mock_http_client):
+        # NOTE: Patch src.vision.architect.generate_architectural_prompt because it is imported LOCALLY in the function
+        with patch('src.tools.generate_render.download_image_smart', new_callable=AsyncMock) as mock_download:
+            mock_download.return_value = (sample_image_bytes, "image/jpeg")
+            
             with patch('src.vision.architect.generate_architectural_prompt', new_callable=AsyncMock) as mock_architect:
                 with patch('src.tools.generate_render.generate_image_i2i', new_callable=AsyncMock) as mock_i2i:
-                    with patch('src.tools.generate_render.upload_base64_image') as mock_upload:
+                     with patch('src.tools.generate_render.upload_base64_image') as mock_upload:
                         # Make Architect fail
                         mock_architect.side_effect = Exception("Vision API error")
                         mock_i2i.return_value = mock_gemini_imagen_response
@@ -176,7 +170,8 @@ class TestRenderGeneration:
                         )
         
         # Assert: Should still succeed with fallback
-        assert "✅ Rendering transformed successfully" in result
+        assert result["status"] == "success"
+        assert "Rendering transformed successfully" in result["description"]
         
         # Verify I2I was called with fallback prompt
         mock_i2i.assert_called_once()
