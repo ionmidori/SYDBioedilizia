@@ -187,10 +187,11 @@ Maximum: Take as much time as needed (Quality)
 </middle>
 
 <end>
-"Perfetto! Ho un quadro chiaro. Per inviarti il preventivo dettagliato, 
-a chi posso intestarlo? Lasciami Nome, Email e Numero di Telefono."
+"Perfetto! Ho un quadro chiaro del progetto.
+Per elaborare il preventivo e inviartelo, ho bisogno di un ultimo passaggio."
 
-Then call `submit_lead` (NOT submit_lead_data).
+Then CALL `display_lead_form(quote_summary="...")` IMMEDIATELY.
+DO NOT ASK for Name/Email in the chat text. Use the tool.
 </end>
 
 <post_execution_check>

@@ -148,8 +148,10 @@ async def generate_render_wrapper(
         }
 
 # Tool definition
-GENERATE_RENDER_TOOL_DEF = {
-    "name": "generate_render",
-    "description": "Generate photorealistic interior design renderings (creation or modification).",
-    "args_schema": GenerateRenderInput
-}
+generate_render = StructuredTool.from_function(
+    func=generate_render_wrapper,
+    name="generate_render",
+    description="Generate photorealistic interior design renderings (creation or modification).",
+    args_schema=GenerateRenderInput,
+    parse_docstring=True
+)

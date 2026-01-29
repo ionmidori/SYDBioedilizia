@@ -11,7 +11,22 @@ from src.graph.state import AgentState
 from src.prompts.system_instruction import SYSTEM_INSTRUCTION
 
 # 🔥 CENTRALIZED TOOLS IMPORT
-from src.graph.tools_registry import ALL_TOOLS
+from src.graph.tools_registry import (
+    generate_render,
+    analyze_room,
+    get_market_prices,
+    submit_lead
+)
+from src.tools.lead_tools import display_lead_form
+
+# --- 2. Tool Definition ---
+tools = [
+     generate_render,
+     analyze_room,
+     get_market_prices,
+     submit_lead,
+     display_lead_form
+]
 
 logger = logging.getLogger(__name__)
 

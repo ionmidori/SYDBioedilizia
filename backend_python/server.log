@@ -6703,3 +6703,308 @@ Per co...
 2026-01-29 20:50:40 [INFO] AI TEXT RESPONSE: Ottimo, il progetto è molto chiaro: una cucina moderna e luminosa che valorizza il pavimento in cott...
 2026-01-29 20:50:40 [INFO] [Firestore] Saved assistant message to session session-1769715625824-99046f
 2026-01-29 20:53:14 [INFO] SYD Brain API starting on port 8080...
+2026-01-29 21:17:39 [INFO] [Firestore] Retrieved 10 messages for session session-1769715625824-99046f
+2026-01-29 21:17:39 [INFO] [Firestore] Saved user message to session session-1769715625824-99046f
+2026-01-29 21:17:47 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:17:47 [INFO] Event received: ['agent']
+2026-01-29 21:17:47 [INFO] Checking NODE: agent
+2026-01-29 21:17:47 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:17:47 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:17:47 [INFO]    Found 1 messages
+2026-01-29 21:17:47 [INFO]    Last message type: AIMessage
+2026-01-29 21:17:47 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'D\'accordo, procediamo! Per assicurarmi che il preventivo sia il più accurato possibile, mancano solo gli ultimi dettagli:\n\n1.  **Impianto Idraulico**: Visto che rifacciamo l\'elettrico, preferisci includere anche il rifacimento completo delle tubature idrauliche? In una ristrutturazione totale è solitamente consigliato per evitare problemi futuri.\n\n\n2.  **Materiali e Stile**: Per i nuovi mobili e le piastrelle, che tipo di "look" hai in mente? Ad esempio, ante laccate, in legno, o effetto materico? E per le piastrelle a muro, preferisci colori neutri o qualcosa di più vivace?\n\nUna volta chiariti questi aspetti, ti chiederò i contatti per inviarti il tutto!', 'extras': {'signature': 'EvgHCvUHAXLI2nwcAn2yx1wRh5B4qOqwz1X1mEgx+fKReiIcPZFQb2zpBPHuf6ANQHh834MKWa7/qAoG0/YOV+n3x/A89xF0NcLpCSk9wFrH/e8O4vwR7qWxTNZ39i8eqe0mQoMHTFHUlTo2khEAJRwRNE8XiTw41tnv9HDpLlF+dAk8p1AouKnjNGsoU8gvX926J6mjEWPiVRh0VLuE+THfAsnkzhGyRK6IUQak0bKlPlLk6uGITdemZERCIdWuscOqRo2b3NYKEHsxdhswy6reFtHpYK4askul1jY5jRmkqBY1KPj9AcHRijt5udIAIYLpiANTzBFyt8kEOWwKFbUYLOFqziew5u9NYzNymG/UFYMm1QMWdtY5pZ5aK8XeJh2M2ZuWYWkmUxvC0pgI0SrHzvRfy760Ma4CrWmxeggxUibjlRqBFbldMkh+S7qAYseWj0E4HKL6jfGnZ0+2u9vs58LySMU37jUmvLq4JZrYyXw/2rfdDkWsIcf5+6MnxUnO0NqOowBixac8T38XUrHUlrGD++xv68d7bYShRBsz7qnZbp5zUpnXnTBkEpygq71NpK/C3h7WXDJl3zZLWwjeAAwFAyoRGVzKv2Umk91sjBlSKHJSbXzdYpdr/72bggjqJkIMlUzyyOaGXWLufWIkZab+SC6MIso3+q8RI5yO5ii5JgUc/AXxLmIl0YbNBPsdEAjo1+gxPndDSksN0uY7Zt7ygeIbo44sREYX/x7X9KJGggehZLnOjkhORVi9IeClowhzUFZK1LrpaDxjapxqbB+fUDEefXQ2WXYbfCksDlsarx7Qxz9Q+fD9I7R0JYqcMfqyPVqL3npyW18PIKx2DOAu/rGaeXpH/dIyfI7/+EzW/P7f0uhIcNtciSe/HS7LJZNVbc0sLifgtNdfVrhMW89qQteDLoqxnfYSYj5ZliS/POwSsuv2rWLHtXxGR9IKlfXvf9UaiW7ORY7mmNwxtsRvKcNgo6Wttll/q3WJZ5kSMKwBIo+J8htdVSDTzeNaYNsP5WDmD4Q0XnH2yX5vD+fOw4cLlxi6YU9sONQyzR+4GBoUCOGDzE2INS5g3plNFtFizo2aH8vcWdzE2qNFEPnvS6qQHkoYqofwCSjtYZeAZs/zQAruUG2nw2Th4BsqwFQuDE/yp/Oaua58BjsObrcgSP9cW8GBqedyWtbanxRFzZwcnyh4EKl+2WHGTxrcvpBrdpfaODfQJ8NAB4/PO/HC3kXnBU/H+WiV7pPJ/RV6MgyvKCuKIafp+Y0paozWJnPmpOZ2sAnlQ9o1KZdHuJ2cwbWUoCE7X0E7rH18R4VPHJUIU1cfKqoEs2hwEJi27DKyCJ9gJ0E='}}]
+2026-01-29 21:17:47 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:17:47 [INFO]    TOOL_CALLS: []
+2026-01-29 21:17:47 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:17:47 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:17:47 [INFO] AI TEXT RESPONSE: D'accordo, procediamo! Per assicurarmi che il preventivo sia il più accurato possibile, mancano solo...
+2026-01-29 21:17:47 [INFO] [Firestore] Saved assistant message to session session-1769715625824-99046f
+2026-01-29 21:18:07 [INFO] [Firestore] Retrieved 10 messages for session session-1769715625824-99046f
+2026-01-29 21:18:07 [INFO] [Firestore] Saved user message to session session-1769715625824-99046f
+2026-01-29 21:18:15 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:18:15 [INFO] Event received: ['agent']
+2026-01-29 21:18:15 [INFO] Checking NODE: agent
+2026-01-29 21:18:15 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:18:15 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:18:15 [INFO]    Found 1 messages
+2026-01-29 21:18:15 [INFO]    Last message type: AIMessage
+2026-01-29 21:18:15 [INFO]    RAW CONTENT: [{'type': 'text', 'text': "Hai ragione, abbiamo gli elementi principali per definire il lavoro: una ristrutturazione totale che include il rifacimento dell'impianto elettrico, nuove piastrelle a muro e una nuova cucina ad angolo, mantenendo il pavimento attuale.\n\nPer completare la richiesta e inviarti il preventivo dettagliato via email, ho bisogno degli ultimi dati per l'intestazione:\n\n*   **Nome**\n*   **Email**\n*   **Numero di telefono**\n\nA chi posso intestare il progetto?", 'extras': {'signature': 'EpcLCpQLAXLI2nyjXi9o2i0Uj1D0NUVlU+t49R+/v4G8rNXl0Sr46qcposysOM1nJwfDfXxB/pubzTFagnmgVKONDGTMdCYUo4bDA8Kur9T3OFM1TZgHLJDnDIzQmSAmjyiLeo7IoOX3a9TcZ/3aOydnSdjUpgS4TRW+DZFL4CREkL6l7nM8KNzrvbfX+5ydbJ7FsbZEonuvrZr6U5Vsysmz8cDXY5gNtE+qSHt4qoUemyS/ghI94Ap8TFn3XIZF/A8Ub6BGVOt9n3FJOyffN8x6jRyTJzX3hYZ8xTWxEw20uEGlns53MmgkzrGShx2QOohAY36hGBE1xBHkSYdwkP8XFD2J/vcqYV8fM8Is3q8CcQixRxNEuc01rgDj+jxcIPNT13v1xHQUatxVL/fQWkXcrjJiKAJa0qA8hX8mzCVvwj7+a6UDhTtRg6+a0qQloNxf9ELUDsGHnIUbCueNOZvmtsrpya/pff7Z37tOO4Dkm/ev4P5HedUPlrUNfle2Lql0xvTZJYFk0Fs9Mcm/bpVjlEznmG0OHSg8Oi4maYQlW6+kvcZGSPORKeDZYFv0NkSnfzIgkEF7uhNhbEWKN/jneA5qCo3v+bZOTx/DCOSlx3E2crmn2p3Ub8lWgmzgBST2kif/R84bXuXJ8C1CIJJDRARPGVNepI0VlIOzqLTfO4188B36J/OKxYumZ6wRtKr2jST+SrB8bnPBXzJkOutIBMS2ruyC4CwWpkyENFBr9ntq+M6WIexvtbyv6Ff1RqtMgu0LDeeQI635gfjUUW9kgRw5DtNOW9sAdk2kadPXTsFKhcVqkx15Ej2nHQIH9gjgElQBagIplibk+6Ton2p2Bg9Yg6xHPLQ07CapkBODYTD5mCOFViWSdZ4XWOmQUdih8OXvRtaJOmHIZT+pMN9m9FHZp7r1knFKOdOYzdlcATEC7Z8hqYlDoo3SHvPY5A4eBJfW0/sLlciqBwXqP26ACk/LRKY2wBIkmCbkuYfoytGwiTt+keyL1qx97OhoblNF2PUYLmfY6KYEAbbdwJu2Xg2aC5HKPQLcuCyz293Z5limNx7p5swVlTq6ET7D7nPxIEWO+LzktUvRNO7u+xD6Tk5H+COTPlYLPyFlS55+hSNNxjQACyHqxHbsIX823DYwxOl4uS+SEG4x1ytQXkjY+tem/zf+9/qXxcozBtNA0jgLy+0ZcuRxQjEJc1Y5KijrnODk8MS/k2GeDhg6Pbo7jPGj9gDOoHqNOk4vcWlb3wgr6Y9rkAjHeyIhiclwYnEzRjJCsyMEd91Izzq3GJXYWnfzX2TTuX+rDD1N1tA1sJB1jhxJ5TVmX1CI/DW1mn6rsfFHKAeEWXYFz+0fY+up9v6DTzsTAEoO60MYYr9dqpN9kUMwLaKOT+YXijO7BrFua3LCaqRwQk5g70wwC6svEuu6fYOEAqie7PaxWWNsqon0GnACOr2PkZQuuMUZhrJh2ID/CkNA4mF5MJBJVOSKQzoKDjjL07nV7bkhAswCJSAI6hU9b+jv9Q3Q5mhgpijCGiZ6tR41NF4bkexjZss5hh/bzjEuIQLdcfY4WUa7IXyD/nUBWNo2KurOCplHf+8JWNDDhlHb0EwMLGgIegwHsgoBqQ47uUbRkdxIO3IgR1UAcOA3eq+qMyPg8MFDJuF0LMEZUSXUmI15zPtQXNzQaw6cGE5LociEfRLl+WWrqkfcu4I5O8syifs0EXxKGItOhMHXYq02NYhr79vUw3fGJDAbtzIB6pLxu+4XNvTmTEPqmWxYkr8Sh6yNEsLXJkLyybuNQdckQJJg8wHqkndmmvfJDGjVJZ2gmkQCPVSH+DTVk2aprkh1XtIgjH1iKUxqFMQtpytO4gFEcCUweKbxBVUrJnFxZk+wEb+ds+nNT+iZrpl/HlzJ'}}]
+2026-01-29 21:18:15 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:18:15 [INFO]    TOOL_CALLS: []
+2026-01-29 21:18:15 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:18:15 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:18:15 [INFO] AI TEXT RESPONSE: Hai ragione, abbiamo gli elementi principali per definire il lavoro: una ristrutturazione totale che...
+2026-01-29 21:18:15 [INFO] [Firestore] Saved assistant message to session session-1769715625824-99046f
+2026-01-29 21:18:49 [INFO] [Firestore] Created new session session-1769717908569-5ybotx
+2026-01-29 21:18:49 [INFO] [Firestore] Retrieved 0 messages for session session-1769717908569-5ybotx
+2026-01-29 21:18:49 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:18:58 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:18:58 [INFO] Event received: ['agent']
+2026-01-29 21:18:58 [INFO] Checking NODE: agent
+2026-01-29 21:18:58 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:18:58 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:18:58 [INFO]    Found 1 messages
+2026-01-29 21:18:58 [INFO]    Last message type: AIMessage
+2026-01-29 21:18:58 [INFO]    RAW CONTENT: []
+2026-01-29 21:18:58 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:18:58 [INFO]    TOOL_CALLS: [{'name': 'analyze_room', 'args': {'image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769717908569-5ybotx/1769717914404-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260129%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260129T201834Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=d81f0d51b3a17f01e3fa126153172beff1f7af58ee34a8d8842aa41b2ba9d77bd961c980ae1ad704ea3aed64a58607cb376cc1777dab20f18a9df11aee6de3ee3f34b0a8326d103eb63d9fe7249da2f572808f0700ad7fe64f1cc3fa24b603772c61f0b75e76795749ece3cdca60edd1276a752b60fa9d61175f318874b60ef6bd0e686fb328bc2b044086d3cbf7e961b2439a3276b8a95007b6b8f42a4531dd3cbc5bf5e1f60921c472edd210d9a639d8012e072ac2e6fe04cda84a5657e7b253b0c734ef88feb35e0f936487c2a7fe479b14661a64f61f7c31ef82ba8328d999b4c8dee36f20542f0c3c489ba528cd188f975584834c2855502de13c4d6c6a'}, 'id': '2c8d3b7a-eede-4c14-a2d9-b2967b2d6da3', 'type': 'tool_call'}]
+2026-01-29 21:18:58 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'analyze_room', 'arguments': '{"image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769717908569-5ybotx/1769717914404-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260129%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260129T201834Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=d81f0d51b3a17f01e3fa126153172beff1f7af58ee34a8d8842aa41b2ba9d77bd961c980ae1ad704ea3aed64a58607cb376cc1777dab20f18a9df11aee6de3ee3f34b0a8326d103eb63d9fe7249da2f572808f0700ad7fe64f1cc3fa24b603772c61f0b75e76795749ece3cdca60edd1276a752b60fa9d61175f318874b60ef6bd0e686fb328bc2b044086d3cbf7e961b2439a3276b8a95007b6b8f42a4531dd3cbc5bf5e1f60921c472edd210d9a639d8012e072ac2e6fe04cda84a5657e7b253b0c734ef88feb35e0f936487c2a7fe479b14661a64f61f7c31ef82ba8328d999b4c8dee36f20542f0c3c489ba528cd188f975584834c2855502de13c4d6c6a"}'}, '__gemini_function_call_thought_signatures__': {'2c8d3b7a-eede-4c14-a2d9-b2967b2d6da3': 'EtQCCtECAXLI2nw44PzRImXpBTweLLfg2OycEPY6I27Y+wCJIViuH0O2XCzajcxpMvg84EplnW2hjKwJ6HCUe7iPHk5HJecPVwXep9She9Kqptn9dXVoJ4/viglTK3Hg0ExTIKxMsj8PlZql3yLgK+QDpfvSZYuXT4lzhF5dMzd9emBPatHRRdAFfT+H+IqsrN98MBRfNnxG2t5w7R3r2VarTg/Ok71B8NO+XDgJzDNdVtqGg4UDwBcNEq42JlLDakc8+tOLePWzUAaNuEheYHM9Gv89u0l5kLkrfaKNE89t3kpj7rbwz9HBgIzA13Y92bpV7mGgXMDHhXQCS5bZWs6Hso8mOzEwYOAG/52MOLU2QrG7h2qRqEUZCQ0pmgCA7bGOs3/cZGseigKFZDr/7B866USa9lOcwm8qwHIT1BMgCv098xxa0alfzI4rANOZNtZvbgmW4g=='}}
+2026-01-29 21:18:58 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:18:58 [INFO] DETECTED TOOL CALLS: 1
+2026-01-29 21:18:58 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:18:58 [INFO] Saved assistant tool call message (1 calls)
+2026-01-29 21:18:58 [INFO] STREAMING TOOL CALL: analyze_room
+2026-01-29 21:18:58 [INFO] [Tool] analyze_room called for https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769717908569-5ybotx/1769717914404-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260129%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260129T201834Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=d81f0d51b3a17f01e3fa126153172beff1f7af58ee34a8d8842aa41b2ba9d77bd961c980ae1ad704ea3aed64a58607cb376cc1777dab20f18a9df11aee6de3ee3f34b0a8326d103eb63d9fe7249da2f572808f0700ad7fe64f1cc3fa24b603772c61f0b75e76795749ece3cdca60edd1276a752b60fa9d61175f318874b60ef6bd0e686fb328bc2b044086d3cbf7e961b2439a3276b8a95007b6b8f42a4531dd3cbc5bf5e1f60921c472edd210d9a639d8012e072ac2e6fe04cda84a5657e7b253b0c734ef88feb35e0f936487c2a7fe479b14661a64f61f7c31ef82ba8328d999b4c8dee36f20542f0c3c489ba528cd188f975584834c2855502de13c4d6c6a
+2026-01-29 21:18:58 [INFO]   - Bucket: chatbotluca-a8a73.firebasestorage.app
+2026-01-29 21:18:58 [INFO]   - Path: user-uploads/session-1769717908569-5ybotx/1769717914404-IMG_20171216_093439.jpg
+2026-01-29 21:18:59 [INFO] [Tool] Detected MIME type: image/jpeg
+2026-01-29 21:18:59 [INFO] [Vision] Initializing Gemini Vision analysis...
+2026-01-29 21:18:59 [INFO] [Vision] Model: gemini-2.5-flash
+2026-01-29 21:19:01 [INFO] AFC is enabled with max remote calls: 10.
+2026-01-29 21:19:10 [INFO] [Vision] Analyzed room: kitchen, 18mq
+2026-01-29 21:19:10 [INFO] Event received: ['tools']
+2026-01-29 21:19:10 [INFO] Checking NODE: tools
+2026-01-29 21:19:10 [INFO]    Node output keys: ['messages']
+2026-01-29 21:19:10 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:19:10 [INFO]    Found 1 messages
+2026-01-29 21:19:10 [INFO]    Last message type: ToolMessage
+2026-01-29 21:19:10 [INFO]    RAW CONTENT: '{\n  "room_type": "kitchen",\n  "approximate_size_sqm": 18,\n  "architectural_features": [\n    "white square ceramic tiles on lower back and right walls",\n    "structural column/bulkhead on back wall right corner",\n    "wooden base cabinet with double sink and speckled countertop on left wall",\n    "wooden wall cabinets on back wall"\n  ],\n  "flooring_type": "terracotta tiles",\n  "wall_color": "white",\n  "ceiling_type": "flat",\n  "windows": [\n    {\n      "position": "left wall center",\n      "size": "large"\n    }\n  ],\n  "doors": [],\n  "special_features": [\n    "sink",\n    "wall_cabinets",\n    "base_cabinet"\n  ]\n}'
+2026-01-29 21:19:10 [INFO]    HAS TOOL_CALLS? False
+2026-01-29 21:19:10 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:19:10 [INFO]    METADATA: {}
+2026-01-29 21:19:10 [INFO] DETECTED TOOL RESULT: 2c8d3b7a-eede-4c14-a2d9-b2967b2d6da3
+2026-01-29 21:19:10 [INFO] [Firestore] Saved tool message to session session-1769717908569-5ybotx
+2026-01-29 21:19:18 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:19:18 [INFO] Event received: ['agent']
+2026-01-29 21:19:18 [INFO] Checking NODE: agent
+2026-01-29 21:19:18 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:19:18 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:19:18 [INFO]    Found 1 messages
+2026-01-29 21:19:18 [INFO]    Last message type: AIMessage
+2026-01-29 21:19:18 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:19:18 [INFO]    TOOL_CALLS: []
+2026-01-29 21:19:18 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:19:18 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:19:18 [INFO] AI TEXT RESPONSE: Ho analizzato la foto! Vedo una cucina di circa 18mq con mobili in legno, pareti piastrellate in bia...
+2026-01-29 21:19:18 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:20:10 [INFO] [Firestore] Retrieved 4 messages for session session-1769717908569-5ybotx
+2026-01-29 21:20:10 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:20:18 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:20:18 [INFO] Event received: ['agent']
+2026-01-29 21:20:18 [INFO] Checking NODE: agent
+2026-01-29 21:20:18 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:20:18 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:20:18 [INFO]    Found 1 messages
+2026-01-29 21:20:18 [INFO]    Last message type: AIMessage
+2026-01-29 21:20:18 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:20:18 [INFO]    TOOL_CALLS: []
+2026-01-29 21:20:18 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:20:18 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:20:18 [INFO] AI TEXT RESPONSE: Ottimo, il progetto sta prendendo forma! Lo stile Japandi si sposerà benissimo con il calore del tuo...
+2026-01-29 21:20:18 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:20:31 [INFO] [Firestore] Retrieved 6 messages for session session-1769717908569-5ybotx
+2026-01-29 21:20:32 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:20:46 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:20:46 [INFO] Event received: ['agent']
+2026-01-29 21:20:46 [INFO] Checking NODE: agent
+2026-01-29 21:20:46 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:20:46 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:20:46 [INFO]    Found 1 messages
+2026-01-29 21:20:46 [INFO]    Last message type: AIMessage
+2026-01-29 21:20:46 [INFO]    RAW CONTENT: []
+2026-01-29 21:20:46 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:20:46 [INFO]    TOOL_CALLS: [{'name': 'generate_render', 'args': {'source_image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769717908569-5ybotx/1769717914404-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260129%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260129T201834Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=d81f0d51b3a17f01e3fa126153172beff1f7af58ee34a8d8842aa41b2ba9d77bd961c980ae1ad704ea3aed64a58607cb376cc1777dab20f18a9df11aee6de3ee3f34b0a8326d103eb63d9fe7249da2f572808f0700ad7fe64f1cc3fa24b603772c61f0b75e76795749ece3cdca60edd1276a752b60fa9d61175f318874b60ef6bd0e686fb328bc2b044086d3cbf7e961b2439a3276b8a95007b6b8f42a4531dd3cbc5bf5e1f60921c472edd210d9a639d8012e072ac2e6fe04cda84a5657e7b253b0c734ef88feb35e0f936487c2a7fe479b14661a64f61f7c31ef82ba8328d999b4c8dee36f20542f0c3c489ba528cd188f975584834c2855502de13c4d6c6a', 'room_type': 'kitchen', 'style': 'Japandi', 'prompt': 'A serene Japandi style kitchen renovation. Keep the original terracotta tile floor and the large window on the left. The sink remains in its current position but is upgraded to a modern undermount stone sink. Replace old cabinets with minimalist light oak wood cabinetry featuring clean lines and handleless design. Walls are finished in a warm beige microcement instead of tiles. Neutral stone countertops. Soft natural light, organic ceramic decorations, and a clutter-free aesthetic.', 'mode': 'modification', 'keep_elements': ['terracotta floor', 'window position', 'sink position']}, 'id': '2aaa05e1-f8dd-4773-9b20-1a74d9e59e60', 'type': 'tool_call'}]
+2026-01-29 21:20:46 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'generate_render', 'arguments': '{"source_image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/session-1769717908569-5ybotx/1769717914404-IMG_20171216_093439.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260129%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260129T201834Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=d81f0d51b3a17f01e3fa126153172beff1f7af58ee34a8d8842aa41b2ba9d77bd961c980ae1ad704ea3aed64a58607cb376cc1777dab20f18a9df11aee6de3ee3f34b0a8326d103eb63d9fe7249da2f572808f0700ad7fe64f1cc3fa24b603772c61f0b75e76795749ece3cdca60edd1276a752b60fa9d61175f318874b60ef6bd0e686fb328bc2b044086d3cbf7e961b2439a3276b8a95007b6b8f42a4531dd3cbc5bf5e1f60921c472edd210d9a639d8012e072ac2e6fe04cda84a5657e7b253b0c734ef88feb35e0f936487c2a7fe479b14661a64f61f7c31ef82ba8328d999b4c8dee36f20542f0c3c489ba528cd188f975584834c2855502de13c4d6c6a", "room_type": "kitchen", "style": "Japandi", "prompt": "A serene Japandi style kitchen renovation. Keep the original terracotta tile floor and the large window on the left. The sink remains in its current position but is upgraded to a modern undermount stone sink. Replace old cabinets with minimalist light oak wood cabinetry featuring clean lines and handleless design. Walls are finished in a warm beige microcement instead of tiles. Neutral stone countertops. Soft natural light, organic ceramic decorations, and a clutter-free aesthetic.", "mode": "modification", "keep_elements": ["terracotta floor", "window position", "sink position"]}'}, '__gemini_function_call_thought_signatures__': {'2aaa05e1-f8dd-4773-9b20-1a74d9e59e60': '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'}}
+2026-01-29 21:20:46 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:20:46 [INFO] DETECTED TOOL CALLS: 1
+2026-01-29 21:20:46 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:20:46 [INFO] Saved assistant tool call message (1 calls)
+2026-01-29 21:20:46 [INFO] STREAMING TOOL CALL: generate_render
+2026-01-29 21:20:46 [INFO]   - mode: modification
+2026-01-29 21:20:46 [INFO] [Quota] Dev mode active: Bypassing quota for generate_render
+2026-01-29 21:20:46 [INFO]   - Bucket: chatbotluca-a8a73.firebasestorage.app
+2026-01-29 21:20:46 [INFO]   - Path: user-uploads/session-1769717908569-5ybotx/1769717914404-IMG_20171216_093439.jpg
+2026-01-29 21:20:48 [INFO] Performing triage analysis on image (Gemini 3 Flash)...
+2026-01-29 21:20:48 [INFO] AFC is enabled with max remote calls: 10.
+2026-01-29 21:20:57 [INFO] Triage complete: Kitchen room detected
+2026-01-29 21:20:57 [INFO] [Architect] Building narrative plan (Style: Japandi, Keep: 3)...
+2026-01-29 21:20:57 [INFO] [Architect] User Instructions: A serene Japandi style kitchen renovation. Keep th...
+2026-01-29 21:20:57 [INFO] [Architect] Model: gemini-2.5-flash
+2026-01-29 21:20:59 [INFO] AFC is enabled with max remote calls: 10.
+2026-01-29 21:21:09 [INFO] [Architect] Skeleton: 404 chars
+2026-01-29 21:21:09 [INFO] [Architect] Materials: 679 chars
+2026-01-29 21:21:09 [INFO] [Architect] Furnishing: 584 chars
+2026-01-29 21:21:10 [INFO] Generating I2I image with prompt length: 2245 chars
+2026-01-29 21:21:10 [INFO] AFC is enabled with max remote calls: 10.
+2026-01-29 21:21:30 [INFO] [Gemini] Found IMAGE part (image/jpeg)
+2026-01-29 21:21:30 [INFO] I2I generation complete! Image size: ~645.54 KB
+2026-01-29 21:21:30 [INFO] Uploading image: 645.54 KB
+2026-01-29 21:21:30 [INFO] Storage client initialized for project: chatbotluca-a8a73
+2026-01-29 21:21:32 [INFO] Upload complete: https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/renders/default/1769718090883-a3a31c2a.jpeg?[REDACTED]
+2026-01-29 21:21:32 [INFO] Event received: ['tools']
+2026-01-29 21:21:32 [INFO] Checking NODE: tools
+2026-01-29 21:21:32 [INFO]    Node output keys: ['messages']
+2026-01-29 21:21:32 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:21:32 [INFO]    Found 1 messages
+2026-01-29 21:21:32 [INFO]    Last message type: ToolMessage
+2026-01-29 21:21:32 [INFO]    RAW CONTENT: '{"imageUrl": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/renders/default/1769718090883-a3a31c2a.jpeg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-adminsdk-fbsvc%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260129%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260129T202132Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=0652cb0b49cff4f6194c829e9f9ec8223f3d474ebae94fdfb1ea7614eaf1ef996fd9c9e8ab7dc0ef0c15deb0077a4ae9fa14373ed6554f31f9281ea9ba7f2822b9bba14e8c5d6a704a9add227024d47a24af77e0b31a010225beb0f7e0aa388ffcfd59d0838da4a96afd6763100fb44ead8b21953719349c029eaaf4b0d0421673875159aea2fca9dee459493df1fb862394fcb5bc40cbbb6da6f0f825c0503aa1d54e937dd0161fe5fa393deb3eeb431ab7286bb950f7f6f1f469587a75bea36929f949b0ab4cebe2b978ac55aade00523956a0abcac0155e5e2b84543a85f33332eba1e6711ffba663f24a6fed22b0678e3ce19972e7c863ea5cd6bd25f95f", "description": "Rendering transformed successfully!", "status": "success", "mode": "transformed"}'
+2026-01-29 21:21:32 [INFO]    HAS TOOL_CALLS? False
+2026-01-29 21:21:32 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:21:32 [INFO]    METADATA: {}
+2026-01-29 21:21:32 [INFO] DETECTED TOOL RESULT: 2aaa05e1-f8dd-4773-9b20-1a74d9e59e60
+2026-01-29 21:21:32 [INFO] [Firestore] Saved tool message to session session-1769717908569-5ybotx
+2026-01-29 21:21:40 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:21:40 [INFO] Event received: ['agent']
+2026-01-29 21:21:40 [INFO] Checking NODE: agent
+2026-01-29 21:21:40 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:21:40 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:21:40 [INFO]    Found 1 messages
+2026-01-29 21:21:40 [INFO]    Last message type: AIMessage
+2026-01-29 21:21:40 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:21:40 [INFO]    TOOL_CALLS: []
+2026-01-29 21:21:40 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:21:40 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:21:40 [INFO] AI TEXT RESPONSE: Ecco il tuo rendering! ![Design](https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.ap...
+2026-01-29 21:21:40 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:22:39 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:22:39 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:22:48 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:22:48 [INFO] Event received: ['agent']
+2026-01-29 21:22:48 [INFO] Checking NODE: agent
+2026-01-29 21:22:48 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:22:48 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:22:48 [INFO]    Found 1 messages
+2026-01-29 21:22:48 [INFO]    Last message type: AIMessage
+2026-01-29 21:22:48 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:22:48 [INFO]    TOOL_CALLS: []
+2026-01-29 21:22:48 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:22:48 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:22:48 [INFO] AI TEXT RESPONSE: Perfetto! Partiamo dai dettagli tecnici per trasformare quel rendering in realtà.
+
+Dalla nostra chia...
+2026-01-29 21:22:48 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:24:21 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:24:22 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:24:31 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:24:31 [INFO] Event received: ['agent']
+2026-01-29 21:24:31 [INFO] Checking NODE: agent
+2026-01-29 21:24:31 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:24:31 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:24:31 [INFO]    Found 1 messages
+2026-01-29 21:24:31 [INFO]    Last message type: AIMessage
+2026-01-29 21:24:31 [INFO]    RAW CONTENT: [{'type': 'text', 'text': "Ricevuto! Quindi procediamo con il rifacimento dell'impianto elettrico mantenendo quello idraulico esistente. Per quanto riguarda le rimozioni, ti riferisci sia ai vecchi mobili che alle piastrelle bianche a muro?\n\nInoltre, per essere più preciso nel calcolo:\n\n1. Quanti **metri lineari** di mobili immagini per la nuova cucina?\n2. Per le pareti, preferiresti rimettere delle **piastrelle** o passare a una finitura più moderna come **resina o smalto** (molto in linea con lo stile Japandi)?", 'extras': {'signature': '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'}}]
+2026-01-29 21:24:31 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:24:31 [INFO]    TOOL_CALLS: []
+2026-01-29 21:24:31 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:24:31 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:24:31 [INFO] AI TEXT RESPONSE: Ricevuto! Quindi procediamo con il rifacimento dell'impianto elettrico mantenendo quello idraulico e...
+2026-01-29 21:24:31 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:26:21 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:26:22 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:26:32 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:26:32 [INFO] Event received: ['agent']
+2026-01-29 21:26:32 [INFO] Checking NODE: agent
+2026-01-29 21:26:32 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:26:32 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:26:32 [INFO]    Found 1 messages
+2026-01-29 21:26:32 [INFO]    Last message type: AIMessage
+2026-01-29 21:26:32 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:26:32 [INFO]    TOOL_CALLS: []
+2026-01-29 21:26:32 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:26:32 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:26:32 [INFO] AI TEXT RESPONSE: Perfetto, ho aggiornato i dettagli tecnici del tuo progetto. Passare a piastrelle bianche di grande ...
+2026-01-29 21:26:32 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:27:03 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:27:04 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:27:10 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:27:10 [INFO] Event received: ['agent']
+2026-01-29 21:27:10 [INFO] Checking NODE: agent
+2026-01-29 21:27:10 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:27:10 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:27:10 [INFO]    Found 1 messages
+2026-01-29 21:27:10 [INFO]    Last message type: AIMessage
+2026-01-29 21:27:10 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:27:10 [INFO]    TOOL_CALLS: []
+2026-01-29 21:27:10 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:27:10 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:27:11 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:27:36 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:27:36 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:27:49 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:27:49 [INFO] Event received: ['agent']
+2026-01-29 21:27:49 [INFO] Checking NODE: agent
+2026-01-29 21:27:49 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:27:49 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:27:49 [INFO]    Found 1 messages
+2026-01-29 21:27:49 [INFO]    Last message type: AIMessage
+2026-01-29 21:27:49 [INFO]    RAW CONTENT: [{'type': 'text', 'text': "Hai ragione, abbiamo già definito i punti chiave del design (stile Japandi, circa 18mq, mantenendo pavimento e scarichi)! \n\nSe ti interessa procedere con il **preventivo**, posso usare queste informazioni come base. Per essere più preciso sui costi, mi mancano solo un paio di dettagli tecnici:\n\n1.  **Impianti**: Oltre ai mobili, vuoi aggiornare anche l'impianto elettrico o quello idraulico (visto che gli scarichi restano lì)?\n2.  **Lavori extra**: C'è qualche demolizione di pareti o rivestimenti che vorresti includere?\n\nCosa ne pensi? Se preferisci, possiamo anche fermarci qui con il rendering!", 'extras': {'signature': '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'}}]
+2026-01-29 21:27:49 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:27:49 [INFO]    TOOL_CALLS: []
+2026-01-29 21:27:49 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:27:49 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:27:49 [INFO] AI TEXT RESPONSE: Hai ragione, abbiamo già definito i punti chiave del design (stile Japandi, circa 18mq, mantenendo p...
+2026-01-29 21:27:49 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:28:16 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:28:16 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:28:26 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:28:26 [INFO] Event received: ['agent']
+2026-01-29 21:28:26 [INFO] Checking NODE: agent
+2026-01-29 21:28:26 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:28:26 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:28:26 [INFO]    Found 1 messages
+2026-01-29 21:28:26 [INFO]    Last message type: AIMessage
+2026-01-29 21:28:26 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Hai ragione, abbiamo già gettato delle ottime basi! Per poterti fornire un preventivo davvero accurato e professionale per la tua cucina Japandi, mi mancano solo alcuni dettagli tecnici sul "dietro le quinte":\n\n1.  **Impianti**: Anche se manteniamo le posizioni attuali, gli impianti (elettrico e idraulico) vanno rifatti da zero o sono già recenti e pronti all\'uso?\n2.  **Pareti**: Per le piastrelle attuali, preferiresti demolirle completamente o preferiresti una soluzione di copertura (come il microcemento che accennavamo) per evitare macerie?\n\nCosa ne pensi?', 'extras': {'signature': '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'}}]
+2026-01-29 21:28:26 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:28:26 [INFO]    TOOL_CALLS: []
+2026-01-29 21:28:26 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:28:26 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:28:26 [INFO] AI TEXT RESPONSE: Hai ragione, abbiamo già gettato delle ottime basi! Per poterti fornire un preventivo davvero accura...
+2026-01-29 21:28:26 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:28:51 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:28:51 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:29:00 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:29:00 [INFO] Event received: ['agent']
+2026-01-29 21:29:00 [INFO] Checking NODE: agent
+2026-01-29 21:29:00 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:29:00 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:29:00 [INFO]    Found 1 messages
+2026-01-29 21:29:00 [INFO]    Last message type: AIMessage
+2026-01-29 21:29:00 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:29:00 [INFO]    TOOL_CALLS: []
+2026-01-29 21:29:00 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:29:00 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:29:00 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:29:29 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:29:29 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:29:37 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:29:37 [INFO] Event received: ['agent']
+2026-01-29 21:29:37 [INFO] Checking NODE: agent
+2026-01-29 21:29:37 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:29:37 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:29:37 [INFO]    Found 1 messages
+2026-01-29 21:29:37 [INFO]    Last message type: AIMessage
+2026-01-29 21:29:37 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Capito, annotato: impianto elettrico nuovo e impianto idraulico che resta invariato. Questo aiuta molto a contenere i costi strutturali!\n\nPer rendere il preventivo ancora più preciso, avrei bisogno di qualche altro dettaglio:\n\n1.  **Demolizioni e Pareti**: Oltre a rimuovere i vecchi mobili e le piastrelle, prevedi di abbattere o spostare qualche parete (ad esempio per creare un open space)?\n2.  **Elettrodomestici**: Nel preventivo vuoi includere anche la fornitura dei nuovi elettrodomestici (frigo, forno, piano cottura, lavastoviglie) o ci pensi tu separatamente?\n\nFammi sapere così affiniamo il piano di lavoro!', 'extras': {'signature': 'EvoJCvcJAXLI2nwZZEfqHuq82YksZlCHcl2Daetdvzi6RorJNFwiklRvIaCF/jYDeKb9fqWXROvZxAGpwqsdo+ULDE9ZNYvvF7/GAYlUqD7uW9LZczkfZ/znRGiHpsoPgZ1s0WMUCLtp8YH0FS+vBMVXpWrE5eQIeO7AU0uVqjdcxySyfsxM4p99v9siSKYIXxjSSHu2F3bPMDAZ7f7bYXSQHlIiyjad5iN8nHC3G9Z+4f1iyLfmG/IVS+8SV5FX6OAql/f4XKcLwaMXaXB3WO65kT14IKm/dQ70Iduz3I1gCyX15za13B5H11gSMPgVPbHLHv0zL0DBIQMeoCcuDh+Jmqz/bcWnUrmmDRdVgWHVbY1E5OfOgk5FTKqD/lUiz5dorTXulwqyrksCX4FlKKf3NtZq0hn0BVN9INPrag33U2PPIE/Sy803FMJJSvyX71HU7MzE2fJAWT+cmLUIxX68zeRPyKMZUHiI+dGNrzphIC6zUVju1XaCWo6XR6XlBYlfPxWXz6dQ4IeJgE2pO/k+Qbe8900uv3YmrVMvrfasbpYwXzVxnys8ffEK5N0lbE42pg0QImi1cI5IvDk5F8i92iMP46wBM8lOWu2sMiFI3bsG1arxrVQtI5tCHCj9MOrtdGHBUGeUMQxhRxgZ9ifuO8ceE3zHRThYfx+ST5epUfE5G+oM/dPwGnOw33LjCVsBVAHg0nGoIES4xrTM/XuAfzADtaiz9+cy8rAqFImimrFOasPKSRMlobB+CDGbK8xplLdpKqA0+WAoWMlnhqt/FibZzlQC4mmBOrQZxv/9OR54SmcDV7eqJA4FfC1CyT77MMZlkqqJIvempnih8PfdyG4P8I9lBVXBlM6IGyJTnD3f/AFpIyTOk/WBBwSnGMXP5s+WyZViMtEpL4Kd04eFBIDGpA12XB0fjsFmx2Sv4q2rqvSBMzG2+0bJ0n14K5VZZeqgKzCdhU0Y7Gpz5PwlvVjrkWwCHaN13LylM+o0kzFBb3ZjxFJTQ+1AAN4WTPPnieIlVODAHgtxrarMcvqaCHd8A/vlj42YaW8en7W5C0WkexMmn35wBkAPxO+/7ydBDpfOjBZq15S7dLXeOLbtGEQ+gaf4oS9Fjkkoxgc/1XQLFnE2U/LUQkEH30LQvdV8oTTqy7axI7bi07+TLXIpGrk5pylrSom5HxQychhfbgmzZZmy5jZj+cTXLelUMbukI/ewtGgbShxdyX+4uSlFRs21MXTXsOVcGZv1/OHYc17gkNDeGh55Eungbh4qRbG1PFVcKudgcWu65a5TY0oFdm+6abLLkvtC+A9MXTL0757EMdL/0/SfUC5GLkzaDAo6xliYXFO1lp9gfwL2sOzMY9OpAzhoF7/iXA64MNRFiF6HdMZZRWDYJv4ZgEvE1BzAxKFnEv+risof9RYQC7xTovNlOQixQ9cbcQXtOh+Yst5bhLvZFt+bS8/ymmw6X8pASu2doASIqqBzW7Q+/wv/L1slOuN6ImQaKLVg5VKz2rWkyBi3xFN0KilnmfnpOkD0m4v4Qb+OVrFfI1vVIrdFlUJvrlgY2pGBZrjTITVJtJ9AHC/Rj8zkxZIDpISR4+4Yro3vvWYLC32tGvD+my1538pj3ZhO2qnNa59YRLu5MKMui30gbP2zhENpS+Kh6gIRO5VLyxN1RPhXU1FKRaQrEeDxK1HNLJzEtL0='}}]
+2026-01-29 21:29:37 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:29:37 [INFO]    TOOL_CALLS: []
+2026-01-29 21:29:37 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:29:37 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:29:37 [INFO] AI TEXT RESPONSE: Capito, annotato: impianto elettrico nuovo e impianto idraulico che resta invariato. Questo aiuta mo...
+2026-01-29 21:29:37 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:30:05 [INFO] [Firestore] Retrieved 10 messages for session session-1769717908569-5ybotx
+2026-01-29 21:30:06 [INFO] [Firestore] Saved user message to session session-1769717908569-5ybotx
+2026-01-29 21:30:13 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-01-29 21:30:13 [INFO] Event received: ['agent']
+2026-01-29 21:30:13 [INFO] Checking NODE: agent
+2026-01-29 21:30:13 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url']
+2026-01-29 21:30:13 [INFO]    Type of messages: <class 'list'>
+2026-01-29 21:30:13 [INFO]    Found 1 messages
+2026-01-29 21:30:13 [INFO]    Last message type: AIMessage
+2026-01-29 21:30:13 [INFO]    RAW CONTENT: [{'type': 'text', 'text': "Capito perfettamente: manteniamo la struttura muraria attuale e non includiamo gli elettrodomestici nel calcolo.\n\nPer rendere la stima ancora più precisa, avrei bisogno di un paio di dettagli tecnici:\n\n1.  **Impianti**: Dato che manteniamo la posizione degli scarichi, pensavi di rifare comunque l'impianto idraulico ed elettrico (consigliato se hanno più di 20-25 anni) o preferisci mantenere quelli esistenti?\n2.  **Materiali**: Per i mobili in stile Japandi, preferiresti un legno massello/impiallacciato o un laminato di alta qualità? E per il top della cucina, avevi in mente qualcosa come il quarzo o una pietra naturale?\n\nUna volta definiti questi aspetti, potrò elaborare un quadro economico più chiaro!", 'extras': {'signature': 'EskICsYIAXLI2nyDfSunfxK22lES5F00EzGAjJf5dWYlbptzoov5Lheacy+RDpORfFdOBEnXskK6u78ruMoCax9DyrKWSHRk8SfvsboHG63VjDvwNY479bpwB9A9A6c5kSxIEZA/ZBmXP1G4w7rbA8DqxZtr/GZq9FbMMGsPxF7MeeC5cHf973NbPrzWxIAg0eimMnUazy5ZJb5gOlVpDAAlicyF7DDUCr0G958rewceDQ/oI/W/SxZp5cQO2Mgh/5EmzvziCDJHNV/jCnIeZB3MocHK1CnC1/q+zeBi0WsrbwNAgF/DcoV9ho4CD1S0L10CGDhlUgxtj5SgQuM40nIlqam1dvclk33ELzh0k2fJnlACljdR9HEF4FDkwvGch+/TW4cv3ZEkoYggKB3uyyKMruAI1+R3+FnvSWKI2N+Pp8ylEq8Xu82yIJ094AYDZW7pC6oSOhMckOaJUn/KjfrHUBaM4yJz2M5T9p5OoiRCbBmyIIfD1V0iSbms/Ksxqvn64PjWq9R+edXA1RAU2kcpg+l6r5EcmAtjwdXLDQdW+0d30gCcnjuOwkWbVhMit5S8w2B9HBrytZ0dWmkcSt119FnsSh7iP41yOHUntLkUiLLQr7s0GynixHOZhCKKi5tRyFE5RVDTeWEFVzS38xF8Yb2JRsShDzB+fquGq3sYeyRa5W9iarelf18HEzQW9sPmrm6tfzWb3dnP9MhRRXafktxKxj/KaRPrdIVjswb3qsxj26wRF8ZRjfXdFWGE4+9HkOy0Umeu8HrKpOltpiU1jLiC6gs+7BYmnVniS+OJ6mnpairyg9zqo0YI0Sj2ZdmN+2mHP711ToxoSEdTpQbMC0rLh5ZJnqIXbpTuSwGRYbY1T2jHQjwmH8ZdE+wMJyQgJSnf1VjInvg7WDJ9tQyIt6LG+HTu5YWAkSKnSff0aHspAbwdNpViHNGicGQpIcnF1+VdtyfwFob0kVbGVSHiw/e/Hspw1t0RjpteDbxDAbJ1qkpOwFukq/FCPY8q9nQpJQhIeCpwoj7n3lPvGHmNuroHn0nmFLCNWHbSXr0vb+xMUaykgrad6fCHU55oXCWwViZAp8My9CSztQl37nWsP/vct7Z+OOr2wJafjLKr0NIOmL36JeNN2X5y+iqMppg3kteTbRWkViXDOT1i4e8Y3n8X845/kIbxmmjiL1+lVvy9x20C3CeAyb1xTy0jjUy/bKDq1mOHIowKslektnUWB/JMV68NTV632UHBOlXedvBeV9vJulHBc984XJw0G6nve5QWwHCf4lcmlQGJ53ZSZ5/8E5qR0UAEyLUJFtJguhC3iaDYWzNOrj/tVcVESjPcGtAoGT6Wn2VInpXD5GgOG58rW0Eu+6lBX0MTo8+ZbjTZWdtk+x0/6CydZgoKTHC8+hM5PFQ2Y/5DCRjBM81nlDIgTiEmu7yv1SOPfxMh7DPie75X9zd2moU='}}]
+2026-01-29 21:30:13 [INFO]    HAS TOOL_CALLS? True
+2026-01-29 21:30:13 [INFO]    TOOL_CALLS: []
+2026-01-29 21:30:13 [INFO]    ADDITIONAL_KWARGS: {}
+2026-01-29 21:30:13 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-01-29 21:30:13 [INFO] AI TEXT RESPONSE: Capito perfettamente: manteniamo la struttura muraria attuale e non includiamo gli elettrodomestici ...
+2026-01-29 21:30:13 [INFO] [Firestore] Saved assistant message to session session-1769717908569-5ybotx
+2026-01-29 21:34:16 [INFO] SYD Brain API starting on port 8080...
+2026-01-29 21:34:53 [INFO] SYD Brain API starting on port 8080...
