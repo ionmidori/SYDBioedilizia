@@ -6,6 +6,7 @@ import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
 import { ToolStatus } from '@/components/chat/ToolStatus';
 import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
+import { LeadCaptureForm } from '@/components/chat/widgets/LeadCaptureForm';
 import { cn } from '@/lib/utils';
 
 import { Message } from '@/types/chat';
@@ -118,8 +119,9 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                 {/* 2. Main Text Bubble */}
                 {/* 💎 PREMIUM LOGIC: Only render if there is visible content */}
                 {(() => {
-                    // Check if tools have any visual output (Loading state OR Result with Image/Error)
+                    // Check if tools have any visual output (Loading state OR Result with Image/Error OR Widgets)
                     const hasVisibleTools = message.toolInvocations?.some(tool => {
+                        if (tool.toolName === 'display_lead_form') return true; // Always visible
                         if (tool.state === 'call') return true; // Loading is always visible
                         const result = tool.result || (tool as any).output;
                         // Only results with images or errors are visible in ToolStatus
@@ -156,13 +158,27 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                                         )}
 
                                         {/* Tool Invocations */}
-                                        {message.toolInvocations?.map((tool, toolIdx) => (
-                                            <ToolStatus
-                                                key={toolIdx}
-                                                tool={tool}
-                                                onImageClick={onImageClick}
-                                            />
-                                        ))}
+                                        {message.toolInvocations?.map((tool, toolIdx) => {
+                                            // 💎 PREMIUM WIDGET: Lead Capture Form
+                                            if (tool.toolName === 'display_lead_form') {
+                                                const args = tool.args as any;
+                                                return (
+                                                    <div key={toolIdx} className="mt-4">
+                                                        <LeadCaptureForm
+                                                            quoteSummary={args?.quote_summary || "Preventivo Ristrutturazione"}
+                                                        />
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
+                                                <ToolStatus
+                                                    key={toolIdx}
+                                                    tool={tool}
+                                                    onImageClick={onImageClick}
+                                                />
+                                            );
+                                        })}
                                     </>
                                 )}
                             </div>
