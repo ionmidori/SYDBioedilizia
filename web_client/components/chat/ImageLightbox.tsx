@@ -78,7 +78,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
 
                             <a
                                 href={imageUrl}
-                                download={`renovation-ai-vision-${Date.now()}.png`}
+                                download="renovation-ai-vision.png"
                                 aria-label="Scarica immagine"
                                 className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2"
                             >

@@ -19,7 +19,6 @@ export function ImagePreview({ src, alt = 'Generated image', onClick, className 
             className={`group relative mt-2 cursor-pointer overflow-hidden rounded-lg border border-white/10 block ${className}`}
             onClick={() => onClick(src)}
         >
-            {/* @ts-expect-error: Next.js 15 types mismatch with React 18 (bigint) */}
             <Image
                 src={src}
                 alt={alt}
