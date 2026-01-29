@@ -112,6 +112,7 @@ export function ChatInput({
                                     {/* Preview Content */}
                                     {item.type === 'image' ? (
                                         <div className="relative w-full h-full">
+                                            {/* @ts-expect-error: Next.js 15 types mismatch with React 18 (bigint) */}
                                             <Image
                                                 src={item.previewUrl}
                                                 alt="Anteprima immagine"

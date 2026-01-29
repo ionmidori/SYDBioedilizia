@@ -100,6 +100,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                     <X className="w-8 h-8 text-luxury-gold" />
                 ) : (
                     <div className="relative w-full h-full flex items-center justify-center !overflow-visible">
+                        {/* @ts-expect-error: Next.js 15 types mismatch with React 18 (bigint) */}
                         <Image
                             src="/assets/syd_final_v9.png"
                             alt="Chat"
