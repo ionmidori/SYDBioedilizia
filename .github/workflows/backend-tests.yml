@@ -21,21 +21,21 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.12'
     
     - name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v5
       with:
         version: "latest"
     
     - name: Install dependencies
       run: |
-        uv sync
+        uv sync --all-extras
     
     - name: Run tests with pytest
       env:
@@ -47,7 +47,7 @@ jobs:
     
     - name: Upload coverage reports
       if: always()
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         files: ./backend_python/coverage.xml
         flags: backend-python
