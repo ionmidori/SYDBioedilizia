@@ -8,5 +8,10 @@
     "scripts": {
         "dev:web": "npm run dev --workspace=web_client",
         "dev:ai": "npm run dev --workspace=ai_core"
+    },
+    "dependencies": {
+        "next": "15.1.12",
+        "react": "18.3.1",
+        "react-dom": "18.3.1"
     }
 }
