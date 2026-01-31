@@ -3155,3 +3155,57 @@ google.api_core.exceptions.FailedPrecondition: 400 The query requires an index. 
 2026-01-31 18:12:38 [INFO] [API] get_project request for session_id: ccf76b82-2aa0-4f6a-a461-228cd44435f8 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
 2026-01-31 18:12:44 [INFO] [Projects] Retrieved 6 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
 2026-01-31 18:12:44 [INFO] [Projects] Retrieved 6 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:22:57 [INFO] [Projects] Retrieved 6 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:22:58 [INFO] [Projects] Retrieved 6 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:23:16 [INFO] [API] get_project request for session_id: fa948265-7cb4-43c4-a25a-2a0b7d2e6ce0 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:23:17 [INFO] [API] get_project request for session_id: fa948265-7cb4-43c4-a25a-2a0b7d2e6ce0 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:23:19 [INFO] [Projects] Retrieved 6 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:23:19 [INFO] [Projects] Retrieved 6 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:24:05 [INFO] [API] get_project request for session_id: 62459834-3345-439c-a4fd-f9076abb9c57 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:24:06 [INFO] [API] get_project request for session_id: 62459834-3345-439c-a4fd-f9076abb9c57 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:35 [INFO] [Projects] Retrieved 6 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:36 [INFO] [Projects] Retrieved 6 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:45 [INFO] [API] delete_project request for session_id: 62459834-3345-439c-a4fd-f9076abb9c57 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:45 [INFO] [Projects] Deleted project 62459834-3345-439c-a4fd-f9076abb9c57 (with 0 messages) for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:45 [INFO] [API] Successfully deleted project 62459834-3345-439c-a4fd-f9076abb9c57 for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:45 [INFO] [Projects] Retrieved 5 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:51 [INFO] [API] delete_project request for session_id: 252235eb-ab76-4492-9b8d-b7bd3e6e5aa3 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:51 [INFO] [Projects] Deleted project 252235eb-ab76-4492-9b8d-b7bd3e6e5aa3 (with 0 messages) for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:51 [INFO] [API] Successfully deleted project 252235eb-ab76-4492-9b8d-b7bd3e6e5aa3 for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:51 [INFO] [Projects] Retrieved 4 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:57 [INFO] [API] delete_project request for session_id: fa948265-7cb4-43c4-a25a-2a0b7d2e6ce0 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:57 [INFO] [Projects] Deleted project fa948265-7cb4-43c4-a25a-2a0b7d2e6ce0 (with 0 messages) for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:57 [INFO] [API] Successfully deleted project fa948265-7cb4-43c4-a25a-2a0b7d2e6ce0 for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:25:57 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:06 [INFO] [API] delete_project request for session_id: ccf76b82-2aa0-4f6a-a461-228cd44435f8 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:06 [INFO] [Projects] Deleted project ccf76b82-2aa0-4f6a-a461-228cd44435f8 (with 0 messages) for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:06 [INFO] [API] Successfully deleted project ccf76b82-2aa0-4f6a-a461-228cd44435f8 for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:06 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:13 [INFO] [API] delete_project request for session_id: d99aef44-f506-4828-971b-aeebd5041dbe from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:13 [INFO] [Projects] Deleted project d99aef44-f506-4828-971b-aeebd5041dbe (with 0 messages) for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:13 [INFO] [API] Successfully deleted project d99aef44-f506-4828-971b-aeebd5041dbe for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:13 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:22 [INFO] [API] delete_project request for session_id: 02bc5aed-a6c8-4bb3-ae30-a06ceed14d6c from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:22 [INFO] [Projects] Deleted project 02bc5aed-a6c8-4bb3-ae30-a06ceed14d6c (with 0 messages) for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:22 [INFO] [API] Successfully deleted project 02bc5aed-a6c8-4bb3-ae30-a06ceed14d6c for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:26:22 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:12 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:13 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:13 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:14 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:18 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:18 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:33 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:33 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:43 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:27:43 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:28:10 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:28:10 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:52:06 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:52:06 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:52:16 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:52:16 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:52:34 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:52:35 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:52:40 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-01-31 18:52:40 [INFO] [Projects] Retrieved 0 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
