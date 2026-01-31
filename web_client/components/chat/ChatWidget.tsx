@@ -7,6 +7,7 @@ import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatToggleButton } from '@/components/chat/ChatToggleButton';
 import { ImageLightbox } from '@/components/chat/ImageLightbox';
 import { ChatErrorBoundary } from '@/components/ui/ChatErrorBoundary';
+import { cn } from '@/lib/utils';
 
 // Hooks & Utils
 import { useSessionId } from '@/hooks/useSessionId';
@@ -53,18 +54,20 @@ interface LegacyUseChatHelpers {
  */
 interface ChatWidgetProps {
     projectId?: string;
+    variant?: 'floating' | 'inline';
 }
 
-export default function ChatWidget({ projectId }: ChatWidgetProps = {}) {
+export default function ChatWidget({ projectId, variant = 'floating' }: ChatWidgetProps) {
     return (
         <ChatErrorBoundary>
-            <ChatWidgetContent projectId={projectId} />
+            <ChatWidgetContent projectId={projectId} variant={variant} />
         </ChatErrorBoundary>
     );
 }
 
-function ChatWidgetContent({ projectId }: ChatWidgetProps = {}) {
-    const [isOpen, setIsOpen] = useState(false);
+function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps) {
+    const isInline = variant === 'inline';
+    const [isOpen, setIsOpen] = useState(isInline);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -358,40 +361,52 @@ function ChatWidgetContent({ projectId }: ChatWidgetProps = {}) {
 
     return (
         <>
-            {/* Toggle Button */}
-            <div className="fixed bottom-4 right-2 md:bottom-8 md:right-6 z-50 flex items-center gap-4">
-                <ChatToggleButton isOpen={isOpen} onClick={() => setIsOpen(!isOpen)} />
-            </div>
+            {/* Toggle Button - Hide if inline */}
+            {!isInline && (
+                <div className="fixed bottom-4 right-2 md:bottom-8 md:right-6 z-50 flex items-center gap-4">
+                    <ChatToggleButton isOpen={isOpen} onClick={() => setIsOpen(!isOpen)} />
+                </div>
+            )}
 
             {/* Chat Window */}
             <AnimatePresence>
                 {isOpen && (
                     <>
-                        {/* Backdrop */}
-                        <motion.div
-                            key="backdrop"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="fixed inset-0 z-[90] bg-[#0f172a]/80 touch-none md:bg-black/40 backdrop-blur-md"
-                            onClick={() => setIsOpen(false)}
-                        />
+                        {/* Backdrop - Hide if inline */}
+                        {!isInline && (
+                            <motion.div
+                                key="backdrop"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 z-[90] bg-[#0f172a]/80 touch-none md:bg-black/40 backdrop-blur-md"
+                                onClick={() => setIsOpen(false)}
+                            />
+                        )}
 
                         {/* Window */}
                         <motion.div
                             key="chat-window"
-                            initial={{ opacity: 0, y: 50, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                            initial={isInline ? { opacity: 0 } : { opacity: 0, y: 50, scale: 0.95 }}
+                            animate={isInline ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
+                            exit={isInline ? { opacity: 0 } : { opacity: 0, y: 50, scale: 0.95 }}
                             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                            drag={isMobile ? "y" : false}
+                            drag={(isMobile && !isInline) ? "y" : false}
                             dragConstraints={{ top: 0, bottom: 0 }}
                             dragElastic={{ top: 0, bottom: 0.5 }}
                             ref={chatContainerRef}
-                            style={{ height: isMobile ? '100dvh' : undefined, top: isMobile ? 0 : undefined }}
-                            className="fixed inset-0 md:inset-auto md:bottom-4 md:right-6 w-full md:w-[450px] md:h-[850px] md:max-h-[calc(100vh-40px)] bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 md:rounded-3xl shadow-2xl flex flex-col overflow-hidden z-[100]"
+                            style={{
+                                height: (isMobile && !isInline) ? '100dvh' : isInline ? '100%' : undefined,
+                                top: (isMobile && !isInline) ? 0 : undefined
+                            }}
+                            className={cn(
+                                "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-[100]",
+                                isInline
+                                    ? "relative w-full h-[calc(100dvh-100px)] md:h-[calc(100vh-160px)] rounded-3xl"
+                                    : "fixed inset-0 md:inset-auto md:bottom-4 md:right-6 w-full md:w-[450px] md:h-[850px] md:max-h-[calc(100vh-40px)] md:rounded-3xl shadow-2xl"
+                            )}
                         >
-                            <ChatHeader onMinimize={() => setIsOpen(false)} />
+                            <ChatHeader onMinimize={isInline ? undefined : () => setIsOpen(false)} />
 
                             <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-luxury-gold/20 hover:scrollbar-thumb-luxury-gold/40">
 

@@ -5,23 +5,25 @@ import { FolderKanban, Plus, Calendar, MessageSquare, ArrowRight, Loader2 } from
 import { formatDistanceToNow } from "date-fns"
 import { it } from "date-fns/locale"
 import Link from "next/link"
+import { useState } from 'react';
 
 import { projectsApi } from "@/lib/projects-api"
 import { Button } from "@/components/ui/button"
 import { useProjects } from "@/hooks/useProjects"
+import { ProjectCard } from "@/components/dashboard/ProjectCard"
+import { CreateProjectDialog } from "@/components/dashboard/CreateProjectDialog"
 
 export default function ProjectsPage() {
-    const { projects, loading: isLoading, error } = useProjects();
-    const router = useRouter();
+    const { projects, loading: isLoading, error, refresh } = useProjects();
+    const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
-    const handleCreateProject = async () => {
-        try {
-            const { session_id } = await projectsApi.createProject({ title: "Nuovo Progetto" })
-            router.push(`/dashboard/${session_id}`)
-        } catch (err) {
-            console.error("Failed to create project:", err)
-        }
-    }
+    const handleCreateProject = () => {
+        setCreateDialogOpen(true);
+    };
+
+    const handleDeleteProject = () => {
+        refresh();
+    };
 
     if (isLoading) {
         return (
@@ -93,54 +95,15 @@ export default function ProjectsPage() {
             {projects.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {projects.map((project) => (
-                        <Link
-                            key={project.session_id}
-                            href={`/dashboard/${project.session_id}`}
-                            className="group block bg-white/5 rounded-2xl border border-luxury-gold/10 hover:border-luxury-gold/40 shadow-premium transition-all duration-500 overflow-hidden relative"
-                        >
-                            <div className="h-48 bg-luxury-bg relative overflow-hidden">
-                                {project.thumbnail_url ? (
-                                    <img
-                                        src={project.thumbnail_url}
-                                        alt={project.title}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                                    />
-                                ) : (
-                                    <div className="absolute inset-0 flex items-center justify-center text-luxury-gold/20 bg-luxury-bg/50 group-hover:bg-luxury-bg/30 transition-colors">
-                                        <FolderKanban className="w-16 h-16 opacity-50 transition-all duration-700 group-hover:scale-110 group-hover:rotate-3" />
-                                    </div>
-                                )}
-
-                                <div className="absolute top-4 right-4 px-3 py-1.5 bg-luxury-bg/80 backdrop-blur-md text-[10px] font-bold uppercase tracking-widest rounded-lg border border-white/10 shadow-lg text-luxury-gold z-20">
-                                    {project.status}
-                                </div>
-                                <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-transparent to-transparent opacity-60 z-10" />
-                            </div>
-
-                            <div className="p-6 relative z-20">
-                                <h3 className="font-bold text-xl text-luxury-text group-hover:text-luxury-gold transition-colors truncate font-serif mb-4">
-                                    {project.title || "Progetto Senza Titolo"}
-                                </h3>
-
-                                <div className="flex items-center justify-between mt-auto">
-                                    <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-luxury-text/40">
-                                        <div className="flex items-center gap-1.5">
-                                            <Calendar className="w-3 h-3 text-luxury-gold" />
-                                            {formatDistanceToNow(new Date(project.updated_at), { addSuffix: true, locale: it })}
-                                        </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <MessageSquare className="w-3 h-3 text-luxury-gold" />
-                                            {project.message_count}
-                                        </div>
-                                    </div>
-                                    <ArrowRight className="w-5 h-5 text-luxury-gold/0 group-hover:text-luxury-gold -translate-x-4 group-hover:translate-x-0 transition-all duration-500" />
-                                </div>
-                            </div>
-                            <div className="absolute inset-0 border-2 border-luxury-gold/0 group-hover:border-luxury-gold/10 rounded-2xl transition-all duration-500 pointer-events-none" />
-                        </Link>
+                        <ProjectCard key={project.session_id} project={project} onDelete={handleDeleteProject} />
                     ))}
                 </div>
             )}
+
+            <CreateProjectDialog
+                open={createDialogOpen}
+                onOpenChange={setCreateDialogOpen}
+            />
         </div>
     )
 }

@@ -52,7 +52,11 @@ export const waitForAuth = (): Promise<void> => authReadyPromise;
 import { getFirestore } from 'firebase/firestore';
 const db = getFirestore(app);
 
+// Initialize Storage
+import { getStorage } from 'firebase/storage';
+const storage = getStorage(app);
+
 // Note: App Check is initialized globally in AppCheckProvider.tsx
-export { app, auth, db };
+export { app, auth, db, storage };
 export type { Auth };
 

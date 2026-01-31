@@ -104,6 +104,15 @@ export function AssetGallery({ assets }: AssetGalleryProps) {
                             </div>
                         )}
 
+                        {/* Project Badge - Visible ALWAYS if present */}
+                        {asset.metadata?.projectName && (
+                            <div className="absolute top-3 left-3 z-20">
+                                <span className="px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest backdrop-blur-md bg-black/60 text-white border border-white/10 shadow-lg">
+                                    {asset.metadata.projectName}
+                                </span>
+                            </div>
+                        )}
+
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500">
                             <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -112,7 +121,7 @@ export function AssetGallery({ assets }: AssetGalleryProps) {
                                         <p className="text-xs text-white font-bold truncate">
                                             {asset.title}
                                         </p>
-                                        <p className="text-[10px] text-white/60 uppercase tracking-widest font-extrabold">
+                                        <p className="text-[10px] text-white/60 uppercase tracking-widest font-extrabold mt-0.5">
                                             {getTypeLabel(asset.type)}
                                         </p>
                                     </div>
@@ -130,7 +139,7 @@ export function AssetGallery({ assets }: AssetGalleryProps) {
                         </div>
 
                         {/* Type Badge */}
-                        <div className="absolute top-3 right-3">
+                        <div className="absolute top-3 right-3 z-20">
                             <span className={cn(
                                 "px-3 py-1 rounded-xl text-[9px] font-extrabold uppercase tracking-[0.15em] backdrop-blur-md border shadow-lg",
                                 "bg-luxury-gold/20 text-luxury-gold border-luxury-gold/30"
@@ -197,15 +206,35 @@ export function AssetGallery({ assets }: AssetGalleryProps) {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h4 className="text-luxury-text font-bold text-lg tracking-tight">{selectedAsset.title}</h4>
-                                    <p className="text-sm text-luxury-text/50 font-medium uppercase tracking-widest mt-1">{getTypeLabel(selectedAsset.type)}</p>
+                                    <p className="text-sm text-luxury-text/50 font-medium uppercase tracking-widest mt-1 flex items-center gap-3">
+                                        {getTypeLabel(selectedAsset.type)}
+                                        {selectedAsset.metadata?.projectName && (
+                                            <>
+                                                <span className="w-1 h-1 rounded-full bg-luxury-gold/50" />
+                                                <span className="text-luxury-gold font-bold">{selectedAsset.metadata.projectName}</span>
+                                            </>
+                                        )}
+                                    </p>
                                 </div>
-                                <Button
-                                    onClick={() => handleDownload(selectedAsset)}
-                                    className="h-12 px-8 bg-luxury-gold hover:bg-luxury-gold text-luxury-bg font-extrabold hover:scale-105 transition-all shadow-xl shadow-luxury-gold/20 rounded-xl uppercase tracking-[0.15em] text-xs"
-                                >
-                                    <Download className="w-4 h-4 mr-2" />
-                                    Scarica
-                                </Button>
+                                <div className="flex items-center gap-3">
+                                    {/* Link to Project */}
+                                    {selectedAsset.metadata?.projectId && (
+                                        <Button
+                                            onClick={() => window.location.href = `/dashboard/${selectedAsset.metadata?.projectId}`}
+                                            className="h-12 px-6 bg-white/5 hover:bg-white/10 text-luxury-text font-bold border border-white/10 rounded-xl"
+                                        >
+                                            Vai al Progetto
+                                        </Button>
+                                    )}
+
+                                    <Button
+                                        onClick={() => handleDownload(selectedAsset)}
+                                        className="h-12 px-8 bg-luxury-gold hover:bg-luxury-gold text-luxury-bg font-extrabold hover:scale-105 transition-all shadow-xl shadow-luxury-gold/20 rounded-xl uppercase tracking-[0.15em] text-xs"
+                                    >
+                                        <Download className="w-4 h-4 mr-2" />
+                                        Scarica
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </div>

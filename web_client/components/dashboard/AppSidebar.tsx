@@ -18,6 +18,7 @@ import {
     ChevronLeft,
     ChevronRight,
     User as UserIcon,
+    LayoutGrid,
     type LucideIcon
 } from 'lucide-react'
 
@@ -67,38 +68,26 @@ const NavItem = React.memo<NavItemProps>(function NavItem({
             "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group cursor-pointer relative overflow-hidden",
             collapsed ? "justify-center" : "",
             active
-                ? "bg-luxury-gold text-luxury-bg shadow-[0_10px_20px_-5px_rgba(233,196,106,0.3)]"
+                ? "bg-luxury-gold text-luxury-bg shadow-md"
                 : "text-luxury-text/60 hover:text-luxury-text hover:bg-white/5",
             className
         )}
             title={collapsed ? label : undefined}
         >
-            {/* Hover Background Shine */}
-            {!active && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-            )}
-
             <div className={cn(
-                "p-2 rounded-lg transition-all duration-200 transform group-hover:scale-110",
+                "p-2 rounded-lg transition-colors duration-200",
                 active
-                    ? "bg-luxury-bg/10 shadow-inner"
-                    : "bg-white/5 border border-white/5 group-hover:border-luxury-gold/30 group-hover:bg-luxury-gold/10 group-hover:shadow-[0_0_15px_rgba(233,196,106,0.1)]"
+                    ? "bg-luxury-bg/10"
+                    : "bg-white/5 group-hover:bg-luxury-gold/10 group-hover:text-luxury-gold"
             )}>
-                <Icon className={cn("w-5 h-5 transition-colors duration-200", active ? "text-luxury-bg" : "group-hover:text-luxury-gold")} />
+                <Icon className={cn("w-5 h-5", active ? "text-luxury-bg" : "group-hover:text-luxury-gold")} />
             </div>
 
             {!collapsed && (
                 <>
-                    <span className="font-bold text-sm tracking-tight relative z-10 transition-transform duration-200 group-hover:translate-x-1">
+                    <span className="font-medium text-sm tracking-tight relative z-10">
                         {label}
                     </span>
-                    {active && (
-                        <motion.div
-                            layoutId="active-pill"
-                            className="ml-auto w-1.5 h-1.5 rounded-full bg-luxury-bg shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-                            transition={{ duration: 0.2 }}
-                        />
-                    )}
                 </>
             )}
         </div>
@@ -106,14 +95,14 @@ const NavItem = React.memo<NavItemProps>(function NavItem({
 
     if (onClick) {
         return (
-            <button onClick={onClick} className="w-full text-left">
+            <div onClick={onClick} className="w-full">
                 {content}
-            </button>
+            </div>
         )
     }
 
     return (
-        <Link href={href} className="block">
+        <Link href={href} className="w-full block" prefetch={true}>
             {content}
         </Link>
     )
@@ -188,7 +177,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
     // ========================================================================
 
     // System routes that are NOT project pages
-    const SYSTEM_ROUTES = ['projects', 'settings', 'profile', 'notifications']
+    const SYSTEM_ROUTES = ['projects', 'settings', 'profile', 'notifications', 'gallery']
 
     const isInProject = React.useMemo(() => {
         const segments = pathname.split('/')
@@ -204,15 +193,16 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
         [isInProject, pathname]
     )
 
-    // Auto-expand project submenu when in project context or on projects page
+    // Auto-expand project submenu only when in project context
     React.useEffect(() => {
-        if (isInProject || pathname === '/dashboard/projects') {
+        if (isInProject) {
             setProjectsExpanded(true)
         }
-    }, [isInProject, pathname])
+    }, [isInProject])
 
     const navItems = React.useMemo(() => [
         { href: '/dashboard', label: 'Dashboard', icon: Home },
+        { href: '/dashboard/gallery', label: 'Galleria Globale', icon: LayoutGrid },
         { href: '/dashboard/projects', label: 'I Miei Progetti', icon: FolderKanban },
     ], [])
 
@@ -275,7 +265,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     isMobile ? "fixed inset-y-0 left-0 z-50" : "hidden md:block",
                     isMobile
                         ? openMobile ? "translate-x-0" : "-translate-x-full"
-                        : open ? "w-60" : "w-20",
+                        : open ? "w-72" : "w-20",
                     className
                 )}
                 data-state={state}
@@ -283,19 +273,19 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
             >
                 <div className={cn(
                     "fixed inset-y-0 left-0 z-10 border-r border-luxury-gold/5 bg-luxury-bg text-luxury-text flex flex-col shadow-2xl transition-all duration-300",
-                    isMobile ? "w-64" : open ? "w-60" : "w-20"
+                    isMobile ? "w-72" : open ? "w-72" : "w-20"
                 )}>
 
                     {/* ============================================================ */}
                     {/* HEADER */}
                     {/* ============================================================ */}
-                    <div className="h-20 flex items-center justify-between px-3 border-b border-luxury-gold/10 bg-luxury-bg/50 relative overflow-hidden">
+                    <div className="h-20 flex items-center justify-between pl-4 pr-3 border-b border-luxury-gold/10 bg-luxury-bg/50 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-luxury-gold/5 to-transparent pointer-events-none" />
 
                         {/* Logo */}
                         {(open || isMobile) ? (
-                            <Link href="/" className="group/logo relative z-10">
-                                <SydLogo className="scale-[0.65] origin-left group-hover/logo:opacity-90 transition-opacity" />
+                            <Link href="/" className="group/logo relative z-10 transition-transform hover:scale-105 active:scale-95 duration-200">
+                                <SydLogo className="scale-[0.9] origin-left group-hover/logo:opacity-90 transition-opacity" showSubtitle={false} />
                             </Link>
                         ) : (
                             <Link href="/" className="group/logo relative z-10" title="SYD BIOEDILIZIA">
@@ -347,14 +337,14 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                                         >
                                             <NavItem
                                                 {...item}
-                                                active={pathname === item.href || isInProject}
+                                                active={pathname === item.href}
                                                 collapsed={isCollapsed}
                                             />
                                         </button>
 
-                                        {/* Project Submenu - show when in project OR on projects list */}
+                                        {/* Project Submenu - show ONLY when in project */}
                                         <AnimatePresence>
-                                            {(isInProject || pathname === '/dashboard/projects') && projectsExpanded && !isCollapsed && (
+                                            {isInProject && projectsExpanded && !isCollapsed && (
                                                 <motion.div
                                                     initial={{ height: 0, opacity: 0 }}
                                                     animate={{ height: 'auto', opacity: 1 }}
@@ -400,16 +390,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
 
                         {!isCollapsed && (
                             <div className="grid gap-2">
-                                {/* Project Settings - only when in project */}
-                                {isInProject && (
-                                    <NavItem
-                                        href={`/dashboard/${currentProjectId}/settings`}
-                                        label="Parametri Cantiere"
-                                        icon={Sliders}
-                                        active={pathname === `/dashboard/${currentProjectId}/settings`}
-                                        className="bg-white/5 border border-white/5 hover:border-luxury-gold/20 hover:bg-white/10 !py-2 !text-xs"
-                                    />
-                                )}
+                                {/* Project Settings button removed from here */}
                                 <NavItem
                                     href="/"
                                     label="Torna al Sito"
@@ -431,16 +412,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                         {/* Collapsed Footer Buttons */}
                         {isCollapsed && (
                             <div className="flex flex-col gap-2 items-center">
-                                {/* Project Settings - only when in project */}
-                                {isInProject && (
-                                    <button
-                                        onClick={() => router.push(`/dashboard/${currentProjectId}/settings`)}
-                                        className="p-2.5 rounded-xl bg-white/5 hover:bg-luxury-gold/20 border border-luxury-gold/10 hover:border-luxury-gold/30 transition-all"
-                                        title="Parametri Cantiere"
-                                    >
-                                        <Sliders className="w-5 h-5 text-luxury-gold" />
-                                    </button>
-                                )}
+                                {/* Project Settings button removed from footer as per user request */}
                                 <button
                                     onClick={() => router.push('/')}
                                     className="p-2 rounded-lg hover:bg-white/5 transition-colors"

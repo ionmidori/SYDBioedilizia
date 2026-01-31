@@ -4,7 +4,7 @@ import { Minimize2 } from 'lucide-react';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 
 interface ChatHeaderProps {
-    onMinimize: () => void;
+    onMinimize?: () => void;
 }
 
 /**
@@ -37,14 +37,16 @@ export function ChatHeader({ onMinimize }: ChatHeaderProps) {
                     </p>
                 </div>
             </div>
-            <Button
-                variant="ghost"
-                size="icon"
-                onClick={onMinimize}
-                className="text-luxury-text/60 hover:text-luxury-gold hover:bg-luxury-gold/5"
-            >
-                <Minimize2 className="w-5 h-5" />
-            </Button>
+            {onMinimize && (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onMinimize}
+                    className="text-luxury-text/60 hover:text-luxury-gold hover:bg-luxury-gold/5"
+                >
+                    <Minimize2 className="w-5 h-5" />
+                </Button>
+            )}
         </div>
     );
 }

@@ -4,7 +4,7 @@ import * as React from "react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar:state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = "10.4rem"
+const SIDEBAR_WIDTH = "18rem"
 const SIDEBAR_WIDTH_ICON = "5rem"
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
@@ -71,12 +71,16 @@ const SidebarProvider = React.forwardRef<
                 } else {
                     _setOpen(openState)
                 }
-
-                // This sets the cookie to keep the sidebar state.
-                document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
             },
             [setOpenProp, open]
         )
+
+        // NON-BLOCKING PERSISTENCE
+        // Update cookie in useEffect to avoid blocking the main thread during UI interactions
+        React.useEffect(() => {
+            const openState = open
+            document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        }, [open])
 
         // Helper to toggle the sidebar.
         const toggleSidebar = React.useCallback(() => {

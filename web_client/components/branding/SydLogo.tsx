@@ -1,6 +1,6 @@
 'use client';
 
-export function SydLogo({ className = "" }: { className?: string }) {
+export function SydLogo({ className = "", showSubtitle = true }: { className?: string, showSubtitle?: boolean }) {
     return (
         <div className={`flex items-center gap-3 ${className}`}>
             {/* Metallic Bars with clean look */}
@@ -18,9 +18,11 @@ export function SydLogo({ className = "" }: { className?: string }) {
                         SYD BIOEDILIZIA
                     </span>
                 </h1>
-                <p className="text-[10px] font-bold text-luxury-gold tracking-wide mt-0.5 opacity-90">
-                    IMPRESA EDILE - COIBENTAZIONI TERMICHE
-                </p>
+                {showSubtitle && (
+                    <p className="text-[10px] font-bold text-luxury-gold tracking-wide mt-0.5 opacity-90">
+                        IMPRESA EDILE - COIBENTAZIONI TERMICHE
+                    </p>
+                )}
             </div>
         </div>
     );

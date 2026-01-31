@@ -49,7 +49,10 @@ export function DeleteProjectDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px] bg-slate-900 border-slate-800">
+            <DialogContent
+                className="sm:max-w-[500px] bg-slate-900 border-slate-800"
+                onClick={(e) => e.stopPropagation()}
+            >
                 <DialogHeader>
                     <div className="flex items-center gap-3 mb-2">
                         <div className="w-12 h-12 rounded-full bg-red-950/30 flex items-center justify-center border border-red-500/20">

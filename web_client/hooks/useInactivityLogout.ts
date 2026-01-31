@@ -118,16 +118,18 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
         if (!enabled) return;
 
         const activityEvents = ['mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
+        let lastActivity = Date.now();
+        let throttleTimer: NodeJS.Timeout | null = null;
 
-        // Debounce activity handler to avoid excessive timer resets
-        let debounceTimeout: NodeJS.Timeout;
         const handleActivity = () => {
-            clearTimeout(debounceTimeout);
-            debounceTimeout = setTimeout(() => {
+            const now = Date.now();
+            // Throttle to run max once per second
+            if (now - lastActivity > 1000) {
+                lastActivity = now;
                 if (!showWarning) {
                     resetTimer();
                 }
-            }, 1000); // Reset max once per second
+            }
         };
 
         // Register event listeners
@@ -143,7 +145,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
             activityEvents.forEach(event => {
                 window.removeEventListener(event, handleActivity);
             });
-            clearTimeout(debounceTimeout);
+            if (throttleTimer) clearTimeout(throttleTimer);
             clearAllTimers();
         };
     }, [enabled, resetTimer, showWarning, clearAllTimers]);

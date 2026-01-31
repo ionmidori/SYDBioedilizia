@@ -1,12 +1,11 @@
-'use client';
-
 import { useState } from 'react';
 import { ProjectListItem, ProjectStatus } from '@/types/projects';
 import { useRouter } from 'next/navigation';
-import { Calendar, MessageSquare, ImageIcon, Trash2 } from 'lucide-react';
+import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
+import { RenameProjectDialog } from './RenameProjectDialog';
 import { projectsApi } from '@/lib/projects-api';
 
 interface ProjectCardProps {
@@ -26,14 +25,20 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
     const router = useRouter();
     const status = statusConfig[project.status] || statusConfig.draft;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [renameDialogOpen, setRenameDialogOpen] = useState(false);
 
     const handleCardClick = () => {
         router.push(`/dashboard/${project.session_id}`);
     };
 
     const handleDeleteClick = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevent card navigation
+        e.stopPropagation();
         setDeleteDialogOpen(true);
+    };
+
+    const handleRenameClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setRenameDialogOpen(true);
     };
 
     const handleDelete = async (sessionId: string) => {
@@ -67,13 +72,22 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
                     {status.label}
                 </span>
 
+                {/* Edit Button */}
+                <button
+                    onClick={handleRenameClick}
+                    className="opacity-0 group-hover:opacity-100 transition-all duration-300 w-8 h-8 rounded-full bg-white/10 hover:bg-luxury-gold/20 border border-white/10 hover:border-luxury-gold/40 flex items-center justify-center text-white hover:text-luxury-gold hover:scale-110 active:scale-90"
+                    title="Rinomina progetto"
+                >
+                    <Edit2 className="w-3.5 h-3.5" />
+                </button>
+
                 {/* Delete Button */}
                 <button
                     onClick={handleDeleteClick}
                     className="opacity-0 group-hover:opacity-100 transition-all duration-300 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 flex items-center justify-center text-red-400 hover:text-red-300 hover:scale-110 active:scale-90"
                     title="Elimina progetto"
                 >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                 </button>
             </div>
 
@@ -120,13 +134,21 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
                 </div>
             </div>
 
-            {/* Delete Confirmation Dialog */}
+            {/* Dialogs */}
             <DeleteProjectDialog
                 open={deleteDialogOpen}
                 onOpenChange={setDeleteDialogOpen}
                 projectTitle={project.title}
                 sessionId={project.session_id}
                 onDelete={handleDelete}
+            />
+
+            <RenameProjectDialog
+                open={renameDialogOpen}
+                onOpenChange={setRenameDialogOpen}
+                currentTitle={project.title}
+                sessionId={project.session_id}
+                onRename={() => onDelete?.(project.session_id)} // Trigger refresh (using onDelete as refresh callback for now)
             />
         </div>
     );

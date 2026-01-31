@@ -18,6 +18,12 @@ export interface MediaAsset {
     title?: string;
     timestamp: string;
     messageId?: string;
+    metadata?: {
+        projectId?: string;
+        projectName?: string;
+        size?: number;
+        uploadedBy?: string;
+    };
 }
 
 /**
