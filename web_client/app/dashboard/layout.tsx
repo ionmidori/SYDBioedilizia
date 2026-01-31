@@ -10,9 +10,10 @@ import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { Loader2 } from "lucide-react"
 
-// Sidebar dimensions - w-60 = 15rem = 240px (expanded), w-20 = 5rem = 80px (collapsed)
+// Sidebar dimensions
 const SIDEBAR_WIDTH_EXPANDED = '18rem'
 const SIDEBAR_WIDTH_COLLAPSED = '5rem'
+const SIDEBAR_MOBILE_WIDTH = '0'
 
 export default function DashboardLayout({
     children,
@@ -40,7 +41,7 @@ export default function DashboardLayout({
     // Show loading state while initializing
     if (!isInitialized) {
         return (
-            <div className="h-screen w-full flex items-center justify-center bg-luxury-bg">
+            <div className="h-[100dvh] supports-[height:100dvh]:h-[100dvh] w-full flex items-center justify-center bg-luxury-bg">
                 <Loader2 className="w-10 h-10 text-luxury-gold animate-spin" />
             </div>
         );
@@ -77,19 +78,16 @@ function DashboardContent({
 }) {
     const { open, isMobile } = useSidebar()
 
-    // Calculate margin based on sidebar state - only on desktop
-    const sidebarWidth = isMobile ? '0' : (open ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED)
+    // Calculate margin based on sidebar state
+    // Desktop: Expanded vs Collapsed
+    // Mobile: Always '4rem' (Rail width) because expansion is Overlay
+    const sidebarWidth = isMobile ? SIDEBAR_MOBILE_WIDTH : (open ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED)
 
     return (
-        <div className="h-screen w-full bg-luxury-bg text-luxury-text overflow-hidden relative flex flex-col md:block">
-            {/* Background Atmospheric Elements */}
-            {/* Background Atmospheric Elements - Optimized with GPU acceleration */}
-            {/* Background Atmospheric Elements - Optimized with GPU acceleration */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-luxury-teal/10 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2 pointer-events-none will-change-transform transform-gpu" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-luxury-gold/5 rounded-full blur-3xl opacity-50 translate-y-1/2 -translate-x-1/2 pointer-events-none will-change-transform transform-gpu" />
-
-            {/* Mobile Header - Visible only on mobile */}
-            <DashboardHeader />
+        <div className="h-[100dvh] supports-[height:100dvh]:h-[100dvh] w-full bg-luxury-bg text-luxury-text overflow-hidden relative flex flex-col md:block">
+            {/* Background Atmospheric Elements - Hidden on mobile for performance */}
+            <div className="hidden md:block absolute top-0 right-0 w-[500px] h-[500px] bg-luxury-teal/10 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2 pointer-events-none will-change-transform transform-gpu" />
+            <div className="hidden md:block absolute bottom-0 left-0 w-[500px] h-[500px] bg-luxury-gold/5 rounded-full blur-3xl opacity-50 translate-y-1/2 -translate-x-1/2 pointer-events-none will-change-transform transform-gpu" />
 
             {/* Desktop Sidebar - Fixed position, logic handled internally */}
             <AppSidebar className="z-20" />
@@ -100,9 +98,9 @@ function DashboardContent({
                     marginLeft: sidebarWidth,
                     contain: 'layout paint'  // ISOLATION: Prevents reflow from cascading up
                 }}
-                className="flex-1 md:h-full overflow-hidden relative transition-[margin] duration-300 ease-in-out z-10 will-change-[margin]"
+                className="flex-1 md:h-full overflow-hidden relative md:transition-[margin] md:duration-300 md:ease-in-out z-10 md:will-change-[margin]"
             >
-                <div className="h-full overflow-auto p-4 md:p-8 selection:bg-luxury-teal/30">
+                <div className="h-full overflow-auto p-4 md:p-8 pb-safe selection:bg-luxury-teal/30">
                     <div className="max-w-7xl mx-auto">
                         {children}
                     </div>

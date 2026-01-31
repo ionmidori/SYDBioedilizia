@@ -16,15 +16,10 @@ export function DashboardHeader() {
         : user?.email ? user.email[0].toUpperCase() : 'U';
 
     return (
-        <header className="md:hidden sticky top-0 z-30 w-full px-4 h-16 flex items-center justify-between bg-luxury-bg/80 backdrop-blur-md border-b border-luxury-gold/10 transition-all duration-300">
-            {/* Left: Hamburger Trigger */}
-            <button
-                onClick={() => setOpenMobile(true)}
-                className="p-2 -ml-2 text-luxury-text/80 hover:text-luxury-gold active:scale-95 transition-all rounded-full hover:bg-white/5"
-                aria-label="Open menu"
-            >
-                <Menu className="w-6 h-6" />
-            </button>
+        <header className="md:hidden sticky top-0 z-30 w-full px-4 h-16 flex items-center justify-between bg-luxury-bg/95 border-b border-luxury-gold/10 transition-all duration-300">
+            {/* Left: Hamburger Trigger - Optimized for touch (44px hit area) */}
+            {/* Left: Spacer (was Hamburger) */}
+            <div className="w-10" />
 
             {/* Center: SYD Logo */}
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -33,8 +28,8 @@ export function DashboardHeader() {
                 </Link>
             </div>
 
-            {/* Right: User Profile Link */}
-            <Link href="/dashboard/profile" className="relative group active:scale-95 transition-transform">
+            {/* Right: User Profile Link - Optimized for touch (44px hit area) */}
+            <Link href="/dashboard/profile" className="relative group active:scale-95 transition-transform p-2 min-w-[44px] min-h-[44px] flex items-center justify-center -mr-2">
                 <div className="relative">
                     {/* Ring glow effect */}
                     <div className="absolute -inset-0.5 bg-gradient-to-tr from-luxury-gold/40 to-transparent rounded-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 blur-sm" />

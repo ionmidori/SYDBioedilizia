@@ -17,6 +17,7 @@ import {
     X,
     ChevronLeft,
     ChevronRight,
+    Menu,
     User as UserIcon,
     LayoutGrid,
     type LucideIcon
@@ -37,7 +38,7 @@ interface NavItemProps {
     label: string
     active?: boolean
     className?: string
-    onClick?: () => void
+    onClick?: (e?: React.MouseEvent) => void
     collapsed?: boolean
 }
 
@@ -50,10 +51,6 @@ interface UserBadgeProps {
 // MEMOIZED SUB-COMPONENTS
 // ============================================================================
 
-/**
- * NavItem - Memoized navigation item component
- * Displays icon-only when collapsed, icon + label when expanded
- */
 const NavItem = React.memo<NavItemProps>(function NavItem({
     href,
     icon: Icon,
@@ -84,34 +81,35 @@ const NavItem = React.memo<NavItemProps>(function NavItem({
             </div>
 
             {!collapsed && (
-                <>
-                    <span className="font-medium text-sm tracking-tight relative z-10">
-                        {label}
-                    </span>
-                </>
+                <span className="font-medium text-sm tracking-tight relative z-10">
+                    {label}
+                </span>
             )}
         </div>
     )
 
-    if (onClick) {
+    // Render as Link if it's a real navigation path
+    if (href && href !== '#') {
         return (
-            <div onClick={onClick} className="w-full">
+            <Link
+                href={href}
+                className="w-full block"
+                prefetch={true}
+                onClick={onClick} // Pass onClick to Link to allow side-effects (like closing menu)
+            >
                 {content}
-            </div>
+            </Link>
         )
     }
 
+    // Render as div/button for actions (like Logout)
     return (
-        <Link href={href} className="w-full block" prefetch={true}>
+        <div onClick={onClick} className="w-full" role="button" tabIndex={0}>
             {content}
-        </Link>
+        </div>
     )
 })
 
-/**
- * UserBadge - Memoized user profile badge
- * Shows avatar/initials + name when expanded, just avatar when collapsed
- */
 const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapsed = false }) {
     const initials = React.useMemo(() => {
         if (user.displayName) {
@@ -123,9 +121,8 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
     return (
         <div className={cn(
             "flex items-center gap-3 p-3 rounded-[1.25rem] glass-premium border-luxury-gold/10 mb-1 transition-all hover:border-luxury-gold/30 hover:bg-white/5 group select-none relative overflow-hidden shadow-xl",
-            collapsed && "justify-center"
+            collapsed && "justify-center p-2 rounded-xl"
         )}>
-            {/* Cinematic Background Wash */}
             <div className="absolute inset-0 bg-gradient-to-tr from-luxury-gold/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
             <div className="relative shrink-0 z-10">
@@ -173,17 +170,44 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
     const [projectsExpanded, setProjectsExpanded] = React.useState(false)
 
     // ========================================================================
+    // SWIPE HANDLERS
+    // ========================================================================
+    const [touchStart, setTouchStart] = React.useState<number | null>(null)
+    const [touchEnd, setTouchEnd] = React.useState<number | null>(null)
+    const minSwipeDistance = 50
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null)
+        setTouchStart(e.targetTouches[0].clientX)
+    }
+
+    const onTouchMove = (e: React.TouchEvent) => setTouchEnd(e.targetTouches[0].clientX)
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return
+        const distance = touchStart - touchEnd
+        const isLeftSwipe = distance > minSwipeDistance
+        const isRightSwipe = distance < -minSwipeDistance
+
+        // Swipe Right (negative distance) -> Close Sidebar
+        if (isRightSwipe && openMobile) {
+            setOpenMobile(false)
+        }
+        // Swipe Left (positive distance) -> Open Sidebar
+        if (isLeftSwipe && !openMobile) {
+            setOpenMobile(true)
+        }
+    }
+
+    // ========================================================================
     // MEMOIZED CALCULATIONS
     // ========================================================================
 
-    // System routes that are NOT project pages
     const SYSTEM_ROUTES = ['projects', 'settings', 'profile', 'notifications', 'gallery']
 
     const isInProject = React.useMemo(() => {
         const segments = pathname.split('/')
-        // Must have at least 3 segments: ['', 'dashboard', 'projectId']
         if (segments.length < 3) return false
-        // The third segment must NOT be a system route
         const potentialProjectId = segments[2]
         return !SYSTEM_ROUTES.includes(potentialProjectId)
     }, [pathname])
@@ -193,7 +217,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
         [isInProject, pathname]
     )
 
-    // Auto-expand project submenu only when in project context
     React.useEffect(() => {
         if (isInProject) {
             setProjectsExpanded(true)
@@ -227,149 +250,256 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
         }
     }, [logout, router])
 
-    const handleProjectsClick = React.useCallback(() => {
-        if (isInProject) {
+    const handleProjectsClick = React.useCallback((e?: React.MouseEvent) => {
+        // Always toggle expand on click if we have items
+        if (projectSubItems.length > 0) {
+            e?.preventDefault()
             setProjectsExpanded(!projectsExpanded)
-        } else {
-            router.push('/dashboard/projects')
         }
-    }, [isInProject, projectsExpanded, router])
+        // Handle desktop expand
+        if (!isMobile && !open) {
+            e?.preventDefault()
+            toggleSidebar()
+            setProjectsExpanded(true)
+        }
+    }, [projectSubItems.length, projectsExpanded, isMobile, open, toggleSidebar])
 
-    // ========================================================================
-    // EARLY RETURN
-    // ========================================================================
+    const handleNavClick = React.useCallback(() => {
+        // Close mobile sidebar on navigation for better UX
+        if (isMobile) {
+            setOpenMobile(false)
+        }
+    }, [isMobile, setOpenMobile])
 
     if (!user) return null
 
     // ========================================================================
-    // RENDER
+    // RENDER LOGIC
     // ========================================================================
 
-    const isCollapsed = !isMobile && !open
+    // Mobile:
+    // - Sidebar is OFF-CANVAS (Right) by default.
+    // - Triggered by FAB.
+    // - openMobile means "Visible".
+    // Desktop:
+    // - Sidebar is Persistent (Left).
+    // - isCollapsed based on open state.
+
+    // We treat Desktop and Mobile fundamentally differently now.
+
+    const isDesktopCollapsed = !open
+    const isMobileVisible = isMobile && openMobile
 
     return (
         <>
-            {/* Mobile Overlay */}
+            {/* ============================================================ */}
+            {/* MOBILE FLOATING ACTION BUTTON (FAB) */}
+            {/* ============================================================ */}
+            {isMobile && !openMobile && (
+                <motion.button
+                    drag="y"
+                    dragMomentum={false}
+                    whileDrag={{ scale: 1.1 }}
+                    dragConstraints={{ top: -500, bottom: 150 }} // Allow more drag Up than Down since we start low
+                    onClick={() => setOpenMobile(true)}
+                    // Tab Style: Half-Circle on Right Edge, starting at 3/4 height
+                    className="fixed right-0 top-3/4 z-[90] flex items-center justify-center pl-4 pr-1.5 py-4 bg-luxury-gold text-luxury-bg shadow-2xl rounded-l-2xl border-y border-l border-white/10 touch-none cursor-grab active:cursor-grabbing hover:bg-luxury-gold/90 transition-colors"
+                    style={{ marginTop: '-2rem' }} // Center adjustment
+                    aria-label="Open Menu"
+                >
+                    <Menu className="w-6 h-6" />
+                </motion.button>
+            )}
+
+            {/* ============================================================ */}
+            {/* MOBILE OVERLAY */}
+            {/* ============================================================ */}
             {isMobile && openMobile && (
                 <div
-                    className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-                    onClick={() => setOpenMobile(false)}
+                    className="fixed inset-0 z-[99] bg-black/20"
+                    onClick={() => setOpenMobile(false)} // Clicking backdrop closes
                     aria-hidden="true"
                 />
             )}
 
-            {/* Sidebar Container */}
+            {/* ============================================================ */}
+            {/* SWIPE EDGE TRIGGER (Open from Right Edge) */}
+            {/* ============================================================ */}
+            {isMobile && !openMobile && (
+                <div
+                    className="fixed inset-y-0 right-0 w-8 z-[85]"
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
+                />
+            )}
+
+            {/* ============================================================ */}
+            {/* SIDEBAR CONTAINER */}
+            {/* ============================================================ */}
             <div
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+                onClick={(e) => e.stopPropagation()} // Prevent bubbles to overlay
                 className={cn(
                     "group/sidebar peer text-sidebar-foreground transition-all duration-300 ease-in-out",
-                    isMobile ? "fixed inset-y-0 left-0 z-50" : "hidden md:block",
+                    // Mobile: Fixed Right, Top, Bottom. Width 52 (reduced by ~30%). Slide in from Right.
+                    // Desktop: Hidden on Mobile. Block on Desktop. Fixed Left.
                     isMobile
-                        ? openMobile ? "translate-x-0" : "-translate-x-full"
-                        : open ? "w-72" : "w-20",
+                        ? cn(
+                            "fixed inset-y-0 right-0 !z-[100] w-52 bg-luxury-bg shadow-2xl border-l border-luxury-gold/10",
+                            openMobile ? "translate-x-0" : "translate-x-full"
+                        )
+                        : cn(
+                            "hidden md:block fixed inset-y-0 left-0 z-10 h-full border-r border-luxury-gold/5 bg-luxury-bg text-luxury-text shadow-2xl",
+                            open ? "w-72" : "w-20"
+                        ),
                     className
                 )}
                 data-state={state}
                 {...props}
             >
                 <div className={cn(
-                    "fixed inset-y-0 left-0 z-10 border-r border-luxury-gold/5 bg-luxury-bg text-luxury-text flex flex-col shadow-2xl transition-all duration-300",
-                    isMobile ? "w-72" : open ? "w-72" : "w-20"
+                    "flex flex-col h-full",
+                    // Mobile: Top alignment for User/Nav, Bottom for X?
+                    isMobile ? "justify-start" : ""
                 )}>
 
                     {/* ============================================================ */}
-                    {/* HEADER */}
+                    {/* MOBILE USER SECTION (TOP) */}
                     {/* ============================================================ */}
-                    <div className="h-20 flex items-center justify-between pl-4 pr-3 border-b border-luxury-gold/10 bg-luxury-bg/50 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-luxury-gold/5 to-transparent pointer-events-none" />
-
-                        {/* Logo */}
-                        {(open || isMobile) ? (
-                            <Link href="/" className="group/logo relative z-10 transition-transform hover:scale-105 active:scale-95 duration-200">
-                                <SydLogo className="scale-[0.9] origin-left group-hover/logo:opacity-90 transition-opacity" showSubtitle={false} />
+                    {isMobile && (
+                        <div className="p-4 border-b border-luxury-gold/10 bg-luxury-bg/50 shrink-0">
+                            <Link href="/dashboard/profile" className="block focus-visible:outline-none" onClick={() => setOpenMobile(false)}>
+                                <UserBadge user={user} collapsed={false} />
                             </Link>
-                        ) : (
-                            <Link href="/" className="group/logo relative z-10" title="SYD BIOEDILIZIA">
-                                {/* Metallic Bars - Compact Version */}
-                                <div className="flex flex-col gap-0.5">
-                                    <div className="h-1 w-10 rounded-sm bg-gradient-to-r from-gray-300 via-gray-400 to-gray-300" />
-                                    <div className="h-1 w-10 rounded-sm bg-gradient-to-r from-gray-400 via-gray-500 to-gray-400" />
-                                    <div className="h-1 w-10 rounded-sm bg-gradient-to-r from-gray-600 via-gray-700 to-gray-600" />
-                                    <div className="h-1 w-10 rounded-sm bg-gradient-to-r from-black via-gray-900 to-black" />
-                                </div>
-                            </Link>
-                        )}
+                            <div className="mt-4 flex flex-col gap-2">
+                                <Link
+                                    href="/"
+                                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-luxury-text/60 hover:text-luxury-text hover:bg-white/5 transition-all text-sm font-medium"
+                                >
+                                    <Globe className="w-5 h-5" />
+                                    <span>Torna al Sito</span>
+                                </Link>
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-red-400/80 hover:text-red-400 hover:bg-red-500/10 transition-all text-sm font-medium w-full text-left"
+                                >
+                                    <LogOut className="w-5 h-5" />
+                                    <span>Logout</span>
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
-                        {/* Toggle/Close Button */}
-                        {isMobile ? (
-                            <button
-                                onClick={() => setOpenMobile(false)}
-                                className="relative z-10 p-2 rounded-lg hover:bg-white/5 transition-colors"
-                                aria-label="Close sidebar"
-                            >
-                                <X className="w-5 h-5 text-luxury-text/60" />
-                            </button>
-                        ) : (
+
+                    {/* ============================================================ */}
+                    {/* HEADER (Desktop Only) */}
+                    {/* ============================================================ */}
+                    {!isMobile && (
+                        <div className={cn(
+                            "h-20 flex items-center border-b border-luxury-gold/10 bg-luxury-bg/50 relative overflow-hidden transition-all duration-300 shrink-0",
+                            isDesktopCollapsed ? "justify-center px-0" : "justify-between pl-4 pr-3"
+                        )}>
+                            {!isDesktopCollapsed && (
+                                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-luxury-gold/5 to-transparent pointer-events-none" />
+                            )}
+
+                            {/* Logo */}
+                            {!isDesktopCollapsed && (
+                                <Link href="/" className="group/logo relative z-10 transition-transform hover:scale-105 active:scale-95 duration-200">
+                                    <SydLogo className="h-6 w-auto origin-left opacity-90 group-hover:opacity-100 transition-opacity" showSubtitle={false} />
+                                </Link>
+                            )}
+                            {isDesktopCollapsed && (
+                                <Link href="/" className="relative z-10 group/logo mb-2">
+                                    <div className="w-8 h-8 rounded bg-luxury-gold/10 flex items-center justify-center border border-luxury-gold/20 group-hover/logo:border-luxury-gold/50 transition-colors">
+                                        <span className="font-bold text-luxury-gold text-xs">SYD</span>
+                                    </div>
+                                </Link>
+                            )}
+
+                            {/* Desktop Toggle */}
                             <button
                                 onClick={toggleSidebar}
-                                className="relative z-10 p-2 rounded-lg bg-white/5 hover:bg-luxury-gold/20 border border-luxury-gold/20 hover:border-luxury-gold/50 transition-all"
-                                aria-label={open ? "Collapse sidebar" : "Expand sidebar"}
+                                className={cn(
+                                    "relative z-10 p-2 rounded-lg bg-white/5 hover:bg-luxury-gold/20 border border-luxury-gold/20 hover:border-luxury-gold/50 transition-all",
+                                    isDesktopCollapsed ? "mb-2" : ""
+                                )}
+                                aria-label={isDesktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                             >
-                                {open ? (
-                                    <ChevronLeft className="w-5 h-5 text-luxury-gold" />
+                                {isDesktopCollapsed ? (
+                                    <ChevronRight className="w-4 h-4 text-luxury-gold" />
                                 ) : (
-                                    <ChevronRight className="w-5 h-5 text-luxury-gold" />
+                                    <ChevronLeft className="w-5 h-5 text-luxury-gold" />
                                 )}
                             </button>
-                        )}
-                    </div>
+                        </div>
+                    )}
+
+                    {/* Mobile Close Button (Bottom Right) */}
+                    {isMobile && (
+                        <div className="absolute bottom-6 right-6 z-[110]">
+                            <button
+                                onClick={() => setOpenMobile(false)}
+                                className="p-3 rounded-full bg-black/50 border border-luxury-gold/20 text-white hover:bg-black/70 active:scale-95 transition-all shadow-xl backdrop-blur-sm"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                    )}
+
+                    {/* SPACER for Mobile Bottom Alignment: Pushes Nav down, but allows it to grow up */}
+                    {isMobile && <div className="flex-1 min-h-[2rem]" />}
+
 
                     {/* ============================================================ */}
                     {/* NAVIGATION */}
                     {/* ============================================================ */}
-                    <div className="flex-1 overflow-auto py-8 px-4 space-y-2 custom-scrollbar">
+                    <div className={cn(
+                        "overflow-y-auto overflow-x-hidden space-y-2 custom-scrollbar transition-all duration-300 flex flex-col shrink-0",
+                        isDesktopCollapsed && !isMobile ? "py-4 px-2" : "py-8 px-4",
+                        // Mobile: Huge padding bottom to clear FAB and Thumb zone
+                        isMobile ? "pb-48 pt-4 justify-end" : "flex-1"
+                    )}>
                         {navItems.map((item) => (
                             <div key={item.href}>
                                 {item.href === '/dashboard/projects' ? (
                                     <>
-                                        <button
+                                        {/* Projects Item */}
+                                        <NavItem
+                                            {...item}
+                                            active={pathname === item.href}
+                                            collapsed={!isMobile && isDesktopCollapsed}
                                             onClick={handleProjectsClick}
                                             className="w-full"
-                                        >
-                                            <NavItem
-                                                {...item}
-                                                active={pathname === item.href}
-                                                collapsed={isCollapsed}
-                                            />
-                                        </button>
+                                        />
 
-                                        {/* Project Submenu - show ONLY when in project */}
-                                        <AnimatePresence>
-                                            {isInProject && projectsExpanded && !isCollapsed && (
-                                                <motion.div
-                                                    initial={{ height: 0, opacity: 0 }}
-                                                    animate={{ height: 'auto', opacity: 1 }}
-                                                    exit={{ height: 0, opacity: 0 }}
-                                                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                                                    className="overflow-hidden ml-3 mt-2 space-y-1 border-l-2 border-luxury-gold/20 pl-3"
-                                                >
-                                                    {projectSubItems.map((subItem) => (
-                                                        <NavItem
-                                                            key={subItem.href}
-                                                            {...subItem}
-                                                            active={pathname === subItem.href}
-                                                            collapsed={false}
-                                                            className="text-xs"
-                                                        />
-                                                    ))}
-                                                </motion.div>
-                                            )}
-                                        </AnimatePresence>
+                                        {/* Project Submenu */}
+                                        {(projectsExpanded && projectSubItems.length > 0) && (
+                                            <div
+                                                className="ml-3 mt-2 space-y-1 border-l-2 border-luxury-gold/20 pl-3 relative z-10"
+                                            >
+                                                {projectSubItems.map((subItem) => (
+                                                    <NavItem
+                                                        key={subItem.href}
+                                                        {...subItem}
+                                                        active={pathname === subItem.href}
+                                                        collapsed={false}
+                                                        onClick={handleNavClick}
+                                                        className="text-xs"
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
                                     </>
                                 ) : (
                                     <NavItem
                                         {...item}
                                         active={pathname === item.href}
-                                        collapsed={isCollapsed}
+                                        collapsed={!isMobile && isDesktopCollapsed}
+                                        onClick={handleNavClick}
                                     />
                                 )}
                             </div>
@@ -377,59 +507,39 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     </div>
 
                     {/* ============================================================ */}
-                    {/* FOOTER */}
+                    {/* FOOTER (Desktop Only now) */}
                     {/* ============================================================ */}
-                    <div className="p-5 border-t border-luxury-gold/10 bg-luxury-bg/30 space-y-3 relative overflow-hidden">
-                        {/* Atmospheric Footer Glow */}
-                        <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-luxury-gold/5 rounded-full blur-2xl pointer-events-none" />
+                    {!isMobile && (
+                        <div className={cn(
+                            "p-4 border-t border-luxury-gold/10 bg-luxury-bg/50 relative overflow-hidden shrink-0",
+                            isDesktopCollapsed ? "flex justify-center" : ""
+                        )}>
+                            <div className="relative z-10 w-full space-y-2">
+                                <UserBadge user={user} collapsed={isDesktopCollapsed} />
 
-                        {/* User Profile Badge - Links to Profile */}
-                        <Link href="/dashboard/profile" className="block focus-visible:outline-none">
-                            <UserBadge user={user} collapsed={isCollapsed} />
-                        </Link>
-
-                        {!isCollapsed && (
-                            <div className="grid gap-2">
-                                {/* Project Settings button removed from here */}
-                                <NavItem
-                                    href="/"
-                                    label="Torna al Sito"
-                                    icon={Globe}
-                                    active={false}
-                                    className="bg-white/5 border border-white/5 hover:border-luxury-gold/20 hover:bg-white/10 !py-2 !text-xs"
-                                />
-                                <NavItem
-                                    href="#"
-                                    label="Logout"
-                                    icon={LogOut}
-                                    active={false}
-                                    onClick={handleLogout}
-                                    className="bg-red-500/5 border border-red-500/10 hover:bg-red-500/10 hover:border-red-500/30 text-red-100/60 hover:text-red-300 !py-2 !text-xs"
-                                />
+                                {!isDesktopCollapsed && (
+                                    <div className="grid grid-cols-2 gap-2 mt-4">
+                                        <Link
+                                            href="/"
+                                            className="flex items-center justify-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-luxury-gold/20 text-luxury-text/70 hover:text-luxury-gold transition-all text-xs border border-transparent hover:border-luxury-gold/20"
+                                            title="Torna al sito"
+                                        >
+                                            <Globe className="w-4 h-4" />
+                                            <span>Sito</span>
+                                        </Link>
+                                        <button
+                                            onClick={handleLogout}
+                                            className="flex items-center justify-center gap-2 p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all text-xs border border-transparent hover:border-red-500/20"
+                                            title="Logout"
+                                        >
+                                            <LogOut className="w-4 h-4" />
+                                            <span>Esci</span>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                        )}
-
-                        {/* Collapsed Footer Buttons */}
-                        {isCollapsed && (
-                            <div className="flex flex-col gap-2 items-center">
-                                {/* Project Settings button removed from footer as per user request */}
-                                <button
-                                    onClick={() => router.push('/')}
-                                    className="p-2 rounded-lg hover:bg-white/5 transition-colors"
-                                    title="Torna al Sito"
-                                >
-                                    <Globe className="w-5 h-5 text-luxury-text/60" />
-                                </button>
-                                <button
-                                    onClick={handleLogout}
-                                    className="p-2 rounded-lg hover:bg-red-500/10 transition-colors"
-                                    title="Logout"
-                                >
-                                    <LogOut className="w-5 h-5 text-red-100/60" />
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
 
                 </div>
             </div>
