@@ -51,7 +51,7 @@ export function DeleteProjectDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent
                 className="sm:max-w-[500px] bg-slate-900 border-slate-800"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
                 <DialogHeader>
                     <div className="flex items-center gap-3 mb-2">
