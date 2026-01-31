@@ -119,7 +119,7 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                             initial={{ scale: 0.9 }}
                             animate={{ scale: 1 }}
                             className="max-w-6xl max-h-[90vh] relative"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
                         >
                             <img
                                 src={selectedImage.url}
@@ -142,7 +142,7 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                                 href={selectedImage.url}
                                 download={selectedImage.name}
                                 className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                             >
                                 <Download className="w-5 h-5 text-white" />
                             </a>
