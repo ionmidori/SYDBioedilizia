@@ -74,17 +74,24 @@ def list_project_files(session_id: str, category: Optional[str] = None, limit: i
                     if 'plan' not in filename.lower() and 'piantina' not in filename.lower():
                         is_match = False
             
+            
             if is_match:
-                # Generate a signed URL or just return name + public link if available
-                # For safety, we return the name and say "available". 
-                # The agent can ask for a signed URL using another tool if needed, 
-                # OR we return a signed URL valid for 1 hour.
-                try:
-                    url = blob.generate_signed_url(expiration=3600, version='v4')
-                except Exception:
-                    url = "url_generation_failed"
-
-                file_list.append(f"- [{filename}] ({content_type})")
+                # Read metadata from Firebase Storage
+                metadata = blob.metadata or {}
+                room_tag = metadata.get('room', '').strip()
+                status_tag = metadata.get('status', '').strip()
+                
+                # Build tag prefix for smart display
+                tags = []
+                if room_tag:
+                    tags.append(room_tag)
+                if status_tag:
+                    tags.append(status_tag)
+                
+                tag_prefix = f"[{' | '.join(tags)}] " if tags else ""
+                
+                # Format: [room | status] filename (type)
+                file_list.append(f"- {tag_prefix}{filename} ({content_type})")
                 count += 1
                 if count >= limit:
                     break
