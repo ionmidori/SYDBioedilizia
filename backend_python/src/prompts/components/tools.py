@@ -205,6 +205,16 @@ JSON object containing the 4 pillars gathered:
 </parameters>
 </tool>"""
 
+TOOL_PLAN_RENOVATION = """<tool name="plan_renovation">
+<trigger>User asks for a "plan", "layout proposal", or "architectural advice" WITHOUT a render request.</trigger>
+<goal>Generate a text-based architectural plan/strategy.</goal>
+<parameters>
+<param name="image_url" conditional="true">Image URL if available.</param>
+<param name="style" required="true">Desired style.</param>
+<param name="keepElements" type="array">Elements to preserve.</param>
+</parameters>
+</tool>"""
+
 TOOL_LIST_PROJECT_FILES = """<tool name="list_project_files">
 <trigger>User asks "What files do I have?", "Show my documents", or general file list requests.</trigger>
 <goal>Retrieve a TEXT list of all assets in the project folder.</goal>
