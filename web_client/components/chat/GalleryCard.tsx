@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ZoomIn, Download } from 'lucide-react';
+import { X, ZoomIn, Download, Edit2, Check, XCircle } from 'lucide-react';
+import { useMetadataEditor } from '@/hooks/useMetadataEditor';
 
 interface GalleryImage {
     url: string;
@@ -18,8 +19,15 @@ interface GalleryCardProps {
  * GalleryCard - Visual Grid for Project Images
  * Displays images in a responsive grid with lightbox functionality.
  */
+const ROOM_OPTIONS = ['cucina', 'soggiorno', 'camera', 'bagno', 'corridoio', 'altro'];
+const STATUS_OPTIONS = ['approvato', 'bozza', 'in_revisione', 'scartato'];
+
 export function GalleryCard({ items, projectId }: GalleryCardProps) {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+    const [editingIndex, setEditingIndex] = useState<number | null>(null);
+    const [editRoom, setEditRoom] = useState<string>('');
+    const [editStatus, setEditStatus] = useState<string>('');
+    const { updateMetadata, isUpdating } = useMetadataEditor();
 
     if (!items || items.length === 0) {
         return (
@@ -58,8 +66,21 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                             </div>
                         </div>
 
-                        {/* Zoom Icon */}
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {/* Action Icons */}
+                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* Edit Button */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingIndex(idx);
+                                    setEditRoom(item.metadata?.room || '');
+                                    setEditStatus(item.metadata?.status || '');
+                                }}
+                                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-1.5 transition-colors"
+                            >
+                                <Edit2 className="w-4 h-4 text-white" />
+                            </button>
+                            {/* Zoom Icon */}
                             <div className="bg-white/20 backdrop-blur-sm rounded-full p-1.5">
                                 <ZoomIn className="w-4 h-4 text-white" />
                             </div>
@@ -67,6 +88,92 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                     </motion.div>
                 ))}
             </div>
+
+            {/* Edit Modal Overlay */}
+            <AnimatePresence>
+                {editingIndex !== null && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[9998] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                        onClick={() => setEditingIndex(null)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0.9 }}
+                            className="bg-luxury-bg border border-luxury-gold/20 rounded-xl p-6 max-w-md w-full"
+                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                        >
+                            <h3 className="text-luxury-gold font-medium mb-4">Modifica Metadata</h3>
+
+                            {/* Room Selector */}
+                            <div className="mb-4">
+                                <label className="block text-luxury-text/70 text-sm mb-2">Stanza</label>
+                                <select
+                                    value={editRoom}
+                                    onChange={(e) => setEditRoom(e.target.value)}
+                                    className="w-full bg-luxury-bg/50 border border-luxury-gold/20 rounded-lg px-3 py-2 text-luxury-text focus:border-luxury-gold/40 focus:outline-none"
+                                >
+                                    <option value="">-- Seleziona --</option>
+                                    {ROOM_OPTIONS.map(room => (
+                                        <option key={room} value={room}>{room}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Status Selector */}
+                            <div className="mb-6">
+                                <label className="block text-luxury-text/70 text-sm mb-2">Stato</label>
+                                <select
+                                    value={editStatus}
+                                    onChange={(e) => setEditStatus(e.target.value)}
+                                    className="w-full bg-luxury-bg/50 border border-luxury-gold/20 rounded-lg px-3 py-2 text-luxury-text focus:border-luxury-gold/40 focus:outline-none"
+                                >
+                                    <option value="">-- Seleziona --</option>
+                                    {STATUS_OPTIONS.map(status => (
+                                        <option key={status} value={status}>{status}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={async () => {
+                                        const item = items[editingIndex];
+                                        const success = await updateMetadata({
+                                            projectId,
+                                            filePath: item.name, // Assumes 'name' is the storage path
+                                            room: editRoom || undefined,
+                                            status: editStatus || undefined,
+                                        });
+                                        if (success) {
+                                            // Optimistically update local state
+                                            item.metadata = { ...item.metadata, room: editRoom, status: editStatus };
+                                            setEditingIndex(null);
+                                        }
+                                    }}
+                                    disabled={isUpdating}
+                                    className="flex-1 bg-luxury-gold hover:bg-luxury-gold/80 text-black font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    <Check className="w-4 h-4" />
+                                    {isUpdating ? 'Salvataggio...' : 'Salva'}
+                                </button>
+                                <button
+                                    onClick={() => setEditingIndex(null)}
+                                    disabled={isUpdating}
+                                    className="flex-1 bg-luxury-text/10 hover:bg-luxury-text/20 text-luxury-text font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    <XCircle className="w-4 h-4" />
+                                    Annulla
+                                </button>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Lightbox */}
             <AnimatePresence>

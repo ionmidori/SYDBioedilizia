@@ -11,20 +11,34 @@ logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-TRIAGE_PROMPT = """You are an expert interior architect analyzing this space image. 
+TRIAGE_PROMPT = """You are an expert interior architect and structural engineer analyzing this image.
 
-**CRITICAL: Think step-by-step and verify your observations.**
+**CRITICAL: Execute the following Chain of Thought (CoT) process before answering:**
 
-If you need to count elements (windows, doors, fixtures) or measure proportions, 
-USE PYTHON CODE to analyze the image programmatically for accuracy.
+1.  **VISUAL IDENTIFICATION**:
+    *   Is this a PHOTO of a room?
+    *   Is this a FLOOR PLAN (technical drawing)?
+    *   Is this a RENDER or SKETCH?
+
+2.  **TECHNICAL EXTRACTION (Use Python Code)**:
+    *   **If Floor Plan**: Use Python to detect contour lines, identifying room labels (OCR) and verifying scale if a scale bar is visible.
+    *   **If Photo**: Use Python to detect high-contrast technical labels or overlaid measurements if present.
+    *   **Logic Check**: Verify if the detected elements are physically consistent (e.g., a "bedroom" label on a 2m² space is likely an error).
+
+3.  **CONDITIONAL ANALYSIS**:
+    *   If simple photo: Focus on style, lighting, materials.
+    *   If technical drawing: Focus on dimensions, layout flow, load-bearing walls.
+
+4.  **FINAL OUTPUT GENERATION**:
+    *   Synthesize your findings into the JSON structure below.
 
 Provide your analysis:
 
-1. ROOM TYPE: What type of room is this? (e.g., kitchen, living room, bedroom)
-2. CURRENT STYLE: What is the current design style? (e.g., modern, traditional, industrial)
-3. KEY FEATURES: List 3-5 notable structural or design elements (BE PRECISE about positions)
-4. CONDITION: Rate the overall condition (excellent/good/fair/poor)
-5. RENOVATION POTENTIAL: Brief assessment of what could be improved
+1. ROOM TYPE: What type of room is this? (e.g., kitchen, living room, bedroom, floor_plan)
+2. CURRENT STYLE: Design style or "technical_drawing" if applicable.
+3. KEY FEATURES: List 3-5 notable structural or design elements (BE PRECISE).
+4. CONDITION: Rate the overall condition (excellent/good/fair/poor).
+5. RENOVATION POTENTIAL: Assessment of what could be improved.
 
 **IMPORTANT**: After your reasoning/verification, output the final answer ONLY inside a ```json code block:
 

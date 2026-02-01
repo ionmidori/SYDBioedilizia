@@ -40,11 +40,16 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
             );
         }
 
-        if (tool.toolName === 'analyze_room') {
+        if (tool.toolName === 'analyze_room' || tool.toolName === 'analyze_media_triage') {
             return (
-                <div className="flex items-center gap-2 text-sm text-luxury-gold/70 italic mt-2">
-                    <span className="animate-spin text-luxury-gold">🔍</span>
-                    Analisi della stanza in corso...
+                <div className="flex flex-col gap-1 mt-2 p-3 bg-luxury-gold/5 border border-luxury-gold/20 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-luxury-gold font-medium">
+                        <span className="animate-pulse text-lg">🧠</span>
+                        Agentic Vision in corso...
+                    </div>
+                    <div className="text-xs text-luxury-gold/60 pl-7">
+                        <span className="animate-pulse">⚡</span> Analisi parametri strutturali
+                    </div>
                 </div>
             );
         }
