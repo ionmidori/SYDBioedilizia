@@ -15,18 +15,25 @@ from typing import Dict, Any, Optional
 from google import genai
 from google.genai import types
 from src.models.video_types import VideoMetadata, VideoTriageResult
+from src.utils.json_parser import extract_json_response
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # Video Triage Prompt - Multimodal (Visual + Audio)
-VIDEO_TRIAGE_PROMPT = """Analizza questo video di uno spazio interno e fornisci:
+VIDEO_TRIAGE_PROMPT = """You are an expert interior architect analyzing this renovation video.
+
+**CRITICAL INSTRUCTIONS:**
+1. Watch the entire video natively to understand the space layout and user intent.
+2. If you need to analyze SPECIFIC DETAILS (e.g., read text, count fixtures, measure proportions), 
+   USE PYTHON CODE to extract and analyze ONLY the relevant frames. DO NOT process the entire video.
+3. Combine visual observations with audio transcription.
 
 **ANALISI VISIVA:**
 1. TIPO STANZA: Che tipo di stanza è? (es. cucina, soggiorno, camera da letto)
 2. STILE ATTUALE: Qual è lo stile di design attuale? (es. moderno, tradizionale, industriale)
-3. CARATTERISTICHE CHIAVE: Elenca 3-5 elementi strutturali o di design notevoli
+3. CARATTERISTICHE CHIAVE: Elenca 3-5 elementi strutturali o di design notevoli (POSIZIONI PRECISE)
 4. CONDIZIONI: Valuta le condizioni complessive (eccellente/buono/discreto/scarso)
 
 **ANALISI AUDIO (se presente):**
@@ -36,7 +43,9 @@ VIDEO_TRIAGE_PROMPT = """Analizza questo video di uno spazio interno e fornisci:
 **INTEGRAZIONE:**
 Combina le informazioni visive e vocali nel campo "renovationNotes". Se l'utente ha specificato richieste particolari (es. "voglio cambiare il pavimento"), includile esplicitamente.
 
-Rispondi in formato JSON:
+**IMPORTANT**: After reasoning/verification, output your final answer ONLY inside a ```json code block:
+
+```json
 {
   "roomType": "...",
   "currentStyle": "...",
@@ -45,6 +54,7 @@ Rispondi in formato JSON:
   "audioTranscript": "... (se audio presente, altrimenti null)",
   "renovationNotes": "... (combina analisi visiva + richieste audio)"
 }
+```
 """
 
 
@@ -248,7 +258,10 @@ def optimize_video(input_path: str, max_duration: float = 30.0, trim_start: Opti
                         ))
                     ]
                 )
-            ]
+            ],
+            config=types.GenerateContentConfig(
+                tools=[types.Tool(code_execution=types.CodeExecution())]
+            )
         )
         
         # Clean up uploaded file
@@ -260,10 +273,11 @@ def optimize_video(input_path: str, max_duration: float = 30.0, trim_start: Opti
         if not response.text:
             raise Exception("No response from Gemini vision model")
         
-        # Parse JSON response
-        import json
-        text = response.text.replace("```json", "").replace("```", "").strip()
-        analysis = json.loads(text)
+        # Parse JSON response using robust extractor (handles CoT + Code)
+        analysis = extract_json_response(response.text)
+        
+        if not analysis:
+            raise Exception("Failed to extract valid JSON from model response")
         
         logger.info(f"Video analysis complete: {analysis.get('roomType', 'unknown')} room detected")
         

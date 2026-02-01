@@ -5,20 +5,30 @@ import json
 from typing import Dict, Any
 from google import genai
 from google.genai import types
+from src.utils.json_parser import extract_json_response
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-TRIAGE_PROMPT = """Analyze this interior space image and provide:
+TRIAGE_PROMPT = """You are an expert interior architect analyzing this space image. 
+
+**CRITICAL: Think step-by-step and verify your observations.**
+
+If you need to count elements (windows, doors, fixtures) or measure proportions, 
+USE PYTHON CODE to analyze the image programmatically for accuracy.
+
+Provide your analysis:
 
 1. ROOM TYPE: What type of room is this? (e.g., kitchen, living room, bedroom)
 2. CURRENT STYLE: What is the current design style? (e.g., modern, traditional, industrial)
-3. KEY FEATURES: List 3-5 notable structural or design elements
+3. KEY FEATURES: List 3-5 notable structural or design elements (BE PRECISE about positions)
 4. CONDITION: Rate the overall condition (excellent/good/fair/poor)
 5. RENOVATION POTENTIAL: Brief assessment of what could be improved
 
-Format your response as JSON:
+**IMPORTANT**: After your reasoning/verification, output the final answer ONLY inside a ```json code block:
+
+```json
 {
   "roomType": "...",
   "currentStyle": "...",
@@ -26,6 +36,7 @@ Format your response as JSON:
   "condition": "...",
   "renovationNotes": "..."
 }
+```
 """
 
 async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
@@ -51,7 +62,10 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
                             types.Part(inline_data=types.Blob(mime_type="image/jpeg", data=image_data)),
                         ]
                     )
-                ]
+                ],
+                config=types.GenerateContentConfig(
+                    tools=[types.Tool(code_execution=types.CodeExecution())]
+                )
             )
         finally:
              client.close()
@@ -59,9 +73,11 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
         if not response.text:
             raise Exception("No response from vision model")
             
-        # Parse JSON response - clean markdown code blocks if present
-        text = response.text.replace("```json", "").replace("```", "").strip()
-        analysis = json.loads(text)
+        # Parse JSON response using robust extractor (handles CoT + Code)
+        analysis = extract_json_response(response.text)
+        
+        if not analysis:
+            raise Exception("Failed to extract valid JSON from model response")
         
         logger.info(f"Triage complete: {analysis.get('roomType', 'unknown')} room detected")
         
