@@ -7,6 +7,7 @@ import { ImagePreview } from '@/components/chat/ImagePreview';
 import { ToolStatus } from '@/components/chat/ToolStatus';
 import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
 import { LeadCaptureForm } from '@/components/chat/widgets/LeadCaptureForm';
+import { LoginRequest } from '@/components/chat/tools/LoginRequest'; // 🔥 NEW
 import { cn } from '@/lib/utils';
 
 import { Message } from '@/types/chat';
@@ -33,7 +34,8 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                 .map((part) => part.text)
                 .join('');
         }
-        return msg.content || '';
+        if (typeof msg.content === 'string') return msg.content;
+        return JSON.stringify(msg.content || '');
     };
 
     // Fix for React 18/19 type mismatch
@@ -123,6 +125,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                     // Check if tools have any visual output (Loading state OR Result with Image/Error OR Widgets)
                     const hasVisibleTools = message.toolInvocations?.some(tool => {
                         if (tool.toolName === 'display_lead_form') return true; // Always visible
+                        if (tool.toolName === 'request_login') return true; // 🔥 Login Widget Always visible
                         if (tool.state === 'call') return true; // Loading is always visible
                         const result = tool.result || (tool as any).output;
                         // Only results with images or errors are visible in ToolStatus
@@ -169,6 +172,15 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                                                             quoteSummary={args?.quote_summary || "Preventivo Ristrutturazione"}
                                                             sessionId={sessionId || "unknown"} // Use prop
                                                         />
+                                                    </div>
+                                                );
+                                            }
+
+                                            // 🔒 AUTH WIDGET: Login Request
+                                            if (tool.toolName === 'request_login') {
+                                                return (
+                                                    <div key={toolIdx} className="mt-4">
+                                                        <LoginRequest />
                                                     </div>
                                                 );
                                             }

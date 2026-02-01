@@ -42,11 +42,11 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
     try:
         db = get_async_firestore_client()
         
-        # Query sessions where userId matches, order by updatedAt descending
+        print(f"DEBUG: get_user_projects called for user {user_id}")
         query = (
             db.collection(PROJECTS_COLLECTION)
             .where(filter=FieldFilter("userId", "==", user_id))
-            .order_by("updatedAt", direction="DESCENDING")
+            # .order_by("updatedAt", direction="DESCENDING")
             .limit(limit)
         )
         
@@ -58,8 +58,11 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
             
             # Handle datetime conversion (Firestore returns DatetimeWithNanoseconds)
             updated_at = data.get("updatedAt")
-            if hasattr(updated_at, "isoformat"):
-                updated_at = updated_at
+            if hasattr(updated_at, "to_datetime"):
+                updated_at = updated_at.to_datetime()
+            elif hasattr(updated_at, "isoformat"):
+                 # Fallback for other objects with isoformat
+                 pass
             else:
                 updated_at = datetime.utcnow()
             
@@ -76,6 +79,7 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
         return projects
         
     except Exception as e:
+        print(f"DEBUG ERROR: get_user_projects failed: {str(e)}")
         logger.error(f"[Projects] Error fetching projects: {str(e)}", exc_info=True)
         return []
 

@@ -12,8 +12,7 @@ from src.db.leads import save_lead
 from src.models.lead import LeadData
 from src.api.perplexity import fetch_market_prices
 from src.db.quotes import save_quote_draft
-from src.vision.analyze import analyze_room_structure
-from src.vision.architect import generate_architectural_prompt
+# from src.vision.analyze import analyze_room_structure (Unused after triage fix)
 from src.vision.triage import analyze_media_triage
 
 from src.tools.project_files import list_project_files
@@ -150,25 +149,23 @@ async def analyze_room(image_url: str) -> str:
         media_bytes, content_type = await download_image_smart(image_url)
         logger.info(f"[Tool] Detected MIME type: {content_type}")
         
-        # Check for Video
-        if content_type and content_type.startswith("video/"):
-            # Retrieve metadata (Trim Range)
-            all_metadata = get_current_media_metadata()
-            media_meta = None
-            if all_metadata:
-                 media_meta = all_metadata.get(image_url)
-                 if not media_meta:
-                     for k, v in all_metadata.items():
-                         if k in image_url or image_url in k:
-                             media_meta = v
-                             break
-            
-            result = await analyze_media_triage(media_bytes, content_type, metadata=media_meta)
-            return json.dumps(result, indent=2)
-
-        # 2. Analyze (Image)
-        analysis = await analyze_room_structure(media_bytes)
-        return analysis.model_dump_json(indent=2)
+        # 2. Retrieve Metadata (Trim Range / Context)
+        all_metadata = get_current_media_metadata()
+        media_meta = None
+        if all_metadata:
+                media_meta = all_metadata.get(image_url)
+                if not media_meta:
+                    # Fuzzy match fallback
+                    for k, v in all_metadata.items():
+                        if k in image_url or image_url in k:
+                            media_meta = v
+                            break
+        
+        # 3. Unified Triage Analysis (Images & Videos)
+        # This returns the correct Triage JSON (Room Type, Style, Condition, Renovation Potential)
+        # instead of the purely structural engineering JSON.
+        result = await analyze_media_triage(media_bytes, content_type, metadata=media_meta)
+        return json.dumps(result, indent=2)
             
     except Exception as e:
         logger.error(f"[Tool] ❌ analyze_room failed: {e}")

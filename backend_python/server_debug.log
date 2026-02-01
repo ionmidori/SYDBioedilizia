@@ -3372,3 +3372,371 @@ google.api_core.exceptions.FailedPrecondition: 400 The query requires an index. 
 2026-02-01 00:49:26 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
 2026-02-01 00:50:02 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
 2026-02-01 00:50:02 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:14:13 [INFO] SYD Brain API starting on port 8080...
+2026-02-01 12:17:59 [INFO] SYD Brain API starting on port 8080...
+2026-02-01 12:18:34 [INFO] SYD Brain API starting on port 8080...
+2026-02-01 12:20:25 [INFO] SYD Brain API starting on port 8080...
+2026-02-01 12:21:26 [INFO] Using local service account: firebase-service-account.json
+2026-02-01 12:21:26 [INFO] Firebase Admin SDK initialized
+2026-02-01 12:21:27 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:21:28 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:21:50 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:21:50 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:22:04 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:22:04 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:22:05 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:22:05 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:22:10 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:22:10 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:23:29 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:23:30 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:24:12 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:24:12 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:28:59 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:28:59 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:34:38 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:34:38 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:34:38 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:34:38 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:35:24 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:35:25 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:41:37 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:41:38 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:41:55 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:41:55 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:41:55 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:41:55 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:42:48 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:42:48 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:08 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:08 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:17 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:17 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:36 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:36 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:37 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:37 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:43 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:43:43 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:45:50 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:45:50 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:46:11 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:46:11 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:46:11 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:46:12 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:48:10 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:48:11 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:50:57 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 12:50:57 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:03:41 [INFO] [Projects] Retrieved 1 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:07:53 [INFO] [API] create_project request from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3 with data: title='Bagno'
+2026-02-01 13:07:53 [INFO] [Projects] Created project ddea6885-f6b8-4fa0-81a4-c5b8131120f1 for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:07:53 [INFO] [API] Created project ddea6885-f6b8-4fa0-81a4-c5b8131120f1 for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:07:54 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:38:42 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:38:42 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:39:05 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:39:06 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:39:24 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:39:24 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:43:57 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:43:57 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:44:19 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:44:20 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:52:34 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:52:34 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:53:04 [INFO] [Firestore] Retrieved 0 messages for session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 13:53:04 [INFO] 📜 Loaded 0 messages from DB
+2026-02-01 13:53:04 [INFO] [Firestore] Saved user message to session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 13:53:04 [INFO] 💾 Saved user message to DB (with 1 attachments)
+2026-02-01 13:53:04 [INFO] 👁️ Injecting 1 media files into prompt
+2026-02-01 13:53:04 [INFO] ⚡ Initializing Agent Graph...
+2026-02-01 13:53:04 [ERROR] ❌ STREAM ERROR: name 'ALL_TOOLS' is not defined
+Traceback (most recent call last):
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\main.py", line 400, in chat_stream_generator
+    # Lazy load agent graph (singleton)
+                  ^^^^^^^^^^^^^^^^^
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\src\graph\agent.py", line 283, in get_agent_graph
+    _agent_graph = create_agent_graph()
+                   ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\src\graph\agent.py", line 254, in create_agent_graph
+    workflow.add_node("tools", ToolNode(ALL_TOOLS))
+                                        ^^^^^^^^^
+NameError: name 'ALL_TOOLS' is not defined
+
+2026-02-01 13:53:54 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:53:54 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:13 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:13 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:32 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:32 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:34 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:35 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:40 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:40 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:40 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:54:41 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:02 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:02 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:08 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:09 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:10 [INFO] [API] get_project request for session_id: ddea6885-f6b8-4fa0-81a4-c5b8131120f1 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:10 [INFO] [API] get_project request for session_id: ddea6885-f6b8-4fa0-81a4-c5b8131120f1 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:10 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:11 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:16 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:16 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:16 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:16 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:49 [INFO] [API] get_project request for session_id: ddea6885-f6b8-4fa0-81a4-c5b8131120f1 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:49 [INFO] [API] get_project request for session_id: ddea6885-f6b8-4fa0-81a4-c5b8131120f1 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:49 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:50 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:52 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:52 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:53 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:55:53 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:56:52 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:56:52 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:57:55 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 13:57:55 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:00:05 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:00:05 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:00:22 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:00:23 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:04:04 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:04:10 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:04:11 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:04:11 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:05:38 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:05:38 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:06:13 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:06:13 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:06:58 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:06:58 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:12:43 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:12:43 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:16:57 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:16:57 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:20:15 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:20:18 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:20:56 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:20:56 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:23:08 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:23:08 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:23:40 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:23:40 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:26:25 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:26:25 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:49:56 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:49:57 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:51:02 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:51:02 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:51:24 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:51:24 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:51:31 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:51:31 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:51:45 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:51:45 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:52:04 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:52:05 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:52:11 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:52:11 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:52:13 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:52:14 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:52:14 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:52:14 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:15 [INFO] [API] get_project request for session_id: ddea6885-f6b8-4fa0-81a4-c5b8131120f1 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:15 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:15 [INFO] [API] get_project request for session_id: ddea6885-f6b8-4fa0-81a4-c5b8131120f1 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:15 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:19 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:20 [INFO] [API] get_project request for session_id: e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:20 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:20 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:24 [INFO] [API] get_project request for session_id: ddea6885-f6b8-4fa0-81a4-c5b8131120f1 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:24 [INFO] [API] get_project request for session_id: ddea6885-f6b8-4fa0-81a4-c5b8131120f1 from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:25 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:25 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:55 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:53:55 [INFO] [Projects] Retrieved 2 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:54:13 [INFO] [API] create_project request from user_id: eD2MWEyuIBU1s0VjYQApU0WPMOE3 with data: title='cucina'
+2026-02-01 14:54:13 [INFO] [Projects] Created project 4cdbba0f-c0be-43c8-8875-896ba6dc5cc4 for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:54:13 [INFO] [API] Created project 4cdbba0f-c0be-43c8-8875-896ba6dc5cc4 for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:54:13 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:54:36 [INFO] [Firestore] Retrieved 0 messages for session 4cdbba0f-c0be-43c8-8875-896ba6dc5cc4
+2026-02-01 14:54:36 [INFO] 📜 Loaded 0 messages from DB
+2026-02-01 14:54:36 [INFO] [Firestore] Saved user message to session 4cdbba0f-c0be-43c8-8875-896ba6dc5cc4
+2026-02-01 14:54:36 [INFO] 💾 Saved user message to DB (with 1 attachments)
+2026-02-01 14:54:36 [INFO] 👁️ Injecting 1 media files into prompt
+2026-02-01 14:54:36 [INFO] ⚡ Initializing Agent Graph...
+2026-02-01 14:54:36 [ERROR] ❌ STREAM ERROR: name 'ALL_TOOLS' is not defined
+Traceback (most recent call last):
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\main.py", line 400, in chat_stream_generator
+    # Lazy load agent graph (singleton)
+                  ^^^^^^^^^^^^^^^^^
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\src\graph\agent.py", line 283, in get_agent_graph
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\src\graph\agent.py", line 254, in create_agent_graph
+    "active_image_url": last_image_url if found_images else state.get("active_image_url"),
+                                ^^^^^^^^^
+NameError: name 'ALL_TOOLS' is not defined
+
+2026-02-01 14:57:13 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 14:57:13 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:01:56 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:01:57 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:02:11 [INFO] [Firestore] Retrieved 1 messages for session 4cdbba0f-c0be-43c8-8875-896ba6dc5cc4
+2026-02-01 15:02:11 [INFO] 📜 Loaded 1 messages from DB
+2026-02-01 15:02:11 [INFO] [Firestore] Saved user message to session 4cdbba0f-c0be-43c8-8875-896ba6dc5cc4
+2026-02-01 15:02:11 [INFO] 💾 Saved user message to DB (with 1 attachments)
+2026-02-01 15:02:11 [INFO] 👁️ Injecting 1 media files into prompt
+2026-02-01 15:02:11 [INFO] ⚡ Initializing Agent Graph...
+2026-02-01 15:02:11 [ERROR] ❌ STREAM ERROR: name 'ALL_TOOLS' is not defined
+Traceback (most recent call last):
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\main.py", line 400, in chat_stream_generator
+    # Lazy load agent graph (singleton)
+                  ^^^^^^^^^^^^^^^^^
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\src\graph\agent.py", line 283, in get_agent_graph
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\src\graph\agent.py", line 254, in create_agent_graph
+    "active_image_url": last_image_url if found_images else state.get("active_image_url"),
+                                ^^^^^^^^^
+NameError: name 'ALL_TOOLS' is not defined
+
+2026-02-01 15:03:14 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:03:14 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:14:05 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:14:05 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:14:31 [INFO] [Firestore] Retrieved 2 messages for session 4cdbba0f-c0be-43c8-8875-896ba6dc5cc4
+2026-02-01 15:14:31 [INFO] 📜 Loaded 2 messages from DB
+2026-02-01 15:14:31 [INFO] [Firestore] Saved user message to session 4cdbba0f-c0be-43c8-8875-896ba6dc5cc4
+2026-02-01 15:14:31 [INFO] 💾 Saved user message to DB (with 1 attachments)
+2026-02-01 15:14:31 [INFO] 👁️ Injecting 1 media files into prompt
+2026-02-01 15:14:31 [INFO] ⚡ Initializing Agent Graph...
+2026-02-01 15:14:31 [ERROR] ❌ STREAM ERROR: name 'ALL_TOOLS' is not defined
+Traceback (most recent call last):
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\main.py", line 400, in chat_stream_generator
+    # Lazy load agent graph (singleton)
+                  ^^^^^^^^^^^^^^^^^
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\src\graph\agent.py", line 283, in get_agent_graph
+  File "C:\Users\User01\.gemini\antigravity\scratch\renovation-next\backend_python\src\graph\agent.py", line 254, in create_agent_graph
+    "active_image_url": last_image_url if found_images else state.get("active_image_url"),
+                                ^^^^^^^^^
+NameError: name 'ALL_TOOLS' is not defined
+
+2026-02-01 15:16:21 [INFO] SYD Brain API starting on port 8080...
+2026-02-01 15:16:47 [INFO] SYD Brain API starting on port 8080...
+2026-02-01 15:17:38 [INFO] Using local service account: firebase-service-account.json
+2026-02-01 15:17:38 [INFO] Firebase Admin SDK initialized
+2026-02-01 15:17:39 [INFO] [Firestore] Retrieved 1 messages for session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 15:17:39 [INFO] 📜 Loaded 1 messages from DB
+2026-02-01 15:17:39 [INFO] [Firestore] Saved user message to session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 15:17:39 [INFO] 💾 Saved user message to DB (with 1 attachments)
+2026-02-01 15:17:39 [INFO] 👁️ Injecting 1 media files into prompt
+2026-02-01 15:17:39 [INFO] ⚡ Initializing Agent Graph...
+2026-02-01 15:17:39 [INFO] ✅ Agent Graph Initialized
+2026-02-01 15:17:39 [INFO] [Context] 💉 Found 2 images/videos in message
+2026-02-01 15:17:39 [INFO] [Context] 💉 Injected 2 image URLs into system instruction
+2026-02-01 15:17:39 [INFO] ⚡ RULE: New image -> Phase TRIAGE -> Force analyze_room
+2026-02-01 15:17:39 [INFO] ⚡ FORCE MODE: analyze_room
+2026-02-01 15:17:39 [INFO] ⚡ Initializing Gemini LLM...
+2026-02-01 15:17:53 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-02-01 15:17:53 [INFO] 🐛 RAW LLM RESPONSE: content=[] additional_kwargs={'function_call': {'name': 'analyze_room', 'arguments': '{"image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f/1769955451564-IMG_20171216_093228.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260201%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260201T141731Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=2dc55e2d81bad66bf99a54344750ed1086df91e8fb27330206d3251ff8b01a83aab93c97d431824ae871bea89e4119c1dcf9083507b24bd7824379cee6ada3cecd11c2e634fbdc03aaf50ac324e4f2fce4ca1aadf921018ed4e5a956209c0fd146fc18a49f5f78023e70a592739c22928c80ca9a3113b4367396ac7f40809ad3631c4193e187549db332953b206dfa2a69cfca634bbb0ab6459f983cd972865cd28c3cbe2e06c5eeeec27c220cba27a4cb835ef27a52e2d6baa9103289ac07e206751f641a06b709274d221adc4134e5c0fea63de23075d0a62f2f094f9c3e8e6dd716d5e1da5aea774b952d875d2640824864895ab2f9df92024b0090e3aaa5"}'}, '__gemini_function_call_thought_signatures__': {'92c14a51-ff72-4cba-9e7c-7f8e1199ffec': 'EroRCrcRAXLI2nx9+AngQ36ryd7mm21gPRGBPzQDwaVOpk+xSL5EMixhPcx1dg5msQ8E13Z0ZTGAq3aZVezXLbEeL2xHvda0YgcOceE+VjzjKkDs2QS89Thlh3pcqEFV/U3JywWOO9EauMMH/pyhW6qNJ7/8P5uixU7tlHNyMEBHjnVxgbpgKHcmmywRWx3PMPCjtq619trVsEM7q57GuOzyanaRce7Nq3JH3S3X4A4wzqWzL1AspBCbqFzWtW5QUOURY6pwIqsxs+jjld9FKJR8WI1dkCtTjPnifh1VTUY5oDDUuUhU8SVd4F5zwDg6dzCZojvo2L1fjOaNRRqWVdJMtYd9TeiA2g/DiUBRsoliYXmqQ6An+H4/phJY2mGA1nPfnFz+J8oybPWW56GN/piw6q2MqkIikAuSjT9/C3i7eNzJWmvYyKb6EjnTWC8A+hrlTWEy2Sk/SCoa/K08YrlHlWRY42tbsL0Adywk8foqB1rdRBso7AjUsx0vjwH6qGEFzNJL7P4Nn93IbmwYS0L9zD6b5ZHxwdT4wnw0ETB3AxQK9K7b5fzCxBbJORBV2oVrOJxcg1RTARLuSsBydgiPvuk/2lKbhInW/pa1bKifgVJcqKmQhr6CuWq+iVyum/B8B1CAd15XAZlVQbiLvZcu9QNPvorJhmo33BEqxZGYbiVEuvUru6zXS1PPZev3pV5R9ILPnCkg9Za+ntzv5uiqweTmOhQSFS9Or1CZdVQi/RZ6yikdpcRsvvFb1U8IAkkEvSmEh5+lT7StPT2G2aptIxSUbJadnXWIaN3K+Odlj0M/KUBxNLIdDltNwK6fiOQAA8dxS3aIWLppmEEjCHOsbNUEMGGycN6P8WmGNCAjxwSJdlCYlaxsuBiPU2mBS0c5XPolg0G4+OAdJBWalRp0NtrxfS1AuQ6K/JCazcADEA8uXjWfLZEXwRKCEWgkhxw/2zHM6evZ1TlZix6fg5A76HVzzT2qSFHEbRkGHYfCdkIv7UuQOmoX/rUg8X+uMkXP5qx1exnKUj6QR2W5GjLZMWqcV1pKIGmp1Fy8eWJG2zMBMVVvlqf0mZw9XC8FxeL6m48cZFIc4c13HSGI69Vd6U/bDI7gOLXMP86gsh4R7YNubYj3GapW4z5UcdiHIh0tQ6wx33ogFhYK2bPQnQrzIPSdioScqeJe5cwuJBGMqIAqfJTZLR4+CTjJ1cHg7alD3tjooSzERw8zwNLDc0QaKSXOXAUFCXGS+Scvlr63oKQ10vv+fV+r9md0tAHAimrxLmQDwIY8qReb/nZpDrt/4CvKk/7Nu2juuJWrOH053sfM5NCM4yoen5GEJXlj9teyhfa1XlXM5FO7d4YzvshFphv2UG5TBJL6ZOvR0VhbRLiMYc0rPHKHCqFOelYTSXOerhVoF3glZzBakJSSJ6ho+N8MUmX95CPw5k4ug8MjA/bvpQ2XIHJJ/nbdqvlx0IqNBlh5JzaynhPRPYvFkc/vE/9o8ybud7F3N2xlkupJBe1eFwyzauQHsUAdnYf4zc/Wd4wcUij6dd7etTcsu+Rc8K0YJqoxPyoVsV46gSCPab3uXXV1kdFy7vi2RjI7DdPITfhZRDRAJ/1pjH6W77f8ZSAC8pSUizaW4CVVBbb7LtYPHEfb0+F3RufYmjDBfJNfg7pcDKru91uXitwXrnmNY/IyG3mCq1Vb32UP5svpjRA6yfC8ovP78C8sGIgQS0hovsim1pV+QYHCLecZIJ4u/c/9FxubkZf4g85zG6NZBs+xwidHBtBEehOpKUdpBqDJda8JaTolbGZLH071rcSDAF0qQ3Z1OEzba73Gz0fwgPzyECpBGFUQVtJ+Bx4Rzjz9YMS5k9YGw+KmyFVyiSeNpw2bQhei2aq0yhsAEBh8a+1brK+TDOK5hK2Xo5VtH/uB577NVccNORhH3JDCHChIpkj9oCu97ZnDcyi2fxrCAP3vG4ryZhRZDm7ZqaLOTWszkIwLsNZ++R3d3BAMu8kPK5eRgDrbwQngLLggHQnNLpYlPPVf6eO/OOVfZkhgyzQb5jKv3WeMIzc3cftkQ/VI0uu3DZh+twWSHlqC/3jVjoS6Cwkx1nx7rzriRkQ5bU2iz5Mu3FBGy4YfgZ8bp0bRb9MsCdw+HVul3Gyui2TJU5CB7UMVR7XyBH7Yhallxcd6AN8hnMnBtuDH2O+QRVkHAnd2SIc+I02OK7A2z9sbtwG8dnk7mkKIB8DS2Mig4M2+0aADxJdARtdFXPLDiCOIvY4GAbuVw/zncV9YfIcMsdsWgITnfIBaWZ1K1ZjZBbWD79i2TfTuhmcZzfMOA5UfJhfr8tR+S3cL8bJL3aIiB/kpAstLEyz/QcbvoZRlDeI4Adn15fppBOfL3XbFRfSbjkeh9VAHK/FiUsK+sFB/CL2LuWSJ8n4v4yATn+CNORogut1jbihJ9XLCdO8S//IaWq37b3Yb9AOwClcIwhdkW/zGEU9rNUU5b96tl7zyN04MJ8kkae+iQKo6iyCsxzJO9e/n4vuYoHtRolVSQZk4ondeL8HLLXsevhoYjk4XdO4xVCFy7JfoM+c4rsPJ1Jut5CS7voqKpCX6rH15FoXs++QCEdFdJhW9GssQ0LHKr60sEDq5ZDz8RZ+xbn2ocyvrNaGZFVwwa06UNpG4IZiWCuv5IGAuI2mZem7wMT/aQjxnnJU+8ImTkpJjphIF/6T2sH3j7Wa6yofxTZuWXO/fEnV8kDaGPI1GOM/rPMHuXgNrM/b/h2/VP25jMJOq8CKgbEGtwUEiL+OB/DDUfAr6KAvMa0lZIuyjApZ2AAgSSNY7CPoH25r3mAknzYD57dn0ZVSSk/wL1CcVoWmyju+i62wNh0J81wegdCrQ0mS9+MlV4YPGr3YKHcMjcnYf0PnKSB/Py+XyAL+HmJiCnwmlwq36xf3aqdzigKPTH2WDWvdPfFZb0qqVUWZeR81J9H2VjAu13NrDcHjxlkI='}} response_metadata={'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'} id='lc_run--019c1991-0368-7da1-a41e-b5de63afa6fe-0' tool_calls=[{'name': 'analyze_room', 'args': {'image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f/1769955451564-IMG_20171216_093228.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260201%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260201T141731Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=2dc55e2d81bad66bf99a54344750ed1086df91e8fb27330206d3251ff8b01a83aab93c97d431824ae871bea89e4119c1dcf9083507b24bd7824379cee6ada3cecd11c2e634fbdc03aaf50ac324e4f2fce4ca1aadf921018ed4e5a956209c0fd146fc18a49f5f78023e70a592739c22928c80ca9a3113b4367396ac7f40809ad3631c4193e187549db332953b206dfa2a69cfca634bbb0ab6459f983cd972865cd28c3cbe2e06c5eeeec27c220cba27a4cb835ef27a52e2d6baa9103289ac07e206751f641a06b709274d221adc4134e5c0fea63de23075d0a62f2f094f9c3e8e6dd716d5e1da5aea774b952d875d2640824864895ab2f9df92024b0090e3aaa5'}, 'id': '92c14a51-ff72-4cba-9e7c-7f8e1199ffec', 'type': 'tool_call'}] invalid_tool_calls=[] usage_metadata={'input_tokens': 13717, 'output_tokens': 1271, 'total_tokens': 14988, 'input_token_details': {'cache_read': 0}, 'output_token_details': {'reasoning': 580}}
+2026-02-01 15:17:53 [INFO] Event received: ['agent']
+2026-02-01 15:17:53 [INFO] Checking NODE: agent
+2026-02-01 15:17:53 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url', 'has_uploaded_image', 'has_analyzed_room']
+2026-02-01 15:17:53 [INFO]    Type of messages: <class 'list'>
+2026-02-01 15:17:53 [INFO]    Found 1 messages
+2026-02-01 15:17:53 [INFO]    Last message type: AIMessage
+2026-02-01 15:17:53 [INFO]    RAW CONTENT: []
+2026-02-01 15:17:53 [INFO]    HAS TOOL_CALLS? True
+2026-02-01 15:17:53 [INFO]    TOOL_CALLS: [{'name': 'analyze_room', 'args': {'image_url': 'https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f/1769955451564-IMG_20171216_093228.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260201%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260201T141731Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=2dc55e2d81bad66bf99a54344750ed1086df91e8fb27330206d3251ff8b01a83aab93c97d431824ae871bea89e4119c1dcf9083507b24bd7824379cee6ada3cecd11c2e634fbdc03aaf50ac324e4f2fce4ca1aadf921018ed4e5a956209c0fd146fc18a49f5f78023e70a592739c22928c80ca9a3113b4367396ac7f40809ad3631c4193e187549db332953b206dfa2a69cfca634bbb0ab6459f983cd972865cd28c3cbe2e06c5eeeec27c220cba27a4cb835ef27a52e2d6baa9103289ac07e206751f641a06b709274d221adc4134e5c0fea63de23075d0a62f2f094f9c3e8e6dd716d5e1da5aea774b952d875d2640824864895ab2f9df92024b0090e3aaa5'}, 'id': '92c14a51-ff72-4cba-9e7c-7f8e1199ffec', 'type': 'tool_call'}]
+2026-02-01 15:17:53 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'analyze_room', 'arguments': '{"image_url": "https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f/1769955451564-IMG_20171216_093228.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260201%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260201T141731Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=2dc55e2d81bad66bf99a54344750ed1086df91e8fb27330206d3251ff8b01a83aab93c97d431824ae871bea89e4119c1dcf9083507b24bd7824379cee6ada3cecd11c2e634fbdc03aaf50ac324e4f2fce4ca1aadf921018ed4e5a956209c0fd146fc18a49f5f78023e70a592739c22928c80ca9a3113b4367396ac7f40809ad3631c4193e187549db332953b206dfa2a69cfca634bbb0ab6459f983cd972865cd28c3cbe2e06c5eeeec27c220cba27a4cb835ef27a52e2d6baa9103289ac07e206751f641a06b709274d221adc4134e5c0fea63de23075d0a62f2f094f9c3e8e6dd716d5e1da5aea774b952d875d2640824864895ab2f9df92024b0090e3aaa5"}'}, '__gemini_function_call_thought_signatures__': {'92c14a51-ff72-4cba-9e7c-7f8e1199ffec': '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'}}
+2026-02-01 15:17:53 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-02-01 15:17:53 [INFO] DETECTED TOOL CALLS: 1
+2026-02-01 15:17:53 [INFO] [Firestore] Saved assistant message to session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 15:17:53 [INFO] Saved assistant tool call message (1 calls)
+2026-02-01 15:17:53 [INFO] STREAMING TOOL CALL: analyze_room
+2026-02-01 15:17:53 [INFO] [Tool] analyze_room called for https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f/1769955451564-IMG_20171216_093228.jpg?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=firebase-admin-bot%40chatbotluca-a8a73.iam.gserviceaccount.com%2F20260201%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260201T141731Z&X-Goog-Expires=604800&X-Goog-SignedHeaders=host&X-Goog-Signature=2dc55e2d81bad66bf99a54344750ed1086df91e8fb27330206d3251ff8b01a83aab93c97d431824ae871bea89e4119c1dcf9083507b24bd7824379cee6ada3cecd11c2e634fbdc03aaf50ac324e4f2fce4ca1aadf921018ed4e5a956209c0fd146fc18a49f5f78023e70a592739c22928c80ca9a3113b4367396ac7f40809ad3631c4193e187549db332953b206dfa2a69cfca634bbb0ab6459f983cd972865cd28c3cbe2e06c5eeeec27c220cba27a4cb835ef27a52e2d6baa9103289ac07e206751f641a06b709274d221adc4134e5c0fea63de23075d0a62f2f094f9c3e8e6dd716d5e1da5aea774b952d875d2640824864895ab2f9df92024b0090e3aaa5
+2026-02-01 15:17:53 [INFO] [SmartDownload] 📥 Requested download for: https://storage.googleapis.com/chatbotluca-a8a73.firebasestorage.app/user-uploads/e3d6258c-ecf0-400b...
+2026-02-01 15:17:53 [INFO] [SmartDownload] 🕵️ Detected Firebase Storage URL.
+2026-02-01 15:17:53 [INFO]   - Bucket: chatbotluca-a8a73.firebasestorage.app
+2026-02-01 15:17:53 [INFO]   - Path: user-uploads/e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f/1769955451564-IMG_20171216_093228.jpg
+2026-02-01 15:17:53 [INFO] [SmartDownload] ⚡ Attempting direct bucket access via Admin SDK...
+2026-02-01 15:17:55 [INFO] [SmartDownload] ✅ Direct access SUCCESS: 1370568 bytes, Type: image/jpeg
+2026-02-01 15:17:55 [INFO] [Tool] Detected MIME type: image/jpeg
+2026-02-01 15:17:55 [INFO] Media triage requested for type: image/jpeg
+2026-02-01 15:17:55 [INFO] Performing triage analysis on image (Gemini 3 Flash)...
+2026-02-01 15:17:55 [INFO] AFC is enabled with max remote calls: 10.
+2026-02-01 15:18:10 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-02-01 15:18:10 [WARNING] Warning: there are non-text parts in the response: ['executable_code', 'code_execution_result', 'inline_data'], returning concatenated text result from text parts. Check the full candidates.content.parts accessor to get the full model response.
+2026-02-01 15:18:10 [INFO] Triage complete: living room room detected
+2026-02-01 15:18:10 [INFO] Event received: ['tools']
+2026-02-01 15:18:10 [INFO] Checking NODE: tools
+2026-02-01 15:18:10 [INFO]    Node output keys: ['messages']
+2026-02-01 15:18:10 [INFO]    Type of messages: <class 'list'>
+2026-02-01 15:18:10 [INFO]    Found 1 messages
+2026-02-01 15:18:10 [INFO]    Last message type: ToolMessage
+2026-02-01 15:18:10 [INFO]    RAW CONTENT: '{\n  "success": true,\n  "roomType": "living room",\n  "currentStyle": "Rustic Mediterranean",\n  "keyFeatures": [\n    "Diagonal terracotta floor tiling",\n    "Corner fireplace with natural stone/marble surround and tapered hood",\n    "Wooden staircase with integrated gridded glass partition",\n    "White-framed double-glazed windows with deep sills"\n  ],\n  "condition": "fair",\n  "renovationNotes": "The space offers significant potential for modernization through updated flooring, refreshing the fireplace surround with contemporary materials, and repainting the walls for a brighter ambiance. The wooden partition could be replaced with steel and glass for an industrial look or removed to enhance open-plan flow if structural integrity is maintained."\n}'
+2026-02-01 15:18:10 [INFO]    HAS TOOL_CALLS? False
+2026-02-01 15:18:10 [INFO]    ADDITIONAL_KWARGS: {}
+2026-02-01 15:18:10 [INFO]    METADATA: {}
+2026-02-01 15:18:10 [INFO] DETECTED TOOL RESULT: 92c14a51-ff72-4cba-9e7c-7f8e1199ffec
+2026-02-01 15:18:10 [INFO] [Firestore] Saved tool message to session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 15:18:10 [INFO] [Context] 💉 Found 2 images/videos in message
+2026-02-01 15:18:10 [INFO] [Context] 💉 Injected 2 image URLs into system instruction
+2026-02-01 15:18:17 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-02-01 15:18:17 [INFO] 🐛 RAW LLM RESPONSE: content=[{'type': 'text', 'text': 'Ho analizzato la foto del tuo salone. Vedo un ambiente spazioso in stile rustico con un camino angolare caratteristico, pavimento in cotto e una scala con una parete divisoria in legno e vetro.\n\nPer procedere con il rendering, ho bisogno di sapere:\n\n**Quali elementi della foto vuoi MANTENERE invariati?** (ad esempio il camino, la scala o il pavimento)\n\nInoltre, per generare e salvare il tuo progetto, è necessario accedere al tuo account.'}] additional_kwargs={'function_call': {'name': 'request_login', 'arguments': '{}'}, '__gemini_function_call_thought_signatures__': {'14ec4fe2-0a6b-426f-9132-ff9579fd794a': 'ErsGCrgGAXLI2nzeniZm1pPWRCB+yxofrhZpsAyzXnp/QbbDwjxnyxvic5g2k+qMkxJCij8282bxuKlIg4VFo/m1TqWCqFG9MemCLEUkewhAnoRmxHQnL+L9jFl8ukTeFc5LkZy8qjCoAnHAct8v1cpkmuqI6UwWjh79YvPDoymEKLaLUyN1esiS5aZuJA6bKOL1gaVYwg94C97DTARdqy9hPx6NwGJqAKtPrLmDOxfgxx6j29vaRSgf1V3h9wPbHhnQHvJBDWNFHjpXNG1h/SVQV9EGTHw83I9SeGy9V4zPb4P0SdKbS7bPd2HYlUykPpugC3542QaC+zEHnu8M0PANNHvgt79jwIQZ4kDa/4evCnMESWQSP+SOZ339ipnsgz3z7zNIXJr4UlvkeEzGExdTWkmEDje/6vFkITcOb2iwdaphMErCWYZv1HMeZDdileV77+WnX6UlW4ffcHHx9lYSLTiKYtwfmKK/Kt+fdyOjMvRdrR0XmdUvYOgTF1jDDA9kc5TfEW02lrBRd2gwbCmqKraNSZQM6L0eWbhV26j9LgGkBIAZBaZop3MvcEhJvpTw86OiClCoI/Ynz/xllO5gYRBD3FrTAMI0935e/8NuM7WXe1s2t5Bk4QIbH0gAqhNnXttPYT1RFnLpTXmwkEd1W0q78nm0bJtLnl6GI05+UsJk+eSkag40B+z7ooKV9qmVMFERFJv9V0HRTGtZ28VHZwwLSJF/AJhjPGlbnUsLuBGBgXSxtrWPc1NJIaAvs4PJKs6kATz/jmEG8zsdKcGoXGbjiWyq8sK1g1xOE8EALdj8I69dzlJCQ2RmpHoIf8wn1STMfHmTyfEj4p4vUbZ/X58km46ZKsqI505bnpOYWaHHcZy15Rv6VP6RN8XwziIddUyRYoJcjDE8vLlvzzZc/YkxCeVPj75814mlN4DVH6wOIxONvqBXp5FaT6z7ffzrAtQEIUgm0hC5ufbJsRJhTAqTSQn8pMKIT1bq5Kh12RyGklqZt2dRaCe+Lyor8bYr4+CXkfk28i0q27dK86cOpziST7ci1crhlWLph+PjxwWhHTxJC3vdfykcbj60qiCzM7kW7Pr2syeyNbY='}} response_metadata={'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'} id='lc_run--019c1991-7b70-7d20-92ab-d7189c117f60-0' tool_calls=[{'name': 'request_login', 'args': {}, 'id': '14ec4fe2-0a6b-426f-9132-ff9579fd794a', 'type': 'tool_call'}] invalid_tool_calls=[] usage_metadata={'input_tokens': 15136, 'output_tokens': 318, 'total_tokens': 15454, 'input_token_details': {'cache_read': 0}, 'output_token_details': {'reasoning': 201}}
+2026-02-01 15:18:17 [INFO] Event received: ['agent']
+2026-02-01 15:18:17 [INFO] Checking NODE: agent
+2026-02-01 15:18:17 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url', 'has_uploaded_image', 'has_analyzed_room']
+2026-02-01 15:18:17 [INFO]    Type of messages: <class 'list'>
+2026-02-01 15:18:17 [INFO]    Found 1 messages
+2026-02-01 15:18:17 [INFO]    Last message type: AIMessage
+2026-02-01 15:18:17 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Ho analizzato la foto del tuo salone. Vedo un ambiente spazioso in stile rustico con un camino angolare caratteristico, pavimento in cotto e una scala con una parete divisoria in legno e vetro.\n\nPer procedere con il rendering, ho bisogno di sapere:\n\n**Quali elementi della foto vuoi MANTENERE invariati?** (ad esempio il camino, la scala o il pavimento)\n\nInoltre, per generare e salvare il tuo progetto, è necessario accedere al tuo account.'}]
+2026-02-01 15:18:17 [INFO]    HAS TOOL_CALLS? True
+2026-02-01 15:18:17 [INFO]    TOOL_CALLS: [{'name': 'request_login', 'args': {}, 'id': '14ec4fe2-0a6b-426f-9132-ff9579fd794a', 'type': 'tool_call'}]
+2026-02-01 15:18:17 [INFO]    ADDITIONAL_KWARGS: {'function_call': {'name': 'request_login', 'arguments': '{}'}, '__gemini_function_call_thought_signatures__': {'14ec4fe2-0a6b-426f-9132-ff9579fd794a': 'ErsGCrgGAXLI2nzeniZm1pPWRCB+yxofrhZpsAyzXnp/QbbDwjxnyxvic5g2k+qMkxJCij8282bxuKlIg4VFo/m1TqWCqFG9MemCLEUkewhAnoRmxHQnL+L9jFl8ukTeFc5LkZy8qjCoAnHAct8v1cpkmuqI6UwWjh79YvPDoymEKLaLUyN1esiS5aZuJA6bKOL1gaVYwg94C97DTARdqy9hPx6NwGJqAKtPrLmDOxfgxx6j29vaRSgf1V3h9wPbHhnQHvJBDWNFHjpXNG1h/SVQV9EGTHw83I9SeGy9V4zPb4P0SdKbS7bPd2HYlUykPpugC3542QaC+zEHnu8M0PANNHvgt79jwIQZ4kDa/4evCnMESWQSP+SOZ339ipnsgz3z7zNIXJr4UlvkeEzGExdTWkmEDje/6vFkITcOb2iwdaphMErCWYZv1HMeZDdileV77+WnX6UlW4ffcHHx9lYSLTiKYtwfmKK/Kt+fdyOjMvRdrR0XmdUvYOgTF1jDDA9kc5TfEW02lrBRd2gwbCmqKraNSZQM6L0eWbhV26j9LgGkBIAZBaZop3MvcEhJvpTw86OiClCoI/Ynz/xllO5gYRBD3FrTAMI0935e/8NuM7WXe1s2t5Bk4QIbH0gAqhNnXttPYT1RFnLpTXmwkEd1W0q78nm0bJtLnl6GI05+UsJk+eSkag40B+z7ooKV9qmVMFERFJv9V0HRTGtZ28VHZwwLSJF/AJhjPGlbnUsLuBGBgXSxtrWPc1NJIaAvs4PJKs6kATz/jmEG8zsdKcGoXGbjiWyq8sK1g1xOE8EALdj8I69dzlJCQ2RmpHoIf8wn1STMfHmTyfEj4p4vUbZ/X58km46ZKsqI505bnpOYWaHHcZy15Rv6VP6RN8XwziIddUyRYoJcjDE8vLlvzzZc/YkxCeVPj75814mlN4DVH6wOIxONvqBXp5FaT6z7ffzrAtQEIUgm0hC5ufbJsRJhTAqTSQn8pMKIT1bq5Kh12RyGklqZt2dRaCe+Lyor8bYr4+CXkfk28i0q27dK86cOpziST7ci1crhlWLph+PjxwWhHTxJC3vdfykcbj60qiCzM7kW7Pr2syeyNbY='}}
+2026-02-01 15:18:17 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-02-01 15:18:17 [INFO] DETECTED TOOL CALLS: 1
+2026-02-01 15:18:17 [INFO] [Firestore] Saved assistant message to session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 15:18:17 [INFO] Saved assistant tool call message (1 calls)
+2026-02-01 15:18:17 [INFO] STREAMING TOOL CALL: request_login
+2026-02-01 15:18:17 [INFO] AI TEXT RESPONSE: Ho analizzato la foto del tuo salone. Vedo un ambiente spazioso in stile rustico con un camino angol...
+2026-02-01 15:18:17 [INFO] Event received: ['tools']
+2026-02-01 15:18:17 [INFO] Checking NODE: tools
+2026-02-01 15:18:17 [INFO]    Node output keys: ['messages']
+2026-02-01 15:18:17 [INFO]    Type of messages: <class 'list'>
+2026-02-01 15:18:17 [INFO]    Found 1 messages
+2026-02-01 15:18:17 [INFO]    Last message type: ToolMessage
+2026-02-01 15:18:17 [INFO]    RAW CONTENT: 'LOGIN_REQUIRED_UI_TRIGGER'
+2026-02-01 15:18:17 [INFO]    HAS TOOL_CALLS? False
+2026-02-01 15:18:17 [INFO]    ADDITIONAL_KWARGS: {}
+2026-02-01 15:18:17 [INFO]    METADATA: {}
+2026-02-01 15:18:17 [INFO] DETECTED TOOL RESULT: 14ec4fe2-0a6b-426f-9132-ff9579fd794a
+2026-02-01 15:18:17 [INFO] [Firestore] Saved tool message to session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 15:18:17 [INFO] [Context] 💉 Found 2 images/videos in message
+2026-02-01 15:18:17 [INFO] [Context] 💉 Injected 2 image URLs into system instruction
+2026-02-01 15:18:24 [INFO] HTTP Request: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent "HTTP/1.1 200 OK"
+2026-02-01 15:18:24 [INFO] 🐛 RAW LLM RESPONSE: content=[{'type': 'text', 'text': 'Ho analizzato la foto: vedo un salone con pavimenti in cotto, un camino angolare e una scala in legno con divisorio a griglia.\n\nPer procedere con la creazione del rendering, ho bisogno che tu acceda al tuo account gratuito cliccando sul tasto che è appena apparso.\n\nNel frattempo, dimmi: quali elementi di questa stanza vuoi **conservare** esattamente così come sono? (es. il camino, la scala, il pavimento...)', 'extras': {'signature': 'EoMJCoAJAXLI2nyE09F8VhXFUY2SuZWPcu/XdIK3//bXCHaOGdf33yRuSG8Usa62v/3973Piy8R8wGPJ2XoUOQJvStxI9+DQPSNuehd8vo6qvuuwUHD/rDLeEmdpyr5fSuqOlwE7L1/6ybwo2Ppan8dia5rtO/uckGczApxdp9du2ydUHdwvzr+YYoJwl92AD0MC8JGVE47/VJCZrCMiFtASdWU6NuTDC2rCjjcGHVXDLbYHt0QlBrrHWF/0sBFrhbBSl75RAeaefm+3ohTIRB5XICoa0yfa/FIbLTGhk9a9rG+Ka0fklncfzHP7hE9+h+JU8UTd79rHHP7dPYW0w4Lct+9HJNrQk+BTW31pV+qGTHWO6zumfzq9WNtf0e+jTVW/JMqOtUNajjl1rqOykGT9SkZ6BtzdembvIruYBDMO2/Q9UYJcKl9owBT7VfMjDdpVkBk9+TH808/lfHu2Mkyd0bf5/UgfrnHoyiF7hgsz9QEoMpiOJFWDBbb+DUNYZh4IUkyuahpmT39NZm9oG8cIrwM7mGHtKy5qpBO+CMBO6FSHy3nmVhxuhjpsR7KpMEMCnF6KZo//0KwYsccbVhr/l/F77aXIfkbZwTNa5hcDEATCvRVD2PSlQ9rQYrzFUyW0eWlP3LFsGkLc5uI3BcfnzOjVsLHG5CvxHQIzLIkOs901tK+AuMllf84d/PHxI1w1kcGvjSqoyamBXjaahQiJydPJB51zB2mDK3aWqgaLKGN9rEQOUg+cl1Oy5vb6ZD1IatoYKNTY4+FgBb4r4+pCH+HNEgJiHNN4wnCMLmp24W+Su+C8WPsbcGzE7XvBwKY/J6lvXYPQUGh87Qfg770EdiS/4s92J84x4qN30+mEiecnlO43CnoJAsQHemjdEINxiBs/fmbflapU9Ygx55KeoDwqHu27xUFh+YnSG1qPjw7HFFmyEfPLLwWDbUWMMGjjPBn04AQ+KOhKmoZK2IiQL2s0dvd3YdlDX0vjxTbqIIbtn3gpYDyRnt7TT+Xs+weqlEp6fSgR+plg2aME0XMwcf/RNvQMajLjX5bqhI6Qc5I4DaMn16qByZPYdGmfZYIb0UlvRvxlZU3QMemw1BVFVJ733tXXWCiqkOSCJQVzbidsgiLDVriR1VOn/D56MNZo6h7C9eSdo89ishMvIn6236Op5cm0cjgbQApK9yDgLebEDnT1l7PYZREswvd8br92QB9K0w593QHj+n3CbP5VcGz5mDaWmKuXvX3i1msqaL8pK2G0oKva543NH3/xXqaXGt9EiUO6YaS7UCdLYDiuTnXTuIRTFSzMfz6ioA42dM4ktUTLZkl+0Y08O9xu+9H1XQ2wNptLVA/2BoMAoV3U2DSYeFiVjMlbvf2kfMNyR3mXQb+u5oYdUlEvbK0p4Ym/BXutW/EkkPyA3Phn1RD+3otHJUKjm+cIWeyYUZvwuPquHIdiUaBqPHQ0WKEliOwCHItKz8PmWaAYpNNsUcD9jIoNaETWhDfl308LaguzXUUGyPavBbooaHPOjrz1Xqg+/yt5'}}] additional_kwargs={} response_metadata={'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'} id='lc_run--019c1991-976c-7be2-90f2-943234b08ac2-0' tool_calls=[] invalid_tool_calls=[] usage_metadata={'input_tokens': 15367, 'output_tokens': 373, 'total_tokens': 15740, 'input_token_details': {'cache_read': 0}, 'output_token_details': {'reasoning': 273}}
+2026-02-01 15:18:24 [INFO] Event received: ['agent']
+2026-02-01 15:18:24 [INFO] Checking NODE: agent
+2026-02-01 15:18:24 [INFO]    Node output keys: ['messages', 'phase', 'active_image_url', 'has_uploaded_image', 'has_analyzed_room']
+2026-02-01 15:18:24 [INFO]    Type of messages: <class 'list'>
+2026-02-01 15:18:24 [INFO]    Found 1 messages
+2026-02-01 15:18:24 [INFO]    Last message type: AIMessage
+2026-02-01 15:18:24 [INFO]    RAW CONTENT: [{'type': 'text', 'text': 'Ho analizzato la foto: vedo un salone con pavimenti in cotto, un camino angolare e una scala in legno con divisorio a griglia.\n\nPer procedere con la creazione del rendering, ho bisogno che tu acceda al tuo account gratuito cliccando sul tasto che è appena apparso.\n\nNel frattempo, dimmi: quali elementi di questa stanza vuoi **conservare** esattamente così come sono? (es. il camino, la scala, il pavimento...)', 'extras': {'signature': 'EoMJCoAJAXLI2nyE09F8VhXFUY2SuZWPcu/XdIK3//bXCHaOGdf33yRuSG8Usa62v/3973Piy8R8wGPJ2XoUOQJvStxI9+DQPSNuehd8vo6qvuuwUHD/rDLeEmdpyr5fSuqOlwE7L1/6ybwo2Ppan8dia5rtO/uckGczApxdp9du2ydUHdwvzr+YYoJwl92AD0MC8JGVE47/VJCZrCMiFtASdWU6NuTDC2rCjjcGHVXDLbYHt0QlBrrHWF/0sBFrhbBSl75RAeaefm+3ohTIRB5XICoa0yfa/FIbLTGhk9a9rG+Ka0fklncfzHP7hE9+h+JU8UTd79rHHP7dPYW0w4Lct+9HJNrQk+BTW31pV+qGTHWO6zumfzq9WNtf0e+jTVW/JMqOtUNajjl1rqOykGT9SkZ6BtzdembvIruYBDMO2/Q9UYJcKl9owBT7VfMjDdpVkBk9+TH808/lfHu2Mkyd0bf5/UgfrnHoyiF7hgsz9QEoMpiOJFWDBbb+DUNYZh4IUkyuahpmT39NZm9oG8cIrwM7mGHtKy5qpBO+CMBO6FSHy3nmVhxuhjpsR7KpMEMCnF6KZo//0KwYsccbVhr/l/F77aXIfkbZwTNa5hcDEATCvRVD2PSlQ9rQYrzFUyW0eWlP3LFsGkLc5uI3BcfnzOjVsLHG5CvxHQIzLIkOs901tK+AuMllf84d/PHxI1w1kcGvjSqoyamBXjaahQiJydPJB51zB2mDK3aWqgaLKGN9rEQOUg+cl1Oy5vb6ZD1IatoYKNTY4+FgBb4r4+pCH+HNEgJiHNN4wnCMLmp24W+Su+C8WPsbcGzE7XvBwKY/J6lvXYPQUGh87Qfg770EdiS/4s92J84x4qN30+mEiecnlO43CnoJAsQHemjdEINxiBs/fmbflapU9Ygx55KeoDwqHu27xUFh+YnSG1qPjw7HFFmyEfPLLwWDbUWMMGjjPBn04AQ+KOhKmoZK2IiQL2s0dvd3YdlDX0vjxTbqIIbtn3gpYDyRnt7TT+Xs+weqlEp6fSgR+plg2aME0XMwcf/RNvQMajLjX5bqhI6Qc5I4DaMn16qByZPYdGmfZYIb0UlvRvxlZU3QMemw1BVFVJ733tXXWCiqkOSCJQVzbidsgiLDVriR1VOn/D56MNZo6h7C9eSdo89ishMvIn6236Op5cm0cjgbQApK9yDgLebEDnT1l7PYZREswvd8br92QB9K0w593QHj+n3CbP5VcGz5mDaWmKuXvX3i1msqaL8pK2G0oKva543NH3/xXqaXGt9EiUO6YaS7UCdLYDiuTnXTuIRTFSzMfz6ioA42dM4ktUTLZkl+0Y08O9xu+9H1XQ2wNptLVA/2BoMAoV3U2DSYeFiVjMlbvf2kfMNyR3mXQb+u5oYdUlEvbK0p4Ym/BXutW/EkkPyA3Phn1RD+3otHJUKjm+cIWeyYUZvwuPquHIdiUaBqPHQ0WKEliOwCHItKz8PmWaAYpNNsUcD9jIoNaETWhDfl308LaguzXUUGyPavBbooaHPOjrz1Xqg+/yt5'}}]
+2026-02-01 15:18:24 [INFO]    HAS TOOL_CALLS? True
+2026-02-01 15:18:24 [INFO]    TOOL_CALLS: []
+2026-02-01 15:18:24 [INFO]    ADDITIONAL_KWARGS: {}
+2026-02-01 15:18:24 [INFO]    METADATA: {'finish_reason': 'STOP', 'model_name': 'gemini-3-flash-preview', 'safety_ratings': [], 'model_provider': 'google_genai'}
+2026-02-01 15:18:24 [INFO] AI TEXT RESPONSE: Ho analizzato la foto: vedo un salone con pavimenti in cotto, un camino angolare e una scala in legn...
+2026-02-01 15:18:24 [INFO] [Firestore] Saved assistant message to session e3d6258c-ecf0-400b-8fb8-c0e3886f3e7f
+2026-02-01 15:18:24 [INFO] 💾 Saved assistant response to DB (851 chars)
+2026-02-01 15:19:25 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:19:25 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:19:59 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:20:00 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:20:36 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:20:37 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:20:43 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3
+2026-02-01 15:20:43 [INFO] [Projects] Retrieved 3 projects for user eD2MWEyuIBU1s0VjYQApU0WPMOE3

@@ -1,0 +1,138 @@
+import { ProjectListItem } from '@/types/projects';
+import { motion } from 'framer-motion';
+import { Calendar, ArrowRight, FolderKanban, Plus } from 'lucide-react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+
+interface ProjectsCarouselProps {
+    projects: ProjectListItem[];
+    isLoading: boolean;
+    onCreateNew: () => void;
+}
+
+export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsCarouselProps) {
+    const router = useRouter();
+
+    if (isLoading) {
+        return <LoadingSkeleton />;
+    }
+
+    if (projects.length === 0) {
+        return <EmptyState onCreateNew={onCreateNew} />;
+    }
+
+    return (
+        <div className="relative w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4 px-1">
+                <h2 className="text-xl font-serif font-bold text-luxury-text">Recenti</h2>
+                <button
+                    onClick={() => router.push('/dashboard/projects')}
+                    className="text-xs font-medium text-luxury-gold hover:text-luxury-gold/80 flex items-center gap-1 transition-colors"
+                >
+                    Vedi tutti <ArrowRight className="w-3 h-3" />
+                </button>
+            </div>
+
+            {/* Carousel Container */}
+            <div className="flex overflow-x-auto pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 gap-4 snap-x snap-mandatory scrollbar-hide">
+                {projects.map((project, index) => (
+                    <ProjectCard key={project.session_id} project={project} index={index} />
+                ))}
+
+                {/* "View More" Card at the end */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: projects.length * 0.1 }}
+                    className="snap-start shrink-0 w-[140px] h-[200px] flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-luxury-text/10 bg-luxury-bg/30 hover:bg-luxury-bg/50 hover:border-luxury-gold/30 transition-all cursor-pointer group"
+                    onClick={() => router.push('/dashboard/projects')}
+                >
+                    <div className="p-3 rounded-full bg-luxury-text/5 group-hover:bg-luxury-gold/10 transition-colors">
+                        <ArrowRight className="w-5 h-5 text-luxury-text/40 group-hover:text-luxury-gold" />
+                    </div>
+                    <span className="text-xs text-luxury-text/40 font-medium group-hover:text-luxury-text/60">Vedi Archivio</span>
+                </motion.div>
+            </div>
+        </div>
+    );
+}
+
+function ProjectCard({ project, index }: { project: ProjectListItem, index: number }) {
+    const router = useRouter();
+
+    // Formatting date safely
+    const date = project.updated_at
+        ? new Date(project.updated_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
+        : 'Nuovo';
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+            onClick={() => router.push(`/dashboard/${project.session_id}`)}
+            className="snap-start shrink-0 w-[240px] flex flex-col gap-3 group cursor-pointer"
+        >
+            {/* Image Container */}
+            <div className="relative h-[160px] w-full rounded-2xl overflow-hidden bg-luxury-bg/50 border border-luxury-text/5 group-hover:border-luxury-gold/30 transition-all">
+                {project.thumbnail_url ? (
+                    <Image
+                        src={project.thumbnail_url}
+                        alt={project.title}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-luxury-bg/80">
+                        <FolderKanban className="w-8 h-8 text-luxury-text/20 group-hover:text-luxury-gold/50 transition-colors" />
+                    </div>
+                )}
+
+                {/* Status Badge */}
+                <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md text-[10px] font-medium text-white border border-white/10 uppercase tracking-widest">
+                    {project.status === 'draft' ? 'Bozza' : project.status}
+                </div>
+            </div>
+
+            {/* Info */}
+            <div className="px-1">
+                <h3 className="text-base font-serif font-bold text-luxury-text truncate group-hover:text-luxury-gold transition-colors">
+                    {project.title}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                    <Calendar className="w-3 h-3 text-luxury-text/40" />
+                    <span className="text-xs text-luxury-text/40 font-sans">{date}</span>
+                </div>
+            </div>
+        </motion.div>
+    );
+}
+
+function LoadingSkeleton() {
+    return (
+        <div className="flex gap-4 overflow-hidden py-2">
+            {[1, 2, 3].map((i) => (
+                <div key={i} className="shrink-0 w-[240px] h-[220px] rounded-2xl bg-luxury-text/5 animate-pulse" />
+            ))}
+        </div>
+    );
+}
+
+function EmptyState({ onCreateNew }: { onCreateNew: () => void }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-10 px-4 rounded-3xl border border-dashed border-luxury-text/10 bg-luxury-bg/20">
+            <div className="p-4 rounded-full bg-luxury-gold/5 mb-3">
+                <FolderKanban className="w-6 h-6 text-luxury-gold/50" />
+            </div>
+            <p className="text-luxury-text/60 text-sm mb-4 font-sans text-center">Nessun progetto recente</p>
+            <button
+                onClick={onCreateNew}
+                className="flex items-center gap-2 px-5 py-2.5 bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold rounded-full text-sm transition-all"
+            >
+                <Plus className="w-4 h-4" />
+                Crea Progetto
+            </button>
+        </div>
+    );
+}

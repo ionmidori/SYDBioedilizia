@@ -5,15 +5,23 @@
 
 ---
 
-## 🏗️ 1. Architecture Fundamentals
+## 🏗️ 1. Architecture Fundamentals (Nested 3-Tier)
 
-The system follows a strict **3-Tier Architecture**. Violating this leads to unmaintainable bugs.
+The system follows a strict **Nested Architecture** to ensure deterministic AI behavior:
 
-- **Tier 1: Intent (Directives)** → Define *what* to do.
-- **Tier 2: Orchestration (Frontend/Next.js)** → Manages *when* to do it.
-- **Tier 3: Execution (Backend/FastAPI)** → Knows *how* to do it.
+### A. Global Stack
+- **Directives** (Piani di Business): Definiscono *cosa* deve accadere.
+- **Orchestration** (Frontend): Gestisce l'interfaccia e la sicurezza perimetrale.
+- **Execution** (**SYD Brain/Backend**): Esegue la logica complessa.
 
-**Golden Rule:** The Backend is stateless and deterministic. It never "guesses" context; it must be provided via the `session_id` or request body.
+### B. Internal Backend (The CoT Graph)
+Dentro il backend Python, usiamo un modello **Direct-Orchestrate-Execute (DOE)**:
+1. **Tier 1: Directive (Reasoning Node)**: Gemini Flash pianifica l'azione finale. Validato da Pydantic.
+2. **Tier 2: Orchestration (Bones)**: Edges del grafo (`edges.py`) che smistano il traffico in base al piano.
+3. **Tier 3: Execution (Muscle)**: Tools e SOP Manager che applicano le regole finali (RBTA).
+
+**Golden Rule:** Il backend fallisce immediatamente (**Fail-Fast**) se il ragionamento (Tier 1) devia dalle regole Pydantic. Non permettiamo "guesswork" fuori dai binari stabiliti.
+
 
 ---
 
@@ -105,11 +113,12 @@ Before pushing to `main` (Production):
 
 | Action | Command (Windows Powershell) |
 | :--- | :--- |
-| **Start Backend** | `cd backend_python; python main.py` |
+| **Start Backend** | `cd backend_python; uv run uvicorn main:app --reload --port 8080` |
 | **Start Frontend** | `cd web_client; npm run dev` |
-| **Kill Zombie Ports** | `taskkill /F /IM python.exe /IM node.exe` |
-| **Type Check** | `cd web_client; npm run type-check` |
-| **Update Dependencies** | `pip freeze > requirements.txt` / `npm install` |
+| **Kill Zombie Ports**| `Get-NetTCPConnection -LocalPort 8080 \| Select-Object OwningProcess` |
+| **Run Guard Tests** | `cd backend_python; uv run pytest tests/unit/test_pydantic_guards.py` |
+| **Global Sync** | `npm install` (from root) |
+
 
 ---
 

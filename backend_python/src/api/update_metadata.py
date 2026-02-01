@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
 from src.db.firebase_client import get_firestore_client, get_storage_client
-from src.auth.dependencies import get_current_user_id
+from src.auth.jwt_handler import get_current_user_id
 
 logger = logging.getLogger(__name__)
 

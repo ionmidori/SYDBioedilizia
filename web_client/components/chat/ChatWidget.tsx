@@ -2,6 +2,7 @@
 
 // Components
 import { ChatHeader } from '@/components/chat/ChatHeader';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatToggleButton } from '@/components/chat/ChatToggleButton';
@@ -104,8 +105,50 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                 console.log('[ChatWidget] 🔄 Restored active project context:', stored);
                 setSyncedProjectId(stored);
             }
+
+            // 🔥 Realtime Listener for Project Switching
+            const handleProjectChange = (e: CustomEvent) => {
+                const newId = e.detail;
+                console.log('[ChatWidget] ⚡ Realtime Project Switch:', newId);
+                setSyncedProjectId(newId);
+
+                // Optional: Force close sidebar if open? No, keep user preference.
+                // But we MUST clear any selected image from previous project
+                setSelectedImage(null);
+            };
+
+            window.addEventListener('projectChanged', handleProjectChange as EventListener);
+            return () => window.removeEventListener('projectChanged', handleProjectChange as EventListener);
         }
     }, [isInitialized, user, projectId]);
+
+    // 🔗 URL SYNC: Listen to Path Changes (Back/Forward Navigation)
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        if (!pathname) return;
+
+        // 1. Dashboard Route: /dashboard/[id]
+        const match = pathname.match(/\/dashboard\/([^\/]+)/);
+        if (match && match[1]) {
+            const pathId = match[1];
+            if (pathId !== syncedProjectId && pathId !== 'new') {
+                console.log('[ChatWidget] 🔗 URL Navigation Detected (Path):', pathId);
+                setSyncedProjectId(pathId);
+                localStorage.setItem('activeProjectId', pathId);
+            }
+        }
+        // 2. Query Param: ?projectId=... (Landing Page)
+        else {
+            const queryId = searchParams?.get('projectId');
+            if (queryId && queryId !== syncedProjectId) {
+                console.log('[ChatWidget] 🔗 URL Query Detected:', queryId);
+                setSyncedProjectId(queryId);
+                localStorage.setItem('activeProjectId', queryId);
+            }
+        }
+    }, [pathname, searchParams, syncedProjectId]);
 
     // Session Management
     // Use syncedProjectId (from prop or storage) -> Dashboard Context
@@ -121,7 +164,11 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // but we know it works at runtime (and is standard).
     const chat = useChat({
         api: '/api/chat',
-        body: { sessionId },
+        body: {
+            sessionId,
+            // 🔥 AUTH INJECTION: Tell the backend if we are logged in
+            is_authenticated: !!user
+        },
         headers: async () => {
             const token = await refreshToken();
             return { 'Authorization': `Bearer ${token}` };
@@ -145,6 +192,32 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // Destructure from Typed Helper
     const { messages, isLoading, sendMessage, error, setInput, input, setMessages } = chat;
+
+    // 🧹 STATE RESET: When Project/Session Changes
+    useEffect(() => {
+        // When switching projects, we must clear the OLD messages from the SDK state
+        // The useChatHistory hook will handle loading the NEW messages for the new ID
+        // But we need to ensure the UI doesn't show a mix/flash of old messages
+        if (typeof setMessages === 'function') {
+            setMessages([]);
+        }
+
+        if (typeof setInput === 'function') {
+            setInput('');
+        }
+
+        setErrorMessage(null);
+    }, [sessionId, setMessages, setInput]);
+
+    // DEBUG: Inspect SDK availability
+    useEffect(() => {
+        if (!process.env.NEXT_PUBLIC_IS_PROD) {
+            console.log("SDK Methods Check:", {
+                hasSetInput: typeof setInput === 'function',
+                hasSetMessages: typeof setMessages === 'function'
+            });
+        }
+    }, [setInput, setMessages]);
 
 
     // DEBUG: Inspect hook return value
@@ -380,8 +453,11 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     }, [historyLoaded, historyMessages, setMessages]);
 
     // 🔄 CONTEXT SWITCHING (Global Widget Only)
+    const router = useRouter(); // Required for conditional navigation
+
     const handleProjectSwitch = (newProjectId: string) => {
         console.log('[ChatWidget] Switching context to:', newProjectId);
+
         // 1. Update State
         setSyncedProjectId(newProjectId);
         localStorage.setItem('activeProjectId', newProjectId);
@@ -389,7 +465,19 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         // 2. Clear current messages to prevent ghosting
         setMessages([]);
 
-        // 3. Note: useChatHistory key change will trigger re-fetch automatically.
+        // 3. Conditional Navigation:
+        // If we are already inside the dashboard, we should navigate the whole page
+        // to keep the background content in sync with the chat.
+        // If we are on the Landing Page, we stay there (just switching chat context).
+        if (pathname?.startsWith('/dashboard')) {
+            console.log('[ChatWidget] navigate to new dashboard project:', newProjectId);
+            router.push(`/dashboard/${newProjectId}`);
+        } else {
+            // Landing Page / Other: Update Query Param to reflect state
+            // This gives the user feedback that something changed "address changed"
+            console.log('[ChatWidget] update query param:', newProjectId);
+            router.push(`/?projectId=${newProjectId}`);
+        }
     };
 
     return (
@@ -442,7 +530,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                             <ChatHeader
                                 onMinimize={isInline ? undefined : () => setIsOpen(false)}
                                 projectId={syncedProjectId}
-                                showSelector={!!user}
+                                showSelector={!!user} // ✅ Show selector if logged in (even in Global Mode)
                                 onProjectSelect={!isInline ? handleProjectSwitch : undefined}
                             />
 

@@ -9,7 +9,14 @@ class AgentState(TypedDict):
     user_id: str
     
     # 🧠 Deterministic State Tracking
-    phase: str          # "TRIAGE", "DESIGN", "QUOTE", "COMPLETE"
-    active_image_url: str  # URL being analyzed/modified
+    phase: str          # "TRIAGE", "DESIGN", "QUOTE",    # Context Tracking
+    active_image_url: str
+    has_uploaded_image: bool
+    has_analyzed_room: bool
+    is_authenticated: bool # 🔥 NEW: Auth Gatingdified
     generated_render_url: str # Last render URL (to prevent duplicates)
     quote_data: dict    # Partial quote data collected
+    
+    # 🧠 CoT & Reasoning (Tier 1 Integration)
+    internal_plan: list[dict] # Stores serialized ReasoningStep objects
+    thought_log: list[str]    # Private chain of thought history

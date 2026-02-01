@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation'; // 🔥 NEW
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Mail, FileText, Image as ImageIcon } from 'lucide-react';
@@ -22,14 +23,24 @@ export function Navbar() {
             setIsScrolled(window.scrollY > 20);
         };
         window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
+
+        // 🔥 LISTEN FOR LOGIN REQUESTS FROM CHAT
+        const handleOpenLogin = () => setAuthDialogOpen(true);
+        window.addEventListener('OPEN_LOGIN_MODAL', handleOpenLogin);
+
+        return () => {
+            window.removeEventListener('scroll', handleScroll);
+            window.removeEventListener('OPEN_LOGIN_MODAL', handleOpenLogin);
+        };
     }, []);
 
+    const pathname = usePathname(); // 🔥 Get current route
+
     const navLinks = [
-        { name: 'Servizi', href: '#services' },
-        { name: 'Progetti', href: '#portfolio' },
+        { name: 'Servizi', href: pathname === '/' ? '#services' : '/#services' },
+        { name: 'Progetti', href: pathname === '/' ? '#portfolio' : '/#portfolio' },
         { name: 'Chi Siamo', href: '/chi-siamo' },
-        { name: 'FAQ', href: '#faq' },
+        { name: 'FAQ', href: pathname === '/' ? '#faq' : '/#faq' },
     ];
 
     const contactLinks = [

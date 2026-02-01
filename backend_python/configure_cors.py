@@ -15,6 +15,7 @@ def configure_cors():
             "origin": [
                 "http://localhost:3000",
                 "https://website-renovation.vercel.app",
+                "https://sydbioedilizia.vercel.app",
                 "https://syd-brain-w6yrkh3gfa-ew.a.run.app"
             ],
             "method": ["GET", "PUT", "POST", "DELETE", "OPTIONS"],

@@ -1,69 +1,70 @@
-# 🗺️ Mappa dell'Architettura del Chatbot
+# 🗺️ Mappa dell'Architettura del Chatbot (v2.0)
 
-Questo documento delinea la struttura dei file e le funzioni principali del Chatbot Renovation AI, mappando la logica ai file specifici nel monorepo.
+Questo documento delinea la struttura del sistema **SYD Bioedilizia**, mappando la logica ai file specifici dopo la migrazione alla **3-Tier Python-First Architecture**.
 
-## 🟢 Livello Frontend (`web_client`)
+## 🟢 1. Livello Orchestrazione Frontend (`web_client`)
 
-Gestisce l'interfaccia utente, la gestione dello stato e lo streaming in tempo reale.
+Gestisce l'interfaccia utente, lo streaming e la gestione dello stato client.
 
 | Componente | Percorso File | Funzionalità |
 | :--- | :--- | :--- |
-| **Pagina Chat** | `app/page.tsx` | Entry point principale, wrapper del layout. |
-| **Widget Chat** | `components/chat/ChatWidget.tsx` | Contenitore UI principale. Orchestra `ChatMessages` e `ChatInput`. |
-| **Lista Messaggi** | `components/chat/ChatMessages.tsx` | Renderizza i messaggi, il testo Markdown e le **Immagini**. |
-| **Hook Logica** | `hooks/useChat.ts` | **Logica Client Core**. Gestisce: <br>• Connessione WebSocket/Stream <br>• Parsing messaggi (Data Stream Protocol) <br>• Stato (caricamento, errori, UI ottimistica) |
-| **Client API** | `app/api/chat/route.ts` | **Orchestratore Server-Side**. <br>• Valida Utente/Sessione <br>• Applica Rate Limits <br>• Chiama Gemini Pro (via `streamText`) <br>• Persistenza (salva messaggi su Firestore) |
+| **Widget UI** | `components/chat/ChatWidget.tsx` | Contenitore principale. Gestisce caricamento media e interazione. |
+| **Logic Hook** | `hooks/useChat.ts` | Gestisce lo stream del Vercel Data Stream Protocol (0:, 9:, a:, 3:). |
+| **Proxy Server**| `app/api/chat/route.ts` | Pass-through verso il backend Python. Gestisce Auth & App Check. |
 
 ---
 
-## 🔵 Livello Intelligence (`ai_core`)
+## 🐍 2. Livello Intelligence Backend (`backend_python`)
 
-Contiene il "Cervello" del chatbot: tool IA, prompt engineering e logica di business.
+Il "Cervello" del sistema (denominato **SYD Brain**), basato su **LangGraph** e **CoT (Chain of Thought)**.
 
-### 🛠️ Tool IA (Function Calling)
+### 🧠 Tier 1: Directive (Reasoning Node)
+*Situato in: `src/graph/agent.py` → `reasoning_node`*
+*Logica Pydantic: `src/models/reasoning.py`*
 
-Situati in: `ai_core/src/chat-tools.ts`
+Il sistema pianifica prima di agire. Gemini 2.0 Flash genera un oggetto `ReasoningStep` che viene validato da **Pydantic** per bloccare allucinazioni o tool non autorizzati.
 
-| Nome Tool | Descrizione | File Logica |
-| :--- | :--- | :--- |
-| **generate_render** | Crea/Modifica design d'interni. | Orchestrato in `chat-tools.ts` <br>→ Chiama `imagen/generator.ts` |
-| **get_market_prices** | Ricerca prezzi in tempo reale (Perplexity). | Logica inline in `chat-tools.ts` |
-| **submit_lead_data** | Salva info contatto cliente. | Logica inline -> chiama `db/leads.ts` |
+### 📡 Tier 2: Orchestration (Deterministic Routing)
+*Situato in: `src/graph/edges.py` → `route_step`*
 
-### 🎨 Pipeline Generazione Immagini (`ai_core/src/imagen/`)
+Il router Python decide il prossimo passo basandosi sul piano validato:
+- **`execution`**: Produce la chiamata al tool o la risposta finale.
+- **`tools`**: Esegue il tool richiesto.
+- **`END`**: Termina la conversazione.
 
-| Modulo | File | Responsabilità |
-| :--- | :--- | :--- |
-| **Generator** | `generator.ts` | Facade principale. Decide la strategia (T2I vs I2I). |
-| **Client** | `imagen_client.ts` | Wrapper basso livello per API Google Vertex AI / Imagen 3. |
-| **Prompt Builder** | `prompt-builders.ts` | Converte l'intento utente in prompt ingegnerizzati ottimizzati. |
-| **Upload Utility**| `upload-base64-image.ts`| Carica le immagini generate su Firebase Storage. |
+### ⚔️ Tier 3: Execution (SOP & Muscle)
+*Situato in: `src/agents/sop_manager.py`*
 
-### 👁️ Visione & Analisi (`ai_core/src/vision/`)
-
-| Modulo | File | Responsabilità |
-| :--- | :--- | :--- |
-| **Triage** | `triage.ts` | Analisi rapida foto caricate (Tipo Stanza, Stile). |
-| **Architect** | `architect.ts` | Analisi strutturale avanzata (Geometria, Finestre, Travi) per ricostruzione. |
+Gestisce l'accesso agli strumenti basato sui ruoli (**RBTA**):
+- **Anonimo**: Solo strumenti base, quota render limitata.
+- **Autenticato**: Accesso a preventivi, salvataggio progetti e quota render estesa.
 
 ---
 
-## 🟠 Livello Data (`ai_core/src/db/`)
+## 🛠️ Tool Registry & Vision
 
-Gestisce la persistenza usando Firebase Firestore.
-
-| Entità | File | Collezione |
+| Modulo | Percorso File | Responsabilità |
 | :--- | :--- | :--- |
-| **Messaggi** | `messages.ts` | `sessions/{id}/messages` |
-| **Leads** | `leads.ts` | `leads` |
-| **Preventivi (Quotes)** | `quotes.ts` | `quotes` (Bozze collegate alle sessioni) |
+| **Tool Registry** | `src/graph/tools_registry.py` | Definizione di tutti gli strumenti (Render, Triage, Mercato). |
+| **Vision Engine** | `src/vision/triage.py` | Analisi "Agentic Vision" per identificare stanze e potenziali di ristrutturazione. |
+| **Generation** | `src/tools/imagen_tools.py` | Integrazione con Imagen 3 per rendering fotorealistici. |
+| **Market Intel** | `src/tools/perplexity_intel.py`| Ricerca prezzi materiali via Sonar (Perplexity). |
 
 ---
 
-## 🔐 Configurazione & Sicurezza
+## 🗄️ Livello Data & Persistenza (`src/db/`)
 
-| Tipo | File | Dettagli |
+Il backend gestisce la memoria a lungo termine su **Firebase Firestore**.
+
+| Modulo | Percorso File | Responsabilità |
 | :--- | :--- | :--- |
-| **Var Amb** | `web_client/.env` | API Keys (Gemini, Perplexity, Firebase). |
-| **Rate Limit** | `web_client/lib/rate-limit.ts` | Logica throttling basata su IP. |
-| **Tool Quota** | `ai_core/src/tool-quota.ts` | Logica per limitare tool costosi specifici (Render/Preventivi). |
+| **Messages DAO** | `src/db/messages.py` | Salvataggio cronologia, gestione `session_id`. |
+| **Quota Manager**| `src/db/quota.py` | Tracciamento utilizzo giornaliero strumenti premium. |
+| **Project DAO** | `src/db/projects.py` | Gestione metadati cantieri e galleria immagini. |
+
+---
+
+## ⚡ Ottimizzazioni
+- **Gatekeeper**: (`agent.py` → `entry_gatekeeper`) Bypassa il reasoning per saluti e frasi semplici per ridurre latenza.
+- **Lazy Loading**: Il grafo dell'agente e i modelli LLM vengono inizializzati solo al primo pacchetto per accelerare il boot.
+

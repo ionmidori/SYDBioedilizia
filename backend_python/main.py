@@ -52,7 +52,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "https://website-renovation.vercel.app",
-        "https://website-renovation-git-main-ionmidori.vercel.app"
+        "https://website-renovation-git-main-ionmidori.vercel.app",
+        "https://sydbioedilizia.vercel.app",
+        "https://sydbioedilizia-git-main-ionmidori.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],

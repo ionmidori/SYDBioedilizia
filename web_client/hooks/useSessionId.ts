@@ -8,9 +8,17 @@ export function useSessionId() {
     const [sessionId] = useState(() => {
         if (typeof window === 'undefined') return `session-${Date.now()}`;
 
+        // 1. Priority: Project Context (Logged in User)
+        const activeProjectId = localStorage.getItem('activeProjectId');
+        if (activeProjectId) {
+            console.log('[SessionID] Restored Project Context:', activeProjectId);
+            return activeProjectId;
+        }
+
+        // 2. Fallback: Anonymous Session
         const stored = localStorage.getItem('chatSessionId');
         if (stored) {
-            console.log('[SessionID] Restored from localStorage:', stored);
+            console.log('[SessionID] Restored anonymous session:', stored);
             return stored;
         }
 

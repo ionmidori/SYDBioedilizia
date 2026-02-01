@@ -8,17 +8,18 @@ Built with **FastAPI**, **LangGraph**, and **Google Gemini 2.5**.
 ## 🚀 Features
 
 - **Architecture:** Async-native FastAPI service deployed on Cloud Run.
-- **AI Engine:** Recursive logic managed by `LangGraph` for robust state management.
-- **Vision Capabilities:** Uses `gemini-2.5-flash` for high-speed image triage and renovation analysis.
-- **Image Generation:** Google Imagen 3 pipeline with architect-driven prompting.
-- **Security:**
-  - **Auth:** JWT-based authentication (Validates Firebse ID Tokens / Internal Handshake).
-  - **File Access:** Uses Signed URLs (v4) for secure, temporary image sharing (7-day expiry).
-  - **Audit:** Passed Security Audit V2 (PII protection, no public ACLs).
-- **Quota System:**
-  - **Anonymous:** 1 render/day.
-  - **Authenticated:** 3 renders/day (managed via Firestore).
-- **CI/CD:** Automated testing pipeline using GitHub Actions (100% Code Coverage).
+- **Architecture:** 3-Tier Python-First Chain of Thought (CoT) orchestration.
+- **AI Engine:** Explicit reasoning steps managed by Gemini 2.0 Flash + LangGraph.
+- **Fail-Fast Security:** Pydantic-based guardrails in `src/models/reasoning.py` to validate intent before execution.
+- **RBTA (Role-Based Tool Access):** Dynamic tool visibility managed by `SOPManager` (e.g., Auth-gated rendering).
+- **Vision Capabilities:** High-speed triage and renovation analysis via automated tool routing.
+- **Latency Optimization:** "Hello" Gatekeeper bypassing heavy reasoning for simple greetings.
+
+## 🏛️ Internal Tiers
+
+1. **Tier 1 (Directive):** `reasoning_node` - Generates a structured plan (`ReasoningStep`).
+2. **Tier 2 (Orchestration):** `edges.py` - Deterministic routing based on plan validation.
+3. **Tier 3 (Execution):** `execution_node` & `SOPManager` - Hard enforcement of business rules and tool invocation.
 
 ## 🛠️ Tech Stack
 
@@ -76,19 +77,15 @@ uv run pytest --cov=src --cov-report=term-missing
 ```
 backend_python/
 ├── src/
-│   ├── agents/            # LangGraph workflows
+│   ├── agents/            # SOP Manager & High-level logic
 │   ├── api/               # FastAPI endpoints
-│   ├── auth/              # JWT & Security
-│   ├── db/                # Firestore DAO
-│   ├── graph/             # Node & Edge definitions
-│   ├── prompts/           # System Instructions
-│   ├── storage/           # GCS/Upload Logic
-│   ├── tools/             # AI Tools (Imagen, Triage, etc.)
-│   └── vision/            # Image Analysis modules
-├── tests/                 # Unit & Integration tests
+│   ├── graph/             # Node & Edge definitions (The CoT Graph)
+│   ├── models/            # Pydantic Schemas (Reasoning, State)
+│   ├── prompts/           # Modular System Instructions
+│   ├── tools/             # AI Tools (Imagen, Auth, Lead, etc.)
+│   └── vision/            # Image/Video Analysis modules
+├── tests/                 # Unit (Guards) & Integration tests
 ├── main.py                # App Entrypoint
-├── pyproject.toml         # Dependencies
-└── uv.lock                # Pinned versions
 ```
 
 ## 🔒 Security Notes

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { Outfit, Playfair_Display, Lato } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { AppCheckProvider } from "@/components/providers/AppCheckProvider";
@@ -9,6 +9,19 @@ import "./globals.css";
 const outfit = Outfit({
   subsets: ["latin"],
   variable: "--font-outfit",
+  display: "swap",
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
+});
+
+const lato = Lato({
+  subsets: ["latin"],
+  weight: ["100", "300", "400", "700", "900"],
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -36,7 +49,7 @@ export default function RootLayout({
   return (
     <html lang="it" className="scroll-smooth" suppressHydrationWarning>
       <body
-        className={`${outfit.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
+        className={`${outfit.variable} ${playfair.variable} ${lato.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
         suppressHydrationWarning
       >
         <AppCheckProvider>

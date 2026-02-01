@@ -4,13 +4,14 @@
 
 ---
 
-## 🏛️ Architettura Operativa (3-Tier)
+## 🏛️ Architettura Operativa (3-Tier CoT)
 
-La piattaforma adotta un modello ibrido per garantire massime performance e scalabilità:
+La piattaforma adotta un modello **Python-First Chain of Thought (CoT)** per garantire controllo deterministico e performance elevate:
 
-1.  **Directive Layer (Intent)**: Gestione della logica di business e flussi agentici via LangGraph.
-2.  **Orchestration Layer (Frontend)**: **Next.js 15.5.11** gestisce l'interazione utente, l'autenticazione (Passkeys/Magic Links) e il routing della Dashboard.
-3.  **Execution Layer (Backend)**: **Python (FastAPI)** gestisce i calcoli deterministici, l'elaborazione delle immagini (Computer Vision) e l'integrazione con i modelli LLM.
+1.  **Tier 1: Directive (Reasoning)**: Il "Pre-Cortex" (Gemini 2.0 Flash) analizza l'intento e genera un piano strutturato. Validato da guardrail **Pydantic** per prevenire allucinazioni.
+2.  **Tier 2: Orchestration (Routing)**: Logic layer in Python (`edges.py`) che smista il flusso di lavoro basandosi sul piano validato.
+3.  **Tier 3: Execution (Muscle)**: Un **SOP Manager** dinamico applica regole di business e accessi privilegiati (RBTA) prima di eseguire strumenti o generare risposte finali.
+
 
 ---
 

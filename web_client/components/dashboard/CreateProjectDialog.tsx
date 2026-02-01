@@ -17,13 +17,14 @@ import { useRouter } from 'next/navigation';
 interface CreateProjectDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    onProjectCreated?: (projectId: string) => void; // Optional callback to override navigation
 }
 
 interface FormData {
     title: string;
 }
 
-export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogProps) {
+export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: CreateProjectDialogProps) {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
     const { register, handleSubmit, reset } = useForm<FormData>({
@@ -38,12 +39,18 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
             const { session_id } = await projectsApi.createProject({
                 title: data.title || 'Nuovo Progetto'
             });
+
             onOpenChange(false);
             reset();
-            router.push(`/dashboard/${session_id}`);
+
+            // Custom handling (e.g. Chat reset) or Default Navigation
+            if (onProjectCreated) {
+                onProjectCreated(session_id);
+            } else {
+                router.push(`/dashboard/${session_id}`);
+            }
         } catch (error) {
             console.error('Failed to create project:', error);
-            // Ideally show toast error here
         } finally {
             setLoading(false);
         }
@@ -51,43 +58,43 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md bg-luxury-bg border border-luxury-gold/20 text-luxury-text">
-                <DialogHeader>
-                    <DialogTitle className="text-xl font-bold font-serif text-luxury-gold">
-                        Crea Nuovo Progetto
+            <DialogContent className="w-[90%] max-w-[400px] rounded-3xl bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/20 text-luxury-text p-6 shadow-2xl">
+                <DialogHeader className="space-y-4">
+                    <DialogTitle className="text-2xl font-bold font-serif text-luxury-gold text-center">
+                        Nuovo Progetto
                     </DialogTitle>
+                    <p className="text-center text-sm text-luxury-text/60">
+                        Dai un nome al tuo spazio di lavoro per iniziare
+                    </p>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 py-4">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 py-2">
                     <div className="space-y-2">
-                        <label htmlFor="title" className="text-sm font-medium text-luxury-text/70">
-                            Nome del Progetto
-                        </label>
                         <input
                             {...register('title', { required: true })}
                             id="title"
-                            placeholder="Es. Ristrutturazione Villa Rossi"
-                            className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-luxury-gold/50 focus:ring-1 focus:ring-luxury-gold/50 outline-none transition-all placeholder:text-white/20"
+                            placeholder="Es. Ristrutturazione Bagno"
+                            className="w-full px-4 py-4 rounded-2xl bg-white/5 border border-white/10 focus:border-luxury-gold/50 focus:ring-1 focus:ring-luxury-gold/50 outline-none transition-all placeholder:text-white/20 text-center text-lg font-medium"
                             autoFocus
+                            autoComplete="off"
                         />
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="flex-col gap-3 sm:flex-col">
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full h-12 bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold rounded-xl text-base shadow-lg shadow-luxury-gold/20 transition-all hover:scale-[1.02]"
+                        >
+                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Crea e Inizia"}
+                        </Button>
                         <Button
                             type="button"
                             variant="ghost"
                             onClick={() => onOpenChange(false)}
-                            className="hover:bg-white/5 text-luxury-text/70 hover:text-luxury-text"
+                            className="w-full hover:bg-transparent text-luxury-text/40 hover:text-luxury-text/70 text-sm"
                         >
                             Annulla
-                        </Button>
-                        <Button
-                            type="submit"
-                            disabled={loading}
-                            className="bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold"
-                        >
-                            {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            Crea Progetto
                         </Button>
                     </DialogFooter>
                 </form>

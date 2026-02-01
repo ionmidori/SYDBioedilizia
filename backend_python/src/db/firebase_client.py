@@ -2,7 +2,12 @@ import os
 import logging
 from typing import Dict, Any
 from datetime import datetime
-from firebase_admin import credentials, firestore, initialize_app
+from firebase_admin import credentials, firestore, storage, initialize_app
+
+def get_storage_client():
+    """Get Firebase Storage client."""
+    init_firebase()
+    return storage.bucket()
 import firebase_admin
 
 logger = logging.getLogger(__name__)
