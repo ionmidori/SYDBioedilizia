@@ -31,7 +31,7 @@ Format your response as JSON:
 async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
     """
     Perform initial triage analysis on an interior space image.
-    Uses google-genai SDK with Gemini 2.5 Flash.
+    Uses google-genai SDK with Gemini 3 Flash.
     """
     if not GEMINI_API_KEY:
         raise Exception("GEMINI_API_KEY not configured")

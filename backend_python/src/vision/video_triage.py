@@ -1,8 +1,9 @@
+
 """
 Video Triage Analysis Module
 
 Handles video upload, preprocessing (FFmpeg optimization), and multimodal analysis
-using Gemini 2.5 Flash for both visual and audio content.
+using Gemini 3 Flash for both visual and audio content.
 """
 import os
 import logging
@@ -197,9 +198,8 @@ def optimize_video(input_path: str, max_duration: float = 30.0, trim_start: Opti
         raise
 
 
-async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
     """
-    Analyze video using Gemini 2.5 Flash multimodal capabilities.
+    Analyze video using Gemini 3 Flash multimodal capabilities.
     
     Processes both visual content and audio transcription.
     
@@ -237,7 +237,7 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
         
         # Generate content using video + prompt
         response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3-flash-preview",
             contents=[
                 types.Content(
                     parts=[
