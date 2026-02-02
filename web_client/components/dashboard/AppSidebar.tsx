@@ -251,18 +251,17 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
     }, [logout, router])
 
     const handleProjectsClick = React.useCallback((e?: React.MouseEvent) => {
-        // Always toggle expand on click if we have items
-        if (projectSubItems.length > 0) {
-            e?.preventDefault()
-            setProjectsExpanded(!projectsExpanded)
-        }
-        // Handle desktop expand
+        // Handle desktop expand: if closed, open sidebar and allow navigation to proceed
+        // The user wants to go to "I Miei Progetti" main page, so we don't preventDefault.
         if (!isMobile && !open) {
-            e?.preventDefault()
             toggleSidebar()
             setProjectsExpanded(true)
+            // We allow the event to propagate so Link handles the navigation
         }
-    }, [projectSubItems.length, projectsExpanded, isMobile, open, toggleSidebar])
+
+        // We removed the manual toggle logic (setProjectsExpanded(!projectsExpanded))
+        // because the user explicitly wants to Navigate to the parent route, not just collapse the menu.
+    }, [isMobile, open, toggleSidebar])
 
     const handleNavClick = React.useCallback(() => {
         // Close mobile sidebar on navigation for better UX
@@ -290,6 +289,24 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
     const isDesktopCollapsed = !open
     const isMobileVisible = isMobile && openMobile
 
+    // ========================================================================
+    // MOBILE FAB PERSISTENCE
+    // ========================================================================
+    const [fabY, setFabY] = React.useState(0)
+
+    React.useEffect(() => {
+        const savedY = localStorage.getItem('sidebar-fab-y')
+        if (savedY) {
+            setFabY(parseFloat(savedY))
+        }
+    }, [])
+
+    const handleDragEnd = (_: any, info: any) => {
+        const newY = fabY + info.offset.y
+        setFabY(newY)
+        localStorage.setItem('sidebar-fab-y', newY.toString())
+    }
+
     return (
         <>
             {/* ============================================================ */}
@@ -299,6 +316,10 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                 <motion.button
                     drag="y"
                     dragMomentum={false}
+                    // Initialize with persisted Y
+                    initial={{ y: fabY }}
+                    animate={{ y: fabY }}
+                    onDragEnd={handleDragEnd}
                     whileDrag={{ scale: 1.1 }}
                     dragConstraints={{ top: -500, bottom: 150 }} // Allow more drag Up than Down since we start low
                     onClick={() => setOpenMobile(true)}
@@ -374,19 +395,19 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                             <Link href="/dashboard/profile" className="block focus-visible:outline-none" onClick={() => setOpenMobile(false)}>
                                 <UserBadge user={user} collapsed={false} />
                             </Link>
-                            <div className="mt-4 flex flex-col gap-2">
+                            <div className="mt-4 flex flex-col gap-1.5">
                                 <Link
                                     href="/"
-                                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-luxury-text/60 hover:text-luxury-text hover:bg-white/5 transition-all text-sm font-medium"
+                                    className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-luxury-text/60 hover:text-luxury-text hover:bg-white/5 transition-all text-xs font-medium border border-transparent hover:border-luxury-gold/10"
                                 >
-                                    <Globe className="w-5 h-5" />
+                                    <Globe className="w-4 h-4" />
                                     <span>Torna al Sito</span>
                                 </Link>
                                 <button
                                     onClick={handleLogout}
-                                    className="flex items-center gap-3 px-3 py-2 rounded-xl text-red-400/80 hover:text-red-400 hover:bg-red-500/10 transition-all text-sm font-medium w-full text-left"
+                                    className="flex items-center gap-3 px-3 py-1.5 rounded-lg text-red-400/80 hover:text-red-400 hover:bg-red-500/5 transition-all text-xs font-medium w-full text-left border border-transparent hover:border-red-500/10"
                                 >
-                                    <LogOut className="w-5 h-5" />
+                                    <LogOut className="w-4 h-4" />
                                     <span>Logout</span>
                                 </button>
                             </div>
@@ -514,29 +535,45 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                             "p-4 border-t border-luxury-gold/10 bg-luxury-bg/50 relative overflow-hidden shrink-0",
                             isDesktopCollapsed ? "flex justify-center" : ""
                         )}>
-                            <div className="relative z-10 w-full space-y-2">
-                                <UserBadge user={user} collapsed={isDesktopCollapsed} />
+                            <div className="relative z-10 w-full space-y-3">
+                                <Link
+                                    href="/dashboard/profile"
+                                    className="block group/profile focus-visible:outline-none"
+                                >
+                                    <UserBadge user={user} collapsed={isDesktopCollapsed} />
+                                </Link>
 
-                                {!isDesktopCollapsed && (
-                                    <div className="grid grid-cols-2 gap-2 mt-4">
-                                        <Link
-                                            href="/"
-                                            className="flex items-center justify-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-luxury-gold/20 text-luxury-text/70 hover:text-luxury-gold transition-all text-xs border border-transparent hover:border-luxury-gold/20"
-                                            title="Torna al sito"
-                                        >
-                                            <Globe className="w-4 h-4" />
-                                            <span>Sito</span>
-                                        </Link>
-                                        <button
-                                            onClick={handleLogout}
-                                            className="flex items-center justify-center gap-2 p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 transition-all text-xs border border-transparent hover:border-red-500/20"
-                                            title="Logout"
-                                        >
-                                            <LogOut className="w-4 h-4" />
-                                            <span>Esci</span>
-                                        </button>
-                                    </div>
-                                )}
+                                <div className={cn(
+                                    "mt-2",
+                                    isDesktopCollapsed ? "flex flex-col gap-2 items-center" : "flex flex-col gap-1.5"
+                                )}>
+                                    <Link
+                                        href="/"
+                                        className={cn(
+                                            "rounded-lg transition-all font-medium border border-transparent",
+                                            isDesktopCollapsed
+                                                ? "p-2 bg-white/5 hover:bg-luxury-gold/20 text-luxury-text/70 hover:text-luxury-gold hover:border-luxury-gold/20"
+                                                : "flex items-center justify-start gap-3 px-3 py-1.5 bg-white/5 hover:bg-luxury-gold/10 text-luxury-text/70 hover:text-luxury-gold text-xs hover:border-luxury-gold/20"
+                                        )}
+                                        title="Torna al sito"
+                                    >
+                                        <Globe className={isDesktopCollapsed ? "w-4 h-4" : "w-3.5 h-3.5"} />
+                                        {!isDesktopCollapsed && <span>Torna al Sito</span>}
+                                    </Link>
+                                    <button
+                                        onClick={handleLogout}
+                                        className={cn(
+                                            "rounded-lg transition-all font-medium border border-transparent",
+                                            isDesktopCollapsed
+                                                ? "p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 hover:border-red-500/20"
+                                                : "flex items-center justify-start gap-3 px-3 py-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-400 hover:text-red-300 text-xs w-full text-left hover:border-red-500/20"
+                                        )}
+                                        title="Logout"
+                                    >
+                                        <LogOut className={isDesktopCollapsed ? "w-4 h-4" : "w-3.5 h-3.5"} />
+                                        {!isDesktopCollapsed && <span>Logout</span>}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     )}

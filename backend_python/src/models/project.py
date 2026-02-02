@@ -73,6 +73,7 @@ class ProjectUpdate(BaseModel):
     title: Optional[str] = Field(None, max_length=100)
     status: Optional[ProjectStatus] = None
     thumbnail_url: Optional[str] = None
+    original_image_url: Optional[str] = None
 
 
 class ProjectDocument(ProjectBase):
@@ -84,6 +85,7 @@ class ProjectDocument(ProjectBase):
     user_id: str = Field(..., description="Owner Firebase UID or guest_* prefix")
     status: ProjectStatus = Field(default=ProjectStatus.DRAFT)
     thumbnail_url: Optional[str] = Field(None, description="First uploaded image URL")
+    original_image_url: Optional[str] = Field(None, description="Source image URL for transformation")
     message_count: int = Field(default=0)
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last activity timestamp")
@@ -102,6 +104,7 @@ class ProjectListItem(BaseModel):
     title: str
     status: ProjectStatus
     thumbnail_url: Optional[str] = None
+    original_image_url: Optional[str] = None
     updated_at: datetime
     message_count: int = 0
 

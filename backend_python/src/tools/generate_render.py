@@ -8,6 +8,9 @@ from src.utils.download import download_image_smart
 import logging
 
 
+from src.db.messages import save_file_metadata
+from src.models.project import ProjectUpdate, ProjectStatus
+
 logger = logging.getLogger(__name__)
 
 class GenerateRenderInput(BaseModel):
@@ -133,12 +136,38 @@ async def generate_render_wrapper(
         )
         
         mode_label = "transformed" if mode == "modification" else "generated"
+        
+        # 🚀 AUTOMATIC SLIDER UPDATE
+        # 🚀 REGISTER FILE & SYNC COVER
+        # Instead of manually updating, we save the file metadata. 
+        # The hook in save_file_metadata will trigger sync_project_cover automatically.
+        try:
+            file_meta = {
+                "url": image_url,
+                "type": "render",
+                "name": f"Render {mode_label}",
+                "mimeType": f"image/{result.get('mime_type', 'png')}",
+                "uploadedBy": "assistant",
+                "metadata": {
+                    "source_image_id": source_image_url if mode == "modification" else None,
+                    "prompt": prompt,
+                    "style": style
+                }
+            }
+            
+            await save_file_metadata(session_id, file_meta)
+            logger.info(f"[Render] 📂 Registered render file in project {session_id}")
+            
+        except Exception as file_error:
+             logger.warning(f"[Render] Failed to register file metadata: {file_error}")
+
         # Return structured object for Frontend (ToolStatus.tsx)
         return {
             "imageUrl": image_url,
             "description": f"Rendering {mode_label} successfully!",
             "status": "success",
-            "mode": mode_label
+            "mode": mode_label,
+            "sourceImageId": source_image_url, # Using URL as ID mapping for now
         }
         
     except Exception as e:

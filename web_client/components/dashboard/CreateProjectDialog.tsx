@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -26,6 +26,7 @@ interface FormData {
 
 export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: CreateProjectDialogProps) {
     const [loading, setLoading] = useState(false);
+    const [isPending, startTransition] = useTransition();
     const router = useRouter();
     const { register, handleSubmit, reset } = useForm<FormData>({
         defaultValues: {
@@ -36,21 +37,29 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
     const onSubmit = async (data: FormData) => {
         setLoading(true);
         try {
+            // Keep the API call here as we need the session_id
             const { session_id } = await projectsApi.createProject({
                 title: data.title || 'Nuovo Progetto'
             });
 
+            // Optimistic UI: Close immediately? 
+            // Better: Start the transition to the new page.
+            // The Dialog will close when the new page renders OR we can close it now.
+            // Closing it now gives "Instant" feel.
             onOpenChange(false);
             reset();
 
-            // Custom handling (e.g. Chat reset) or Default Navigation
-            if (onProjectCreated) {
-                onProjectCreated(session_id);
-            } else {
-                router.push(`/dashboard/${session_id}`);
-            }
+            // Navigation wrapped in Transition to prevent UI freeze (INP)
+            startTransition(() => {
+                if (onProjectCreated) {
+                    onProjectCreated(session_id);
+                } else {
+                    router.push(`/dashboard/${session_id}`);
+                }
+            });
         } catch (error) {
             console.error('Failed to create project:', error);
+            // In a real app, show a Toast here.
         } finally {
             setLoading(false);
         }
@@ -83,10 +92,10 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
                     <DialogFooter className="flex-col gap-3 sm:flex-col">
                         <Button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || isPending}
                             className="w-full h-12 bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold rounded-xl text-base shadow-lg shadow-luxury-gold/20 transition-all hover:scale-[1.02]"
                         >
-                            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Crea e Inizia"}
+                            {(loading || isPending) ? <Loader2 className="w-5 h-5 animate-spin" /> : "Crea e Inizia"}
                         </Button>
                         <Button
                             type="button"

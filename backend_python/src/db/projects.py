@@ -9,6 +9,7 @@ import uuid
 from typing import List, Optional
 from datetime import datetime
 from google.cloud.firestore_v1 import FieldFilter
+from firebase_admin import firestore
 
 from src.db.firebase_client import get_async_firestore_client
 from src.models.project import (
@@ -66,11 +67,20 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
             else:
                 updated_at = datetime.utcnow()
             
+            # Safe status conversion
+            raw_status = data.get("status", "draft")
+            try:
+                status_enum = ProjectStatus(raw_status)
+            except ValueError:
+                logger.warning(f"Invalid status '{raw_status}' for project {doc.id}, defaulting to DRAFT")
+                status_enum = ProjectStatus.DRAFT
+
             projects.append(ProjectListItem(
                 session_id=doc.id,
                 title=data.get("title", "Nuovo Progetto"),
-                status=ProjectStatus(data.get("status", "draft")),
+                status=status_enum,
                 thumbnail_url=data.get("thumbnailUrl"),
+                original_image_url=data.get("originalImageUrl"),
                 updated_at=updated_at,
                 message_count=data.get("messageCount", 0),
             ))
@@ -139,6 +149,7 @@ async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument
             title=data.get("title", "Nuovo Progetto"),
             status=ProjectStatus(data.get("status", "draft")),
             thumbnail_url=data.get("thumbnailUrl"),
+            original_image_url=data.get("originalImageUrl"),
             message_count=data.get("messageCount", 0),
             created_at=created_at,
             updated_at=updated_at,
@@ -223,10 +234,22 @@ async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> 
             update_data["status"] = data.status.value
         if data.thumbnail_url is not None:
             update_data["thumbnailUrl"] = data.thumbnail_url
+        if data.original_image_url is not None:
+            update_data["originalImageUrl"] = data.original_image_url
         
-        await doc_ref.update(update_data)
+        # Update both collections
+        batch = db.batch()
+        batch.update(doc_ref, update_data)
         
-        logger.info(f"[Projects] Updated project {session_id}")
+        # Sync to 'projects' collection if title changed
+        if "title" in update_data:
+            project_ref = db.collection("projects").document(session_id)
+            # We use set with merge to ensure it exists or update it
+            batch.set(project_ref, {"name": update_data["title"], "updatedAt": datetime.utcnow()}, merge=True)
+            
+        await batch.commit()
+        
+        logger.info(f"[Projects] Updated project {session_id} (and synced name)")
         return True
         
     except Exception as e:
@@ -391,12 +414,138 @@ async def delete_project(session_id: str, user_id: str) -> bool:
             
             logger.info(f"[Projects] Deleted {len(doc_refs_to_delete)} messages from {session_id}")
         
-        # Finally, delete the project document itself
-        await doc_ref.delete()
+        # Finally, delete the project document itself AND the public project reference
+        batch = db.batch()
+        batch.delete(doc_ref)
+        
+        # Delete from 'projects' collection too
+        project_ref = db.collection("projects").document(session_id)
+        batch.delete(project_ref)
+        
+        await batch.commit()
         
         logger.info(f"[Projects] Deleted project {session_id} (with {deleted_count} messages) for user {user_id}")
         return True
         
     except Exception as e:
         logger.error(f"[Projects] Error deleting project {session_id}: {str(e)}", exc_info=True)
+        return False
+
+
+async def sync_project_cover(session_id: str) -> bool:
+    """
+    Scans the project's 'files' container to determine the best cover.
+    
+    Priority:
+    1. Latest Render (Before/After) - if 'source_image_id' present
+    2. Latest Render (Single)
+    3. First uploaded Photo
+    4. First uploaded Video
+    
+    Args:
+        session_id: Project ID.
+        
+    Returns:
+        True if the cover was updated.
+    """
+    try:
+        db = get_async_firestore_client()
+        files_ref = db.collection('projects').document(session_id).collection('files')
+        
+        # Get all files (we expect small number < 100 for now)
+        # Sort by uploadedAt descending to find latest easily
+        # Note: In async client, order_by needs await logic or stream
+        docs = files_ref.order_by('uploadedAt', direction='DESCENDING').stream()
+        
+        files = []
+        async for doc in docs:
+            files.append(doc.to_dict())
+            
+        if not files:
+            return False
+            
+        new_thumbnail = None
+        new_original = None
+        
+        # 1. Look for renders (Latest first)
+        renders = [f for f in files if f.get('type') == 'render']
+        if renders:
+            latest_render = renders[0]
+            new_thumbnail = latest_render.get('url')
+            
+            # Check for source image id in metadata
+            meta = latest_render.get('metadata', {})
+            source_id = meta.get('source_image_id')
+            if source_id:
+                # Ideally source_id IS the URL if we set it that way. 
+                # Let's verify if it's a URL or ID. In generate_render we set it as source_image_url.
+                if source_id.startswith('http'):
+                    new_original = source_id
+                else:
+                    # Find the file with that ID/Name? For now assume it's URL.
+                    pass
+        
+        # 2. If no renders, look for Photos (Oldest/First first? Or Latest?)
+        # User said "create project and upload photo -> cover". Usually "First" uploaded is cover?
+        # Or "Latest" uploaded?
+        # User said: "se c'è una foto... applicala... se ce ne sono più, ne scegli una".
+        # Let's pick the *First* uploaded photo to keep it stable, or *Latest* if we want dynamic?
+        # User said: "project cover udpates after... uploaded". Implies the NEW one becomes cover?
+        # Let's stick with LATEST for now as it feels more responsive.
+        if not new_thumbnail:
+            images = [f for f in files if f.get('type') == 'image']
+            if images:
+                # Files are sorted DESC (Latest first)
+                new_thumbnail = images[0].get('url')
+        
+        # 3. If no images, look for Video
+        if not new_thumbnail:
+            videos = [f for f in files if f.get('type') == 'video']
+            if videos:
+                # Use a specific thumbnail field or fallback
+                new_thumbnail = videos[0].get('thumbnailUrl')
+        
+        if not new_thumbnail:
+            return False
+            
+        # Update Project
+        # Retrieve current project to check if update needed
+        project_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
+        project_doc = await project_ref.get()
+        if not project_doc.exists:
+             return False
+             
+        current_data = project_doc.to_dict()
+        
+        # Only update if different
+        if (current_data.get('thumbnailUrl') != new_thumbnail or 
+            current_data.get('originalImageUrl') != new_original):
+            
+            update_payload = {
+                "thumbnailUrl": new_thumbnail,
+                "originalImageUrl": new_original, # Can be None, which deletes it (FieldValue.delete())? No, None just sets null.
+                "updatedAt": datetime.utcnow()
+            }
+            
+            # Use dot notation or FieldValue.delete() if we want to remove fields? for now set null is fine (Pydantic allows optional)
+            
+            # Update Session
+            await project_ref.update(update_payload)
+            
+            # Update 'projects' collection (public view)
+            # Only thumbnail is needed there? Original image url for hover? We added it to Pydantic/Frontend types.
+            # But 'projects' collection schema might be loose.
+            public_ref = db.collection('projects').document(session_id)
+            await public_ref.set({
+                 "thumbnailUrl": new_thumbnail,
+                 "originalImageUrl": new_original,
+                 "updatedAt": datetime.utcnow()
+            }, merge=True)
+            
+            logger.info(f"[Projects] 🖼️ Smart Cover: Updated {session_id} -> {new_thumbnail}")
+            return True
+            
+        return False
+    except Exception as e:
+        logger.error(f"[Projects] Error syncing cover for {session_id}: {str(e)}", exc_info=True)
         return False

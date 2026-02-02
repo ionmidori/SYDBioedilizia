@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { RenameProjectDialog } from './RenameProjectDialog';
 import { projectsApi } from '@/lib/projects-api';
+import { ComparisonThumbnail } from './ComparisonThumbnail';
 
 interface ProjectCardProps {
     project: ProjectListItem;
@@ -93,7 +94,15 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
 
             {/* Thumbnail */}
             <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-luxury-bg border border-luxury-gold/10 group-hover:border-luxury-gold/20 transition-all duration-500">
-                {project.thumbnail_url ? (
+                {project.thumbnail_url && project.original_image_url ? (
+                    <div className="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-500">
+                        <ComparisonThumbnail
+                            beforeImage={project.original_image_url}
+                            afterImage={project.thumbnail_url}
+                            alt={project.title}
+                        />
+                    </div>
+                ) : project.thumbnail_url ? (
                     <Image
                         src={project.thumbnail_url}
                         alt={project.title}
@@ -107,7 +116,7 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
                 )}
 
                 {/* Hover Action Overlay */}
-                <div className="absolute inset-0 bg-luxury-bg/40 opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center backdrop-blur-[1px]">
+                <div className="absolute inset-0 bg-luxury-bg/40 opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center backdrop-blur-[1px] pointer-events-none">
                     <div className="px-5 py-2.5 bg-luxury-teal/20 text-luxury-text rounded-full text-xs font-bold tracking-widest uppercase backdrop-blur-xl border border-luxury-teal/40 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 shadow-xl">
                         Apri Progetto
                     </div>

@@ -5,6 +5,7 @@ import { Portfolio } from '@/components/sections/Portfolio';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { Footer } from '@/components/sections/Footer';
 import ChatWidget from '@/components/chat/ChatWidget';
+import { Suspense } from 'react';
 
 export default function Home() {
   return (
@@ -15,7 +16,9 @@ export default function Home() {
       <Portfolio />
       <Testimonials />
       <Footer />
-      <ChatWidget />
+      <Suspense fallback={null}>
+        <ChatWidget />
+      </Suspense>
     </main>
   );
 }

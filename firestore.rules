@@ -12,8 +12,9 @@ service cloud.firestore {
     match /sessions/{sessionId} {
       // Allow read only if session is less than 7 days old
       // This improves privacy while maintaining current architecture
-      allow read: if resource.data.createdAt != null && 
-                     resource.data.createdAt > request.time - duration.value(7, 'd');
+      allow read: if (request.auth != null && resource.data.userId == request.auth.uid) ||
+                     (resource.data.createdAt != null && 
+                      resource.data.createdAt > request.time - duration.value(7, 'd'));
       
       // Only server can write (via Admin SDK with service account)
       allow write: if false;

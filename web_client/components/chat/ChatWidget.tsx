@@ -72,6 +72,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+
     // State for Global Widget Synchronization
     const [syncedProjectId, setSyncedProjectId] = useState<string | undefined>(projectId);
 
@@ -98,7 +99,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         // 1. We are initialized (auth check done)
         // 2. User is logged in (Guest users don't have projects)
         // 3. We are in "Global Mode" (no explicit projectId prop)
-        // 3. We are in "Global Mode" (no explicit projectId prop)
         if (isInitialized && user && !projectId) {
             const stored = localStorage.getItem('activeProjectId');
             if (stored) {
@@ -111,9 +111,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                 const newId = e.detail;
                 console.log('[ChatWidget] ⚡ Realtime Project Switch:', newId);
                 setSyncedProjectId(newId);
-
-                // Optional: Force close sidebar if open? No, keep user preference.
-                // But we MUST clear any selected image from previous project
                 setSelectedImage(null);
             };
 
@@ -273,7 +270,32 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // Scroll & Viewport
     const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(displayMessages, isOpen);
-    const { isMobile } = useMobileViewport(isOpen, chatContainerRef);
+    // FIX: Only activate mobile viewport logic (body lock) if NOT inline
+    const { isMobile } = useMobileViewport(isOpen && !isInline, chatContainerRef);
+
+    // 🔄 CONTEXT SWITCHING (Global Widget Only)
+    const router = useRouter(); // Required for conditional navigation
+
+    const handleProjectSwitch = (newProjectId: string) => {
+        console.log('[ChatWidget] Switching context to:', newProjectId);
+
+        // 1. Update State
+        setSyncedProjectId(newProjectId);
+        localStorage.setItem('activeProjectId', newProjectId);
+
+        // 2. Clear current messages to prevent ghosting
+        setMessages([]);
+
+        // 3. Conditional Navigation (Without useTransition until build issue resolved)
+        if (pathname?.startsWith('/dashboard')) {
+            console.log('[ChatWidget] navigate to new dashboard project:', newProjectId);
+            router.push(`/dashboard/${newProjectId}`);
+        } else {
+            // Landing Page / Other: Update Query Param to reflect state
+            console.log('[ChatWidget] update query param:', newProjectId);
+            router.push(`/?projectId=${newProjectId}`);
+        }
+    };
 
     // Typing Indicator
     const typingMessage = useTypingIndicator(isLoading);
@@ -320,7 +342,10 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         // 1. Guard Clauses
         const hasActiveUploads = mediaItems.some(i => i.status === 'uploading' || i.status === 'compressing');
         const hasActiveVideoUploads = videos.some(v => v.status === 'uploading' || v.status === 'processing');
-        if (hasActiveUploads || hasActiveVideoUploads || isLoading || authLoading) return;
+
+        // OPTIMISTIC CHANGE: Allow submitting even if authLoading, as long as initialized
+        // We removed 'isLoading' check to decouple UI from AI processing if users want to queue (though SDK might reject)
+        if (hasActiveUploads || hasActiveVideoUploads || !isInitialized) return;
 
         const currentInput = localInput;
         if (!currentInput.trim() && mediaItems.length === 0 && videos.length === 0) return;
@@ -356,7 +381,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined
         };
 
-        // 3. Clear UI State immediately
+        // 3. Clear UI State immediately (Optimistic)
         clearMedia();
         clearVideos();
         setLocalInput('');
@@ -367,51 +392,50 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         if (isOpen) scrollToBottom();
 
         // 4. Send Request via SDK -> Use sendMessage (since append is missing)
-        try {
-            // 🔒 AUTH FIX: Fetch token explicitly for this request
-            const token = await refreshToken();
-            console.log("[ChatWidget] Sending message with token:", token ? "Token present" : "Token missing", {
-                currentInput,
-                sessionId,
-                dataBody
-            });
+        // Wrapped in fire-and-forget style to not block UI
+        (async () => {
+            try {
+                // 🔒 AUTH FIX: Fetch token explicitly for this request
+                // This might take a ms, but purely background
+                const token = await refreshToken();
 
-            if (typeof sendMessage === 'function') {
-                // Using 'data' for protocol compliance.
-                // sendMessage expects an object based on previous TypeError
-                await sendMessage({
-                    role: 'user',
-                    content: currentInput,
-                    attachments: {
-                        images: mediaUrls,
-                        videos: videoFileUris
-                    }
-                }, {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    data: dataBody as any,
-                    body: {
-                        sessionId,
-                        // ✅ Pass media params to Proxy/Backend (Root Level)
-                        imageUrls: mediaUrls,
-                        mediaUrls,
-                        mediaTypes,
-                        mediaMetadata,
-                        videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined
-                    },
-                    headers: {
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-            } else {
-                console.error("[ChatWidget] Critical: 'sendMessage' function is missing from SDK hook!", chat);
-                setErrorMessage("Errore interno: Chat function not found. (sendMessage)");
+                if (typeof sendMessage === 'function') {
+                    // Using 'data' for protocol compliance.
+                    // sendMessage expects an object based on previous TypeError
+                    await sendMessage({
+                        role: 'user',
+                        content: currentInput,
+                        attachments: {
+                            images: mediaUrls,
+                            videos: videoFileUris
+                        }
+                    }, {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        data: dataBody as any,
+                        body: {
+                            sessionId,
+                            // ✅ Pass media params to Proxy/Backend (Root Level)
+                            imageUrls: mediaUrls,
+                            mediaUrls,
+                            mediaTypes,
+                            mediaMetadata,
+                            videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined
+                        },
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                } else {
+                    console.error("[ChatWidget] Critical: 'sendMessage' function is missing from SDK hook!", chat);
+                    setErrorMessage("Errore interno: Chat function not found. (sendMessage)");
+                }
+            } catch (err) {
+                console.error("[ChatWidget] Send Error:", err);
+                // Restore input if failed
+                setLocalInput(currentInput);
+                setErrorMessage("Invio fallito. Riprova.");
             }
-        } catch (err) {
-            console.error("[ChatWidget] Send Error:", err);
-            // Restore input if failed
-            setLocalInput(currentInput);
-            setErrorMessage("Invio fallito. Riprova.");
-        }
+        })();
     };
 
     // External Triggers (Events)
@@ -452,34 +476,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         }
     }, [historyLoaded, historyMessages, setMessages]);
 
-    // 🔄 CONTEXT SWITCHING (Global Widget Only)
-    const router = useRouter(); // Required for conditional navigation
-
-    const handleProjectSwitch = (newProjectId: string) => {
-        console.log('[ChatWidget] Switching context to:', newProjectId);
-
-        // 1. Update State
-        setSyncedProjectId(newProjectId);
-        localStorage.setItem('activeProjectId', newProjectId);
-
-        // 2. Clear current messages to prevent ghosting
-        setMessages([]);
-
-        // 3. Conditional Navigation:
-        // If we are already inside the dashboard, we should navigate the whole page
-        // to keep the background content in sync with the chat.
-        // If we are on the Landing Page, we stay there (just switching chat context).
-        if (pathname?.startsWith('/dashboard')) {
-            console.log('[ChatWidget] navigate to new dashboard project:', newProjectId);
-            router.push(`/dashboard/${newProjectId}`);
-        } else {
-            // Landing Page / Other: Update Query Param to reflect state
-            // This gives the user feedback that something changed "address changed"
-            console.log('[ChatWidget] update query param:', newProjectId);
-            router.push(`/?projectId=${newProjectId}`);
-        }
-    };
-
     return (
         <>
             {/* Toggle Button - Hide if inline */}
@@ -506,90 +502,50 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         )}
 
                         {/* Window */}
-                        <motion.div
-                            key="chat-window"
-                            initial={isInline ? { opacity: 0 } : { opacity: 0, y: 50, scale: 0.95 }}
-                            animate={isInline ? { opacity: 1 } : { opacity: 1, y: 0, scale: 1 }}
-                            exit={isInline ? { opacity: 0 } : { opacity: 0, y: 50, scale: 0.95 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                            drag={(isMobile && !isInline) ? "y" : false}
-                            dragConstraints={{ top: 0, bottom: 0 }}
-                            dragElastic={{ top: 0, bottom: 0.5 }}
-                            ref={chatContainerRef}
-                            style={{
-                                height: (isMobile && !isInline) ? '100dvh' : isInline ? '100%' : undefined,
-                                top: (isMobile && !isInline) ? 0 : undefined
-                            }}
-                            className={cn(
-                                "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-[100]",
-                                isInline
-                                    ? "relative w-full h-[calc(100dvh-100px)] md:h-[calc(100vh-160px)] rounded-3xl"
-                                    : "fixed inset-0 md:inset-auto md:bottom-4 md:right-6 w-full md:w-[450px] md:h-[850px] md:max-h-[calc(100vh-40px)] md:rounded-3xl shadow-2xl"
-                            )}
-                        >
-                            <ChatHeader
-                                onMinimize={isInline ? undefined : () => setIsOpen(false)}
-                                projectId={syncedProjectId}
-                                showSelector={!!user} // ✅ Show selector if logged in (even in Global Mode)
-                                onProjectSelect={!isInline ? handleProjectSwitch : undefined}
-                            />
-
-                            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-luxury-gold/20 hover:scrollbar-thumb-luxury-gold/40">
-
-                                {/* History Loader */}
-                                {!historyLoaded && (
-                                    <div className="flex justify-center py-4">
-                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-luxury-gold"></div>
-                                    </div>
+                        {isInline ? (
+                            <div
+                                ref={chatContainerRef}
+                                className={cn(
+                                    "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-[100]",
+                                    "relative !w-full !max-w-none h-full rounded-3xl border border-luxury-gold/10 shadow-2xl"
                                 )}
-
-                                <ChatMessages
-                                    messages={displayMessages}
-                                    isLoading={isLoading}
-                                    typingMessage={typingMessage}
-                                    sessionId={sessionId}
-                                    onImageClick={setSelectedImage}
-                                    messagesContainerRef={messagesContainerRef}
-                                    messagesEndRef={messagesEndRef}
+                            >
+                                <ChatHeader
+                                    projectId={syncedProjectId}
+                                    showSelector={!!user}
+                                    onProjectSelect={handleProjectSwitch}
                                 />
-
-                                {/* ✅ Inline Error Alert */}
-                                {errorMessage && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        className="mx-4 mt-2 p-3 bg-red-900/50 border border-red-500/30 rounded-lg text-red-200 text-sm flex items-center justify-between gap-2 shadow-lg"
-                                    >
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                                            <span>{errorMessage}</span>
-                                        </div>
-                                        <button
-                                            onClick={() => setErrorMessage(null)}
-                                            className="p-1 hover:bg-red-500/20 rounded-full transition-colors"
-                                            aria-label="Chiudi errore"
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                        </button>
-                                    </motion.div>
-                                )}
+                                {renderChatContent()}
                             </div>
-
-                            <ChatInput
-                                inputValue={localInput}
-                                setInputValue={handleInputChange}
-                                onSubmit={submitMessage}
-                                isLoading={isLoading}
-                                isGlobalUploading={isGlobalUploading || isVideoUploading}
-                                mediaItems={mediaItems}
-                                onFileSelect={handleFileSelect}
-                                onScrollToBottom={() => scrollToBottom('smooth')}
-                                fileInputRef={fileInputRef}
-                                removeMedia={removeMedia}
-                                updateMediaItem={updateMediaItem}
-                                authLoading={authLoading}
-                            />
-                        </motion.div>
+                        ) : (
+                            <motion.div
+                                key="chat-window"
+                                initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                                drag={isMobile ? "y" : false}
+                                dragConstraints={{ top: 0, bottom: 0 }}
+                                dragElastic={{ top: 0, bottom: 0.5 }}
+                                ref={chatContainerRef}
+                                style={{
+                                    height: isMobile ? '100dvh' : undefined,
+                                    top: isMobile ? 0 : undefined
+                                }}
+                                className={cn(
+                                    "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-[100]",
+                                    "fixed inset-0 md:inset-auto md:bottom-4 md:right-6 w-full md:w-[450px] md:h-[850px] md:max-h-[calc(100vh-40px)] md:rounded-3xl shadow-2xl"
+                                )}
+                            >
+                                <ChatHeader
+                                    onMinimize={() => setIsOpen(false)}
+                                    projectId={syncedProjectId}
+                                    showSelector={!!user}
+                                    onProjectSelect={handleProjectSwitch}
+                                />
+                                {renderChatContent()}
+                            </motion.div>
+                        )}
                     </>
                 )}
             </AnimatePresence>
@@ -597,4 +553,62 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             <ImageLightbox imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />
         </>
     );
+
+    function renderChatContent() {
+        return (
+            <>
+                <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-luxury-gold/20 hover:scrollbar-thumb-luxury-gold/40">
+                    {!historyLoaded && (
+                        <div className="flex justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-luxury-gold"></div>
+                        </div>
+                    )}
+
+                    <ChatMessages
+                        messages={displayMessages}
+                        isLoading={isLoading}
+                        typingMessage={typingMessage}
+                        sessionId={sessionId}
+                        onImageClick={setSelectedImage}
+                        messagesContainerRef={messagesContainerRef}
+                        messagesEndRef={messagesEndRef}
+                    />
+
+                    {errorMessage && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mx-4 mt-2 p-3 bg-red-900/50 border border-red-500/30 rounded-lg text-red-200 text-sm flex items-center justify-between gap-2 shadow-lg"
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                                <span>{errorMessage}</span>
+                            </div>
+                            <button
+                                onClick={() => setErrorMessage(null)}
+                                className="p-1 hover:bg-red-500/20 rounded-full transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </motion.div>
+                    )}
+                </div>
+
+                <ChatInput
+                    inputValue={localInput}
+                    setInputValue={handleInputChange}
+                    onSubmit={submitMessage}
+                    isLoading={isLoading}
+                    isGlobalUploading={isGlobalUploading || isVideoUploading}
+                    mediaItems={mediaItems}
+                    onFileSelect={handleFileSelect}
+                    onScrollToBottom={() => scrollToBottom('smooth')}
+                    fileInputRef={fileInputRef}
+                    removeMedia={removeMedia}
+                    updateMediaItem={updateMediaItem}
+                    authLoading={authLoading}
+                />
+            </>
+        );
+    }
 }

@@ -101,7 +101,7 @@ function DashboardContent({
                 className="flex-1 md:h-full overflow-hidden relative md:transition-[margin] md:duration-300 md:ease-in-out z-10 md:will-change-[margin]"
             >
                 <div className="h-full overflow-auto p-4 md:p-8 pb-safe selection:bg-luxury-teal/30">
-                    <div className="max-w-7xl mx-auto">
+                    <div className="w-full h-full flex flex-col">
                         {children}
                     </div>
                 </div>

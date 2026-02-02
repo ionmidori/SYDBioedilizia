@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from src.auth.jwt_handler import verify_token
 from src.utils.stream_protocol import stream_text
 from src.utils.context import set_current_user_id, set_current_media_metadata  # ✅ Context for quota & metadata
-from src.db.messages import save_message, get_conversation_context, ensure_session  # 🔥 DB persistence
+from src.db.messages import save_message, get_conversation_context, ensure_session, save_file_metadata  # 🔥 DB persistence
 from src.graph.agent import get_agent_graph
 from src.graph.state import AgentState
 from langchain_core.messages import HumanMessage, AIMessage
@@ -15,6 +15,8 @@ import asyncio
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from urllib.parse import unquote, urlparse
+from datetime import datetime
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🔥 FILE LOGGING CONFIGURATION
@@ -270,6 +272,29 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
                 # Legacy String Marker (Keep for Safety during transition)
                 media_label = "Video allegato" if guessed_type == "video" else "Immagine allegata"
                 user_content += f"\n\n[{media_label}: {url}]"
+
+                # 🔥 NEW: Save to Project Gallery (Files Collection)
+                # Attempt to extract a friendly name from URL
+                try:
+                    path = urlparse(url).path
+                    filename_raw = os.path.basename(path)
+                    filename = unquote(filename_raw)
+                    if not filename or len(filename) < 3:
+                        filename = f"{guessed_type.capitalize()} {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                except:
+                    filename = f"Uploaded {guessed_type.capitalize()}"
+
+                asyncio.create_task(save_file_metadata(
+                    project_id=request.session_id,
+                    file_data={
+                        'url': url,
+                        'type': guessed_type,
+                        'name': filename,
+                        'size': 0, 
+                        'uploadedBy': user_id,
+                        'mimeType': mime_type
+                    }
+                ))
 
         # 2. Handle File API Video URIs (Native Video)
         if request.video_file_uris:

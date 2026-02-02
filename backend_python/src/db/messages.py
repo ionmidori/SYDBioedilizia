@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 from firebase_admin import firestore
 from src.db.firebase_client import get_firestore_client
+from src.db.projects import sync_project_cover
 
 logger = logging.getLogger(__name__)
 
@@ -235,11 +236,17 @@ async def save_file_metadata(
             'size': file_data.get('size', 0),
             'uploadedBy': file_data.get('uploadedBy', 'system'),
             'uploadedAt': firestore.SERVER_TIMESTAMP,
-            'mimeType': file_data.get('mimeType', 'application/octet-stream')
+            'uploadedAt': firestore.SERVER_TIMESTAMP,
+            'mimeType': file_data.get('mimeType', 'application/octet-stream'),
+            'metadata': file_data.get('metadata', {}), # For source_image_id etc.
+            'thumbnailUrl': file_data.get('thumbnailUrl') # Video thumbnails
         }
         
         files_ref.add(doc_data)
         logger.info(f"[Firestore] 🖼️ Saved file metadata to project {project_id}: {doc_data['name']}")
+        
+        # 🔄 Trigger Smart Cover Sync
+        await sync_project_cover(project_id)
         
     except Exception as e:
         logger.error(f"[Firestore] Error saving file metadata: {str(e)}", exc_info=True)

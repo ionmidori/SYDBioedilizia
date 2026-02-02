@@ -7,7 +7,7 @@ import { StatsGrid } from '@/components/dashboard/StatsGrid';
 import { QuickActionsRow } from '@/components/dashboard/QuickActionsRow';
 import { ProjectsCarousel } from '@/components/dashboard/ProjectsCarousel';
 import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
-import { FolderKanban, FileText, Image, LayoutGrid, Plus, Upload, MessageSquare } from 'lucide-react';
+import { FolderKanban, FileText, Image, LayoutGrid, Plus, Upload, MessageSquare, Receipt } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -88,10 +88,10 @@ export default function DashboardPage() {
                 <StatsGrid
                     isLoading={statsLoading}
                     stats={[
-                        { label: 'Progetti', value: stats.totalProjects, icon: FolderKanban },
-                        { label: 'File', value: stats.totalFiles, icon: FileText },
+                        { label: 'Progetti Attivi', value: stats.activeProjects, icon: FolderKanban },
+                        { label: 'File Totali', value: stats.totalFiles, icon: FileText },
                         { label: 'Renders', value: stats.totalRenders, icon: Image },
-                        { label: 'Media Totali', value: stats.totalFiles + stats.totalRenders, icon: LayoutGrid },
+                        { label: 'Preventivi Creati', value: 0, icon: Receipt },
                     ]}
                 />
             </section>

@@ -33,6 +33,7 @@ export interface ProjectListItem {
     title: string;
     status: ProjectStatus;
     thumbnail_url?: string;
+    original_image_url?: string;
     updated_at: string; // ISO 8601
     message_count: number;
 }
@@ -45,6 +46,7 @@ export interface ProjectUpdate {
     title?: string;
     status?: ProjectStatus;
     thumbnail_url?: string;
+    original_image_url?: string;
 }
 
 export interface Project extends ProjectListItem {

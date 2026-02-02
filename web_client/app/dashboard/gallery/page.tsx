@@ -167,11 +167,19 @@ export default function GlobalGalleryPage() {
                             asset.type === 'quote' ? 'Preventivi PDF' : 'Altri';
                     break;
                 case 'date':
+                case 'date':
                     const now = new Date();
                     const assetDate = new Date(asset.timestamp);
-                    const daysDiff = Math.floor((now.getTime() - assetDate.getTime()) / (1000 * 60 * 60 * 24));
+
+                    // Normalize to midnight for accurate calendar day difference
+                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const target = new Date(assetDate.getFullYear(), assetDate.getMonth(), assetDate.getDate());
+
+                    const diffTime = today.getTime() - target.getTime();
+                    const daysDiff = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
                     if (daysDiff === 0) groupKey = 'Oggi';
+                    else if (daysDiff === 1) groupKey = 'Ieri';
                     else if (daysDiff <= 7) groupKey = 'Questa Settimana';
                     else if (daysDiff <= 30) groupKey = 'Questo Mese';
                     else groupKey = 'Più Vecchi';
