@@ -1,10 +1,11 @@
 from dotenv import load_dotenv
 load_dotenv()  # ✅ Load .env file BEFORE other imports
 
-from fastapi import FastAPI, Header, HTTPException, Depends, Request
+from fastapi import FastAPI, Header, HTTPException, Depends, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from src.auth.jwt_handler import verify_token
+from src.auth.jwt_handler import verify_token, security # ✅ Import security scheme
 from src.utils.stream_protocol import stream_text
 from src.utils.context import set_current_user_id, set_current_media_metadata  # ✅ Context for quota & metadata
 from src.db.messages import save_message, get_conversation_context, ensure_session, save_file_metadata  # 🔥 DB persistence
@@ -180,7 +181,7 @@ def health_check():
     """Health check endpoint for Cloud Run."""
     return {"status": "ok", "service": "syd-brain"}
 
-async def chat_stream_generator(request: ChatRequest, user_payload: dict):
+async def chat_stream_generator(request: ChatRequest, credentials: HTTPAuthorizationCredentials | None):
     """
     Real AI agent streaming using LangGraph native events.
     
@@ -200,11 +201,25 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
     
     
     try:
+        # ⚡ Send immediate keep-alive to wake up client stream
+        # Hack: Send "..." so Vercel SDK creates the message entry immediately.
+        # Frontend detects "..." and shows the Gold Thinking Box.
+        # If logic fails, user sees "..." (better than nothing).
+        yield '0:"..."\n'
+
+        # ✅ AUTH VERIFICATION (moved inside stream for Zero Latency)
+        # We perform this AFTER the first yield so the UI reacts instantly.
+        try:
+            from src.auth.jwt_handler import verify_token
+            user_payload = verify_token(credentials)
+        except Exception as auth_error:
+            logger.warning(f"⚠️ Auth failed inside stream: {auth_error}")
+            async for chunk in stream_error("Authentication failed. Please refresh."):
+                yield chunk
+            return
+
         # ✅ Extract user_id from JWT for quota tracking
         user_id = user_payload.get("uid", "default")
-        
-        # ⚡ Send immediate keep-alive to wake up client stream
-        yield '0:""\n'
         
         
         # ✅ Set context for tools to access user_id AND media metadata
@@ -426,7 +441,9 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
         from src.graph.agent import get_agent_graph
         agent_graph = get_agent_graph()
         
+
         async for event in agent_graph.astream(state):
+
             # LangGraph emits events as {node_name: {...}}
             # We need to extract messages and tool calls
             logger.info(f"Event received: {list(event.keys())}")
@@ -544,6 +561,7 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
             logger.info(f"💾 Saved assistant response to DB ({len(accumulated_response)} chars)")
             
     except Exception as e:
+
         import traceback
         import os
         error_trace = traceback.format_exc()
@@ -563,12 +581,18 @@ async def chat_stream_generator(request: ChatRequest, user_payload: dict):
             yield chunk
 
 @app.post("/chat/stream")
-async def chat_stream(request: ChatRequest, user_payload: dict = Depends(verify_token)):
-    """Streaming chat endpoint - Secured by Internal JWT."""
+async def chat_stream(
+    request: ChatRequest, 
+    credentials: HTTPAuthorizationCredentials | None = Security(security)
+):
+    """
+    Streaming chat endpoint - Secured by Internal JWT.
+    NOTE: Auth verification is handled INSIDE the generator for Zero Latency.
+    """
     print(f"📥 Received Request: {len(request.messages)} messages, Session: {request.session_id}")
     
     return StreamingResponse(
-        chat_stream_generator(request, user_payload),  # ✅ Pass full payload
+        chat_stream_generator(request, credentials),  # ✅ Pass raw credentials
         media_type="text/plain; charset=utf-8",
         headers={"Connection": "close", "X-Vercel-AI-Data-Stream": "v1"} # ⚡ FORCE socket closure
     )

@@ -83,9 +83,19 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
     const hasVisibleTools = message.toolInvocations?.some(tool => {
         if (tool.toolName === 'display_lead_form') return true; // Always visible
         if (tool.toolName === 'request_login') return true; // 🔥 Login Widget Always visible
-        if (tool.state === 'call') return true; // Loading is always visible
+
+        // 🧠 Thinking State: Only visible while "calling" (thinking). 
+        // Once done, it disappears (state='result' returns false), preventing empty bubble.
+        if (tool.toolName === 'processing_request') {
+            return tool.state === 'call';
+        }
+
+        if (tool.state === 'call') return true; // Loading of other tools is always visible
+
         const result = tool.result || (tool as any).output;
-        // Only results with images or errors are visible in ToolStatus
+        // Only results with images/gallery or errors are visible in ToolStatus
+        // Text results (like pricing) return null in ToolStatus, so we hide the bubble to avoid empty padding.
+        if (tool.toolName === 'show_project_gallery') return true;
         return !!result?.imageUrl || !!result?.error || result?.status === 'error';
     }) ?? false;
 
@@ -156,9 +166,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                                             urlTransform={(value: string) => value}
                                             components={markdownComponents as any}
                                         >
-                                            {text}
+                                            {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
+                                            {text.startsWith('...') ? text.substring(3) : text}
                                         </Markdown>
                                     )}
+
 
                                     {/* Tool Invocations */}
                                     {message.toolInvocations?.map((tool, toolIdx) => {

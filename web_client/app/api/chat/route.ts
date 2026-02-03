@@ -57,9 +57,11 @@ export async function POST(req: Request) {
         };
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // 🔒 AUTH: Validate Firebase Token
+        // 🔒 AUTH: Forward Token (Verification is in Python)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        const { auth } = await import('@/lib/firebase-admin');
+        // NOTE: We do NOT verify the token here to ensure Zero Latency.
+        // The Python backend performs verification *inside* the stream
+        // after yielding the initial "..." chunk.
 
         const authHeader = req.headers.get('Authorization');
         if (!authHeader?.startsWith('Bearer ')) {
@@ -70,18 +72,6 @@ export async function POST(req: Request) {
         }
 
         const idToken = authHeader.split('Bearer ')[1];
-
-        try {
-            // Verify token here (Next.js) to reject early
-            const decodedToken = await auth().verifyIdToken(idToken);
-            console.log(`[Proxy] Authenticated user: ${decodedToken.uid}`);
-        } catch (authError) {
-            console.error('[Proxy] Auth verification failed:', authError);
-            return new Response(JSON.stringify({
-                error: 'Authentication failed',
-                details: authError instanceof Error ? authError.message : 'Invalid Firebase token'
-            }), { status: 401 });
-        }
 
         console.log('[Proxy] Forwarding to Python backend:', PYTHON_BACKEND_URL);
 

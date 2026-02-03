@@ -33,7 +33,7 @@ async def fetch_market_prices(query: str) -> Dict[str, Any]:
                     "Content-Type": "application/json"
                 },
                 json={
-                    "model": "llama-3.1-sonar-small-128k-online",
+                    "model": "sonar",
                     "messages": [
                         {
                             "role": "system",

@@ -7,7 +7,8 @@ from src.db.firebase_client import init_firebase
 
 logger = logging.getLogger(__name__)
 
-security = HTTPBearer()
+# Allow optional auth for Dev/Debug scripts (auto_error=False)
+security = HTTPBearer(auto_error=False)
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> Dict[str, Any]:
     """
@@ -16,6 +17,16 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     Verifies the token signature and expiration using Firebase Admin SDK.
     Also checks if the token has been revoked (check_revoked=True).
     """
+    import os
+    
+    # ⚡ DEV MODE BYPASS
+    if not credentials:
+        if os.getenv("ENV") != "production":
+            logger.warning("⚠️ Auth Bypass: No token provided in DEV mode. Using 'debug-user'.")
+            return {"uid": "debug-user", "email": "debug@local", "bypass": True}
+        else:
+            raise HTTPException(status_code=401, detail="Authentication credentials required")
+
     token = credentials.credentials
     
     try:

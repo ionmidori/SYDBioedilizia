@@ -43,6 +43,17 @@ class ReasoningStep(BaseModel):
         ge=0.0,
         le=1.0
     )
+
+    # 🔥 CoT ENHANCEMENT: Explicit Protocol Validation
+    protocol_status: Literal["continue", "pause", "complete"] = Field(
+        default="continue",
+        description="Current status of the protocol sequence (e.g., pause if interruptions occur)."
+    )
+    
+    missing_info: List[str] = Field(
+        default_factory=list,
+        description="List of specific information pieces currently missing (e.g., ['lighting_preferences', 'budget'])."
+    )
     
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # 🛡️ PYTHON GUARDRAILS (The "Muscle")

@@ -40,6 +40,17 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
             );
         }
 
+        if (tool.toolName === 'processing_request') {
+            return (
+                <div className="flex items-center gap-3 p-3 mt-2 rounded-lg bg-luxury-gold/5 border border-luxury-gold/10 animate-pulse">
+                    <span className="text-xl">🧠</span>
+                    <span className="text-sm font-medium text-luxury-gold">
+                        Sto analizzando la richiesta...
+                    </span>
+                </div>
+            );
+        }
+
         if (tool.toolName === 'analyze_room' || tool.toolName === 'analyze_media_triage') {
             return (
                 <div className="flex flex-col gap-1 mt-2 p-3 bg-luxury-gold/5 border border-luxury-gold/20 rounded-lg">
@@ -112,7 +123,10 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
                 </div>
             );
         }
+
     }
+
+
 
     return null;
 });
