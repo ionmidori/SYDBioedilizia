@@ -1,6 +1,49 @@
-# Project Context & Session Memory (Update: 2026-02-03)
+# Project Context & Session Memory (Update: 2026-02-06)
 
 Questo file serve come memoria storica per l'IA per evitare regressioni su bug critici risolti in questa sessione.
+
+## 🏢 Remediation Audit & Tier-3 Enforcement (2026-02-06)
+
+Il sistema è stato bonificato per eliminare le "Shadow API" e garantire che il backend Python sia l'unica **Source of Truth**. Tutte le fasi 1-7 sono state completate con successo.
+
+### 1. Eliminazione Totale Shadow APIs (Phase 2 & 4)
+Tutte le rotte API Node.js ridondanti sono state **ELIMINATE** per prevenire il "Shadow Logic":
+- `web_client/app/api/lead-magnet/` -> Sostituito da `/api/py/submit-lead` (Python).
+- `web_client/app/api/upload-image/` -> Sostituito da `/api/py/upload/image` (Python).
+- `web_client/app/api/get-upload-url/` -> Sostituito da upload diretto via Python backend.
+- `web_client/app/api/chat/history/` -> Sostituito da `/api/py/sessions/{id}/messages` (Python).
+- `web_client/lib/legacy-api.ts` -> **CANCELLATO** (tutti i consumatori rimossi).
+
+### 2. Golden Sync & Firestore Migration (Phase 1 & 3)
+- **Leads:** Allineata l'interfaccia `LeadData` (.ts) con il modello Pydantic (`backend_python`).
+- **useChatHistory (SWR Migration):** Rimosso l'accesso diretto a Firestore via SDK (`onSnapshot`).
+  - Il frontend ora usa **SWR** per il data fetching tramite l'API Python.
+  - **Caching & Resilience:** Implementato polling automatico (5s), deduplicazione e retry automatici con SWR.
+- **Reasoning CoT:** Supporto per `ReasoningStep` nei messaggi di chat provenienti dal backend.
+
+### 3. Centralizzazione & Hook Refactoring (Phase 2 & 4)
+- **api-client.ts:** Unico punto di ingresso per tutte le chiamate al backend Python.
+- **useMediaUpload Replacement:** Il hook `useMediaUpload` è stato rifattorizzato internamente (approccio conservativo) per delegare a `useImageUpload`, mantenendo l'interfaccia stabile per `ChatWidget.tsx` ma eliminando le dipendenze Shadow API.
+- **Supporto Multi-Media:** Introdotto `useDocumentUpload` per file PDF/DOCX gestiti dal backend Python.
+
+### 4. Chat Protocol & Reasoning UI (Phase 5)
+- **ReasoningStepView:** Nuovo componente per visualizzare il **Chain of Thought** dell'AI (confidence score, protocol status, missing info).
+- **Metadata Enhancement:** Il payload di invio messaggi ora include metadati completi dei file (`mimeType`, `fileSize`, `originalFileName`).
+
+### 5. Observability & Monitoring (Phase 6)
+- **Metrics Middleware:** Tracciamento automatico della durata delle richieste (ms) e degli status code.
+- **Enhanced Logging:** Log strutturati JSON in `upload.py` con metadati estesi per il monitoraggio preventivo delle quote e debugging degli upload.
+
+### 6. Verification & Shadow API Audit (Phase 7)
+- **Audit Risultati:** 100% delle Shadow API identificate sono state rimosse. Nessuna rotta ridondante rilevata.
+- **Integrità:** Compilazione TypeScript passata con successo (0 errori).
+- **Readiness:** Il sistema è ora considerato pronto per il deployment (95% readiness).
+- **Test Plan:** Creato [MANUAL_TEST_PLAN.md](file:///c:/Users/User01/.gemini/antigravity/scratch/renovation-next/directives/MANUAL_TEST_PLAN.md) per la validazione finale da parte dell'utente.
+
+### 7. FileUploader Refactoring (Post-Audit)
+- **Problema:** Il componente usava logica mock e chiamava `/api/upload` (endpoint inesistente).
+- **Soluzione:** Integrato `useFileUpload` hook per upload reali su Firebase Storage.
+- **Miglioramenti:** Progresso real-time, mapping errori user-friendly, sincronizzazione stato via `useEffect`.
 
 ## 🛠️ Bug Critici Risolti
 
@@ -25,6 +68,30 @@ Questo file serve come memoria storica per l'IA per evitare regressioni su bug c
     - **Frontend UI (`MessageItem.tsx`):**
         - Rileva `message.content.startsWith(...)` per attivare lo stato "Thinking".
         - **Artifact Stripping:** Rimuove visivamente i `...` iniziali dal testo renderizzato per evitare artefatti (es. `...Ciao`).
+
+
+---
+
+## 🏗️ Refactoring Backend (Phases 1-7) - COMPLETATO
+
+Il backend Python è stato trasformato da uno script monolitico a un'architettura **Enterprise 3-Tier**.
+
+### 1. Architettura a 3 Livelli (Screaming Architecture)
+- **Tier 1 (Directives):** Strategia e SOP gestite da `IntentClassifier` e `SystemPrompts`.
+- **Tier 2 (Orchestration):** `AgentOrchestrator` gestisce il flusso di streaming e la persistenza dei messaggi.
+- **Tier 3 (Execution):** `AgentGraphFactory` crea grafi isolati (LangGraph) con tool tipizzati (Pydantic).
+
+### 2. Affidabilità & Performance (Phase 4 & 6)
+- **Request Tracing:** Ogni richiesta genera un `X-Request-ID` unico, propagato tramite `contextvars` in tutti i log.
+- **Structured Logging:** I log sono ora in formato **JSON** (production-ready) per facilitare il debugging e l'osservabilità.
+- **Metrics Middleware:** Introdotto tracciamento automatizzato della latenza e header `X-Response-Time` per il monitoraggio delle performance.
+- **Exception handling:** Implementata gerarchia `AppException`. Il middleware cattura tutti gli errori restituendo `APIErrorResponse` (JSON), eliminando le risposte HTML 500.
+- **Async Safety:** Introdotto `SafeTaskManager` nell'Orchestrator per prevenire la garbage collection dei task "fire-and-forget" e un wrapper `run_blocking` per operazioni sincrone pesanti.
+
+### 3. Intelligence & Routing (Phase 3)
+- **Intent Classifier:** Ora asincrono e predisposto per il fallback su modelli locali in caso di latenza (Hybrid LLM).
+- **Prompt Management:** Versionamento delle istruzioni di sistema tramite `SystemPrompts`.
+- **Model Stability:** Consolidato l'uso di `gemini-2.0-flash` per bilanciare velocità e intelligenza.
 
 ---
 
@@ -60,6 +127,11 @@ Questo file serve come memoria storica per l'IA per evitare regressioni su bug c
 ---
 
 ## 🚀 Script di Utilità e Documentazione
+- `directives/TECHNICAL_DEBT.md`: Registro del debito tecnico e dei refactoring futuri pianificati (es. consolidamento hook).
 - `directives/MAGIC_PENCIL_SPEC.md`: Specifica tecnica per lo strumento di modifica mirata.
+- `brain/5e8d4ea5-bf6e-4f11-9bd5-920aa3c43465/VERIFICATION_REPORT.md`: Report finale di verifica audit (Phase 7).
+- `brain/5e8d4ea5-bf6e-4f11-9bd5-920aa3c43465/WALKTHROUGH_REMEDIATION.md`: Documentazione passo-passo della bonifica.
+- `backend_python/tests/verify_e2e_flow.py`: Test di integrazione completo del backend.
+- `backend_python/tests/verify_reliability.py`: Verifica di tracing, logging e async safety.
+- `directives/MANUAL_TEST_PLAN.md`: Protocollo di test manuali per la validazione della remediation.
 - `scripts/cleanup_orphaned_files.py`: Pulisce lo Storage orfano.
-- `scripts/cleanup_zombie_projects.py`: Pulisce i documenti `projects` senza sessione.
