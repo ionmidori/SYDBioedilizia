@@ -7,10 +7,11 @@ import { ImagePreview } from '@/components/chat/ImagePreview';
 import { ToolStatus } from '@/components/chat/ToolStatus';
 import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
 import { LeadCaptureForm } from '@/components/chat/widgets/LeadCaptureForm';
-import { LoginRequest } from '@/components/chat/tools/LoginRequest'; // 🔥 NEW
+import { LoginRequest } from '@/components/chat/tools/LoginRequest';
+import { ReasoningStepView } from '@/components/chat/ReasoningStepView';
 import { cn } from '@/lib/utils';
 
-import { Message } from '@/types/chat';
+import { Message, ReasoningStep } from '@/types/chat';
 
 interface MessageItemProps {
     message: Message;
@@ -131,6 +132,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
 
             {/* Message Content Stack (Split Bubbles for User) */}
             <div className={cn("flex flex-col gap-2 min-w-0 font-light", message.role === 'user' ? "items-end" : "items-start")}>
+
+                {/* 0. AI Reasoning Panel (Chain of Thought) */}
+                {message.role === 'assistant' && message.reasoning && (
+                    <ReasoningStepView reasoning={message.reasoning as ReasoningStep | string} />
+                )}
 
                 {/* 1. User Images Bubble (Visual Only) */}
                 {message.role === 'user' && message.attachments?.images && message.attachments.images.length > 0 && (

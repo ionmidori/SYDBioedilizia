@@ -1,6 +1,6 @@
-# 🗺️ Mappa dell'Architettura del Chatbot (v2.0)
+# 🗺️ Mappa dell'Architettura del Chatbot (v3.0)
 
-Questo documento delinea la struttura del sistema **SYD Bioedilizia**, mappando la logica ai file specifici dopo la migrazione alla **3-Tier Python-First Architecture**.
+Questo documento delinea la struttura del sistema **SYD Bioedilizia**, mappando la logica ai file specifici dopo la completa ristrutturazione in un'architettura **Enterprise 3-Tier**.
 
 ## 🟢 1. Livello Orchestrazione Frontend (`web_client`)
 
@@ -16,28 +16,28 @@ Gestisce l'interfaccia utente, lo streaming e la gestione dello stato client.
 
 ## 🐍 2. Livello Intelligence Backend (`backend_python`)
 
-Il "Cervello" del sistema (denominato **SYD Brain**), basato su **LangGraph** e **CoT (Chain of Thought)**.
+Il "Cervello" del sistema (denominato **SYD Brain**), basato su **FastAPI**, **LangGraph** e un sistema di orchestrazione asincrono.
 
-### 🧠 Tier 1: Directive (Reasoning Node)
-*Situato in: `src/graph/agent.py` → `reasoning_node`*
-*Logica Pydantic: `src/models/reasoning.py`*
+### 🧠 Tier 1: Directives (Strategy & SOP)
+*Componenti: `src/services/intent_classifier.py`, `src/prompts/system_prompts.py`*
 
-Il sistema pianifica prima di agire. Gemini 2.0 Flash genera un oggetto `ReasoningStep` che viene validato da **Pydantic** per bloccare allucinazioni o tool non autorizzati.
+Prima di agire, il sistema analizza l'intento dell'utente.
+- **Intent Classifier**: Decide se la richiesta è Chat, Azione o Comando.
+- **System Prompts**: Gestisce le istruzioni versionate e il contesto dinamico (tramite `ContextBuilder`).
 
-### 📡 Tier 2: Orchestration (Deterministic Routing)
-*Situato in: `src/graph/edges.py` → `route_step`*
+### 📡 Tier 2: Orchestration (Service Layer)
+*Componenti: `src/services/agent_orchestrator.py`, `src/repositories/`*
 
-Il router Python decide il prossimo passo basandosi sul piano validato:
-- **`execution`**: Produce la chiamata al tool o la risposta finale.
-- **`tools`**: Esegue il tool richiesto.
-- **`END`**: Termina la conversazione.
+Gestisce il ciclo di vita della richiesta e lo streaming verso il frontend.
+- **Agent Orchestrator**: Coordina l'esecuzione del grafo, gestisce i task in background e lo streaming del Vercel Protocol.
+- **Conversation Repository**: Astrae la persistenza (Firestore), gestendo sessioni e cronologia messaggi.
 
-### ⚔️ Tier 3: Execution (SOP & Muscle)
-*Situato in: `src/agents/sop_manager.py`*
+### ⚔️ Tier 3: Execution (Logic & Tools)
+*Componenti: `src/graph/factory.py`, `src/services/media_processor.py`*
 
-Gestisce l'accesso agli strumenti basato sui ruoli (**RBTA**):
-- **Anonimo**: Solo strumenti base, quota render limitata.
-- **Autenticato**: Accesso a preventivi, salvataggio progetti e quota render estesa.
+Il luogo dove avviene il lavoro pesante (Muscle Layer).
+- **Agent Graph Factory**: Costruisce grafi LangGraph isolati per ogni richiesta.
+- **Media Processor**: Gestisce I/O pesanti come l'upload di video e analisi vision asincrone.
 
 ---
 
@@ -52,15 +52,26 @@ Gestisce l'accesso agli strumenti basato sui ruoli (**RBTA**):
 
 ---
 
-## 🗄️ Livello Data & Persistenza (`src/db/`)
+## 🗄️ Livello Data & Persistenza (`src/repositories/`)
 
-Il backend gestisce la memoria a lungo termine su **Firebase Firestore**.
+Il backend utilizza un pattern Repository per isolare la logica del database.
 
 | Modulo | Percorso File | Responsabilità |
 | :--- | :--- | :--- |
-| **Messages DAO** | `src/db/messages.py` | Salvataggio cronologia, gestione `session_id`. |
-| **Quota Manager**| `src/db/quota.py` | Tracciamento utilizzo giornaliero strumenti premium. |
+| **Conversation Repo** | `src/repositories/conversation_repository.py` | Gestione sessioni, messaggi e stato conversazione. |
+| **Quota Manager**| `src/tools/quota.py` | Tracciamento utilizzo giornaliero strumenti premium. |
 | **Project DAO** | `src/db/projects.py` | Gestione metadati cantieri e galleria immagini. |
+
+---
+
+## 🛡️ Affidabilità & Osservabilità (Enterprise Ready)
+
+Il sistema è stato hardenizzato per la produzione con le seguenti caratteristiche:
+
+- **Request Tracing**: Middleware `main.py` inietta un `X-Request-ID` unico in ogni richiesta, propagato tramite `contextvars` in tutti i log.
+- **Structured Logging**: `src/core/logger.py` emette log in formato **JSON** per facilitare l'audit e l'osservabilità in Cloud Logging.
+- **Standardized Error Handling**: Gerarchia di eccezioni `AppException` con schema di risposta `APIErrorResponse` (elimina gli errori HTML 500).
+- **Async Safety**: `SafeTaskManager` previene la cancellazione di task in background; `run_blocking` evita il blocco dell'event loop per operazioni sincrone.
 
 ---
 

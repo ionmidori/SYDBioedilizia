@@ -40,41 +40,22 @@ export const LeadCaptureForm: React.FC<LeadCaptureFormProps> = ({ quoteSummary, 
         setStatus('loading');
 
         try {
-            // Get current Firebase ID token
-            // note: we assume the user is signed in (anon or perm) if they are chatting
-            const { getAuth } = await import('firebase/auth');
-            const auth = getAuth();
-            const token = await auth.currentUser?.getIdToken();
+            const { submitLead } = await import('@/lib/api-client');
 
-            if (!token) {
-                throw new Error("User not authenticated");
-            }
-
-            const response = await fetch('/api/lead-magnet', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
-                    quote_summary: quoteSummary,
-                    session_id: sessionId // Need to add this prop
-                })
+            await submitLead({
+                name: formData.name,
+                email: formData.email,
+                phone: formData.phone,
+                project_details: quoteSummary,
+                session_id: sessionId
             });
-
-            if (!response.ok) {
-                throw new Error("Errore durante l'invio");
-            }
 
             setStatus('success');
             if (onSuccess) onSuccess(formData);
 
         } catch (err) {
-            console.error(err);
-            setError("Si è verificato un errore. Riprova.");
+            console.error("[LeadCaptureForm] Error:", err);
+            setError("Si è verificato un errore durante l'invio. Riprova.");
             setStatus('idle');
         }
     };

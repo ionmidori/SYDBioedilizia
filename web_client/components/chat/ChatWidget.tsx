@@ -122,6 +122,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         }
     }, [isInitialized, user, projectId]);
 
+
     // 🔗 URL SYNC: Listen to Path Changes (Back/Forward Navigation)
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -192,6 +193,29 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // Destructure from Typed Helper
     const { messages, isLoading, sendMessage, error, setInput, input, setMessages } = chat;
+
+    // 🎯 INTENT HANDLING: Trigger specific flows based on URL parameters
+    useEffect(() => {
+        const intent = searchParams?.get('intent');
+        // Trigger if intent is 'cad' and it's a relatively new conversation
+        if (intent === 'cad' && historyLoaded && !isLoading && messages.length <= 2) {
+            console.log('[ChatWidget] 🎯 Triggering CAD extraction flow');
+            setTimeout(() => {
+                if (typeof sendMessage === 'function') {
+                    sendMessage({
+                        role: 'user',
+                        content: "Vorrei effettuare un rilievo CAD di questa stanza. Mi aiuti a estrarre le misure?"
+                    }, {});
+
+                    // Cleanup URL to avoid re-triggering on refresh
+                    const params = new URLSearchParams(window.location.search);
+                    params.delete('intent');
+                    const newUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+                    window.history.replaceState({}, '', newUrl);
+                }
+            }, 1000);
+        }
+    }, [searchParams, historyLoaded, isLoading, messages.length, sendMessage]);
 
     // 🧹 STATE RESET: When Project/Session Changes
     useEffect(() => {
@@ -376,12 +400,17 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             .filter((v: VideoUploadState) => v.status === 'done' && v.fileUri)
             .map((v: VideoUploadState) => v.fileUri!);
 
-        // Extract Metadata (Trim Ranges)
+        // Extract Metadata (Trim Ranges + Full File Info)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const mediaMetadata: Record<string, any> = {};
         mediaItems.forEach(i => {
-            if (i.status === 'done' && i.publicUrl && i.trimRange) {
-                mediaMetadata[i.publicUrl] = { trimRange: i.trimRange };
+            if (i.status === 'done' && i.publicUrl) {
+                mediaMetadata[i.publicUrl] = {
+                    mimeType: i.file.type,
+                    fileSize: i.file.size,
+                    originalFileName: i.file.name,
+                    ...(i.trimRange && { trimRange: i.trimRange })
+                };
             }
         });
 

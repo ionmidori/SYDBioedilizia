@@ -7,7 +7,7 @@ import { StatsGrid } from '@/components/dashboard/StatsGrid';
 import { QuickActionsRow } from '@/components/dashboard/QuickActionsRow';
 import { ProjectsCarousel } from '@/components/dashboard/ProjectsCarousel';
 import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
-import { FolderKanban, FileText, Image, LayoutGrid, Plus, Upload, MessageSquare, Receipt } from 'lucide-react';
+import { FolderKanban, FileText, Image, LayoutGrid, Plus, Upload, MessageSquare, Receipt, Ruler } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -123,6 +123,17 @@ export default function DashboardPage() {
                             onClick: () => {
                                 if (recentProjects[0]) {
                                     router.push(`/dashboard/${recentProjects[0].session_id}`);
+                                } else {
+                                    handleCreateProject();
+                                }
+                            }
+                        },
+                        {
+                            label: 'Rilievo CAD',
+                            icon: Ruler,
+                            onClick: () => {
+                                if (recentProjects[0]) {
+                                    router.push(`/dashboard/${recentProjects[0].session_id}?intent=cad`);
                                 } else {
                                     handleCreateProject();
                                 }
