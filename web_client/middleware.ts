@@ -7,8 +7,12 @@ export function middleware(request: NextRequest) {
         return NextResponse.next()
     }
 
-    // Check for maintenance mode via environment variable (optional) or hardcoded enforcement
-    // For this task, we enforce it everywhere except internal routes/maintenance page
+    // Check for maintenance mode via environment variable
+    const isMaintenanceMode = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true'
+
+    if (!isMaintenanceMode) {
+        return NextResponse.next()
+    }
 
     if (
         request.nextUrl.pathname.startsWith('/_next') ||
