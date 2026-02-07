@@ -7,7 +7,7 @@ import os
 import sys
 import pytest
 from pathlib import Path
-from unittest.mock import Mock, AsyncMock, MagicMock
+from unittest.mock import Mock, AsyncMock, MagicMock, patch
 from datetime import datetime, timedelta
 
 # Add parent directory to sys.path to enable 'src' imports
@@ -21,6 +21,11 @@ def mock_env_development(monkeypatch):
     monkeypatch.setenv("ENV", "development")
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     monkeypatch.setenv("FIREBASE_STORAGE_BUCKET", "test-bucket.firebasestorage.app")
+    
+    # Patch the actual settings object
+    from src.core.config import settings
+    with patch.object(settings, 'ENV', 'development'):
+        yield
 
 
 @pytest.fixture
@@ -29,6 +34,11 @@ def mock_env_production(monkeypatch):
     monkeypatch.setenv("ENV", "production")
     monkeypatch.setenv("GEMINI_API_KEY", "test-api-key")
     monkeypatch.setenv("FIREBASE_STORAGE_BUCKET", "test-bucket.firebasestorage.app")
+    
+    # Patch the actual settings object
+    from src.core.config import settings
+    with patch.object(settings, 'ENV', 'production'):
+        yield
 
 
 @pytest.fixture

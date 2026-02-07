@@ -34,6 +34,7 @@ def test_list_files_success(mock_context_user, mock_firebase):
     mock_blob.name = "projects/session_abc/image.png"
     mock_blob.content_type = "image/png"
     mock_blob.generate_signed_url.return_value = "http://fake-signed-url.com"
+    mock_blob.metadata = {"room": "Test", "status": "approved"}
     
     # Mock blob inside a folder (should skip root folder marker)
     mock_blob_1 = MagicMock()
@@ -90,10 +91,12 @@ def test_category_filtering(mock_context_user, mock_firebase):
     img_blob = MagicMock()
     img_blob.name = "img.png"
     img_blob.content_type = "image/png"
+    img_blob.metadata = {}  # Fix: mock metadata
     
     pdf_blob = MagicMock()
     pdf_blob.name = "doc.pdf"
     pdf_blob.content_type = "application/pdf"
+    pdf_blob.metadata = {}  # Fix: mock metadata
     
     # Return iterator
     mock_bucket.return_value.list_blobs.return_value = [img_blob, pdf_blob]
