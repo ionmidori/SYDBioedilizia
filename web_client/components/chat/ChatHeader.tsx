@@ -8,7 +8,7 @@ interface ChatHeaderProps {
     onMinimize?: () => void;
     projectId?: string;
     showSelector?: boolean;
-    onProjectSelect?: (projectId: string) => void; // New prop
+    onProjectSelect?: (projectId: string) => void;
 }
 
 /**
@@ -18,43 +18,49 @@ interface ChatHeaderProps {
 export function ChatHeader({ onMinimize, projectId, showSelector, onProjectSelect }: ChatHeaderProps) {
     return (
         <div
-            className="flex items-center justify-between p-4 border-b border-luxury-gold/10 bg-luxury-bg/50 flex-shrink-0"
-            style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+            className="flex flex-col p-0 border-b border-luxury-gold/10 bg-luxury-bg/50 flex-shrink-0"
+            style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
         >
-            {/* Left: Branding (Always visible) */}
-            <div className="flex items-center gap-3">
-                <ArchitectAvatar />
-                <div>
-                    <div className="flex flex-col">
-                        <h3 className="font-serif font-bold text-luxury-text text-lg leading-none">
-                            SYD
-                        </h3>
-                        <span className="text-[10px] font-sans font-medium text-luxury-gold/80 mt-0.5">
-                            Architetto personale
-                        </span>
+            {/* Standard spacing for desktop/mobile without handle */}
+            <div className="pt-2" />
+
+            <div className="flex items-center justify-between px-4 pb-4">
+
+                {/* Left: Branding (Always visible) */}
+                <div className="flex items-center gap-3">
+                    <ArchitectAvatar />
+                    <div>
+                        <div className="flex flex-col">
+                            <h3 className="font-serif font-bold text-luxury-text text-lg leading-none">
+                                SYD
+                            </h3>
+                            <span className="text-[10px] font-sans font-medium text-luxury-gold/80 mt-0.5">
+                                Architetto personale
+                            </span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Right: Project Selector & Actions */}
-            <div className="flex items-center gap-4">
-                {(projectId || showSelector) && (
-                    <ProjectSelector
-                        currentProjectId={projectId || ''}
-                        onProjectSelect={onProjectSelect}
-                    />
-                )}
+                {/* Right: Project Selector & Actions */}
+                <div className="flex items-center gap-4">
+                    {(projectId || showSelector) && (
+                        <ProjectSelector
+                            currentProjectId={projectId || ''}
+                            onProjectSelect={onProjectSelect}
+                        />
+                    )}
 
-                {onMinimize && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={onMinimize}
-                        className="text-luxury-text/60 hover:text-luxury-gold hover:bg-luxury-gold/5"
-                    >
-                        <Minimize2 className="w-5 h-5" />
-                    </Button>
-                )}
+                    {onMinimize && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={onMinimize}
+                            className="text-luxury-text/60 hover:text-luxury-gold hover:bg-luxury-gold/5"
+                        >
+                            <Minimize2 className="w-5 h-5" />
+                        </Button>
+                    )}
+                </div>
             </div>
         </div>
     );

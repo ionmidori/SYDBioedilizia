@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { User } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
@@ -10,12 +10,14 @@ import { LeadCaptureForm } from '@/components/chat/widgets/LeadCaptureForm';
 import { LoginRequest } from '@/components/chat/tools/LoginRequest';
 import { ReasoningStepView } from '@/components/chat/ReasoningStepView';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import Link from 'next/link';
+import Image from 'next/image';
 
 import { Message, ReasoningStep } from '@/types/chat';
 
 interface MessageItemProps {
     message: Message;
-    index: number;
     typingMessage?: string;
     sessionId: string;
     onImageClick: (imageUrl: string) => void;
@@ -26,7 +28,9 @@ interface MessageItemProps {
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, index, typingMessage, sessionId, onImageClick }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, sessionId, onImageClick }) => {
+    const { user } = useAuth();
+
     // Helper: Extract text from both old (content) and new (parts[]) formats
     const getMessageText = (msg: Message): string => {
         if (msg.parts && Array.isArray(msg.parts)) {
@@ -40,6 +44,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
     };
 
     // Fix for React 18/19 type mismatch
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const Markdown = ReactMarkdown as any;
 
     const text = getMessageText(message);
@@ -47,7 +52,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
 
     // ✅ Memoize ReactMarkdown components to prevent re-creation on every render
     const markdownComponents = useMemo(() => ({
-        img: ({ node, ...props }: any) => props.src ? (
+        img: ({ ...props }: { src?: string; alt?: string }) => props.src ? (
             <ImagePreview
                 src={String(props.src)}
                 alt={String(props.alt || 'Generated image')}
@@ -56,7 +61,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
         ) : null
     }), [onImageClick]);
 
-    const variants = {
+    const variants: Variants = {
         hidden: { opacity: 0, y: 20, scale: 0.95 },
         visible: {
             opacity: 1,
@@ -93,7 +98,8 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
 
         if (tool.state === 'call') return true; // Loading of other tools is always visible
 
-        const result = tool.result || (tool as any).output;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = (tool.result || (tool as any).output) as any;
 
         // 🔥 GLOBAL AUTH INTERCEPT:
         // If ANY tool returns the specific Auth Signal or is the explicit 'request_login' tool, 
@@ -119,7 +125,8 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
     return (
         <motion.div
             layout
-            variants={variants as any} // Cast to any to bypass strict framer-motion types
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            variants={variants as any}
             initial="hidden"
             animate="visible"
             exit="exit"
@@ -130,9 +137,24 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
         >
             {/* Avatar */}
             {message.role === 'user' ? (
-                <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border mt-1 bg-luxury-teal border-luxury-teal text-white shadow-sm">
-                    <User className="w-4 h-4" />
-                </div>
+                <Link
+                    href="/dashboard/profile"
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 border mt-1 transition-all hover:scale-110 active:scale-95 group overflow-hidden relative"
+                    title="Impostazioni Profilo"
+                >
+                    {user?.photoURL ? (
+                        <Image
+                            src={user.photoURL}
+                            alt={user.displayName || "User"}
+                            fill
+                            className="object-cover"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-luxury-teal border-luxury-teal text-white shadow-sm">
+                            <User className="w-4 h-4" />
+                        </div>
+                    )}
+                </Link>
             ) : (
                 <ArchitectAvatar className="w-8 h-8 mt-1 shrink-0" />
             )}
@@ -177,7 +199,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                                     {text && (
                                         <Markdown
                                             urlTransform={(value: string) => value}
-                                            components={markdownComponents as any}
+                                            components={markdownComponents}
                                         >
                                             {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
                                             {text.startsWith('...') ? text.substring(3) : text}
@@ -189,6 +211,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                                     {message.toolInvocations?.map((tool, toolIdx) => {
                                         // 💎 PREMIUM WIDGET: Lead Capture Form
                                         if (tool.toolName === 'display_lead_form') {
+                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                             const args = tool.args as any;
                                             return (
                                                 <div key={toolIdx} className="mt-4">
@@ -202,6 +225,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
 
                                         // 🔒 AUTH WIDGET: Login Request
                                         // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                         const result = tool.result || (tool as any).output;
                                         const isAuthSignal = typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER');
 
@@ -230,3 +254,5 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
         </motion.div>
     );
 });
+
+MessageItem.displayName = 'MessageItem';

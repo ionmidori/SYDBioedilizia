@@ -156,15 +156,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     const fallbackSessionId = useSessionId();
     const sessionId = syncedProjectId || fallbackSessionId;
 
-    // 🛡️ GUARD: Prevent useChat initialization if sessionId is not ready
-    // This prevents "sessionId is required" errors from the API route
-    if (!sessionId || sessionId.trim().length === 0) {
-        console.log('[ChatWidget] ⏳ Waiting for sessionId to initialize...');
-        return null; // Or return a loading spinner
-    }
-
     // Load conversation history
-    const { historyLoaded, historyMessages } = useChatHistory(sessionId);
+    const { historyLoaded, historyMessages } = useChatHistory(sessionId || "");
 
     // ✅ NATIVE AI SDK HOOK
     // We cast options to 'any' because strict types might complain about 'api'
@@ -198,7 +191,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     } as any) as unknown as LegacyUseChatHelpers;
 
     // Destructure from Typed Helper
-    const { messages, isLoading, sendMessage, error, setInput, input, setMessages } = chat;
+    const { messages, isLoading, sendMessage, setInput, input, setMessages } = chat;
 
     // 🎯 INTENT HANDLING: Trigger specific flows based on URL parameters
     useEffect(() => {
@@ -344,13 +337,11 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     const [localInput, setLocalInput] = useState('');
 
     // Sync SDK input if available (optional)
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/rules-of-hooks
     useEffect(() => {
         if (input && input !== localInput) {
             setLocalInput(input);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [input]);
+    }, [input, localInput]);
 
     const handleInputChange = (val: string) => {
         setLocalInput(val);
@@ -504,7 +495,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             window.removeEventListener('OPEN_CHAT' as any, handleOpenChat);
         };
-    }, [sendMessage]); // Depend on sendMessage
+    }, [sendMessage, sessionId, refreshToken, user]); // Added dependencies
 
     // ✅ Sync SDK messages when history loads (Late Binding)
     useEffect(() => {
@@ -513,14 +504,24 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             setMessages(historyMessages as any[]);
         }
-    }, [historyLoaded, historyMessages]); // ✅ FIXED: Removed setMessages from deps, using ref flag to ensure one-time init
+    }, [historyLoaded, historyMessages, setMessages]); // ✅ FIXED: Added setMessages to deps
+
+    // 🛡️ GUARD: Prevent rendering if sessionId is not ready
+    if (!sessionId || sessionId.trim().length === 0) {
+        return null;
+    }
 
     return (
         <>
             {/* Toggle Button - Hide if inline */}
             {!isInline && (
                 <div className="fixed bottom-4 right-2 md:bottom-8 md:right-6 z-50 flex items-center gap-4">
-                    <ChatToggleButton isOpen={isOpen} onClick={() => setIsOpen(!isOpen)} />
+                    <ChatToggleButton
+                        isOpen={isOpen}
+                        onClick={() => {
+                            setIsOpen(!isOpen);
+                        }}
+                    />
                 </div>
             )}
 
@@ -559,25 +560,25 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         ) : (
                             <motion.div
                                 key="chat-window"
-                                initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                                initial={{ opacity: 0, y: "100%", scale: 1 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 50, scale: 0.95 }}
-                                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                drag={isMobile ? "y" : false}
-                                dragConstraints={{ top: 0, bottom: 0 }}
-                                dragElastic={{ top: 0, bottom: 0.5 }}
+                                exit={{ opacity: 0, y: "100%", scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 ref={chatContainerRef}
                                 style={{
                                     height: isMobile ? '100dvh' : undefined,
-                                    top: isMobile ? 0 : undefined
+                                    bottom: isMobile ? 0 : undefined,
+                                    position: 'fixed'
                                 }}
                                 className={cn(
                                     "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-[100]",
-                                    "fixed inset-0 md:inset-auto md:bottom-4 md:right-6 w-full md:w-[450px] md:h-[850px] md:max-h-[calc(100vh-40px)] md:rounded-3xl shadow-2xl"
+                                    "fixed inset-x-0 md:inset-auto md:bottom-4 md:right-6 w-full md:w-[450px] md:h-[850px] md:max-h-[calc(100vh-40px)] md:rounded-3xl shadow-2xl"
                                 )}
                             >
                                 <ChatHeader
-                                    onMinimize={() => setIsOpen(false)}
+                                    onMinimize={() => {
+                                        setIsOpen(false);
+                                    }}
                                     projectId={syncedProjectId}
                                     showSelector={!!user}
                                     onProjectSelect={handleProjectSwitch}
@@ -596,7 +597,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     function renderChatContent() {
         return (
             <>
-                <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-thin scrollbar-thumb-luxury-gold/20 hover:scrollbar-thumb-luxury-gold/40">
+                <div className="flex-1 overflow-hidden p-0 flex flex-col relative">
                     {!historyLoaded && (
                         <div className="flex justify-center py-4">
                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-luxury-gold"></div>

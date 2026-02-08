@@ -18,6 +18,8 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
 
     // Viewport Logic (Mobile/iOS Fix)
     useEffect(() => {
+        // Only run body lock and viewport height adjustments if chat is fully open
+        // If it's closed OR minimized, we should release the viewport/body
         if (!isOpen) return;
 
         const handleResize = () => {
