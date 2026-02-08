@@ -15,6 +15,7 @@ import {
 } from 'firebase/auth';
 import { auth, waitForAuth } from '@/lib/firebase';
 import { tokenManager } from '@/lib/auth/token-manager';
+import { setAuthCookie, removeAuthCookie } from '@/app/actions/auth-session';
 
 /**
  * AuthContext Interface
@@ -87,6 +88,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             const token = await currentUser.getIdToken();
                             setIdToken(token);
 
+                            // Sync cookie with server
+                            await setAuthCookie(token);
+
                             // Start monitoring token expiration
                             tokenManager.startMonitoring(currentUser);
                         } catch (err) {
@@ -98,6 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         setUser(null);
                         setIdToken(null);
                         tokenManager.stopMonitoring();
+                        // Remove server cookie
+                        await removeAuthCookie();
                     }
 
                     // Mark as initialized after first callback (using local flag)
@@ -132,10 +138,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const unsubscribePromise = initializeAuth();
 
         // Subscribe to token refresh events
-        const unsubscribeRefresh = tokenManager.onRefresh((newToken) => {
+        const unsubscribeRefresh = tokenManager.onRefresh(async (newToken) => {
             if (isMounted) {
                 console.log('[AuthProvider] Token refreshed');
                 setIdToken(newToken);
+                // Sync refreshed token
+                await setAuthCookie(newToken);
             }
         });
 
@@ -204,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      * Sign out
      */
     const logout = async (): Promise<void> => {
+        await removeAuthCookie();
         await signOut(auth);
     };
 

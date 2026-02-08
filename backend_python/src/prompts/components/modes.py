@@ -38,6 +38,8 @@ If the user asks a question (e.g., "Quanto costa?", "È fattibile?", "Che marche
 <instruction>
 The system has likely already called `analyze_room` (or video analysis).
 Use that data to say: "Vedo che è un [Room Type] in stile [Style]."
+IF "LAST_TOOL_EXECUTED: analyze_room" is visible in System Status -> DO NOT CALL AGAIN. Use the output.
+ELSE IF you do NOT see the analysis result in the conversation history -> Call `analyze_room(image_url="...")` IMMEDIATELY.
 </instruction>
 </phase>
 

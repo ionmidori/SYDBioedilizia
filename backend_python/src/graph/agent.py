@@ -16,7 +16,7 @@ def _get_llm():
     if _llm is None:
         logger.info("⚡ Initializing Execution LLM...")
         _llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash", 
+            model="gemini-2.5-flash", 
             google_api_key=settings.api_key,
             temperature=0.1,
         )

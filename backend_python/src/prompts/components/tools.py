@@ -185,7 +185,7 @@ The URL of the user's uploaded image.
 </parameters>
 
 <workflow>
-1. DETECT image upload.
+1. DETECT image upload (look for `[Immagine allegata: URL]`).
 2. IMMEDIATELY call `analyze_room(image_url="...")`. Do not ask for permission.
 3. WAIT for the tool result (JSON with room details).
 4. SYNTHESIZE the result into a friendly confirmation:

@@ -212,3 +212,8 @@ Il backend Python è stato trasformato da uno script monolitico a un'architettur
 ### 21. Multi-Project Enforcement (Hard Cap)
 - **Policy:** Limite massimo di 5 progetti per utente.
 - **Implementazione:** Controllo atomico in `projects_router.py` tramite `count_user_projects` prima della creazione.
+
+### 22. AI Model Upgrade & Prompt Robustness (2026-02-08)
+- **Model Upgrade:** Allineato il core del sistema a **Gemini 2.5 Flash** (sia per `execution` che `reasoning`). L'Architect rimane su `gemini-3-flash-preview`.
+- **Prompt Robustness:** Risolto bug di "stallo" nel Triage. L'agente ha l'obbligo imperativo di chiamare `analyze_room` se i dati mancano, MA con una clausola di sicurezza ("Anti-Loop Gate") che verifica `LAST_TOOL_EXECUTED` nel System Status per prevenire chiamate ridondanti.
+- **Auth Synchronization (Server Actions):** Implementata la gestione dei cookie di sessione (`auth-token`) nelle Server Actions di Next.js per prevenire errori 401/403 durante il salvataggio dei dettagli del progetto in modalità Guest.
