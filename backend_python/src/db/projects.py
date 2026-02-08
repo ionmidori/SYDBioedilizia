@@ -94,6 +94,43 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
         return []
 
 
+async def count_user_projects(user_id: str) -> int:
+    """
+    Count the number of projects owned by a user.
+    
+    Args:
+        user_id: Firebase UID.
+    
+    Returns:
+        Number of projects.
+    """
+    try:
+        db = get_async_firestore_client()
+        query = (
+            db.collection(PROJECTS_COLLECTION)
+            .where(filter=FieldFilter("userId", "==", user_id))
+        )
+        
+        # Use aggregation query if available (more efficient)
+        # Using count() aggregation is standard in newer value
+        aggregate_query = query.count()
+        results = await aggregate_query.get()
+        return results[0][0].value
+        
+    except Exception as e:
+        logger.error(f"[Projects] Error counting projects for {user_id}: {str(e)}")
+        # Fallback in case aggregation fails (or older sdk)
+        try:
+            docs = query.select(['sessionId']).stream()
+            count = 0
+            async for _ in docs:
+                count += 1
+            return count
+        except Exception as e2:
+            logger.error(f"[Projects] Fallback count failed: {str(e2)}")
+            return 0
+
+
 async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument]:
     """
     Retrieve a single project by ID with ownership verification.

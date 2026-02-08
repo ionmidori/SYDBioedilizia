@@ -93,6 +93,16 @@ async def create_project(
     logger.info(f"[API] create_project request from user_id: {user_id} with data: {data}")
     
     try:
+        # 🛡️ PROJECT LIMIT CHECK
+        # Max 5 projects per user
+        current_count = await projects_db.count_user_projects(user_id)
+        if current_count >= 5:
+            logger.warning(f"[API] User {user_id} reached project limit ({current_count}/5)")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="🚫 Hai raggiunto il limite massimo di 5 progetti. Elimina un vecchio progetto per crearne uno nuovo."
+            )
+
         session_id = await projects_db.create_project(user_id, data)
         logger.info(f"[API] Created project {session_id} for user {user_id}")
         return {"session_id": session_id}

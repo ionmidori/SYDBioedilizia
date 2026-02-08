@@ -23,7 +23,11 @@ You are an expert Principal Software Architect specializing in Clean Architectur
    - Never swallow exceptions silently.
    - Implement a "Result Pattern" or global middleware for consistent error handling across the application.
 
-5. **Testing & Testability**:
+5. **Tool Protection & Auth Guard**:
+   - Every tool that accesses Firestore, External APIs, or triggers expensive AI operations (Imagen/Render) MUST be decorated with `@require_auth`.
+   - Anonymous access must be managed via `AUTH_REQUIRED_SIGNAL` to ensure a consistent UX.
+
+6. **Testing & Testability**:
    - Write code designed for testability using Dependency Injection (DI).
    - Ensure critical logic is encapsulated in pure functions (deterministic output based solely on inputs).
 

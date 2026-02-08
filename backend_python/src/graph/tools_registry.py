@@ -7,6 +7,7 @@ from langchain_core.tools import tool
 from src.tools.generate_render import generate_render_wrapper
 from src.tools.quota import check_quota, increment_quota
 from src.utils.context import get_current_user_id, get_current_media_metadata
+from src.utils.auth_guard import require_auth
 from src.utils.download import download_image_smart
 from src.db.leads import save_lead
 from src.models.lead import LeadData
@@ -49,6 +50,7 @@ async def submit_lead(name: str, email: str, phone: str, project_details: str, s
         return f"❌ Errore nel salvare il lead: {str(e)}"
 
 @tool
+@require_auth
 async def get_market_prices(query: str, user_id: str = "default") -> str:
     """Get current market prices for renovation materials or services."""
     logger.info(f"[Tool] 🔎 get_market_prices called: {query}")
@@ -75,6 +77,7 @@ async def get_market_prices(query: str, user_id: str = "default") -> str:
         return f"❌ Errore: {str(e)}"
 
 @tool
+@require_auth
 async def generate_render(
     prompt: str, 
     room_type: str, 
@@ -122,6 +125,7 @@ async def generate_render(
     return result
 
 @tool
+@require_auth
 async def save_quote(
     user_id: str,
     ai_data: Dict[str, Any],
@@ -140,6 +144,7 @@ async def save_quote(
         return f"❌ Errore nel salvare il preventivo: {str(e)}"
 
 @tool
+@require_auth
 async def analyze_room(image_url: str) -> str:
     """
     CRITICAL: You MUST call this tool IMMEDIATELY when the user uploads an image, even if they say nothing.
@@ -174,6 +179,7 @@ async def analyze_room(image_url: str) -> str:
         return f"❌ Errore nell'analisi della stanza: {str(e)}"
 
 @tool
+@require_auth
 async def plan_renovation(image_url: str, style: str, keep_elements: Optional[List[str]] = None) -> str:
     """
     Generate a text-only architectural plan using the 'Skeleton & Skin' methodology.
@@ -199,6 +205,7 @@ async def plan_renovation(image_url: str, style: str, keep_elements: Optional[Li
         return f"❌ Errore nel piano architettonico: {str(e)}"
 
 @tool
+@require_auth
 async def generate_cad(image_url: str, session_id: str) -> str:
     """
     Generate a technical CAD measurement plan (DXF) from an image.

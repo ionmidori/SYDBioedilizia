@@ -194,3 +194,21 @@ Il backend Python è stato trasformato da uno script monolitico a un'architettur
 - **Repository Rename Impact:** Il cambio nome su GitHub (`Website-renovation`) ha interrotto il Trigger automatico di Cloud Build.
 - **Manual Deploy:** Eseguito deploy manuale su Cloud Run (`syd-brain`) bypassando il trigger rotto. Servizio ora attivo e allineato con `main`.
 - **Action Required:** Riconnettere il repository nel Cloud Build Trigger su GCP Console per ripristinare CI/CD automatico.
+
+### 19. Strict Authentication & Auth Guard (2026-02-08)
+- **Standard:** Implementato il decoratore `@require_auth` (`src/utils/auth_guard.py`) per proteggere i tool sensibili.
+- **Signaling:** Se un utente anonimo tenta un'azione protetta, il backend restituisce `AUTH_REQUIRED_SIGNAL`.
+- **Frontend Integration:** `MessageItem.tsx` intercetta il segnale e visualizza il widget `<LoginRequest />` per convertire l'utente guest in registrato.
+- **Tool Protetti:** `generate_render`, `analyze_room`, `get_market_prices`, `save_quote`, `generate_cad`, `plan_renovation`.
+
+### 20. Advanced Usage Limits & Overrides (2026-02-08)
+- **Multi-Level Quotas:** Introdotte quote Giornaliere (24h) e Settimanali (7d rolling).
+    - **Render**: 2/die, 7/settimana.
+    - **Market Prices/Quotes**: 2/die.
+- **Admin Overrides (Firestore):** Supporto per bypass manuali senza modifiche al codice tramite campi nel documento `usage_quotas/{uid}_{tool}`:
+    - `bypass_quota` (bool): Rimuove ogni limite per l'utente.
+    - `override_limit` (int): Imposta un limite giornaliero custom.
+
+### 21. Multi-Project Enforcement (Hard Cap)
+- **Policy:** Limite massimo di 5 progetti per utente.
+- **Implementazione:** Controllo atomico in `projects_router.py` tramite `count_user_projects` prima della creazione.

@@ -94,6 +94,13 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
         if (tool.state === 'call') return true; // Loading of other tools is always visible
 
         const result = tool.result || (tool as any).output;
+
+        // 🔥 GLOBAL AUTH INTERCEPT:
+        // If ANY tool returns the specific Auth Signal or is the explicit 'request_login' tool, 
+        // we must show the bubble to render the LoginRequest widget.
+        if (tool.toolName === 'request_login') return true;
+        if (typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER')) return true;
+
         // Only results with images/gallery or errors are visible in ToolStatus
         // Text results (like pricing) return null in ToolStatus, so we hide the bubble to avoid empty padding.
         if (tool.toolName === 'show_project_gallery') return true;
@@ -194,7 +201,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, index, typin
                                         }
 
                                         // 🔒 AUTH WIDGET: Login Request
-                                        if (tool.toolName === 'request_login') {
+                                        // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
+                                        const result = tool.result || (tool as any).output;
+                                        const isAuthSignal = typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER');
+
+                                        if (tool.toolName === 'request_login' || isAuthSignal) {
                                             return (
                                                 <div key={toolIdx} className="mt-4">
                                                     <LoginRequest />
