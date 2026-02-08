@@ -49,7 +49,6 @@ const ChatMessagesComponent = ({
                         <MessageItem
                             key={msg.id || idx}
                             message={msg}
-                            index={idx}
                             typingMessage={typingMessage}
                             sessionId={sessionId}
                             onImageClick={onImageClick}
