@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChat } from '@ai-sdk/react'; // ✅ NATIVE SDK
+import { useStatusQueue } from '@/hooks/useStatusQueue'; // New Hook
 
 // Types
 import { Message } from '@/types/chat';
@@ -159,6 +160,10 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // Load conversation history
     const { historyLoaded, historyMessages } = useChatHistory(sessionId || "");
 
+    // 🕰️ STATUS QUEUE (New Feature)
+    // Manages the "Thinking..." text with a minimum display time to prevent flickering
+    const { currentStatus, addStatus, clearQueue } = useStatusQueue();
+
     // ✅ NATIVE AI SDK HOOK
     // We cast options to 'any' because strict types might complain about 'api'
     // but we know it works at runtime (and is standard).
@@ -182,16 +187,36 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         },
         onFinish: (message: Message) => {
             console.log("[ChatWidget] ✅ Stream Finished. Final Message:", message);
+            clearQueue();
         },
         onError: (err: Error) => {
             console.error("[ChatWidget] 🔥 SDK Error:", err);
             setErrorMessage(`Errore: ${err.message || 'Connessione instabile'}`);
-        }
+            clearQueue();
+        },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any) as unknown as LegacyUseChatHelpers;
 
     // Destructure from Typed Helper
-    const { messages, isLoading, sendMessage, setInput, input, setMessages } = chat;
+    const { messages, isLoading, sendMessage, setInput, input, setMessages, data } = chat as any;
+
+    // 📡 STATUS STREAM LISTENER
+    // The Vercel SDK puts 'data' events (Protocol 2) into the `data` property.
+    // We watch it and feed the queue.
+    useEffect(() => {
+        if (!data || data.length === 0) return;
+
+        // Get the latest data packet
+        const latest = data[data.length - 1];
+
+        // Protocol: 2:[{"type": "status", "message": "..."}]
+        // SDK parses the JSON for us.
+        if (latest && typeof latest === 'object' && latest.type === 'status' && latest.message) {
+            console.log('[ChatWidget] 🧠 Status Update:', latest.message);
+            addStatus(latest.message);
+        }
+    }, [data, addStatus]);
+
 
     // 🎯 INTENT HANDLING: Trigger specific flows based on URL parameters
     useEffect(() => {
@@ -253,7 +278,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         }
 
         setErrorMessage(null);
-    }, [sessionId, setMessages, setInput]);
+        clearQueue(); // Clear any pending status
+    }, [sessionId, setMessages, setInput, clearQueue]);
 
     // DEBUG: Inspect SDK availability
     useEffect(() => {
@@ -612,6 +638,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         onImageClick={setSelectedImage}
                         messagesContainerRef={messagesContainerRef}
                         messagesEndRef={messagesEndRef}
+                        statusMessage={currentStatus} // ✅ Pass dynamic status
                     />
 
                     {errorMessage && (

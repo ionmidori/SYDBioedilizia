@@ -64,3 +64,17 @@ async def stream_tool_result(
         "result": result
     }
     yield f'a:{json.dumps(payload)}\n'
+
+async def stream_status(message: str) -> AsyncGenerator[str, None]:
+    """
+    Formats status update events for Vercel AI SDK (Custom Protocol).
+    Event '2': Data part.
+    
+    Format: 2:[{"type": "status", "message": "..."}]\n
+    """
+    payload = {
+        "type": "status",
+        "message": message
+    }
+    # Vercel Data Protocol expects a list
+    yield f'2:{json.dumps([payload])}\n'

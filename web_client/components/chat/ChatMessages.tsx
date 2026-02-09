@@ -10,11 +10,13 @@ import { Message } from '@/types/chat';
 interface ChatMessagesProps {
     messages: Message[];
     isLoading: boolean;
-    typingMessage: string;
-    sessionId: string;
-    onImageClick: (imageUrl: string) => void;
-    messagesContainerRef: RefObject<HTMLDivElement | null>;
-    messagesEndRef: RefObject<HTMLDivElement | null>;
+    typingMessage?: string | null;  // Converted to optional to match usage
+    sessionId?: string | null;
+    onImageClick?: (url: string) => void;
+    // Status Logic 
+    statusMessage?: string | null;
+    messagesContainerRef: RefObject<HTMLDivElement>;
+    messagesEndRef: RefObject<HTMLDivElement>;
 }
 
 /**
@@ -30,6 +32,7 @@ const ChatMessagesComponent = ({
     typingMessage,
     sessionId,
     onImageClick,
+    statusMessage,
     messagesContainerRef,
     messagesEndRef
 }: ChatMessagesProps) => {
@@ -49,16 +52,16 @@ const ChatMessagesComponent = ({
                         <MessageItem
                             key={msg.id || idx}
                             message={msg}
-                            typingMessage={typingMessage}
-                            sessionId={sessionId}
-                            onImageClick={onImageClick}
+                            typingMessage={typingMessage || undefined}
+                            sessionId={sessionId || ""}
+                            onImageClick={onImageClick || (() => { })}
                         />
                     ))}
                 </AnimatePresence>
             </motion.div>
 
-            {/* Loading indicator (Only show initial latency before first token arrives) */}
-            {isLoading && messages[messages.length - 1]?.role === 'user' && (
+            {/* AI Processing State - Dynamic Status */}
+            {(isLoading || typingMessage) && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -67,7 +70,10 @@ const ChatMessagesComponent = ({
                 >
                     <ArchitectAvatar className="w-8 h-8 shrink-0" />
                     <div className="bg-luxury-bg/80 border border-luxury-gold/10 p-4 rounded-2xl rounded-tl-none shadow-premium backdrop-blur-sm">
-                        <ThinkingIndicator message={typingMessage} />
+                        <ThinkingIndicator
+                            message={typingMessage || undefined}
+                            statusMessage={statusMessage}
+                        />
                     </div>
                 </motion.div>
             )}
