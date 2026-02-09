@@ -49,6 +49,10 @@
   --color-luxury-text: #F4F1DE;
 }
 
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 .font-trajan {
   font-family: var(--font-trajan), serif;
 }

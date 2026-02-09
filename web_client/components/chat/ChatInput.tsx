@@ -102,11 +102,10 @@ export function ChatInput({
 
     return (
         <div
-            className="px-4 border-t border-luxury-gold/10 backdrop-blur-md flex-shrink-0 w-full"
+            className="px-4 border-t border-luxury-gold/10 backdrop-blur-md flex-shrink-0 w-full pb-safe"
             style={{
                 backgroundColor: 'rgb(var(--luxury-bg-rgb) / 0.95)',
                 paddingTop: '10px',
-                paddingBottom: 'calc(env(safe-area-inset-bottom) + 10px)',
             }}
         >
             <div className="flex gap-2 items-end max-w-full">
@@ -184,7 +183,8 @@ export function ChatInput({
                             aria-label="Messaggio chat"
                             className={cn(
                                 'w-full bg-transparent text-luxury-text caret-luxury-gold',
-                                'placeholder:text-luxury-text/30 text-[16px] px-3 py-2',
+                                'placeholder:text-luxury-text/30 px-3 py-2',
+                                'text-base md:text-sm', // Mobile: 16px (no zoom), Desktop: 14px
                                 'max-h-24 min-h-[44px] focus:outline-none resize-none',
                                 'scrollbar-hide block opacity-100'
                             )}

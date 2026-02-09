@@ -17,36 +17,10 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
     }, []);
 
     // Viewport Logic (Mobile/iOS Fix)
-    useEffect(() => {
-        // Only run body lock and viewport height adjustments if chat is fully open
-        // If it's closed OR minimized, we should release the viewport/body
-        if (!isOpen) return;
+    // REMOVED: JS Height calculation (relying on CSS 100dvh + interactive-widget)
+    // Keeping scroll locking below.
 
-        const handleResize = () => {
-            if (window.visualViewport && window.innerWidth < 768) {
-                const h = window.visualViewport.height;
-                if (chatContainerRef.current) chatContainerRef.current.style.height = `${h}px`;
-                window.scrollTo(0, 0); // iOS Fix
-            } else {
-                if (chatContainerRef.current) chatContainerRef.current.style.height = '';
-            }
-        };
-
-        if (window.visualViewport) {
-            window.visualViewport.addEventListener('resize', handleResize);
-            window.visualViewport.addEventListener('scroll', handleResize);
-            handleResize();
-        }
-        window.addEventListener('resize', handleResize);
-
-        return () => {
-            if (window.visualViewport) {
-                window.visualViewport.removeEventListener('resize', handleResize);
-                window.visualViewport.removeEventListener('scroll', handleResize);
-            }
-            window.removeEventListener('resize', handleResize);
-        };
-    }, [isOpen, chatContainerRef]);
+    // Body Lock
 
     // Body Lock
     useEffect(() => {
