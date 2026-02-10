@@ -35,7 +35,7 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
     // Gestore dello Swipe sulla Dashboard centrale
     // Se trascini verso destra (x > 50) -> Apri Progetti
     // Se trascini verso sinistra (x < -50) -> Apri Galleria
-    const handleDashboardDragEnd = (event: any, info: PanInfo) => {
+    const handleDashboardDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
         if (!isMobile) return;
         const swipeThreshold = 50;
 
@@ -84,7 +84,7 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                         drag="x"
                         dragConstraints={{ left: 0, right: 0 }} // Anche qui, usiamo il drag solo come trigger
-                        onDragEnd={(e, info) => {
+                        onDragEnd={(e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
                             // Swipe verso sinistra (negativo) per chiudere
                             if (info.offset.x < -50) setActivePane('dashboard');
                         }}
@@ -122,7 +122,7 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                         drag="x"
                         dragConstraints={{ left: 0, right: 0 }}
-                        onDragEnd={(e, info) => {
+                        onDragEnd={(e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
                             // Swipe verso destra (positivo) per chiudere
                             if (info.offset.x > 50) setActivePane('dashboard');
                         }}
