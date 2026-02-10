@@ -55,6 +55,26 @@ class ReasoningStep(BaseModel):
         description="List of specific information pieces currently missing (e.g., ['lighting_preferences', 'budget'])."
     )
     
+    # 🧠 CoT 2.0: Advanced Cognition Fields
+    # Defaults ensure backward compatibility with existing sessions
+    
+    criticism: Optional[str] = Field(
+        default=None,
+        description="Constructive self-criticism. REQUIRED if action is 'call_tool'. What could go wrong?"
+    )
+    
+    intent_category: Literal["information_retrieval", "data_collection", "action_execution", "clarification", "safety_check"] = Field(
+        default="action_execution",
+        description="High-level categorization of the user's intent."
+    )
+    
+    risk_score: float = Field(
+        default=0.0,
+        description="0.0 (safe) to 1.0 (critical). Assess the irreversibility or cost of the action.",
+        ge=0.0,
+        le=1.0
+    )
+    
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # 🛡️ PYTHON GUARDRAILS (The "Muscle")
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

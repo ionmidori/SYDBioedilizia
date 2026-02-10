@@ -45,20 +45,20 @@ class TestQuotaCheckProduction:
         mock_firestore_client.collection().document().get.return_value = mock_snapshot
         
         with patch('src.tools.quota.firestore.client', return_value=mock_firestore_client):
-            allowed, remaining, reset_at = check_quota("test-user", "generate_render")
+            allowed, remaining, reset_at = check_quota("authenticatedUser123", "generate_render")
         
         # Assert
         assert allowed is True
-        # test-user is anonymous (no UID pattern), so limit is 1 from QUOTA_LIMITS_ANONYMOUS
-        assert remaining == 0  # 1 - 1 = 0
+        # authenticatedUser123 is authenticated, so limit is 2 from QUOTA_LIMITS_AUTHENTICATED
+        assert remaining == 1  # 2 - 1 = 1
         assert reset_at > datetime.utcnow()
     
     def test_within_quota_allowed(self, mock_env_production, mock_firestore_client):
-        """GIVEN anonymous user has used 0 out of 1 renders
+        """GIVEN authenticated user has used 0 out of 2 renders
         WHEN check_quota is called
-        THEN should allow the operation (but it's the last one)
+        THEN should allow the operation
         """
-        # Arrange: Mock existing quota document for anonymous user
+        # Arrange: Mock existing quota document for authenticated user
         now = datetime.utcnow()
         mock_snapshot = MagicMock()
         mock_snapshot.exists = True
@@ -69,11 +69,11 @@ class TestQuotaCheckProduction:
         mock_firestore_client.collection().document().get.return_value = mock_snapshot
 
         with patch('src.tools.quota.firestore.client', return_value=mock_firestore_client):
-            allowed, remaining, reset_at = check_quota("test-user", "generate_render")
+            allowed, remaining, reset_at = check_quota("authenticatedUser123", "generate_render")
 
         # Assert
         assert allowed is True
-        assert remaining == 1  # Anonymous limit is 1, 0 used
+        assert remaining == 2  # Authenticated limit is 2, 0 used
     
     def test_quota_exceeded(self, mock_env_production, mock_firestore_client):
         """GIVEN user has exhausted quota (2/2 renders used)
@@ -91,7 +91,7 @@ class TestQuotaCheckProduction:
         mock_firestore_client.collection().document().get.return_value = mock_snapshot
         
         with patch('src.tools.quota.firestore.client', return_value=mock_firestore_client):
-            allowed, remaining, reset_at = check_quota("test-user", "generate_render")
+            allowed, remaining, reset_at = check_quota("authenticatedUser123", "generate_render")
         
         # Assert
         assert allowed is False
@@ -113,12 +113,12 @@ class TestQuotaCheckProduction:
         mock_firestore_client.collection().document().get.return_value = mock_snapshot
         
         with patch('src.tools.quota.firestore.client', return_value=mock_firestore_client):
-            allowed, remaining, reset_at = check_quota("test-user", "generate_render")
+            allowed, remaining, reset_at = check_quota("authenticatedUser123", "generate_render")
         
         # Assert: Window expired, quota reset
         assert allowed is True
-        # Anonymous user (test-user), so limit is 1
-        assert remaining == 0  # 1 - 1 = 0
+        # Authenticated user, so limit is 2
+        assert remaining == 1  # 2 - 1 = 1
 
 
 class TestQuotaIncrement:
@@ -127,7 +127,7 @@ class TestQuotaIncrement:
     def test_increment_first_use(self, mock_env_production, mock_firestore_client):
         """GIVEN no prior usage
         WHEN increment_quota is called
-        THEN should create new document with count=1
+        THEN should create new documents with count=1 (Daily and Weekly)
         """
         # Arrange
         mock_transaction = MagicMock()
@@ -137,7 +137,7 @@ class TestQuotaIncrement:
         
         with patch('src.tools.quota.firestore.client', return_value=mock_firestore_client):
             with patch('src.tools.quota.firestore.transactional'):
-                increment_quota("test-user", "generate_render")
+                increment_quota("authenticatedUser123", "generate_render")
         
-        # Assert: Transaction was created
-        mock_firestore_client.transaction.assert_called_once()
+        # Assert: Transactions were created (2 for generate_render: daily and weekly)
+        assert mock_firestore_client.transaction.call_count == 2

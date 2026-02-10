@@ -11,8 +11,7 @@ import { ChatErrorBoundary } from '@/components/ui/ChatErrorBoundary';
 import { cn } from '@/lib/utils';
 
 // Hooks & Utils
-import { useSessionId } from '@/hooks/useSessionId';
-import { useChatHistory } from '@/hooks/useChatHistory';
+import { useChatContext } from '@/hooks/useChatContext';
 import { useUpload } from '@/hooks/useUpload';
 import { useChatScroll } from '@/hooks/useChatScroll';
 import { useMobileViewport } from '@/hooks/useMobileViewport';
@@ -20,35 +19,21 @@ import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useChat } from '@ai-sdk/react'; // ✅ NATIVE SDK
-import { useStatusQueue } from '@/hooks/useStatusQueue'; // New Hook
+import { useStatusQueue } from '@/hooks/useStatusQueue';
 
 // Types
 import { Message } from '@/types/chat';
 
-// Custom Type Definition for SDK Compatibility
-interface LegacyUseChatHelpers {
-    messages: Message[];
-    input: string;
-    handleInputChange: (e: React.ChangeEvent<HTMLInputElement> | React.ChangeEvent<HTMLTextAreaElement>) => void;
-    handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
-    isLoading: boolean;
-    error: undefined | Error;
-    reload: () => Promise<string | null | undefined>;
-    stop: () => void;
-    setMessages: (messages: Message[]) => void;
-    setInput: (input: string) => void;
-    sendMessage: (message: { role: string; content: string; attachments?: unknown }, options?: unknown) => Promise<unknown>;
-}
-
 /**
- * ChatWidget Component (Modernized)
+ * ChatWidget Component
  * 
- * Refactored to use official Vercel AI SDK (`useChat`).
- * Eliminates custom stream parsing logic while preserving
- * structured media handling for the backend.
+ * The main UI shell for the Global Chat.
  * 
- * NOTE: Uses `sendMessage` instead of `append` due to SDK version compatibility.
+ * Changes in Refactor (v3):
+ * - Removed `useChat` hook (now consumes `ChatContext`).
+ * - Removed `useChatHistory` (handled by `ChatProvider`).
+ * - Simplified state synchronization (driven by `ChatContext`).
+ * - Maintains `useStatusQueue` for visual feedback using `data` from context.
  * 
  * @param projectId - Optional. If provided, ties chat to this specific project.
  *                    If omitted, uses localStorage-based session (legacy landing page).
@@ -68,345 +53,151 @@ export default function ChatWidget({ projectId, variant = 'floating' }: ChatWidg
 
 function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps) {
     const isInline = variant === 'inline';
+
+    // 1. Consume Global Context
+    const {
+        currentProjectId: contextProjectId,
+        setProjectId,
+        messages,
+        input,
+        setInput,
+        handleInputChange,
+        sendMessage,
+        isLoading,
+        error,
+        data,
+        isRestoringHistory
+    } = useChatContext();
+
+    // 2. State & Refs
     const [isOpen, setIsOpen] = useState(isInline);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+    // We use a local ID for useUpload to keep file uploads separated by logic "session"
+    // But realistically, the session is determined by the context.
+    const { user, isInitialized } = useAuth();
+    const sessionId = contextProjectId || `global-${user?.uid || 'guest'}`;
 
-    // State for Global Widget Synchronization
-    const [syncedProjectId, setSyncedProjectId] = useState<string | undefined>(projectId);
-
-    // Track if we've already initialized messages from history (prevent infinite loop)
-    const hasInitializedFromHistory = useRef<boolean>(false);
-
-    // Refs
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // 🔒 Authentication
-    const { user, refreshToken, loading: authLoading, isInitialized, signInAnonymously } = useAuth();
+    // 3. Sync Props/URL to Context State
+    //    If props.projectId changes, or URL changes, we update the Global Context.
 
-    // Auto sign-in anonymously for landing page chat (explicit)
+    // 3a. Sync Prop
     useEffect(() => {
-        if (isInitialized && !user && !projectId) {
-            console.log('[ChatWidget] No user after initialization, signing in anonymously for chat');
-            signInAnonymously().catch((err) => {
-                console.error('[ChatWidget] Failed to sign in anonymously:', err);
-            });
-        }
-    }, [isInitialized, user, projectId, signInAnonymously]);
-
-    // 🔄 STATE SYNC: Restore active project for Global Widget
-    useEffect(() => {
-        // Only run if:
-        // 1. We are initialized (auth check done)
-        // 2. User is logged in (Guest users don't have projects)
-        // 3. We are in "Global Mode" (no explicit projectId prop)
-        if (isInitialized && user && !projectId) {
-            const stored = localStorage.getItem('activeProjectId');
-            if (stored) {
-                console.log('[ChatWidget] 🔄 Restored active project context:', stored);
-                setSyncedProjectId(stored);
+        if (typeof projectId !== 'undefined' && projectId !== contextProjectId) {
+            if (typeof projectId !== 'undefined' && projectId !== contextProjectId) {
+                setProjectId(projectId);
             }
-
-            // 🔥 Realtime Listener for Project Switching
-            const handleProjectChange = (e: CustomEvent) => {
-                const newId = e.detail;
-                console.log('[ChatWidget] ⚡ Realtime Project Switch:', newId);
-                setSyncedProjectId(newId);
-                setSelectedImage(null);
-            };
-
-            window.addEventListener('projectChanged', handleProjectChange as EventListener);
-            return () => window.removeEventListener('projectChanged', handleProjectChange as EventListener);
         }
-    }, [isInitialized, user, projectId]);
+    }, [projectId, contextProjectId, setProjectId]);
 
-
-    // 🔗 URL SYNC: Listen to Path Changes (Back/Forward Navigation)
+    // 3b. Sync URL (when in Global Mode / Landing Page)
     const pathname = usePathname();
     const searchParams = useSearchParams();
 
     useEffect(() => {
+        // Only if not explicitly controlled by prop (standard Dashboard/Global behavior)
+        if (projectId) return;
+
         if (!pathname) return;
 
-        // 1. Dashboard Route: /dashboard/[id]
+        // Dashboard Route: /dashboard/[id]
         const match = pathname.match(/\/dashboard\/([^\/]+)/);
         if (match && match[1]) {
             const pathId = match[1];
-            if (pathId !== syncedProjectId && pathId !== 'new') {
-                console.log('[ChatWidget] 🔗 URL Navigation Detected (Path):', pathId);
-                setSyncedProjectId(pathId);
-                localStorage.setItem('activeProjectId', pathId);
+            if (pathId !== contextProjectId && pathId !== 'new') {
+                if (pathId !== contextProjectId && pathId !== 'new') {
+                    setProjectId(pathId);
+                }
             }
         }
-        // 2. Query Param: ?projectId=... (Landing Page)
+        // Query Param: ?projectId=... (Landing Page)
         else {
             const queryId = searchParams?.get('projectId');
-            if (queryId && queryId !== syncedProjectId) {
-                console.log('[ChatWidget] 🔗 URL Query Detected:', queryId);
-                setSyncedProjectId(queryId);
-                localStorage.setItem('activeProjectId', queryId);
+            // If query param exists, sync it. If null, we might be global (null).
+            // Only sync if different.
+            if (queryId !== contextProjectId) {
+                // If queryId is null, and we are not on dashboard, we might want to set to null (Global)
+                // But avoid overwriting if we just set it manually. State driven.
+                if (queryId) {
+                    if (queryId) {
+                        setProjectId(queryId);
+                    }
+                }
             }
         }
-    }, [pathname, searchParams, syncedProjectId]);
+    }, [pathname, searchParams, contextProjectId, setProjectId, projectId]);
 
-    // Session Management
-    // Use syncedProjectId (from prop or storage) -> Dashboard Context
-    // Fallback to localStorage session -> Landing Page Context
-    const fallbackSessionId = useSessionId();
-    const sessionId = syncedProjectId || fallbackSessionId;
-
-    // Load conversation history
-    const { historyLoaded, historyMessages } = useChatHistory(sessionId || "");
-
-    // 🕰️ STATUS QUEUE (New Feature)
-    // Manages the "Thinking..." text with a minimum display time to prevent flickering
+    // 4. Status Queue (Visuals)
     const { currentStatus, addStatus, clearQueue } = useStatusQueue();
 
-    // ✅ NATIVE AI SDK HOOK
-    // We cast options to 'any' because strict types might complain about 'api'
-    // but we know it works at runtime (and is standard).
-    const chat = useChat({
-        api: '/api/chat',
-        body: {
-            sessionId,
-            // 🔥 AUTH INJECTION: Tell the backend if we are logged in
-            is_authenticated: !!user
-        },
-        headers: async () => {
-            const token = await refreshToken();
-            return { 'Authorization': `Bearer ${token}` };
-        },
-        initialMessages: historyMessages,
-        onResponse: (response: Response) => {
-            console.log("[ChatWidget] 📡 Received API Response:", response.status, response.statusText);
-            if (!response.ok) {
-                console.error("[ChatWidget] ❌ API Error Headers:", Object.fromEntries(response.headers.entries()));
-            }
-        },
-        onFinish: (message: Message) => {
-            console.log("[ChatWidget] ✅ Stream Finished. Final Message:", message);
-            clearQueue();
-        },
-        onError: (err: Error) => {
-            console.error("[ChatWidget] 🔥 SDK Error:", err);
-            setErrorMessage(`Errore: ${err.message || 'Connessione instabile'}`);
-            clearQueue();
-        },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any) as unknown as LegacyUseChatHelpers;
-
-    // Destructure from Typed Helper
-    const { messages, isLoading, sendMessage, setInput, input, setMessages, data } = chat as any;
-
-    // 📡 STATUS STREAM LISTENER
-    // The Vercel SDK puts 'data' events (Protocol 2) into the `data` property.
-    // We watch it and feed the queue.
+    // Watch 'data' from context for status updates
     useEffect(() => {
         if (!data || data.length === 0) return;
 
-        // Get the latest data packet
         const latest = data[data.length - 1];
-
         // Protocol: 2:[{"type": "status", "message": "..."}]
-        // SDK parses the JSON for us.
-        if (latest && typeof latest === 'object' && latest.type === 'status' && latest.message) {
-            console.log('[ChatWidget] 🧠 Status Update:', latest.message);
-            addStatus(latest.message);
+        if (latest && typeof latest === 'object' && (latest as any).type === 'status' && (latest as any).message) {
+            addStatus((latest as any).message);
         }
     }, [data, addStatus]);
 
-
-    // 🎯 INTENT HANDLING: Trigger specific flows based on URL parameters
+    // Clear queue on project switch
     useEffect(() => {
-        const intent = searchParams?.get('intent');
-        // Trigger if intent is 'cad' and it's a relatively new conversation
-        if (intent === 'cad' && historyLoaded && !isLoading && messages.length <= 2) {
-            console.log('[ChatWidget] 🎯 Triggering CAD extraction flow');
-
-            // Use an async IIFE inside timeout to handle token retrieval
-            const timeoutId = setTimeout(async () => {
-                if (typeof sendMessage === 'function' && sessionId) {
-                    try {
-                        const token = await refreshToken();
-
-                        await sendMessage({
-                            role: 'user',
-                            content: "Vorrei effettuare un rilievo CAD di questa stanza. Mi aiuti a estrarre le misure?"
-                        }, {
-                            body: {
-                                sessionId,
-                                is_authenticated: !!user
-                            },
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-
-                        // Cleanup URL to avoid re-triggering on refresh
-                        const params = new URLSearchParams(window.location.search);
-                        params.delete('intent');
-                        const newUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
-                        window.history.replaceState({}, '', newUrl);
-                    } catch (err) {
-                        console.error('[ChatWidget] Failed to trigger CAD flow:', err);
-                    }
-                }
-            }, 1000);
-
-            return () => clearTimeout(timeoutId);
-        }
-    }, [searchParams, historyLoaded, isLoading, messages.length, sendMessage, sessionId, user, refreshToken]);
-
-    // 🧹 STATE RESET: When Project/Session Changes
-    useEffect(() => {
-        // When switching projects, we must clear the OLD messages from the SDK state
-        // The useChatHistory hook will handle loading the NEW messages for the new ID
-        // But we need to ensure the UI doesn't show a mix/flash of old messages
-
-        // 1. Reset Initialization Flag so new history can be loaded
-        hasInitializedFromHistory.current = false;
-
-        // 2. Clear SDK State
-        if (typeof setMessages === 'function') {
-            setMessages([]);
-        }
-
-        if (typeof setInput === 'function') {
-            setInput('');
-        }
-
+        clearQueue();
         setErrorMessage(null);
-        clearQueue(); // Clear any pending status
-    }, [sessionId, setMessages, setInput, clearQueue]);
+    }, [contextProjectId, clearQueue]);
 
-    // DEBUG: Inspect SDK availability
-    useEffect(() => {
-        if (!process.env.NEXT_PUBLIC_IS_PROD) {
-            console.log("SDK Methods Check:", {
-                hasSetInput: typeof setInput === 'function',
-                hasSetMessages: typeof setMessages === 'function'
-            });
-        }
-    }, [setInput, setMessages]);
-
-
-    // DEBUG: Inspect hook return value
-    useEffect(() => {
-        console.log("[ChatWidget] Messages State:", messages.length, messages);
-    }, [messages]);
-
-    // 🌊 HYDRATION FIX: Removed duplicate sync logic that was causing infinite loops
-    // History is now initialized once via the useEffect below (line ~510)
-
-    // Welcome Message (UI Only)
-    const welcomeMessage = useMemo<Message>(() => ({
-        id: 'welcome',
-        role: 'assistant',
-        content: "Ciao! Sono **SYD**, il tuo Architetto personale. 🏗️\n\nPosso aiutarti a:\n1. 📐 **Creare un Preventivo** dettagliato.\n2. 🎨 **Visualizzare un Rendering** 3D (partendo da una tua foto o da una descrizione).\n\n💡 **Tip:** Per risultati migliori, scatta le foto in modalità **0.5x (grandangolo)**.\n\nDa dove iniziamo?",
-        toolInvocations: [],
-        createdAt: new Date()
-    }), []);
-
-    // Combine SDK messages with Welcome Message
-    const displayMessages = useMemo(() => {
-        if (historyMessages.length > 0) return messages;
-        if (messages.length === 0) return [welcomeMessage];
-        return messages;
-    }, [historyMessages, messages, welcomeMessage]);
-
-    // Unified Upload Hook (replaces useMediaUpload + useVideoUpload)
+    // 5. Unified Upload Hook
     const { uploads, addFiles, removeFile, retryUpload, clearAll, isUploading, successfulUploads } = useUpload({ sessionId });
 
-    // Scroll & Viewport
-    const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(displayMessages, isOpen);
-    // FIX: Only activate mobile viewport logic (body lock) if NOT inline
+    // 6. Scroll & Viewport
+    // We filter messages to show welcome message vs real messages
+    // The Provider already handles initial welcome messages in `messages`.
+    const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(messages, isOpen);
     const { isMobile } = useMobileViewport(isOpen && !isInline, chatContainerRef);
 
-    // 🔄 CONTEXT SWITCHING (Global Widget Only)
-    const router = useRouter(); // Required for conditional navigation
+    // 7. Handlers
 
+    // Project Switch (from Header Selector)
+    const router = useRouter();
     const handleProjectSwitch = (newProjectId: string) => {
-        console.log('[ChatWidget] Switching context to:', newProjectId);
+        // Update Context
+        setProjectId(newProjectId);
 
-        // 1. Update State
-        setSyncedProjectId(newProjectId);
-        localStorage.setItem('activeProjectId', newProjectId);
-
-        // 2. Clear current messages to prevent ghosting
-        setMessages([]);
-
-        // 3. Conditional Navigation (Without useTransition until build issue resolved)
+        // Conditional Navigation
         if (pathname?.startsWith('/dashboard')) {
-            console.log('[ChatWidget] navigate to new dashboard project:', newProjectId);
             router.push(`/dashboard/${newProjectId}`);
         } else {
-            // Landing Page / Other: Update Query Param to reflect state
-            console.log('[ChatWidget] update query param:', newProjectId);
             router.push(`/?projectId=${newProjectId}`);
         }
     };
 
-    // Typing Indicator
-    const typingMessage = useTypingIndicator(isLoading);
-
-    // File Selection - Unified handler
     const handleFileSelect = (files: File[]) => {
-        if (files.length > 0) {
-            addFiles(files);
-        }
+        if (files.length > 0) addFiles(files);
     };
 
-    // ✅ Manual Input State Management (Robustness Fix)
-    // We use local state as source of truth to avoid SDK `setInput` undefined issues.
-    const [localInput, setLocalInput] = useState('');
-
-    // Sync SDK input if available (optional)
-    useEffect(() => {
-        if (input && input !== localInput) {
-            setLocalInput(input);
-        }
-    }, [input, localInput]);
-
-    const handleInputChange = (val: string) => {
-        setLocalInput(val);
-        // Try to sync back to SDK if possible, but don't crash if missing
-        if (setInput) {
-            setInput(val);
-        }
-    };
-
-    // SUBMIT HANDLER (The Core Logic Preservation)
+    // Submit Handler
     const submitMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
-
-        // 1. Guard Clauses
         if (isUploading || !isInitialized) return;
+        if (!input.trim() && Object.keys(uploads).length === 0) return;
 
-        const currentInput = localInput;
-        const uploadItems = Object.values(uploads);
-        if (!currentInput.trim() && uploadItems.length === 0) return;
-
-        // 2. Prepare Structured Media Data from successful uploads
+        // Prepare Media
         const completedUploads = successfulUploads;
 
-        // Extract URLs for images (using serverData from discriminated union)
         const mediaUrls = completedUploads
             .filter(u => u.serverData?.asset_type === 'image')
             .map(u => u.serverData!.url);
 
-        const mediaTypes = completedUploads
-            .filter(u => u.serverData?.asset_type === 'image')
-            .map(u => u.serverData!.mime_type);
-
-        // Extract File API URIs for videos
         const videoFileUris = completedUploads
             .filter(u => u.serverData?.asset_type === 'video')
             .map(u => (u.serverData as { file_uri: string }).file_uri);
 
-        // Extract Metadata
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Metadata
         const mediaMetadata: Record<string, any> = {};
         completedUploads.forEach(u => {
             if (u.serverData) {
@@ -420,121 +211,144 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
         const dataBody = {
             mediaUrls,
-            mediaTypes,
+            // mediaTypes, // Provider/Backend might re-derive or we can send invalid mime types?
+            // Simplest is to pass what we have.
             mediaMetadata,
             videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined
         };
 
-        // 3. Clear UI State immediately (Optimistic)
+        // UI Optimistic Clear
         clearAll();
-        setLocalInput('');
-        if (setInput) setInput('');
-        setErrorMessage(null);
+        // input cleared by sendMessage typically, but we can do it here if we want optimistic clear
+        // setInput('') is called by sendMessage in provider on success. 
+        // We can trust provider or force it.
 
-        // ✅ USER EXPERIENCE: Scroll to bottom immediately
+        // Scroll
         if (isOpen) scrollToBottom();
 
-        // 4. Send Request via SDK -> Use sendMessage (since append is missing)
-        // Wrapped in fire-and-forget style to not block UI
-        (async () => {
-            try {
-                // 🔒 AUTH FIX: Fetch token explicitly for this request
-                // This might take a ms, but purely background
-                const token = await refreshToken();
-
-                if (typeof sendMessage === 'function') {
-                    // Using 'data' for protocol compliance.
-                    // sendMessage expects an object based on previous TypeError
-                    await sendMessage({
-                        role: 'user',
-                        content: currentInput,
-                        attachments: {
-                            images: mediaUrls,
-                            videos: videoFileUris
-                        }
-                    }, {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        data: dataBody as any,
-                        body: {
-                            sessionId,
-                            // ✅ Pass media params to Proxy/Backend (Root Level)
-                            imageUrls: mediaUrls,
-                            mediaUrls,
-                            mediaTypes,
-                            mediaMetadata,
-                            videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined,
-                            is_authenticated: !!user
-                        },
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        }
-                    });
-                } else {
-                    console.error("[ChatWidget] Critical: 'sendMessage' function is missing from SDK hook!", chat);
-                    setErrorMessage("Errore interno: Chat function not found. (sendMessage)");
-                }
-            } catch (err) {
-                console.error("[ChatWidget] Send Error:", err);
-                // Restore input if failed
-                setLocalInput(currentInput);
-                setErrorMessage("Invio fallito. Riprova.");
-            }
-        })();
+        try {
+            await sendMessage(input,
+                // Attachments (Standard Vercel SDK format for "experimental_attachments" or our custom logic)
+                // Our sendMessage facade takes (content, attachments?, data?)
+                // We pass images as attachments? Or just use our custom data body?
+                // The ChatProvider facade maps 'attachments' to 'experimental_attachments'.
+                // If we want to support image previews in user bubble via standard UI, we should pass them as attachments.
+                // Current MessageItem checks 'message.attachments?.images'.
+                // So we should pass generic attachments.
+                mediaUrls, // This is 'any'[] in signature
+                dataBody
+            );
+        } catch (err: any) {
+            setErrorMessage(err.message || "Invio fallito.");
+        }
     };
 
-    // External Triggers (Events)
+    // Typing Indicator
+    const typingMessage = useTypingIndicator(isLoading);
+
+    // Error Handling
     useEffect(() => {
-        const handleOpenChatWithMessage = async (e: CustomEvent<{ message?: string }>) => {
-            setIsOpen(true);
-            if (e.detail?.message && sendMessage && sessionId) {
-                try {
-                    const token = await refreshToken();
-                    setTimeout(async () => {
-                        await sendMessage({
-                            role: 'user',
-                            content: e.detail.message!
-                        }, {
-                            body: {
-                                sessionId,
-                                is_authenticated: !!user
-                            },
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-                    }, 500);
-                } catch (err) {
-                    console.error('[ChatWidget] Failed to send message from event:', err);
-                }
-            }
-        };
-        const handleOpenChat = () => setIsOpen(true);
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        window.addEventListener('OPEN_CHAT_WITH_MESSAGE' as any, handleOpenChatWithMessage as any);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        window.addEventListener('OPEN_CHAT' as any, handleOpenChat);
-
-        return () => {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            window.removeEventListener('OPEN_CHAT_WITH_MESSAGE' as any, handleOpenChatWithMessage as any);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            window.removeEventListener('OPEN_CHAT' as any, handleOpenChat);
-        };
-    }, [sendMessage, sessionId, refreshToken, user]); // Added dependencies
-
-    // ✅ Sync SDK messages when history loads (Late Binding)
-    useEffect(() => {
-        if (historyLoaded && historyMessages.length > 0 && !hasInitializedFromHistory.current) {
-            hasInitializedFromHistory.current = true;
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setMessages(historyMessages as any[]);
+        if (error) {
+            setErrorMessage(error.message);
         }
-    }, [historyLoaded, historyMessages, setMessages]); // ✅ FIXED: Added setMessages to deps
+    }, [error]);
 
-    // 🛡️ GUARD: Prevent rendering if sessionId is not ready
-    if (!sessionId || sessionId.trim().length === 0) {
+    // 8. Intent Handling (CAD Flow Trigger)
+    //    Moved from old Widget, preserving logic.
+    const { historyLoaded } = { historyLoaded: !isRestoringHistory }; // Mapping concept
+
+    useEffect(() => {
+        const intent = searchParams?.get('intent');
+        if (intent === 'cad' && historyLoaded && !isLoading && messages.length <= 2) {
+            const timeoutId = setTimeout(async () => {
+                try {
+                    await sendMessage("Vorrei effettuare un rilievo CAD di questa stanza. Mi aiuti a estrarre le misure?");
+                    // Cleanup URL
+                    const params = new URLSearchParams(window.location.search);
+                    params.delete('intent');
+                    const newUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+                    window.history.replaceState({}, '', newUrl);
+                } catch (err) {
+                    console.error('Failed to trigger auto-msg', err);
+                }
+            }, 1000);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [searchParams, historyLoaded, isLoading, messages.length, sendMessage]);
+
+    // 9. Render Helpers
+    if (typeof window !== 'undefined' && !sessionId) return null; // Safe guard
+
+    // Best Practice: Avoid "Double Chat". 
+    // If we are 'floating' and on the main Project Page (which has 'inline'), hide this instance.
+    const isProjectPage = /^\/dashboard\/[^/]+$/.test(pathname || '');
+    if (variant === 'floating' && isProjectPage) {
         return null;
+    }
+
+    function renderChatContent() {
+        return (
+            <>
+                <div className="flex-1 overflow-hidden p-0 flex flex-col relative">
+                    {isRestoringHistory && (
+                        <div className="flex justify-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-luxury-gold"></div>
+                        </div>
+                    )}
+
+                    <ChatMessages
+                        messages={messages}
+                        isLoading={isLoading}
+                        typingMessage={typingMessage}
+                        sessionId={sessionId}
+                        onImageClick={setSelectedImage}
+                        messagesContainerRef={messagesContainerRef}
+                        messagesEndRef={messagesEndRef}
+                        statusMessage={currentStatus}
+                        data={data} // 🔥 Pass CoT Data Stream
+                        onFormSubmit={(formData) => {
+                            // Send hidden message to AI to act as tool output/user confirmation
+                            // We format it clearly so the Surveyor Mode can parse it (or submit_lead tool)
+                            const msg = `[LEAD_DATA_SUBMISSION] Name: ${formData.name}, Email: ${formData.email}, Phone: ${formData.contact}, Scope: ${formData.scope}`;
+                            sendMessage(msg);
+                        }}
+                    />
+
+                    {errorMessage && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mx-4 mt-2 p-3 bg-red-900/50 border border-red-500/30 rounded-lg text-red-200 text-sm flex items-center justify-between gap-2 shadow-lg"
+                        >
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+                                <span>{errorMessage}</span>
+                            </div>
+                            <button
+                                onClick={() => setErrorMessage(null)}
+                                className="p-1 hover:bg-red-500/20 rounded-full transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </motion.div>
+                    )}
+                </div>
+
+                <ChatInput
+                    inputValue={input}
+                    setInputValue={setInput} // Context handler
+                    onSubmit={submitMessage}
+                    isLoading={isLoading}
+                    uploads={uploads}
+                    onFileSelect={handleFileSelect}
+                    onRemoveUpload={removeFile}
+                    onRetryUpload={retryUpload}
+                    onScrollToBottom={() => scrollToBottom('smooth')}
+                    fileInputRef={fileInputRef}
+                    authLoading={false} // Managed by middleware/context
+                />
+            </>
+        );
     }
 
     return (
@@ -544,9 +358,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                 <div className="fixed bottom-4 right-2 md:bottom-8 md:right-6 z-50 flex items-center gap-4">
                     <ChatToggleButton
                         isOpen={isOpen}
-                        onClick={() => {
-                            setIsOpen(!isOpen);
-                        }}
+                        onClick={() => setIsOpen(!isOpen)}
                     />
                 </div>
             )}
@@ -555,7 +367,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             <AnimatePresence>
                 {isOpen && (
                     <>
-                        {/* Backdrop - Hide if inline */}
+                        {/* Backdrop */}
                         {!isInline && (
                             <motion.div
                                 key="backdrop"
@@ -572,12 +384,12 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                             <div
                                 ref={chatContainerRef}
                                 className={cn(
-                                    "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-[100]",
+                                    "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-10",
                                     "relative !w-full !max-w-none h-full rounded-3xl border border-luxury-gold/10 shadow-2xl"
                                 )}
                             >
                                 <ChatHeader
-                                    projectId={syncedProjectId}
+                                    projectId={contextProjectId ?? undefined}
                                     showSelector={!!user}
                                     onProjectSelect={handleProjectSwitch}
                                 />
@@ -602,10 +414,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                                 )}
                             >
                                 <ChatHeader
-                                    onMinimize={() => {
-                                        setIsOpen(false);
-                                    }}
-                                    projectId={syncedProjectId}
+                                    onMinimize={() => setIsOpen(false)}
+                                    projectId={contextProjectId ?? undefined}
                                     showSelector={!!user}
                                     onProjectSelect={handleProjectSwitch}
                                 />
@@ -619,62 +429,4 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             <ImageLightbox imageUrl={selectedImage} onClose={() => setSelectedImage(null)} />
         </>
     );
-
-    function renderChatContent() {
-        return (
-            <>
-                <div className="flex-1 overflow-hidden p-0 flex flex-col relative">
-                    {!historyLoaded && (
-                        <div className="flex justify-center py-4">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-luxury-gold"></div>
-                        </div>
-                    )}
-
-                    <ChatMessages
-                        messages={displayMessages}
-                        isLoading={isLoading}
-                        typingMessage={typingMessage}
-                        sessionId={sessionId}
-                        onImageClick={setSelectedImage}
-                        messagesContainerRef={messagesContainerRef}
-                        messagesEndRef={messagesEndRef}
-                        statusMessage={currentStatus} // ✅ Pass dynamic status
-                    />
-
-                    {errorMessage && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mx-4 mt-2 p-3 bg-red-900/50 border border-red-500/30 rounded-lg text-red-200 text-sm flex items-center justify-between gap-2 shadow-lg"
-                        >
-                            <div className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                                <span>{errorMessage}</span>
-                            </div>
-                            <button
-                                onClick={() => setErrorMessage(null)}
-                                className="p-1 hover:bg-red-500/20 rounded-full transition-colors"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </motion.div>
-                    )}
-                </div>
-
-                <ChatInput
-                    inputValue={localInput}
-                    setInputValue={handleInputChange}
-                    onSubmit={submitMessage}
-                    isLoading={isLoading}
-                    uploads={uploads}
-                    onFileSelect={handleFileSelect}
-                    onRemoveUpload={removeFile}
-                    onRetryUpload={retryUpload}
-                    onScrollToBottom={() => scrollToBottom('smooth')}
-                    fileInputRef={fileInputRef}
-                    authLoading={authLoading}
-                />
-            </>
-        );
-    }
 }

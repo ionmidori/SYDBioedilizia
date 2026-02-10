@@ -382,7 +382,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                             openMobile ? "translate-x-0" : "translate-x-full"
                         )
                         : cn(
-                            "hidden md:block fixed inset-y-0 left-0 z-10 h-full border-r border-luxury-gold/5 bg-luxury-bg text-luxury-text shadow-2xl",
+                            "hidden md:flex flex-col shrink-0 h-full border-r border-luxury-gold/5 bg-luxury-bg text-luxury-text shadow-xl z-30 transition-all duration-300",
                             open ? "w-72" : "w-20"
                         ),
                     className

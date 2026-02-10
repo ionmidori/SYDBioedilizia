@@ -38,10 +38,18 @@ async def list_projects(
     Returns:
         List of projects ordered by last activity.
     """
-    user_id = user_session.uid
-    
-    projects = await projects_db.get_user_projects(user_id)
-    return projects
+    try:
+        user_id = user_session.uid
+        logger.info(f"[API] Listing projects for user_id: {user_id}")
+        
+        projects = await projects_db.get_user_projects(user_id)
+        
+        # DEBUG: Log count
+        logger.info(f"[API] Found {len(projects)} projects")
+        return projects
+    except Exception as e:
+        logger.error(f"[API] Error in list_projects: {e}", exc_info=True)
+        raise e
 
 
 @router.get("/{session_id}", response_model=ProjectDocument)

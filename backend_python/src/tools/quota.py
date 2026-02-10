@@ -132,8 +132,9 @@ def check_quota(user_id: str, tool_name: str) -> Tuple[bool, int, datetime]:
         # 4. CHECK DAILY LIMIT
         if not doc.exists:
             # First use
+            allowed = daily_limit > 0
             reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
-            return True, daily_limit - 1, reset_at
+            return allowed, max(0, daily_limit - 1) if allowed else 0, reset_at
         
         data = doc.to_dict()
         count = data.get("count", 0)
@@ -151,8 +152,9 @@ def check_quota(user_id: str, tool_name: str) -> Tuple[bool, int, datetime]:
         # Check expiration
         if now >= window_start + timedelta(hours=QUOTA_WINDOW_HOURS):
             # Reset window
+            allowed = daily_limit > 0
             reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
-            return True, daily_limit - 1, reset_at
+            return allowed, max(0, daily_limit - 1) if allowed else 0, reset_at
         
         # Window active
         reset_at = window_start + timedelta(hours=QUOTA_WINDOW_HOURS)

@@ -1,14 +1,4 @@
-// Local Message interface matching useChatHistory structure
-interface Message {
-    id: string;
-    role: string;
-    content: string;
-    createdAt?: Date;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    toolInvocations?: any[];
-    tool_call_id?: string;
-    experimental_attachments?: unknown[];
-}
+import { Message } from '@/types/chat';
 
 export interface MediaAsset {
     id: string;
@@ -36,25 +26,35 @@ export function extractMediaFromMessages(messages: Message[]): MediaAsset[] {
     messages.forEach((msg) => {
         const timestamp = new Date().toISOString(); // Use actual timestamp if available
 
-        // Extract from experimental_attachments (images uploaded by user)
-        if (msg.experimental_attachments && Array.isArray(msg.experimental_attachments)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            msg.experimental_attachments.forEach((attachment: any, attIndex: number) => {
-                if (attachment.url) {
-                    assets.push({
-                        id: `${msg.id}-attachment-${attIndex}`,
-                        type: 'image',
-                        url: attachment.url,
-                        title: attachment.name || `Immagine ${attIndex + 1}`,
-                        timestamp,
-                        messageId: msg.id
-                    });
-                }
+        // Extract from attachments (images/videos/documents mapped in useChatHistory)
+        if (msg.attachments) {
+            msg.attachments.images?.forEach((url, index) => {
+                assets.push({
+                    id: `${msg.id}-image-${index}`,
+                    type: 'image',
+                    url: url,
+                    title: `Immagine ${index + 1}`,
+                    timestamp,
+                    messageId: msg.id
+                });
             });
+
+            msg.attachments.videos?.forEach((url, index) => {
+                assets.push({
+                    id: `${msg.id}-video-${index}`,
+                    type: 'video',
+                    url: url,
+                    title: `Video ${index + 1}`,
+                    timestamp,
+                    messageId: msg.id
+                });
+            });
+
+            // TODO: Handle documents if needed
         }
 
         // Extract URLs from content (renders, quotes)
-        if (typeof msg.content === 'string') {
+        if (msg.content && typeof msg.content === 'string') {
             // Look for image URLs in markdown
             const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
             let match;

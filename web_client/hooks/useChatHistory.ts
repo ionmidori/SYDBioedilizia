@@ -1,7 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import useSWR from 'swr';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { getChatHistory, type ChatHistoryResponse } from '@/lib/api-client';
 import type { Message } from '@/types/chat';
 
 /**
@@ -46,19 +44,18 @@ interface UseChatHistoryReturn {
 }
 
 /**
- * Custom hook for loading chat history from Python backend.
+ * Custom hook for loading chat history from Python backend via Firestore.
  * 
- * **Migration from Firestore Direct Access:**
- * - Previously used `onSnapshot` for realtime updates
- * - Now uses SWR with polling for near-realtime behavior
- * - Provides automatic caching, deduplication, and error retry
+ * **Realtime Implementation (Protocol G):**
+ * - Uses Firestore `onSnapshot` for true realtime updates.
+ * - Listens directly to the `sessions/{sessionId}/messages` collection.
+ * - Automatically updates the UI when new messages (or tool outputs) arrive.
  * 
- * **Best Practices Applied:**
- * - Client-side caching with SWR
- * - Automatic revalidation on focus/reconnect
- * - Optional polling for realtime-like updates
- * - Proper error handling and loading states
- * - Type-safe with full TypeScript support
+ * **Features:**
+ * - **Zero Latency:** Immediate feedback for AI responses and tool execution.
+ * - **Smart Merging:** Links `tool` outputs to their corresponding `assistant` calls.
+ * - **Robustness:** Handles connection drops and re-synchronizes automatically.
+ * - **Type-Safe:** Fully typed with `Message` interface.
  */
 export function useChatHistory(
     sessionId: string | undefined,
@@ -75,125 +72,141 @@ export function useChatHistory(
     // Only fetch if we have sessionId and user is authenticated
     const shouldFetch = !authLoading && !!user && !!sessionId;
 
-    const {
-        data,
-        error,
-        isLoading,
-        mutate
-    } = useSWR<ChatHistoryResponse>(
-        shouldFetch ? [`/api/sessions/${sessionId}/messages`, sessionId] : null,
-        async () => {
-            if (!sessionId) throw new Error('Session ID required');
-            return getChatHistory(sessionId, undefined, limit);
-        },
-        {
-            refreshInterval: shouldFetch ? refreshInterval : 0,
-            revalidateOnFocus,
-            revalidateOnReconnect: true,
-            dedupingInterval: 2000, // Prevent duplicate requests within 2s
-            errorRetryCount: 3,
-            errorRetryInterval: 5000,
-            onError: (err) => {
-                console.error('[useChatHistory] SWR Error:', err);
-            },
-            onSuccess: (data) => {
-                console.log(`[useChatHistory] Loaded ${data.messages.length} messages`);
-            }
-        }
-    );
+    // -- REALTIME LISTENER (Protocol G) --
+    const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [error, setError] = useState<Error | undefined>(undefined);
 
-    // Transform backend messages to match frontend Message format
-    const transformedMessages: Message[] = useMemo(() => {
-        return (data?.messages || []).map((backendMsg: any) => {
-            // Cast to BackendMessage for type safety
-            const msg = backendMsg as BackendMessage;
+    useEffect(() => {
+        let unsubscribe: () => void;
 
-            // Parse tool_calls from backend format to frontend toolInvocations
-            let toolInvocations = undefined;
-            if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
-                toolInvocations = msg.tool_calls.map((tc: any) => ({
-                    toolCallId: tc.id || tc.tool_call_id,
-                    toolName: tc.function?.name || tc.name,
-                    args: typeof tc.function?.arguments === 'string'
-                        ? JSON.parse(tc.function.arguments)
-                        : (tc.function?.arguments || tc.args),
-                    state: 'result' as const
-                }));
+        async function setupListener() {
+            if (!shouldFetch) {
+                // Determine if we should be loading or just waiting
+                if (authLoading) setIsLoading(true);
+                return;
             }
 
-            // Parse attachments from backend format
-            let attachments = undefined;
-            if (msg.attachments) {
-                // Backend sends { images?: string[], videos?: string[], documents?: string[] }
-                attachments = msg.attachments;
-            }
+            setIsLoading(true);
+            setError(undefined);
 
-            // Clean content from legacy markers
-            let content = msg.content;
-            if (content && (attachments?.images?.length || attachments?.videos?.length)) {
-                content = content
-                    .replace(/\[(Immagine|Video) allegata:.*?\]/g, '')
-                    .replace(/\[https?:\/\/.*?\]/g, '')
-                    .trim();
-            }
+            try {
+                // Ensure db is ready (though we import it directly, clean check)
+                const { db } = await import('@/lib/firebase');
+                const { collection, query, orderBy, limit: firestoreLimit, onSnapshot: firestoreOnSnapshot } = await import('firebase/firestore');
 
-            return {
-                id: msg.id,
-                role: msg.role as 'user' | 'assistant' | 'system' | 'tool',
-                content,
-                createdAt: msg.timestamp ? new Date(msg.timestamp) : new Date(),
-                timestamp: msg.timestamp,
-                toolInvocations,
-                tool_call_id: msg.tool_call_id,
-                attachments
-            };
-        });
-    }, [data?.messages]);
+                const q = query(
+                    collection(db, 'sessions', sessionId, 'messages'),
+                    orderBy('timestamp', 'asc'),
+                    firestoreLimit(limit)
+                );
 
-    // Link tool results to assistant tool invocations
-    const linkedMessages = useMemo(() => {
-        return transformedMessages.map(msg => {
-            if (msg.role === 'assistant' && msg.toolInvocations) {
-                return {
-                    ...msg,
-                    toolInvocations: msg.toolInvocations.map((tool: any) => {
-                        const toolResultMsg = transformedMessages.find(m =>
-                            m.role === 'tool' && m.tool_call_id === tool.toolCallId
-                        );
+                unsubscribe = firestoreOnSnapshot(q, (snapshot) => {
+                    const messages = snapshot.docs.map(doc => {
+                        const data = doc.data();
 
-                        if (toolResultMsg) {
-                            let parsedResult = toolResultMsg.content;
-                            try {
-                                if (typeof toolResultMsg.content === 'string' &&
-                                    (toolResultMsg.content.startsWith('{') || toolResultMsg.content.startsWith('['))) {
-                                    parsedResult = JSON.parse(toolResultMsg.content);
-                                }
-                            } catch (e) {
-                                // Keep as string if parse fails
-                            }
+                        // Parse tool_calls
+                        let toolInvocations = undefined;
+                        if (data.tool_calls && Array.isArray(data.tool_calls)) {
+                            toolInvocations = data.tool_calls.map((tc: any) => ({
+                                toolCallId: tc.id || tc.tool_call_id,
+                                toolName: tc.function?.name || tc.name,
+                                args: typeof tc.function?.arguments === 'string'
+                                    ? JSON.parse(tc.function.arguments)
+                                    : (tc.function?.arguments || tc.args),
+                                state: 'result', // Stored messages are always results
+                                result: 'See tool output' // We link results below
+                            }));
+                        }
 
+                        // Parse attachments from backend format
+                        let attachments = undefined;
+                        if (data.attachments) {
+                            attachments = data.attachments;
+                        }
+
+                        // Clean content
+                        let content = data.content || '';
+                        if (content && (attachments?.images?.length || attachments?.videos?.length)) {
+                            content = content
+                                .replace(/\[(Immagine|Video) allegata:.*?\]/g, '')
+                                .replace(/\[https?:\/\/.*?\]/g, '')
+                                .trim();
+                        }
+
+                        return {
+                            id: doc.id,
+                            role: data.role as 'user' | 'assistant' | 'system' | 'tool',
+                            content,
+                            createdAt: data.timestamp?.toDate() || new Date(),
+                            timestamp: data.timestamp?.toDate()?.toISOString(),
+                            toolInvocations,
+                            tool_call_id: data.tool_call_id,
+                            attachments
+                        } as Message;
+                    });
+
+                    // Link Tool Results (Smart Merge)
+                    const linkedMessages = messages.map(msg => {
+                        if (msg.role === 'assistant' && msg.toolInvocations) {
                             return {
-                                ...tool,
-                                state: 'result' as const,
-                                result: parsedResult
+                                ...msg,
+                                toolInvocations: msg.toolInvocations.map((tool: any) => {
+                                    const toolResultMsg = messages.find(m =>
+                                        m.role === 'tool' && m.tool_call_id === tool.toolCallId
+                                    );
+
+                                    if (toolResultMsg) {
+                                        let parsedResult = toolResultMsg.content;
+                                        try {
+                                            if (typeof toolResultMsg.content === 'string' &&
+                                                (toolResultMsg.content.startsWith('{') || toolResultMsg.content.startsWith('['))) {
+                                                parsedResult = JSON.parse(toolResultMsg.content);
+                                            }
+                                        } catch (e) { /* ignore */ }
+
+                                        return {
+                                            ...tool,
+                                            state: 'result',
+                                            result: parsedResult
+                                        };
+                                    }
+                                    return tool;
+                                })
                             };
                         }
-                        return tool;
-                    })
-                };
-            }
-            return msg;
-        });
-    }, [transformedMessages]);
+                        return msg;
+                    });
 
-    // Determine if history is fully loaded
+                    setHistoryMessages(linkedMessages as Message[]);
+                    setIsLoading(false);
+                }, (err) => {
+                    console.error('[useChatHistory] Snapshot Error:', err);
+                    setError(err);
+                    setIsLoading(false);
+                });
+
+            } catch (err: any) {
+                console.error('[useChatHistory] Setup Error:', err);
+                setError(err);
+                setIsLoading(false);
+            }
+        }
+
+        setupListener();
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, [sessionId, shouldFetch, limit, authLoading]);
+
     const historyLoaded = !isLoading && !authLoading;
 
     return {
         historyLoaded,
-        historyMessages: linkedMessages,
+        historyMessages,
         isLoading,
         error,
-        mutate // Expose for manual revalidation
+        mutate: () => { } // No-op for realtime
     };
 }

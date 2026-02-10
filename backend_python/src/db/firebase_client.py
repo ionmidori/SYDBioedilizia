@@ -22,7 +22,17 @@ def init_firebase():
     """Initialize Firebase Admin SDK if not already initialized."""
     global _cached_cred
     
-    if not firebase_admin._apps:
+    # ✅ Idempotency Check (Robust)
+    try:
+        app = firebase_admin.get_app()
+        if _cached_cred is None:
+            _cached_cred = app.credential
+        return
+    except ValueError:
+        # Not initialized, proceed to init
+        pass
+
+    try:
         # Check for service account JSON file (Production Secret or Local)
         # Priority 1: settings.FIREBASE_CREDENTIALS (if set)
         # Priority 2: /secrets/service-account.json (Cloud Run default)
@@ -62,11 +72,16 @@ def init_firebase():
             })
         else:
             initialize_app(cred)
+            
         _cached_cred = cred  # Cache for generic Google Cloud clients
         logger.info("Firebase Admin SDK initialized")
     
-    elif _cached_cred is None:
-        pass
+    except ValueError as ve:
+        # If we race-conditioned and it's already init, just ignore
+        if "The default Firebase app already exists" in str(ve):
+             pass
+        else:
+             raise ve
 
 def get_firestore_client():
     """Get Sync Firestore client."""

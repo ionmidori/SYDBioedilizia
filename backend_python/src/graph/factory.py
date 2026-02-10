@@ -49,7 +49,7 @@ class AgentGraphFactory:
             
             try:
                 logger.info("🤔 Reasoning Node: Thinking...")
-                step = reasoning_model.invoke(reasoning_messages)
+                step = reasoning_model.invoke(reasoning_messages, config={"tags": ["reasoning_tier"]})
                 
                 logger.info(f"💡 Thought: {step.analysis}")
                 logger.info(f"👉 Action: {step.action} (Tool: {step.tool_name})")
@@ -85,6 +85,21 @@ class AgentGraphFactory:
             tool_to_call = None
             if latest_plan and latest_plan.get("action") == "call_tool":
                 tool_to_call = latest_plan.get("tool_name")
+                
+                # 🛡️ SAFETY & CONFIDENCE CHECK (CoT 2.0)
+                # Read new fields with defaults for safety
+                confidence = latest_plan.get("confidence_score", 1.0)
+                risk = getattr(latest_plan, "risk_score", 0.0) # usage of getattr for safety
+                
+                # THRESHOLDS
+                # 1. Low Confidence -> Ask User
+                if confidence < 0.5:
+                    logger.warning(f"⚠️ Low Confidence ({confidence}). Overriding '{tool_to_call}' to ASK_USER.")
+                    tool_to_call = None
+                    exec_messages.append(SystemMessage(content=f"SYSTEM ALERT: Your reasoning confidence ({confidence}) is too low to execute '{tool_to_call}'. Instead, ask the user for clarification."))
+
+                # 2. High Risk / Action Mismatch -> Block
+                # (Example: Risk 0.9 but Confidence only 0.8 -> Block? For now, stick to confidence)
             
             if tool_to_call:
                 # 🛡️ Loop Guard Check (Simplified for Factory)
@@ -120,12 +135,42 @@ class AgentGraphFactory:
                 return "tools"
             return END
 
+        def custom_tools_node(state: AgentState):
+            """
+            Executes tools and updates state flags for User Journey tracking.
+            Wraps the standard ToolNode logic but adds state reduction.
+            """
+            # 1. Execute Tools
+            tool_node = ToolNode(self.tools)
+            result = tool_node.invoke(state) # Returns {'messages': [ToolMessage, ...]}
+            
+            # 2. State Reduction (Flags)
+            new_messages = result.get("messages", [])
+            updates = {"messages": new_messages}
+            
+            for msg in new_messages:
+                if isinstance(msg, ToolMessage):
+                    # Flag: Quote Completed
+                    if msg.name == "submit_lead" and "Leadsavedsuccessfully" in msg.content.replace(" ", ""):
+                        updates["is_quote_completed"] = True
+                        # Cache Contact Info (Optimization)
+                        # We extract it from the tool call arguments in the LAST AI Message
+                        # But simpler: just set flag for now. Data cache can be added if needed.
+                        logger.info("✅ JOURNEY: Quote Completed. Flag set.")
+
+                    # Flag: Render Completed
+                    if msg.name == "generate_render" and "http" in msg.content:
+                        updates["is_render_completed"] = True
+                        logger.info("✅ JOURNEY: Render Completed. Flag set.")
+            
+            return updates
+
         # 2. Build Graph
         workflow = StateGraph(AgentState)
         
         workflow.add_node("reasoning", reasoning_node)
         workflow.add_node("execution", execution_node)
-        workflow.add_node("tools", ToolNode(self.tools))
+        workflow.add_node("tools", custom_tools_node) # Replaced standard ToolNode
         
         # Edges
         # Note: set_conditional_entry_point supports async functions

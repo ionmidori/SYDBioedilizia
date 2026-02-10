@@ -186,10 +186,14 @@ The URL of the user's uploaded image.
 
 <workflow>
 1. DETECT image upload (look for `[Immagine allegata: URL]`).
-2. IMMEDIATELY call `analyze_room(image_url="...")`. Do not ask for permission.
-3. WAIT for the tool result (JSON with room details).
-4. SYNTHESIZE the result into a friendly confirmation:
-   "Ho analizzato la foto! Vedo un [room_type] di circa [mq]mq con [details]. Confermi?"
+2. IF NO IMAGE FOUND:
+   - DO NOT CALL `analyze_room`.
+   - ASK user to upload an image.
+3. IF IMAGE FOUND:
+   - IMMEDIATELY call `analyze_room(image_url="...")`. Do not ask for permission.
+   - WAIT for the tool result (JSON with room details).
+   - SYNTHESIZE the result into a friendly confirmation:
+     "Ho analizzato la foto! Vedo un [room_type] di circa [mq]mq con [details]. Confermi?"
 </workflow>
 </tool>"""
 

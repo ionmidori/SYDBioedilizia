@@ -70,17 +70,21 @@ export async function fetchWithAuth(url: string, options: FetchOptions = {}): Pr
         if (user) {
             try {
                 const token = await user.getIdToken();
+                console.log('[ApiClient] Token retrieved:', token.substring(0, 10) + '...');
                 finalHeaders['Authorization'] = `Bearer ${token}`;
             } catch (error) {
                 console.error('[ApiClient] Failed to get ID token:', error);
             }
+        } else {
+            console.warn('[ApiClient] No current user found for authenticated request');
         }
     }
 
     // Execute Request
     const response = await fetch(url, {
         ...rest,
-        headers: finalHeaders
+        headers: finalHeaders,
+        cache: 'no-store' // ⚡ CRITICAL: Prevent Next.js/Vercel buffering
     });
 
     // Global Error Handling

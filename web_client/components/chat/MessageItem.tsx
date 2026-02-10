@@ -21,6 +21,7 @@ interface MessageItemProps {
     typingMessage?: string;
     sessionId: string;
     onImageClick: (imageUrl: string) => void;
+    onFormSubmit?: (data: any) => void;
 }
 
 /**
@@ -28,7 +29,7 @@ interface MessageItemProps {
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, sessionId, onImageClick }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, sessionId, onImageClick, onFormSubmit }) => {
     const { user } = useAuth();
 
     // Helper: Extract text from both old (content) and new (parts[]) formats
@@ -43,12 +44,28 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
         return JSON.stringify(msg.content || '');
     };
 
+    // Helper: Extract tool invocations from both formats
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const getToolInvocations = (msg: Message): any[] => {
+        if (msg.toolInvocations && msg.toolInvocations.length > 0) {
+            return msg.toolInvocations;
+        }
+        if (msg.parts && Array.isArray(msg.parts)) {
+            return msg.parts
+                .filter((part) => part.type === 'tool-invocation')
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((part) => (part as any).toolInvocation);
+        }
+        return [];
+    };
+
     // Fix for React 18/19 type mismatch
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const Markdown = ReactMarkdown as any;
 
     const text = getMessageText(message);
-    const hasTools = message.toolInvocations?.length ?? 0 > 0;
+    const toolInvocations = getToolInvocations(message);
+    const hasTools = toolInvocations.length > 0;
 
     // ✅ Memoize ReactMarkdown components to prevent re-creation on every render
     const markdownComponents = useMemo(() => ({
@@ -86,7 +103,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     const isThinking = message.role === 'assistant' && (!text || text.trim() === '' || text.trim() === '...') && !hasTools;
 
     // Check if tools have any visual output (Loading state OR Result with Image/Error OR Widgets)
-    const hasVisibleTools = message.toolInvocations?.some(tool => {
+    const hasVisibleTools = toolInvocations.some(tool => {
         if (tool.toolName === 'display_lead_form') return true; // Always visible
         if (tool.toolName === 'request_login') return true; // 🔥 Login Widget Always visible
 
@@ -208,7 +225,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
 
 
                                     {/* Tool Invocations */}
-                                    {message.toolInvocations?.map((tool, toolIdx) => {
+                                    {toolInvocations.map((tool, toolIdx) => {
                                         // 💎 PREMIUM WIDGET: Lead Capture Form
                                         if (tool.toolName === 'display_lead_form') {
                                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -216,8 +233,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                                             return (
                                                 <div key={toolIdx} className="mt-4">
                                                     <LeadCaptureForm
-                                                        quoteSummary={args?.quote_summary || "Preventivo Ristrutturazione"}
-                                                        sessionId={sessionId || "unknown"} // Use prop
+                                                        description={args?.quote_summary || "Per generare il render, ho bisogno di questi dati."}
+                                                        onSubmit={(data) => {
+                                                            console.log("📝 Form Submitted:", data);
+                                                            if (onFormSubmit) onFormSubmit(data);
+                                                        }}
                                                     />
                                                 </div>
                                             );

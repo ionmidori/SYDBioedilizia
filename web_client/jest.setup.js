@@ -1,7 +1,16 @@
-/**
- * Jest Setup - Global Test Configuration
- * Configures testing environment, mocks, and extends Jest matchers
- */
+console.log('--- JEST SETUP EXECUTING ---');
+// Polyfill TextEncoder/TextDecoder (MUST BE AT TOP)
+const { TextEncoder, TextDecoder } = require('node:util');
+global.TextEncoder = TextEncoder;
+global.TextDecoder = TextDecoder;
+globalThis.TextEncoder = TextEncoder;
+globalThis.TextDecoder = TextDecoder;
+
+if (typeof window !== 'undefined') {
+    window.TextEncoder = TextEncoder;
+    window.TextDecoder = TextDecoder;
+}
+console.log('TextDecoder polyfill applied:', !!global.TextDecoder);
 
 // ✅ PILLAR 1 FIX: Properly import testing-library matchers
 // This extends Jest's expect() with custom matchers like toBeInTheDocument()
@@ -68,10 +77,7 @@ global.fetch = jest.fn((input) => {
     });
 });
 
-// Polyfill TextEncoder/TextDecoder
-import { TextEncoder, TextDecoder } from 'util';
 
-Object.assign(global, { TextDecoder, TextEncoder });
 
 // Mock FileReader
 global.FileReader = jest.fn().mockImplementation(() => ({

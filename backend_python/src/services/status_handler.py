@@ -2,14 +2,14 @@
 import logging
 from typing import AsyncGenerator, Dict, Any, Optional
 
-from src.utils.stream_protocol import stream_status
+from src.utils.stream_protocol import stream_status, stream_reasoning
 
 logger = logging.getLogger(__name__)
 
 class GraphStatusHandler:
     """
     Parses low-level LangGraph events and keeps the user informed
-    with high-level narrative status updates.
+    with high-level narrative status updates AND structured reasoning.
     """
 
     def __init__(self):
@@ -17,7 +17,7 @@ class GraphStatusHandler:
 
     async def process_event(self, event: Dict[str, Any]) -> AsyncGenerator[str, None]:
         """
-        Process a single graph event and yield status chunks if applicable.
+        Process a single graph event and yield status/data chunks if applicable.
         """
         event_type = event.get("event")
         name = event.get("name")
@@ -30,20 +30,31 @@ class GraphStatusHandler:
             
             message = self._get_tool_start_message(tool_name, tool_input)
             if message:
-                async for chunk in self._emit(message):
+                async for chunk in self._emit_status(message):
                     yield chunk
                 
         # 2. Node Transitions (Narrative)
         elif event_type == "on_chain_start":
             # Filter out the main wrapper chain, focus on specific nodes
-            # In LangGraph, node names often appear in 'name'
             if name in ["reasoning_node", "intent_classifier", "router", "generate_render", "analyze_room"]:
                 message = self._get_node_message(name)
                 if message:
-                    async for chunk in self._emit(message):
+                    async for chunk in self._emit_status(message):
                         yield chunk
+                        
+        # 3. Reasoning Node Completion (CoT Data Stream)
+        # We capture the output of the reasoning node to stream the "Thought process"
+        elif event_type == "on_chain_end" and name == "reasoning_node":
+            output = data.get("output", {})
+            # The reasoning node returns {"internal_plan": [...], "thought_log": [...]}
+            internal_plan = output.get("internal_plan", [])
+            if internal_plan:
+                latest_step = internal_plan[-1]
+                # Stream the specific ReasoningStep
+                async for chunk in stream_reasoning(latest_step):
+                    yield chunk
 
-    def _emit(self, message: str) -> AsyncGenerator[str, None]:
+    def _emit_status(self, message: str) -> AsyncGenerator[str, None]:
         self._last_status = message
         # We invoke the async generator from protocol
         return stream_status(message)

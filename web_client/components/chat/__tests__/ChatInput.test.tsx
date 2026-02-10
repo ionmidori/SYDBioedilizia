@@ -31,6 +31,20 @@ jest.mock('@/components/chat/VideoTrimmer', () => ({
     VideoTrimmer: () => null,
 }));
 
+// Mock useUpload
+jest.mock('@/hooks/useUpload', () => ({
+    useUpload: () => ({
+        uploads: {},
+        addFiles: jest.fn(),
+        removeFile: jest.fn(),
+        retryUpload: jest.fn(),
+        clearAll: jest.fn(),
+        isUploading: false,
+        successfulUploads: [],
+        hasActiveUploads: false,
+    }),
+}));
+
 describe('ChatInput', () => {
     const mockFileInputRef = {
         current: null,
@@ -43,10 +57,9 @@ describe('ChatInput', () => {
         onFileSelect: jest.fn(),
         onScrollToBottom: jest.fn(),
         isLoading: false,
-        isGlobalUploading: false,
-        mediaItems: [],
-        removeMedia: jest.fn(),
-        updateMediaItem: jest.fn(),
+        uploads: {},
+        onRemoveUpload: jest.fn(),
+        onRetryUpload: jest.fn(),
         fileInputRef: mockFileInputRef,
     };
 
@@ -136,20 +149,18 @@ describe('ChatInput', () => {
     });
 
     it('should trigger file input click when attachment button clicked', () => {
-        const mockFileInput = document.createElement('input');
-        mockFileInput.type = 'file';
-        mockFileInput.click = jest.fn();
+        const clickSpy = jest.spyOn(HTMLInputElement.prototype, 'click');
 
-        const fileInputRef: RefObject<HTMLInputElement> = {
-            current: mockFileInput,
-        };
-
-        render(<ChatInput {...defaultProps} fileInputRef={fileInputRef} />);
+        // We don't need to pass fileInputRef manually if we spy on prototype, 
+        // the component matches the snapshot or we find by ID?
+        // Actually, we can just render default.
+        render(<ChatInput {...defaultProps} />);
 
         // Find the button containing the Paperclip icon
         const attachButton = screen.getByTestId('icon-paperclip').closest('button')!;
         fireEvent.click(attachButton);
 
-        expect(mockFileInput.click).toHaveBeenCalled();
+        expect(clickSpy).toHaveBeenCalled();
+        clickSpy.mockRestore();
     });
 });

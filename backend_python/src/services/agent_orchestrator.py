@@ -2,6 +2,7 @@
 import logging
 import asyncio
 import os
+import re
 from typing import AsyncGenerator, Dict, Any, List, Optional
 from datetime import datetime
 from urllib.parse import unquote, urlparse
@@ -101,7 +102,9 @@ class AgentOrchestrator:
             state: AgentState = {
                 "messages": lc_messages,
                 "session_id": request.session_id,
-                "user_id": user_id
+                "user_id": user_id,
+                "project_id": request.project_id, # 🌍 Context Injection
+                "is_authenticated": True # We verified token above
             }
             
             # 🔥 Execute Graph & Stream
@@ -137,11 +140,38 @@ class AgentOrchestrator:
                 
                 # 💬 Stream Text as it arrives (Low Latency)
                 if kind == "on_chat_model_stream":
+                    # 🛑 FILTER: Ignore Reasoning Tier output (internal JSON)
+                    # Check tags OR node name to be safe
+                    tags = event.get("tags", [])
+                    name = event.get("name")
+                    if "reasoning_tier" in tags or name == "reasoning_node" or name == "reasoning":
+                        continue
+
                     content = event["data"]["chunk"].content
-                    if content:
-                         accumulated_response += content
+                    
+                    # 🛡️ ROBUSTNESS: Handle content polymorphism (str vs list of dicts/str)
+                    text_content = ""
+                    if isinstance(content, str):
+                        text_content = content
+                    elif isinstance(content, list):
+                        parts = []
+                        for c in content:
+                            if isinstance(c, str):
+                                parts.append(c)
+                            elif isinstance(c, dict) and "text" in c:
+                                parts.append(c["text"])
+                        text_content = "".join(parts)
+                    
+                    # 🛡️ FILTER THOUGHTS (Leaky CoT)
+                    # Remove <thought>...</thought> tags and "Thought: ..." lines
+                    if text_content:
+                        text_content = re.sub(r'<thought>.*?</thought>', '', text_content, flags=re.DOTALL)
+                        text_content = re.sub(r'(?m)^Thought:.*$', '', text_content)
+
+                    if text_content:
+                         accumulated_response += text_content
                          # Stream Event '0'
-                         async for stream_chunk in stream_text(content):
+                         async for stream_chunk in stream_text(text_content):
                              yield stream_chunk
 
                 # 🛠️ Capture Tool Calls (on_chat_model_end would have them, or on_tool_start)
@@ -183,29 +213,45 @@ class AgentOrchestrator:
             
             # 1. AI Message Persistence
             if kind == "on_chat_model_end":
-                output = event["data"]["output"]
-                # output is an AIMessage or BaseMessage
-                if isinstance(output, AIMessage):
-                    full_content = output.content
-                    tool_calls = output.tool_calls
-                    
-                    # Persist AI Message
-                    serialized_tc = [
-                        {"id": tc["id"], "name": tc["name"], "args": tc["args"]}
-                        for tc in tool_calls
-                    ] if tool_calls else []
-                    
-                    await self.repo.save_message(request.session_id, "assistant", full_content or "", tool_calls=serialized_tc)
-                    
-                    # If tool calls exist, stream them (Event '9')
-                    if tool_calls:
-                         for tool_call in tool_calls:
-                            async for chunk in stream_tool_call(
-                                tool_call_id=tool_call.get("id", "unknown"),
-                                tool_name=tool_call.get("name", "unknown"),
-                                args=tool_call.get("args", {})
-                            ):
-                                yield chunk
+                # 🛑 FILTER: Ignore Reasoning Tier output (internal JSON)
+                tags = event.get("tags", [])
+                if "reasoning_tier" not in tags:
+                    output = event["data"]["output"]
+                    # output is an AIMessage or BaseMessage
+                    if isinstance(output, AIMessage):
+                        raw_content = output.content
+                        
+                        # 🛡️ ROBUSTNESS: Ensure content is string for DB
+                        full_content = ""
+                        if isinstance(raw_content, str):
+                            full_content = raw_content
+                        elif isinstance(raw_content, list):
+                             parts = []
+                             for c in raw_content:
+                                 if isinstance(c, str):
+                                     parts.append(c)
+                                 elif isinstance(c, dict) and "text" in c:
+                                     parts.append(c["text"])
+                             full_content = "".join(parts)
+                        tool_calls = output.tool_calls
+                        
+                        # Persist AI Message
+                        serialized_tc = [
+                            {"id": tc["id"], "name": tc["name"], "args": tc["args"]}
+                            for tc in tool_calls
+                        ] if tool_calls else []
+                        
+                        await self.repo.save_message(request.session_id, "assistant", full_content or "", tool_calls=serialized_tc)
+                        
+                        # If tool calls exist, stream them (Event '9')
+                        if tool_calls:
+                             for tool_call in tool_calls:
+                                async for chunk in stream_tool_call(
+                                    tool_call_id=tool_call.get("id", "unknown"),
+                                    tool_name=tool_call.get("name", "unknown"),
+                                    args=tool_call.get("args", {})
+                                ):
+                                    yield chunk
 
             # 2. Tool Result Persistence
             if kind == "on_tool_end":
@@ -299,8 +345,11 @@ class AgentOrchestrator:
             attachments = msg.get("attachments", [])
             
             if role == "user":
+                if not content and not attachments:
+                    content = "..." # 🛡️ Prevent empty HumanMessage (API Error)
+
                 if attachments:
-                    multimodal_blocks = [{"type": "text", "text": content}]
+                    multimodal_blocks = [{"type": "text", "text": content or "..."}] # Ensure text block exists
                     for att in attachments:
                         if att.get("media_type") == "image":
                             multimodal_blocks.append({"type": "image_url", "image_url": {"url": att["url"]}})
@@ -320,7 +369,7 @@ class AgentOrchestrator:
         
         # Current Message
         if current_attachments:
-            multimodal_content = [{"type": "text", "text": user_content}]
+            multimodal_content = [{"type": "text", "text": user_content or "..."}]
             # Re-inject from request to get logic right (splitting legacy URL vs Native)
             # Actually we can just use the processed 'current_attachments' if we trust the structure
             # But the 'processed' ones are pure dicts.
@@ -336,6 +385,8 @@ class AgentOrchestrator:
             
             lc_messages.append(HumanMessage(content=multimodal_content))
         else:
+            if not user_content:
+                user_content = "..." # 🛡️ Prevent empty HumanMessage
             lc_messages.append(HumanMessage(content=user_content))
             
         return lc_messages

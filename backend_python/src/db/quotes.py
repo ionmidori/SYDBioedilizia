@@ -7,6 +7,8 @@ from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
 
+from src.utils.serialization import parse_firestore_datetime
+
 # Pydantic Models for Quote Data Structure
 
 class LogisticsData(BaseModel):
@@ -52,6 +54,13 @@ class QuoteDraftData(BaseModel):
         """Convert to dictionary for Firestore storage, handling datetimes."""
         data = self.model_dump(exclude_none=True)
         return data
+
+    @classmethod
+    def from_firestore(cls, data: Dict[str, Any]) -> "QuoteDraftData":
+        """Robustly create instance from Firestore dict."""
+        data["createdAt"] = parse_firestore_datetime(data.get("createdAt"))
+        data["updatedAt"] = parse_firestore_datetime(data.get("updatedAt"))
+        return cls(**data)
 
 async def save_quote_draft(
     user_id: str,

@@ -9,6 +9,8 @@ import { InactivityWarningDialog } from "@/components/auth/InactivityWarningDial
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { Loader2 } from "lucide-react"
+import { MobileSwipeLayout } from "@/components/mobile/MobileSwipeLayout"
+import { OnboardingTour } from "@/components/dashboard/OnboardingTour"
 
 // Sidebar dimensions
 const SIDEBAR_WIDTH_EXPANDED = '18rem'
@@ -51,14 +53,17 @@ export default function DashboardLayout({
 
     return (
         <SidebarProvider>
-            <DashboardContent
-                showWarning={showWarning}
-                secondsRemaining={secondsRemaining}
-                extendSession={extendSession}
-                logout={logout}
-            >
-                {children}
-            </DashboardContent>
+            <MobileSwipeLayout>
+                <DashboardContent
+                    showWarning={showWarning}
+                    secondsRemaining={secondsRemaining}
+                    extendSession={extendSession}
+                    logout={logout}
+                >
+                    {children}
+                </DashboardContent>
+            </MobileSwipeLayout>
+            <OnboardingTour />
         </SidebarProvider>
     )
 }
@@ -81,31 +86,24 @@ function DashboardContent({
     // Calculate margin based on sidebar state
     // Desktop: Expanded vs Collapsed
     // Mobile: Always '4rem' (Rail width) because expansion is Overlay
-    const sidebarWidth = isMobile ? SIDEBAR_MOBILE_WIDTH : (open ? SIDEBAR_WIDTH_EXPANDED : SIDEBAR_WIDTH_COLLAPSED)
-
     return (
-        <div className="h-[100dvh] supports-[height:100dvh]:h-[100dvh] w-full bg-luxury-bg text-luxury-text overflow-hidden relative flex flex-col md:block">
-            {/* Background Atmospheric Elements - Hidden on mobile for performance */}
-            <div className="hidden md:block absolute top-0 right-0 w-[500px] h-[500px] bg-luxury-teal/10 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/2 pointer-events-none will-change-transform transform-gpu" />
-            <div className="hidden md:block absolute bottom-0 left-0 w-[500px] h-[500px] bg-luxury-gold/5 rounded-full blur-3xl opacity-50 translate-y-1/2 -translate-x-1/2 pointer-events-none will-change-transform transform-gpu" />
+        <>
+            <div className="flex h-screen w-full bg-luxury-bg text-luxury-text overflow-hidden relative">
+                {/* Desktop Sidebar (Hidden on Mobile) */}
+                {/* Desktop Sidebar (AppSidebar handles its own responsive visibility) */}
+                <AppSidebar />
 
-            {/* Desktop Sidebar - Fixed position, logic handled internally */}
-            <AppSidebar className="z-20" />
-
-            {/* Main Content Area */}
-            <main
-                style={{
-                    marginLeft: sidebarWidth,
-                    contain: 'layout paint'  // ISOLATION: Prevents reflow from cascading up
-                }}
-                className="flex-1 md:h-full overflow-hidden relative md:transition-[margin] md:duration-300 md:ease-in-out z-10 md:will-change-[margin]"
-            >
-                <div className="h-full overflow-auto p-4 md:p-8 pb-safe selection:bg-luxury-teal/30">
-                    <div className="w-full h-full flex flex-col">
+                {/* Main Content Area */}
+                <div className="flex-1 flex flex-col min-h-0 relative">
+                    <DashboardHeader />
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
                         {children}
                     </div>
+
+                    {/* GLOBAL FLOATING CHAT REMOVED per user request */}
+                    {/* <ChatWidget variant="floating" /> */}
                 </div>
-            </main>
+            </div>
 
             {/* Inactivity Warning Dialog */}
             <InactivityWarningDialog
@@ -114,6 +112,6 @@ function DashboardContent({
                 onExtend={extendSession}
                 onLogout={logout}
             />
-        </div>
+        </>
     )
 }

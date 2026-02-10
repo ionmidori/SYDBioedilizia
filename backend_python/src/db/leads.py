@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Any
 from src.db.firebase_client import get_async_firestore_client
 from src.models.lead import LeadData, LeadDocument
+from src.utils.serialization import parse_firestore_datetime
 
 logger = logging.getLogger(__name__)
 

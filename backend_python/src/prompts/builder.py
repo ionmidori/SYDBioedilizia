@@ -5,7 +5,7 @@ This module assembles the final prompt from modular components,
 ensuring clean separation of concerns and maintainability.
 """
 
-from .components.identity import IDENTITY, CRITICAL_PROTOCOLS, OUTPUT_RULES
+from .components.identity import IDENTITY, CRITICAL_PROTOCOLS, OUTPUT_RULES, REASONING_INSTRUCTIONS
 from .components.tools import TOOLS
 from .components.modes import MODES
 from .components.protocol import PROTOCOL
@@ -32,6 +32,7 @@ def build_system_instruction() -> str:
         "<!-- SYD SYSTEM INSTRUCTION - MODULAR ARCHITECTURE -->",
         SECURITY_GUARDRAILS,  # 🛡️ MUST BE FIRST - Highest precedence
         IDENTITY,
+        REASONING_INSTRUCTIONS, # 🧠 CoT 2.0 Guidance
         OUTPUT_RULES,
         CRITICAL_PROTOCOLS,
         VIDEO_ANALYSIS_PROTOCOL,  # 🎬 NEW

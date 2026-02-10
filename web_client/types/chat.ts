@@ -42,7 +42,7 @@ export interface ReasoningStep {
 export interface Message {
     id: string;
     role: 'system' | 'user' | 'assistant' | 'data' | 'tool';
-    content: string;
+    content?: string;
     reasoning?: string | ReasoningStep; // Support both raw string and structured CoT
     createdAt?: Date;
     timestamp?: string; // ISO timestamp from backend
@@ -51,13 +51,7 @@ export interface Message {
     /**
      * Vercel AI SDK Data Protocol Parts (Text/Image/Tool/Reasoning)
      */
-    parts?: Array<{
-        type: 'text' | 'image' | 'tool-invocation' | 'reasoning';
-        text?: string;
-        image?: string;
-        toolInvocation?: ToolInvocation;
-        reasoning?: ReasoningStep; // Structured reasoning part
-    }>;
+    parts?: any[];
     attachments?: {
         images?: string[];
         videos?: string[];

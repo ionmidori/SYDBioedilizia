@@ -187,6 +187,10 @@ class ChatRequest(BaseModel):
     # 🎬 NEW: Native Video Support (File API URIs)
     video_file_uris: list[str] | None = Field(None, alias="videoFileUris")  # File API URIs from /upload endpoint
     
+    # 🌍 CONTEXT AWARENESS (Renovation-Next)
+    project_id: str | None = Field(None, alias="projectId")
+    is_authenticated: bool = Field(False) # Matches JSON directly
+    
     model_config = {"populate_by_name": True}
     
     def __init__(self, **data):

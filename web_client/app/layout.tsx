@@ -47,6 +47,7 @@ export const viewport = {
   themeColor: "#264653",
 };
 
+import { ChatProvider } from "@/components/chat/ChatProvider";
 import { CookieConsent } from "@/components/CookieConsent";
 
 export default function RootLayout({
@@ -62,8 +63,10 @@ export default function RootLayout({
       >
         <AppCheckProvider>
           <AuthProvider>
-            {children}
-            <CookieConsent />
+            <ChatProvider>
+              {children}
+              <CookieConsent />
+            </ChatProvider>
           </AuthProvider>
         </AppCheckProvider>
         <SpeedInsights />

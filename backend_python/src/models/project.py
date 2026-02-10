@@ -18,6 +18,10 @@ class ProjectStatus(str, Enum):
     RENDERING = "rendering"
     COMPLETED = "completed"
 
+    @classmethod
+    def _missing_(cls, value):
+        return cls.DRAFT
+
 
 class PropertyType(str, Enum):
     """Property type classification for construction projects."""

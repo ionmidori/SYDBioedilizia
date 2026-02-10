@@ -78,3 +78,31 @@ async def stream_status(message: str) -> AsyncGenerator[str, None]:
     }
     # Vercel Data Protocol expects a list
     yield f'2:{json.dumps([payload])}\n'
+
+async def stream_reasoning(step_data: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    """
+    Formats reasoning steps (CoT) for Vercel AI SDK.
+    Event '2': Data part.
+    
+    Format: 2:[{"type": "reasoning", "data": {...}}]\n
+    
+    🛡️ SECURITY: 
+    - Redacts 'tool_args' for sensitive tools (submit_lead, store_user_data).
+    - Ensures 'analysis' is treated as plain text by frontend.
+    """
+    
+    # 1. Clone to avoid mutating original state
+    safe_data = step_data.copy()
+    
+    # 2. Redaction List
+    SENSITIVE_TOOLS = ["submit_lead", "submit_lead_data", "store_user_data", "update_profile"]
+    
+    # 3. Apply Redaction
+    if safe_data.get("tool_name") in SENSITIVE_TOOLS:
+        safe_data["tool_args"] = {"REDACTED": "*** PII HIDDEN ***"}
+        
+    payload = {
+        "type": "reasoning",
+        "data": safe_data
+    }
+    yield f'2:{json.dumps([payload])}\n'

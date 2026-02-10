@@ -19,6 +19,8 @@ const createMockUser = (expirationMinutes: number = 60): Partial<User> => ({
     }),
 });
 
+const flushPromises = () => new Promise(resolve => jest.requireActual('timers').setImmediate(resolve));
+
 describe('TokenManager', () => {
     beforeEach(() => {
         jest.clearAllTimers();
@@ -70,12 +72,13 @@ describe('TokenManager', () => {
 
             tokenManager.onRefresh(refreshCallback);
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises(); // Ensure .then() runs
 
             // Fast-forward to refresh time (55 minutes)
             jest.advanceTimersByTime(55 * 60 * 1000);
 
             // Wait for async operations
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromises();
 
             expect(mockUser.getIdToken).toHaveBeenCalledWith(true); // Force refresh
             expect(refreshCallback).toHaveBeenCalledWith('mock-token');
@@ -90,12 +93,13 @@ describe('TokenManager', () => {
 
             tokenManager.onError(errorCallback);
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises();
 
             // Fast-forward to refresh time
             jest.advanceTimersByTime(55 * 60 * 1000);
 
             // Wait for async operations
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromises();
 
             expect(errorCallback).toHaveBeenCalledWith(refreshError);
         });
@@ -104,10 +108,11 @@ describe('TokenManager', () => {
             const mockUser = createMockUser(60) as User;
 
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises();
 
             // Fast-forward to first refresh
             jest.advanceTimersByTime(55 * 60 * 1000);
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromises();
 
             // getIdTokenResult should be called again to schedule next refresh
             expect(mockUser.getIdTokenResult).toHaveBeenCalledTimes(2);
@@ -121,12 +126,13 @@ describe('TokenManager', () => {
 
             tokenManager.onRefresh(refreshCallback);
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises(); // Ensure timer is scheduled before we stop it
 
             tokenManager.stopMonitoring();
 
             // Fast-forward past refresh time
             jest.advanceTimersByTime(60 * 60 * 1000);
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromises();
 
             // Refresh should not have been called
             expect(refreshCallback).not.toHaveBeenCalled();
@@ -143,8 +149,9 @@ describe('TokenManager', () => {
             tokenManager.onRefresh(callback2);
 
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises();
             jest.advanceTimersByTime(55 * 60 * 1000);
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromises();
 
             expect(callback1).toHaveBeenCalledWith('mock-token');
             expect(callback2).toHaveBeenCalledWith('mock-token');
@@ -158,8 +165,9 @@ describe('TokenManager', () => {
             unsubscribe(); // Unsubscribe immediately
 
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises();
             jest.advanceTimersByTime(55 * 60 * 1000);
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromises();
 
             expect(callback).not.toHaveBeenCalled();
         });
@@ -175,8 +183,9 @@ describe('TokenManager', () => {
             tokenManager.onRefresh(validCallback);
 
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises();
             jest.advanceTimersByTime(55 * 60 * 1000);
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await flushPromises();
 
             // Valid callback should still be called despite error in first callback
             expect(validCallback).toHaveBeenCalled();
@@ -190,9 +199,12 @@ describe('TokenManager', () => {
 
             tokenManager.onRefresh(refreshCallback);
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises();
 
             // Should refresh immediately (0 minutes wait since 3 - 5 < 0)
-            await new Promise(resolve => setTimeout(resolve, 0));
+            jest.runOnlyPendingTimers();
+            await flushPromises();
+
 
             expect(mockUser.getIdToken).toHaveBeenCalledWith(true);
         });
@@ -207,6 +219,8 @@ describe('TokenManager', () => {
 
             tokenManager.onError(errorCallback);
             await tokenManager.startMonitoring(mockUser);
+            await flushPromises();
+            await flushPromises();
 
             expect(errorCallback).toHaveBeenCalled();
         });

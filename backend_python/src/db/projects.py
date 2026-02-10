@@ -22,6 +22,7 @@ from src.models.project import (
     Address,
     PropertyType,
 )
+from src.utils.serialization import parse_firestore_datetime, parse_enum
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +43,10 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
     """
     try:
         db = get_async_firestore_client()
-        
-        print(f"DEBUG: get_user_projects called for user {user_id}")
         query = (
             db.collection(PROJECTS_COLLECTION)
             .where(filter=FieldFilter("userId", "==", user_id))
-            # .order_by("updatedAt", direction="DESCENDING")
+            .order_by("updatedAt", direction="DESCENDING")
             .limit(limit)
         )
         
@@ -57,39 +56,30 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
         async for doc in docs:
             data = doc.to_dict()
             
-            # Handle datetime conversion (Firestore returns DatetimeWithNanoseconds)
-            updated_at = data.get("updatedAt")
-            if hasattr(updated_at, "to_datetime"):
-                updated_at = updated_at.to_datetime()
-            elif hasattr(updated_at, "isoformat"):
-                 # Fallback for other objects with isoformat
-                 pass
-            else:
-                updated_at = datetime.utcnow()
+            # Robust Parsing via Utility
+            updated_at = parse_firestore_datetime(data.get("updatedAt"))
             
             # Safe status conversion
-            raw_status = data.get("status", "draft")
-            try:
-                status_enum = ProjectStatus(raw_status)
-            except ValueError:
-                logger.warning(f"Invalid status '{raw_status}' for project {doc.id}, defaulting to DRAFT")
-                status_enum = ProjectStatus.DRAFT
+            status_enum = parse_enum(ProjectStatus, data.get("status"), ProjectStatus.DRAFT)
 
-            projects.append(ProjectListItem(
-                session_id=doc.id,
-                title=data.get("title", "Nuovo Progetto"),
-                status=status_enum,
-                thumbnail_url=data.get("thumbnailUrl"),
-                original_image_url=data.get("originalImageUrl"),
-                updated_at=updated_at,
-                message_count=data.get("messageCount", 0),
-            ))
+            try:
+                projects.append(ProjectListItem(
+                    session_id=doc.id,
+                    title=data.get("title", "Nuovo Progetto"),
+                    status=status_enum,
+                    thumbnail_url=data.get("thumbnailUrl"),
+                    original_image_url=data.get("originalImageUrl"),
+                    updated_at=updated_at,
+                    message_count=data.get("messageCount") or 0, 
+                ))
+            except Exception as item_error:
+                logger.error(f"[Projects] Skipping Invalid Project {doc.id}: {item_error}")
+                continue
         
         logger.info(f"[Projects] Retrieved {len(projects)} projects for user {user_id}")
         return projects
         
     except Exception as e:
-        print(f"DEBUG ERROR: get_user_projects failed: {str(e)}")
         logger.error(f"[Projects] Error fetching projects: {str(e)}", exc_info=True)
         return []
 
@@ -160,8 +150,8 @@ async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument
             return None
         
         # Handle datetime conversion
-        created_at = data.get("createdAt", datetime.utcnow())
-        updated_at = data.get("updatedAt", datetime.utcnow())
+        created_at = parse_firestore_datetime(data.get("createdAt"))
+        updated_at = parse_firestore_datetime(data.get("updatedAt"))
         
         # Parse construction details if present
         construction_details = None
@@ -171,7 +161,7 @@ async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument
                 construction_details = ProjectDetails(
                     id=details_data.get("id", session_id),
                     footage_sqm=details_data.get("footage_sqm", 0),
-                    property_type=PropertyType(details_data.get("property_type", "apartment")),
+                    property_type=parse_enum(PropertyType, details_data.get("property_type"), PropertyType.APARTMENT),
                     address=Address(**details_data.get("address", {})),
                     budget_cap=details_data.get("budget_cap", 0),
                     technical_notes=details_data.get("technical_notes"),
@@ -184,12 +174,12 @@ async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument
             session_id=doc.id,
             user_id=data.get("userId", ""),
             title=data.get("title", "Nuovo Progetto"),
-            status=ProjectStatus(data.get("status", "draft")),
+            status=parse_enum(ProjectStatus, data.get("status"), ProjectStatus.DRAFT),
             thumbnail_url=data.get("thumbnailUrl"),
             original_image_url=data.get("originalImageUrl"),
             message_count=data.get("messageCount", 0),
             created_at=created_at,
-            updated_at=updated_at,
+            updated_at=parse_firestore_datetime(data.get("updatedAt")),
             construction_details=construction_details,
         )
         

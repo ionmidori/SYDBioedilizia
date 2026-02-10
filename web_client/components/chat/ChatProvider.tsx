@@ -86,6 +86,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                     setMessages(historyMessages);
                 }
             }
+
+            // 3. Cold Start (Welcome Message)
+            if (historyMessages.length === 0 && messages.length === 0) {
+                console.log('[ChatProvider] Cold start: Injecting welcome message.');
+                setMessages([{
+                    id: 'welcome-msg',
+                    role: 'assistant',
+                    content: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. ⚡ **Chiedere un preventivo veloce**\n2. 🎨 **Creare un rendering gratuito**\n3. ℹ️ **Chiedere informazioni**\n\nCome posso aiutarti oggi?",
+                    createdAt: new Date()
+                } as any]);
+            }
         }
     }, [historyLoaded, historyMessages, sessionId, setMessages, status, messages.length]); // Dependencies optimized
 
