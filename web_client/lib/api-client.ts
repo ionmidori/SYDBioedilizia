@@ -1,4 +1,5 @@
-import { auth } from '@/lib/firebase';
+import { auth, appCheck } from '@/lib/firebase';
+import { getToken } from 'firebase/app-check';
 import { LeadData, LeadSubmissionResponse } from '@/types/lead';
 import { Message } from '@/types/chat';
 
@@ -70,13 +71,23 @@ export async function fetchWithAuth(url: string, options: FetchOptions = {}): Pr
         if (user) {
             try {
                 const token = await user.getIdToken();
-                console.log('[ApiClient] Token retrieved:', token.substring(0, 10) + '...');
                 finalHeaders['Authorization'] = `Bearer ${token}`;
             } catch (error) {
                 console.error('[ApiClient] Failed to get ID token:', error);
             }
-        } else {
-            console.warn('[ApiClient] No current user found for authenticated request');
+        }
+    }
+
+    // Inject App Check Token (⚡ Production Protection)
+    if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true' && appCheck) {
+        try {
+            const result = await getToken(appCheck, false);
+            if (result.token) {
+                finalHeaders['X-Firebase-AppCheck'] = result.token;
+            }
+        } catch (error) {
+            // Log but don't block in dev; backend will enforce if configured
+            console.debug('[ApiClient] App Check token suppressed or unavailable:', error);
         }
     }
 

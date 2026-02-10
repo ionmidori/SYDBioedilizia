@@ -56,7 +56,30 @@ const db = getFirestore(app);
 import { getStorage } from 'firebase/storage';
 const storage = getStorage(app);
 
-// Note: App Check is initialized globally in AppCheckProvider.tsx
-export { app, auth, db, storage };
+// Initialize App Check (Unified export)
+import { AppCheck } from 'firebase/app-check';
+let appCheck: AppCheck | undefined;
+
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
+    const { initializeAppCheck, ReCaptchaV3Provider } = require('firebase/app-check');
+    const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    if (siteKey) {
+        try {
+            // @ts-ignore
+            if (!window._firebaseAppCheckInitialized) {
+                appCheck = initializeAppCheck(app, {
+                    provider: new ReCaptchaV3Provider(siteKey),
+                    isTokenAutoRefreshEnabled: true
+                });
+                // @ts-ignore
+                window._firebaseAppCheckInitialized = true;
+            }
+        } catch (error) {
+            console.error('[Firebase] App Check initialization failed:', error);
+        }
+    }
+}
+
+export { app, auth, db, storage, appCheck };
 export type { Auth };
 

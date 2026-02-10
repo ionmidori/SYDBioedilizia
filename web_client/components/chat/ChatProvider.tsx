@@ -22,7 +22,7 @@ import { useChatHistory } from '@/hooks/useChatHistory';
  * 5. **Cold Start**: Injects welcome message if history is empty.
  */
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-    const { user, refreshToken, isInitialized } = useAuth();
+    const { user, refreshToken, isInitialized, signInAnonymously } = useAuth();
 
     // -- STATE --
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
@@ -137,6 +137,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const options = await getRequestOptions();
 
         try {
+            // ⚡ Anonymous sign-in if guest attempt
+            if (!user) {
+                console.log('[ChatProvider] No user found, attempting anonymous sign-in...');
+                await signInAnonymously();
+            }
+
             const mergedBody = {
                 ...options.body,
                 ...data,

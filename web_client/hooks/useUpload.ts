@@ -21,6 +21,8 @@
  * ```
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { getToken } from 'firebase/app-check';
+import { auth, appCheck } from '@/lib/firebase';
 import { useAuth } from './useAuth';
 import type { UploadItem, UploadStatus, MediaAsset } from '@/types/media';
 import {
@@ -55,7 +57,7 @@ const DEFAULT_OPTIONS: Required<UseUploadOptions> = {
 
 export function useUpload(options: UseUploadOptions = {}) {
     const { maxSize, allowedTypes, sessionId } = { ...DEFAULT_OPTIONS, ...options };
-    const { refreshToken } = useAuth();
+    const { user, refreshToken, signInAnonymously } = useAuth();
 
     // State: Record of uploads keyed by ID
     const [uploads, setUploads] = useState<Record<string, UploadItem>>({});
@@ -160,11 +162,29 @@ export function useUpload(options: UseUploadOptions = {}) {
                 // GET UPLOAD ENDPOINT
                 const endpoint = getUploadEndpoint(item.file.type);
 
-                // GET AUTH TOKEN
+                // GET AUTH TOKEN & ENSURE IDENTITY
                 updateItem(item.id, { status: 'uploading', progress: 20 });
+
+                // ⚡ Anonymous sign-in if guest
+                if (!user) {
+                    console.log('[useUpload] No user found, attempting anonymous sign-in...');
+                    await signInAnonymously();
+                }
+
                 const token = await refreshToken();
                 if (!token) {
                     throw new Error('Authentication required');
+                }
+
+                // GET APP CHECK TOKEN (⚡ Production Protection)
+                let appCheckToken: string | undefined;
+                if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true' && appCheck) {
+                    try {
+                        const result = await getToken(appCheck, false);
+                        appCheckToken = result.token;
+                    } catch (error) {
+                        console.debug('[useUpload] App Check suppressed:', error);
+                    }
                 }
 
                 // BUILD FORM DATA
@@ -206,6 +226,9 @@ export function useUpload(options: UseUploadOptions = {}) {
 
                     xhr.open('POST', endpoint);
                     xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+                    if (appCheckToken) {
+                        xhr.setRequestHeader('X-Firebase-AppCheck', appCheckToken);
+                    }
                     xhr.send(formData);
                 });
 

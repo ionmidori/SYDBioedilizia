@@ -12,42 +12,10 @@ export function AppCheckProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
-        // Protocol (Security Gates): Disable in Dev unless Debug Token is explicit
-        if (process.env.NODE_ENV === 'development' && !process.env.NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN) {
-            console.log("[AppCheck] 🛑 Disabled in Development (Anti-Fragile Protocol).");
-            return;
-        }
-
-        // Feature Flag Check
-        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK !== 'true') return;
-
-        const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-        if (!siteKey) {
-            console.warn('[AppCheck] Site Key missing provided, AppCheck disabled.');
-            return;
-        }
-
-        try {
-            // Enable Debug Token for local development
-            if (process.env.NODE_ENV === 'development') {
-                // @ts-ignore
-                self.FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.NEXT_PUBLIC_APP_CHECK_DEBUG_TOKEN || true;
-                console.log('[AppCheck] 🛠️ Debug Mode enabled.');
-            }
-
-            // Initialize App Check (Singleton check via window)
-            // @ts-ignore
-            if (!window._firebaseAppCheckInitialized) {
-                initializeAppCheck(app, {
-                    provider: new ReCaptchaV3Provider(siteKey),
-                    isTokenAutoRefreshEnabled: true
-                });
-                // @ts-ignore
-                window._firebaseAppCheckInitialized = true;
-                console.log('[AppCheck] ✅ Initialized successfully.');
-            }
-        } catch (error) {
-            console.error('[AppCheck] Initialization failed:', error);
+        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
+            console.log("[AppCheck] 🛡️ Active (Managed via lib/firebase)");
+        } else {
+            console.log("[AppCheck] 🛑 Disabled (Feature Flag)");
         }
     }, []);
 
