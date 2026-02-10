@@ -118,18 +118,51 @@ async def get_chat_history(
             timestamp_val = data.get('timestamp')
             timestamp_str = None
             if timestamp_val:
-                if hasattr(timestamp_val, 'isoformat'):
+                if isinstance(timestamp_val, str):
+                    timestamp_str = timestamp_val
+                elif hasattr(timestamp_val, 'isoformat'):
                     timestamp_str = timestamp_val.isoformat()
-                elif isinstance(timestamp_val, datetime):
-                    timestamp_str = timestamp_val.isoformat()
+            
+            # Robust extraction of lists (handles legacy dicts or None)
+            attachments_val = data.get('attachments')
+            if attachments_val and not isinstance(attachments_val, list):
+                if isinstance(attachments_val, dict):
+                    # Legacy: convert dict values to list or wrap? 
+                    # Assuming it might be a map of url->meta, we arguably just drop it or try to recover.
+                    # Safest is to treat as None to avoid 500, or empty list.
+                    logger.warning(f"Found non-list attachments for msg {doc.id}: {type(attachments_val)}")
+                    attachments_val = [] 
+                else:
+                    attachments_val = []
+            elif attachments_val is None:
+                attachments_val = []
+
+            tool_calls_val = data.get('tool_calls')
+            if tool_calls_val and not isinstance(tool_calls_val, list):
+                tool_calls_val = []
+            elif tool_calls_val is None:
+                tool_calls_val = []
+            
+            # Robust content extraction
+            content_val = data.get('content', '')
+            if isinstance(content_val, list) or isinstance(content_val, dict):
+                # If content is structured (e.g. agent output), stringify it for now
+                # Ideally we'd have a schema for this, but to prevent 500s we cast to str
+                import json
+                try:
+                    content_val = json.dumps(content_val)
+                except:
+                    content_val = str(content_val)
+            elif content_val is None:
+                content_val = ""
             
             messages.append(MessageResponse(
                 id=doc.id,
                 role=data.get('role', 'user'),
-                content=data.get('content', ''),
+                content=str(content_val),
                 timestamp=timestamp_str,
-                attachments=data.get('attachments'),
-                tool_calls=data.get('tool_calls')
+                attachments=attachments_val,
+                tool_calls=tool_calls_val
             ))
         
         logger.info(f"[ChatHistory] Retrieved {len(messages)} messages for session {session_id}")
