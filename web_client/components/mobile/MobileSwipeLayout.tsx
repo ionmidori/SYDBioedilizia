@@ -6,6 +6,8 @@ import { ProjectList } from '@/components/chat/ProjectList';
 import { GlobalGalleryContent } from '@/components/dashboard/GlobalGalleryContent';
 import { X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
+import { useSidebar } from '@/components/dashboard/SidebarProvider';
 
 interface MobileSwipeLayoutProps {
     children: React.ReactNode;
@@ -17,15 +19,7 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
     const [activePane, setActivePane] = useState<Pane>('dashboard');
     const containerRef = useRef<HTMLDivElement>(null);
     const pathname = usePathname();
-    const [isMobile, setIsMobile] = useState(false);
-
-    // Detect mobile
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+    const { isMobile } = useSidebar();
 
     // Reset to Dashboard when navigating
     useEffect(() => {
@@ -55,16 +49,16 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
         exitRight: { x: '100%', opacity: 1 }     // Esce tornando a destra
     };
 
-    return (
-        <div className="relative h-full w-full bg-luxury-bg overflow-hidden" ref={containerRef}>
+    if (!isMobile) return <>{children}</>;
 
-            {/* 1. Main Dashboard Content (Center) */}
-            {/* Questa è la base fissa. Ha un listener per lo swipe, ma NON si muove visivamente durante il drag per evitare l'effetto "metà pagina". */}
+    return (
+        <div className="relative h-screen w-full bg-luxury-bg overflow-hidden" ref={containerRef}>
+
             <motion.div
                 className="absolute inset-0 z-0 h-full w-full bg-luxury-bg"
-                drag={isMobile && activePane === 'dashboard' ? "x" : false}
-                dragConstraints={{ left: 0, right: 0 }} // BLOCCO il movimento visivo: serve solo a rilevare lo swipe
-                dragElastic={0.05} // Un minimo di feedback elastico
+                drag={activePane === 'dashboard' ? "x" : false}
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.05}
                 onDragEnd={handleDashboardDragEnd}
             >
                 {children}
