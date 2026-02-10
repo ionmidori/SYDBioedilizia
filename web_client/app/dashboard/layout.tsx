@@ -88,15 +88,15 @@ function DashboardContent({
     // Mobile: Always '4rem' (Rail width) because expansion is Overlay
     return (
         <>
-            <div className="flex h-screen w-full bg-luxury-bg text-luxury-text overflow-hidden relative">
+            <div className="flex h-screen min-h-[100dvh] supports-[height:100dvh]:min-h-[100dvh] w-full bg-luxury-bg text-luxury-text overflow-hidden relative">
                 {/* Desktop Sidebar (Hidden on Mobile) */}
                 {/* Desktop Sidebar (AppSidebar handles its own responsive visibility) */}
                 <AppSidebar />
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col min-h-0 relative">
+                <div className="flex-1 flex flex-col min-h-0 relative w-full overflow-hidden">
                     <DashboardHeader />
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
+                    <div className="flex-1 overflow-y-auto overflow-x-hidden relative pb-[env(safe-area-inset-bottom)]">
                         {children}
                     </div>
 

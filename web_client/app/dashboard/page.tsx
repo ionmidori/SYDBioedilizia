@@ -45,7 +45,7 @@ export default function DashboardPage() {
     const userName = user?.displayName?.split(' ')[0] || 'Utente';
 
     return (
-        <div className="flex flex-col space-y-8 py-6 px-4 md:px-8 max-w-[1600px] mx-auto w-full pb-24 md:pb-8">
+        <div className="flex flex-col space-y-8 py-6 px-4 md:px-8 max-w-[1600px] mx-auto w-full pb-32 md:pb-8 overflow-x-hidden overflow-y-visible">
             {/* Header Section */}
             <header className="flex items-center justify-between">
                 <motion.div

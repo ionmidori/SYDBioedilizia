@@ -16,7 +16,7 @@ export function DashboardHeader() {
         : user?.email ? user.email[0].toUpperCase() : 'U';
 
     return (
-        <header className="md:hidden sticky top-0 z-30 w-full px-4 h-16 flex items-center justify-between bg-luxury-bg/95 border-b border-luxury-gold/10 transition-all duration-300">
+        <header className="md:hidden sticky top-0 z-30 w-full px-4 h-16 sm:h-20 flex items-center justify-between bg-luxury-bg/95 border-b border-luxury-gold/10 transition-all duration-300 pt-[env(safe-area-inset-top)]">
             {/* Left: Hamburger Trigger - Optimized for touch (44px hit area) */}
             {/* Left: Spacer (was Hamburger) */}
             <div className="w-10" />
