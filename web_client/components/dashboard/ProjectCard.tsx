@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from 'react';
 import { ProjectListItem, ProjectStatus } from '@/types/projects';
 import { useRouter } from 'next/navigation';
@@ -137,7 +139,7 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
                 <div className="flex items-center justify-between text-[11px] text-luxury-text/50 font-medium tracking-tight">
                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5">
                         <Calendar className="w-3 h-3 text-luxury-gold" />
-                        <span>{formattedDate}</span>
+                        <span suppressHydrationWarning>{formattedDate}</span>
                     </div>
                     {project.message_count > 0 && (
                         <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-luxury-teal/5 border border-luxury-teal/10">

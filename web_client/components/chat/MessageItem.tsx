@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useMemo } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { User } from 'lucide-react';
