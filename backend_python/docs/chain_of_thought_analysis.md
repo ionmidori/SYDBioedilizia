@@ -40,6 +40,22 @@ Il "pensiero" dell'agente non è un flusso di coscienza libero, ma un **processo
 
 ---
 
+## 4. User Journey & Conversion Logic (Phase 5)
+
+L'architettura è stata estesa per supportare flussi di vendita proattivi e interfacce di cattura dati evolute.
+
+### A. State-Driven Journey Mapping
+*   **Locazione**: `src/graph/state.py` e `src/graph/factory.py`
+*   **Logica**: Lo stato ora include i flag `is_quote_completed` e `is_render_completed`.
+*   **Meccanismo**: Un **custom ToolNode** intercetta le risposte dei tool `submit_lead` e `generate_render` per aggiornare permanentemente il viaggio dell'utente, permettendo all'AI di offrire proattivamente la fase successiva (Cross-Selling).
+
+### B. UI Widget Integration (Direct Data Capture)
+*   **Locazione**: `MessageItem.tsx` e `modes.py`
+*   **Funzione**: Invece di raccogliere dati via chat (lento e propenso a errori), l'agente invoca `display_lead_form` per mostrare una card UI nativa.
+*   **Ciclo di Feedback**: Il frontend risponde con un messaggio speciale `[LEAD_DATA_SUBMISSION]` che viene intercettato dall'agente per eseguire l'azione finale di salvataggio senza ulteriori domande.
+
+---
+
 ## 3. Risoluzione Bug e Miglioramenti Recenti
 
 ### A. Sincronizzazione Frontend (Invisible Message Bug)

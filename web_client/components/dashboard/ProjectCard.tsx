@@ -8,6 +8,7 @@ import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { RenameProjectDialog } from './RenameProjectDialog';
 import { projectsApi } from '@/lib/projects-api';
 import { ComparisonThumbnail } from './ComparisonThumbnail';
+import { motion } from 'framer-motion';
 
 interface ProjectCardProps {
     project: ProjectListItem;
@@ -55,9 +56,13 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
     }).format(new Date(project.updated_at));
 
     return (
-        <div
+        <motion.div
             onClick={handleCardClick}
-            className="group relative flex flex-col gap-3 p-5 rounded-2xl border border-luxury-gold/10 glass-premium hover:border-luxury-gold/30 hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.5)] transition-all duration-500 cursor-pointer overflow-hidden animate-in fade-in slide-in-from-bottom-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className="group relative flex flex-col gap-3 p-5 rounded-2xl border border-luxury-gold/10 glass-premium hover:border-luxury-gold/30 hover:shadow-elevation-high transition-colors duration-500 cursor-pointer overflow-hidden"
         >
             {/* Cinematic Gradient Sweep (on hover) */}
             <div className="absolute inset-0 bg-gradient-to-tr from-luxury-teal/0 via-luxury-teal/5 to-luxury-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -159,6 +164,6 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
                 sessionId={project.session_id}
                 onRename={() => onDelete?.(project.session_id)} // Trigger refresh (using onDelete as refresh callback for now)
             />
-        </div>
+        </motion.div>
     );
 }

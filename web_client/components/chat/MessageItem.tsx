@@ -79,12 +79,12 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     }), [onImageClick]);
 
     const variants: Variants = {
-        hidden: { opacity: 0, y: 20, scale: 0.95 },
+        hidden: { opacity: 0, y: 10, scale: 0.9 },
         visible: {
             opacity: 1,
             y: 0,
             scale: 1,
-            transition: { type: "spring", stiffness: 300, damping: 24 }
+            transition: { type: "spring", stiffness: 500, damping: 30 }
         },
         exit: {
             opacity: 0,
