@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, FileText, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,73 +8,94 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ProjectFilesView } from '@/components/dashboard/ProjectFilesView';
 import { ProjectSettingsView } from '@/components/dashboard/ProjectSettingsView';
 import ChatWidget from '@/components/chat/ChatWidget';
+import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { createSlideVariants, M3Spring } from '@/lib/m3-motion';
+import type { LucideIcon } from 'lucide-react';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 type TabId = 'chat' | 'files' | 'settings';
+const TABS: TabId[] = ['chat', 'files', 'settings'];
 
 interface ProjectMobileTabsProps {
     projectId: string;
 }
 
+// ─── Animation Variants ──────────────────────────────────────────────────────
+
+const slideVariants = createSlideVariants(300);
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    // Validate view param, default to 'chat'
-    const viewParam = searchParams.get('view');
-    const validViews: TabId[] = ['chat', 'files', 'settings'];
-    const initialTab = validViews.includes(viewParam as TabId) ? (viewParam as TabId) : 'chat';
+    // ── URL-synced tab state ─────────────────────────────────────────────────
+    const activeTab = useMemo<TabId>(() => {
+        const viewParam = searchParams.get('view') as TabId | null;
+        return TABS.includes(viewParam as TabId) ? (viewParam as TabId) : 'chat';
+    }, [searchParams]);
 
-    const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+    const activeIndex = TABS.indexOf(activeTab);
 
-    // Sync state with URL param
+    // Track direction for AnimatePresence
+    const directionRef = useRef(0);
+    const prevIndexRef = useRef(activeIndex);
+
     useEffect(() => {
-        const currentView = searchParams.get('view') as TabId;
-        if (validViews.includes(currentView) && currentView !== activeTab) {
-            setActiveTab(currentView);
-        } else if (!currentView && activeTab !== 'chat') {
-            // If no param, default is chat. Only update state if mismatch.
-            setActiveTab('chat');
-        }
-    }, [searchParams, activeTab, validViews]);
+        directionRef.current = activeIndex > prevIndexRef.current ? 1 : -1;
+        prevIndexRef.current = activeIndex;
+    }, [activeIndex]);
 
-    // Handle Tab Change with Shallow Routing
-    const handleTabChange = (tab: TabId) => {
-        setActiveTab(tab);
-        // Update URL without full reload
-        const newUrl = `/dashboard/${projectId}?view=${tab}`;
-        router.push(newUrl, { scroll: false });
-    };
-
-    // Animation variants
-    const slideVariants = {
-        enter: (direction: number) => ({
-            x: direction > 0 ? 300 : -300,
-            opacity: 0
-        }),
-        center: {
-            zIndex: 1,
-            x: 0,
-            opacity: 1
+    // ── Tab navigation (updates URL) ─────────────────────────────────────────
+    const handleTabChange = useCallback(
+        (tab: TabId) => {
+            if (tab === activeTab) return;
+            const newUrl = `/dashboard/${projectId}?view=${tab}`;
+            router.replace(newUrl, { scroll: false });
         },
-        exit: (direction: number) => ({
-            zIndex: 0,
-            x: direction < 0 ? 300 : -300,
-            opacity: 0
-        })
-    };
+        [activeTab, projectId, router],
+    );
+
+    const handleSwipe = useCallback(
+        (newIndex: number) => {
+            const tab = TABS[newIndex];
+            if (tab) handleTabChange(tab);
+        },
+        [handleTabChange],
+    );
+
+    // ── Swipe Navigation ─────────────────────────────────────────────────────
+    const { containerProps, swipeX } = useSwipeNavigation({
+        panes: [...TABS],
+        activeIndex,
+        onSwipe: handleSwipe,
+        swipeThreshold: 60,
+        enableHaptics: true,
+    });
 
     return (
-        <div className="flex flex-col h-full w-full bg-luxury-bg relative overflow-hidden">
+        <div
+            className="flex flex-col h-full w-full bg-luxury-bg relative overflow-hidden"
+            {...containerProps}
+        >
             {/* Main Content Area */}
-            <div className="flex-1 relative overflow-hidden">
-                <AnimatePresence initial={false} mode="wait">
+            <div className="flex-1 relative overflow-hidden touch-pan-y">
+                <AnimatePresence
+                    initial={false}
+                    mode="wait"
+                    custom={directionRef.current}
+                >
                     <motion.div
                         key={activeTab}
                         className="absolute inset-0 h-full w-full"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        transition={{ duration: 0.2 }}
+                        custom={directionRef.current}
+                        variants={slideVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        style={{ x: swipeX }}
                     >
                         {activeTab === 'chat' && (
                             <div className="h-full w-full">
@@ -95,8 +116,17 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
                 </AnimatePresence>
             </div>
 
-            {/* Bottom Navigation Bar */}
-            <div className="h-16 bg-luxury-bg/80 backdrop-blur-lg border-t border-luxury-gold/10 flex items-center justify-around px-2 z-20 pb-safe">
+            {/* Bottom Navigation Bar with M3 Pill Indicator */}
+            <div className="h-16 bg-luxury-bg/80 backdrop-blur-lg border-t border-luxury-gold/10 flex items-center justify-around px-2 z-20 pb-safe relative">
+                {/* Animated Pill Indicator */}
+                <motion.div
+                    className="absolute top-0 h-0.5 bg-luxury-gold rounded-full"
+                    animate={{
+                        left: `${(activeIndex / TABS.length) * 100 + 100 / TABS.length / 2 - 8}%`,
+                        width: 48,
+                    }}
+                    transition={M3Spring.expressive}
+                />
                 <NavButton
                     active={activeTab === 'chat'}
                     onClick={() => handleTabChange('chat')}
@@ -120,7 +150,16 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
     );
 }
 
-function NavButton({ active, onClick, icon: Icon, label }: { active: boolean, onClick: () => void, icon: any, label: string }) {
+// ─── NavButton ───────────────────────────────────────────────────────────────
+
+interface NavButtonProps {
+    active: boolean;
+    onClick: () => void;
+    icon: LucideIcon;
+    label: string;
+}
+
+function NavButton({ active, onClick, icon: Icon, label }: NavButtonProps) {
     return (
         <button
             onClick={onClick}
@@ -132,5 +171,5 @@ function NavButton({ active, onClick, icon: Icon, label }: { active: boolean, on
             <Icon className={cn("w-6 h-6 mb-1", active && "fill-current")} />
             <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
         </button>
-    )
+    );
 }
