@@ -51,6 +51,9 @@ def setup_logging():
     file_handler.setFormatter(JsonFormatter(datefmt='%Y-%m-%d %H:%M:%S'))
     
     # 2. Console Handler (Human Readable)
+    # Force UTF-8 on Windows to support emoji in log messages (cp1252 can't encode them)
+    if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     console_handler = logging.StreamHandler(sys.stdout)
     if settings.ENV == "production":
          # Use JSON in production console too

@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
 
 /**
  * Firebase Client SDK Configuration
@@ -56,24 +56,17 @@ const db = getFirestore(app);
 import { getStorage } from 'firebase/storage';
 const storage = getStorage(app);
 
-// Initialize App Check (Unified export)
-import { AppCheck } from 'firebase/app-check';
+// Initialize App Check
 let appCheck: AppCheck | undefined;
 
 if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
-    const { initializeAppCheck, ReCaptchaV3Provider } = require('firebase/app-check');
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
     if (siteKey) {
         try {
-            // @ts-ignore
-            if (!window._firebaseAppCheckInitialized) {
-                appCheck = initializeAppCheck(app, {
-                    provider: new ReCaptchaV3Provider(siteKey),
-                    isTokenAutoRefreshEnabled: true
-                });
-                // @ts-ignore
-                window._firebaseAppCheckInitialized = true;
-            }
+            appCheck = initializeAppCheck(app, {
+                provider: new ReCaptchaV3Provider(siteKey),
+                isTokenAutoRefreshEnabled: true
+            });
         } catch (error) {
             console.error('[Firebase] App Check initialization failed:', error);
         }

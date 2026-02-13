@@ -72,18 +72,24 @@ export async function POST(req: Request) {
         }
 
         const idToken = authHeader.split('Bearer ')[1];
+        const appCheckToken = req.headers.get('X-Firebase-AppCheck');
 
         console.log('[Proxy] Forwarding to Python backend:', PYTHON_BACKEND_URL);
 
         // Forward to Python backend
+        const proxyHeaders: Record<string, string> = {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`,
+            'Connection': 'close', // ⚡ Explicitly disable Keep-Alive upstream
+        };
+        if (appCheckToken) {
+            proxyHeaders['X-Firebase-AppCheck'] = appCheckToken;
+        }
+
         const pythonResponse = await fetch(`${PYTHON_BACKEND_URL}/chat/stream`, {
             method: 'POST',
             cache: 'no-store', // ⚡ CRITICAL: Disable Next.js buffering
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`,
-                'Connection': 'close', // ⚡ Explicitly disable Keep-Alive upstream
-            },
+            headers: proxyHeaders,
             body: JSON.stringify(pythonPayload)
         });
 
