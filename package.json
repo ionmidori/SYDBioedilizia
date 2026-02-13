@@ -10,9 +10,12 @@
         "dev:ai": "npm run dev --workspace=ai_core"
     },
     "dependencies": {
-        "next": "15.1.12",
+        "next": "^15.5.12",
         "opencode-ai": "^1.1.53",
         "react": "18.3.1",
         "react-dom": "18.3.1"
+    },
+    "overrides": {
+        "zod": "^3.23.8"
     }
 }
