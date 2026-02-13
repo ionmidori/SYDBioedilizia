@@ -352,17 +352,8 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                 />
             )}
 
-            {/* ============================================================ */}
-            {/* SWIPE EDGE TRIGGER (Open from Right Edge) */}
-            {/* ============================================================ */}
-            {isMobile && !openMobile && (
-                <div
-                    className="fixed inset-y-0 right-0 w-8 z-[85]"
-                    onTouchStart={onTouchStart}
-                    onTouchMove={onTouchMove}
-                    onTouchEnd={onTouchEnd}
-                />
-            )}
+            {/* Edge swipe trigger REMOVED — FAB is the exclusive sidebar opener.
+               This prevents conflicts with MobileSwipeLayout's swipe navigation. */}
 
             {/* ============================================================ */}
             {/* SIDEBAR CONTAINER */}
