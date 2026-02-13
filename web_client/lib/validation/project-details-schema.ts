@@ -13,10 +13,10 @@ export const addressSchema = z.object({
 
 export const projectDetailsSchema = z.object({
     id: z.string().min(1, "Project ID is required"),
-    footage_sqm: z.number().positive("Square footage must be positive").max(100000),
+    footage_sqm: z.number({ error: "Inserisci la metratura" }).positive("La metratura deve essere maggiore di zero").max(100000),
     property_type: z.enum(["apartment", "villa", "commercial"]),
     address: addressSchema,
-    budget_cap: z.number().positive("Budget must be positive"),
+    budget_cap: z.number({ error: "Inserisci il budget" }).positive("Il budget deve essere maggiore di zero"),
     technical_notes: z.string().max(1000).optional(),
     renovation_constraints: z.array(z.string()),
 });

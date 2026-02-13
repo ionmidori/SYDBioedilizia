@@ -73,13 +73,20 @@ const HAPTIC_DURATION_MS = 10;
 // ─── Utilities ───────────────────────────────────────────────────────────────
 
 /**
- * Checks if the touch target or any ancestor has `data-no-swipe` attribute.
- * Used to bail out for interactive elements like CAD viewers, maps, canvases.
+ * Checks if the touch target or any ancestor has `data-no-swipe` attribute
+ * or is a horizontally scrollable container. This prevents swipe navigation
+ * from hijacking scroll gestures on carousels, action rows, etc.
  */
 function isNoSwipeTarget(target: EventTarget | null): boolean {
     let el = target as HTMLElement | null;
     while (el && el !== document.body) {
         if (el.hasAttribute('data-no-swipe')) return true;
+        // Auto-detect native horizontal scroll containers
+        if (el.scrollWidth > el.clientWidth) {
+            const style = getComputedStyle(el);
+            const overflowX = style.overflowX;
+            if (overflowX === 'auto' || overflowX === 'scroll') return true;
+        }
         el = el.parentElement;
     }
     return false;

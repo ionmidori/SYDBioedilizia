@@ -13,7 +13,7 @@ export function SydLogo({ className = "", showSubtitle = true }: { className?: s
 
             {/* Text clean */}
             <div className="flex flex-col">
-                <h1 className="text-2xl font-bold leading-none tracking-tight font-trajan">
+                <h1 className="text-2xl font-bold leading-none tracking-tight font-trajan whitespace-nowrap">
                     <span className="text-luxury-gold">
                         SYD BIOEDILIZIA
                     </span>

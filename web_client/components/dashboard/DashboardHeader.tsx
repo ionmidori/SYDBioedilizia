@@ -22,9 +22,9 @@ export function DashboardHeader() {
             <div className="w-10" />
 
             {/* Center: SYD Logo */}
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-[60%]">
                 <Link href="/dashboard" className="block active:opacity-80 transition-opacity">
-                    <SydLogo className="h-6 w-auto" showSubtitle={false} />
+                    <SydLogo className="h-6 w-auto scale-[0.85] sm:scale-100 origin-center" showSubtitle={false} />
                 </Link>
             </div>
 

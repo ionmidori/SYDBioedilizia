@@ -2,7 +2,6 @@
 
 import React, { useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ProjectList } from '@/components/chat/ProjectList';
 import { GlobalGalleryContent } from '@/components/dashboard/GlobalGalleryContent';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -95,6 +94,13 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
             const pane = PANES[newIndex];
             if (!pane || pane === PANES[activeIndex]) return;
 
+            // "projects" pane → navigate to the real projects page for consistency
+            // with sidebar navigation (both paths lead to /dashboard/projects)
+            if (pane === 'projects') {
+                router.push('/dashboard/projects');
+                return;
+            }
+
             // Shallow URL update — preserves back button navigation
             const params = new URLSearchParams(searchParams.toString());
             if (pane === 'dashboard') {
@@ -145,36 +151,6 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
             >
                 {children}
             </motion.div>
-
-            {/* Projects Overlay (slides from left) */}
-            <AnimatePresence>
-                {activePane === 'projects' && (
-                    <motion.div
-                        key="projects-pane"
-                        className="absolute inset-0 z-50 h-full w-full bg-luxury-bg shadow-2xl"
-                        initial={{ x: '-100%' }}
-                        animate={{ x: '0%' }}
-                        exit={{ x: '-100%' }}
-                        transition={M3Spring.expressive}
-                    >
-                        <div className="relative h-full w-full flex flex-col">
-                            <div className="h-14 flex items-center justify-between px-4 border-b border-luxury-gold/10 bg-luxury-bg/95 backdrop-blur">
-                                <span className="font-serif text-lg text-luxury-gold">I Miei Progetti</span>
-                                <button
-                                    onClick={goToDashboard}
-                                    className="p-2 hover:bg-luxury-gold/10 rounded-full text-luxury-text/60"
-                                    aria-label="Chiudi pannello progetti"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                            <div className="flex-1 overflow-hidden bg-luxury-bg">
-                                <ProjectList onProjectSelect={goToDashboard} />
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
             {/* Gallery Overlay (slides from right) */}
             <AnimatePresence>

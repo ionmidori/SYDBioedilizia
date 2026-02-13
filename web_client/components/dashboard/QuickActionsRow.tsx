@@ -10,7 +10,7 @@ interface ActionProps {
 
 export function QuickActionsRow({ actions }: { actions: ActionProps[] }) {
     return (
-        <div className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div data-no-swipe className="w-full overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
             <div className="flex gap-3 min-w-max pb-2">
                 {actions.map((action, index) => (
                     <ActionPill key={index} {...action} index={index} />
