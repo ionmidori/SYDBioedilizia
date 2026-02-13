@@ -30,6 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# server logs and debug files
+server*.log
+*.log
+
 # env files (can opt-in for committing if needed)
 .env*
 env.local.template
@@ -45,7 +49,7 @@ env.local.template
 next-env.d.ts
 
 # firebase
-firebase-service-account.json
+**/firebase-service-account.json
 
 # Secrets & Credentials
 .env
@@ -76,4 +80,9 @@ htmlcov/
 directives/PROJECT_CONTEXT_SUMMARY.md
 directives/HISTORICAL_MILESTONES.md
 backend_python/server_debug.log
+
+# temporary files
+nul
+output.txt
+commit_files.txt
 
