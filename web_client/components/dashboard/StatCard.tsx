@@ -30,7 +30,7 @@ export function StatCard({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
             className={cn(
-                "group relative overflow-hidden rounded-2xl border border-luxury-gold/10 bg-luxury-bg/50 backdrop-blur-xl p-6 transition-all duration-300",
+                "group relative overflow-hidden rounded-2xl border border-luxury-gold/15 bg-luxury-bg/80 backdrop-blur-xl p-6 transition-all duration-300 shadow-sm",
                 "hover:border-luxury-gold/30 hover:shadow-lg hover:shadow-luxury-gold/5",
                 className
             )}
@@ -66,10 +66,10 @@ export function StatCard({
                     </div>
                 ) : (
                     <>
-                        <p className="text-3xl font-bold text-luxury-text tracking-tight">
+                        <p className="text-3xl font-bold text-luxury-text tracking-tight drop-shadow-sm">
                             {typeof value === 'number' ? value.toLocaleString('it-IT') : value}
                         </p>
-                        <p className="text-sm font-medium text-luxury-text/50 uppercase tracking-wider">
+                        <p className="text-sm font-semibold text-luxury-text/75 uppercase tracking-wider">
                             {label}
                         </p>
                     </>
