@@ -8,10 +8,12 @@ import logging
 import uuid
 from typing import List, Optional
 from datetime import datetime
+from src.utils.datetime_utils import utc_now
 from google.cloud.firestore_v1 import FieldFilter
 from firebase_admin import firestore
 
 from src.db.firebase_client import get_async_firestore_client, get_storage_client
+from starlette.concurrency import run_in_threadpool
 from src.models.project import (
     ProjectCreate,
     ProjectDocument,
@@ -94,15 +96,15 @@ async def count_user_projects(user_id: str) -> int:
     Returns:
         Number of projects.
     """
+    db = get_async_firestore_client()
+    # L2 FIX: Define query BEFORE try block so it's always in scope for fallback
+    query = (
+        db.collection(PROJECTS_COLLECTION)
+        .where(filter=FieldFilter("userId", "==", user_id))
+    )
+    
     try:
-        db = get_async_firestore_client()
-        query = (
-            db.collection(PROJECTS_COLLECTION)
-            .where(filter=FieldFilter("userId", "==", user_id))
-        )
-        
-        # Use aggregation query if available (more efficient)
-        # Using count() aggregation is standard in newer value
+        # Use aggregation query (more efficient)
         aggregate_query = query.count()
         results = await aggregate_query.get()
         return results[0][0].value
@@ -158,12 +160,18 @@ async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument
         if "constructionDetails" in data and data["constructionDetails"]:
             details_data = data["constructionDetails"]
             try:
+                # L5 FIX: Validate address fields before constructing
+                address_data = details_data.get("address", {})
+                if not all(address_data.get(k) for k in ("street", "city", "zip")):
+                    raise ValueError("Incomplete address data")
+                
+                # C5 FIX: Remove zombie defaults (0) — let Pydantic validate
                 construction_details = ProjectDetails(
                     id=details_data.get("id", session_id),
-                    footage_sqm=details_data.get("footage_sqm", 0),
+                    footage_sqm=details_data["footage_sqm"],
                     property_type=parse_enum(PropertyType, details_data.get("property_type"), PropertyType.APARTMENT),
-                    address=Address(**details_data.get("address", {})),
-                    budget_cap=details_data.get("budget_cap", 0),
+                    address=Address(**address_data),
+                    budget_cap=details_data["budget_cap"],
                     technical_notes=details_data.get("technical_notes"),
                     renovation_constraints=details_data.get("renovation_constraints", []),
                 )
@@ -207,15 +215,18 @@ async def create_project(user_id: str, data: ProjectCreate) -> str:
         
         doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
         
+        # S1 FIX: Explicit null initialization for ALL fields
         await doc_ref.set({
             "sessionId": session_id,
             "userId": user_id,
             "title": data.title,
             "status": ProjectStatus.DRAFT.value,
             "thumbnailUrl": None,
+            "originalImageUrl": None,
+            "constructionDetails": None,
             "messageCount": 0,
-            "createdAt": datetime.utcnow(),
-            "updatedAt": datetime.utcnow(),
+            "createdAt": utc_now(),
+            "updatedAt": utc_now(),
         })
         
         logger.info(f"[Projects] Created project {session_id} for user {user_id}")
@@ -253,7 +264,7 @@ async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> 
             return False
         
         # Build update dict (only non-None fields)
-        update_data = {"updatedAt": datetime.utcnow()}
+        update_data = {"updatedAt": utc_now()}
         
         if data.title is not None:
             update_data["title"] = data.title
@@ -272,7 +283,7 @@ async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> 
         if "title" in update_data:
             project_ref = db.collection("projects").document(session_id)
             # We use set with merge to ensure it exists or update it
-            batch.set(project_ref, {"name": update_data["title"], "updatedAt": datetime.utcnow()}, merge=True)
+            batch.set(project_ref, {"name": update_data["title"], "updatedAt": utc_now()}, merge=True)
             
         await batch.commit()
         
@@ -314,7 +325,7 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
         
         await doc_ref.update({
             "userId": new_user_id,
-            "updatedAt": datetime.utcnow(),
+            "updatedAt": utc_now(),
         })
         
         logger.info(f"[Projects] Claimed project {session_id} for user {new_user_id}")
@@ -372,7 +383,7 @@ async def update_project_details(session_id: str, user_id: str, details: Project
         
         await doc_ref.update({
             "constructionDetails": details_dict,
-            "updatedAt": datetime.utcnow(),
+            "updatedAt": utc_now(),
         })
         
         logger.info(f"[Projects] Updated construction details for project {session_id}")
@@ -384,8 +395,26 @@ async def update_project_details(session_id: str, user_id: str, details: Project
 
 
 
+async def _delete_storage_blobs(bucket, prefix: str) -> int:
+    """
+    Delete all blobs under a storage prefix without blocking the event loop.
+    
+    S5 FIX: Uses run_in_threadpool to wrap the synchronous GCS SDK calls
+    (list_blobs, delete_blobs) which would otherwise block the FastAPI
+    event loop during project deletion.
+    
+    Args:
+        bucket: GCS bucket instance
+        prefix: Storage path prefix to delete
+        
+    Returns:
+        Number of blobs deleted
+    """
+    blobs = await run_in_threadpool(lambda: list(bucket.list_blobs(prefix=prefix)))
+    if blobs:
+        await run_in_threadpool(bucket.delete_blobs, blobs)
+    return len(blobs)
 
-# ... (Previous code) ... 
 
 async def delete_project(session_id: str, user_id: str) -> bool:
     """
@@ -418,33 +447,19 @@ async def delete_project(session_id: str, user_id: str) -> bool:
         await _delete_collection_batch(db, frontend_project_ref.collection("files"))
         await frontend_project_ref.delete()
 
-        # 2. Delete Firebase Storage Blobs
+        # 2. Delete Firebase Storage Blobs (S5 FIX: non-blocking)
         try:
             bucket = get_storage_client()
             
-            # Path A: Backend Generator
-            prefix_backend = f"user-uploads/{session_id}/"
-            blobs_backend = list(bucket.list_blobs(prefix=prefix_backend))
-            if blobs_backend:
-                bucket.delete_blobs(blobs_backend)
+            storage_prefixes = [
+                f"user-uploads/{session_id}/",   # Backend Generator
+                f"projects/{session_id}/uploads/",  # Frontend Uploader
+                f"renders/{session_id}/",           # Backend Renders
+                f"documents/{session_id}/",         # Backend Documents
+            ]
             
-            # Path B: Frontend Uploader
-            prefix_frontend = f"projects/{session_id}/uploads/"
-            blobs_frontend = list(bucket.list_blobs(prefix=prefix_frontend))
-            if blobs_frontend:
-                bucket.delete_blobs(blobs_frontend)
-                
-            # Path C: Backend Renders (Deep Delete)
-            prefix_renders = f"renders/{session_id}/"
-            blobs_renders = list(bucket.list_blobs(prefix=prefix_renders))
-            if blobs_renders:
-                bucket.delete_blobs(blobs_renders)
-                
-            # Path D: Backend Documents (Deep Delete)
-            prefix_docs = f"documents/{session_id}/"
-            blobs_docs = list(bucket.list_blobs(prefix=prefix_docs))
-            if blobs_docs:
-                bucket.delete_blobs(blobs_docs)
+            for prefix in storage_prefixes:
+                await _delete_storage_blobs(bucket, prefix)
                 
             logger.info(f"[Projects] Deep delete: Storage cleaned for {session_id}")
                 
@@ -554,7 +569,7 @@ async def sync_project_cover(session_id: str) -> bool:
             update_payload = {
                 "thumbnailUrl": new_thumbnail,
                 "originalImageUrl": new_original, # Can be None, which deletes it (FieldValue.delete())? No, None just sets null.
-                "updatedAt": datetime.utcnow()
+                "updatedAt": utc_now()
             }
             
             # Use dot notation or FieldValue.delete() if we want to remove fields? for now set null is fine (Pydantic allows optional)
@@ -569,7 +584,7 @@ async def sync_project_cover(session_id: str) -> bool:
             await public_ref.set({
                  "thumbnailUrl": new_thumbnail,
                  "originalImageUrl": new_original,
-                 "updatedAt": datetime.utcnow()
+                 "updatedAt": utc_now()
             }, merge=True)
             
             logger.info(f"[Projects] 🖼️ Smart Cover: Updated {session_id} -> {new_thumbnail}")

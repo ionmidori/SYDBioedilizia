@@ -6,6 +6,7 @@ Tests for quota management and rate limiting with tiered limits.
 import pytest
 from unittest.mock import MagicMock, patch
 from datetime import datetime, timedelta
+from src.utils.datetime_utils import utc_now
 from src.tools.quota import (
     check_quota, 
     increment_quota, 
@@ -28,7 +29,7 @@ class TestQuotaCheckDevelopment:
         # Assert: Development mode returns unlimited
         assert allowed is True
         assert remaining == 9999
-        assert reset_at > datetime.utcnow() + timedelta(days=360)
+        assert reset_at > utc_now() + timedelta(days=360)
 
 
 class TestQuotaCheckProduction:
@@ -51,7 +52,7 @@ class TestQuotaCheckProduction:
         assert allowed is True
         # authenticatedUser123 is authenticated, so limit is 2 from QUOTA_LIMITS_AUTHENTICATED
         assert remaining == 1  # 2 - 1 = 1
-        assert reset_at > datetime.utcnow()
+        assert reset_at > utc_now()
     
     def test_within_quota_allowed(self, mock_env_production, mock_firestore_client):
         """GIVEN authenticated user has used 0 out of 2 renders
@@ -59,7 +60,7 @@ class TestQuotaCheckProduction:
         THEN should allow the operation
         """
         # Arrange: Mock existing quota document for authenticated user
-        now = datetime.utcnow()
+        now = utc_now()
         mock_snapshot = MagicMock()
         mock_snapshot.exists = True
         mock_snapshot.to_dict.return_value = {
@@ -81,7 +82,7 @@ class TestQuotaCheckProduction:
         THEN should deny the operation
         """
         # Arrange
-        now = datetime.utcnow()
+        now = utc_now()
         mock_snapshot = MagicMock()
         mock_snapshot.exists = True
         mock_snapshot.to_dict.return_value = {
@@ -103,7 +104,7 @@ class TestQuotaCheckProduction:
         THEN should reset and allow operation
         """
         # Arrange: Window started 25 hours ago
-        now = datetime.utcnow()
+        now = utc_now()
         mock_snapshot = MagicMock()
         mock_snapshot.exists = True
         mock_snapshot.to_dict.return_value = {

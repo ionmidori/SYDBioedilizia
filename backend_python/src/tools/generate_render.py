@@ -74,7 +74,7 @@ async def generate_render_wrapper(
                 analysis = await analyze_image_triage(source_bytes)
                 if analysis.get("success"):
                     room_type = analysis.get("roomType", room_type)
-            except:
+            except Exception:
                 pass  # Continue without analysis
             
             # 🎨 USE ARCHITECT FOR ENHANCED PROMPT GENERATION

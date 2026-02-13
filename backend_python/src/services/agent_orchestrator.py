@@ -21,6 +21,7 @@ from src.utils.stream_protocol import (
 )
 from src.utils.context import set_current_user_id, set_current_media_metadata
 from src.models.chat import MediaAttachment
+from src.auth.jwt_handler import verify_token
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,6 @@ class AgentOrchestrator:
 
             # ✅ AUTH VERIFICATION (Zero Latency)
             try:
-                from src.auth.jwt_handler import verify_token
                 user_session = verify_token(credentials)
                 user_id = user_session.uid
             except Exception as auth_error:
@@ -109,39 +109,25 @@ class AgentOrchestrator:
             
             # 🔥 Execute Graph & Stream
             accumulated_response = ""
+            message_persisted = False  # A2 FIX: Prevent double-save
             agent_graph = get_agent_graph()
             
             # ✅ Initialize Status Handler
             from src.services.status_handler import GraphStatusHandler
             status_handler = GraphStatusHandler()
             
-            # 🔄 Switch to astream_events for Granular Control (v2 API)
+            # 🔄 astream_events for Granular Control (v2 API)
             async for event in agent_graph.astream_events(state, version="v2"):
                 
-                # 1. Status Events (The New Logic)
+                # 1. Status Events
                 async for status_chunk in status_handler.process_event(event):
                     yield status_chunk
 
-                # 2. Standard Output Parsing
-                # We catch 'on_chain_end' for the MAIN graph to get the final state/messages
-                # BUT this is tricky with v2. 
-                # Better approach: We rely on 'on_chat_model_stream' for text chunks
-                # AND 'on_tool_end' for tool outputs? 
-                
-                # REFACTOR STRATEGY: 
-                # To be "Surgical" and minimal risk, we can't easily replace the entire 
-                # message persistence logic which relies on receiving the full "messages" list at node end.
-                # 'astream_events' yields granular events, NOT state updates by default.
-                
-                # HYBRID APPROACH:
-                # We use specific event types to replicate the old logic.
-                
                 kind = event.get("event")
                 
                 # 💬 Stream Text as it arrives (Low Latency)
                 if kind == "on_chat_model_stream":
                     # 🛑 FILTER: Ignore Reasoning Tier output (internal JSON)
-                    # Check tags OR node name to be safe
                     tags = event.get("tags", [])
                     name = event.get("name")
                     if "reasoning_tier" in tags or name == "reasoning_node" or name == "reasoning":
@@ -163,125 +149,80 @@ class AgentOrchestrator:
                         text_content = "".join(parts)
                     
                     # 🛡️ FILTER THOUGHTS (Leaky CoT)
-                    # Remove <thought>...</thought> tags and "Thought: ..." lines
                     if text_content:
                         text_content = re.sub(r'<thought>.*?</thought>', '', text_content, flags=re.DOTALL)
                         text_content = re.sub(r'(?m)^Thought:.*$', '', text_content)
 
                     if text_content:
                          accumulated_response += text_content
-                         # Stream Event '0'
                          async for stream_chunk in stream_text(text_content):
                              yield stream_chunk
 
-                # 🛠️ Capture Tool Calls (on_chat_model_end would have them, or on_tool_start)
-                # The old logic used the 'messages' list from node output to persist.
-                # Here we need to be careful.
-                # If we purely stream text here, we might miss the "Persistence" step 
-                # which happens AFTER generation.
-                
-            # 🚨 CRITICAL: The above loop streams text but DOES NOT persist it to DB 
-            # because the original logic relied on `node_output` from `astream`.
-            # `astream_events` does NOT easily give us the final state to save.
-            
-            # REVERTING STRATEGY for SAFETY:
-            # We need BOTH status updates AND robust state management.
-            # Using `astream` is safer for the DB logic.
-            # But `astream` hides inner events.
-            
-            # SOLUTION: Use `astream` context manager with a callback? 
-            # OR: distinct loop.
-            
-            # Let's try the HYBRID LOOP compatible with `LangGraph` standard:
-            # We can use `astream` but inject a callback handler that writes to a Queue?
-            # Too complex for this snippet.
-            
-            # Let's go with `astream_events` and MANUAL PERSISTENCE reconstruction.
-            # It's the only way to get "on_tool_start" without callbacks.
-            
-            # WAIT! The Prompt said "Don't break current code".
-            # The current code persists messages at specific node exits.
-            # I will use `astream_events` and reconstructed persistence.
-            
-            # Event `on_chain_end` with name="agent" (or wrapper) gives us the outputs?
-            # No, strictly speaking `on_chain_end` gives output of that chain.
-            
-            # SAFE IMPLEMENTATION:
-            # We will use `astream_events` for EVERYTHING.
-            # We need to detect when the Agent finishes generation (AIMessage) 
-            # and when Tools finish (ToolMessage) to save them.
-            
-            # 1. AI Message Persistence
-            if kind == "on_chat_model_end":
-                # 🛑 FILTER: Ignore Reasoning Tier output (internal JSON)
-                tags = event.get("tags", [])
-                if "reasoning_tier" not in tags:
-                    output = event["data"]["output"]
-                    # output is an AIMessage or BaseMessage
-                    if isinstance(output, AIMessage):
-                        raw_content = output.content
-                        
-                        # 🛡️ ROBUSTNESS: Ensure content is string for DB
-                        full_content = ""
-                        if isinstance(raw_content, str):
-                            full_content = raw_content
-                        elif isinstance(raw_content, list):
-                             parts = []
-                             for c in raw_content:
-                                 if isinstance(c, str):
-                                     parts.append(c)
-                                 elif isinstance(c, dict) and "text" in c:
-                                     parts.append(c["text"])
-                             full_content = "".join(parts)
-                        tool_calls = output.tool_calls
-                        
-                        # Persist AI Message
-                        serialized_tc = [
-                            {"id": tc["id"], "name": tc["name"], "args": tc["args"]}
-                            for tc in tool_calls
-                        ] if tool_calls else []
-                        
-                        await self.repo.save_message(request.session_id, "assistant", full_content or "", tool_calls=serialized_tc)
-                        
-                        # If tool calls exist, stream them (Event '9')
-                        if tool_calls:
-                             for tool_call in tool_calls:
-                                async for chunk in stream_tool_call(
-                                    tool_call_id=tool_call.get("id", "unknown"),
-                                    tool_name=tool_call.get("name", "unknown"),
-                                    args=tool_call.get("args", {})
-                                ):
-                                    yield chunk
+                # A2 FIX: AI Message Persistence (INSIDE the loop)
+                elif kind == "on_chat_model_end":
+                    tags = event.get("tags", [])
+                    if "reasoning_tier" not in tags:
+                        output = event["data"]["output"]
+                        if isinstance(output, AIMessage):
+                            raw_content = output.content
+                            
+                            full_content = ""
+                            if isinstance(raw_content, str):
+                                full_content = raw_content
+                            elif isinstance(raw_content, list):
+                                 parts = []
+                                 for c in raw_content:
+                                     if isinstance(c, str):
+                                         parts.append(c)
+                                     elif isinstance(c, dict) and "text" in c:
+                                         parts.append(c["text"])
+                                 full_content = "".join(parts)
+                            tool_calls = output.tool_calls
+                            
+                            serialized_tc = [
+                                {"id": tc["id"], "name": tc["name"], "args": tc["args"]}
+                                for tc in tool_calls
+                            ] if tool_calls else []
+                            
+                            await self.repo.save_message(request.session_id, "assistant", full_content or "", tool_calls=serialized_tc)
+                            message_persisted = True  # A2 FIX: Mark as saved
+                            
+                            if tool_calls:
+                                 for tool_call in tool_calls:
+                                    async for chunk in stream_tool_call(
+                                        tool_call_id=tool_call.get("id", "unknown"),
+                                        tool_name=tool_call.get("name", "unknown"),
+                                        args=tool_call.get("args", {})
+                                    ):
+                                        yield chunk
 
-            # 2. Tool Result Persistence
-            if kind == "on_tool_end":
-                # We need to save the tool output.
-                # event['data']['output'] is the result.
-                # But we need the tool_call_id.
-                # v2 API event has 'tags' or 'metadata'? 
-                # usually event['name'] is tool name.
-                # event['run_id'] is run id.
-                
-                # This is getting risky. `astream` was much safer for persistence because 
-                # it gave us the full conversation state update.
-                pass
+                # A4: Tool Result Persistence (INSIDE the loop)
+                elif kind == "on_tool_end":
+                    tool_output = event.get("data", {}).get("output", "")
+                    tool_name = event.get("name", "unknown")
+                    output_str = str(tool_output) if tool_output else ""
+                    
+                    async for chunk in stream_tool_result(
+                        tool_call_id=event.get("run_id", "unknown"),
+                        result=output_str
+                    ):
+                        yield chunk
 
-
-            # 🔥 Persist Final Response
-            if accumulated_response:
-                await self.repo.save_message(request.session_id, "assistant", accumulated_response)
-                logger.info(f"[Orchestrator] Saved response ({len(accumulated_response)} chars)")
-            else:
-                # 🛡️ Fallback: If agent finished without text/tools, it likely followed an error path
-                logger.warning("[Orchestrator] Agent finished without producing text or tool calls.")
-                fallback_msg = "Non sono riuscito a generare una risposta. Prova a riformulare la richiesta o controlla la connessione."
-                await self.repo.save_message(request.session_id, "assistant", fallback_msg)
-                async for chunk in stream_text(fallback_msg):
-                    yield chunk
+            # A2 FIX: Only persist from accumulated if on_chat_model_end didn't fire
+            if not message_persisted:
+                if accumulated_response:
+                    await self.repo.save_message(request.session_id, "assistant", accumulated_response)
+                    logger.info(f"[Orchestrator] Saved response ({len(accumulated_response)} chars)")
+                else:
+                    logger.warning("[Orchestrator] Agent finished without producing text or tool calls.")
+                    fallback_msg = "Non sono riuscito a generare una risposta. Prova a riformulare la richiesta o controlla la connessione."
+                    await self.repo.save_message(request.session_id, "assistant", fallback_msg)
+                    async for chunk in stream_text(fallback_msg):
+                        yield chunk
 
         except Exception as e:
             await self._handle_error(e)
-            yield await self._stream_safe_error(e)
+            yield self._format_safe_error(e)
 
     def _process_attachments(self, request, user_id: str, base_content: str):
         """Handle legacy URLs and Native Video URIs."""
@@ -397,7 +338,7 @@ class AgentOrchestrator:
              path = urlparse(url).path
              filename_raw = os.path.basename(path)
              filename = unquote(filename_raw) or f"File {datetime.now()}"
-        except:
+        except Exception:
              filename = f"File {datetime.now()}"
 
         async def _save_task():
@@ -434,10 +375,11 @@ class AgentOrchestrator:
         import traceback
         logger.error(f"❌ ORCHESTRATOR ERROR: {str(e)}\n{traceback.format_exc()}")
 
-    async def _stream_safe_error(self, e: Exception):
+    def _format_safe_error(self, e: Exception) -> str:
+        """L1 FIX: Return formatted error string directly instead of broken async generator."""
+        import json
         msg = str(e) if settings.ENV != "production" else "An internal error occurred."
-        async for chunk in stream_error(msg):
-            return chunk # async generator yield
+        return f'3:{json.dumps(msg)}\n'
 
 from fastapi import Depends
 def get_orchestrator(

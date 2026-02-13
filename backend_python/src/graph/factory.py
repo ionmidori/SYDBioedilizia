@@ -33,12 +33,12 @@ class AgentGraphFactory:
         
         # 1. Define Nodes
         
-        def reasoning_node(state: AgentState):
+        async def reasoning_node(state: AgentState):
             """Tier 1: High-level planning."""
             messages = state["messages"]
             
-            # Context Injection
-            active_prompt = ContextBuilder.build_system_prompt(state)
+            # Context Injection (A3: now async)
+            active_prompt = await ContextBuilder.build_system_prompt(state)
             
             # Filter system messages & Prepend new one
             cleaned_messages = [msg for msg in messages if not isinstance(msg, SystemMessage)]
@@ -68,14 +68,14 @@ class AgentGraphFactory:
                     }]
                 }
 
-        def execution_node(state: AgentState):
+        async def execution_node(state: AgentState):
             """Tier 3: Execution and Tool Calling."""
             messages = state["messages"]
             internal_plan = state.get("internal_plan", [])
             latest_plan = internal_plan[-1] if internal_plan else None
             
-            # Context Injection
-            active_prompt = ContextBuilder.build_system_prompt(state)
+            # Context Injection (A3: now async)
+            active_prompt = await ContextBuilder.build_system_prompt(state)
             
             # Filter & Prepend
             cleaned_messages = [msg for msg in messages if not isinstance(msg, SystemMessage)]

@@ -78,7 +78,7 @@ export function ProjectSettingsView({ projectId }: ProjectSettingsViewProps) {
             <div className="flex-1 pb-20">
                 <ConstructionDetailsForm
                     sessionId={projectId}
-                    initialData={project.construction_details}
+                    initialData={project.construction_details ?? undefined}
                 />
             </div>
         </div>

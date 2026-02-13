@@ -8,6 +8,7 @@ Uses Pydantic V2 Discriminated Unions via `Literal` type discriminators.
 """
 from typing import Literal, Optional, Union
 from datetime import datetime
+from src.utils.datetime_utils import utc_now
 from pydantic import BaseModel, Field, ConfigDict
 import uuid
 
@@ -24,7 +25,7 @@ class MediaAssetBase(BaseModel):
     filename: str = Field(..., description="Original sanitized filename")
     mime_type: str = Field(..., description="Validated MIME type from Magic Bytes")
     size_bytes: int = Field(..., ge=0, description="File size in bytes")
-    created_at: datetime = Field(default_factory=datetime.utcnow, description="Upload timestamp")
+    created_at: datetime = Field(default_factory=utc_now, description="Upload timestamp")
 
 
 class ImageMediaAsset(MediaAssetBase):

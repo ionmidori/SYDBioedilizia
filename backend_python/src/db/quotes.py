@@ -1,4 +1,5 @@
 from datetime import datetime
+from src.utils.datetime_utils import utc_now
 from typing import Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 import logging
@@ -46,8 +47,8 @@ class QuoteDraftData(BaseModel):
     # Metadata
     clientId: str
     status: Literal['draft', 'pending_review', 'processed'] = 'draft'
-    createdAt: datetime = Field(default_factory=datetime.utcnow)
-    updatedAt: datetime = Field(default_factory=datetime.utcnow)
+    createdAt: datetime = Field(default_factory=utc_now)
+    updatedAt: datetime = Field(default_factory=utc_now)
     schemaVersion: int = 1
 
     def to_firestore(self) -> Dict[str, Any]:

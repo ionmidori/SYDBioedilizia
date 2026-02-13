@@ -6,6 +6,7 @@ Tests for project CRUD operations and API endpoints.
 import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 from datetime import datetime
+from src.utils.datetime_utils import utc_now
 
 from src.models.project import (
     ProjectCreate,
@@ -50,7 +51,7 @@ class TestProjectModels:
         WHEN ProjectDocument is created
         THEN should have all fields
         """
-        now = datetime.utcnow()
+        now = utc_now()
         project = ProjectDocument(
             session_id="test-session-123",
             user_id="user-456",
@@ -72,7 +73,7 @@ class TestProjectModels:
         WHEN ProjectListItem is created
         THEN should serialize correctly
         """
-        now = datetime.utcnow()
+        now = utc_now()
         item = ProjectListItem(
             session_id="session-abc",
             title="Quick Project",

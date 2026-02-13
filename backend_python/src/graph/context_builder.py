@@ -1,10 +1,11 @@
 import re
 import json
 import logging
-from typing import List, Any
+from typing import List, Any, Optional
 from langchain_core.messages import ToolMessage
 from src.graph.state import AgentState
 from src.prompts.system_prompts import SystemPrompts
+from src.db.firebase_client import get_async_firestore_client
 
 logger = logging.getLogger(__name__)
 
@@ -17,18 +18,18 @@ class ContextBuilder:
     """
 
     @staticmethod
-    def build_system_prompt(state: AgentState) -> str:
+    async def build_system_prompt(state: AgentState) -> str:
         """
         Dynamically assembles the authoritative system prompt.
+        Now async to support Firestore lookups for project context.
         """
-        # Supports future A/B testing via state['prompt_version'] if needed
         base_instruction = SystemPrompts.get_instruction("default")
         
         # 1. Media Context
         media_context = ContextBuilder._build_media_context(state)
         
-        # 2. Project/Auth Context
-        project_context = ContextBuilder._build_project_context(state)
+        # 2. Project/Auth Context (A3 FIX: now includes construction details)
+        project_context = await ContextBuilder._build_project_context(state)
         
         # 3. System Status (Loop Guard)
         system_status = ContextBuilder._build_system_status(state)
@@ -93,10 +94,48 @@ class ContextBuilder:
         return ""
 
     @staticmethod
-    def _build_project_context(state: AgentState) -> str:
+    async def _build_project_context(state: AgentState) -> str:
+        """
+        A3 FIX: Now queries Firestore for construction details and injects
+        them into the AI context (budget, area, property type, constraints).
+        """
         session_id = state.get('session_id', 'unknown')
         is_authenticated = str(state.get('is_authenticated', False)).upper()
-        return f"[[PROJECT CONTEXT]]\nSession ID: {session_id}\nIS_AUTHENTICATED={is_authenticated}"
+        project_id = state.get('project_id')
+        
+        base = f"[[PROJECT CONTEXT]]\nSession ID: {session_id}\nIS_AUTHENTICATED={is_authenticated}"
+        
+        # A3 FIX: Load construction details from Firestore
+        if project_id:
+            try:
+                db = get_async_firestore_client()
+                doc = await db.collection('sessions').document(project_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    details = data.get('constructionDetails')
+                    if details:
+                        base += f"\nProject ID: {project_id}"
+                        base += f"\nFOOTAGE_SQM={details.get('footage_sqm', 'N/A')}"
+                        base += f"\nPROPERTY_TYPE={details.get('property_type', 'N/A')}"
+                        base += f"\nBUDGET_CAP_EUR={details.get('budget_cap', 'N/A')}"
+                        
+                        address = details.get('address', {})
+                        if address:
+                            base += f"\nLOCATION={address.get('city', '')}, {address.get('zip', '')}"
+                        
+                        constraints = details.get('renovation_constraints', [])
+                        if constraints:
+                            base += f"\nCONSTRAINTS={', '.join(constraints)}"
+                        
+                        notes = details.get('technical_notes')
+                        if notes:
+                            base += f"\nTECHNICAL_NOTES={notes}"
+                    else:
+                        base += f"\nProject ID: {project_id}\nCONSTRUCTION_DETAILS=NOT_SET"
+            except Exception as e:
+                logger.warning(f"[ContextBuilder] Failed to load project details: {e}")
+        
+        return base
 
     @staticmethod
     def _build_system_status(state: AgentState) -> str:

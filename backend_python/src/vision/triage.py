@@ -10,8 +10,6 @@ from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
-
 GEMINI_API_KEY = settings.api_key
 
 TRIAGE_PROMPT = """You are an expert interior architect and structural engineer analyzing this image.

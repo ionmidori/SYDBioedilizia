@@ -8,6 +8,7 @@ from typing import Optional, List
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+import json
 from firebase_admin import firestore
 
 from src.auth.jwt_handler import verify_token
@@ -148,10 +149,9 @@ async def get_chat_history(
             if isinstance(content_val, list) or isinstance(content_val, dict):
                 # If content is structured (e.g. agent output), stringify it for now
                 # Ideally we'd have a schema for this, but to prevent 500s we cast to str
-                import json
                 try:
                     content_val = json.dumps(content_val)
-                except:
+                except Exception:
                     content_val = str(content_val)
             elif content_val is None:
                 content_val = ""

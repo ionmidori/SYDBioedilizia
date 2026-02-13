@@ -52,5 +52,5 @@ export interface ProjectUpdate {
 export interface Project extends ProjectListItem {
     user_id: string;
     created_at: string;
-    construction_details?: ProjectDetails;
+    construction_details?: ProjectDetails | null;
 }

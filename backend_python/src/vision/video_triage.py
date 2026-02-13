@@ -14,11 +14,10 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from google import genai
 from google.genai import types
+import json
 from src.models.video_types import VideoMetadata, VideoTriageResult
 from src.utils.json_parser import extract_json_response
 from src.core.config import settings
-
-logger = logging.getLogger(__name__)
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +83,6 @@ def get_video_metadata(video_path: str) -> VideoMetadata:
         ]
         
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        import json
         data = json.loads(result.stdout)
         
         # Extract metadata
@@ -373,5 +371,5 @@ async def analyze_video_triage(video_data: bytes, metadata: Optional[Dict[str, A
             if path and os.path.exists(path):
                 try:
                     os.unlink(path)
-                except:
+                except Exception:
                     pass

@@ -71,7 +71,7 @@ async def upload_image(
         
         # 🛡️ RATE LIMITING CHECK
         from src.tools.quota import check_quota, increment_quota
-        allowed, remaining, reset_at = check_quota(user_id, "upload_image")
+        allowed, remaining, reset_at = await check_quota(user_id, "upload_image")
         
         if not allowed:
             reset_time = reset_at.strftime("%H:%M")
@@ -153,7 +153,7 @@ async def upload_image(
         public_url = blob.public_url
         
         # ✅ INCREMENT QUOTA
-        increment_quota(user_id, "upload_image")
+        await increment_quota(user_id, "upload_image")
         
         # 📊 LOG: Upload Completed
         logger.info(
@@ -213,7 +213,7 @@ async def upload_video(
         
         # 🛡️ RATE LIMITING CHECK
         from src.tools.quota import check_quota, increment_quota
-        allowed, remaining, reset_at = check_quota(user_id, "upload_video")
+        allowed, remaining, reset_at = await check_quota(user_id, "upload_video")
         
         if not allowed:
             reset_time = reset_at.strftime("%H:%M")
@@ -253,7 +253,7 @@ async def upload_video(
             active_file = await processor.wait_for_processing(uploaded_file.name)
             
             # ✅ INCREMENT QUOTA (Only on success)
-            increment_quota(user_id, "upload_video")
+            await increment_quota(user_id, "upload_video")
             
             # Generate asset ID
             asset_id = uuid.uuid4().hex

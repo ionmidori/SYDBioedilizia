@@ -15,9 +15,12 @@ from src.db.firebase_client import get_firestore_client
 from src.core.config import settings
 import secrets
 import base64
+import json
 import logging
+import os
 import time
 from typing import Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/passkey", tags=["auth"])
@@ -110,8 +113,7 @@ async def get_registration_options(
     
     # DYNAMIC RP_ID RESOLUTION
     # 1. Prefer env var
-    import os
-    rp_id = os.getenv("RP_ID")
+    rp_id = settings.RP_ID if hasattr(settings, 'RP_ID') else os.getenv("RP_ID")
     
     # 2. Fallback to extracting from Origin/Host for Dev flexibility
     if not rp_id:
@@ -119,11 +121,10 @@ async def get_registration_options(
         host = request.headers.get("host")
         
         if origin:
-            from urllib.parse import urlparse
             try:
                 parsed = urlparse(origin)
                 rp_id = parsed.hostname
-            except:
+            except Exception:
                 pass
         
         if not rp_id and host:
@@ -167,7 +168,6 @@ async def verify_registration(
     """
     Verify and store passkey credential.
     """
-    import json
     
     # Extract challenge from clientDataJSON
     try:
@@ -251,8 +251,7 @@ async def get_authentication_options(
             
     # DYNAMIC RP_ID RESOLUTION
     # 1. Prefer env var
-    import os
-    rp_id = os.getenv("RP_ID")
+    rp_id = settings.RP_ID if hasattr(settings, 'RP_ID') else os.getenv("RP_ID")
     
     # 2. Fallback to extracting from Origin/Host for Dev flexibility
     if not rp_id:
@@ -260,11 +259,10 @@ async def get_authentication_options(
         host = request.headers.get("host")
         
         if origin:
-            from urllib.parse import urlparse
             try:
                 parsed = urlparse(origin)
                 rp_id = parsed.hostname
-            except:
+            except Exception:
                 pass
         
         if not rp_id and host:
@@ -288,7 +286,6 @@ async def verify_authentication(assertion: PasskeyAssertion):
     """
     Verify passkey authentication assertion.
     """
-    import json
     
     # 1. Extract challenge from clientDataJSON
     try:

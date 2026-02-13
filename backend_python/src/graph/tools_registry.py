@@ -57,7 +57,7 @@ async def get_market_prices(query: str, user_id: str = "default") -> str:
     effective_user_id = user_id if user_id != "default" else get_current_user_id()
     
     try:
-        allowed, remaining, reset_at = check_quota(effective_user_id, "get_market_prices")
+        allowed, remaining, reset_at = await check_quota(effective_user_id, "get_market_prices")
         if not allowed:
             reset_time = reset_at.strftime("%H:%M")
             return f"⏳ Hai raggiunto il limite giornaliero. Riprova alle {reset_time}."
@@ -66,7 +66,7 @@ async def get_market_prices(query: str, user_id: str = "default") -> str:
         content = result.get("content", "Informazione non disponibile")
         
         try:
-            increment_quota(effective_user_id, "get_market_prices")
+            await increment_quota(effective_user_id, "get_market_prices")
         except Exception as e:
             logger.error(f"[Quota] Error incrementing quota: {e}")
         
@@ -95,7 +95,7 @@ async def generate_render(
     # 1. Quota Check
     effective_user_id = user_id if user_id != "default" else get_current_user_id()
     try:
-        allowed, remaining, reset_at = check_quota(effective_user_id, "generate_render")
+        allowed, remaining, reset_at = await check_quota(effective_user_id, "generate_render")
         if not allowed:
             reset_time = reset_at.strftime("%H:%M")
             if effective_user_id.startswith("guest_") or len(effective_user_id) < 10:
@@ -117,7 +117,7 @@ async def generate_render(
     # 3. Increment Quota (if successful)
     if "✅" in result:
         try:
-            increment_quota(effective_user_id, "generate_render")
+            await increment_quota(effective_user_id, "generate_render")
             logger.info(f"[Quota] Incremented for {effective_user_id}")
         except Exception as e:
             logger.error(f"[Quota] Increment failed: {e}")

@@ -1,25 +1,25 @@
 # 🧠 SYD Brain (Python Backend)
 
 The core AI orchestration engine for the SYD Renovation Chatbot.
-Built with **FastAPI**, **LangGraph**, and **Google Gemini 2.5**.
+Built with **FastAPI**, **LangGraph**, and **Google Gemini 2.5 Flash**.
 
 ---
 
-## 🚀 Features
+## 🚀 Key Features
 
-- **Architecture:** Async-native FastAPI service deployed on Cloud Run.
-- **Architecture:** 3-Tier Python-First Chain of Thought (CoT) orchestration.
-- **AI Engine:** Explicit reasoning steps managed by Gemini 2.0 Flash + LangGraph.
-- **Fail-Fast Security:** Pydantic-based guardrails in `src/models/reasoning.py` to validate intent before execution.
-- **RBTA (Role-Based Tool Access):** Dynamic tool visibility managed by `SOPManager` (e.g., Auth-gated rendering).
-- **Vision Capabilities:** High-speed triage and renovation analysis via automated tool routing.
+- **Architecture:** Async-native FastAPI service optimized for Cloud Run.
+- **AI Engine:** Structured reasoning steps managed by **Gemini 2.5 Flash** + LangGraph.
+- **Guided Flows:** State tracking logic (`is_quote_completed`, `is_render_completed`) for proactive cross-selling.
+- **Vision Integration:** Automated room analysis and CAD extraction support (Wide-angle 0.5x optimization).
+- **Security:** Pydantic-based guardrails and RSA token verification for specialized tool access.
 - **Latency Optimization:** "Hello" Gatekeeper bypassing heavy reasoning for simple greetings.
+- **Observability:** Structured JSON logging via `structlog` and request tracing (`X-Request-ID`).
 
-## 🏛️ Internal Tiers
+## 🏛️ Operational Tiers (Internal Flow)
 
-1. **Tier 1 (Directive):** `reasoning_node` - Generates a structured plan (`ReasoningStep`).
-2. **Tier 2 (Orchestration):** `edges.py` - Deterministic routing based on plan validation.
-3. **Tier 3 (Execution):** `execution_node` & `SOPManager` - Hard enforcement of business rules and tool invocation.
+1. **Tier 1 (Directive):** `reasoning_node` - Generates a structured plan (`ReasoningStep`) using Gemini 2.5 Flash.
+2. **Tier 2 (Orchestration):** `edges.py` - Deterministic routing between reasoning, execution, and tools.
+3. **Tier 3 (Execution):** `execution_node` & `custom_tools_node` - Tool invocation with journey flag updates (Reducers).
 
 ## 🛠️ Tech Stack
 
@@ -28,7 +28,7 @@ Built with **FastAPI**, **LangGraph**, and **Google Gemini 2.5**.
 - **Framework:** FastAPI
 - **LLM:** Google GenAI SDK (`google-genai`)
 - **Database:** Firebase Firestore (NoSQL)
-- **Storage:** Firebase Storage (GCS)
+- **Config:** `pydantic-settings` for robust environment management.
 
 ## 📦 Setup & Installation
 
@@ -62,14 +62,11 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 
 ## 🧪 Testing
 
-We maintain **100% Code Coverage** for critical paths.
+We maintain high code coverage for critical paths.
 
 ```bash
 # Run all tests
 uv run pytest
-
-# Run with coverage report
-uv run pytest --cov=src --cov-report=term-missing
 ```
 
 ## 📂 Project Structure
@@ -88,11 +85,11 @@ backend_python/
 ├── main.py                # App Entrypoint
 ```
 
-## 🔒 Security Notes
-- **Signed URLs:** Uploads generate `https://storage.googleapis.com/...` signed links valid for 7 days.
-- **Logging:** Sensitive info (like URL signatures) is redacted in logs.
-- **Dependencies:** `uv.lock` ensures reproducible and secure builds.
+## 🔒 Security & Privacy
+- **Signed URLs:** Uploads generate short-lived signed links.
+- **PII Redaction:** Sensitive details are obscured in log arguments before emission.
+- **Zero-Trust:** Every protected endpoint validates RSA signatures from Firebase.
 
 ---
 
-_Updated: Jan 18, 2026_
+_Updated: Feb 11, 2026_

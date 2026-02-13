@@ -1,4 +1,5 @@
 from datetime import datetime
+from src.utils.datetime_utils import utc_now
 from typing import Any, Type, Optional, TypeVar
 from enum import Enum
 import logging
@@ -15,10 +16,10 @@ def parse_firestore_datetime(value: Any) -> datetime:
     - Firestore Timestamp/DatetimeWithNanoseconds (has .to_datetime())
     - ISO strings (via dateutil)
     - Existing datetime objects
-    - None/Invalid (returns utcnow())
+    - None/Invalid (returns utc_now())
     """
     if value is None:
-        return datetime.utcnow()
+        return utc_now()
         
     if hasattr(value, "to_datetime"):
         return value.to_datetime()
@@ -31,9 +32,9 @@ def parse_firestore_datetime(value: Any) -> datetime:
             return parser.parse(value)
         except Exception as e:
             logger.warning(f"Failed to parse datetime string '{value}': {e}")
-            return datetime.utcnow()
+            return utc_now()
             
-    return datetime.utcnow()
+    return utc_now()
 
 
 def parse_enum(enum_cls: Type[T], value: Any, default: T) -> T:

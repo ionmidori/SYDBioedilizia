@@ -31,7 +31,7 @@ class MediaProcessor:
         # Best effort cleanup
         try:
             self.client.close()
-        except:
+        except Exception:
             pass
 
     async def upload_video_for_analysis(self, file_stream: IO[bytes], mime_type: str, display_name: str) -> types.File:

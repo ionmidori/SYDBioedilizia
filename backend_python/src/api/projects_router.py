@@ -115,6 +115,9 @@ async def create_project(
         logger.info(f"[API] Created project {session_id} for user {user_id}")
         return {"session_id": session_id}
     
+    # S4 FIX: Let HTTPExceptions (e.g. 403 limit) pass through
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[API] Failed to create project: {str(e)}")
         raise HTTPException(

@@ -24,9 +24,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     """
     from src.core.config import settings
     
-    # ⚡ DEV MODE BYPASS
+    # S7 FIX: Restrict bypass to EXPLICIT development mode only
     if not credentials:
-        if settings.ENV != "production":
+        if settings.ENV == "development":
             logger.warning("⚠️ Auth Bypass: No token provided in DEV mode. Using 'debug-user'.")
             return UserSession(
                 uid="debug-user",

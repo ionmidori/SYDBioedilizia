@@ -32,48 +32,35 @@ async def validate_app_check_token(request: Request) -> Optional[dict]:
     """
     Validate App Check token from request headers.
     
-    Args:
-        request: FastAPI Request object
-        
-    Returns:
-        Decoded token payload if valid, None if validation disabled
-        
-    Raises:
-        AppCheckError: If token is invalid or missing (when enforcement is enabled)
+    In Monitoring Mode (ENABLE_APP_CHECK=False), it logs the result but never blocks.
+    In Strict Mode (ENABLE_APP_CHECK=True), it raises AppCheckError for invalid/missing tokens.
     """
-    # Skip validation if feature flag is disabled
-    if not ENABLE_APP_CHECK:
-        logger.debug("[App Check] Validation disabled via ENABLE_APP_CHECK flag")
-        return None
-    
-    # Extract token from header
     app_check_token = request.headers.get("X-Firebase-AppCheck")
     
-    if not app_check_token:
-        logger.warning(f"[App Check] Missing token from {request.client.host}")
-        raise AppCheckError("Missing App Check token", detail={"reason": "missing_header"})
-    
-    try:
-        # Ensure Firebase is initialized
-        init_firebase()
+    # Telemetry logic (Runs always if token is present)
+    decoded_token = None
+    if app_check_token:
+        try:
+            init_firebase()
+            decoded_token = app_check.verify_token(app_check_token)
+            logger.info(f"[App Check] ✅ Valid token from {request.client.host}")
+        except app_check.TokenVerificationError as e:
+            logger.warning(f"[App Check] ⚠️ Invalid token from {request.client.host}: {str(e)[:100]}")
+        except Exception as e:
+            logger.error(f"[App Check] Verification error (non-fatal): {str(e)}")
+
+    # Enforcement Logic
+    if ENABLE_APP_CHECK:
+        if not app_check_token:
+            logger.warning(f"[App Check] [STRICT] Missing token from {request.client.host}")
+            raise AppCheckError("Missing App Check token", detail={"reason": "missing_header"})
         
-        # Verify token via Firebase Admin SDK
-        decoded_token = app_check.verify_token(app_check_token)
-        
-        logger.info(f"[App Check] ✅ Valid token from {request.client.host}")
-        return decoded_token
-        
-    except app_check.TokenVerificationError as e:
-        logger.warning(f"[App Check] Invalid token: {str(e)[:100]}")
-        raise AppCheckError("Invalid App Check token", detail={"reason": str(e)})
-    except Exception as e:
-        # Graceful degradation: log error but don't block request
-        # This prevents Firebase outages from breaking the app
-        logger.error(f"[App Check] Verification error (non-fatal): {str(e)}")
-        
-        # In strict mode, you might want to raise here instead
-        # For now, we allow the request to proceed during Firebase issues
-        return None
+        if not decoded_token:
+            # If we reach here and ENABLE_APP_CHECK is true, it means the token was invalid or verification crashed
+            logger.error(f"[App Check] [STRICT] Blocking request from {request.client.host} - Invalid token")
+            raise AppCheckError("Invalid App Check token", detail={"reason": "verification_failed"})
+
+    return decoded_token
 
 
 def get_app_check_status() -> dict:
