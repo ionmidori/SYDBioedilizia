@@ -88,9 +88,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // 3a. Sync Prop
     useEffect(() => {
         if (typeof projectId !== 'undefined' && projectId !== contextProjectId) {
-            if (typeof projectId !== 'undefined' && projectId !== contextProjectId) {
-                setProjectId(projectId);
-            }
+            setProjectId(projectId);
         }
     }, [projectId, contextProjectId, setProjectId]);
 
@@ -109,9 +107,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         if (match && match[1]) {
             const pathId = match[1];
             if (pathId !== contextProjectId && pathId !== 'new') {
-                if (pathId !== contextProjectId && pathId !== 'new') {
-                    setProjectId(pathId);
-                }
+                setProjectId(pathId);
             }
         }
         // Query Param: ?projectId=... (Landing Page)

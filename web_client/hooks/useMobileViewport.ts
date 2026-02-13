@@ -21,8 +21,6 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
     // Keeping scroll locking below.
 
     // Body Lock
-
-    // Body Lock
     useEffect(() => {
         const html = document.documentElement;
         const body = document.body;
