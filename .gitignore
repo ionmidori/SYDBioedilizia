@@ -71,3 +71,9 @@ __pycache__/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# project memory (local only)
+directives/PROJECT_CONTEXT_SUMMARY.md
+directives/HISTORICAL_MILESTONES.md
+backend_python/server_debug.log
+
