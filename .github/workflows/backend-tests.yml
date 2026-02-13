@@ -41,6 +41,7 @@ jobs:
       env:
         ENV: development  # Use development mode to bypass quota/Firebase in tests
         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         FIREBASE_STORAGE_BUCKET: test-bucket.firebasestorage.app
       run: |
         uv run pytest -v --tb=short --cov=src --cov-report=term-missing
