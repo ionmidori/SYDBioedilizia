@@ -47,14 +47,14 @@ export default function ConstructionDetailsForm({
             renovation_constraints: initialData.renovation_constraints,
         } : {
             id: sessionId,
-            footage_sqm: 0,
+            footage_sqm: undefined as unknown as number,
             property_type: "apartment" as const,
             address: {
                 street: "",
                 city: "",
                 zip: "",
             },
-            budget_cap: 0,
+            budget_cap: undefined as unknown as number,
             technical_notes: undefined,
             renovation_constraints: [],
         },

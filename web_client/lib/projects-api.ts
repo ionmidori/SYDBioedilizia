@@ -48,7 +48,14 @@ export const projectsApi = {
         });
 
         if (!response.ok) {
-            throw new Error('Impossibile creare il progetto');
+            let detail = 'Impossibile creare il progetto';
+            try {
+                const errorBody = await response.json();
+                if (errorBody.detail) detail = errorBody.detail;
+            } catch {
+                // response body was not JSON — keep generic message
+            }
+            throw new Error(detail);
         }
 
         return response.json();

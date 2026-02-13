@@ -9,7 +9,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { projectsApi } from '@/lib/projects-api';
 import { useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ interface FormData {
 
 export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: CreateProjectDialogProps) {
     const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
     const router = useRouter();
     const { register, handleSubmit, reset } = useForm<FormData>({
@@ -36,20 +37,16 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
 
     const onSubmit = async (data: FormData) => {
         setLoading(true);
+        setErrorMessage(null);
         try {
-            // Keep the API call here as we need the session_id
             const { session_id } = await projectsApi.createProject({
                 title: data.title || 'Nuovo Progetto'
             });
 
-            // Optimistic UI: Close immediately? 
-            // Better: Start the transition to the new page.
-            // The Dialog will close when the new page renders OR we can close it now.
-            // Closing it now gives "Instant" feel.
             onOpenChange(false);
             reset();
+            setErrorMessage(null);
 
-            // Navigation wrapped in Transition to prevent UI freeze (INP)
             startTransition(() => {
                 if (onProjectCreated) {
                     onProjectCreated(session_id);
@@ -58,15 +55,20 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
                 }
             });
         } catch (error) {
-            console.error('Failed to create project:', error);
-            // In a real app, show a Toast here.
+            const message = error instanceof Error ? error.message : 'Impossibile creare il progetto';
+            setErrorMessage(message);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleOpenChange = (nextOpen: boolean) => {
+        if (!nextOpen) setErrorMessage(null);
+        onOpenChange(nextOpen);
+    };
+
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="w-[90%] max-w-[400px] rounded-3xl bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/20 text-luxury-text p-6 shadow-2xl">
                 <DialogHeader className="space-y-4">
                     <DialogTitle className="text-2xl font-bold font-serif text-luxury-gold text-center">
@@ -90,6 +92,12 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
                     </div>
 
                     <DialogFooter className="flex-col gap-3 sm:flex-col">
+                        {errorMessage && (
+                            <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                                <p className="text-sm font-medium text-red-400">{errorMessage}</p>
+                            </div>
+                        )}
                         <Button
                             type="submit"
                             disabled={loading || isPending}
@@ -100,7 +108,7 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
                         <Button
                             type="button"
                             variant="ghost"
-                            onClick={() => onOpenChange(false)}
+                            onClick={() => handleOpenChange(false)}
                             className="w-full hover:bg-transparent text-luxury-text/40 hover:text-luxury-text/70 text-sm"
                         >
                             Annulla
