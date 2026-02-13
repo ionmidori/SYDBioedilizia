@@ -11,6 +11,7 @@ import { FolderKanban, FileText, Image, LayoutGrid, Plus, Upload, MessageSquare,
 import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { createStaggerVariants, M3Spring } from '@/lib/m3-motion';
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -44,14 +45,25 @@ export default function DashboardPage() {
 
     const userName = user?.displayName?.split(' ')[0] || 'Utente';
 
+    // M3 Stagger variants for dashboard sections
+    const { container: sectionStagger, item: sectionItem } = useMemo(
+        () => createStaggerVariants({ y: 20 }),
+        [],
+    );
+
     return (
-        <div className="flex flex-col space-y-8 py-6 px-4 md:px-8 max-w-[1600px] mx-auto w-full pb-32 md:pb-8 overflow-x-hidden overflow-y-visible">
+        <motion.div
+            className="flex flex-col space-y-8 py-6 px-4 md:px-8 max-w-[1600px] mx-auto w-full pb-32 md:pb-8 overflow-x-hidden overflow-y-visible"
+            variants={sectionStagger}
+            initial="hidden"
+            animate="visible"
+        >
             {/* Header Section */}
             <header className="flex items-center justify-between">
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
+                    transition={M3Spring.gentle}
                     className="space-y-1"
                 >
                     <h1 className="text-3xl md:text-4xl font-serif font-bold text-luxury-text tracking-tight">
@@ -67,6 +79,7 @@ export default function DashboardPage() {
                 <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
+                    transition={M3Spring.bouncy}
                     className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-luxury-gold/10 border border-luxury-gold/30 flex items-center justify-center text-luxury-gold font-serif font-bold text-lg md:text-xl shrink-0"
                 >
                     {userName.charAt(0)}
@@ -84,7 +97,7 @@ export default function DashboardPage() {
             )}
 
             {/* 1. KPI Stats Grid (2x2) */}
-            <section>
+            <motion.section variants={sectionItem}>
                 <StatsGrid
                     isLoading={statsLoading}
                     stats={[
@@ -94,10 +107,10 @@ export default function DashboardPage() {
                         { label: 'Preventivi Creati', value: 0, icon: Receipt },
                     ]}
                 />
-            </section>
+            </motion.section>
 
             {/* 2. Quick Actions (Horizontal Row) */}
-            <section>
+            <motion.section variants={sectionItem}>
                 <h3 className="sr-only">Azioni Rapide</h3>
                 <QuickActionsRow
                     actions={[
@@ -141,21 +154,21 @@ export default function DashboardPage() {
                         }
                     ]}
                 />
-            </section>
+            </motion.section>
 
             {/* 3. Recent Projects (Carousel) */}
-            <section>
+            <motion.section variants={sectionItem}>
                 <ProjectsCarousel
                     projects={recentProjects}
                     isLoading={projectsLoading}
                     onCreateNew={handleCreateProject}
                 />
-            </section>
+            </motion.section>
 
             <CreateProjectDialog
                 open={createDialogOpen}
                 onOpenChange={setCreateDialogOpen}
             />
-        </div>
+        </motion.div>
     );
 }

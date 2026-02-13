@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation'; // 🔥 NEW
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
+import { M3Spring, M3Transition, M3Duration } from '@/lib/m3-motion';
 import { Menu, X, Mail, FileText, Image as ImageIcon, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignInButton } from '@/components/auth/SignInButton';
@@ -76,7 +77,7 @@ export function Navbar() {
                 )}
                 initial={{ y: -100 }}
                 animate={{ y: 0 }}
-                transition={{ duration: 0.5 }}
+                transition={M3Spring.gentle}
             >
                 <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
                     <div className="flex items-center gap-6">
@@ -171,7 +172,7 @@ export function Navbar() {
                                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        transition={{ duration: 0.2 }}
+                                        transition={M3Spring.standard}
                                         className="absolute top-12 right-0 bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/10 shadow-xl shadow-black/20 rounded-2xl p-4 flex flex-col gap-2 min-w-[200px]"
                                     >
                                         <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/95 border-t border-l border-luxury-gold/10 rotate-45 transform" />
@@ -219,6 +220,7 @@ export function Navbar() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
+                            transition={M3Transition.overlayFade}
                             className="fixed inset-0 z-[59] bg-black/40 backdrop-blur-sm md:hidden"
                             onClick={() => setMobileMenuOpen(false)}
                         />
@@ -228,7 +230,7 @@ export function Navbar() {
                             initial={{ x: '100%' }}
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
-                            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                            transition={M3Spring.expressive}
                             className="fixed top-0 right-0 bottom-0 z-[60] w-auto min-w-[170px] bg-luxury-bg/80 backdrop-blur-xl border-l border-luxury-gold/10 shadow-2xl shadow-black/50 px-4 py-6 flex flex-col md:hidden"
                         >
                             <div className="flex justify-between items-center mb-8">
@@ -261,7 +263,7 @@ export function Navbar() {
                                         className="text-2xl font-semibold text-luxury-text hover:text-luxury-gold"
                                         initial={{ opacity: 0, x: 20 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: 0.1 + idx * 0.1 }}
+                                        transition={{ delay: M3Duration.short2 + idx * 0.08, ...M3Spring.standard }}
                                         onClick={() => setMobileMenuOpen(false)}
                                     >
                                         {link.name}
@@ -271,7 +273,7 @@ export function Navbar() {
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.5 }}
+                                    transition={{ delay: M3Duration.long1, ...M3Spring.gentle }}
                                     className="mt-8 flex justify-center"
                                 >
                                     {/* Mobile SignIn Button -> Closes menu AND opens dialog */}

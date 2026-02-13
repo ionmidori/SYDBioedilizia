@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
+import { M3Spring } from '@/lib/m3-motion';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, PlayCircle, Star, ShieldCheck, Zap, Palette, FileText } from 'lucide-react';
 import { SlideShowModal } from './SlideShowModal';
@@ -90,7 +91,7 @@ export function Hero() {
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
+                    transition={M3Spring.gentle}
                 >
                     {/* Badge */}
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-luxury-bg border border-luxury-gold/30 text-white text-xs font-semibold uppercase tracking-wider mb-8 shadow-sm shadow-luxury-gold/10">
@@ -195,7 +196,7 @@ export function Hero() {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.8, delay: 0.2 }}
+                    transition={{ delay: 0.15, ...M3Spring.standard }}
                     className="relative hidden md:block lg:mt-20"
                 >
                     <HeroVideo />
