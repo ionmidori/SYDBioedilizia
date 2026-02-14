@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, FileText, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -66,11 +66,17 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
         [handleTabChange],
     );
 
+    // ── Exit: swipe right past first tab → go to projects list ──────────────
+    const handleSwipePastStart = useCallback(() => {
+        router.push('/dashboard/projects');
+    }, [router]);
+
     // ── Swipe Navigation ─────────────────────────────────────────────────────
     const { containerProps, swipeX } = useSwipeNavigation({
         panes: [...TABS],
         activeIndex,
         onSwipe: handleSwipe,
+        onSwipePastStart: handleSwipePastStart,
         swipeThreshold: 60,
         enableHaptics: true,
     });

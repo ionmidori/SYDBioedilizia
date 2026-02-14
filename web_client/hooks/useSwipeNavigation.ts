@@ -39,6 +39,8 @@ export interface SwipeConfig {
     activeIndex: number;
     /** Callback fired when user completes a swipe to a new pane */
     onSwipe: (newIndex: number) => void;
+    /** Callback fired when user swipes right past the first pane (exit gesture) */
+    onSwipePastStart?: () => void;
     /** Minimum px offset to trigger a pane change (default: 80) */
     swipeThreshold?: number;
     /** Minimum px/ms velocity to trigger even below threshold (default: 0.5) */
@@ -113,6 +115,7 @@ export function useSwipeNavigation(config: SwipeConfig): SwipeResult {
         panes,
         activeIndex,
         onSwipe,
+        onSwipePastStart,
         swipeThreshold = 80,
         velocityThreshold = 0.5,
         enableHaptics = true,
@@ -191,7 +194,11 @@ export function useSwipeNavigation(config: SwipeConfig): SwipeResult {
             const isAtStart = activeIndex === 0 && dx > 0;
             const isAtEnd = activeIndex === panes.length - 1 && dx < 0;
 
-            if (isAtStart || isAtEnd) {
+            if (isAtStart && onSwipePastStart) {
+                // Exit gesture available: allow full movement (damped) to hint navigability
+                const dampedDx = Math.sign(dx) * Math.log2(1 + Math.abs(dx) * 0.3) * 12;
+                swipeX.set(dampedDx);
+            } else if (isAtStart || isAtEnd) {
                 // Rubber-band: logarithmic damping at boundaries
                 const dampedDx = Math.sign(dx) * Math.log2(1 + Math.abs(dx) * 0.5) * 8;
                 swipeX.set(dampedDx);
@@ -224,6 +231,14 @@ export function useSwipeNavigation(config: SwipeConfig): SwipeResult {
                 } else if (currentOffset > 0 && activeIndex > 0) {
                     // Swiped right → previous pane
                     newIndex = activeIndex - 1;
+                } else if (currentOffset > 0 && activeIndex === 0 && onSwipePastStart) {
+                    // Swiped right past start → exit gesture
+                    animate(swipeX, 0, M3Spring.expressive);
+                    if (enableHaptics) triggerHaptic(HAPTIC_DURATION_MS);
+                    onSwipePastStart();
+                    setIsSwiping(false);
+                    directionLockedRef.current = null;
+                    return;
                 }
             }
 
@@ -239,7 +254,7 @@ export function useSwipeNavigation(config: SwipeConfig): SwipeResult {
             setIsSwiping(false);
             directionLockedRef.current = null;
         },
-        [activeIndex, enableHaptics, onSwipe, panes.length, swipeThreshold, swipeX, velocityThreshold],
+        [activeIndex, enableHaptics, onSwipe, onSwipePastStart, panes.length, swipeThreshold, swipeX, velocityThreshold],
     );
 
     return {
