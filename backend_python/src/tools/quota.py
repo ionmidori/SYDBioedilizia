@@ -12,7 +12,7 @@ S3 FIX: Quota is now tracked per-project (not per-user) to match business rules.
 
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from src.utils.datetime_utils import utc_now
 from typing import Tuple, Optional
 
@@ -155,7 +155,7 @@ async def check_quota(
                 w_count = w_data.get("count", 0)
                 w_start = w_data.get("window_start")
                 if hasattr(w_start, 'timestamp'):
-                    w_start = datetime.fromtimestamp(w_start.timestamp())
+                    w_start = datetime.fromtimestamp(w_start.timestamp(), tz=timezone.utc)
                 
                 if now < w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS):
                     if w_count >= weekly_limit and custom_limit is None:
@@ -178,7 +178,7 @@ async def check_quota(
             return True, daily_limit - 1, reset_at
         
         if hasattr(window_start, 'timestamp'): 
-            window_start = datetime.fromtimestamp(window_start.timestamp())
+            window_start = datetime.fromtimestamp(window_start.timestamp(), tz=timezone.utc)
         
         if now >= window_start + timedelta(hours=QUOTA_WINDOW_HOURS):
             allowed = daily_limit > 0
@@ -260,7 +260,7 @@ async def _increment_counter(
             window_start = data.get("window_start")
             
             if hasattr(window_start, 'timestamp'):
-                window_start = datetime.fromtimestamp(window_start.timestamp())
+                window_start = datetime.fromtimestamp(window_start.timestamp(), tz=timezone.utc)
             
             if now >= window_start + timedelta(hours=window_hours):
                 await doc_ref.update({
