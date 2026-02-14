@@ -87,7 +87,7 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal' }: PaneIndi
     );
 }
 
-export const MAIN_LABELS = ['Progetti', 'Dashboard', 'Galleria'] as const;
+export const MAIN_LABELS = ['Progetti', 'Bacheca', 'Galleria'] as const;
 export const SUBPAGE_LABELS = ['Cantiere AI', 'Galleria', 'Settaggi'] as const;
 
 // ─── Swipe Hint Affordance ───────────────────────────────────────────────────

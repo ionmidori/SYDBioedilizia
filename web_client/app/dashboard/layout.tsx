@@ -11,6 +11,9 @@ import { useEffect } from "react"
 import { Loader2 } from "lucide-react"
 import { MobileSwipeLayout } from "@/components/mobile/MobileSwipeLayout"
 import { OnboardingTour } from "@/components/dashboard/OnboardingTour"
+import { AnimatePresence, motion } from "framer-motion"
+import { usePathname } from "next/navigation"
+import { createFadeSlideVariants } from "@/lib/m3-motion"
 
 // Sidebar dimensions
 const SIDEBAR_WIDTH_EXPANDED = '18rem'
@@ -68,6 +71,8 @@ export default function DashboardLayout({
     )
 }
 
+const pageVariants = createFadeSlideVariants()
+
 function DashboardContent({
     children,
     showWarning,
@@ -82,6 +87,7 @@ function DashboardContent({
     logout: () => Promise<void>
 }) {
     const { open, isMobile } = useSidebar()
+    const pathname = usePathname()
 
     // Calculate margin based on sidebar state
     // Desktop: Expanded vs Collapsed
@@ -97,7 +103,18 @@ function DashboardContent({
                 <div className="flex-1 flex flex-col min-h-0 relative w-full overflow-hidden">
                     <DashboardHeader />
                     <div className="flex-1 overflow-y-auto overflow-x-hidden relative pb-[env(safe-area-inset-bottom)]">
-                        {children}
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={pathname}
+                                variants={pageVariants}
+                                initial="enter"
+                                animate="center"
+                                exit="exit"
+                                className="h-full"
+                            >
+                                {children}
+                            </motion.div>
+                        </AnimatePresence>
                     </div>
 
                     {/* GLOBAL FLOATING CHAT REMOVED per user request */}

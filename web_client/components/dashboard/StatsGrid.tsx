@@ -24,30 +24,34 @@ function StatCard({ label, value, icon: Icon, isLoading, index }: StatProps & { 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.05 }}
-            className="group relative flex flex-col justify-between p-4 rounded-3xl bg-luxury-bg/80 border border-luxury-gold/15 hover:border-luxury-gold/30 transition-all duration-300 backdrop-blur-sm shadow-sm"
+            className="group relative flex flex-col items-center justify-center aspect-square p-4 rounded-3xl bg-luxury-bg/80 border border-luxury-gold/15 hover:border-luxury-gold/30 transition-all duration-300 backdrop-blur-sm shadow-sm"
         >
             {/* Background Hover Glow */}
             <div className="absolute inset-0 bg-gradient-to-br from-luxury-gold/0 to-luxury-gold/0 group-hover:from-luxury-gold/5 group-hover:to-transparent rounded-3xl transition-all duration-500" />
 
-            {/* Top: Value */}
+            {/* Icon */}
+            {Icon && (
+                <div className="relative mb-2">
+                    <Icon className="w-5 h-5 text-luxury-gold/50 group-hover:text-luxury-gold transition-colors" />
+                </div>
+            )}
+
+            {/* Value */}
             <div className="relative">
                 {isLoading ? (
-                    <div className="h-8 w-16 bg-luxury-text/10 rounded animate-pulse" />
+                    <div className="h-10 w-16 bg-luxury-text/10 rounded animate-pulse" />
                 ) : (
-                    <span className="text-3xl md:text-4xl font-serif font-bold text-luxury-gold drop-shadow-[0_0_8px_rgba(233,196,106,0.15)] tracking-tight">
+                    <span className="text-4xl md:text-5xl font-serif font-bold text-luxury-gold drop-shadow-[0_0_8px_rgba(233,196,106,0.15)] tracking-tight">
                         {value}
                     </span>
                 )}
             </div>
 
-            {/* Bottom: Label & Icon */}
-            <div className="relative mt-2 flex items-center justify-between">
-                <span className="text-xs md:text-sm font-semibold uppercase tracking-wider font-sans text-luxury-text/80">
+            {/* Label */}
+            <div className="relative mt-2 text-center">
+                <span className="text-[10px] md:text-xs font-semibold uppercase tracking-wider font-sans text-luxury-text/70">
                     {label}
                 </span>
-                {Icon && (
-                    <Icon className="w-4 h-4 text-luxury-gold/60 group-hover:text-luxury-gold transition-colors" />
-                )}
             </div>
         </motion.div>
     );

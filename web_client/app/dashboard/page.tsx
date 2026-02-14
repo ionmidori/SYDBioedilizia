@@ -7,7 +7,7 @@ import { StatsGrid } from '@/components/dashboard/StatsGrid';
 import { QuickActionsRow } from '@/components/dashboard/QuickActionsRow';
 import { ProjectsCarousel } from '@/components/dashboard/ProjectsCarousel';
 import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
-import { FolderKanban, FileText, Image, LayoutGrid, Plus, Upload, MessageSquare, Receipt, Ruler } from 'lucide-react';
+import { FolderKanban, FileText, Image, Plus, Upload, Receipt, Ruler } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -43,6 +43,15 @@ export default function DashboardPage() {
         return 'Buonasera';
     }, []);
 
+    // Formatted date: "14 FEB · VENERDÌ"
+    const formattedDate = useMemo(() => {
+        const now = new Date();
+        const day = now.getDate();
+        const month = now.toLocaleDateString('it-IT', { month: 'short' }).toUpperCase().replace('.', '');
+        const weekday = now.toLocaleDateString('it-IT', { weekday: 'long' }).toUpperCase();
+        return `${day} ${month} · ${weekday}`;
+    }, []);
+
     const userName = user?.displayName?.split(' ')[0] || 'Utente';
 
     // M3 Stagger variants for dashboard sections
@@ -53,42 +62,34 @@ export default function DashboardPage() {
 
     return (
         <motion.div
-            className="flex flex-col space-y-8 py-6 px-4 md:px-8 max-w-[1600px] mx-auto w-full pb-32 md:pb-8 overflow-x-hidden overflow-y-visible"
+            className="bento-grid py-6 px-4 md:px-8 max-w-[1600px] mx-auto w-full pb-32 md:pb-8 overflow-x-hidden overflow-y-visible"
             variants={sectionStagger}
             initial="hidden"
             animate="visible"
         >
-            {/* Header Section */}
-            <header className="flex items-center justify-between">
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={M3Spring.gentle}
-                    className="space-y-1"
-                >
-                    <h1 className="text-3xl md:text-4xl font-serif font-bold text-luxury-text tracking-tight">
-                        {greeting}, <br className="md:hidden" />
-                        <span className="text-luxury-gold italic">{userName}</span>
-                    </h1>
-                    <p className="text-luxury-text/50 font-sans text-sm md:text-base">
-                        Panoramica attività
-                    </p>
-                </motion.div>
-
-                {/* User Avatar (Placeholder for now, could be passed from Auth) */}
-                <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={M3Spring.bouncy}
-                    className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-luxury-gold/10 border border-luxury-gold/30 flex items-center justify-center text-luxury-gold font-serif font-bold text-lg md:text-xl shrink-0"
-                >
-                    {userName.charAt(0)}
-                </motion.div>
-            </header>
+            {/* Welcome Hero */}
+            <motion.header
+                className="space-y-2"
+                style={{ gridArea: 'hero' }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={M3Spring.gentle}
+            >
+                <p className="text-[11px] font-sans uppercase tracking-widest text-luxury-gold/60 font-medium">
+                    {formattedDate}
+                </p>
+                <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-luxury-text tracking-tight leading-tight">
+                    {greeting}, <br className="md:hidden" />
+                    <span className="text-luxury-gold italic">{userName}</span>
+                </h1>
+                <p className="text-luxury-text/50 font-sans text-sm md:text-base">
+                    La tua bacheca operativa
+                </p>
+            </motion.header>
 
             {/* Error State */}
             {error && (
-                <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-2xl text-red-400">
+                <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-2xl text-red-400" style={{ gridArea: 'hero' }}>
                     <p className="flex items-center gap-2 font-semibold text-sm">
                         <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                         Errore: {error}
@@ -97,7 +98,7 @@ export default function DashboardPage() {
             )}
 
             {/* 1. KPI Stats Grid (2x2) */}
-            <motion.section variants={sectionItem}>
+            <motion.section variants={sectionItem} style={{ gridArea: 'stats' }}>
                 <StatsGrid
                     isLoading={statsLoading}
                     stats={[
@@ -109,8 +110,8 @@ export default function DashboardPage() {
                 />
             </motion.section>
 
-            {/* 2. Quick Actions (Horizontal Row) */}
-            <motion.section variants={sectionItem}>
+            {/* 2. Quick Actions (Surface Cards) */}
+            <motion.section variants={sectionItem} style={{ gridArea: 'actions' }}>
                 <h3 className="sr-only">Azioni Rapide</h3>
                 <QuickActionsRow
                     actions={[
@@ -124,22 +125,6 @@ export default function DashboardPage() {
                             label: 'Carica File',
                             icon: Upload,
                             onClick: () => router.push('/dashboard/gallery')
-                        },
-                        {
-                            label: 'Galleria',
-                            icon: LayoutGrid,
-                            onClick: () => router.push('/dashboard/gallery')
-                        },
-                        {
-                            label: 'Chat AI',
-                            icon: MessageSquare,
-                            onClick: () => {
-                                if (recentProjects[0]) {
-                                    router.push(`/dashboard/${recentProjects[0].session_id}`);
-                                } else {
-                                    handleCreateProject();
-                                }
-                            }
                         },
                         {
                             label: 'Rilievo CAD',
@@ -157,7 +142,7 @@ export default function DashboardPage() {
             </motion.section>
 
             {/* 3. Recent Projects (Carousel) */}
-            <motion.section variants={sectionItem}>
+            <motion.section variants={sectionItem} style={{ gridArea: 'projects' }}>
                 <ProjectsCarousel
                     projects={recentProjects}
                     isLoading={projectsLoading}

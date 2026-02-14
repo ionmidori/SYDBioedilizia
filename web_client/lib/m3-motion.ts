@@ -168,6 +168,41 @@ export function createStaggerVariants(
  *   - `1` = slide from right (next)
  *   - `-1` = slide from left (previous)
  */
+/**
+ * Creates fade + vertical slide variants for page-level transitions.
+ * Lighter than full horizontal slides — ideal for dashboard page changes.
+ *
+ * Usage with AnimatePresence:
+ * ```tsx
+ * <AnimatePresence mode="wait">
+ *   <motion.div key={pathname} variants={fadeSlide} initial="enter" animate="center" exit="exit">
+ *     {children}
+ *   </motion.div>
+ * </AnimatePresence>
+ * ```
+ */
+export function createFadeSlideVariants(distance = 20): Variants {
+    return {
+        enter: {
+            opacity: 0,
+            y: distance,
+        },
+        center: {
+            opacity: 1,
+            y: 0,
+            transition: M3Spring.gentle,
+        },
+        exit: {
+            opacity: 0,
+            y: -distance * 0.5,
+            transition: {
+                duration: M3Duration.medium1,
+                ease: M3EasingFM.accelerate,
+            },
+        },
+    };
+}
+
 export function createSlideVariants(distance = 300): Variants {
     return {
         enter: (direction: number) => ({

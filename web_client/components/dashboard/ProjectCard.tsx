@@ -18,11 +18,11 @@ interface ProjectCardProps {
 }
 
 const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: string }> = {
-    draft: { label: 'Bozza', color: 'text-slate-400', bg: 'bg-slate-500/10' },
-    analyzing: { label: 'In Analisi', color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    quoted: { label: 'Preventivato', color: 'text-yellow-400', bg: 'bg-yellow-500/10' },
-    rendering: { label: 'Rendering', color: 'text-purple-400', bg: 'bg-purple-500/10' },
-    completed: { label: 'Completato', color: 'text-green-400', bg: 'bg-green-500/10' },
+    draft: { label: 'Bozza', color: 'text-slate-300', bg: 'bg-slate-500/15' },
+    analyzing: { label: 'In Analisi', color: 'text-sky-300', bg: 'bg-sky-500/15' },
+    quoted: { label: 'Preventivato', color: 'text-amber-300', bg: 'bg-amber-500/15' },
+    rendering: { label: 'Rendering', color: 'text-violet-300', bg: 'bg-violet-500/15' },
+    completed: { label: 'Completato', color: 'text-emerald-300', bg: 'bg-emerald-500/15' },
 };
 
 export function ProjectCard({ project, onDelete }: ProjectCardProps) {
@@ -62,9 +62,13 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
             onClick={handleCardClick}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+            whileHover={{
+                y: -5,
+                boxShadow: '0 12px 32px -8px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(233, 196, 106, 0.15), 0 0 20px rgba(233, 196, 106, 0.08)',
+                transition: { duration: 0.2 }
+            }}
             transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="group relative flex flex-col gap-3 p-5 rounded-2xl border border-luxury-gold/10 glass-premium hover:border-luxury-gold/30 hover:shadow-elevation-high transition-colors duration-500 cursor-pointer overflow-hidden"
+            className="group relative flex flex-col gap-3 p-5 rounded-[24px] surface-container-low hover:surface-container-high hover:shadow-elevation-high transition-all duration-500 cursor-pointer overflow-hidden"
         >
             {/* Cinematic Gradient Sweep (on hover) */}
             <div className="absolute inset-0 bg-gradient-to-tr from-luxury-teal/0 via-luxury-teal/5 to-luxury-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -100,7 +104,7 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
             </div>
 
             {/* Thumbnail */}
-            <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-luxury-bg border border-luxury-gold/10 group-hover:border-luxury-gold/20 transition-all duration-500">
+            <div className="relative aspect-[3/2] w-full overflow-hidden rounded-xl bg-luxury-bg border border-luxury-gold/10 group-hover:border-luxury-gold/20 transition-all duration-500">
                 {project.thumbnail_url && project.original_image_url ? (
                     <div className="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity duration-500">
                         <ComparisonThumbnail

@@ -287,6 +287,63 @@
   background: #E9C46A; /* Brighter Gold */
 }
 
+/* Notch Draggable Variant */
+.notch-draggable {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* M3 Surface Container Levels */
+.surface-container-low {
+  background: rgba(38, 70, 83, 0.6);
+  border: 1px solid rgba(233, 196, 106, 0.1);
+}
+
+.surface-container-high {
+  background: rgba(38, 70, 83, 0.85);
+  border: 1px solid rgba(233, 196, 106, 0.25);
+}
+
+/* M3 Extra Large Shape */
+.m3-shape-xl {
+  border-radius: 24px;
+}
+
+/* Bento Grid Layout */
+.bento-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "hero"
+    "stats"
+    "actions"
+    "projects";
+}
+
+@media (min-width: 768px) {
+  .bento-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "hero hero"
+      "stats actions"
+      "projects projects";
+  }
+}
+
+@media (min-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-areas:
+      "hero hero stats"
+      "actions actions projects"
+      "projects projects projects";
+  }
+}
+
 /* Atmospheric Blur */
 .atmospheric-blur-optimized {
   @apply blur-[60px] md:blur-[120px];

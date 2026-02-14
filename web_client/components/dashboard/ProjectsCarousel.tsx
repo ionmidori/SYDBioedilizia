@@ -72,10 +72,10 @@ function ProjectCard({ project, index }: { project: ProjectListItem, index: numb
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
             onClick={() => router.push(`/dashboard/${project.session_id}`)}
-            className="snap-start shrink-0 w-[240px] flex flex-col gap-3 group cursor-pointer"
+            className="snap-start shrink-0 w-[260px] flex flex-col gap-3 group cursor-pointer"
         >
             {/* Image Container */}
-            <div className="relative h-[160px] w-full rounded-2xl overflow-hidden bg-luxury-bg/50 border border-luxury-text/5 group-hover:border-luxury-gold/30 transition-all">
+            <div className="relative aspect-[3/2] w-full rounded-[24px] overflow-hidden bg-luxury-bg/50 border border-luxury-text/5 group-hover:border-luxury-gold/30 transition-all">
                 {project.thumbnail_url ? (
                     <Image
                         src={project.thumbnail_url}
@@ -113,7 +113,7 @@ function LoadingSkeleton() {
     return (
         <div className="flex gap-4 overflow-hidden py-2">
             {[1, 2, 3].map((i) => (
-                <div key={i} className="shrink-0 w-[240px] h-[220px] rounded-2xl bg-luxury-text/5 animate-pulse" />
+                <div key={i} className="shrink-0 w-[260px] h-[240px] rounded-[24px] bg-luxury-text/5 animate-pulse" />
             ))}
         </div>
     );
