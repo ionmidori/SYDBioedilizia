@@ -56,17 +56,25 @@ const db = getFirestore(app);
 import { getStorage } from 'firebase/storage';
 const storage = getStorage(app);
 
-// Initialize App Check
+// Initialize App Check (with protection against multiple initializations)
 let appCheck: AppCheck | undefined;
 
 if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
     const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
     if (siteKey) {
         try {
-            appCheck = initializeAppCheck(app, {
-                provider: new ReCaptchaV3Provider(siteKey),
-                isTokenAutoRefreshEnabled: true
-            });
+            // @ts-ignore - Check if already initialized via global flag
+            if (!window._firebaseAppCheckInitialized) {
+                appCheck = initializeAppCheck(app, {
+                    provider: new ReCaptchaV3Provider(siteKey),
+                    isTokenAutoRefreshEnabled: true
+                });
+                // @ts-ignore - Mark as initialized
+                window._firebaseAppCheckInitialized = true;
+                console.log('[Firebase] ✅ App Check initialized');
+            } else {
+                console.log('[Firebase] ✅ App Check already initialized (skipped)');
+            }
         } catch (error) {
             console.error('[Firebase] App Check initialization failed:', error);
         }
