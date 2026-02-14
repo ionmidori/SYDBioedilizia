@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, FormEvent, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, FormEvent, useMemo, useRef } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { UIMessage as Message } from 'ai';
 import { ChatContext } from '@/hooks/useChatContext';
@@ -61,21 +61,44 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }) as any; // 🛡️ Temporary cast until SDK types resolve
 
     const isLoading = status === 'streaming' || status === 'submitted';
+    const welcomeInjectedRef = useRef(false);
+
+    // Reset welcome flag when session changes
+    useEffect(() => {
+        welcomeInjectedRef.current = false;
+    }, [sessionId]);
 
     // Sync History to SDK State
     useEffect(() => {
         // Only sync if history is loaded and we are not currently generating (to avoid overwriting stream)
         // We allow overwriting if 'ready' to ensure we have the canonical DB state (Ids, timestamps)
         if (historyLoaded && status !== 'streaming' && status !== 'submitted') {
-            // Check if we need to sync:
-            // 1. Length mismatch
+            // 1. Cold Start (Welcome Message) — check FIRST to avoid sync loop
+            if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
+                console.log('[ChatProvider] Cold start: Injecting welcome message.');
+                welcomeInjectedRef.current = true;
+                setMessages([{
+                    id: 'welcome-msg',
+                    role: 'assistant',
+                    content: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. ⚡ **Chiedere un preventivo veloce**\n2. 🎨 **Creare un rendering gratuito**\n3. ℹ️ **Chiedere informazioni**\n\nCome posso aiutarti oggi?",
+                    createdAt: new Date()
+                } as any]);
+                return;
+            }
+
+            // Skip sync if we injected the welcome message and history is empty
+            if (welcomeInjectedRef.current && historyMessages.length === 0) {
+                return;
+            }
+
+            // 2. Length mismatch
             if (messages.length !== historyMessages.length) {
                 console.log(`[ChatProvider] Syncing history (length mismatch: ${messages.length} vs ${historyMessages.length})`);
                 setMessages(historyMessages);
                 return;
             }
 
-            // 2. Content/ID mismatch on the last message (deep check not needed for efficiency)
+            // 3. Content/ID mismatch on the last message (deep check not needed for efficiency)
             if (messages.length > 0) {
                 const lastSdk = messages[messages.length - 1];
                 const lastHistory = historyMessages[historyMessages.length - 1];
@@ -85,17 +108,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                     console.log(`[ChatProvider] Syncing history (ID mismatch: ${lastSdk.id} vs ${lastHistory.id})`);
                     setMessages(historyMessages);
                 }
-            }
-
-            // 3. Cold Start (Welcome Message)
-            if (historyMessages.length === 0 && messages.length === 0) {
-                console.log('[ChatProvider] Cold start: Injecting welcome message.');
-                setMessages([{
-                    id: 'welcome-msg',
-                    role: 'assistant',
-                    content: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. ⚡ **Chiedere un preventivo veloce**\n2. 🎨 **Creare un rendering gratuito**\n3. ℹ️ **Chiedere informazioni**\n\nCome posso aiutarti oggi?",
-                    createdAt: new Date()
-                } as any]);
             }
         }
     }, [historyLoaded, historyMessages, sessionId, setMessages, status, messages.length]); // Dependencies optimized
