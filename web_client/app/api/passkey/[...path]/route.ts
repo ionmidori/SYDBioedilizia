@@ -19,12 +19,16 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
 
     try {
         // 2. Prepare headers
-        // We need to forward the Authorization header if present
+        // Forward Authorization and App Check headers to backend
         const headers = new Headers();
         const authHeader = req.headers.get('Authorization');
+        const appCheckHeader = req.headers.get('X-Firebase-AppCheck');
 
         if (authHeader) {
             headers.set('Authorization', authHeader);
+        }
+        if (appCheckHeader) {
+            headers.set('X-Firebase-AppCheck', appCheckHeader);
         }
 
         headers.set('Content-Type', 'application/json');

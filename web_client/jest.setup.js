@@ -16,6 +16,58 @@ console.log('TextDecoder polyfill applied:', !!global.TextDecoder);
 // This extends Jest's expect() with custom matchers like toBeInTheDocument()
 import '@testing-library/jest-dom';
 
+// ✅ Mock Firebase SDK modules to prevent real initialization during tests
+jest.mock('firebase/app', () => ({
+    initializeApp: jest.fn(() => ({ name: '[DEFAULT]' })),
+    getApps: jest.fn(() => []),
+    getApp: jest.fn(() => ({ name: '[DEFAULT]' })),
+}));
+
+jest.mock('firebase/auth', () => ({
+    getAuth: jest.fn(() => ({
+        currentUser: null,
+        onAuthStateChanged: jest.fn(),
+    })),
+    setPersistence: jest.fn(() => Promise.resolve()),
+    browserLocalPersistence: {},
+    onAuthStateChanged: jest.fn((auth, callback) => {
+        // Call callback with null user by default
+        setTimeout(() => callback(null), 0);
+        // Return unsubscribe function
+        return jest.fn();
+    }),
+    signInWithEmailAndPassword: jest.fn(() => Promise.resolve({ user: {} })),
+    signOut: jest.fn(() => Promise.resolve()),
+    createUserWithEmailAndPassword: jest.fn(() => Promise.resolve({ user: {} })),
+}));
+
+jest.mock('firebase/firestore', () => ({
+    getFirestore: jest.fn(() => ({})),
+    collection: jest.fn(),
+    doc: jest.fn(),
+    getDoc: jest.fn(),
+    setDoc: jest.fn(),
+    updateDoc: jest.fn(),
+    deleteDoc: jest.fn(),
+    query: jest.fn(),
+    where: jest.fn(),
+    orderBy: jest.fn(),
+    limit: jest.fn(),
+    getDocs: jest.fn(),
+}));
+
+jest.mock('firebase/storage', () => ({
+    getStorage: jest.fn(() => ({})),
+    ref: jest.fn(),
+    uploadBytes: jest.fn(),
+    getDownloadURL: jest.fn(),
+}));
+
+jest.mock('firebase/app-check', () => ({
+    initializeAppCheck: jest.fn(() => ({})),
+    ReCaptchaV3Provider: jest.fn(),
+}));
+
 // Mock localStorage
 const localStorageMock = (() => {
     let store = {};

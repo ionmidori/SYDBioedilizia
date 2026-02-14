@@ -1,14 +1,13 @@
 "use client";
 
 import React, { useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { GlobalGalleryContent } from '@/components/dashboard/GlobalGalleryContent';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/components/dashboard/SidebarProvider';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
-import { M3Spring, M3Transition } from '@/lib/m3-motion';
+import { M3Spring } from '@/lib/m3-motion';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -17,44 +16,85 @@ interface MobileSwipeLayoutProps {
 }
 
 const PANES = ['projects', 'dashboard', 'gallery'] as const;
-type Pane = (typeof PANES)[number];
-const DEFAULT_PANE_INDEX = 1; // 'dashboard'
+const PANE_ROUTES = ['/dashboard/projects', '/dashboard', '/dashboard/gallery'] as const;
 
-// ─── Dot Indicator ───────────────────────────────────────────────────────────
+const PROJECT_SUBPAGES = ['chat', 'files', 'settings'] as const;
+export type ProjectSubpage = (typeof PROJECT_SUBPAGES)[number];
 
-function PaneIndicator({ activeIndex }: { activeIndex: number }) {
-    const labels = ['Progetti', 'Dashboard', 'Galleria'];
+// ─── Helpers (exported for DashboardHeader) ─────────────────────────────────
+
+/** UUID regex for detecting project routes */
+const PROJECT_ID_REGEX = /^\/dashboard\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/;
+
+export function getActiveIndexFromPathname(pathname: string): number {
+    // Project routes count as "projects" section
+    if (pathname.startsWith('/dashboard/projects') || PROJECT_ID_REGEX.test(pathname)) return 0;
+    if (pathname.startsWith('/dashboard/gallery')) return 2;
+    return 1; // default: /dashboard
+}
+
+/** Extract project ID from pathname, or null if not in a project */
+export function getProjectIdFromPathname(pathname: string): string | null {
+    const match = pathname.match(PROJECT_ID_REGEX);
+    return match ? match[1] : null;
+}
+
+/** Get the active project subpage index from pathname + search params */
+export function getProjectSubpageIndex(pathname: string, viewParam: string | null): number {
+    if (pathname.endsWith('/files')) return 1;
+    if (pathname.endsWith('/settings')) return 2;
+    if (viewParam === 'files') return 1;
+    if (viewParam === 'settings') return 2;
+    return 0; // chat (default)
+}
+
+// ─── Dot Indicator (exported for DashboardHeader) ───────────────────────────
+
+interface PaneIndicatorProps {
+    activeIndex: number;
+    labels: readonly string[];
+    size?: 'normal' | 'small';
+}
+
+export function PaneIndicator({ activeIndex, labels, size = 'normal' }: PaneIndicatorProps) {
+    const dotWidth = size === 'small' ? 14 : 20;
+    const dotHeight = size === 'small' ? 4 : 6;
+    const inactiveDot = size === 'small' ? 4 : 6;
+
     return (
-        <div className="flex items-center justify-center gap-2 py-1.5">
-            {PANES.map((_, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                    <motion.div
-                        className={cn(
-                            "rounded-full transition-colors duration-200",
-                            i === activeIndex
-                                ? "bg-luxury-gold"
-                                : "bg-luxury-text/20"
-                        )}
-                        animate={{
-                            width: i === activeIndex ? 20 : 6,
-                            height: 6,
-                        }}
-                        transition={M3Spring.expressive}
-                    />
-                </div>
+        <div className="flex items-center justify-center gap-1.5 py-1">
+            {labels.map((_, i) => (
+                <motion.div
+                    key={i}
+                    className={cn(
+                        "rounded-full transition-colors duration-200",
+                        i === activeIndex ? "bg-luxury-gold" : "bg-luxury-text/20"
+                    )}
+                    animate={{
+                        width: i === activeIndex ? dotWidth : inactiveDot,
+                        height: dotHeight,
+                    }}
+                    transition={M3Spring.expressive}
+                />
             ))}
-            <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-luxury-text/40">
+            <span className={cn(
+                "ml-1.5 font-bold uppercase tracking-wider text-luxury-text/40",
+                size === 'small' ? "text-[8px]" : "text-[10px]"
+            )}>
                 {labels[activeIndex]}
             </span>
         </div>
     );
 }
 
+export const MAIN_LABELS = ['Progetti', 'Dashboard', 'Galleria'] as const;
+export const SUBPAGE_LABELS = ['Cantiere AI', 'Galleria', 'Settaggi'] as const;
+
 // ─── Swipe Hint Affordance ───────────────────────────────────────────────────
 
-function SwipeHints({ activeIndex }: { activeIndex: number }) {
+function SwipeHints({ activeIndex, totalPanes }: { activeIndex: number; totalPanes: number }) {
     const canGoLeft = activeIndex > 0;
-    const canGoRight = activeIndex < PANES.length - 1;
+    const canGoRight = activeIndex < totalPanes - 1;
 
     return (
         <>
@@ -77,51 +117,25 @@ function SwipeHints({ activeIndex }: { activeIndex: number }) {
 export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
     const pathname = usePathname();
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { isMobile } = useSidebar();
 
-    // ── URL-Synced Active Pane ──────────────────────────────────────────────
-    const activeIndex = useMemo(() => {
-        const viewParam = searchParams.get('pane') as Pane | null;
-        const idx = PANES.indexOf(viewParam as Pane);
-        return idx >= 0 ? idx : DEFAULT_PANE_INDEX;
-    }, [searchParams]);
+    // ── Detect if inside a project ──────────────────────────────────────────
+    const isInsideProject = useMemo(() => PROJECT_ID_REGEX.test(pathname), [pathname]);
 
-    const activePane = PANES[activeIndex];
+    // ── Derive active pane from current route ───────────────────────────────
+    const activeIndex = useMemo(() => getActiveIndexFromPathname(pathname), [pathname]);
 
     const setActivePaneByIndex = useCallback(
         (newIndex: number) => {
-            const pane = PANES[newIndex];
-            if (!pane || pane === PANES[activeIndex]) return;
-
-            // "projects" pane → navigate to the real projects page for consistency
-            // with sidebar navigation (both paths lead to /dashboard/projects)
-            if (pane === 'projects') {
-                router.push('/dashboard/projects');
-                return;
-            }
-
-            // Shallow URL update — preserves back button navigation
-            const params = new URLSearchParams(searchParams.toString());
-            if (pane === 'dashboard') {
-                params.delete('pane'); // Clean URL for default pane
-            } else {
-                params.set('pane', pane);
-            }
-            const query = params.toString();
-            const newUrl = `${pathname}${query ? `?${query}` : ''}`;
-            router.replace(newUrl, { scroll: false });
+            const route = PANE_ROUTES[newIndex];
+            if (!route || newIndex === activeIndex) return;
+            router.push(route);
         },
-        [activeIndex, pathname, router, searchParams],
+        [activeIndex, router],
     );
 
-    // Return to dashboard (used by pane close buttons)
-    const goToDashboard = useCallback(() => {
-        setActivePaneByIndex(DEFAULT_PANE_INDEX);
-    }, [setActivePaneByIndex]);
-
-    // ── Swipe Navigation Hook ───────────────────────────────────────────────
-    const { containerProps, swipeX, isSwiping } = useSwipeNavigation({
+    // ── Swipe Navigation Hook (disabled inside projects — ProjectMobileTabs handles it) ──
+    const { containerProps, swipeX } = useSwipeNavigation({
         panes: [...PANES],
         activeIndex,
         onSwipe: setActivePaneByIndex,
@@ -131,70 +145,30 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
     // Desktop: render children only
     if (!isMobile) return <>{children}</>;
 
+    // Inside a project: disable main swipe, let ProjectMobileTabs handle navigation
+    if (isInsideProject) {
+        return (
+            <div className="relative h-[100dvh] w-full bg-luxury-bg overflow-hidden">
+                {children}
+            </div>
+        );
+    }
+
     return (
         <div
             className="relative h-[100dvh] w-full bg-luxury-bg overflow-hidden"
             {...containerProps}
         >
-            {/* Pane Indicator Dots */}
-            <div className="absolute top-0 left-0 right-0 z-30 bg-luxury-bg/80 backdrop-blur-sm">
-                <PaneIndicator activeIndex={activeIndex} />
-            </div>
-
             {/* Swipe Hints (chevrons on edges) */}
-            <SwipeHints activeIndex={activeIndex} />
+            <SwipeHints activeIndex={activeIndex} totalPanes={PANES.length} />
 
             {/* Main Dashboard Content — uses MotionValue for zero-rerender drag */}
             <motion.div
-                className="absolute inset-0 z-0 h-full w-full bg-luxury-bg pt-8 touch-pan-y"
+                className="absolute inset-0 z-0 h-full w-full bg-luxury-bg touch-pan-y"
                 style={{ x: swipeX }}
             >
                 {children}
             </motion.div>
-
-            {/* Gallery Overlay (slides from right) */}
-            <AnimatePresence>
-                {activePane === 'gallery' && (
-                    <motion.div
-                        key="gallery-pane"
-                        className="absolute inset-0 z-50 h-full w-full bg-luxury-bg shadow-2xl"
-                        initial={{ x: '100%' }}
-                        animate={{ x: '0%' }}
-                        exit={{ x: '100%' }}
-                        transition={M3Spring.expressive}
-                    >
-                        <div className="relative h-full w-full flex flex-col">
-                            <div className="h-14 flex items-center justify-between px-4 border-b border-luxury-gold/10 bg-luxury-bg/95 backdrop-blur">
-                                <span className="font-serif text-lg text-luxury-gold">Galleria Globale</span>
-                                <button
-                                    onClick={goToDashboard}
-                                    className="p-2 hover:bg-luxury-gold/10 rounded-full text-luxury-text/60"
-                                    aria-label="Chiudi galleria"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                            <div className="flex-1 overflow-hidden bg-luxury-bg">
-                                <GlobalGalleryContent />
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Scrim overlay behind active pane */}
-            <AnimatePresence>
-                {activePane !== 'dashboard' && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={M3Transition.overlayFade}
-                        className="absolute inset-0 z-40 bg-black/20 backdrop-blur-[1px]"
-                        style={{ pointerEvents: 'none' }}
-                    />
-                )}
-            </AnimatePresence>
         </div>
     );
 }
