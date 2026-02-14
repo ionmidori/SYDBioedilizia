@@ -16,8 +16,8 @@ describe('ChatHeader', () => {
         // Check for title (component shows "SYD", not "Assistente SYD")
         expect(screen.getByText(/syd/i)).toBeInTheDocument();
 
-        // Check for status
-        expect(screen.getByText(/online/i)).toBeInTheDocument();
+        // Check for architect badge text
+        expect(screen.getByText(/architetto personale/i)).toBeInTheDocument();
 
         // Check for minimize button (using icon presence instead of aria-label)
         const buttons = screen.getAllByRole('button');
@@ -41,16 +41,16 @@ describe('ChatHeader', () => {
         expect(screen.getByText(/architetto/i)).toBeInTheDocument();
     });
 
-    it('should have header structure with avatar and status', () => {
+    it('should have header structure with avatar and subtitle', () => {
         const { container } = render(<ChatHeader {...defaultProps} />);
 
         // Check that header container exists
         const header = container.firstChild;
         expect(header).toBeInTheDocument();
-        
-        // Verify Online status is present
-        expect(screen.getByText(/online/i)).toBeInTheDocument();
-        
+
+        // Verify architect badge text is present
+        expect(screen.getByText(/architetto personale/i)).toBeInTheDocument();
+
         // Verify SYD name is present
         expect(screen.getByText(/syd/i)).toBeInTheDocument();
     });

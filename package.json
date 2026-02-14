@@ -7,7 +7,7 @@
     ],
     "scripts": {
         "dev:web": "npm run dev --workspace=web_client",
-        "dev:py": "cd backend_python && uv run uvicorn main:app --reload --port 8080"
+        "dev:py": "cd backend_python && uv run uvicorn src.main:app --reload --port 8080"
     },
     "dependencies": {
         "next": "^15.5.12",

@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: backend-python
+Version: 2.0.4
+Requires-Python: >=3.12
+Requires-Dist: email-validator>=2.3.0
+Requires-Dist: fastapi>=0.128.0
+Requires-Dist: firebase-admin>=7.1.0
+Requires-Dist: google-cloud-aiplatform>=1.133.0
+Requires-Dist: google-cloud-firestore>=2.23.0
+Requires-Dist: google-genai>=1.59.0
+Requires-Dist: google-generativeai>=0.8.6
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: langchain>=1.2.6
+Requires-Dist: langchain-core>=1.2.7
+Requires-Dist: langchain-google-genai>=4.2.0
+Requires-Dist: langchain-google-vertexai>=3.2.1
+Requires-Dist: langgraph>=1.0.6
+Requires-Dist: pillow>=12.1.0
+Requires-Dist: pinecone-client>=6.0.0
+Requires-Dist: pyjwt>=2.10.1
+Requires-Dist: python-dotenv>=1.2.1
+Requires-Dist: python-multipart>=0.0.18
+Requires-Dist: uvicorn[standard]>=0.40.0
+Requires-Dist: pydantic-settings>=2.0.0
+Requires-Dist: ezdxf>=1.4.3
+Requires-Dist: python-dateutil>=2.9.0.post0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.23.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.12.0; extra == "dev"
