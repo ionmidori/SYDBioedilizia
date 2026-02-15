@@ -96,13 +96,13 @@ class ConversationRepository:
                 db.collection('sessions')
                 .document(session_id)
                 .collection('messages')
-                .order_by('timestamp', direction=firestore.Query.ASCENDING)
+                .order_by('timestamp', direction=firestore.Query.DESCENDING)
                 .limit(limit)
             )
             
             docs = messages_ref.stream()
             
-            messages = []
+            messages_reversed = []
             for doc in docs:
                 data = doc.to_dict()
                 msg = {
@@ -116,9 +116,12 @@ class ConversationRepository:
                 if 'attachments' in data:
                     msg['attachments'] = data['attachments']
                     
-                messages.append(msg)
+                messages_reversed.append(msg)
             
-            logger.info(f"[Repo] Retrieved {len(messages)} messages for session {session_id}")
+            # Re-order chronologically for the LLM
+            messages = messages_reversed[::-1]
+            
+            logger.info(f"[Repo] Retrieved {len(messages)} LATEST messages for session {session_id}")
             return messages
             
         except Exception as e:
@@ -233,21 +236,21 @@ class ConversationRepository:
                 db.collection('sessions')
                 .document(session_id)
                 .collection('messages')
-                .order_by('timestamp', direction=firestore.Query.ASCENDING)
+                .order_by('timestamp', direction=firestore.Query.DESCENDING)
                 .limit(limit)
             )
             
             docs = messages_ref.stream()
             
-            messages = []
+            messages_reversed = []
             for doc in docs:
                 data = doc.to_dict()
-                messages.append({
+                messages_reversed.append({
                     'role': data.get('role', 'user'),
                     'content': data.get('content', '')
                 })
             
-            return messages
+            return messages_reversed[::-1]
             
         except Exception as e:
             logger.error(f"[Repo] (sync) Error retrieving messages: {str(e)}", exc_info=True)

@@ -200,12 +200,17 @@ Respond with ONLY valid JSON. No markdown, no explanations:
         )
         
         # Generate response (Async)
-        response = await llm.ainvoke([message])
+        # 🔐 FIX: Tag as "reasoning_tier" to prevent AgentOrchestrator from streaming this internal JSON to the user.
+        response = await llm.ainvoke([message], config={"tags": ["reasoning_tier"]})
         raw_output = response.content
         
         if not raw_output:
             logger.warning("[Architect] No output, using fallback")
             return _create_fallback_output(target_style, preservation_list)
+        
+        # 🧪 ROBUSTNESS: Handle list output from multimodal models
+        if isinstance(raw_output, list):
+            raw_output = "".join([p.get("text", "") if isinstance(p, dict) else str(p) for p in raw_output])
         
         # Clean and parse JSON
         cleaned_output = raw_output.replace("```json", "").replace("```", "").strip()

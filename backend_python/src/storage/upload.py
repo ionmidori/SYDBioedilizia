@@ -6,9 +6,11 @@ from datetime import datetime, timedelta
 from typing import Dict, Any
 from google.cloud import storage
 
+from src.core.config import settings
+
 logger = logging.getLogger(__name__)
 
-FIREBASE_STORAGE_BUCKET = os.getenv("FIREBASE_STORAGE_BUCKET")
+# Config loading moved inside functions or used via settings directly for robustness
 
 def upload_base64_image(
     base64_data: str,
@@ -29,7 +31,7 @@ def upload_base64_image(
     Raises:
         Exception: If upload fails
     """
-    if not FIREBASE_STORAGE_BUCKET:
+    if not settings.FIREBASE_STORAGE_BUCKET:
         raise Exception("FIREBASE_STORAGE_BUCKET not configured")
     
     try:
@@ -66,7 +68,7 @@ def upload_base64_image(
         # ✅ Now uses same credentials as Firestore
         from src.storage.firebase_storage import get_storage_client
         client = get_storage_client()
-        bucket = client.bucket(FIREBASE_STORAGE_BUCKET)
+        bucket = client.bucket(settings.FIREBASE_STORAGE_BUCKET)
         blob = bucket.blob(file_name)
         
         blob.upload_from_string(
@@ -101,7 +103,7 @@ def upload_file_bytes(
     """
     Upload raw bytes to Firebase Storage and return signed URL.
     """
-    if not FIREBASE_STORAGE_BUCKET:
+    if not settings.FIREBASE_STORAGE_BUCKET:
         raise Exception("FIREBASE_STORAGE_BUCKET not configured")
     
     try:
@@ -109,7 +111,7 @@ def upload_file_bytes(
         
         from src.storage.firebase_storage import get_storage_client
         client = get_storage_client()
-        bucket = client.bucket(FIREBASE_STORAGE_BUCKET)
+        bucket = client.bucket(settings.FIREBASE_STORAGE_BUCKET)
         blob = bucket.blob(full_path)
         
         blob.upload_from_string(

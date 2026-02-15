@@ -92,7 +92,7 @@ async def get_chat_history(
             db.collection('sessions')
             .document(session_id)
             .collection('messages')
-            .order_by('timestamp', direction=firestore.Query.ASCENDING)
+            .order_by('timestamp', direction=firestore.Query.DESCENDING)
         )
         
         # Apply cursor-based pagination
@@ -114,6 +114,10 @@ async def get_chat_history(
         messages = []
         last_id = None
         
+        # Reverse docs to restore chronological order (Oldest -> Newest)
+        # We fetched Newest -> Oldest to get the "latest" slice
+        docs.reverse()
+
         for doc in docs:
             data = doc.to_dict()
             last_id = doc.id

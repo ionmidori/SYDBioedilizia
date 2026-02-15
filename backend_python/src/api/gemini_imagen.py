@@ -7,10 +7,12 @@ from google import genai
 from google.genai import types
 from google.api_core import exceptions as google_exceptions
 
+from src.core.config import settings
+
 logger = logging.getLogger(__name__)
 
-# Configure Gemini API
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Configure Gemini API via Settings (Robust)
+# GEMINI_API_KEY is now accessed via settings.api_key which handles fallback and validation
 
 # Create client with API key (Lazy)
 _client = None
@@ -19,9 +21,11 @@ def _get_client():
     """Lazy-load GenAI client."""
     global _client
     if _client is None:
-        if not GEMINI_API_KEY:
-            raise Exception("GEMINI_API_KEY not configured in environment")
-        _client = genai.Client(api_key=GEMINI_API_KEY)
+        try:
+            api_key = settings.api_key
+            _client = genai.Client(api_key=api_key)
+        except ValueError as e:
+            raise Exception(f"Configuration Error: {e}")
     return _client
 
 # Models for image generation
@@ -47,9 +51,12 @@ async def generate_image_t2i(
         Exception: If API call fails or no API key configured
     """
     # Create fresh client for this request (avoids Event Loop conflicts in sync wrappers)
-    if not GEMINI_API_KEY:
-        raise Exception("GEMINI_API_KEY not configured in environment")
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    # Create fresh client for this request (avoids Event Loop conflicts in sync wrappers)
+    try:
+        api_key = settings.api_key
+        client = genai.Client(api_key=api_key)
+    except ValueError as e:
+        raise Exception(f"Configuration Error: {e}")
     
     try:
         # Build full prompt
@@ -141,9 +148,12 @@ async def generate_image_i2i(
         Exception: If API call fails or no API key configured
     """
     # Create fresh client for this request
-    if not GEMINI_API_KEY:
-        raise Exception("GEMINI_API_KEY not configured in environment")
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    # Create fresh client for this request
+    try:
+        api_key = settings.api_key
+        client = genai.Client(api_key=api_key)
+    except ValueError as e:
+        raise Exception(f"Configuration Error: {e}")
     
     try:
         # Build I2I prompt with geometry preservation instructions
