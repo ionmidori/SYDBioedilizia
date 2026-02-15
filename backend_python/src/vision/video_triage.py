@@ -295,14 +295,14 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Video analysis failed: {str(e)}", exc_info=True)
-        # Fallback response
+        # Fallback response with sanitized error message
         return {
             "success": False,
             "roomType": "living space",
             "currentStyle": "contemporary",
             "keyFeatures": ["existing layout"],
             "condition": "good",
-            "renovationNotes": f"Unable to perform detailed video analysis: {str(e)}",
+            "renovationNotes": "Unable to perform video analysis. Please try a different video or contact support.",
             "audioTranscript": None
         }
     finally:

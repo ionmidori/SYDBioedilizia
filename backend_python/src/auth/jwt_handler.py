@@ -63,7 +63,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
         raise AuthError("Token expired", detail={"reason": "expired"})
     except auth.InvalidIdTokenError as e:
         logger.warning(f"Invalid Firebase ID token: {str(e)}")
-        raise AuthError("Invalid token", detail={"reason": str(e)})
+        raise AuthError("Invalid token", detail={"reason": "Token validation failed"})
     except Exception as e:
         logger.error(f"Authentication error: {str(e)}")
         raise AuthError("Authentication failed", detail={"reason": "unknown"})
