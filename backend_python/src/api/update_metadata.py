@@ -2,9 +2,10 @@
 API endpoint for updating file metadata in Firebase Storage.
 Allows users to correct AI-assigned metadata (room type, status).
 """
+import re
 import logging
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from src.db.firebase_client import get_firestore_client, get_storage_client
 from src.auth.jwt_handler import get_current_user_id
@@ -14,12 +15,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+_ALLOWED_PATH_PREFIXES = ("renders/", "user-uploads/", "projects/")
+
+
 class UpdateMetadataRequest(BaseModel):
     """Request body for metadata update."""
-    project_id: str
-    file_path: str  # Full path in storage (e.g., "renders/project_123/image.jpg")
-    room: Optional[str] = None
-    status: Optional[str] = None
+    project_id: str = Field(..., min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
+    file_path: str = Field(..., min_length=1, max_length=512)
+    room: Optional[str] = Field(None, max_length=100)
+    status: Optional[str] = Field(None, max_length=50)
+
+    @field_validator('file_path')
+    @classmethod
+    def validate_file_path(cls, v: str) -> str:
+        # Prevent path traversal
+        if '..' in v or v.startswith('/') or '\\' in v:
+            raise ValueError('Invalid file path: path traversal detected')
+        # Only allow known storage prefixes
+        if not v.startswith(_ALLOWED_PATH_PREFIXES):
+            raise ValueError(f'Invalid file path: must start with one of {_ALLOWED_PATH_PREFIXES}')
+        # Only allow safe characters
+        if not re.match(r'^[a-zA-Z0-9/_.\-]+$', v):
+            raise ValueError('Invalid file path: contains disallowed characters')
+        return v
 
 
 @router.post("/update-file-metadata")
@@ -90,4 +108,4 @@ async def update_file_metadata(
         raise
     except Exception as e:
         logger.error(f"[UpdateMetadata] Failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to update metadata: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to update metadata")

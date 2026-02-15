@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @tool
+@require_auth
 async def submit_lead(name: str, email: str, phone: str, project_details: str, session_id: str = "default") -> str:
     """Save lead contact info and project details to database."""
     logger.info(f"[Tool] 🚀 submit_lead called for session {session_id}")

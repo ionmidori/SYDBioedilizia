@@ -27,13 +27,13 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
     # S7 FIX: Restrict bypass to EXPLICIT development mode only
     if not credentials:
         if settings.ENV == "development":
-            logger.warning("⚠️ Auth Bypass: No token provided in DEV mode. Using 'debug-user'.")
+            logger.warning("Auth Bypass: No token provided in DEV mode. Using 'debug-user' with restricted access.")
             return UserSession(
                 uid="debug-user",
                 email="debug@local",
-                is_authenticated=True,
+                is_authenticated=False,
                 is_debug_user=True,
-                claims={"bypass": True}
+                claims={"bypass": True, "env": "development"}
             )
         else:
             raise AuthError("Authentication credentials required", detail={"reason": "missing_token"})

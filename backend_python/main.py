@@ -1,10 +1,11 @@
 from fastapi import FastAPI, Header, HTTPException, Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
-from src.auth.jwt_handler import verify_token, security 
-from src.schemas.internal import UserSession 
+from pydantic import BaseModel, Field, field_validator
+from src.auth.jwt_handler import verify_token, security
+from src.schemas.internal import UserSession
 from src.core.logger import setup_logging, get_logger
+from src.core.config import settings
 from src.services.agent_orchestrator import AgentOrchestrator, get_orchestrator
 import uuid
 from src.core.context import set_request_id
@@ -19,21 +20,27 @@ logger = get_logger(__name__)
 
 app = FastAPI(title="SYD Brain", version="0.4.0")
 
-# 🔒 CORS Middleware (Vercel Timeout Bypass)
+# 🔒 CORS Middleware (Hardened)
 from fastapi.middleware.cors import CORSMiddleware
+
+_production_origins = [
+    "https://website-renovation.vercel.app",
+    "https://website-renovation-git-main-ionmidori.vercel.app",
+    "https://sydbioedilizia.vercel.app",
+    "https://sydbioedilizia-git-main-ionmidori.vercel.app",
+]
+_allowed_origins = (
+    _production_origins + ["http://localhost:3000", "http://127.0.0.1:3000"]
+    if settings.ENV == "development"
+    else _production_origins
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://website-renovation.vercel.app",
-        "https://website-renovation-git-main-ionmidori.vercel.app",
-        "https://sydbioedilizia.vercel.app",
-        "https://sydbioedilizia-git-main-ionmidori.vercel.app",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Firebase-AppCheck", "X-Request-ID"],
 )
 
 # 🆔 Request ID Middleware (Tracing)
@@ -98,8 +105,10 @@ async def app_check_middleware(request: Request, call_next):
     if request.method == "OPTIONS":
         return await call_next(request)
         
-    # Public endpoints whitelist
-    public_paths = ["/health", "/docs", "/openapi.json", "/favicon.ico"]
+    # Public endpoints whitelist (docs only in development)
+    public_paths = ["/health", "/favicon.ico"]
+    if settings.ENV == "development":
+        public_paths.extend(["/docs", "/openapi.json"])
     if request.url.path in public_paths:
         return await call_next(request)
 
@@ -150,11 +159,19 @@ app.include_router(metadata_router)
 
 
 class LeadSubmissionRequest(BaseModel):
-    name: str
-    email: str
-    phone: str | None = None
-    quote_summary: str
-    session_id: str
+    name: str = Field(..., min_length=1, max_length=200)
+    email: str = Field(..., max_length=320)
+    phone: str | None = Field(None, max_length=30)
+    quote_summary: str = Field(..., min_length=1, max_length=5000)
+    session_id: str = Field(..., min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
+
+    @field_validator('email')
+    @classmethod
+    def validate_email_format(cls, v: str) -> str:
+        import re
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
+            raise ValueError('Invalid email format')
+        return v.lower().strip()
 
 @app.post("/api/submit-lead")
 async def submit_lead_endpoint(request: LeadSubmissionRequest, user_session: UserSession = Depends(verify_token)):
@@ -177,9 +194,23 @@ async def submit_lead_endpoint(request: LeadSubmissionRequest, user_session: Use
     
     return {"status": "success", "message": result}
 
+class ChatMessage(BaseModel):
+    role: str = Field(..., pattern=r'^(user|assistant|system)$')
+    content: str | list = Field(...)
+
+    @field_validator('content')
+    @classmethod
+    def validate_content_size(cls, v):
+        if isinstance(v, str) and len(v) > 50000:
+            raise ValueError('Message content exceeds maximum length (50000 chars)')
+        if isinstance(v, list) and len(v) > 20:
+            raise ValueError('Message content exceeds maximum parts (20)')
+        return v
+
+
 class ChatRequest(BaseModel):
-    messages: list[dict]
-    session_id: str = Field(..., alias="sessionId")
+    messages: list[ChatMessage] = Field(..., max_length=100)
+    session_id: str = Field(..., alias="sessionId", min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     # ✅ Support both images and videos
     media_urls: list[str] | None = Field(None, alias="mediaUrls") 
     image_urls: list[str] | None = Field(None, alias="imageUrls")  # Backward compatibility
@@ -189,7 +220,7 @@ class ChatRequest(BaseModel):
     video_file_uris: list[str] | None = Field(None, alias="videoFileUris")  # File API URIs from /upload endpoint
     
     # 🌍 CONTEXT AWARENESS (Renovation-Next)
-    project_id: str | None = Field(None, alias="projectId")
+    project_id: str | None = Field(None, alias="projectId", max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     is_authenticated: bool = Field(False) # Matches JSON directly
     
     model_config = {"populate_by_name": True}

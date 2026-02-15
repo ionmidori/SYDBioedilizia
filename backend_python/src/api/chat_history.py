@@ -76,8 +76,11 @@ async def get_chat_history(
         session_data = session_doc.to_dict()
         session_owner = session_data.get('userId', '')
         
-        # Allow access if user owns the session OR if it's an anonymous session they created
-        if session_owner != user_id and not session_owner.startswith('guest_'):
+        # Allow access only if user owns the session
+        # Guest sessions: only accessible if user previously claimed them or session was created for them
+        is_owner = session_owner == user_id
+        is_claimable_guest = session_owner.startswith('guest_') and session_data.get('claimedBy') in (None, user_id)
+        if not is_owner and not is_claimable_guest:
             logger.warning(
                 f"[ChatHistory] Access denied: User '{user_id}' "
                 f"tried to access session '{session_id}' owned by '{session_owner}'"

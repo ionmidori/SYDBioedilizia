@@ -181,10 +181,10 @@ async def upload_image(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Image upload failed: {str(e)}")
+        logger.error(f"Image upload failed: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Upload failed: {str(e)}"
+            detail="Upload failed. Please try again."
         )
 
 
@@ -242,10 +242,10 @@ async def upload_video(
             # Prepare stream for service
             file_stream = io.BytesIO(content)
             
-            # 🚀 DELEGATE TO SERVICE
+            # 🚀 DELEGATE TO SERVICE (use validated MIME, not client-declared)
             uploaded_file = await processor.upload_video_for_analysis(
                 file_stream=file_stream,
-                mime_type=file.content_type,
+                mime_type=detected_mime,
                 display_name=safe_filename
             )
             
@@ -269,18 +269,18 @@ async def upload_video(
             )
             
         except VideoProcessingError as e:
-            logger.error(f"❌ Video processing error: {str(e)}")
+            logger.error(f"Video processing error: {str(e)}")
             raise HTTPException(
                 status_code=502,
-                detail=str(e)
+                detail="Video processing failed. Please try a different format or smaller file."
             )
-            
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ Video upload handler failed: {str(e)}")
+        logger.error(f"Video upload handler failed: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail=f"Upload failed: {str(e)}"
+            detail="Upload failed. Please try again."
         )
 

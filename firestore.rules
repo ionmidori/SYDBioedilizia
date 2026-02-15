@@ -2,34 +2,39 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // ==========================================
     // SESSIONS COLLECTION
     // ==========================================
-    // ✅ SECURITY FIX: Time-limited read access (7-day TTL)
-    // Prevents unauthorized access to old sessions
+    // Auth-required read with ownership check + 7-day TTL
     // Server-only write (only Admin SDK can create/update)
     match /sessions/{sessionId} {
-      // Allow read only if session is less than 7 days old
-      // This improves privacy while maintaining current architecture
-      allow read: if (request.auth != null && resource.data.userId == request.auth.uid) ||
-                     (resource.data.createdAt != null && 
-                      resource.data.createdAt > request.time - duration.value(7, 'd'));
-      
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || resource.data.userId.matches('guest_.*'))
+        && resource.data.createdAt != null
+        && resource.data.createdAt > request.time - duration.value(7, 'd');
+
       // Only server can write (via Admin SDK with service account)
       allow write: if false;
-      
+
       // Messages subcollection
       match /messages/{messageId} {
-        // Allow read if parent session doesn't exist (new session) OR if it exists and is recent
-        allow read: if !exists(/databases/$(database)/documents/sessions/$(sessionId)) || 
-                       get(/databases/$(database)/documents/sessions/$(sessionId)).data.createdAt > request.time - duration.value(7, 'd');
-        
+        // Allow read only if user owns the parent session
+        allow read: if request.auth != null
+          && (
+            !exists(/databases/$(database)/documents/sessions/$(sessionId))
+            || (
+              get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid
+              || get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId.matches('guest_.*')
+            )
+          );
+
         // Only server can write messages
         allow write: if false;
       }
     }
-    
+
     // ==========================================
     // LEADS COLLECTION
     // ==========================================
@@ -38,49 +43,74 @@ service cloud.firestore {
       // Only server can read/write leads
       allow read, write: if false;
     }
-    
-    
+
+
     // ==========================================
     // USER PREFERENCES
     // ==========================================
-    
+
     match /users/{userId}/preferences/{prefId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
+
     // ==========================================
     // PROJECT FILES METADATA
     // ==========================================
-    
+
     match /projects/{projectId}/files/{fileId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null 
-        && resource.data.uploadedBy == request.auth.uid;
+      // Read: user must own the project
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid;
+
+      // Write: user must own the project
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid;
+
+      // Delete: user must own the project AND be the uploader
+      allow delete: if request.auth != null
+        && resource.data.uploadedBy == request.auth.uid
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid;
     }
-    
+
     // ==========================================
     // COLLECTION GROUP: FILES
     // ==========================================
-    // Enable Global Gallery to query all files across all projects
-    // using collectionGroup('files')
+    // Global Gallery queries restricted to files the user uploaded
     match /{path=**}/files/{fileId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null 
+      allow read: if request.auth != null
+        && resource.data.uploadedBy == request.auth.uid;
+
+      // Write restricted to uploader
+      allow write: if request.auth != null
+        && resource.data.uploadedBy == request.auth.uid;
+
+      allow delete: if request.auth != null
         && resource.data.uploadedBy == request.auth.uid;
     }
-    
+
     // ==========================================
     // PROJECTS COLLECTION
     // ==========================================
-    
+
     match /projects/{projectId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-      allow delete: if request.auth != null;
+      // Read: owner OR claimable guest projects
+      allow read: if request.auth != null
+        && (resource.data.userId == request.auth.uid
+            || resource.data.userId.matches('guest_.*'));
+
+      // Create: any authenticated user
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+
+      // Update: only owner
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      // Delete: only owner
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
     }
-    
+
     // ==========================================
     // USERS COLLECTION
     // ==========================================
@@ -89,11 +119,11 @@ service cloud.firestore {
     match /users/{userId} {
       // Allow authenticated users to read their own data
       allow read: if request.auth != null && request.auth.uid == userId;
-      
+
       // Allow authenticated users to write their own data
       allow write: if request.auth != null && request.auth.uid == userId;
     }
-    
+
     // ==========================================
     // DEFAULT RULE - DENY ALL
     // ==========================================

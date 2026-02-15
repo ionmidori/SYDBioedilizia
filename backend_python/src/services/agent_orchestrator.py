@@ -77,8 +77,11 @@ class AgentOrchestrator:
             logger.info(f"[Orchestrator] Loaded {len(conversation_history)} messages")
             
             # 🔥 Process User Message & Attachments
-            latest_user_message = request.messages[-1] if request.messages else {"role": "user", "content": ""}
-            user_content = self._parse_content(latest_user_message.get("content", ""))
+            latest_msg = request.messages[-1] if request.messages else None
+            latest_user_message = latest_msg.model_dump() if hasattr(latest_msg, 'model_dump') else (latest_msg or {"role": "user", "content": ""})
+            user_content = self._parse_content(latest_user_message.get("content", "") if isinstance(latest_user_message, dict) else getattr(latest_user_message, 'content', ""))
+            # 🛡️ Sanitize user input against prompt injection
+            user_content = self._sanitize_user_input(user_content)
             
             attachments_data, user_content_with_markers = self._process_attachments(request, user_id, user_content)
             
@@ -370,6 +373,21 @@ class AgentOrchestrator:
 
     def _parse_content(self, raw):
         return self._extract_text(raw).strip()
+
+    def _sanitize_user_input(self, content: str) -> str:
+        """Strip system-level markers and prompt injection patterns from user input."""
+        # Remove system context markers that could be used for injection
+        content = re.sub(r'\[\[.*?\]\]', '', content)
+        # Remove XML-like system/instruction tags
+        content = re.sub(
+            r'<(?:system|instruction|prompt|identity|mode|protocol|critical_protocols|reasoning_instructions|output_rules).*?>.*?</.*?>',
+            '', content, flags=re.DOTALL
+        )
+        # Truncate excessively long messages
+        max_length = 10000
+        if len(content) > max_length:
+            content = content[:max_length]
+        return content.strip() or "..."
 
     async def _handle_error(self, e: Exception):
         import traceback

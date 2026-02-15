@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str | None = Field(None, description="Legacy alias for GEMINI_API_KEY")
     PERPLEXITY_API_KEY: str | None = Field(None, description="Required for Market Prices")
     
-    # Feature Flags
-    ENABLE_APP_CHECK: bool = Field(default=False, description="Enable Firebase App Check")
+    # Feature Flags (App Check enabled by default for production safety)
+    ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")
     
     # Auth & Infrastructure
     RP_ID: str | None = Field(None, description="WebAuthn Relying Party ID")
