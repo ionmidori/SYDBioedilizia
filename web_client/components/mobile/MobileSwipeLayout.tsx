@@ -15,8 +15,8 @@ interface MobileSwipeLayoutProps {
     children: React.ReactNode;
 }
 
-const PANES = ['projects', 'dashboard', 'gallery'] as const;
-const PANE_ROUTES = ['/dashboard/projects', '/dashboard', '/dashboard/gallery'] as const;
+const PANES = ['dashboard', 'gallery', 'projects'] as const;
+const PANE_ROUTES = ['/dashboard', '/dashboard/gallery', '/dashboard/projects'] as const;
 
 const PROJECT_SUBPAGES = ['chat', 'files', 'settings'] as const;
 export type ProjectSubpage = (typeof PROJECT_SUBPAGES)[number];
@@ -28,9 +28,9 @@ const PROJECT_ID_REGEX = /^\/dashboard\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-
 
 export function getActiveIndexFromPathname(pathname: string): number {
     // Project routes count as "projects" section
-    if (pathname.startsWith('/dashboard/projects') || PROJECT_ID_REGEX.test(pathname)) return 0;
-    if (pathname.startsWith('/dashboard/gallery')) return 2;
-    return 1; // default: /dashboard
+    if (pathname.startsWith('/dashboard/projects') || PROJECT_ID_REGEX.test(pathname)) return 2;
+    if (pathname.startsWith('/dashboard/gallery')) return 1;
+    return 0; // default: /dashboard
 }
 
 /** Extract project ID from pathname, or null if not in a project */
@@ -87,7 +87,7 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal' }: PaneIndi
     );
 }
 
-export const MAIN_LABELS = ['Progetti', 'Bacheca', 'Galleria'] as const;
+export const MAIN_LABELS = ['Bacheca', 'Galleria', 'Progetti'] as const;
 export const SUBPAGE_LABELS = ['Cantiere AI', 'Galleria', 'Settaggi'] as const;
 
 // ─── Swipe Hint Affordance ───────────────────────────────────────────────────
@@ -164,10 +164,12 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
 
             {/* Main Dashboard Content — uses MotionValue for zero-rerender drag */}
             <motion.div
-                className="absolute inset-0 z-0 h-full w-full bg-luxury-bg touch-pan-y"
+                className="absolute inset-0 z-0 h-full w-full"
                 style={{ x: swipeX }}
             >
-                {children}
+                <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-luxury-bg">
+                    {children}
+                </div>
             </motion.div>
         </div>
     );

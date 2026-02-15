@@ -122,17 +122,8 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
                 </AnimatePresence>
             </div>
 
-            {/* Bottom Navigation Bar with M3 Pill Indicator */}
-            <div className="h-16 bg-luxury-bg/80 backdrop-blur-lg border-t border-luxury-gold/10 flex items-center justify-around px-2 z-20 pb-safe relative">
-                {/* Animated Pill Indicator */}
-                <motion.div
-                    className="absolute top-0 h-0.5 bg-luxury-gold rounded-full"
-                    animate={{
-                        left: `${(activeIndex / TABS.length) * 100 + 100 / TABS.length / 2 - 8}%`,
-                        width: 48,
-                    }}
-                    transition={M3Spring.expressive}
-                />
+            {/* Bottom Navigation Bar */}
+            <div className="h-16 bg-luxury-bg/80 backdrop-blur-lg flex items-center justify-around px-2 z-20 pb-safe relative">
                 <NavButton
                     active={activeTab === 'chat'}
                     onClick={() => handleTabChange('chat')}
@@ -152,7 +143,7 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
                     label="Settings"
                 />
             </div>
-        </div>
+        </div >
     );
 }
 

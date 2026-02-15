@@ -77,8 +77,8 @@ __pycache__/
 htmlcov/
 
 # project memory (local only)
-directives/PROJECT_CONTEXT_SUMMARY.md
-directives/HISTORICAL_MILESTONES.md
+directives/
+docs/
 backend_python/server_debug.log
 
 # temporary files

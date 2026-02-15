@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { createStaggerVariants, M3Spring } from '@/lib/m3-motion';
+import { DebugLayout } from "@/components/DebugLayout";
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -62,7 +63,7 @@ export default function DashboardPage() {
 
     return (
         <motion.div
-            className="bento-grid py-6 px-4 md:px-8 max-w-[1600px] mx-auto w-full pb-32 md:pb-8 overflow-x-hidden overflow-y-visible"
+            className="bento-grid py-6 px-3 md:px-8 max-w-[1600px] mx-auto w-full pb-32 md:pb-8"
             variants={sectionStagger}
             initial="hidden"
             animate="visible"
@@ -98,20 +99,20 @@ export default function DashboardPage() {
             )}
 
             {/* 1. KPI Stats Grid (2x2) */}
-            <motion.section variants={sectionItem} style={{ gridArea: 'stats' }}>
+            <div style={{ gridArea: 'stats' }} className="w-full relative z-10 min-w-0">
                 <StatsGrid
                     isLoading={statsLoading}
                     stats={[
-                        { label: 'Progetti Attivi', value: stats.activeProjects, icon: FolderKanban },
-                        { label: 'File Totali', value: stats.totalFiles, icon: FileText },
+                        { label: 'Progetti', value: stats.activeProjects, icon: FolderKanban },
+                        { label: 'Files', value: stats.totalFiles, icon: FileText },
                         { label: 'Renders', value: stats.totalRenders, icon: Image },
-                        { label: 'Preventivi Creati', value: 0, icon: Receipt },
+                        { label: 'Preventivi', value: 0, icon: Receipt },
                     ]}
                 />
-            </motion.section>
+            </div>
 
             {/* 2. Quick Actions (Surface Cards) */}
-            <motion.section variants={sectionItem} style={{ gridArea: 'actions' }}>
+            <motion.section variants={sectionItem} style={{ gridArea: 'actions' }} className="min-w-0 overflow-hidden">
                 <h3 className="sr-only">Azioni Rapide</h3>
                 <QuickActionsRow
                     actions={[
@@ -142,7 +143,7 @@ export default function DashboardPage() {
             </motion.section>
 
             {/* 3. Recent Projects (Carousel) */}
-            <motion.section variants={sectionItem} style={{ gridArea: 'projects' }}>
+            <motion.section variants={sectionItem} style={{ gridArea: 'projects' }} className="min-w-0 overflow-hidden">
                 <ProjectsCarousel
                     projects={recentProjects}
                     isLoading={projectsLoading}

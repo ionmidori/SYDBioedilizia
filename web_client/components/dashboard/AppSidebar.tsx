@@ -429,15 +429,15 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                                         />
 
                                         {/* Active Project Context */}
-                                        {(projectsExpanded && projectSubItems.length > 0) && (
+                                        {projectSubItems.length > 0 && (
                                             <div className="mt-3 space-y-1 relative z-10">
                                                 {/* CANTIERE ATTIVO Header */}
-                                                {!isDesktopCollapsed && (
+                                                {(!isDesktopCollapsed || isMobile) && (
                                                     <span className="text-[10px] uppercase tracking-widest text-luxury-gold/60 font-bold px-3 block mb-2">
                                                         Cantiere Attivo
                                                     </span>
                                                 )}
-                                                <div className="ml-3 space-y-1 border-l-2 border-luxury-gold/20 pl-3">
+                                                <div className="ml-3 space-y-1 pl-3">
                                                     {projectSubItems.map((subItem) => (
                                                         <NavItem
                                                             key={subItem.href}

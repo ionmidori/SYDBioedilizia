@@ -100,7 +100,7 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
     return (
         <div className="flex flex-col w-full h-full overflow-y-auto px-4 py-6 md:px-0">
             {/* Header */}
-            <div className="relative border-b border-luxury-gold/10 pb-6 mb-6">
+            <div className="relative pb-6 mb-6">
                 <div className="flex items-start justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-luxury-text font-serif leading-tight flex items-center gap-3">

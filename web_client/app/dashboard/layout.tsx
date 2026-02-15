@@ -110,7 +110,7 @@ function DashboardContent({
                                 initial="enter"
                                 animate="center"
                                 exit="exit"
-                                className="h-full"
+                                className="min-h-full h-full"
                             >
                                 {children}
                             </motion.div>

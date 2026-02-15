@@ -35,7 +35,21 @@ export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsC
             </div>
 
             {/* Carousel Container */}
-            <div data-no-swipe className="flex overflow-x-auto pb-6 -mx-4 px-4 sm:mx-0 sm:px-0 gap-4 snap-x snap-mandatory scrollbar-hide">
+            <div
+                data-no-swipe
+                aria-label="Progetti recenti"
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchMove={(e) => e.stopPropagation()}
+                className="pb-6 -mx-3 px-3 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide w-full"
+                style={{
+                    display: 'flex',
+                    overflowX: 'auto',
+                    gap: '1rem',
+                    touchAction: 'pan-x',
+                    WebkitOverflowScrolling: 'touch',
+                    overscrollBehaviorX: 'contain',
+                }}
+            >
                 {projects.map((project, index) => (
                     <ProjectCard key={project.session_id} project={project} index={index} />
                 ))}

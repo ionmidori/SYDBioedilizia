@@ -115,7 +115,8 @@ async def generate_render(
     )
     
     # 3. Increment Quota (if successful)
-    if "✅" in result:
+    # Fix: Check structured dict status, not string presence of emoji
+    if isinstance(result, dict) and result.get("status") == "success":
         try:
             await increment_quota(effective_user_id, "generate_render")
             logger.info(f"[Quota] Incremented for {effective_user_id}")

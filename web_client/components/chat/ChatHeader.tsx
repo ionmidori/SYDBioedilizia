@@ -18,7 +18,7 @@ interface ChatHeaderProps {
 export function ChatHeader({ onMinimize, projectId, showSelector, onProjectSelect }: ChatHeaderProps) {
     return (
         <div
-            className="flex flex-col p-0 border-b border-luxury-gold/10 bg-luxury-bg/50 flex-shrink-0"
+            className="flex flex-col p-0 bg-luxury-bg/50 flex-shrink-0"
             style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
         >
             {/* Standard spacing for desktop/mobile without handle */}
