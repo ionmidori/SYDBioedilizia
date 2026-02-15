@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from src.utils.datetime_utils import utc_now
 from typing import Tuple, Optional
 
+from google.cloud.firestore_v1 import Increment
 from src.db.firebase_client import get_async_firestore_client
 from src.core.config import settings
 
@@ -227,24 +228,25 @@ async def increment_quota(
 
 
 async def _increment_counter(
-    db, 
-    doc_ref, 
-    user_id: str, 
-    tool_name: str, 
+    db,
+    doc_ref,
+    user_id: str,
+    tool_name: str,
     window_hours: int,
     project_id: Optional[str] = None
 ) -> None:
     """
-    Async counter increment.
-    
-    Note: Firestore async client doesn't support @firestore.transactional directly.
-    Using read-then-write pattern. For high-contention scenarios, consider
-    using distributed counters or Cloud Tasks.
+    Atomic counter increment using Firestore server-side Increment.
+
+    Uses Increment() transform which is atomic at the Firestore server level,
+    eliminating the read-then-write race condition for concurrent requests.
+    Window resets still use read-then-write but this is safe since the
+    worst case is resetting a window slightly late (not a security issue).
     """
     try:
         now = utc_now()
         snapshot = await doc_ref.get()
-        
+
         if not snapshot.exists:
             await doc_ref.set({
                 "count": 1,
@@ -256,13 +258,13 @@ async def _increment_counter(
             })
         else:
             data = snapshot.to_dict()
-            count = data.get("count", 0)
             window_start = data.get("window_start")
-            
+
             if hasattr(window_start, 'timestamp'):
                 window_start = datetime.fromtimestamp(window_start.timestamp(), tz=timezone.utc)
-            
+
             if now >= window_start + timedelta(hours=window_hours):
+                # Window expired: reset counter
                 await doc_ref.update({
                     "count": 1,
                     "window_start": now,
@@ -270,8 +272,9 @@ async def _increment_counter(
                     "project_id": project_id,
                 })
             else:
+                # Window active: atomic server-side increment
                 await doc_ref.update({
-                    "count": count + 1,
+                    "count": Increment(1),
                     "last_used": now
                 })
     except Exception as e:

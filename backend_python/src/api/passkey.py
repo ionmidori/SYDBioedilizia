@@ -17,7 +17,6 @@ import secrets
 import base64
 import json
 import logging
-import os
 import time
 from typing import Optional
 from urllib.parse import urlparse
@@ -27,8 +26,55 @@ router = APIRouter(prefix="/api/passkey", tags=["auth"])
 
 # In-memory challenge store
 # Format: { "challenge_string": { "user_id": str | None, "expires_at": float } }
-# Use Redis in production for distributed systems
+# TODO: Migrate to Redis in production for distributed systems
 _challenge_store: dict[str, dict] = {}
+
+# Maximum number of concurrent challenges to prevent memory exhaustion
+_MAX_CHALLENGES = 1000
+
+# Allowed RP_IDs - only these domains are valid for passkey operations
+_ALLOWED_RP_IDS = {
+    "sydbioedilizia.vercel.app",
+    "website-renovation.vercel.app",
+    "localhost",
+}
+
+
+def _resolve_rp_id(request: Request) -> str:
+    """Resolve RP_ID with domain whitelist validation."""
+    # 1. Prefer env var (always trusted)
+    rp_id = settings.RP_ID
+    if rp_id:
+        return rp_id
+
+    # 2. Extract from Origin/Host but validate against whitelist
+    candidate = None
+    origin = request.headers.get("origin")
+    host = request.headers.get("host")
+
+    if origin:
+        try:
+            parsed = urlparse(origin)
+            candidate = parsed.hostname
+        except Exception:
+            pass
+
+    if not candidate and host:
+        candidate = host.split(":")[0]
+
+    # 3. Validate against whitelist
+    if candidate and candidate in _ALLOWED_RP_IDS:
+        return candidate
+
+    # 4. Default to localhost only in development
+    if settings.ENV == "development":
+        return "localhost"
+
+    logger.warning(f"[Passkey] Rejected RP_ID candidate: {candidate}")
+    raise HTTPException(
+        status_code=400,
+        detail="Unable to determine Relying Party ID"
+    )
 
 
 class PasskeyRegistrationRequest(BaseModel):
@@ -100,39 +146,23 @@ async def get_registration_options(
         )
     
     _cleanup_challenges()
-    
+
+    # Prevent memory exhaustion from challenge accumulation
+    if len(_challenge_store) >= _MAX_CHALLENGES:
+        raise HTTPException(status_code=503, detail="Too many pending challenges. Try again shortly.")
+
     # Generate cryptographic challenge
     challenge_bytes = secrets.token_bytes(32)
     challenge_b64 = base64.urlsafe_b64encode(challenge_bytes).decode('utf-8').rstrip('=')
-    
+
     # Store challenge (Key is now the CHALLENGE itself)
     _challenge_store[challenge_b64] = {
         "user_id": user_id,
         "expires_at": time.time() + 60  # 60s expiration
     }
-    
-    # DYNAMIC RP_ID RESOLUTION
-    # 1. Prefer env var
-    rp_id = settings.RP_ID if hasattr(settings, 'RP_ID') else os.getenv("RP_ID")
-    
-    # 2. Fallback to extracting from Origin/Host for Dev flexibility
-    if not rp_id:
-        origin = request.headers.get("origin")
-        host = request.headers.get("host")
-        
-        if origin:
-            try:
-                parsed = urlparse(origin)
-                rp_id = parsed.hostname
-            except Exception:
-                pass
-        
-        if not rp_id and host:
-            rp_id = host.split(":")[0]  # Strip port
-            
-    if not rp_id:
-        rp_id = "localhost"
-        
+
+    # Resolve RP_ID with whitelist validation
+    rp_id = _resolve_rp_id(request)
     logger.info(f"Generated passkey registration challenge for user {user_id} (RP_ID: {rp_id})")
     
     return PasskeyRegistrationOptions(
@@ -217,11 +247,15 @@ async def get_authentication_options(
     """
     user_id = body.user_id
     _cleanup_challenges()
-    
+
+    # Prevent memory exhaustion from challenge accumulation
+    if len(_challenge_store) >= _MAX_CHALLENGES:
+        raise HTTPException(status_code=503, detail="Too many pending challenges. Try again shortly.")
+
     # Generate challenge
     challenge_bytes = secrets.token_bytes(32)
     challenge_b64 = base64.urlsafe_b64encode(challenge_bytes).decode('utf-8').rstrip('=')
-    
+
     # Store challenge (user_id might be None for Resident Keys)
     _challenge_store[challenge_b64] = {
         "user_id": user_id,
@@ -249,28 +283,8 @@ async def get_authentication_options(
                 detail="Nessuna passkey registrata per questo utente"
             )
             
-    # DYNAMIC RP_ID RESOLUTION
-    # 1. Prefer env var
-    rp_id = settings.RP_ID if hasattr(settings, 'RP_ID') else os.getenv("RP_ID")
-    
-    # 2. Fallback to extracting from Origin/Host for Dev flexibility
-    if not rp_id:
-        origin = request.headers.get("origin")
-        host = request.headers.get("host")
-        
-        if origin:
-            try:
-                parsed = urlparse(origin)
-                rp_id = parsed.hostname
-            except Exception:
-                pass
-        
-        if not rp_id and host:
-            rp_id = host.split(":")[0]  # Strip port
-            
-    if not rp_id:
-        rp_id = "localhost"
-
+    # Resolve RP_ID with whitelist validation
+    rp_id = _resolve_rp_id(request)
     logger.info(f"Generated passkey authentication challenge (user_id={user_id}) RP_ID: {rp_id}")
     
     return PasskeyAuthenticationOptions(

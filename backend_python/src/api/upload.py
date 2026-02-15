@@ -12,7 +12,7 @@ import io
 import uuid
 import time
 from datetime import datetime, timedelta
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Response
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request, Response
 from pydantic import BaseModel
 from typing import Optional
 from src.db.firebase_client import get_storage_client
@@ -46,8 +46,13 @@ class ImageUploadResponse(BaseModel):
     size_bytes: int
 
 
+MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10MB
+MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
+
+
 @router.post("/image", response_model=ImageMediaAsset)
 async def upload_image(
+    request: Request,
     file: UploadFile = File(...),
     session_id: str = Form(...),
     user_session: UserSession = Depends(verify_token),
@@ -67,8 +72,13 @@ async def upload_image(
         HTTPException: If upload fails or file type is invalid
     """
     try:
+        # 🛡️ EARLY REJECTION: Check Content-Length header before reading body
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_IMAGE_SIZE * 2:
+            raise HTTPException(status_code=413, detail="Request body too large.")
+
         user_id = user_session.uid
-        
+
         # 🛡️ RATE LIMITING CHECK
         from src.tools.quota import check_quota, increment_quota
         allowed, remaining, reset_at = await check_quota(user_id, "upload_image")
@@ -103,13 +113,12 @@ async def upload_image(
             }
         )
         
-        MAX_SIZE = 10 * 1024 * 1024  # 10MB
-        if file_size > MAX_SIZE:
+        if file_size > MAX_IMAGE_SIZE:
             logger.warning(
                 "image_upload_rejected_size",
                 extra={
                     "file_size_bytes": file_size,
-                    "max_size_bytes": MAX_SIZE,
+                    "max_size_bytes": MAX_IMAGE_SIZE,
                     "user_id": user_id
                 }
             )
@@ -141,10 +150,10 @@ async def upload_image(
         blob.content_disposition = f'inline; filename="{safe_filename}"'
         blob.patch()
         
-        # Generate signed URL (7 days validity)
+        # Generate signed URL (1 hour validity - minimizes exposure window)
         signed_url = blob.generate_signed_url(
             version="v4",
-            expiration=timedelta(days=7),
+            expiration=timedelta(hours=1),
             method="GET"
         )
         
@@ -190,6 +199,7 @@ async def upload_image(
 
 @router.post("/video", response_model=VideoMediaAsset)
 async def upload_video(
+    request: Request,
     file: UploadFile = File(...),
     user_session: UserSession = Depends(verify_token),
     processor: MediaProcessor = Depends(get_media_processor)
@@ -209,8 +219,13 @@ async def upload_video(
         HTTPException: If upload fails or file type is invalid
     """
     try:
+        # 🛡️ EARLY REJECTION: Check Content-Length header before reading body
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > MAX_VIDEO_SIZE * 2:
+            raise HTTPException(status_code=413, detail="Request body too large.")
+
         user_id = user_session.uid
-        
+
         # 🛡️ RATE LIMITING CHECK
         from src.tools.quota import check_quota, increment_quota
         allowed, remaining, reset_at = await check_quota(user_id, "upload_video")
@@ -232,8 +247,7 @@ async def upload_video(
             content = await file.read()
             file_size = len(content)
             
-            MAX_SIZE = 100 * 1024 * 1024  # 100MB
-            if file_size > MAX_SIZE:
+            if file_size > MAX_VIDEO_SIZE:
                 raise HTTPException(
                     status_code=413,
                     detail=f"File too large: {file_size / 1024 / 1024:.2f}MB. Maximum size is 100MB."

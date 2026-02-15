@@ -54,6 +54,17 @@ service cloud.firestore {
     }
 
     // ==========================================
+    // PASSKEYS SUBCOLLECTION
+    // ==========================================
+    // Server-only write (registered via backend API)
+    // Owner-only read (for credential discovery)
+
+    match /users/{userId}/passkeys/{credId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // ==========================================
     // PROJECT FILES METADATA
     // ==========================================
 
@@ -93,10 +104,11 @@ service cloud.firestore {
     // ==========================================
 
     match /projects/{projectId} {
-      // Read: owner OR claimable guest projects
+      // Read: owner OR unclaimed guest projects (claimedBy absent or matches requester)
       allow read: if request.auth != null
         && (resource.data.userId == request.auth.uid
-            || resource.data.userId.matches('guest_.*'));
+            || (resource.data.userId.matches('guest_.*')
+                && (!('claimedBy' in resource.data) || resource.data.claimedBy == request.auth.uid)));
 
       // Create: any authenticated user
       allow create: if request.auth != null
