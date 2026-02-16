@@ -31,6 +31,20 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
             headers.set('X-Firebase-AppCheck', appCheckHeader);
         }
 
+        // 🚨 CRITICAL: Forward Origin and Host for WebAuthn RP_ID detection
+        const origin = req.headers.get('origin');
+        const host = req.headers.get('host');
+
+        if (origin) {
+            // Forward original origin (e.g. https://sydbioedilizia.vercel.app)
+            headers.set('Origin', origin);
+        }
+
+        if (host) {
+            // Forward original host (e.g. sydbioedilizia.vercel.app)
+            headers.set('X-Forwarded-Host', host);
+        }
+
         headers.set('Content-Type', 'application/json');
 
         // 3. Extract body (if present)

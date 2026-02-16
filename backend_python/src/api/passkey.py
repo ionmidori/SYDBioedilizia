@@ -53,6 +53,7 @@ def _resolve_rp_id(request: Request) -> str:
     candidate = None
     origin = request.headers.get("origin")
     host = request.headers.get("host")
+    x_forwarded_host = request.headers.get("x-forwarded-host")
 
     if origin:
         try:
@@ -60,6 +61,10 @@ def _resolve_rp_id(request: Request) -> str:
             candidate = parsed.hostname
         except Exception:
             pass
+
+    # Prefer X-Forwarded-Host if present (proxy scenario)
+    if not candidate and x_forwarded_host:
+        candidate = x_forwarded_host.split(":")[0]
 
     if not candidate and host:
         candidate = host.split(":")[0]
