@@ -47,17 +47,27 @@ class ContextBuilder:
         if not internal_plan:
             return ""
             
+        # 🧠 AMNESIA FIX: Summarize ALL recent reasoning steps, not just the last one.
+        # This ensures the AI remembers "Japandi" even after "Light Strip" is added.
+        
+        history_log = []
+        for i, step in enumerate(internal_plan):
+            analysis = step.get("analysis", "")
+            action = step.get("action", "")
+            # Only include relevant details to save tokens
+            history_log.append(f"Step {i+1}: {analysis} -> {action}")
+            
         latest = internal_plan[-1]
-        analysis = latest.get("analysis", "")
-        action = latest.get("action", "")
         intent = latest.get("intent_category", "general")
         
+        history_str = "\n".join(history_log)
+        
         return (
-            f"[[REASONING LOG]]\n"
-            f"ANALYSIS: {analysis}\n"
-            f"INTENT: {intent}\n"
-            f"REQUIRED ACTION: {action}\n"
-            f"INSTRUCTION: Execute the above action. If valid, proceed. If 'ask_user', polite ask for info."
+            f"[[REASONING HISTORY (Last 5 Steps)]]\n"
+            f"{history_str}\n\n"
+            f"[[CURRENT STATE]]\n"
+            f"CURRENT INTENT: {intent}\n"
+            f"INSTRUCTION: Synthesize the above history. If previous steps established a style/constraint (e.g., Japandi), PRESERVE IT unless explicitly changed."
         )
 
     @staticmethod

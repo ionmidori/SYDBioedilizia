@@ -128,9 +128,7 @@ export function Hero() {
                                 size="lg"
                                 className="h-14 px-8 text-base min-w-[300px] bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
                                 onClick={() => {
-                                    const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
-                                        detail: { message: "Vorrei richiedere un preventivo gratuito per la mia ristrutturazione." }
-                                    });
+                                    const event = new CustomEvent('OPEN_CHAT');
                                     window.dispatchEvent(event);
                                 }}
                             >
@@ -154,9 +152,7 @@ export function Hero() {
                                 size="lg"
                                 className="h-14 px-8 text-base min-w-[300px] bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
                                 onClick={() => {
-                                    const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
-                                        detail: {}
-                                    });
+                                    const event = new CustomEvent('OPEN_CHAT');
                                     window.dispatchEvent(event);
                                 }}
                             >

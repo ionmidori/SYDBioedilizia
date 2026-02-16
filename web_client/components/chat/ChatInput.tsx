@@ -102,10 +102,11 @@ export function ChatInput({
 
     return (
         <div
-            className="px-4 border-t border-luxury-gold/10 backdrop-blur-md flex-shrink-0 w-full pb-safe"
+            className="px-4 border-t border-luxury-gold/10 backdrop-blur-md flex-shrink-0 w-full"
             style={{
                 backgroundColor: 'rgb(var(--luxury-bg-rgb) / 0.95)',
                 paddingTop: '10px',
+                paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)', // Explicit safe area + 24px
             }}
         >
             <div className="flex gap-2 items-end max-w-full">
@@ -116,7 +117,8 @@ export function ChatInput({
                     className={cn(
                         'text-luxury-text/60 hover:text-luxury-gold shrink-0 relative',
                         'hover:bg-luxury-gold/5 transition-all w-10 h-10 sm:w-9 sm:h-9',
-                        'focus-visible:ring-2 focus-visible:ring-luxury-gold/50 rounded-full'
+                        'focus-visible:ring-2 focus-visible:ring-luxury-gold/50 rounded-full',
+                        'mb-1' // Align with Send button
                     )}
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading || isGlobalUploading || authLoading}
@@ -168,7 +170,9 @@ export function ChatInput({
                             'bg-luxury-bg/30 border border-luxury-gold/10 rounded-2xl',
                             'flex items-center p-1 transition-all duration-300',
                             'focus-within:ring-1 focus-within:ring-luxury-gold/30',
-                            isFocused && 'ring-1 ring-luxury-gold/30'
+                            'min-h-[44px]', // Enforce min-height on wrapper
+                            isFocused && 'ring-1 ring-luxury-gold/30',
+                            'mb-1' // Align with buttons
                         )}
                     >
                         <textarea
@@ -185,7 +189,7 @@ export function ChatInput({
                                 'w-full bg-transparent text-luxury-text caret-luxury-gold',
                                 'placeholder:text-luxury-text/30 px-3 py-2',
                                 'text-base md:text-sm', // Mobile: 16px (no zoom), Desktop: 14px
-                                'max-h-24 min-h-[44px] focus:outline-none resize-none',
+                                'max-h-24 min-h-[24px] focus:outline-none resize-none', // Reduced min-h to let wrapper control height
                                 'scrollbar-hide block opacity-100'
                             )}
                             rows={1}

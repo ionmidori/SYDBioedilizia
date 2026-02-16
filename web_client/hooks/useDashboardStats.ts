@@ -38,6 +38,7 @@ export function useDashboardStats() {
                     )),
                     getDocs(query(
                         collectionGroup(db, 'files'),
+                        where('uploadedBy', '==', user.uid),
                         orderBy('uploadedAt', 'desc'),
                         limit(50)
                     ))

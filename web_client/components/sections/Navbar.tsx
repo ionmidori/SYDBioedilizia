@@ -112,9 +112,7 @@ export function Navbar() {
                                 size="sm"
                                 className="bg-luxury-teal hover:bg-luxury-teal/90 text-white border-none shadow-md shadow-luxury-teal/20"
                                 onClick={() => {
-                                    const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
-                                        detail: { message: "Vorrei richiedere un preventivo gratuito per la mia ristrutturazione." }
-                                    });
+                                    const event = new CustomEvent('OPEN_CHAT');
                                     window.dispatchEvent(event);
                                 }}
                             >
@@ -125,9 +123,7 @@ export function Navbar() {
                                 size="sm"
                                 className="bg-luxury-teal hover:bg-luxury-teal/90 text-white border-none shadow-md shadow-luxury-teal/20"
                                 onClick={() => {
-                                    const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
-                                        detail: { message: "Ciao SYD! Vorrei creare un rendering fotorealistico." }
-                                    });
+                                    const event = new CustomEvent('OPEN_CHAT');
                                     window.dispatchEvent(event);
                                 }}
                             >

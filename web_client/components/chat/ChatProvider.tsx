@@ -112,6 +112,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }
     }, [historyLoaded, historyMessages, sessionId, setMessages, status, messages.length]); // Dependencies optimized
 
+    // -- PERSISTENCE: Save/Restore Last Project --
+    useEffect(() => {
+        if (!user || user.isAnonymous) return;
+
+        // Restore
+        if (!currentProjectId && !isInitialized) { // Waiting validation
+            // do nothing
+        }
+    }, [user, currentProjectId, isInitialized]);
+
+    // Restore Effect
+    useEffect(() => {
+        if (isInitialized && user && !user.isAnonymous && !currentProjectId) {
+            const key = `last_active_project:${user.uid}`;
+            const lastId = localStorage.getItem(key);
+            if (lastId) {
+                console.log('[ChatProvider] Restoring last active project:', lastId);
+                setCurrentProjectId(lastId);
+            }
+        }
+    }, [isInitialized, user, currentProjectId]);
+
+    // Save Effect
+    useEffect(() => {
+        if (user && !user.isAnonymous && currentProjectId) {
+            const key = `last_active_project:${user.uid}`;
+            localStorage.setItem(key, currentProjectId);
+        }
+    }, [user, currentProjectId]);
+
     // -- HANDLERS --
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         setInput(e.target.value);
@@ -161,6 +191,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 experimental_attachments: attachments
             };
 
+            // ⚡ OPTIMISTIC UI: Clear input immediately to prevent "stuck text"
+            setInput('');
+
             await sdkSendMessage({
                 content: content,
                 role: 'user'
@@ -168,7 +201,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 body: mergedBody,
                 headers: options.headers,
             });
-            setInput('');
+            // Input already cleared
         } catch (err) {
             console.error('[ChatProvider] SendMessage Error:', err);
             // Re-throw if needed, or handle gracefully

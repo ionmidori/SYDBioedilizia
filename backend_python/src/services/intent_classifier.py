@@ -52,8 +52,10 @@ class IntentClassifier:
                     return "reasoning"
                 return "reasoning"
                 
-            # B. Simple interaction Check (Greetings/Ack)
-            greetings = ["ciao", "hello", "hi", "buongiorno", "buonasera", "grazie", "thank", "ok", "va bene"]
+            # B. Simple interaction Check (Greetings ONLY)
+            # 🛑 CRITICAL FIX: Removed 'ok', 'va bene', 'grazie' to force Reasoning Node.
+            # We NEED the Reasoning Node to trigger the "God Mode" logic in modes.py for confirmations.
+            greetings = ["ciao", "hello", "hi", "buongiorno", "buonasera"]
             normalized = text_content.lower().strip()
             
             # Exact match or starts with greeting

@@ -22,16 +22,16 @@ import { Button } from '@/components/ui/button';
 
 const services = [
     {
-        icon: Wand2,
-        title: 'Design Generativo AI',
-        description: 'Genera centinaia di varianti di design per la tua casa in pochi secondi. Dal minimalismo moderno al classico, visualizza ogni stile prima di iniziare.',
+        icon: LayoutDashboard,
+        title: 'Area personale',
+        description: 'Controlla ogni aspetto del cantiere dalla tua area personale: avanzamento lavori, documenti, fatture e comunicazioni con il team.',
         gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },
     {
-        icon: Ruler,
-        title: 'Rilievi Precisi',
-        description: 'Trasforma le foto del tuo smartphone in planimetrie CAD accurate. La nostra tecnologia elimina gli errori di misurazione manuale.',
+        icon: Wand2,
+        title: 'Design Generativo AI',
+        description: 'Genera centinaia di varianti di design per la tua casa in pochi secondi. Dal minimalismo moderno al classico, visualizza ogni stile prima di iniziare.',
         gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },
@@ -43,9 +43,9 @@ const services = [
         iconColor: 'text-luxury-teal'
     },
     {
-        icon: LayoutDashboard,
-        title: 'Gestione Dashboard',
-        description: 'Controlla ogni aspetto del cantiere dalla tua area personale: avanzamento lavori, documenti, fatture e comunicazioni con il team.',
+        icon: Ruler,
+        title: 'Rilievi Precisi',
+        description: 'Trasforma le foto del tuo smartphone in planimetrie CAD accurate. La nostra tecnologia elimina gli errori di misurazione manuale.',
         gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },
@@ -127,7 +127,7 @@ export function Services() {
                             onViewportEnter={() => isMobile && setHoveredService(index)}
                             onViewportLeave={() => isMobile && setHoveredService(prev => prev === index ? null : prev)}
                             onClick={() => {
-                                if (service.title === 'Gestione Dashboard') {
+                                if (service.title === 'Area personale') {
                                     // If user is already authenticated, go directly to dashboard
                                     if (user && !user.isAnonymous) {
                                         router.push('/dashboard');
@@ -147,7 +147,7 @@ export function Services() {
                             onMouseLeave={() => !isMobile && setHoveredService(null)}
                             className={cn(
                                 "relative p-6 rounded-2xl bg-white/5 border border-luxury-gold/10 hover:border-luxury-gold/30 active:border-luxury-gold/50 transition-all duration-300 backdrop-blur-sm",
-                                (service.title === 'Gestione Dashboard' || service.title === 'Design Generativo AI' || service.title === 'Preventivi Istantanei' || service.title === 'Rilievi Precisi' || service.title === 'Direzione Lavori' || service.title === 'Chiavi in Mano') && "cursor-pointer hover:shadow-lg hover:shadow-luxury-teal/20 active:shadow-md active:bg-white/10",
+                                (service.title === 'Area personale' || service.title === 'Design Generativo AI' || service.title === 'Preventivi Istantanei' || service.title === 'Rilievi Precisi' || service.title === 'Direzione Lavori' || service.title === 'Chiavi in Mano') && "cursor-pointer hover:shadow-lg hover:shadow-luxury-teal/20 active:shadow-md active:bg-white/10",
                                 hoveredService === index && "border-luxury-gold/30 shadow-lg shadow-luxury-teal/20"
                             )}
                         >

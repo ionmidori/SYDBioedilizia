@@ -17,7 +17,7 @@ import { useChatScroll } from '@/hooks/useChatScroll';
 import { useMobileViewport } from '@/hooks/useMobileViewport';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { useAuth } from '@/hooks/useAuth';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
 
@@ -160,7 +160,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // Project Switch (from Header Selector)
     const router = useRouter();
-    const handleProjectSwitch = (newProjectId: string) => {
+    const handleProjectSwitch = useCallback((newProjectId: string) => {
         // Update Context
         setProjectId(newProjectId);
 
@@ -170,11 +170,18 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         } else {
             router.push(`/?projectId=${newProjectId}`);
         }
-    };
+    }, [pathname, router, setProjectId]);
 
-    const handleFileSelect = (files: File[]) => {
+    const handleFileSelect = useCallback((files: File[]) => {
         if (files.length > 0) addFiles(files);
-    };
+    }, [addFiles]);
+
+    // Lead Form Handler
+    const handleFormSubmit = useCallback((formData: any) => {
+        // Send hidden message to AI to act as tool output/user confirmation
+        const msg = `[LEAD_DATA_SUBMISSION] Name: ${formData.name}, Email: ${formData.email}, Phone: ${formData.contact}, Scope: ${formData.scope}`;
+        sendMessage(msg);
+    }, [sendMessage]);
 
     // Submit Handler
     const submitMessage = async (e?: React.FormEvent) => {
@@ -272,6 +279,27 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         }
     }, [searchParams, historyLoaded, isLoading, messages.length, sendMessage]);
 
+    // 9. Event Listeners for External Triggers (Navbar, Hero, etc.)
+    useEffect(() => {
+        const handleOpenChat = () => setIsOpen(true);
+
+        const handleOpenChatWithMessage = (e: Event) => {
+            setIsOpen(true);
+            const customEvent = e as CustomEvent;
+            if (customEvent.detail?.message) {
+                setInput(customEvent.detail.message);
+            }
+        };
+
+        window.addEventListener('OPEN_CHAT', handleOpenChat);
+        window.addEventListener('OPEN_CHAT_WITH_MESSAGE', handleOpenChatWithMessage);
+
+        return () => {
+            window.removeEventListener('OPEN_CHAT', handleOpenChat);
+            window.removeEventListener('OPEN_CHAT_WITH_MESSAGE', handleOpenChatWithMessage);
+        };
+    }, [setInput]);
+
     // 9. Render Helpers
     if (typeof window !== 'undefined' && !sessionId) return null; // Safe guard
 
@@ -302,12 +330,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         messagesEndRef={messagesEndRef}
                         statusMessage={currentStatus}
                         data={data} // 🔥 Pass CoT Data Stream
-                        onFormSubmit={(formData) => {
-                            // Send hidden message to AI to act as tool output/user confirmation
-                            // We format it clearly so the Surveyor Mode can parse it (or submit_lead tool)
-                            const msg = `[LEAD_DATA_SUBMISSION] Name: ${formData.name}, Email: ${formData.email}, Phone: ${formData.contact}, Scope: ${formData.scope}`;
-                            sendMessage(msg);
-                        }}
+                        onFormSubmit={handleFormSubmit}
                     />
 
                     {errorMessage && (
@@ -386,7 +409,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                             >
                                 <ChatHeader
                                     projectId={contextProjectId ?? undefined}
-                                    showSelector={!!user}
+                                    showSelector={user && !user.isAnonymous}
                                     onProjectSelect={handleProjectSwitch}
                                 />
                                 {renderChatContent()}
@@ -412,7 +435,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                                 <ChatHeader
                                     onMinimize={() => setIsOpen(false)}
                                     projectId={contextProjectId ?? undefined}
-                                    showSelector={!!user}
+                                    showSelector={user && !user.isAnonymous}
                                     onProjectSelect={handleProjectSwitch}
                                 />
                                 {renderChatContent()}

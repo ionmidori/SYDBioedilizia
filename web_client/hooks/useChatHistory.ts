@@ -97,12 +97,14 @@ export function useChatHistory(
 
                 const q = query(
                     collection(db, 'sessions', sessionId, 'messages'),
-                    orderBy('timestamp', 'asc'),
+                    orderBy('timestamp', 'desc'),
                     firestoreLimit(limit)
                 );
 
                 unsubscribe = firestoreOnSnapshot(q, (snapshot) => {
-                    const messages = snapshot.docs.map(doc => {
+                    // Docs are Newest -> Oldest (DESC)
+                    // We map them, then reverse to get Oldest -> Newest for UI
+                    const rawMessages = snapshot.docs.map(doc => {
                         const data = doc.data();
 
                         // Parse tool_calls
@@ -145,6 +147,9 @@ export function useChatHistory(
                             attachments
                         } as Message;
                     });
+
+                    // Reverse to restore chronological order (Oldest -> Newest)
+                    const messages = rawMessages.reverse();
 
                     // Link Tool Results (Smart Merge)
                     const linkedMessages = messages.map(msg => {

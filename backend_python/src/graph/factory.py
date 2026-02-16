@@ -135,14 +135,14 @@ class AgentGraphFactory:
                 return "tools"
             return END
 
-        def custom_tools_node(state: AgentState):
+        async def custom_tools_node(state: AgentState):
             """
             Executes tools and updates state flags for User Journey tracking.
             Wraps the standard ToolNode logic but adds state reduction.
             """
             # 1. Execute Tools
             tool_node = ToolNode(self.tools)
-            result = tool_node.invoke(state) # Returns {'messages': [ToolMessage, ...]}
+            result = await tool_node.ainvoke(state) # Returns {'messages': [ToolMessage, ...]}
             
             # 2. State Reduction (Flags)
             new_messages = result.get("messages", [])

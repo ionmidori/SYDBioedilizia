@@ -2,7 +2,10 @@ import React, { RefObject } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { MessageItem } from '@/components/chat/MessageItem';
+import { ReasoningStepView } from '@/components/chat/ReasoningStepView';
 import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
+// import { ThinkingSurface } from '@/components/chat/ThinkingSurface'; // Deferred
+import { ToolStatus } from '@/components/chat/ToolStatus';
 import { Message } from '@/types/chat'; // ✅ Message interface compatible with AI SDK
 import { ReasoningStep } from '@/types/reasoning'; // 🔥 CoT Types
 
@@ -78,7 +81,7 @@ const ChatMessagesComponent = ({
 
             {/* AI Processing State - Dynamic Status */}
             {/* 🔒 FIX: Strict Loading Gate - Only show when actually loading */}
-            {isLoading && (statusMessage || typingMessage || latestReasoning || true) && (
+            {isLoading && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

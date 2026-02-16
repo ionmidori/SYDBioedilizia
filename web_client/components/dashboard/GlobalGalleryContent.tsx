@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
-import { collectionGroup, query, orderBy, getDocs, limit, startAfter, QueryDocumentSnapshot, DocumentData, collection } from 'firebase/firestore';
+import { collectionGroup, query, orderBy, getDocs, limit, startAfter, QueryDocumentSnapshot, DocumentData, collection, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { AssetGallery } from '@/components/dashboard/AssetGallery';
@@ -10,6 +10,7 @@ import { Loader2, LayoutGrid, Calendar, FolderKanban, ChevronDown, Search, X, Up
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { GlobalFileUploader } from '@/components/dashboard/GlobalFileUploader';
+import { projectsApi } from '@/lib/projects-api';
 
 type GroupingMode = 'project' | 'type' | 'date';
 
@@ -45,11 +46,10 @@ export function GlobalGalleryContent() {
 
         const fetchProjects = async () => {
             try {
-                const projectsRef = collection(db, 'projects');
-                const snapshot = await getDocs(projectsRef);
-                const projectList = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    name: doc.data().name || 'Progetto Senza Nome'
+                const data = await projectsApi.listProjects();
+                const projectList = data.map(p => ({
+                    id: p.session_id,
+                    name: p.title || 'Progetto Senza Nome'
                 }));
                 setProjects(projectList);
             } catch (error) {
@@ -75,6 +75,7 @@ export function GlobalGalleryContent() {
         try {
             let filesQuery = query(
                 collectionGroup(db, 'files'),
+                where('uploadedBy', '==', user.uid),
                 orderBy('uploadedAt', 'desc'),
                 limit(ITEMS_PER_PAGE)
             );
@@ -82,6 +83,7 @@ export function GlobalGalleryContent() {
             if (!isInitial && lastVisible) {
                 filesQuery = query(
                     collectionGroup(db, 'files'),
+                    where('uploadedBy', '==', user.uid),
                     orderBy('uploadedAt', 'desc'),
                     startAfter(lastVisible),
                     limit(ITEMS_PER_PAGE)

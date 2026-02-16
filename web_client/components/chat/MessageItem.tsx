@@ -69,6 +69,18 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     const toolInvocations = getToolInvocations(message);
     const hasTools = toolInvocations.length > 0;
 
+    // Helper: Convert custom backend image syntax to Markdown
+    const formatMessageText = (rawText: string): string => {
+        if (!rawText) return '';
+        // Regex to match [Immagine allegata: URL] and convert to ![Immagine allegata](URL)
+        return rawText.replace(
+            /\[(?:Immagine|Video) allegat[oa]:\s*(https?:\/\/[^\]]+)\]/gi,
+            (match, url) => `\n![Immagine allegata](${url})\n`
+        );
+    };
+
+    const formattedText = formatMessageText(text);
+
     // ✅ Memoize ReactMarkdown components to prevent re-creation on every render
     const markdownComponents = useMemo(() => ({
         img: ({ ...props }: { src?: string; alt?: string }) => props.src ? (
@@ -210,18 +222,18 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                             ? "bg-luxury-teal text-white rounded-tr-none border border-transparent"
                             : "bg-luxury-bg/95 border border-luxury-gold/20 text-luxury-text rounded-tl-none" // Stronger Glass
                     )}>
-                        <div className="prose prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg max-w-none break-words">
+                        <div className="prose prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg max-w-none break-words overflow-hidden w-full">
                             {isThinking ? (
                                 <ThinkingIndicator message={typingMessage} />
                             ) : (
                                 <>
-                                    {text && (
+                                    {formattedText && (
                                         <Markdown
                                             urlTransform={(value: string) => value}
                                             components={markdownComponents}
                                         >
                                             {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
-                                            {text.startsWith('...') ? text.substring(3) : text}
+                                            {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
                                         </Markdown>
                                     )}
 
