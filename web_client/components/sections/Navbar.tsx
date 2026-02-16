@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation'; // 🔥 NEW
 import Image from 'next/image';
@@ -19,6 +19,26 @@ export function Navbar() {
     const [contactMenuOpen, setContactMenuOpen] = useState(false);
     const [authDialogOpen, setAuthDialogOpen] = useState(false); // Hoisted state
     const [redirectOnLogin, setRedirectOnLogin] = useState(true); // 🔥 Control redirection
+    const contactMenuRef = useRef<HTMLDivElement>(null);
+
+    // Close contact menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+            if (contactMenuOpen && contactMenuRef.current && !contactMenuRef.current.contains(event.target as Node)) {
+                setContactMenuOpen(false);
+            }
+        };
+
+        if (contactMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('touchstart', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [contactMenuOpen]);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -154,7 +174,7 @@ export function Navbar() {
                     {/* Mobile Actions */}
                     <div className="flex items-center gap-2 md:hidden">
                         {/* Contact Dropdown Trigger */}
-                        <div className="relative">
+                        <div className="relative" ref={contactMenuRef}>
                             <button
                                 className={cn(
                                     "p-2 rounded-full text-luxury-text hover:text-luxury-gold transition-colors",
