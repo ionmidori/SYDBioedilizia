@@ -36,6 +36,8 @@ _MAX_CHALLENGES = 1000
 _ALLOWED_RP_IDS = {
     "sydbioedilizia.vercel.app",
     "website-renovation.vercel.app",
+    "website-renovation-git-main-ionmidori.vercel.app",
+    "sydbioedilizia-git-main-ionmidori.vercel.app",
     "localhost",
 }
 
