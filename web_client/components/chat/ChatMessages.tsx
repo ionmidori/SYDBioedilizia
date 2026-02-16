@@ -89,7 +89,7 @@ const ChatMessagesComponent = ({
                     className="flex gap-3"
                 >
                     <ArchitectAvatar className="w-8 h-8 shrink-0" />
-                    <div className="bg-luxury-bg/80 border border-luxury-gold/10 p-4 rounded-2xl rounded-tl-none shadow-premium backdrop-blur-sm">
+                    <div className="pl-2">
                         <ThinkingIndicator
                             message={typingMessage || undefined}
                             statusMessage={statusMessage || undefined}

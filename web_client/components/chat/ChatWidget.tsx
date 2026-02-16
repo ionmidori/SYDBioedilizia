@@ -409,7 +409,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                             >
                                 <ChatHeader
                                     projectId={contextProjectId ?? undefined}
-                                    showSelector={user && !user.isAnonymous}
+                                    showSelector={!!user && !user.isAnonymous}
                                     onProjectSelect={handleProjectSwitch}
                                 />
                                 {renderChatContent()}
@@ -435,7 +435,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                                 <ChatHeader
                                     onMinimize={() => setIsOpen(false)}
                                     projectId={contextProjectId ?? undefined}
-                                    showSelector={user && !user.isAnonymous}
+                                    showSelector={!!user && !user.isAnonymous}
                                     onProjectSelect={handleProjectSwitch}
                                 />
                                 {renderChatContent()}

@@ -39,10 +39,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
             {/* Header / Summary */}
             <div className="flex items-center justify-between gap-3 text-luxury-gold/80 text-sm">
                 <div className="flex items-center gap-2">
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-luxury-gold opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-luxury-gold"></span>
-                    </span>
+                    <div className="m3-morph-shape shrink-0" />
                     <span className="font-medium animate-pulse">
                         {statusMessage || message || "Thinking..."}
                     </span>

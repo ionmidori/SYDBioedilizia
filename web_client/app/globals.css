@@ -420,3 +420,49 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* 💎 LUXURY LOADER (M3 Morphing) */
+@keyframes m3-morph-sequence {
+  0% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+    /* Square */
+    transform: rotate(0deg) scale(1);
+    border-radius: 0%;
+  }
+
+  25% {
+    /* Gear/Cog Shape (20 points for smooth teeth) */
+    clip-path: polygon(50% 0%, 60% 5%, 65% 20%, 80% 20%, 85% 35%, 100% 40%, 100% 60%, 85% 65%, 80% 80%, 65% 85%, 60% 95%, 40% 95%, 35% 85%, 20% 80%, 15% 65%, 0% 60%, 0% 40%, 15% 35%, 20% 20%, 35% 5%);
+    transform: rotate(45deg) scale(1.1);
+    border-radius: 10%;
+  }
+
+  50% {
+    clip-path: circle(50% at 50% 50%);
+    /* Circle */
+    transform: rotate(90deg) scale(1);
+    border-radius: 50%;
+  }
+
+  75% {
+    /* Soft Rhomboid / Architectural Diamond */
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    transform: rotate(135deg) scale(1.1);
+    border-radius: 20%;
+  }
+
+  100% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+    transform: rotate(180deg) scale(1);
+    border-radius: 0%;
+  }
+}
+
+.m3-morph-shape {
+  width: 14px;
+  /* Slightly larger than 12px for better visibility of shape */
+  height: 14px;
+  background-color: var(--color-luxury-gold);
+  animation: m3-morph-sequence 4s var(--m3-easing-emphasized) infinite;
+  box-shadow: 0 2px 8px rgba(233, 196, 106, 0.4);
+}
