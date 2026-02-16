@@ -66,7 +66,8 @@ export function usePasskey() {
             });
 
             if (!optionsRes.ok) {
-                throw new Error('Failed to get registration options');
+                const errData = await optionsRes.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Failed to get registration options');
             }
 
             const options = await optionsRes.json();
@@ -155,7 +156,8 @@ export function usePasskey() {
             });
 
             if (!optionsRes.ok) {
-                throw new Error('Failed to get authentication options');
+                const errData = await optionsRes.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Failed to get authentication options');
             }
 
             const options = await optionsRes.json();

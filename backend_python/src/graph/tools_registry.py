@@ -7,7 +7,7 @@ from langchain_core.tools import tool
 from src.tools.generate_render import generate_render_wrapper
 from src.tools.quota import check_quota, increment_quota
 from src.utils.context import get_current_user_id, get_current_media_metadata
-from src.utils.auth_guard import require_auth
+from src.utils.auth_guard import require_auth, AUTH_REQUIRED_SIGNAL
 from src.utils.download import download_image_smart
 from src.db.leads import save_lead
 from src.models.lead import LeadData
@@ -213,7 +213,7 @@ async def generate_cad(image_url: str, session_id: str) -> str:
     Generate a technical CAD measurement plan (DXF) from an image.
     Extracts structural geometry, area estimates, and dimensions.
     Returns a technical summary and a download link for the .dxf file.
-    
+
     Args:
         image_url: The image to analyze.
         session_id: The current project/session ID to save the file.
@@ -222,13 +222,13 @@ async def generate_cad(image_url: str, session_id: str) -> str:
     try:
         # 1. Download
         image_bytes, mime_type = await download_image_smart(image_url)
-        
+
         # 2. Extract Vector Data (Gemini Pro)
         vector_data = await analyze_floorplan_vector(image_bytes)
-        
+
         # 3. Generate DXF
         dxf_bytes = generate_dxf_bytes(vector_data)
-        
+
         # 4. Upload DXF to Storage
         file_name = f"rilievo-cad-{int(datetime.now().timestamp())}.dxf"
         download_url = upload_file_bytes(
@@ -238,11 +238,11 @@ async def generate_cad(image_url: str, session_id: str) -> str:
             mime_type="application/dxf",
             prefix="projects"
         )
-        
+
         # 5. Format Summary
         muri_count = len(vector_data.walls)
         aperture_count = len(vector_data.openings)
-        
+
         # Estimate area if scale exists (simplified)
         area_info = ""
         if vector_data.scale_reference:
@@ -268,18 +268,29 @@ Ho generato il file professionale in formato DXF (compatibile con AutoCAD, Sketc
         logger.error(f"[Tool] ❌ generate_cad failed: {e}")
         return f"❌ Errore nella generazione del CAD: {str(e)}"
 
+@tool
+async def request_login() -> str:
+    """
+    Trigger a UI component that prompts the guest user to log in.
+    CALL THIS when a guest user attempts a premium action (renders, quotes).
+    DO NOT just refuse with text - use this tool to show a proper login UI.
+    """
+    logger.info("[Tool] 🔐 request_login called - triggering login UI")
+    return f"[[{AUTH_REQUIRED_SIGNAL}]]"
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 📦 REGISTRY EXPORT
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ALL_TOOLS = [
-    submit_lead, 
-    get_market_prices, 
-    generate_render, 
-    save_quote, 
-    analyze_room, 
+    submit_lead,
+    get_market_prices,
+    generate_render,
+    save_quote,
+    analyze_room,
     plan_renovation,
     list_project_files,
     show_project_gallery,
-    generate_cad
+    generate_cad,
+    request_login
 ]

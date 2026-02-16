@@ -18,6 +18,7 @@ export function Navbar() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [contactMenuOpen, setContactMenuOpen] = useState(false);
     const [authDialogOpen, setAuthDialogOpen] = useState(false); // Hoisted state
+    const [redirectOnLogin, setRedirectOnLogin] = useState(true); // 🔥 Control redirection
 
     useEffect(() => {
         const handleScroll = () => {
@@ -26,7 +27,10 @@ export function Navbar() {
         window.addEventListener('scroll', handleScroll, { passive: true });
 
         // 🔥 LISTEN FOR LOGIN REQUESTS FROM CHAT
-        const handleOpenLogin = () => setAuthDialogOpen(true);
+        const handleOpenLogin = () => {
+            setRedirectOnLogin(false); // Chat trigger = Stay on page
+            setAuthDialogOpen(true);
+        };
         window.addEventListener('OPEN_LOGIN_MODAL', handleOpenLogin);
 
         return () => {
@@ -141,7 +145,10 @@ export function Navbar() {
                             </Link>
                         ))}
                         {/* Desktop SignIn Button -> Uses global dialog */}
-                        <SignInButton onLoginClick={() => setAuthDialogOpen(true)} />
+                        <SignInButton onLoginClick={() => {
+                            setRedirectOnLogin(true); // Explicit login = Redirect to Dashboard
+                            setAuthDialogOpen(true);
+                        }} />
                     </div>
 
                     {/* Mobile Actions */}
@@ -276,6 +283,7 @@ export function Navbar() {
                                     <SignInButton
                                         onLoginClick={() => {
                                             setMobileMenuOpen(false);
+                                            setRedirectOnLogin(true); // Explicit login = Redirect
                                             setAuthDialogOpen(true);
                                         }}
                                     />
@@ -287,7 +295,7 @@ export function Navbar() {
             </AnimatePresence>
 
             {/* Global Auth Dialog - Lives here, safe from mobile menu unmounting */}
-            <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
+            <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} redirectOnLogin={redirectOnLogin} />
         </>
     );
 }

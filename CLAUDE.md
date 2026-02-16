@@ -190,6 +190,9 @@ PINECONE_API_KEY=
 
 ## Code Patterns & Conventions
 
+### Mandatory Skill Consultancy
+- **CRITICAL**: Prima di iniziare qualsiasi task tecnico, architettonico o di debugging, **DEVI** consultare la directory `skills/` per verificare la presenza di pattern, standard di sicurezza o workflow enterprise già definiti. Questo garantisce lo standard "Zero-Refactor".
+
 ### TypeScript/React
 - Use **Server Components by default** (App Router), Client Components only when needed (`'use client'`)
 - Firebase imports: **ALWAYS use modular SDK v9+** (`import { getAuth } from 'firebase/auth'`)
@@ -281,6 +284,7 @@ renovation-next/
 ## Support Resources
 
 - **README.md**: High-level project overview + tech stack
+- **gemini.md**: Gemini-specific architectural guidance and standards
 - **Firebase Console**: https://console.firebase.google.com
 - **Vercel Dashboard**: Deployment logs + analytics
 - **Google Cloud Console**: Cloud Run logs + Vertex AI monitoring

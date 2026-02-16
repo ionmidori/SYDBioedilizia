@@ -73,14 +73,21 @@ def _resolve_rp_id(request: Request) -> str:
     if candidate and candidate in _ALLOWED_RP_IDS:
         return candidate
 
+    # 3.1 Validate against Vercel Preview Regex (Safe Subdomains)
+    import re
+    # Allow: sydbioedilizia*.vercel.app OR website-renovation*.vercel.app
+    if candidate and re.match(r"^(sydbioedilizia|website-renovation).*\.vercel\.app$", candidate):
+        logger.info(f"[Passkey] Allowed dynamic RP_ID: {candidate}")
+        return candidate
+
     # 4. Default to localhost only in development
     if settings.ENV == "development":
         return "localhost"
 
-    logger.warning(f"[Passkey] Rejected RP_ID candidate: {candidate}")
+    logger.warning(f"[Passkey] Rejected RP_ID candidate: '{candidate}' (Origin: {origin}, Host: {host}, X-Fwd: {x_forwarded_host})")
     raise HTTPException(
         status_code=400,
-        detail="Unable to determine Relying Party ID"
+        detail=f"Domain not authorized for Biometrics ({candidate})"
     )
 
 

@@ -31,6 +31,10 @@ service firebase.storage {
       return request.resource.size <= maxSizeMB * 1024 * 1024;
     }
     
+    function isNonAnonymous() {
+      return request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
     // ==========================================
     // USER AVATARS
     // ==========================================
@@ -50,6 +54,7 @@ service firebase.storage {
     
     match /projects/{projectId}/uploads/{fileName} {
       allow write: if isAuthenticated()
+        && isNonAnonymous()
         && (
           (isValidImage() && isWithinSizeLimit(10)) ||
           (isValidDocument() && isWithinSizeLimit(25)) ||

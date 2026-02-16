@@ -19,8 +19,10 @@ Our architecture follows the **"3-Tier Law"**, ensuring strict separation of con
 - **Passkey Support**: WebAuthn/FIDO2 integration for biometric-grade security, reducing reliance on traditional passwords.
 
 ### 2. Authorization Boundaries
-- **Role-Based Access Control (RBAC)**: Enforced via custom claims in JWT tokens.
-- **Firestore Security Rules**: Granular, resource-level access control enforced at the database layer.
+- **Role-Based Access Control (RBAC)**: Enforced via custom claims in JWT tokens, sanitized at the API layer to prevent internal logic leakage.
+- **Firestore Security Rules**: resource-level access control (`resource.data.userId == request.auth.uid`) enforced at the database and storage layers.
+- **Passkey Identity Verification**: Mandatory `RP_ID` validation against a strict whitelist (including production and Vercel Preview domains) to prevent origin spoofing.
+- **Secure Token Proxy**: The Next.js API layer forwards `Origin`, `X-Forwarded-Host`, and `AppCheck` tokens to the Python backend to maintain identity integrity during high-latency vision tasks.
 
 ---
 
@@ -54,10 +56,12 @@ A strict CSP is enforced to neutralize Cross-Site Scripting (XSS) and code injec
 ## 🛠️ Data Protection & Visibility
 
 - **Secrets Management**: All 3rd-party API keys (Perplexity, Gemini, Google Cloud) are strictly managed via `pydantic-settings` in `src/core/config.py` and never exposed to the client.
+- **Prompt Injection Defense**: The `AgentOrchestrator` implements a delimiter-based isolation strategy, stripping system markers (e.g., `[[...]]`) from user input before processing.
+- **Atomic Operations**: Critical resource quotas (AI renders, quotes) use Firestore `Increment()` operations to ensure consistency and prevent race-condition-based abuse.
 - **Ephemeral Processing**: CAD floorplan images and generated DXF files are processed in-memory or temporary storage and wiped immediately after transmission.
-- **PII Redaction**: Logging systems are configured with `log_args=False` by default to prevent PII leakage into centralized logs.
-- **Structured Logging**: JSON-based logs in production for secure, machine-readable observability.
-- **Input Sanitization**: Client and server-side validation using **Zod** (Frontend) and **Pydantic** (Backend).
+- **PII Redaction**: Logging systems are configured with `log_args=False` by default (via `structlog`/`JsonFormatter`) to prevent PII leakage into centralized logs.
+- **Structured Logging**: JSON-based logs in production for secure, machine-readable observability with unique `X-Request-ID` tracing.
+- **Input Sanitization**: Client and server-side validation using **Zod** (Frontend) and **Pydantic** (Backend) with strict regex for ID fields.
 
 ---
 
@@ -82,4 +86,4 @@ We commit to:
 | < v2.0  | :x:                |
 
 ---
-**Last Updated**: 2026-02-14
+**Last Updated**: 2026-02-16 (Post-Audit Hardening Phase)

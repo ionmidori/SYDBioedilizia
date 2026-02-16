@@ -24,7 +24,10 @@ export function useProjects() {
         } catch (err) {
             console.error('[useProjects] Error fetching projects:', err);
             const error = err as Error;
-            setError(error.message || 'Errore durante il caricamento dei progetti');
+            // Only set visible error for critical failures, not 404s (if handling here)
+            // But listProjects shouldn't 404. Log detail.
+            console.error('[useProjects] Detail:', error.message);
+            setError(`Errore caricamento (${error.message})`);
         } finally {
             setLoading(false);
         }

@@ -80,7 +80,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 setMessages([{
                     id: 'welcome-msg',
                     role: 'assistant',
-                    content: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. ⚡ **Chiedere un preventivo veloce**\n2. 🎨 **Creare un rendering gratuito**\n3. ℹ️ **Chiedere informazioni**\n\nCome posso aiutarti oggi?",
+                    content: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. ⚡ **Creare preventivo veloce**\n2. 🎨 **Creare un rendering gratuito**\n3. ℹ️ **Fornire informazioni dettagliate**\n\nCome posso aiutarti oggi?",
                     createdAt: new Date()
                 } as any]);
                 return;
@@ -148,12 +148,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     // 🛡️ ROBUSTNESS: Force projectId in the headers/body
+    // Enhanced to use auth.currentUser fallback for race condition resilience
     const getRequestOptions = useCallback(async () => {
         const headers: Record<string, string> = {};
-        if (user) {
-            const token = await refreshToken();
-            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        // Always try to get a token (refreshToken now has currentUser fallback)
+        const token = await refreshToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        } else if (!user) {
+            console.warn('[ChatProvider] No token available for guest request');
         }
+
         return {
             headers,
             body: {
@@ -176,14 +182,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        const options = await getRequestOptions();
-
         try {
-            // ⚡ Anonymous sign-in if guest attempt
+            // ⚡ Anonymous sign-in if guest attempt - MUST happen BEFORE getRequestOptions
             if (!user) {
                 console.log('[ChatProvider] No user found, attempting anonymous sign-in...');
                 await signInAnonymously();
+                console.log('[ChatProvider] Anonymous sign-in completed, proceeding with message send');
             }
+
+            // ⚡ Get request options AFTER sign-in to ensure token is available
+            const options = await getRequestOptions();
 
             const mergedBody = {
                 ...options.body,
@@ -207,7 +215,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             // Re-throw if needed, or handle gracefully
             throw err;
         }
-    }, [sdkSendMessage, getRequestOptions, setInput]);
+    }, [user, signInAnonymously, sdkSendMessage, getRequestOptions, setInput]);
 
     // -- HANDLERS --
     // Unified submit handler that uses the Facade

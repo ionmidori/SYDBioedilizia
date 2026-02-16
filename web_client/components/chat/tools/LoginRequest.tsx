@@ -19,7 +19,7 @@ export const LoginRequest = () => {
                         Accesso Richiesto
                     </h4>
                     <p className="text-sm text-luxury-text/80 mb-3">
-                        Per generare i rendering personalizzati, abbiamo bisogno che tu acceda al tuo account gratuito.
+                        Per garantire la sicurezza dei suoi dati personali è necessario autenticarsi. Ci vorranno solo pochi secondi.
                     </p>
                     <button
                         onClick={triggerLogin}
@@ -27,9 +27,6 @@ export const LoginRequest = () => {
                     >
                         Accedi o Registrati
                     </button>
-                    <p className="text-[10px] text-center mt-2 text-white/40">
-                        È gratuito e richiede solo un click.
-                    </p>
                 </div>
             </div>
         </div>

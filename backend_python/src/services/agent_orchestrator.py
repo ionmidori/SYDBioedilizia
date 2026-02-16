@@ -19,7 +19,7 @@ from src.utils.stream_protocol import (
     stream_tool_result,
     stream_error
 )
-from src.utils.context import set_current_user_id, set_current_media_metadata
+from src.utils.context import set_current_user_id, set_current_media_metadata, set_is_anonymous
 from src.models.chat import MediaAttachment
 from src.auth.jwt_handler import verify_token
 from src.core.config import settings
@@ -68,6 +68,7 @@ class AgentOrchestrator:
 
             # ✅ Context Setup
             set_current_user_id(user_id)
+            set_is_anonymous(user_session.is_anonymous) 
             if request.media_metadata:
                  set_current_media_metadata(request.media_metadata)
             
@@ -107,7 +108,7 @@ class AgentOrchestrator:
                 "session_id": request.session_id,
                 "user_id": user_id,
                 "project_id": request.project_id, # 🌍 Context Injection
-                "is_authenticated": True # We verified token above
+                "is_authenticated": user_session.is_authenticated and not user_session.is_anonymous # 🔥 Anonymous = Not Authenticated for Restricted Actions
             }
             
             # 🔥 Execute Graph & Stream

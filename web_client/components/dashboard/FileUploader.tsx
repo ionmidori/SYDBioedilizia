@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, X, FileText, Image, Video, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { validateFileForUpload } from '@/lib/validation/file-upload-schema';
-import { useFileUpload, UploadProgress } from '@/hooks/useFileUpload';
+import { useFileUpload } from '@/hooks/useFileUpload';
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 export interface UploadedFile {
     file: File;
@@ -25,6 +27,8 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
     const [files, setFiles] = useState<UploadedFile[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { user } = useAuth();
+    const router = useRouter();
 
     // 🔧 Tier-3 Integration: Use Firebase Storage hook
     const { uploadFile: uploadToStorage, uploadProgress } = useFileUpload();
@@ -116,16 +120,18 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
                         : f
                 )
             );
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('[FileUploader] Upload failed:', error);
 
             // Map error to user-friendly message
             let errorMessage = 'Upload fallito. Riprova.';
-            if (error?.message?.includes('not authenticated')) {
+            const err = error as { message?: string; code?: string };
+
+            if (err?.message?.includes('not authenticated')) {
                 errorMessage = 'Devi effettuare il login per caricare file.';
-            } else if (error?.code === 'storage/unauthorized') {
+            } else if (err?.code === 'storage/unauthorized') {
                 errorMessage = 'Non hai i permessi per caricare in questo progetto.';
-            } else if (error?.code === 'storage/quota-exceeded') {
+            } else if (err?.code === 'storage/quota-exceeded') {
                 errorMessage = 'Quota di storage esaurita.';
             }
 
@@ -197,7 +203,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
     };
 
     const getFileIcon = (file: File) => {
-        if (file.type.startsWith('image/')) return <Image className="w-6 h-6" />;
+        if (file.type.startsWith('image/')) return <ImageIcon className="w-6 h-6" />;
         if (file.type.startsWith('video/')) return <Video className="w-6 h-6" />;
         return <FileText className="w-6 h-6" />;
     };
@@ -220,43 +226,61 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
     return (
         <div className="space-y-6">
             {/* Drop Zone */}
-            <div
-                onClick={() => fileInputRef.current?.click()}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                className={`
-                    relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer
-                    transition-all duration-300
-                    ${isDragging
-                        ? 'border-luxury-gold bg-luxury-gold/5 scale-105'
-                        : 'border-luxury-gold/20 bg-white/5 hover:border-luxury-gold/40 hover:bg-white/10'
-                    }
-                `}
-            >
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,application/pdf,video/*"
-                    onChange={handleFileInput}
-                    className="hidden"
-                />
+            {user?.isAnonymous ? (
+                <div className="border-2 border-dashed border-luxury-gold/20 rounded-2xl p-12 text-center bg-white/5">
+                    <AlertCircle className="w-16 h-16 mx-auto mb-4 text-luxury-gold" />
+                    <h3 className="text-xl font-bold text-luxury-text mb-2">
+                        Login Richiesto
+                    </h3>
+                    <p className="text-luxury-text/60 mb-6">
+                        Devi essere registrato per caricare file in questo progetto.
+                    </p>
+                    <button
+                        onClick={() => router.push('/auth')}
+                        className="px-6 py-2 bg-luxury-gold text-luxury-bg font-bold rounded-xl hover:bg-luxury-gold/90 transition-all"
+                    >
+                        Accedi o Registrati
+                    </button>
+                </div>
+            ) : (
+                <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    className={`
+                        relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer
+                        transition-all duration-300
+                        ${isDragging
+                            ? 'border-luxury-gold bg-luxury-gold/5 scale-105'
+                            : 'border-luxury-gold/20 bg-white/5 hover:border-luxury-gold/40 hover:bg-white/10'
+                        }
+                    `}
+                >
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,application/pdf,video/*"
+                        onChange={handleFileInput}
+                        className="hidden"
+                    />
 
-                <Upload className="w-16 h-16 mx-auto mb-4 text-luxury-gold" />
-                <h3 className="text-xl font-bold text-luxury-text mb-2">
-                    Trascina i file qui
-                </h3>
-                <p className="text-luxury-text/60">
-                    oppure clicca per selezionare
-                </p>
-                <p className="text-sm text-luxury-text/40 mt-4">
-                    Immagini (JPG, PNG, WEBP) • PDF • Video (MP4, MOV)
-                </p>
-                <p className="text-xs text-luxury-text/30 mt-2">
-                    Max {maxFiles} file • Immagini: 10MB • PDF: 25MB • Video: 100MB
-                </p>
-            </div>
+                    <Upload className="w-16 h-16 mx-auto mb-4 text-luxury-gold" />
+                    <h3 className="text-xl font-bold text-luxury-text mb-2">
+                        Trascina i file qui
+                    </h3>
+                    <p className="text-luxury-text/60">
+                        oppure clicca per selezionare
+                    </p>
+                    <p className="text-sm text-luxury-text/40 mt-4">
+                        Immagini (JPG, PNG, WEBP) • PDF • Video (MP4, MOV)
+                    </p>
+                    <p className="text-xs text-luxury-text/30 mt-2">
+                        Max {maxFiles} file • Immagini: 10MB • PDF: 25MB • Video: 100MB
+                    </p>
+                </div>
+            )}
 
             {/* File List */}
             {files.length > 0 && (

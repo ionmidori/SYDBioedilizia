@@ -52,6 +52,7 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
             uid=decoded_token.get("uid"),
             email=decoded_token.get("email"),
             is_authenticated=True,
+            is_anonymous=(decoded_token.get("firebase", {}).get("sign_in_provider") == "anonymous"), # 🔥 Detect Guest
             claims=decoded_token
         )
         

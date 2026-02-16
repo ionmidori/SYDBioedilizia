@@ -297,7 +297,7 @@ async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> 
 
 async def claim_project(session_id: str, new_user_id: str) -> bool:
     """
-    Transfer ownership of a guest project to a registered user (Deferred Auth).
+    Transfer ownership of a guest project to a registered user (Deep Claim).
     
     Args:
         session_id: Project ID (currently owned by guest_*).
@@ -309,6 +309,7 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
     try:
         db = get_async_firestore_client()
         
+        # 1. Verify Project (Source of Truth: sessions collection)
         doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
         doc = await doc_ref.get()
         
@@ -316,23 +317,49 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
             logger.warning(f"[Projects] Cannot claim non-existent project {session_id}")
             return False
         
-        current_owner = doc.to_dict().get("userId", "")
+        current_data = doc.to_dict()
+        current_owner = current_data.get("userId", "")
         
         # Only allow claiming if current owner is a guest
         if not current_owner.startswith("guest_"):
-            logger.warning(f"[Projects] Project {session_id} is not a guest project")
+            logger.warning(f"[Projects] Project {session_id} is already owned by {current_owner}")
             return False
+            
+        # 2. Prepare Atomic Batch
+        batch = db.batch()
+        now = utc_now()
         
-        await doc_ref.update({
+        # A. Update Session (Backend)
+        batch.update(doc_ref, {
             "userId": new_user_id,
-            "updatedAt": utc_now(),
+            "updatedAt": now,
         })
         
-        logger.info(f"[Projects] Claimed project {session_id} for user {new_user_id}")
+        # B. Update Project (Public Projection)
+        public_ref = db.collection("projects").document(session_id)
+        # Check if it exists before update, or use set(merge=True)
+        batch.set(public_ref, {
+            "userId": new_user_id,
+            "updatedAt": now,
+        }, merge=True)
+        
+        # 3. Deep Update: Files Metadata
+        # We also need to update 'uploadedBy' in subcollections for strict delete rules
+        files_subcol = public_ref.collection("files")
+        async for file_doc in files_subcol.stream():
+            batch.update(file_doc.reference, {
+                "uploadedBy": new_user_id,
+                "updatedAt": now
+            })
+            
+        # 4. Commit Transition
+        await batch.commit()
+        
+        logger.info(f"[Projects] DEEP CLAIM completed for project {session_id}. Owner: {new_user_id}")
         return True
         
     except Exception as e:
-        logger.error(f"[Projects] Error claiming project {session_id}: {str(e)}", exc_info=True)
+        logger.error(f"[Projects] Error during deep claim for {session_id}: {str(e)}", exc_info=True)
         return False
 
 

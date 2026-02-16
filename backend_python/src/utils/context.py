@@ -16,6 +16,9 @@ current_user_id: ContextVar[str] = ContextVar("current_user_id", default="defaul
 # Context variable for media metadata (e.g. video trim ranges)
 current_media_metadata: ContextVar[Optional[dict]] = ContextVar("current_media_metadata", default=None)
 
+# Context variable for auth status (Guest vs Authenticated)
+current_is_anonymous: ContextVar[bool] = ContextVar("current_is_anonymous", default=True)
+
 def get_current_user_id() -> str:
     """Get the current user's ID from context.
     
@@ -42,3 +45,11 @@ def get_current_media_metadata() -> Optional[dict]:
 def set_current_media_metadata(metadata: dict) -> None:
     """Set current media metadata."""
     current_media_metadata.set(metadata)
+
+def get_is_anonymous() -> bool:
+    """Check if the current user is a guest (anonymous)."""
+    return current_is_anonymous.get()
+
+def set_is_anonymous(val: bool) -> None:
+    """Set the current user's anonymity status."""
+    current_is_anonymous.set(val)

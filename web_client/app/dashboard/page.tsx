@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { StatsGrid } from '@/components/dashboard/StatsGrid';
 import { QuickActionsRow } from '@/components/dashboard/QuickActionsRow';
 import { ProjectsCarousel } from '@/components/dashboard/ProjectsCarousel';
+import { EmptyProjectsState } from '@/components/dashboard/EmptyProjectsState';
 import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
 import { FolderKanban, FileText, Image, Plus, Upload, Receipt, Ruler } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -144,11 +145,15 @@ export default function DashboardPage() {
 
             {/* 3. Recent Projects (Carousel) */}
             <motion.section variants={sectionItem} style={{ gridArea: 'projects' }} className="min-w-0 overflow-hidden">
-                <ProjectsCarousel
-                    projects={recentProjects}
-                    isLoading={projectsLoading}
-                    onCreateNew={handleCreateProject}
-                />
+                {!projectsLoading && projects.length === 0 ? (
+                    <EmptyProjectsState onCreate={handleCreateProject} />
+                ) : (
+                    <ProjectsCarousel
+                        projects={recentProjects}
+                        isLoading={projectsLoading}
+                        onCreateNew={handleCreateProject}
+                    />
+                )}
             </motion.section>
 
             <CreateProjectDialog

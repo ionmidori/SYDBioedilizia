@@ -227,13 +227,23 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                                 <ThinkingIndicator message={typingMessage} />
                             ) : (
                                 <>
-                                    {formattedText && (
+                                    {formattedText && !hasVisibleTools && (
                                         <Markdown
                                             urlTransform={(value: string) => value}
                                             components={markdownComponents}
                                         >
                                             {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
                                             {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
+                                        </Markdown>
+                                    )}
+
+                                    {/* Special Case: Allow text IF it's NOT a Login Request (to preserve context for other tools) */}
+                                    {formattedText && hasVisibleTools && !toolInvocations.some(t => t.toolName === 'request_login' || (t.result as string)?.includes?.('LOGIN_REQUIRED_UI_TRIGGER')) && (
+                                        <Markdown
+                                            urlTransform={(value: string) => value}
+                                            components={markdownComponents}
+                                        >
+                                            {formattedText}
                                         </Markdown>
                                     )}
 

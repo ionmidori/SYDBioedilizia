@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { GlobalFileUploader } from '@/components/dashboard/GlobalFileUploader';
 import { projectsApi } from '@/lib/projects-api';
+import { galleryApi } from '@/lib/gallery-api';
 
 type GroupingMode = 'project' | 'type' | 'date';
 
@@ -62,7 +63,7 @@ export function GlobalGalleryContent() {
 
     // Fetch files with pagination
     const fetchFiles = async (isInitial = true) => {
-        if (!user?.uid || !db || (isLoadingMore && !isInitial)) return;
+        if (!user || (isLoadingMore && !isInitial)) return;
 
         if (isInitial) {
             setLoading(true);
@@ -73,59 +74,25 @@ export function GlobalGalleryContent() {
         }
 
         try {
-            let filesQuery = query(
-                collectionGroup(db, 'files'),
-                where('uploadedBy', '==', user.uid),
-                orderBy('uploadedAt', 'desc'),
-                limit(ITEMS_PER_PAGE)
-            );
+            // API Call instead of direct Firestore
+            const lastId = !isInitial && assets.length > 0 ? assets[assets.length - 1].id : undefined;
+            const data = await galleryApi.listAssets(ITEMS_PER_PAGE, lastId);
 
-            if (!isInitial && lastVisible) {
-                filesQuery = query(
-                    collectionGroup(db, 'files'),
-                    where('uploadedBy', '==', user.uid),
-                    orderBy('uploadedAt', 'desc'),
-                    startAfter(lastVisible),
-                    limit(ITEMS_PER_PAGE)
-                );
-            }
-
-            const snapshot = await getDocs(filesQuery);
-
-            // Update cursor
-            const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-            if (lastDoc) {
-                setLastVisible(lastDoc);
-            }
-            setHasMore(snapshot.docs.length === ITEMS_PER_PAGE);
-
-            const newFiles = snapshot.docs.map(doc => {
-                const data = doc.data();
-                const pathSegments = doc.ref.path.split('/');
-                const projectId = pathSegments[1];
-
-                return {
-                    id: doc.id,
-                    type: data.type === 'document' ? 'quote' : data.type,
-                    url: data.url,
-                    thumbnail: data.type === 'image' ? data.url : undefined,
-                    title: data.name,
-                    createdAt: data.uploadedAt?.toDate() || new Date(),
-                    timestamp: data.uploadedAt?.toDate() || new Date(),
-                    metadata: {
-                        size: data.size,
-                        uploadedBy: data.uploadedBy,
-                        projectId: projectId,
-                        projectName: projects.find(p => p.id === projectId)?.name || 'Progetto Sconosciuto'
-                    }
-                } as MediaAsset;
-            });
+            const newFiles = data.assets.map(asset => ({
+                ...asset,
+                metadata: {
+                    ...asset.metadata,
+                    projectName: projects.find(p => p.id === asset.metadata?.projectId)?.name || 'Progetto Sconosciuto'
+                }
+            }));
 
             if (isInitial) {
                 setAssets(newFiles);
             } else {
                 setAssets(prev => [...prev, ...newFiles]);
             }
+
+            setHasMore(data.hasMore);
 
         } catch (error) {
             console.error('[GlobalGallery] Error fetching files:', error);
@@ -218,7 +185,7 @@ export function GlobalGalleryContent() {
     }
 
     return (
-        <div className="flex flex-col w-full max-w-7xl mx-auto space-y-6 md:space-y-10 py-4 md:py-6 px-4 md:px-0 h-full overflow-y-auto custom-scrollbar">
+        <div className="flex flex-col w-full mx-auto space-y-6 md:space-y-10 py-4 md:py-6 px-4 md:px-8">
             {/* Header */}
             <div className="relative border-b border-luxury-gold/10 pb-6 md:pb-8 shrink-0">
                 <div className="absolute -top-10 -left-10 w-32 h-32 bg-luxury-teal/5 rounded-full blur-[80px] pointer-events-none" />

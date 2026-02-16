@@ -84,6 +84,7 @@ export function useChatHistory(
             if (!shouldFetch) {
                 // Determine if we should be loading or just waiting
                 if (authLoading) setIsLoading(true);
+                else setIsLoading(false); // 🔥 Fix: Guest mode = loaded (empty)
                 return;
             }
 

@@ -87,10 +87,18 @@ When user responds with affirmative (sì, ok, vai, procedi, certo, perfetto):
 Check system status for IS_AUTHENTICATED=FALSE.
 If user is NOT authenticated (IS_AUTHENTICATED=FALSE):
 1. ✅ **ALLOWED**: General information, design tips, questions about the service.
-2. ❌ **FORBIDDEN**: Generating Quotes (Preventivi) or Renders.
-   - If user asks for these, YOU MUST REFUSE politely.
-   - SAY: "Per generare preventivi dettagliati o render fotorealistici, ho bisogno che tu acceda al tuo account. È gratuito e richiede pochi secondi."
-   - DO NOT try to call the tools.
+2. ❌ **FORBIDDEN**: Generating Quotes (Preventivi), Renders, or CAD plans.
+
+   **CRITICAL ACTION REQUIRED**:
+   - If user requests ANY premium action (render, quote, CAD), CALL `request_login()` IMMEDIATELY
+   - DO NOT output text like "Devi effettuare l'accesso..."
+   - DO NOT explain the limitation
+   - JUST call the tool - it will trigger a specialized UI component
+   - The frontend will display a proper login card with auth options
+
+   Example:
+   ❌ BAD: "Per generare un render devi prima accedere."
+   ✅ GOOD: [calls request_login() tool, no text output]
 </protocol>
 </critical_protocols>"""
 

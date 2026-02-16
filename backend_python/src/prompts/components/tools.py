@@ -257,5 +257,22 @@ TOOL_GENERATE_CAD = """<tool name="generate_cad">
 </workflow>
 </tool>"""
 
+TOOL_REQUEST_LOGIN = """<tool name="request_login">
+<trigger>Guest user (IS_AUTHENTICATED=FALSE) attempts a premium action (render, quote, CAD)</trigger>
+<goal>Display a specialized UI component with login prompt instead of text-only refusal</goal>
+<parameters>NONE - This tool takes no parameters</parameters>
+<workflow>
+1. DETECT premium action attempt from guest user
+2. CALL `request_login()` IMMEDIATELY
+3. DO NOT output any text response - the tool will trigger a UI component
+4. The frontend will render a LoginRequest card with auth options
+</workflow>
+<critical>
+- NEVER just refuse with text like "Devi accedere per..."
+- ALWAYS call this tool to show proper UI
+- This provides better UX than plain text refusals
+</critical>
+</tool>"""
+
 # Combined export
-TOOLS = f"{TOOL_GENERATE_RENDER}\n\n{TOOL_SUBMIT_LEAD}\n\n{TOOL_PRICE_SEARCH}\n\n{TOOL_ANALYZE_ROOM}\n\n{TOOL_SAVE_QUOTE}\n\n{TOOL_PLAN_RENOVATION}\n\n{TOOL_LIST_PROJECT_FILES}\n\n{TOOL_SHOW_PROJECT_GALLERY}\n\n{TOOL_GENERATE_CAD}"
+TOOLS = f"{TOOL_GENERATE_RENDER}\n\n{TOOL_SUBMIT_LEAD}\n\n{TOOL_PRICE_SEARCH}\n\n{TOOL_ANALYZE_ROOM}\n\n{TOOL_SAVE_QUOTE}\n\n{TOOL_PLAN_RENOVATION}\n\n{TOOL_LIST_PROJECT_FILES}\n\n{TOOL_SHOW_PROJECT_GALLERY}\n\n{TOOL_GENERATE_CAD}\n\n{TOOL_REQUEST_LOGIN}"

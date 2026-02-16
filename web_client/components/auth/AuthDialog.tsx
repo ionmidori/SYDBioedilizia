@@ -23,9 +23,10 @@ import { Loader2 } from 'lucide-react';
 interface AuthDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    redirectOnLogin?: boolean; // 🔥 NEW PROP
 }
 
-export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
+export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthDialogProps) {
     const { loginWithGoogle, loginWithApple, user } = useAuth();
     const sessionId = useSessionId();
     const router = useRouter();
@@ -41,12 +42,14 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             // Debounce per evitare loop se navigation fallisce
             const timer = setTimeout(() => {
                 onOpenChange(false);
-                router.push('/dashboard');
+                if (redirectOnLogin) {
+                    router.push('/dashboard');
+                }
             }, 100);
 
             return () => clearTimeout(timer);
         }
-    }, [open, user, onOpenChange, router]);
+    }, [open, user, onOpenChange, router, redirectOnLogin]);
 
     const [loading, setLoading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
@@ -75,7 +78,9 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
             console.warn('[AuthDialog] Claim failed (non-fatal):', error);
         } finally {
             setClaimStatus(null);
-            router.push('/dashboard');
+            if (redirectOnLogin) {
+                router.push('/dashboard');
+            }
         }
     };
 

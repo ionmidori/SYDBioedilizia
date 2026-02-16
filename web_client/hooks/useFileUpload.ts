@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -25,7 +25,7 @@ export interface UseFileUploadResult {
 export function useFileUpload(): UseFileUploadResult {
     const { user } = useAuth();
     const [uploadProgress, setUploadProgress] = useState<Map<string, UploadProgress>>(new Map());
-    const [uploadTasks, setUploadTasks] = useState<Map<string, any>>(new Map());
+    const [uploadTasks, setUploadTasks] = useState<Map<string, UploadTask>>(new Map());
 
     const uploadFile = useCallback(async (
         file: File,
@@ -34,6 +34,10 @@ export function useFileUpload(): UseFileUploadResult {
     ): Promise<string> => {
         if (!user) {
             throw new Error('User not authenticated');
+        }
+
+        if (user.isAnonymous) {
+            throw new Error('Devi effettuare il login per caricare file.');
         }
 
         const fileId = `${Date.now()}_${file.name}`;
@@ -119,7 +123,7 @@ export function useFileUpload(): UseFileUploadResult {
                         });
 
                         resolve(downloadURL);
-                    } catch (error: any) {
+                    } catch (error: unknown) {
                         console.error('[useFileUpload] Metadata save error:', error);
                         setUploadProgress(prev => new Map(prev).set(fileId, {
                             progress: 100,

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
 import {
     User,
     signInAnonymously as firebaseSignInAnonymously,
@@ -211,9 +211,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     /**
      * Sign out
      */
+    /**
+     * Sign out
+     */
     const logout = async (): Promise<void> => {
-        await removeAuthCookie();
-        await signOut(auth);
+        try {
+            // 1. CLEAR LOCAL STATE IMMEDIATELY (Prevent UI from thinking it's logged in)
+            setUser(null);
+            setIdToken(null);
+            tokenManager.stopMonitoring();
+
+            // 2. Clear Server Session
+            await removeAuthCookie();
+
+            // 3. Clear Firebase Auth
+            await signOut(auth);
+
+            // 4. Force Redirect (Safety net)
+            // window.location.href = '/auth'; // Optional: let the component handle it via useEffect
+        } catch (error) {
+            console.error('[AuthProvider] Logout error:', error);
+            // Even if error, force local state clear
+            setUser(null);
+        }
     };
 
     /**
@@ -248,19 +268,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     /**
      * Refresh token
+     *
+     * Enhanced with fallback to auth.currentUser to handle race conditions
+     * where signInAnonymously has completed but the user state hasn't updated yet.
      */
-    const refreshToken = async (): Promise<string | null> => {
-        if (!user) return null;
-
+    // Unified Token Refresher
+    const refreshToken = useCallback(async (force = false) => {
         try {
-            const token = await user.getIdToken(true);
+            // ⚡ Use auth.currentUser directly as fallback to state 'user' 
+            // to avoid race conditions during initial sign-in
+            const currentUser = auth.currentUser || user;
+            if (!currentUser) {
+                console.warn('[AuthProvider] Cannot refresh token: No user available');
+                return null;
+            }
+
+            const token = await currentUser.getIdToken(force);
             setIdToken(token);
+            await setAuthCookie(token);
             return token;
         } catch (err) {
             console.error('[AuthProvider] Token refresh failed:', err);
             return null;
         }
-    };
+    }, [user]);
 
     const value: AuthContextValue = {
         user,

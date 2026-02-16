@@ -1,7 +1,7 @@
 import functools
 import logging
 from typing import Any, Callable, Union
-from src.utils.context import get_current_user_id
+from src.utils.context import get_current_user_id, get_is_anonymous
 
 logger = logging.getLogger(__name__)
 
@@ -24,18 +24,8 @@ def require_auth(func: Callable) -> Callable:
             # Fallback to context var
             user_id = get_current_user_id()
             
-        # 2. Check if Anonymous
-        # Logic mirrors src/tools/quota.py but is binary: AUTH vs ANON
-        is_anonymous = False
-        
-        if not user_id:
-            is_anonymous = True
-        elif user_id == "default":
-            is_anonymous = True
-        elif user_id.startswith("guest_") or user_id.startswith("session_"):
-            is_anonymous = True
-        elif len(user_id) < 10: # Firebase UIDs are usually 28 chars
-            is_anonymous = True
+        # 2. Check if Anonymous (Reliable check via Context)
+        is_anonymous = get_is_anonymous()
             
         # 3. Block or Allow
         if is_anonymous:
