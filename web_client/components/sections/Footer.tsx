@@ -86,10 +86,16 @@ export function Footer() {
                     <div>
                         <h4 className="text-luxury-text font-serif font-bold mb-6 text-lg">Esplora</h4>
                         <ul className="space-y-4">
-                            {['Home', 'Servizi', 'Portfolio', 'Chi Siamo', 'Blog'].map((item) => (
-                                <li key={item}>
-                                    <Link href="#" className="text-luxury-text/70 hover:text-luxury-gold transition-colors text-sm font-light">
-                                        {item}
+                            {[
+                                { name: 'Home', href: '/' },
+                                { name: 'Servizi', href: '/#services' },
+                                { name: 'Portfolio', href: '/#portfolio' },
+                                { name: 'Chi Siamo', href: '/chi-siamo' },
+                                { name: 'Blog', href: '/blog' },
+                            ].map((item) => (
+                                <li key={item.name}>
+                                    <Link href={item.href} className="text-luxury-text/70 hover:text-luxury-gold transition-colors text-sm font-light">
+                                        {item.name}
                                     </Link>
                                 </li>
                             ))}
@@ -102,15 +108,26 @@ export function Footer() {
                         <ul className="space-y-4">
                             <li className="flex items-start gap-3 text-luxury-text/70 text-sm font-light">
                                 <MapPin className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>Via Quero, 132,<br />00123 Roma<br /><span className="text-luxury-gold/60 text-xs mt-1 block">P.IVA: 15714991005</span></span>
+                                <a
+                                    href="https://maps.google.com/?q=Via+Quero+132+00123+Roma"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="hover:text-luxury-gold transition-colors"
+                                >
+                                    Via Quero, 132,<br />00123 Roma<br /><span className="text-luxury-gold/60 text-xs mt-1 block">P.IVA: 15714991005</span>
+                                </a>
                             </li>
                             <li className="flex items-center gap-3 text-luxury-text/70 text-sm font-light">
                                 <Phone className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>+39 375 5463599</span>
+                                <a href="tel:+393755463599" className="hover:text-luxury-gold transition-colors">
+                                    +39 375 5463599
+                                </a>
                             </li>
                             <li className="flex items-center gap-3 text-luxury-text/70 text-sm font-light">
                                 <Mail className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>sydbioedilizia@gmail.com</span>
+                                <a href="mailto:sydbioedilizia@gmail.com" className="hover:text-luxury-gold transition-colors">
+                                    sydbioedilizia@gmail.com
+                                </a>
                             </li>
                         </ul>
                     </div>
