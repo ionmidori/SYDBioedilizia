@@ -34,7 +34,8 @@ export function useDashboardStats() {
                 const [projectsSnapshot, filesSnapshot] = await Promise.all([
                     getDocs(query(
                         collection(db, 'sessions'),
-                        where('userId', '==', user.uid)
+                        where('userId', '==', user.uid),
+                        where('createdAt', '>', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) // 7 days rule
                     )),
                     getDocs(query(
                         collectionGroup(db, 'files'),
