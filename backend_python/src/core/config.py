@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     Enforces strict typing and validation of environment variables.
     """
     ENV: str = Field(default="development", description="Environment: development, production")
-    PROJECT_ID: str = Field(default="website-renovation", description="Google Cloud Project ID")
+    PROJECT_ID: str = Field(default="chatbotluca-a8a73", description="Google Cloud Project ID")
     
     # Secrets
     # We allow None during init if .env is missing, but logic should check them.
