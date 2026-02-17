@@ -104,14 +104,12 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **Enterprise Skill Arsenal**: Installazione di 8 nuove skill (FastAPI patterns, Security, Git workflows) per standardizzazione produttiva.
 - **Consolidation**: Sincronizzazione finale della memoria di progetto guidata dai report di Claude.
 
-## 🔐 Fase 15: Guest Chat Authentication Race Condition Fix (Feb-16-2026)
-*Risoluzione definitiva del bug di autenticazione per utenti guest al primo messaggio.*
-- **Root Cause Identified**: `ChatProvider.sendMessage()` chiamava `getRequestOptions()` PRIMA di `signInAnonymously()`, causando richieste senza token `Authorization` per guest users.
-- **AuthProvider Enhancement**: Migliorato `refreshToken()` con fallback a `auth.currentUser` (lines 249-274) per gestire race conditions dove `signInAnonymously()` completa ma lo stato React `user` non è ancora aggiornato.
-- **ChatProvider Reordering**: Invertita la logica in `sendMessage()` (lines 179-210): ora `signInAnonymously()` viene chiamato PRIMA di `getRequestOptions()`, garantendo che il token sia disponibile.
-- **getRequestOptions Resilience**: Rimosso il check condizionale `if (user)` - ora `refreshToken()` viene sempre chiamato, sfruttando il fallback `auth.currentUser`.
-- **Verification Pattern**: Modalità incognito → inviare messaggio immediato → verificare console (no "Authentication required"), network tab (presenza `Authorization: Bearer <token>`), risposta streaming OK.
-- **Files Modified**: `web_client/components/providers/AuthProvider.tsx`, `web_client/components/chat/ChatProvider.tsx`.
+## �️ Fase 16: Production Stability & App Check Fix (Feb-17-2026)
+*Risoluzione del blocco dashboard e hardening delle policy CSP.*
+- **CSP & App Check Resolution**: Identificato e risolto il blocco di reCAPTCHA v3 causato da una CSP troppo restrittiva. Abilitata la comunicazione con `google.com` per la generazione dei token.
+- **Project ID Alignment**: Corretta l'inconsistenza del `PROJECT_ID` tra backend e ambiente di produzione per garantire la corretta inizializzazione del Firebase Admin SDK.
+- **Security First Approach**: Rifiutata la disattivazione di App Check in favore di una risoluzione tecnica del problema di generazione token, mantenendo lo standard Enterprise-Grade.
+- **URL Desynchronization Fix**: Sincronizzate le URL dei rewrite in `next.config.ts` per puntare al servizio Cloud Run attivo (`chatbotluca-a8a73`).
 
-*Ultimo aggiornamento memoria: 16 Febbraio 2026*
+*Ultimo aggiornamento memoria: 17 Febbraio 2026*
 

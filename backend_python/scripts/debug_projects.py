@@ -1,28 +1,30 @@
-
-import firebase_admin
-from firebase_admin import credentials, firestore
+import asyncio
 import os
-from dotenv import load_dotenv
+import sys
 
-load_dotenv()
+# Add the project root to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-if not firebase_admin._apps:
-    firebase_admin.initialize_app()
+from src.db.projects import get_user_projects
+from src.core.config import settings
 
-db = firestore.client()
+async def main():
+    print(f"Using Project ID: {settings.PROJECT_ID}")
+    try:
+        # Use a dummy user ID or one that likely exists
+        user_id = "test_user_Id_123" 
+        print(f"Attempting to fetch projects for user: {user_id}")
+        
+        projects = await get_user_projects(user_id)
+        
+        print(f"Successfully retrieved {len(projects)} projects.")
+        for p in projects:
+            print(f" - {p.title} ({p.session_id})")
+            
+    except Exception as e:
+        print(f"\nCRITICAL ERROR: {e}")
+        import traceback
+        traceback.print_exc()
 
-# List last 5 projects
-projects_ref = db.collection('projects').order_by('createdAt', direction=firestore.Query.DESCENDING).limit(5)
-docs = projects_ref.stream()
-
-print("-" * 40)
-print("LATEST 5 PROJECTS")
-print("-" * 40)
-
-for doc in docs:
-    data = doc.to_dict()
-    print(f"ID: {doc.id}")
-    print(f"UserId: {data.get('userId', 'MISSING')}")
-    print(f"Name: {data.get('name', 'MISSING')}")
-    print(f"CreatedAt: {data.get('createdAt', 'MISSING')}")
-    print("-" * 20)
+if __name__ == "__main__":
+    asyncio.run(main())

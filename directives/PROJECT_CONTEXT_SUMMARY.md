@@ -1,11 +1,27 @@
 # Project Context Summary - Renovation-Next
 
 - **Last Updated**: 2026-02-17
-- **Status**: **Release 2.2.0 DEPLOYED** 🚀 | Gallery Fixed | Security Rules Hardened | Mobile UX Polished
-- **Next High Priority**: Phase 25: TBD (Refining Quote AI Orchestration)
+- **Status**: **Release 2.2.1 DEPLOYED** 🚀 | App Check/CSP Fix | Production URL Mismatch Resolved
+- **Next High Priority**: Phase 24bis: TBD (Refining Quote AI Orchestration)
 Questo file serve come memoria storica per l'IA per evitare regressioni su bug critici risolti e mantenere la continuità architetturale.
 
-## 🚀 Novità Sessione Corrente (Phase 19-24: Release 2.2.0 & Stability)
+## 🚀 Novità Sessione Corrente (Phase 16 - Stability & Security Fixes)
+Abbiamo risolto un blocco critico in produzione legato ad App Check e alla Content Security Policy, sincronizzando correttamente le configurazioni tra i vari tier.
+
+### 🛡️ App Check & CSP Production Fix (COMPLETED ✅)
+- **Problema**: Dashboard non caricava i progetti ("Unable to load projects") e restituiva 403 Forbidden in produzione.
+- **Root Cause 1 (Backend)**: Il `PROJECT_ID` di default era impostato a `website-renovation` invece di `chatbotluca-a8a73`, causando fallimenti nelle chiamate Firestore/AppCheck via Admin SDK.
+- **Root Cause 2 (Frontend)**: La Content Security Policy (CSP) bloccava le chiamate a `www.google.com`, impedendo la generazione dei token App Check/reCAPTCHA.
+- **Soluzione**: 
+    - Corretto `PROJECT_ID` in `backend_python/src/core/config.py`.
+    - Aperta CSP in `next.config.ts` aggiungendo `https://www.google.com` e `https://www.gstatic.com` al `connect-src`.
+    - Allineate le URL di rewrite in `next.config.ts` al servizio Cloud Run corretto.
+- **Security Priority**: Mantenuta l'enforcement `STRICT` di App Check invece di disabilitarlo, garantendo protezione zero-trust.
+- **Files**: `backend_python/src/core/config.py`, `web_client/next.config.ts`.
+
+---
+
+## 🚀 Novità Precedenti (Phase 19-24: Release 2.2.0 & Stability)
 Abbiamo completato il blocco degli upload guest, risolto bug critici alla galleria e migliorato l'affidabilità del sistema di sessioni.
 
 ### 🛡️ Guest Upload Blocking (COMPLETED ✅)
@@ -152,7 +168,7 @@ Per garantire la massima qualità, il progetto utilizza un approccio multi-agent
 
 ## 📋 Regole Operative (Elephant Memory)
 1. **Mandatory Skill Consultancy**: Prima di iniziare qualsiasi task tecnico, architettonico o di debugging, DEVI consultare la directory `skills/` per verificare la presenza di pattern, standard di sicurezza o workflow enterprise già definiti.
-2. **Elephant Memory**: Devi consultare `directives/PROJECT_CONTEXT_SUMMARY.md` all'inizio di ogni nuova conversazione.
+2. **Elephant Memory**: Devi consultare `directives/PROJECT_CONTEXT_SUMMARY.md` e `directives/HISTORICAL_MILESTONES.md` all'inizio di ogni nuova conversazione.
 3. **Skill Discovery**: Antigravity caricherà automaticamente le skill se pertinenti, ma la consultazione proattiva è obbligatoria per garantire lo standard "Zero-Refactor".
 4. **Datetime**: Usa SEMPRE `src.utils.datetime_utils.utc_now()`.
 5. **Exceptions**: MAI usare `except:`. Usa SEMPRE `except Exception:`.
