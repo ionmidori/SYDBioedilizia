@@ -1,0 +1,17 @@
+{
+    "name": "SYD Bioedilizia",
+    "short_name": "SYD",
+    "description": "Trasforma la tua casa con il potere dell'Intelligenza Artificiale.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#264653",
+    "theme_color": "#264653",
+    "orientation": "portrait",
+    "icons": [
+        {
+            "src": "/syd-logo-v2.png",
+            "sizes": "any",
+            "type": "image/png"
+        }
+    ]
+}
