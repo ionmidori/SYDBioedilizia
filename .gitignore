@@ -79,6 +79,9 @@ htmlcov/
 # project memory (local only)
 directives/
 docs/
+gemini.md
+CLAUDE.md
+SECURITY_AUDIT_P*.md
 backend_python/server_debug.log
 
 # temporary files
