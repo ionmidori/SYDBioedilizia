@@ -155,25 +155,46 @@ class TestProjectDbOperations:
         """
         from src.db import projects as projects_db
         
-        # Mock: Project exists with guest owner
-        # DocumentSnapshot.to_dict() is synchronous, so use MagicMock
+        # Mock: Project snapshot
         mock_doc = MagicMock()
         mock_doc.exists = True
         mock_doc.to_dict.return_value = {"userId": "guest_abc12345"}
         
-        # doc_ref.get() is async, so use AsyncMock that returns the sync snapshot
-        mock_doc_ref = AsyncMock()
-        mock_doc_ref.get.return_value = mock_doc
+        # Mock: Document reference (synchronous methods, async get)
+        mock_doc_ref = MagicMock()
+        mock_doc_ref.get = AsyncMock(return_value=mock_doc)
         
+        # Mock: Batch (synchronous update/set, async commit)
+        mock_batch = MagicMock()
+        mock_batch.commit = AsyncMock()
+        
+        # Mock: Files Stream (Async generator)
+        async def mock_stream():
+            if False: yield 
+        
+        mock_files_col = MagicMock()
+        mock_files_col.stream.side_effect = mock_stream
+        
+        mock_doc_ref.collection.return_value = mock_files_col
+        
+        # Mock: Database Client
         mock_db = MagicMock()
+        mock_db.batch.return_value = mock_batch
         mock_db.collection.return_value.document.return_value = mock_doc_ref
         
         with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
             result = await projects_db.claim_project("session-xyz", "new-user-456")
         
-        # Assert: Should update
+        # Assert: Should return True
         assert result is True
-        mock_doc_ref.update.assert_called_once()
-        update_args = mock_doc_ref.update.call_args[0][0]
-        assert update_args["userId"] == "new-user-456"
+        
+        # Assert: Batch logic verification
+        mock_batch.commit.assert_called_once()
+        # Verify any update call reached the batch for the target user
+        found_update = False
+        for call in mock_batch.update.call_args_list:
+            if call[0][1].get("userId") == "new-user-456":
+                found_update = True
+                break
+        assert found_update is True
 

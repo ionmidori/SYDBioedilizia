@@ -30,7 +30,8 @@ class TestUpload:
         # Patch the centralized client getter and bucket env var
         # Note: We match where the object is defined, as it is imported inside the function
         with patch('src.storage.firebase_storage.get_storage_client', return_value=mock_client):
-            with patch('src.storage.upload.FIREBASE_STORAGE_BUCKET', 'test-bucket'):
+            with patch('src.storage.upload.settings') as mock_settings:
+                mock_settings.FIREBASE_STORAGE_BUCKET = 'test-bucket'
                 # Act
                 url = upload_base64_image(base64_data, "test-session")
         
@@ -48,7 +49,8 @@ class TestUpload:
         THEN should raise exception
         """
         # Arrange
-        with patch('src.storage.upload.FIREBASE_STORAGE_BUCKET', None):
+        with patch('src.storage.upload.settings') as mock_settings:
+            mock_settings.FIREBASE_STORAGE_BUCKET = None
             # Act & Assert
             with pytest.raises(Exception) as excinfo:
                 upload_base64_image("data:image/png;base64,123", "test")
@@ -65,7 +67,8 @@ class TestUpload:
         # We use 15MB chars to be safe
         large_data = "a" * (15 * 1024 * 1024) 
         
-        with patch('src.storage.upload.FIREBASE_STORAGE_BUCKET', 'test-bucket'):
+        with patch('src.storage.upload.settings') as mock_settings:
+            mock_settings.FIREBASE_STORAGE_BUCKET = 'test-bucket'
              # Act & Assert
             with pytest.raises(Exception) as excinfo:
                 upload_base64_image(large_data, "test")
@@ -82,7 +85,8 @@ class TestUpload:
         mock_client.bucket.side_effect = Exception("Connection error")
         
         with patch('src.storage.firebase_storage.get_storage_client', return_value=mock_client):
-            with patch('src.storage.upload.FIREBASE_STORAGE_BUCKET', 'test-bucket'):
+            with patch('src.storage.upload.settings') as mock_settings:
+                mock_settings.FIREBASE_STORAGE_BUCKET = 'test-bucket'
                  # Act & Assert
                 with pytest.raises(Exception) as excinfo:
                     upload_base64_image("data:image/png;base64,123", "test")
@@ -105,7 +109,8 @@ class TestUpload:
         mock_client.bucket.return_value = mock_bucket
         
         with patch('src.storage.firebase_storage.get_storage_client', return_value=mock_client):
-            with patch('src.storage.upload.FIREBASE_STORAGE_BUCKET', 'test-bucket'):
+            with patch('src.storage.upload.settings') as mock_settings:
+                mock_settings.FIREBASE_STORAGE_BUCKET = 'test-bucket'
                 # Act
                 url = upload_base64_image(raw_base64, "test", prefix="uploads")
         

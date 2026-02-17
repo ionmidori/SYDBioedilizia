@@ -79,16 +79,24 @@ export async function fetchWithAuth(url: string, options: FetchOptions = {}): Pr
     }
 
     // Inject App Check Token (⚡ Production Protection)
-    if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true' && appCheck) {
-        try {
-            const result = await getToken(appCheck, false);
-            if (result.token) {
-                finalHeaders['X-Firebase-AppCheck'] = result.token;
+    if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
+        if (!appCheck) {
+            console.error('[ApiClient] ❌ Header Injection Blocked: appCheck instance is null. Site key might be missing.');
+        } else {
+            try {
+                const result = await getToken(appCheck, false);
+                if (result.token) {
+                    finalHeaders['X-Firebase-AppCheck'] = result.token;
+                    // console.debug('[ApiClient] 🔐 App Check token injected');
+                } else {
+                    console.warn('[ApiClient] ⚠️ App Check token is empty!');
+                }
+            } catch (error) {
+                console.error('[ApiClient] ❌ App Check token retrieval failed:', error);
             }
-        } catch (error) {
-            // Log but don't block in dev; backend will enforce if configured
-            console.debug('[ApiClient] App Check token suppressed or unavailable:', error);
         }
+    } else {
+        // console.debug('[ApiClient] 🛡️ App Check injection skipped (Disabled via Env)');
     }
 
     // Execute Request
