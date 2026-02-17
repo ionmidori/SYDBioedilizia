@@ -23,7 +23,7 @@ const minimalSpring = {
     stiffness: 400,
     damping: 40,
     mass: 1
-};
+} as const;
 
 export function ThinkingSurface({ statusMessage, data, layoutId = "thinking-surface" }: ThinkingSurfaceProps) {
     const lastTool = data?.findLast((item: any) => item.type === 'tool_start');

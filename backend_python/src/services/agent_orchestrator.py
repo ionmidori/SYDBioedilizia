@@ -73,7 +73,7 @@ class AgentOrchestrator:
                  set_current_media_metadata(request.media_metadata)
             
             # 🔥 Ensure Session & Load History
-            await self.repo.ensure_session(request.session_id)
+            await self.repo.ensure_session(request.session_id, user_id=user_id)
             conversation_history = await self.repo.get_context(request.session_id, limit=10)
             logger.info(f"[Orchestrator] Loaded {len(conversation_history)} messages")
             

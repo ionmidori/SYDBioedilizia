@@ -168,6 +168,17 @@ class ConversationRepository:
                     })
                     logger.info(f"[Repo] 🚀 Sync: Created project {session_id} from session")
             else:
+                # 🔄 Session Claiming Logic: If existing session is a guest one, and we have a real user, upgrade it.
+                session_data = doc.to_dict()
+                current_owner = session_data.get('userId', '')
+                if user_id and current_owner.startswith('guest_'):
+                    session_ref.update({'userId': user_id, 'updatedAt': firestore.SERVER_TIMESTAMP})
+                    # Also update project
+                    project_ref = db.collection('projects').document(session_id)
+                    if project_ref.get().exists:
+                        project_ref.update({'userId': user_id, 'updatedAt': firestore.SERVER_TIMESTAMP})
+                    logger.info(f"[Repo] 🔄 CLAIM: Session {session_id} migrated from {current_owner} to {user_id}")
+                
                 # Backfill check
                 project_ref = db.collection('projects').document(session_id)
                 if not project_ref.get().exists:

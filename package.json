@@ -2,8 +2,7 @@
     "name": "renovation-ai-monorepo",
     "private": true,
     "workspaces": [
-        "web_client",
-        "backend_python"
+        "web_client"
     ],
     "scripts": {
         "dev:web": "npm run dev --workspace=web_client",
@@ -16,6 +15,7 @@
         "react-dom": "18.3.1"
     },
     "overrides": {
-        "zod": "^3.23.8"
+        "zod": "^3.23.8",
+        "fast-xml-parser": "5.3.6"
     }
 }
