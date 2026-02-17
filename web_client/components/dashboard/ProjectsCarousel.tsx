@@ -25,12 +25,17 @@ export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsC
         <div className="relative w-full">
             {/* Header */}
             <div className="flex items-center justify-between mb-4 px-1">
-                <h2 className="text-xl font-serif font-bold text-luxury-text">Recenti</h2>
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-luxury-gold/10 border border-luxury-gold/20">
+                        <FolderKanban className="w-4 h-4 text-luxury-gold" />
+                    </div>
+                    <h2 className="text-lg md:text-xl font-serif font-bold text-luxury-text">I Miei Progetti</h2>
+                </div>
                 <button
                     onClick={() => router.push('/dashboard/projects')}
-                    className="text-xs font-medium text-luxury-gold hover:text-luxury-gold/80 flex items-center gap-1 transition-colors"
+                    className="text-[10px] uppercase tracking-wider font-bold text-luxury-gold hover:text-luxury-gold/80 flex items-center gap-1 transition-colors"
                 >
-                    Vedi tutti <ArrowRight className="w-3 h-3" />
+                    Archivio <ArrowRight className="w-3 h-3" />
                 </button>
             </div>
 
@@ -86,10 +91,10 @@ function ProjectCard({ project, index }: { project: ProjectListItem, index: numb
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
             onClick={() => router.push(`/dashboard/${project.session_id}`)}
-            className="snap-start shrink-0 w-[260px] flex flex-col gap-3 group cursor-pointer"
+            className="snap-start shrink-0 w-[220px] flex flex-col gap-3 group cursor-pointer"
         >
             {/* Image Container */}
-            <div className="relative aspect-[3/2] w-full rounded-[24px] overflow-hidden bg-luxury-bg/50 border border-luxury-text/5 group-hover:border-luxury-gold/30 transition-all">
+            <div className="relative aspect-[3/2] w-full rounded-[20px] overflow-hidden bg-luxury-bg/50 border border-luxury-text/5 group-hover:border-luxury-gold/30 transition-all">
                 {project.thumbnail_url ? (
                     <Image
                         src={project.thumbnail_url}
@@ -99,19 +104,14 @@ function ProjectCard({ project, index }: { project: ProjectListItem, index: numb
                     />
                 ) : (
                     <div className="absolute inset-0 flex items-center justify-center bg-luxury-bg/80">
-                        <FolderKanban className="w-8 h-8 text-luxury-text/20 group-hover:text-luxury-gold/50 transition-colors" />
+                        <FolderKanban className="w-6 h-6 text-luxury-text/20 group-hover:text-luxury-gold/50 transition-colors" />
                     </div>
                 )}
-
-                {/* Status Badge */}
-                <div className="absolute top-2 right-2 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md text-[10px] font-medium text-white border border-white/10 uppercase tracking-widest">
-                    {project.status === 'draft' ? 'Bozza' : project.status}
-                </div>
             </div>
 
             {/* Info */}
             <div className="px-1">
-                <h3 className="text-base font-serif font-bold text-luxury-text truncate group-hover:text-luxury-gold transition-colors">
+                <h3 className="text-sm font-serif font-bold text-luxury-text truncate group-hover:text-luxury-gold transition-colors">
                     {project.title}
                 </h3>
                 <div className="flex items-center gap-2 mt-1">

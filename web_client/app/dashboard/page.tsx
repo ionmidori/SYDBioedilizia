@@ -64,27 +64,27 @@ export default function DashboardPage() {
 
     return (
         <motion.div
-            className="bento-grid py-6 px-3 md:px-8 max-w-[1600px] mx-auto w-full pb-32 md:pb-8"
+            className="bento-grid py-4 px-3 md:px-8 max-w-7xl mx-auto w-full pb-32 md:pb-8"
             variants={sectionStagger}
             initial="hidden"
             animate="visible"
         >
             {/* Welcome Hero */}
             <motion.header
-                className="space-y-2"
+                className="space-y-1"
                 style={{ gridArea: 'hero' }}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={M3Spring.gentle}
             >
-                <p className="text-[11px] font-sans uppercase tracking-widest text-luxury-gold/60 font-medium">
+                <p className="text-[10px] font-sans uppercase tracking-widest text-luxury-gold/60 font-medium">
                     {formattedDate}
                 </p>
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-luxury-text tracking-tight leading-tight">
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif font-bold text-luxury-text tracking-tight leading-tight">
                     {greeting}, <br className="md:hidden" />
                     <span className="text-luxury-gold italic">{userName}</span>
                 </h1>
-                <p className="text-luxury-text/50 font-sans text-sm md:text-base">
+                <p className="text-luxury-text/40 font-sans text-xs md:text-sm">
                     La tua bacheca operativa
                 </p>
             </motion.header>

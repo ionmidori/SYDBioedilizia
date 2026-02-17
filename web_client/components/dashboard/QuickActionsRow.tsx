@@ -37,8 +37,8 @@ function ActionCard({ label, icon: Icon, onClick, highlight, index, span }: Acti
             whileTap={{ scale: 0.98 }}
             onClick={onClick}
             className={`
-                group flex items-center gap-4 rounded-[20px] text-left transition-all cursor-pointer
-                ${span ? 'sm:col-span-2 lg:col-span-1 p-5' : 'p-4'}
+                group flex items-center gap-3 rounded-[16px] text-left transition-all cursor-pointer
+                ${span ? 'sm:col-span-2 lg:col-span-1 p-4' : 'p-3'}
                 ${highlight
                     ? 'bg-luxury-gold/10 border border-luxury-gold/30 hover:bg-luxury-gold/15 hover:border-luxury-gold/50 hover:shadow-elevation-high'
                     : 'surface-container-low hover:surface-container-high hover:shadow-elevation-high'
@@ -46,23 +46,23 @@ function ActionCard({ label, icon: Icon, onClick, highlight, index, span }: Acti
             `}
         >
             <div className={`
-                p-3 rounded-2xl transition-colors duration-200
+                p-2.5 rounded-xl transition-colors duration-200
                 ${highlight
                     ? 'bg-luxury-gold/20 text-luxury-gold'
                     : 'bg-white/5 text-luxury-gold/70 group-hover:bg-luxury-gold/10 group-hover:text-luxury-gold'
                 }
             `}>
-                <Icon className={highlight ? 'w-6 h-6' : 'w-5 h-5'} />
+                <Icon className={highlight ? 'w-5 h-5' : 'w-4 h-4'} />
             </div>
             <div>
                 <span className={`
                     font-medium block
-                    ${highlight ? 'text-luxury-gold text-base' : 'text-luxury-text text-sm'}
+                    ${highlight ? 'text-luxury-gold text-sm' : 'text-luxury-text text-[13px]'}
                 `}>
                     {label}
                 </span>
                 {highlight && (
-                    <span className="text-xs text-luxury-gold/60 mt-0.5 block">
+                    <span className="text-[10px] text-luxury-gold/60 mt-0.5 block">
                         Crea un nuovo cantiere
                     </span>
                 )}

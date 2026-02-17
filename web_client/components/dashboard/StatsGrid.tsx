@@ -26,7 +26,7 @@ export function StatsGrid({ stats, isLoading }: { stats: StatProps[], isLoading:
 function StatCard({ label, value, icon: Icon, isLoading, index }: StatProps & { index: number }) {
     return (
         <div
-            className="group relative flex items-center justify-between px-3 py-3 rounded-xl bg-luxury-bg/60 border border-luxury-gold/10 hover:border-luxury-gold/30 hover:bg-luxury-bg/80 transition-all duration-300 backdrop-blur-md shadow-sm w-full"
+            className="group relative flex items-center justify-between px-3 py-2 rounded-xl bg-luxury-bg/60 border border-luxury-gold/10 hover:border-luxury-gold/30 hover:bg-luxury-bg/80 transition-all duration-300 backdrop-blur-md shadow-sm w-full"
         >
             {/* Minimal Background Glow */}
             <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/0 to-luxury-gold/0 group-hover:via-luxury-gold/5 transition-all duration-500 rounded-xl" />
@@ -34,9 +34,9 @@ function StatCard({ label, value, icon: Icon, isLoading, index }: StatProps & { 
             <div className="flex items-center gap-2 z-10 w-full min-w-0">
                 {/* Value - Prominent */}
                 {isLoading ? (
-                    <div className="h-6 w-10 bg-luxury-text/10 rounded animate-pulse" />
+                    <div className="h-5 w-8 bg-luxury-text/10 rounded animate-pulse" />
                 ) : (
-                    <span className="text-lg font-serif font-bold text-luxury-gold leading-none shrink-0">
+                    <span className="text-base font-serif font-bold text-luxury-gold leading-none shrink-0">
                         {value}
                     </span>
                 )}
