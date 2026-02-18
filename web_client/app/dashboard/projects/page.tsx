@@ -1,13 +1,10 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { FolderKanban, Plus, Calendar, MessageSquare, ArrowRight, Loader2 } from "lucide-react"
-import { formatDistanceToNow } from "date-fns"
-import { it } from "date-fns/locale"
-import Link from "next/link"
+import { FolderKanban, Plus, Loader2 } from "lucide-react"
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 
-import { projectsApi } from "@/lib/projects-api"
+
 import { Button } from "@/components/ui/button"
 import { useProjects } from "@/hooks/useProjects"
 import { ProjectCard } from "@/components/dashboard/ProjectCard"
@@ -34,27 +31,42 @@ export default function ProjectsPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto space-y-12 py-6">
+        <div className="max-w-7xl mx-auto space-y-12 py-6 px-4 md:px-8">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-luxury-gold/10 pb-10 relative">
                 <div className="absolute -top-10 -left-10 w-32 h-32 bg-luxury-teal/5 rounded-full blur-[80px] pointer-events-none" />
 
-                <div className="space-y-3 relative z-10">
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-luxury-text font-serif leading-tight">
-                        I Miei <span className="text-luxury-gold italic">Progetti</span>
+                <div className="space-y-3 relative z-10 flex-1">
+                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-luxury-text font-serif leading-tight flex items-center gap-4">
+                        <div className="p-2 md:p-3 bg-luxury-gold/10 rounded-xl md:rounded-2xl border border-luxury-gold/20 shadow-lg shadow-luxury-gold/5 shrink-0">
+                            <FolderKanban className="w-6 h-6 md:w-8 md:h-8 text-luxury-gold" />
+                        </div>
+                        <span className="flex-1">
+                            I Miei <span className="text-luxury-gold italic">Progetti</span>
+                        </span>
                     </h1>
                     <p className="text-luxury-text/50 max-w-xl font-medium text-sm md:text-base leading-relaxed">
                         Gestisci tutte le tue ristrutturazioni e visualizza i tuoi preventivi intelligenti in un unico posto.
                     </p>
                 </div>
-                <Button
+                <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={handleCreateProject}
-                    className="h-14 px-8 bg-luxury-teal hover:bg-luxury-teal text-white font-extrabold rounded-2xl shadow-2xl shadow-luxury-teal/30 transition-all hover:scale-[1.03] active:scale-95 uppercase tracking-[0.2em] text-[10px] relative overflow-hidden group border border-white/10"
+                    className="group relative flex items-center gap-3 px-6 py-3 bg-luxury-gold/10 border border-luxury-gold/30 hover:border-luxury-gold/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/5"
                 >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                    <Plus className="w-5 h-5 mr-3" />
-                    Nuovo Progetto
-                </Button>
+                    {/* Internal Glow Effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/0 to-luxury-gold/0 group-hover:via-luxury-gold/10 transition-all duration-500 rounded-xl" />
+
+                    <div className="relative z-10 flex items-center gap-3">
+                        <div className="p-1.5 bg-luxury-gold/20 rounded-lg text-luxury-gold">
+                            <Plus className="w-5 h-5" />
+                        </div>
+                        <span className="text-luxury-gold font-bold text-sm md:text-base whitespace-nowrap uppercase tracking-widest">
+                            Nuovo Progetto
+                        </span>
+                    </div>
+                </motion.button>
             </div>
 
             {/* Error Message */}
@@ -94,8 +106,8 @@ export default function ProjectsPage() {
             {/* Projects Grid */}
             {projects.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {projects.map((project) => (
-                        <ProjectCard key={project.session_id} project={project} onDelete={handleDeleteProject} />
+                    {projects.map((project, index) => (
+                        <ProjectCard key={project.session_id} project={project} index={index} onDelete={handleDeleteProject} />
                     ))}
                 </div>
             )}

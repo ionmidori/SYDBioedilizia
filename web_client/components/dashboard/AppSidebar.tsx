@@ -39,7 +39,7 @@ interface NavItemProps {
 }
 
 interface UserBadgeProps {
-    user: any
+    user: import('firebase/auth').User | null
     collapsed?: boolean
 }
 
@@ -58,26 +58,34 @@ const NavItem = React.memo<NavItemProps>(function NavItem({
 }) {
     const content = (
         <div className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group cursor-pointer relative overflow-hidden",
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group cursor-pointer relative overflow-hidden",
             collapsed ? "justify-center" : "",
             active
-                ? "bg-luxury-gold text-luxury-bg shadow-md"
+                ? "bg-luxury-gold/15 border border-luxury-gold/40 shadow-lg shadow-luxury-gold/5"
                 : "text-luxury-text/60 hover:text-luxury-text hover:bg-white/5",
             className
         )}
             title={collapsed ? label : undefined}
         >
+            {/* Internal Glow Effect for Active State */}
+            {active && (
+                <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/10 to-luxury-gold/0 transition-all duration-500 rounded-xl" />
+            )}
+
             <div className={cn(
-                "p-2 rounded-lg transition-colors duration-200",
+                "p-2 rounded-lg transition-colors duration-200 relative z-10",
                 active
-                    ? "bg-luxury-bg/10"
-                    : "bg-white/5 group-hover:bg-luxury-gold/10 group-hover:text-luxury-gold"
+                    ? "bg-luxury-gold/20 text-luxury-gold"
+                    : "bg-white/5 text-luxury-gold/70 group-hover:bg-luxury-gold/10 group-hover:text-luxury-gold"
             )}>
-                <Icon className={cn("w-5 h-5", active ? "text-luxury-bg" : "group-hover:text-luxury-gold")} />
+                <Icon className={cn("w-5 h-5", active ? "text-luxury-gold" : "group-hover:text-luxury-gold")} />
             </div>
 
             {!collapsed && (
-                <span className="font-medium text-sm tracking-tight relative z-10">
+                <span className={cn(
+                    "font-medium text-sm tracking-tight relative z-10 transition-colors duration-200",
+                    active ? "text-luxury-gold" : ""
+                )}>
                     {label}
                 </span>
             )}
@@ -106,11 +114,14 @@ const NavItem = React.memo<NavItemProps>(function NavItem({
 
 const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapsed = false }) {
     const initials = React.useMemo(() => {
+        if (!user) return 'U'
         if (user.displayName) {
             return user.displayName.split(' ').map((n: string) => n[0]).join('').toUpperCase()
         }
         return user.email ? user.email[0].toUpperCase() : 'U'
-    }, [user.displayName, user.email])
+    }, [user])
+
+    if (!user) return null
 
     return (
         <div className={cn(
@@ -155,19 +166,13 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 // MAIN COMPONENT
 // ============================================================================
 
+const SYSTEM_ROUTES = ['projects', 'settings', 'profile', 'notifications', 'gallery']
+
 export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>) {
     const pathname = usePathname()
     const router = useRouter()
     const { logout, user } = useAuth()
     const { state, open, toggleSidebar, isMobile, openMobile, setOpenMobile } = useSidebar()
-
-    const [projectsExpanded, setProjectsExpanded] = React.useState(false)
-
-    // ========================================================================
-    // MEMOIZED CALCULATIONS
-    // ========================================================================
-
-    const SYSTEM_ROUTES = ['projects', 'settings', 'profile', 'notifications', 'gallery']
 
     const isInProject = React.useMemo(() => {
         const segments = pathname.split('/')
@@ -180,12 +185,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
         () => isInProject ? pathname.split('/')[2] : null,
         [isInProject, pathname]
     )
-
-    React.useEffect(() => {
-        if (isInProject) {
-            setProjectsExpanded(true)
-        }
-    }, [isInProject])
 
     const navItems = React.useMemo(() => [
         { href: '/dashboard', label: 'Bacheca', icon: Home },
@@ -214,10 +213,9 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
         }
     }, [logout, router])
 
-    const handleProjectsClick = React.useCallback((e?: React.MouseEvent) => {
+    const handleProjectsClick = React.useCallback(() => {
         if (!isMobile && !open) {
             toggleSidebar()
-            setProjectsExpanded(true)
         }
     }, [isMobile, open, toggleSidebar])
 
@@ -226,15 +224,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
             setOpenMobile(false)
         }
     }, [isMobile, setOpenMobile])
-
-    if (!user) return null
-
-    // ========================================================================
-    // RENDER LOGIC
-    // ========================================================================
-
-    const isDesktopCollapsed = !open
-    const isMobileVisible = isMobile && openMobile
 
     // ========================================================================
     // NOTCH DRAG PERSISTENCE (replaces FAB)
@@ -248,11 +237,19 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
         }
     }, [])
 
-    const handleDragEnd = (_: any, info: any) => {
+    const handleDragEnd = React.useCallback((_: unknown, info: import('framer-motion').PanInfo) => {
         const newY = notchY + info.offset.y
         setNotchY(newY)
         localStorage.setItem('sidebar-fab-y', newY.toString())
-    }
+    }, [notchY])
+
+    if (!user) return null
+
+    // ========================================================================
+    // RENDER LOGIC
+    // ========================================================================
+
+    const isDesktopCollapsed = !open
 
     // ========================================================================
     // USER HUB SECTION (shared between desktop and mobile)
@@ -276,34 +273,34 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                 </Link>
 
                 <div className={cn(
-                    "mt-3",
-                    collapsed ? "flex flex-col gap-2 items-center" : "flex items-center gap-2"
+                    "mt-3 space-y-2",
+                    collapsed ? "flex flex-col items-center" : "flex items-center gap-2"
                 )}>
                     <Link
                         href="/"
                         className={cn(
-                            "rounded-lg transition-all font-medium border border-transparent",
+                            "rounded-lg transition-all font-bold border",
                             collapsed
-                                ? "p-2 bg-white/5 hover:bg-luxury-gold/20 text-luxury-text/70 hover:text-luxury-gold hover:border-luxury-gold/20"
-                                : "flex items-center justify-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-luxury-gold/10 text-luxury-text/70 hover:text-luxury-gold text-xs hover:border-luxury-gold/20 flex-1"
+                                ? "p-2 bg-luxury-teal/10 hover:bg-luxury-teal/20 text-luxury-teal/70 hover:text-luxury-teal border-luxury-teal/20"
+                                : "flex items-center justify-center gap-2 px-3 py-1.5 bg-luxury-teal/5 hover:bg-luxury-teal/10 text-luxury-teal/70 hover:text-luxury-teal text-[10px] uppercase tracking-wider border-luxury-teal/10 flex-1"
                         )}
                         title="Torna al sito"
                     >
                         <Globe className={collapsed ? "w-4 h-4" : "w-3.5 h-3.5"} />
-                        {!collapsed && <span>Home</span>}
+                        {!collapsed && <span>Sito</span>}
                     </Link>
                     <button
                         onClick={handleLogout}
                         className={cn(
-                            "rounded-lg transition-all font-medium border border-transparent",
+                            "rounded-lg transition-all font-bold border",
                             collapsed
-                                ? "p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 hover:border-red-500/20"
-                                : "flex items-center justify-center gap-2 px-3 py-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-400 hover:text-red-300 text-xs hover:border-red-500/20 flex-1"
+                                ? "p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border-red-500/20"
+                                : "flex items-center justify-center gap-2 px-3 py-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-400 hover:text-red-300 text-[10px] uppercase tracking-wider border-red-500/10 flex-1"
                         )}
                         title="Logout"
                     >
                         <LogOut className={collapsed ? "w-4 h-4" : "w-3.5 h-3.5"} />
-                        {!collapsed && <span>Logout</span>}
+                        {!collapsed && <span>Esci</span>}
                     </button>
                 </div>
             </div>
@@ -325,13 +322,16 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     whileDrag={{ scale: 1.1 }}
                     dragConstraints={{ top: -500, bottom: 150 }}
                     onClick={() => setOpenMobile(true)}
-                    className="fixed right-0 top-3/4 z-[90] notch-draggable flex items-center justify-center w-6 h-12 bg-luxury-gold text-luxury-bg shadow-2xl rounded-l-xl border-y border-l border-white/10 cursor-grab active:cursor-grabbing hover:w-7 transition-[width]"
+                    className="fixed right-0 top-3/4 z-[90] notch-draggable flex items-center justify-center w-6 h-12 bg-luxury-gold/25 backdrop-blur-xl text-luxury-gold shadow-2xl rounded-l-xl border-y border-l border-luxury-gold/40 cursor-grab active:cursor-grabbing hover:w-7 transition-[width,background-color] overflow-hidden group"
                     style={{ marginTop: '-1.5rem' }}
                     aria-label="Toggle sidebar"
                     tabIndex={0}
                     role="button"
                 >
-                    <ChevronLeft className="w-4 h-4" />
+                    {/* Persistent Internal Glow for Mobile (no hover) */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/20 to-luxury-gold/0 opacity-100 transition-opacity duration-500" />
+
+                    <ChevronLeft className="w-4 h-4 relative z-10" />
                 </motion.button>
             )}
 
@@ -355,7 +355,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     "group/sidebar peer text-sidebar-foreground transition-all duration-300 ease-in-out",
                     isMobile
                         ? cn(
-                            "fixed inset-y-0 right-0 !z-[100] w-52 bg-luxury-bg shadow-2xl border-l border-luxury-gold/10",
+                            "fixed inset-y-0 right-0 !z-[100] w-52 bg-luxury-bg/40 backdrop-blur-2xl shadow-2xl border-l border-luxury-gold/10",
                             openMobile ? "translate-x-0" : "translate-x-full"
                         )
                         : cn(
@@ -371,14 +371,17 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                 {!isMobile && (
                     <button
                         onClick={toggleSidebar}
-                        className="notch-trigger notch-draggable"
+                        className="notch-trigger group/notch"
                         aria-label={isDesktopCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                         tabIndex={0}
                     >
+                        {/* Internal Glow Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/10 to-luxury-gold/0 opacity-0 group-hover/notch:opacity-100 transition-opacity duration-500" />
+
                         {isDesktopCollapsed ? (
-                            <ChevronRight className="w-3 h-3 text-luxury-bg" />
+                            <ChevronRight className="w-3 h-3 text-luxury-gold relative z-10" />
                         ) : (
-                            <ChevronLeft className="w-3 h-3 text-luxury-bg" />
+                            <ChevronLeft className="w-3 h-3 text-luxury-gold relative z-10" />
                         )}
                     </button>
                 )}

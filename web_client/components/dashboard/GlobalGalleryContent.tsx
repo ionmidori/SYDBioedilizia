@@ -203,13 +203,24 @@ export function GlobalGalleryContent() {
                         </p>
                     </div>
 
-                    <button
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => setIsUploadModalOpen(true)}
-                        className="flex items-center gap-2 px-6 py-3 bg-luxury-gold text-luxury-bg font-bold rounded-xl shadow-lg shadow-luxury-gold/20 hover:scale-105 transition-all text-sm md:text-base whitespace-nowrap"
+                        className="group relative flex items-center gap-3 px-6 py-3 bg-luxury-gold/10 border border-luxury-gold/30 hover:border-luxury-gold/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/5"
                     >
-                        <Upload className="w-5 h-5" />
-                        Carica File
-                    </button>
+                        {/* Internal Glow Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/0 to-luxury-gold/0 group-hover:via-luxury-gold/10 transition-all duration-500 rounded-xl" />
+
+                        <div className="relative z-10 flex items-center gap-3">
+                            <div className="p-1.5 bg-luxury-gold/20 rounded-lg text-luxury-gold">
+                                <Upload className="w-5 h-5" />
+                            </div>
+                            <span className="text-luxury-gold font-bold text-sm md:text-base whitespace-nowrap">
+                                Carica File
+                            </span>
+                        </div>
+                    </motion.button>
                 </div>
             </div>
 
@@ -317,7 +328,7 @@ export function GlobalGalleryContent() {
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                 transition={{ duration: 0.2 }}
-                                className="absolute top-full left-0 right-0 mt-2 z-50 glass-premium border border-luxury-gold/20 rounded-2xl overflow-hidden shadow-2xl"
+                                className="absolute top-full left-0 right-0 mt-2 z-50 bg-luxury-bg/80 backdrop-blur-2xl border border-luxury-gold/20 rounded-2xl overflow-hidden shadow-2xl"
                             >
                                 {groupingOptions.map((option) => {
                                     const Icon = option.icon;

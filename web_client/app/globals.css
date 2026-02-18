@@ -257,10 +257,10 @@
 
 /* Sidebar Glassmorphism */
 .glass-sidebar {
-  background: rgba(15, 23, 42, 0.65);
-  /* Dark Luxury Base */
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background: rgba(15, 23, 42, 0.4);
+  /* Dark Luxury Base - Reduced Opacity */
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border-right: 1px solid rgba(233, 196, 106, 0.1);
   /* Subtle Gold Border */
 }
@@ -274,22 +274,27 @@
   transform: translateY(-50%);
   width: 24px;
   height: 48px;
-  background: rgba(233, 196, 106, 0.9);
-  /* Gold */
+  background: rgba(233, 196, 106, 0.15);
+  /* Luxury Gold Low Opacity */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(233, 196, 106, 0.4);
+  /* Gold Border */
   border-radius: 0 12px 12px 0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow: 4px 0 12px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 50;
+  overflow: hidden;
 }
 
 .notch-trigger:hover {
   width: 28px;
-  background: #E9C46A;
-  /* Brighter Gold */
+  background: rgba(233, 196, 106, 0.25);
+  border-color: rgba(233, 196, 106, 0.6);
 }
 
 /* Notch Draggable Variant */

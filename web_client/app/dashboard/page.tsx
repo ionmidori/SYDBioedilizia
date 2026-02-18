@@ -119,17 +119,21 @@ export default function DashboardPage() {
                     actions={[
                         {
                             label: 'Nuovo Progetto',
+                            description: 'Crea un nuovo cantiere',
                             icon: Plus,
                             onClick: handleCreateProject,
                             highlight: true
                         },
                         {
                             label: 'Carica File',
+                            description: 'Gestisci i tuoi documenti',
                             icon: Upload,
-                            onClick: () => router.push('/dashboard/gallery')
+                            onClick: () => router.push('/dashboard/gallery'),
+                            highlight: true
                         },
                         {
                             label: 'Rilievo CAD',
+                            description: 'Inizia la progettazione tecnica',
                             icon: Ruler,
                             onClick: () => {
                                 if (recentProjects[0]) {
@@ -137,7 +141,8 @@ export default function DashboardPage() {
                                 } else {
                                     handleCreateProject();
                                 }
-                            }
+                            },
+                            highlight: true
                         }
                     ]}
                 />

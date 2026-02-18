@@ -14,6 +14,7 @@ import { motion } from 'framer-motion';
 
 interface ProjectCardProps {
     project: ProjectListItem;
+    index?: number;
     onDelete?: (sessionId: string) => void;
 }
 
@@ -25,7 +26,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     completed: { label: 'Completato', color: 'text-emerald-300', bg: 'bg-emerald-500/15' },
 };
 
-export function ProjectCard({ project, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, index, onDelete }: ProjectCardProps) {
     const router = useRouter();
     const status = statusConfig[project.status] || statusConfig.draft;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -60,14 +61,18 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
     return (
         <motion.div
             onClick={handleCardClick}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             whileHover={{
                 y: -5,
                 boxShadow: '0 12px 32px -8px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(233, 196, 106, 0.15), 0 0 20px rgba(233, 196, 106, 0.08)',
-                transition: { duration: 0.2 }
+                transition: { duration: 0.3, ease: [0.05, 0.7, 0.1, 1.0] }
             }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            transition={{
+                duration: 0.6,
+                delay: index ? index * 0.05 : 0,
+                ease: [0.05, 0.7, 0.1, 1.0]
+            }}
             className="group relative flex flex-col gap-3 p-5 rounded-[24px] surface-container-low hover:surface-container-high hover:shadow-elevation-high transition-all duration-500 cursor-pointer overflow-hidden"
         >
             {/* Cinematic Gradient Sweep (on hover) */}

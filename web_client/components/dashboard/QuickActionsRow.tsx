@@ -4,6 +4,7 @@ import { M3Spring } from '@/lib/m3-motion';
 
 interface ActionProps {
     label: string;
+    description?: string;
     icon: LucideIcon;
     onClick: () => void;
     highlight?: boolean;
@@ -27,7 +28,7 @@ export function QuickActionsRow({ actions }: { actions: ActionProps[] }) {
 // Backward compatibility alias
 export const QuickActionsGrid = QuickActionsRow;
 
-function ActionCard({ label, icon: Icon, onClick, highlight, index, span }: ActionProps & { index: number; span?: boolean }) {
+function ActionCard({ label, description, icon: Icon, onClick, highlight, index, span }: ActionProps & { index: number; span?: boolean }) {
     return (
         <motion.button
             initial={{ opacity: 0, y: 15 }}
@@ -61,9 +62,9 @@ function ActionCard({ label, icon: Icon, onClick, highlight, index, span }: Acti
                 `}>
                     {label}
                 </span>
-                {highlight && (
+                {description && (
                     <span className="text-[10px] text-luxury-gold/60 mt-0.5 block">
-                        Crea un nuovo cantiere
+                        {description}
                     </span>
                 )}
             </div>
