@@ -46,15 +46,21 @@ async def main():
     print(f"🎯 Target Model: {T2I_MODEL}")
 
     # 2. Test T2I Generation
-    print(f"\n🚀 Testing Text-to-Image Generation (Simple Prompt)...")
+    print(f"\n🚀 Testing Text-to-Image Generation (CHEAP FLASH MODE)...")
     try:
+        # ⚠️ OVERRIDING MODEL TO FLASH TO PREVENT COSTS
+        CHEAP_MODEL = "gemini-3-flash-preview"
+        print(f"💰 Using cheaper model: {CHEAP_MODEL}")
+        
         result = await generate_image_t2i(
             prompt="A futuristic minimalist chair, white background, studio light",
-            negative_prompt="blurry, low quality"
+            negative_prompt="blurry, low quality",
+            model=CHEAP_MODEL # Pass cheaper model if supported
         )
         
         if result.get("success"):
             print(f"✅ SUCCESS! Image generated.")
+            print(f"   Model used: {CHEAP_MODEL}")
             print(f"   Mime Type: {result.get('mime_type')}")
             print(f"   Base64 Length: {len(result.get('image_base64', ''))} chars")
         else:

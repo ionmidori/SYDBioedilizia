@@ -35,7 +35,8 @@ I2I_MODEL = "gemini-3-pro-image-preview"  # User requested: Gemini 3 Pro Image (
 
 async def generate_image_t2i(
     prompt: str,
-    negative_prompt: Optional[str] = None
+    negative_prompt: Optional[str] = None,
+    model: str = T2I_MODEL
 ) -> Dict[str, Any]:
     """
     Generate an interior design image from text using Gemini 2.0 Flash.
@@ -73,7 +74,7 @@ async def generate_image_t2i(
         
         # Generate content with new SDK (Async)
         response = await client.aio.models.generate_content(
-            model=T2I_MODEL,
+            model=model,
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
@@ -105,7 +106,7 @@ async def generate_image_t2i(
             "image_base64": image_base64,
             "mime_type": image_part.inline_data.mime_type,
             "metadata": {
-                "model": T2I_MODEL,
+                "model": model,
                 "mode": "text-to-image"
             }
         }
@@ -129,7 +130,8 @@ async def generate_image_i2i(
     prompt: str,
     keep_elements: List[str] = None,
     negative_prompt: Optional[str] = None,
-    mime_type: str = "image/jpeg"
+    mime_type: str = "image/jpeg",
+    model: str = I2I_MODEL
 ) -> Dict[str, Any]:
     """
     Generate an interior design image from an existing image using Gemini (I2I mode).
@@ -190,7 +192,7 @@ async def generate_image_i2i(
         try:
             response = await asyncio.wait_for(
                 client.aio.models.generate_content(
-                    model=I2I_MODEL,
+                    model=model,
                     contents=contents,
                     config=types.GenerateContentConfig(
                         response_modalities=["IMAGE", "TEXT"],
@@ -236,7 +238,7 @@ async def generate_image_i2i(
             "image_base64": image_base64,
             "mime_type": returned_mime_type,
             "metadata": {
-                "model": I2I_MODEL,
+                "model": model,
                 "mode": "image-to-image"
             }
         }
