@@ -89,8 +89,8 @@ class TestQuoteGraphFactory:
         from langgraph.checkpoint.memory import MemorySaver
         mock_checkpointer.return_value = MemorySaver()
 
-        # Mock the quantity_surveyor_node tool call
-        with patch("src.graph.quote_graph.suggest_quote_items_wrapper", new_callable=AsyncMock) as mock_qs:
+        # Mock the quantity_surveyor_node tool call (patched at import source)
+        with patch("src.tools.quote_tools.suggest_quote_items_wrapper", new_callable=AsyncMock) as mock_qs:
             mock_qs.return_value = "Bozza AI: PAV-001 x20mq"
 
             from src.graph.quote_graph import QuoteGraphFactory

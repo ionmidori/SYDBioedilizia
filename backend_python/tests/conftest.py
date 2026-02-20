@@ -111,3 +111,127 @@ def sample_image_bytes():
         "bfa0ffdb00000000000000000000000000000000000000000000000000000000000000"
         "00000000000000000000000000ffd9"
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PHASE 28: Quote HITL Workflow Fixtures
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.fixture
+def mock_admin_decision_body():
+    """Standard AdminDecisionBody for testing quote approval workflow."""
+    from src.api.routes.quote_routes import AdminDecisionBody
+
+    return AdminDecisionBody(
+        decision="approve",
+        notes="Approved by admin console. Ready for delivery.",
+    )
+
+
+@pytest.fixture
+def mock_quote_state():
+    """Minimal QuoteState template for testing."""
+    from src.graph.quote_state import QuoteState
+
+    return QuoteState(
+        project_id="test-project-001",
+        admin_decision=None,
+        admin_notes="",
+        ai_draft={
+            "structural_skeleton": "Modern living room",
+            "material_plan": "Plaster + oak flooring",
+            "furnishing_strategy": "Minimalist furniture",
+            "technical_notes": "8K photorealistic render",
+        },
+        pdf_url="",
+    )
+
+
+@pytest.fixture
+def mock_n8n_webhook_urls(monkeypatch):
+    """Setup n8n webhook URLs for testing."""
+    monkeypatch.setenv("N8N_WEBHOOK_NOTIFY_ADMIN", "https://n8n.example.com/webhook/notify-admin")
+    monkeypatch.setenv("N8N_WEBHOOK_DELIVER_QUOTE", "https://n8n.example.com/webhook/deliver-quote")
+    monkeypatch.setenv("N8N_API_KEY", "test-n8n-api-key")
+    return {
+        "notify_admin": "https://n8n.example.com/webhook/notify-admin",
+        "deliver_quote": "https://n8n.example.com/webhook/deliver-quote",
+    }
+
+
+@pytest.fixture
+def mock_quote_graph():
+    """Mock LangGraph singleton for quote route testing."""
+    with patch("src.api.routes.quote_routes._graph") as mock_graph:
+        mock_graph.ainvoke = AsyncMock()
+        mock_graph.aupdate_state = AsyncMock()
+        yield mock_graph
+
+
+@pytest.fixture
+def mock_quote_graph_with_memory_saver():
+    """
+    Real quote graph instance with MemorySaver (for integration testing).
+    Uses MemorySaver, NOT FirestoreSaver, to avoid live Firestore calls.
+    """
+    from langgraph.checkpoint.memory import MemorySaver
+    from src.graph.quote_graph import QuoteGraphFactory
+
+    with patch("src.graph.quote_graph.get_checkpointer") as mock_get_cp:
+        mock_get_cp.return_value = MemorySaver()
+        factory = QuoteGraphFactory()
+        graph = factory.create_graph()
+        yield graph
+
+
+@pytest.fixture
+def mock_pdf_generation():
+    """Mock PDF generation for testing admin approval pipeline."""
+    with patch("src.services.admin_service.generate_pdf") as mock_gen:
+        mock_gen.return_value = b"PDF bytes for test"
+        yield mock_gen
+
+
+@pytest.fixture
+def mock_storage_upload():
+    """Mock Firebase Storage upload for testing admin approval pipeline."""
+    with patch("src.services.admin_service.upload_pdf_to_storage") as mock_upload:
+        mock_upload.return_value = "https://storage.googleapis.com/test-bucket/projects/test-project-001/quote.pdf"
+        yield mock_upload
+
+
+@pytest.fixture
+def mock_n8n_delivery():
+    """Mock n8n webhook delivery for testing admin approval pipeline."""
+    with patch("src.services.admin_service.deliver_quote_wrapper") as mock_deliver:
+        mock_deliver.return_value = "Delivered"
+        yield mock_deliver
+
+
+@pytest.fixture
+def mock_firestore_update():
+    """Mock Firestore update for testing admin approval pipeline."""
+    with patch("src.services.admin_service.get_async_firestore_client") as mock_fs:
+        mock_client = AsyncMock()
+        mock_doc = AsyncMock()
+        mock_client.collection.return_value.document.return_value = mock_doc
+        mock_fs.return_value = mock_client
+        yield mock_fs
+
+
+@pytest.fixture
+def mock_httpx_async_client():
+    """Mock httpx.AsyncClient for testing n8n delivery with retries."""
+    with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
+        mock_client = AsyncMock()
+        mock_response = AsyncMock()
+        mock_response.json = AsyncMock(return_value={"status": "success"})
+        mock_response.status_code = 200
+
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.post = AsyncMock(return_value=mock_response)
+
+        mock_client_class.return_value = mock_client
+        yield mock_client_class
