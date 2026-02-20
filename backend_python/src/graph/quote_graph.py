@@ -76,6 +76,15 @@ async def quantity_surveyor_node(state: QuoteState) -> dict[str, Any]:
             project_id=project_id,
             user_id="system",       # system-initiated, no end-user context
         )
+
+        # Post-draft: notify admin via n8n so they can review in the console
+        from src.tools.n8n_mcp_tools import notify_admin_wrapper
+        await notify_admin_wrapper(
+            project_id=project_id,
+            estimated_value=0.0,   # Actual value extracted by admin in review
+            urgency="normal",
+        )
+
         # Store the raw analysis as the ai_draft (review page will render it)
         return {"ai_draft": {"summary": result_text}}
     except Exception as exc:

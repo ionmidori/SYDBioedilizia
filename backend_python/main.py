@@ -1,7 +1,8 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException, Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from src.auth.jwt_handler import verify_token, security
 from src.schemas.internal import UserSession
 from src.core.logger import setup_logging, get_logger
@@ -18,7 +19,16 @@ from src.core.exceptions import AppException
 setup_logging()
 logger = get_logger(__name__)
 
-app = FastAPI(title="SYD Brain", version="0.4.0")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Application lifespan: startup and shutdown logic."""
+    logger.info("SYD Brain API starting on port 8080...")
+    # NOTE: Firebase validation and Agent Graph initialization happen lazily on first request
+    # This ensures the container binds to port 8080 immediately for Cloud Run health checks
+    yield
+    logger.info("SYD Brain API shutting down.")
+
+app = FastAPI(title="SYD Brain", version="0.4.0", lifespan=lifespan)
 
 # 🔒 CORS Middleware (Hardened)
 from fastapi.middleware.cors import CORSMiddleware
@@ -127,13 +137,6 @@ async def app_check_middleware(request: Request, call_next):
 
     return await call_next(request)
 
-@app.on_event("startup")
-async def startup_event():
-    """Minimal startup - just log."""
-    logger.info("SYD Brain API starting on port 8080...")
-    # NOTE: Firebase validation and Agent Graph initialization happen lazily on first request
-    # This ensures the container binds to port 8080 immediately for Cloud Run health checks
-
 # Register Routers
 from src.api.upload import router as upload_router
 app.include_router(upload_router)
@@ -158,7 +161,9 @@ app.include_router(reports_router)
 # Register metadata update router
 from src.api.update_metadata import router as metadata_router
 app.include_router(metadata_router)
-
+# Register quote HITL router (skill: langgraph-hitl-patterns)
+from src.api.routes.quote_routes import router as quote_router
+app.include_router(quote_router)
 
 
 
@@ -229,14 +234,15 @@ class ChatRequest(BaseModel):
     is_authenticated: bool = Field(False) # Matches JSON directly
     
     model_config = {"populate_by_name": True}
-    
-    def __init__(self, **data):
-        # Backward compatibility: if imageUrls provided, use it as mediaUrls
-        if "imageUrls" in data or "image_urls" in data:
-            image_urls = data.get("imageUrls") or data.get("image_urls")
-            if image_urls and not data.get("mediaUrls") and not data.get("media_urls"):
-                data["mediaUrls"] = image_urls
-        super().__init__(**data)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _backfill_media_urls(cls, data: dict) -> dict:
+        """Backward compatibility: promote imageUrls → mediaUrls when mediaUrls absent."""
+        image_urls = data.get("imageUrls") or data.get("image_urls")
+        if image_urls and not data.get("mediaUrls") and not data.get("media_urls"):
+            data["mediaUrls"] = image_urls
+        return data
 
 @app.get("/health")
 def health_check():
@@ -264,7 +270,10 @@ async def chat_stream(
     Streaming chat endpoint - Secured by Internal JWT.
     Auth verification is delegated to Orchestrator for Zero Latency.
     """
-    logger.info(f"📥 Received Request: {len(request.messages)} messages, Session: {request.session_id}")
+    logger.info(
+        "Chat stream request received.",
+        extra={"message_count": len(request.messages), "session_id": request.session_id},
+    )
     
     return StreamingResponse(
         chat_stream_generator(request, credentials, orchestrator),
