@@ -14,13 +14,14 @@ def test_role_based_access_enforces_permissions_and_validation():
     # Define endpoints and corresponding payloads (some malformed)
     endpoints = [
         {
-            "url": f"{BASE_URL}/leads",
+            "url": f"{BASE_URL}/api/submit-lead",
             "method": "POST",
             "valid_payload": {
-                "contact_name": "Test User",
+                "name": "Test User",
                 "email": "test.user@example.com",
                 "phone": "+1234567890",
-                "project_details": "Test renovation project"
+                "quote_summary": "Test renovation project",
+                "session_id": "test-session"
             },
             "malformed_payload": {
                 # Missing email, phone and project_details are wrong type
@@ -28,13 +29,13 @@ def test_role_based_access_enforces_permissions_and_validation():
             },
         },
         {
-            "url": f"{BASE_URL}/market-prices",
+            "url": f"{BASE_URL}/api/test/tools/market-prices",
             "method": "GET",
             "valid_payload": None,
             "malformed_payload": None,  # GET with no payload
         },
         {
-            "url": f"{BASE_URL}/renders",
+            "url": f"{BASE_URL}/api/test/tools/generate-render",
             "method": "POST",
             "valid_payload": {
                 "room_id": "room123",
@@ -48,7 +49,7 @@ def test_role_based_access_enforces_permissions_and_validation():
             },
         },
         {
-            "url": f"{BASE_URL}/quotes",
+            "url": f"{BASE_URL}/api/projects",
             "method": "POST",
             "valid_payload": {
                 "client_id": "client123",

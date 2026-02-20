@@ -12,25 +12,16 @@ def test_generate_cad_creates_downloadable_dxf_file():
     # Since no resource ID is provided, we assume an image upload endpoint exists at /upload-room-image
     # and returns an image_id or use multipart form to send image for CAD generation directly.
     # Using a sample image file content for testing purpose.
-    image_path = "test_resources/sample_room_image.jpg"
-    create_image_url = f"{BASE_URL}/upload-room-image"
-    generate_cad_url = f"{BASE_URL}/generate-cad"
-    headers = {}
+    generate_cad_url = f"{BASE_URL}/api/test/tools/generate-cad"
+    headers = {
+        "Authorization": "Bearer dummy",
+        "Content-Type": "application/json"
+    }
     
     # Read the sample image file
-    try:
-        with open(image_path, "rb") as img_file:
-            files = {"file": ("sample_room_image.jpg", img_file, "image/jpeg")}
-            resp_upload = requests.post(create_image_url, files=files, timeout=TIMEOUT)
-        resp_upload.raise_for_status()
-        upload_response_json = resp_upload.json()
-        # Expecting to receive an image_id or similar identifier to refer to uploaded image
-        image_id = upload_response_json.get("image_id")
-        assert image_id, "Image upload did not return image_id."
-        
-        # Step 2: Request CAD generation with image_id
-        payload = {"image_id": image_id}
-        resp_cad = requests.post(generate_cad_url, json=payload, timeout=TIMEOUT)
+        # Request CAD generation via tool test endpoint
+        payload = {"image_url": "https://example.com/test-room.jpg"}
+        resp_cad = requests.post(generate_cad_url, json=payload, headers=headers, timeout=TIMEOUT)
         resp_cad.raise_for_status()
         
         # Response should be a downloadable DXF file as attachment or binary content
