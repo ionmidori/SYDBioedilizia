@@ -7,7 +7,8 @@ from src.graph.tools_registry import (
     analyze_room,
     get_market_prices,
     submit_lead,
-    list_project_files
+    list_project_files,
+    suggest_quote_items
 )
 from src.tools.lead_tools import display_lead_form
 from src.tools.auth_tools import request_login
@@ -40,11 +41,11 @@ class SOPManager:
         
         # Base tools always available
         available_tools = [
-            analyze_room, 
-            get_market_prices,
-            list_project_files,
-            submit_lead, 
-            display_lead_form,
+                        analyze_room,
+                        get_market_prices,
+                        list_project_files,
+                        suggest_quote_items,
+                        submit_lead,            display_lead_form,
             request_login
         ]
         

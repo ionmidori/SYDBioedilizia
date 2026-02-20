@@ -17,6 +17,8 @@ from src.db.quotes import save_quote_draft
 from src.vision.triage import analyze_media_triage
 from src.vision.cad_engine import analyze_floorplan_vector, generate_dxf_bytes
 from src.storage.upload import upload_file_bytes
+from src.tools.quote_tools import suggest_quote_items
+from src.tools.n8n_mcp_tools import notify_admin, deliver_quote
 
 from src.tools.project_files import list_project_files
 from src.tools.gallery import show_project_gallery
@@ -287,6 +289,9 @@ ALL_TOOLS = [
     get_market_prices,
     generate_render,
     save_quote,
+    suggest_quote_items,
+    notify_admin,
+    deliver_quote,
     analyze_room,
     plan_renovation,
     list_project_files,
