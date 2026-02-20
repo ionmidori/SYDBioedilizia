@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Preventivo Ristrutturazione</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            color: #333;
+            line-height: 1.5;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #d4af37; /* Gold accent */
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 24px;
+        }
+        .header p {
+            color: #7f8c8d;
+            margin: 5px 0 0;
+            font-size: 14px;
+        }
+        .client-info {
+            margin-bottom: 30px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .client-info h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            font-size: 14px;
+        }
+        th {
+            background-color: #f2f2f2;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        .totals {
+            text-align: right;
+            margin-top: 20px;
+        }
+        .totals p {
+            margin: 5px 0;
+            font-size: 16px;
+        }
+        .totals .grand-total {
+            font-size: 20px;
+            font-weight: bold;
+            color: #d4af37;
+        }
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 12px;
+            color: #7f8c8d;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>SYD Bioedilizia</h1>
+        <p>Preventivo Ristrutturazione</p>
+    </div>
+
+    <div class="client-info">
+        <h3>Dettagli Progetto</h3>
+        <p><strong>Progetto ID:</strong> {{ project_id }}</p>
+        <p><strong>Data:</strong> {{ date }}</p>
+        {% if client_name %}
+        <p><strong>Cliente:</strong> {{ client_name }}</p>
+        {% endif %}
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 15%;">SKU</th>
+                <th style="width: 40%;">Descrizione</th>
+                <th style="width: 10%;">Unità</th>
+                <th style="width: 10%;">Qtà</th>
+                <th style="width: 15%;">Prezzo Unit.</th>
+                <th style="width: 10%;">Totale</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.sku }}</td>
+                <td>{{ item.description }}</td>
+                <td>{{ item.unit }}</td>
+                <td>{{ item.qty }}</td>
+                <td>€{{ "%.2f"|format(item.unit_price) }}</td>
+                <td>€{{ "%.2f"|format(item.total) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <p>Imponibile: €{{ "%.2f"|format(financials.subtotal) }}</p>
+        <p>IVA ({{ financials.vat_rate * 100 }}%): €{{ "%.2f"|format(financials.vat_amount) }}</p>
+        <p class="grand-total">Totale: €{{ "%.2f"|format(financials.grand_total) }}</p>
+    </div>
+
+    <div class="footer">
+        <p>Grazie per aver scelto SYD Bioedilizia.</p>
+        <p>Via Roma 123, Milano - info@sydbioedilizia.it</p>
+    </div>
+
+</body>
+</html>
