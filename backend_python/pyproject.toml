@@ -25,6 +25,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "ezdxf>=1.4.3",
     "python-dateutil>=2.9.0.post0",
+    "langgraph-checkpoint-firestore>=0.1.0",
 ]
 
 [project.optional-dependencies]
@@ -58,4 +59,9 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
+]
+
+[dependency-groups]
+dev = [
+    "pip-audit>=2.10.0",
 ]

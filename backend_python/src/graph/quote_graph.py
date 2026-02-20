@@ -40,7 +40,7 @@ def get_checkpointer():
         from langgraph_checkpoint_firestore import FirestoreSaver
         from src.core.config import settings
 
-        return FirestoreSaver.from_conn_info(
+        return FirestoreSaver(
             project_id=settings.GOOGLE_CLOUD_PROJECT,
             checkpoints_collection="langgraph_checkpoints",
             writes_collection="langgraph_writes",
