@@ -43,14 +43,22 @@ def test_save_quote_stores_structured_renovation_draft():
 
     resource_id = None
     try:
-        # Create/save the quote draft
-        save_resp = requests.post(
-            f"{BASE_URL}/api/quotes/",
-            json=quote_data,
-            headers=HEADERS,
+        # SYD Brain stores structured quote data in project details
+        save_resp = requests.patch(
+            f"{BASE_URL}/api/projects/{quote_data['project_id']}/details",
+            json={
+                "id": quote_data['project_id'],
+                "footage": 80, # Required by schema usually
+                "property_type": "apartment",
+                "address": "123 Test St",
+                "budget": quote_data['total_amount'],
+                "intervention_type": ["renovation"],
+                "notes": quote_data['notes']
+            },
+            headers={**HEADERS, "Authorization": "Bearer dummy"},
             timeout=TIMEOUT
         )
-        assert save_resp.status_code == 201, f"Expected 201 Created, got {save_resp.status_code}"
+        assert save_resp.status_code == 200, f"Expected 200 OK, got {save_resp.status_code}"
         save_resp_json = save_resp.json()
         assert "quote_id" in save_resp_json, "Response missing 'quote_id' field"
         resource_id = save_resp_json["quote_id"]
@@ -84,13 +92,12 @@ def test_save_quote_stores_structured_renovation_draft():
 
     finally:
         # Cleanup: delete the created quote draft if created
-        if resource_id:
+            # Delete project
             delete_resp = requests.delete(
-                f"{BASE_URL}/api/quotes/{resource_id}",
-                headers=HEADERS,
+                f"{BASE_URL}/api/projects/{quote_data['project_id']}",
+                headers={**HEADERS, "Authorization": "Bearer dummy"},
                 timeout=TIMEOUT
             )
-            # Accept 200 OK or 204 No Content as successful deletion
-            assert delete_resp.status_code in (200, 204), f"Failed to delete test quote draft with id {resource_id}"
+            assert delete_resp.status_code in (200, 204)
 
 test_save_quote_stores_structured_renovation_draft()

@@ -2,10 +2,10 @@ import requests
 import io
 
 BASE_URL = "http://localhost:8080"
-ANALYZE_ROOM_ENDPOINT = f"{BASE_URL}/analyze_room"
+ANALYZE_ROOM_ENDPOINT = f"{BASE_URL}/api/test/tools/analyze-room"
 TIMEOUT = 30
 HEADERS = {
-    # Add authentication headers here if required, e.g. 'Authorization': 'Bearer <token>'
+    "Authorization": "Bearer dummy" # TestSprite replaces this
 }
 
 

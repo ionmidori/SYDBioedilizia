@@ -21,6 +21,7 @@
       "charliermarsh.ruff"
       "tamasfe.even-better-toml"
       "bradlc.vscode-tailwindcss"
+      "google.gemini-code-assist"
     ];
     # Enable previews
     previews = {

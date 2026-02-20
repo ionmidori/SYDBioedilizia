@@ -4,9 +4,10 @@ BASE_URL = "http://localhost:8080"
 TIMEOUT = 30
 
 def test_get_market_prices_fetches_current_data():
-    url = f"{BASE_URL}/get_market_prices"
+    url = f"{BASE_URL}/api/test/tools/market-prices"
     headers = {
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "Authorization": "Bearer dummy" # TestSprite replaces this
     }
     try:
         response = requests.get(url, headers=headers, timeout=TIMEOUT)

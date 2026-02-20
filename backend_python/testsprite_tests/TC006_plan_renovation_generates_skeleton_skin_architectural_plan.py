@@ -4,19 +4,13 @@ BASE_URL = "http://localhost:8080"
 TIMEOUT = 30
 
 def test_plan_renovation_generates_skeleton_skin_architectural_plan():
-    url = f"{BASE_URL}/plan-renovation"
-
-    # Example payload simulating room analysis data input expected by the plan_renovation endpoint
-    payload = {
-        "room_analysis": {
-            "structure": "Open-plan living room with load-bearing wall on east side",
-            "style": "Modern minimalist with neutral colors and natural lighting",
-            "condition": "Fair condition, minor wear on flooring, good window integrity"
-        }
-    }
-
+    url = f"{BASE_URL}/api/test/tools/plan-renovation"
     headers = {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": "Bearer dummy"
+    }
+    payload = {
+        "project_id": "test-project-fix" # Adjusting to match tool expectation
     }
 
     try:

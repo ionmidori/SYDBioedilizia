@@ -29,9 +29,12 @@ def test_generate_render_produces_photorealistic_images():
     render_id = None
     try:
         response = requests.post(
-            f"{BASE_URL}/render/generate",
-            json=payload,
-            headers=headers,
+            f"{BASE_URL}/api/test/tools/generate-render",
+            json={
+                "prompt": payload["room_description"],
+                "session_id": payload["project_id"]
+            },
+            headers={**headers, "Authorization": "Bearer dummy"},
             timeout=TIMEOUT
         )
         assert response.status_code == 201 or response.status_code == 200, \
