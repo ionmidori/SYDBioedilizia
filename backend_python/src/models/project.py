@@ -4,10 +4,13 @@ Project entity models for Dashboard.
 This module defines the Pydantic models for the "Project" concept,
 which is an extension of the existing Firestore "sessions" collection.
 """
-from pydantic import BaseModel, Field, field_serializer
-from typing import Optional, List
+from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class ProjectStatus(str, Enum):
@@ -36,8 +39,7 @@ class Address(BaseModel):
     city: str = Field(..., min_length=1, max_length=100, description="City name")
     zip: str = Field(..., min_length=1, max_length=20, description="Postal code")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectDetails(BaseModel):
@@ -51,15 +53,14 @@ class ProjectDetails(BaseModel):
     address: Address = Field(..., description="Construction site address")
     budget_cap: float = Field(..., gt=0, description="Maximum budget in EUR")
     technical_notes: Optional[str] = Field(None, max_length=1000, description="Additional technical notes")
-    renovation_constraints: List[str] = Field(default_factory=list, description="List of renovation constraints")
+    renovation_constraints: list[str] = Field(default_factory=list, description="List of renovation constraints")
 
     @field_serializer('property_type')
     def serialize_property_type(self, value: PropertyType) -> str:
         """Serialize enum to its string value for JSON."""
         return value.value
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectBase(BaseModel):
@@ -95,8 +96,7 @@ class ProjectDocument(ProjectBase):
     updated_at: datetime = Field(..., description="Last activity timestamp")
     construction_details: Optional[ProjectDetails] = Field(None, description="Construction site details")
 
-    class Config:
-        from_attributes = True  # Pydantic v2
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectListItem(BaseModel):
@@ -112,5 +112,4 @@ class ProjectListItem(BaseModel):
     updated_at: datetime
     message_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
