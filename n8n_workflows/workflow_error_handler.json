@@ -1,0 +1,182 @@
+{
+  "name": "SYD — Error Handler (Centralizzato)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "error-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [200, 400],
+      "notes": "Riceve automaticamente gli errori da tutti i workflow SYD che hanno impostato errorWorkflow = 'SYD — Error Handler'"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Error Context Builder ───────────────────────────────────────────────────\n// Estrae e struttura le informazioni di errore dal trigger.\n// L'oggetto $json in un errorTrigger contiene l'execution context del workflow fallito.\n\nconst execution = $json;\n\n// Calcola severity in base al tipo di errore\nconst errorMsg = execution.error?.message ?? 'Errore sconosciuto';\nconst workflowName = execution.workflow?.name ?? 'Workflow sconosciuto';\n\nlet severity = 'medium';\nlet emoji = '⚠️';\nlet shouldPage = false;\n\nif (workflowName.includes('Deliver Quote')) {\n  // Il preventivo non è arrivato al cliente — critico!\n  severity = 'critical';\n  emoji = '🔴';\n  shouldPage = true;\n} else if (workflowName.includes('Notify Admin')) {\n  // L'admin non è stato notificato — alto\n  severity = 'high';\n  emoji = '🟠';\n  shouldPage = false;\n} else if (errorMsg.includes('HMAC') || errorMsg.includes('Signature') || errorMsg.includes('auth')) {\n  // Possibile attacco — critico per sicurezza\n  severity = 'critical';\n  emoji = '🔐';\n  shouldPage = true;\n}\n\n// Estrai project_id se disponibile nel payload di input del workflow fallito\nconst inputData = execution.data?.resultData?.runData ?? {};\nlet projectId = 'N/D';\nlet clientEmail = 'N/D';\n\ntry {\n  const extractedFields = inputData['Estrai & Normalizza Campi']?.[0]?.data?.main?.[0]?.[0]?.json\n    ?? inputData['Valida & Normalizza Payload']?.[0]?.data?.main?.[0]?.[0]?.json\n    ?? {};\n  projectId = extractedFields.project_id ?? 'N/D';\n  clientEmail = extractedFields.client_email ?? 'N/D';\n} catch(e) {\n  // Non riesce ad estrarre — va bene, continua\n}\n\nconst timestamp = new Date().toISOString();\n\nreturn [{\n  json: {\n    severity,\n    emoji,\n    should_page: shouldPage,\n    workflow_name: workflowName,\n    workflow_id: execution.workflow?.id ?? 'N/D',\n    execution_id: execution.id ?? 'N/D',\n    error_message: errorMsg,\n    error_node: execution.error?.node?.name ?? 'N/D',\n    error_stack: execution.error?.stack?.split('\\n').slice(0,5).join('\\n') ?? 'N/D',\n    project_id: projectId,\n    client_email: clientEmail,\n    timestamp,\n    retry_url: `${$env['N8N_INSTANCE_URL'] ?? 'https://n8n.sydarchitetto.it'}/workflow/${execution.workflow?.id}/executions/${execution.id}`\n  }\n}];"
+      },
+      "id": "build-error-context",
+      "name": "Costruisci Contesto Errore",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "e1",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": "critical",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-critical",
+      "name": "È Critico?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [640, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@sydarchitetto.it",
+        "toEmail": "={{ $env['ADMIN_EMAIL'] ?? 'admin@sydarchitetto.it' }}",
+        "subject": "{{ $json.emoji }} CRITICO — Errore SYD: {{ $json.workflow_name }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html><html lang='it'><body style='margin:0;padding:0;background:#1a0000;font-family:-apple-system,sans-serif'><table width='100%' cellpadding='0' cellspacing='0'><tr><td align='center' style='padding:32px 16px'><table width='600' cellpadding='0' cellspacing='0' style='background:white;border-radius:12px;overflow:hidden'><tr><td style='background:linear-gradient(135deg,#7b0000,#c0392b);padding:28px 32px'><h1 style='margin:0;color:white;font-size:22px'>{{ $json.emoji }} ERRORE CRITICO SYD</h1><p style='margin:6px 0 0;color:rgba(255,255,255,0.7);font-size:13px'>{{ $json.timestamp }}</p></td></tr><tr><td style='padding:32px'><div style='background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:20px;margin-bottom:20px'><table width='100%' cellpadding='6'><tr><td style='color:#666;font-size:13px;width:40%'>Workflow</td><td style='font-weight:700;font-size:14px;color:#7b0000'>{{ $json.workflow_name }}</td></tr><tr><td style='color:#666;font-size:13px'>Nodo Fallito</td><td style='font-weight:600;font-size:13px;font-family:monospace'>{{ $json.error_node }}</td></tr><tr><td style='color:#666;font-size:13px'>Progetto ID</td><td style='font-weight:600;font-size:13px;font-family:monospace'>{{ $json.project_id }}</td></tr><tr><td style='color:#666;font-size:13px'>Cliente Email</td><td style='font-size:13px'>{{ $json.client_email }}</td></tr><tr><td style='color:#666;font-size:13px'>Execution ID</td><td style='font-size:12px;font-family:monospace;color:#888'>{{ $json.execution_id }}</td></tr></table></div><div style='background:#1a0000;border-radius:8px;padding:16px;margin-bottom:20px;font-family:monospace;font-size:12px;color:#ff6b6b;overflow:auto'><strong style='color:#ff9999'>ERRORE:</strong><br>{{ $json.error_message }}<br><br><strong style='color:#ff9999'>STACK TRACE:</strong><br>{{ $json.error_stack }}</div>{{ $json.project_id !== 'N/D' ? '<div style=\"background:#fff8e1;border:1px solid #f9a825;border-radius:8px;padding:16px;margin-bottom:20px\"><p style=\"margin:0;color:#856404;font-size:14px\">⚠️ <strong>AZIONE RICHIESTA:</strong> Il cliente ' + $json.client_email + ' potrebbe non aver ricevuto il preventivo per il progetto ' + $json.project_id + '. Verifica manualmente e, se necessario, invia il preventivo da backup.</p></div>' : '' }}<div style='text-align:center'><a href='{{ $json.retry_url }}' style='background:#c0392b;color:white;padding:12px 28px;text-decoration:none;border-radius:6px;font-size:14px;display:inline-block'>Apri Execution in n8n →</a></div></td></tr></table></td></tr></table></body></html>",
+        "options": {
+          "priority": "high"
+        }
+      },
+      "id": "email-critical",
+      "name": "Email Admin — Errore Critico",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [860, 280]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "telegramApi",
+        "resource": "message",
+        "chatId": "={{ $env['TELEGRAM_ADMIN_CHAT_ID'] }}",
+        "text": "={{ $json.emoji }} *ERRORE CRITICO — SYD Bioedilizia*\n\n🔥 *Workflow:* `{{ $json.workflow_name }}`\n💥 *Nodo:* `{{ $json.error_node }}`\n📋 *Errore:* `{{ $json.error_message.substring(0, 200) }}`\n\n🆔 *Progetto:* `{{ $json.project_id }}`\n📧 *Cliente:* `{{ $json.client_email }}`\n⏰ *Timestamp:* `{{ $json.timestamp }}`\n\n{{ $json.project_id !== 'N/D' ? '⚠️ *AZIONE RICHIESTA: Preventivo potrebbe non essere stato consegnato!*' : '' }}\n\n[🔍 Apri Execution]({{ $json.retry_url }})",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "disable_web_page_preview": false
+        }
+      },
+      "id": "telegram-critical",
+      "name": "Telegram — Alert Critico",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [860, 480],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@sydarchitetto.it",
+        "toEmail": "={{ $env['ADMIN_EMAIL'] ?? 'admin@sydarchitetto.it' }}",
+        "subject": "{{ $json.emoji }} Errore SYD [{{ $json.severity }}]: {{ $json.workflow_name }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html><html lang='it'><body style='margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,sans-serif'><table width='100%' cellpadding='0' cellspacing='0'><tr><td align='center' style='padding:32px 16px'><table width='600' cellpadding='0' cellspacing='0' style='background:white;border-radius:12px;overflow:hidden'><tr><td style='background:#f39c12;padding:20px 32px'><h1 style='margin:0;color:white;font-size:18px'>{{ $json.emoji }} Errore SYD — {{ $json.severity.toUpperCase() }}</h1></td></tr><tr><td style='padding:28px 32px'><table width='100%' cellpadding='6'><tr><td style='color:#666;font-size:13px'>Workflow</td><td style='font-weight:600;font-size:13px'>{{ $json.workflow_name }}</td></tr><tr><td style='color:#666;font-size:13px'>Nodo Fallito</td><td style='font-family:monospace;font-size:12px'>{{ $json.error_node }}</td></tr><tr><td style='color:#666;font-size:13px'>Messaggio</td><td style='font-size:13px;color:#c0392b'>{{ $json.error_message }}</td></tr><tr><td style='color:#666;font-size:13px'>Progetto ID</td><td style='font-family:monospace;font-size:12px'>{{ $json.project_id }}</td></tr><tr><td style='color:#666;font-size:13px'>Timestamp</td><td style='font-size:12px'>{{ $json.timestamp }}</td></tr></table><br><a href='{{ $json.retry_url }}' style='background:#2c3e50;color:white;padding:10px 24px;text-decoration:none;border-radius:6px;font-size:13px;display:inline-block'>Apri in n8n →</a></td></tr></table></td></tr></table></body></html>",
+        "options": {}
+      },
+      "id": "email-non-critical",
+      "name": "Email Admin — Errore Non Critico",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [860, 700]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['SYD_BACKEND_URL'] }}/api/internal/error-log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env['SYD_INTERNAL_TOKEN'] }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source\": \"n8n\",\n  \"severity\": \"{{ $('Costruisci Contesto Errore').item.json.severity }}\",\n  \"workflow_name\": \"{{ $('Costruisci Contesto Errore').item.json.workflow_name }}\",\n  \"execution_id\": \"{{ $('Costruisci Contesto Errore').item.json.execution_id }}\",\n  \"error_message\": \"{{ $('Costruisci Contesto Errore').item.json.error_message }}\",\n  \"project_id\": \"{{ $('Costruisci Contesto Errore').item.json.project_id }}\",\n  \"timestamp\": \"{{ $('Costruisci Contesto Errore').item.json.timestamp }}\"\n}",
+        "options": {
+          "timeout": 5000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2,
+            "waitBetweenRetries": 1000
+          }
+        }
+      },
+      "id": "log-to-backend",
+      "name": "Log Errore → Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 490],
+      "continueOnFail": true,
+      "notes": "Persistenza errori su Firestore tramite backend. continueOnFail=true per evitare loop di errori."
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [{ "node": "Costruisci Contesto Errore", "type": "main", "index": 0 }]
+      ]
+    },
+    "Costruisci Contesto Errore": {
+      "main": [
+        [{ "node": "È Critico?", "type": "main", "index": 0 }]
+      ]
+    },
+    "È Critico?": {
+      "main": [
+        [
+          { "node": "Email Admin — Errore Critico", "type": "main", "index": 0 },
+          { "node": "Telegram — Alert Critico", "type": "main", "index": 0 }
+        ],
+        [{ "node": "Email Admin — Errore Non Critico", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email Admin — Errore Critico": {
+      "main": [
+        [{ "node": "Log Errore → Backend", "type": "main", "index": 0 }]
+      ]
+    },
+    "Telegram — Alert Critico": {
+      "main": [[]]
+    },
+    "Email Admin — Errore Non Critico": {
+      "main": [
+        [{ "node": "Log Errore → Backend", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Europe/Rome"
+  },
+  "staticData": null,
+  "tags": ["syd", "error-handler", "monitoring", "enterprise"],
+  "meta": {
+    "templateId": "syd-error-handler-v1",
+    "instanceId": "syd-bioedilizia",
+    "version": "1.0.0",
+    "description": "Workflow centralizzato per la gestione degli errori. Classificazione severity, alert Telegram+Email, persistenza su backend. Configurare come errorWorkflow in tutti gli altri workflow SYD."
+  }
+}

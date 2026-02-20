@@ -1,0 +1,327 @@
+{
+  "name": "SYD — Notify Admin (Quote Ready) v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "syd-notify-admin",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 400],
+      "webhookId": "syd-notify-admin"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── HMAC-SHA256 Signature Validation ───────────────────────────────────────\n// Verifica che la richiesta provenga dal backend SYD e non da terze parti.\n// Header atteso: X-SYD-Signature: sha256=<hmac_hex>\nconst crypto = require('crypto');\n\nconst rawBody = $input.item.json.rawBody || JSON.stringify($input.item.json.body);\nconst signature = $input.item.json.headers['x-syd-signature'] || '';\nconst secret = $env['SYD_WEBHOOK_SECRET'];\n\nif (!secret) {\n  // In sviluppo, se il secret non è configurato, bypassa la validazione con warning\n  console.warn('[SYD] WARNING: SYD_WEBHOOK_SECRET non configurato. Bypass validazione (solo dev).');\n  return $input.all();\n}\n\nif (!signature.startsWith('sha256=')) {\n  throw new Error('Signature mancante o formato non valido');\n}\n\nconst expectedSig = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(rawBody)\n  .digest('hex');\n\nconst sigBuffer = Buffer.from(signature);\nconst expectedBuffer = Buffer.from(expectedSig);\n\nif (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {\n  throw new Error('Signature non valida: richiesta rifiutata');\n}\n\nreturn $input.all();"
+      },
+      "id": "validate-signature",
+      "name": "Valida Firma HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "project_id",
+              "value": "={{ $json.body.project_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "estimated_value",
+              "value": "={{ $json.body.estimated_value ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "a3",
+              "name": "client_name",
+              "value": "={{ $json.body.client_name ?? 'N/D' }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "urgency",
+              "value": "={{ $json.body.urgency ?? 'normal' }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "review_url",
+              "value": "={{ $json.body.review_url ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "ai_summary",
+              "value": "={{ $json.body.ai_summary ?? 'Nessun riassunto disponibile.' }}",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "item_count",
+              "value": "={{ $json.body.item_count ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "a8",
+              "name": "timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "a9",
+              "name": "notify_channels",
+              "value": "={{ $json.body.notify_channels ?? ['email'] }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-fields",
+      "name": "Estrai & Normalizza Campi",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [640, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.urgency }}",
+              "rightValue": "high",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-urgency",
+      "name": "Urgenza Alta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [860, 400]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@sydarchitetto.it",
+        "toEmail": "={{ $env['ADMIN_EMAIL'] ?? 'admin@sydarchitetto.it' }}",
+        "subject": "🚨 URGENTE — Preventivo SYD: {{ $json.client_name }} | €{{ $json.estimated_value.toLocaleString('it-IT') }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html><html lang='it'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Preventivo URGENTE</title></head><body style='margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif'><table width='100%' cellpadding='0' cellspacing='0'><tr><td align='center' style='padding:32px 16px'><table width='600' cellpadding='0' cellspacing='0' style='background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)'><tr><td style='background:linear-gradient(135deg,#c0392b,#e74c3c);padding:28px 32px'><h1 style='margin:0;color:white;font-size:22px;font-weight:700'>🚨 Preventivo URGENTE</h1><p style='margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:14px'>SYD Bioedilizia — Admin Console</p></td></tr><tr><td style='padding:32px'><table width='100%' cellpadding='0' cellspacing='0' style='background:#fef9f9;border:1px solid #fcd0d0;border-radius:8px;margin-bottom:24px'><tr><td style='padding:20px'><table width='100%' cellpadding='6' cellspacing='0'><tr><td style='color:#666;font-size:14px;width:40%'>Progetto ID</td><td style='font-weight:600;font-size:14px;font-family:monospace'>{{ $json.project_id }}</td></tr><tr><td style='color:#666;font-size:14px'>Cliente</td><td style='font-weight:600;font-size:14px'>{{ $json.client_name }}</td></tr><tr><td style='color:#666;font-size:14px'>Voci preventivo</td><td style='font-weight:600;font-size:14px'>{{ $json.item_count }} voci</td></tr><tr><td style='color:#666;font-size:14px'>Urgenza</td><td><span style='background:#fde8e8;color:#c0392b;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600'>🔴 ALTA</span></td></tr><tr><td style='color:#666;font-size:14px'>Generato il</td><td style='font-size:13px;color:#888'>{{ new Date($json.timestamp).toLocaleString(\"it-IT\") }}</td></tr></table></td></tr></table><div style='background:#2c3e50;border-radius:8px;padding:20px;margin-bottom:24px;text-align:center'><p style='margin:0 0 4px;color:#c9a84c;font-size:13px;text-transform:uppercase;letter-spacing:1px'>Valore Stimato Preventivo</p><p style='margin:0;color:white;font-size:36px;font-weight:700'>€{{ $json.estimated_value.toLocaleString(\"it-IT\", {minimumFractionDigits:2}) }}</p></div><div style='background:#f8f9fa;border-left:4px solid #c0392b;border-radius:4px;padding:16px;margin-bottom:24px'><p style='margin:0 0 8px;font-size:12px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px'>Riassunto AI</p><p style='margin:0;font-size:14px;color:#333;line-height:1.6'>{{ $json.ai_summary }}</p></div><div style='text-align:center;margin-bottom:24px'><a href='{{ $json.review_url }}' style='background:linear-gradient(135deg,#c0392b,#e74c3c);color:white;padding:14px 36px;text-decoration:none;border-radius:8px;font-size:16px;font-weight:600;display:inline-block;letter-spacing:0.3px'>Rivedi Preventivo Ora →</a></div><hr style='border:none;border-top:1px solid #eee;margin:24px 0'><p style='color:#999;font-size:11px;text-align:center;margin:0'>SYD Bioedilizia · Admin Notification · {{ $json.timestamp }}</p></td></tr></table></td></tr></table></body></html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "email-urgent",
+      "name": "Email Admin — Urgente",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1080, 240]
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@sydarchitetto.it",
+        "toEmail": "={{ $env['ADMIN_EMAIL'] ?? 'admin@sydarchitetto.it' }}",
+        "subject": "📋 Nuovo Preventivo SYD: {{ $json.client_name }} | €{{ $json.estimated_value.toLocaleString('it-IT') }}",
+        "emailType": "html",
+        "message": "<!DOCTYPE html><html lang='it'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head><body style='margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif'><table width='100%' cellpadding='0' cellspacing='0'><tr><td align='center' style='padding:32px 16px'><table width='600' cellpadding='0' cellspacing='0' style='background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)'><tr><td style='background:linear-gradient(135deg,#2c3e50,#3d5a80);padding:28px 32px'><h1 style='margin:0;color:white;font-size:22px;font-weight:700'>📋 Preventivo Pronto per Revisione</h1><p style='margin:6px 0 0;color:rgba(255,255,255,0.75);font-size:14px'>SYD Bioedilizia — Admin Console</p></td></tr><tr><td style='padding:32px'><table width='100%' cellpadding='0' cellspacing='0' style='background:#f8f9fa;border:1px solid #e9ecef;border-radius:8px;margin-bottom:24px'><tr><td style='padding:20px'><table width='100%' cellpadding='6' cellspacing='0'><tr><td style='color:#666;font-size:14px;width:40%'>Progetto ID</td><td style='font-weight:600;font-size:14px;font-family:monospace'>{{ $json.project_id }}</td></tr><tr><td style='color:#666;font-size:14px'>Cliente</td><td style='font-weight:600;font-size:14px'>{{ $json.client_name }}</td></tr><tr><td style='color:#666;font-size:14px'>Voci preventivo</td><td style='font-weight:600;font-size:14px'>{{ $json.item_count }} voci</td></tr><tr><td style='color:#666;font-size:14px'>Urgenza</td><td><span style='background:#fef3cd;color:#856404;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600'>🟡 Normale</span></td></tr><tr><td style='color:#666;font-size:14px'>Generato il</td><td style='font-size:13px;color:#888'>{{ new Date($json.timestamp).toLocaleString(\"it-IT\") }}</td></tr></table></td></tr></table><div style='background:#2c3e50;border-radius:8px;padding:20px;margin-bottom:24px;text-align:center'><p style='margin:0 0 4px;color:#c9a84c;font-size:13px;text-transform:uppercase;letter-spacing:1px'>Valore Stimato Preventivo</p><p style='margin:0;color:white;font-size:36px;font-weight:700'>€{{ $json.estimated_value.toLocaleString(\"it-IT\", {minimumFractionDigits:2}) }}</p></div><div style='background:#f8f9fa;border-left:4px solid #c9a84c;border-radius:4px;padding:16px;margin-bottom:24px'><p style='margin:0 0 8px;font-size:12px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px'>Riassunto AI</p><p style='margin:0;font-size:14px;color:#333;line-height:1.6'>{{ $json.ai_summary }}</p></div><div style='text-align:center;margin-bottom:24px'><a href='{{ $json.review_url }}' style='background:linear-gradient(135deg,#2c3e50,#3d5a80);color:white;padding:14px 36px;text-decoration:none;border-radius:8px;font-size:16px;font-weight:600;display:inline-block'>Apri Console Admin →</a></div><hr style='border:none;border-top:1px solid #eee;margin:24px 0'><p style='color:#999;font-size:11px;text-align:center;margin:0'>SYD Bioedilizia · Admin Notification · {{ $json.timestamp }}</p></td></tr></table></td></tr></table></body></html>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "email-normal",
+      "name": "Email Admin — Normale",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1080, 540]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "telegramApi",
+        "resource": "message",
+        "chatId": "={{ $env['TELEGRAM_ADMIN_CHAT_ID'] }}",
+        "text": "=🚨 *URGENTE — Nuovo Preventivo SYD*\n\n👤 *Cliente:* {{ $('Estrai & Normalizza Campi').item.json.client_name }}\n🆔 *Progetto:* `{{ $('Estrai & Normalizza Campi').item.json.project_id }}`\n💰 *Valore:* €{{ $('Estrai & Normalizza Campi').item.json.estimated_value.toLocaleString('it-IT', {minimumFractionDigits:2}) }}\n📦 *Voci:* {{ $('Estrai & Normalizza Campi').item.json.item_count }}\n⏰ *Generato:* {{ new Date($('Estrai & Normalizza Campi').item.json.timestamp).toLocaleString('it-IT') }}\n\n🤖 *Riassunto AI:*\n_{{ $('Estrai & Normalizza Campi').item.json.ai_summary }}_\n\n[👉 Apri Console Admin]({{ $('Estrai & Normalizza Campi').item.json.review_url }})",
+        "additionalFields": {
+          "parse_mode": "Markdown",
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "telegram-urgent",
+      "name": "Telegram — Alert Urgente",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1300, 340],
+      "continueOnFail": true,
+      "notes": "continueOnFail=true: se Telegram non è configurato, il workflow continua"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Audit Log Entry ─────────────────────────────────────────────────────────\n// Costruisce il record di audit per tracciare ogni notifica inviata.\n// Questo record viene poi salvato su Firestore dal nodo successivo.\nconst fields = $('Estrai & Normalizza Campi').item.json;\nconst emailStatus = $('Email Admin — Urgente').item?.json ?? $('Email Admin — Normale').item?.json ?? {};\nconst telegramStatus = $('Telegram — Alert Urgente').item?.json ?? {};\n\nreturn [{\n  json: {\n    audit_event: 'notify_admin_sent',\n    project_id: fields.project_id,\n    client_name: fields.client_name,\n    estimated_value: fields.estimated_value,\n    urgency: fields.urgency,\n    channels_attempted: ['email', 'telegram'],\n    email_success: !emailStatus.error,\n    telegram_success: !telegramStatus.error,\n    timestamp: fields.timestamp,\n    workflow_execution_id: $execution.id,\n    n8n_instance: $env['N8N_INSTANCE_ID'] ?? 'syd-production'\n  }\n}];"
+      },
+      "id": "build-audit-log",
+      "name": "Prepara Audit Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['SYD_BACKEND_URL'] }}/api/internal/audit-log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env['SYD_INTERNAL_TOKEN'] }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-N8N-Execution",
+              "value": "={{ $execution.id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 5000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2,
+            "waitBetweenRetries": 500
+          }
+        }
+      },
+      "id": "post-audit-log",
+      "name": "POST Audit Log → Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1740, 400],
+      "continueOnFail": true,
+      "notes": "continueOnFail=true: audit failure non deve bloccare la risposta al webhook"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'notified', project_id: $('Estrai & Normalizza Campi').item.json.project_id, urgency: $('Estrai & Normalizza Campi').item.json.urgency, channels: ['email', 'telegram'], execution_id: $execution.id, timestamp: $('Estrai & Normalizza Campi').item.json.timestamp }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-ok",
+      "name": "Risposta 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1960, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'error', message: $json.message ?? 'Firma HMAC non valida o payload malformato', code: 'WEBHOOK_AUTH_FAILED' }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "respond-401",
+      "name": "Risposta 401 Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [640, 600]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [{ "node": "Valida Firma HMAC", "type": "main", "index": 0 }]
+      ]
+    },
+    "Valida Firma HMAC": {
+      "main": [
+        [{ "node": "Estrai & Normalizza Campi", "type": "main", "index": 0 }]
+      ],
+      "error": [
+        [{ "node": "Risposta 401 Unauthorized", "type": "main", "index": 0 }]
+      ]
+    },
+    "Estrai & Normalizza Campi": {
+      "main": [
+        [{ "node": "Urgenza Alta?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Urgenza Alta?": {
+      "main": [
+        [{ "node": "Email Admin — Urgente", "type": "main", "index": 0 }],
+        [{ "node": "Email Admin — Normale", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email Admin — Urgente": {
+      "main": [
+        [{ "node": "Telegram — Alert Urgente", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email Admin — Normale": {
+      "main": [
+        [{ "node": "Telegram — Alert Urgente", "type": "main", "index": 0 }]
+      ]
+    },
+    "Telegram — Alert Urgente": {
+      "main": [
+        [{ "node": "Prepara Audit Log", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepara Audit Log": {
+      "main": [
+        [{ "node": "POST Audit Log → Backend", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST Audit Log → Backend": {
+      "main": [
+        [{ "node": "Risposta 200 OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "SYD — Error Handler",
+    "timezone": "Europe/Rome"
+  },
+  "staticData": null,
+  "tags": ["syd", "quote", "admin", "notify", "v2", "enterprise"],
+  "meta": {
+    "templateId": "syd-notify-admin-v2",
+    "instanceId": "syd-bioedilizia",
+    "version": "2.0.0",
+    "description": "Enterprise-grade admin notification con HMAC validation, Telegram alerts, audit logging e error handling"
+  }
+}

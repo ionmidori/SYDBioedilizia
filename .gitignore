@@ -68,6 +68,8 @@ next-env.d.ts
 !tailwind.config.json
 !package-root.json
 !manifest.json
+# n8n workflow templates — no secrets, only env var references
+!n8n_workflows/*.json
 
 # python
 .venv/

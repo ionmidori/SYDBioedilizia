@@ -1,0 +1,392 @@
+{
+  "name": "SYD — Deliver Quote (Approved PDF) v2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "syd-deliver-quote",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 500],
+      "webhookId": "syd-deliver-quote"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── HMAC-SHA256 Signature Validation ───────────────────────────────────────\nconst crypto = require('crypto');\nconst rawBody = $input.item.json.rawBody || JSON.stringify($input.item.json.body);\nconst signature = $input.item.json.headers['x-syd-signature'] || '';\nconst secret = $env['SYD_WEBHOOK_SECRET'];\n\nif (!secret) {\n  console.warn('[SYD] WARNING: SYD_WEBHOOK_SECRET non configurato. Bypass validazione (solo dev).');\n  return $input.all();\n}\n\nif (!signature.startsWith('sha256=')) {\n  throw new Error('Signature mancante o formato non valido');\n}\n\nconst expectedSig = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(rawBody)\n  .digest('hex');\n\nconst sigBuffer = Buffer.from(signature);\nconst expectedBuffer = Buffer.from(expectedSig);\n\nif (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {\n  throw new Error('Signature non valida: richiesta rifiutata');\n}\n\nreturn $input.all();"
+      },
+      "id": "validate-signature",
+      "name": "Valida Firma HMAC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Payload Validation & Normalization ─────────────────────────────────────\n// Valida i campi obbligatori e normalizza i dati per i nodi downstream.\nconst body = $input.item.json.body;\n\n// Validazione campi obbligatori\nconst required = ['project_id', 'client_email', 'pdf_url', 'quote_total', 'client_name'];\nconst missing = required.filter(f => !body[f]);\nif (missing.length > 0) {\n  throw new Error(`Campi obbligatori mancanti: ${missing.join(', ')}`);\n}\n\n// Validazione formato email\nconst emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\nif (!emailRegex.test(body.client_email)) {\n  throw new Error(`Email non valida: ${body.client_email}`);\n}\n\n// Validazione URL PDF\nif (!body.pdf_url.startsWith('https://')) {\n  throw new Error('pdf_url deve essere HTTPS');\n}\n\n// Normalizzazione delivery_channel\nconst validChannels = ['email', 'whatsapp', 'both'];\nconst channel = body.delivery_channel ?? 'email';\nif (!validChannels.includes(channel)) {\n  throw new Error(`delivery_channel non valido: ${channel}. Valori accettati: ${validChannels.join(', ')}`);\n}\n\nreturn [{\n  json: {\n    project_id: body.project_id,\n    client_email: body.client_email,\n    client_name: body.client_name,\n    client_phone: body.client_phone ?? null,\n    pdf_url: body.pdf_url,\n    quote_total: parseFloat(body.quote_total),\n    quote_number: body.quote_number ?? `SYD-${Date.now()}`,\n    delivery_channel: channel,\n    admin_notes: body.admin_notes ?? '',\n    expiry_date: body.expiry_date ?? null,\n    timestamp: new Date().toISOString(),\n    locale: body.locale ?? 'it-IT'\n  }\n}];"
+      },
+      "id": "validate-payload",
+      "name": "Valida & Normalizza Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 500]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.delivery_channel }}",
+                    "rightValue": "email",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "email_only"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.delivery_channel }}",
+                    "rightValue": "whatsapp",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "whatsapp_only"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.delivery_channel }}",
+                    "rightValue": "both",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "both_channels"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "route-channel",
+      "name": "Routing per Canale",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [860, 500]
+    },
+    {
+      "parameters": {
+        "fromEmail": "preventivi@sydarchitetto.it",
+        "toEmail": "={{ $json.client_email }}",
+        "subject": "Il tuo Preventivo SYD Bioedilizia — N° {{ $json.quote_number }}",
+        "emailType": "html",
+        "message": "={{ $('Build Email HTML').item.json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "allowUnauthorizedCerts": false
+        }
+      },
+      "id": "send-email-only",
+      "name": "Email → Solo Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1100, 340]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "twilioApi",
+        "operation": "send",
+        "from": "whatsapp:{{ $env['TWILIO_WHATSAPP_NUMBER'] }}",
+        "to": "=whatsapp:{{ $json.client_phone }}",
+        "body": "=Gentile {{ $json.client_name }},\n\nil tuo preventivo SYD Bioedilizia n° *{{ $json.quote_number }}* è pronto!\n\n💰 *Totale: €{{ $json.quote_total.toLocaleString('it-IT', {minimumFractionDigits:2}) }}* (IVA inclusa)\n\n📄 Scarica il tuo preventivo:\n{{ $json.pdf_url }}\n\n{{ $json.expiry_date ? '⏳ Offerta valida fino al: ' + new Date($json.expiry_date).toLocaleDateString('it-IT') : '' }}\n\nPer qualsiasi domanda, rispondi a questo messaggio.\n\nCordiali saluti,\nTeam SYD Bioedilizia",
+        "options": {}
+      },
+      "id": "send-whatsapp-only",
+      "name": "WhatsApp Twilio → Solo WA",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1100, 540],
+      "continueOnFail": true,
+      "notes": "Richiede credenziali Twilio con WhatsApp Business abilitato"
+    },
+    {
+      "parameters": {
+        "fromEmail": "preventivi@sydarchitetto.it",
+        "toEmail": "={{ $json.client_email }}",
+        "subject": "Il tuo Preventivo SYD Bioedilizia — N° {{ $json.quote_number }}",
+        "emailType": "html",
+        "message": "={{ $('Build Email HTML').item.json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "send-email-both",
+      "name": "Email → Canale Both",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1100, 700]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "twilioApi",
+        "operation": "send",
+        "from": "whatsapp:{{ $env['TWILIO_WHATSAPP_NUMBER'] }}",
+        "to": "=whatsapp:{{ $('Valida & Normalizza Payload').item.json.client_phone }}",
+        "body": "=Gentile {{ $('Valida & Normalizza Payload').item.json.client_name }},\n\nil tuo preventivo SYD Bioedilizia n° *{{ $('Valida & Normalizza Payload').item.json.quote_number }}* è pronto!\n\n💰 *Totale: €{{ $('Valida & Normalizza Payload').item.json.quote_total.toLocaleString('it-IT', {minimumFractionDigits:2}) }}* (IVA inclusa)\n\n📄 Scarica il tuo preventivo:\n{{ $('Valida & Normalizza Payload').item.json.pdf_url }}\n\nCordiali saluti,\nTeam SYD Bioedilizia",
+        "options": {}
+      },
+      "id": "send-whatsapp-both",
+      "name": "WhatsApp Twilio → Canale Both",
+      "type": "n8n-nodes-base.twilio",
+      "typeVersion": 1,
+      "position": [1300, 700],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Build Email HTML ────────────────────────────────────────────────────────\n// Genera il corpo HTML dell'email di consegna preventivo.\n// Questo nodo viene eseguito PRIMA del routing per rendere l'HTML riutilizzabile.\nconst d = $input.item.json;\nconst totalFormatted = d.quote_total.toLocaleString('it-IT', { minimumFractionDigits: 2 });\nconst expiryStr = d.expiry_date\n  ? `<tr><td style='color:#666;font-size:13px;padding:4px 0'>Validità offerta</td><td style='font-size:13px;font-weight:600;color:#e74c3c'>${new Date(d.expiry_date).toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' })}</td></tr>`\n  : '';\n\nconst adminNotesHtml = d.admin_notes\n  ? `<div style='background:#fff8e1;border-left:4px solid #f9a825;border-radius:4px;padding:16px;margin-bottom:24px'><p style='margin:0 0 6px;font-size:12px;font-weight:600;color:#666;text-transform:uppercase;letter-spacing:0.5px'>Note dell'Architetto</p><p style='margin:0;font-size:14px;color:#333;line-height:1.6'>${d.admin_notes}</p></div>`\n  : '';\n\nconst html = `<!DOCTYPE html>\n<html lang=\"it\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>Preventivo SYD ${d.quote_number}</title>\n</head>\n<body style=\"margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif\">\n<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n<tr><td align=\"center\" style=\"padding:32px 16px\">\n<table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:white;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.10)\">\n  <!-- HEADER -->\n  <tr><td style=\"background:linear-gradient(135deg,#1a2332 0%,#2c3e50 60%,#c9a84c 100%);padding:36px 32px;text-align:center\">\n    <div style=\"display:inline-block;background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.4);border-radius:50%;width:60px;height:60px;line-height:60px;font-size:28px;margin-bottom:12px\">🏗️</div>\n    <h1 style=\"margin:0;color:white;font-size:24px;font-weight:700;letter-spacing:-0.5px\">SYD Bioedilizia</h1>\n    <p style=\"margin:6px 0 0;color:rgba(201,168,76,0.9);font-size:14px;font-weight:500\">Il tuo Architetto Personale AI</p>\n  </td></tr>\n  <!-- BODY -->\n  <tr><td style=\"padding:36px 32px\">\n    <h2 style=\"margin:0 0 8px;color:#1a2332;font-size:20px\">Il tuo preventivo è pronto, ${d.client_name.split(' ')[0]}! 🎉</h2>\n    <p style=\"margin:0 0 28px;color:#666;font-size:15px\">Il progetto <strong>${d.project_id}</strong> è stato analizzato e il preventivo approvato dal nostro team.</p>\n    <!-- QUOTE BOX -->\n    <div style=\"background:linear-gradient(135deg,#1a2332,#2c3e50);border-radius:12px;padding:28px;margin-bottom:28px;text-align:center\">\n      <p style=\"margin:0 0 4px;color:#c9a84c;font-size:13px;text-transform:uppercase;letter-spacing:1.5px;font-weight:600\">Preventivo N° ${d.quote_number}</p>\n      <p style=\"margin:8px 0 4px;color:white;font-size:42px;font-weight:800;letter-spacing:-1px\">€${totalFormatted}</p>\n      <p style=\"margin:0;color:rgba(255,255,255,0.5);font-size:12px\">IVA 22% inclusa</p>\n    </div>\n    <!-- DETAILS TABLE -->\n    <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#f8f9fa;border-radius:8px;margin-bottom:24px\">\n      <tr><td style=\"padding:20px\">\n        <table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr><td style=\"color:#666;font-size:13px;padding:4px 0\">Numero preventivo</td><td style=\"font-size:13px;font-weight:600;font-family:monospace\">${d.quote_number}</td></tr>\n          <tr><td style=\"color:#666;font-size:13px;padding:4px 0\">Data emissione</td><td style=\"font-size:13px;font-weight:600\">${new Date(d.timestamp).toLocaleDateString('it-IT', { day:'2-digit', month:'long', year:'numeric' })}</td></tr>\n          ${expiryStr}\n        </table>\n      </td></tr>\n    </table>\n    ${adminNotesHtml}\n    <!-- CTA -->\n    <div style=\"text-align:center;margin:32px 0\">\n      <a href=\"${d.pdf_url}\" style=\"background:linear-gradient(135deg,#c9a84c,#e8c56a);color:#1a2332;padding:16px 40px;text-decoration:none;border-radius:50px;font-size:16px;font-weight:700;display:inline-block;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(201,168,76,0.4)\">📄 Scarica il Preventivo PDF</a>\n      <p style=\"margin:12px 0 0;color:#999;font-size:12px\">Il link è sicuro e valido per 24 ore</p>\n    </div>\n    <!-- INFO BOX -->\n    <div style=\"background:#eaf4fb;border-radius:8px;padding:16px 20px;margin-bottom:24px\">\n      <p style=\"margin:0;font-size:13px;color:#2980b9;line-height:1.6\">💬 <strong>Hai domande?</strong> Rispondi a questa email o accedi alla chat SYD per parlare con il tuo architetto personale AI.</p>\n    </div>\n    <hr style=\"border:none;border-top:1px solid #eee;margin:24px 0\">\n    <p style=\"color:#bbb;font-size:11px;text-align:center;margin:0\">SYD Bioedilizia — Architetto Personale AI<br>Questo è un messaggio automatico. Rispondi a questa email per assistenza.</p>\n  </td></tr>\n</table>\n</td></tr>\n</table>\n</body>\n</html>`;\n\nreturn [{ json: { html, quote_number: d.quote_number, project_id: d.project_id, client_email: d.client_email, client_name: d.client_name, client_phone: d.client_phone, pdf_url: d.pdf_url, quote_total: d.quote_total, delivery_channel: d.delivery_channel, timestamp: d.timestamp } }];"
+      },
+      "id": "build-email-html",
+      "name": "Build Email HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 260],
+      "notes": "Genera HTML email riutilizzabile da tutti i branch email"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env['SYD_BACKEND_URL'] }}/api/projects/{{ $('Valida & Normalizza Payload').item.json.project_id }}/status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env['SYD_INTERNAL_TOKEN'] }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"status\": \"quote_sent\",\n  \"quote_sent_at\": \"{{ $('Valida & Normalizza Payload').item.json.timestamp }}\",\n  \"delivery_channel\": \"{{ $('Valida & Normalizza Payload').item.json.delivery_channel }}\",\n  \"pdf_url\": \"{{ $('Valida & Normalizza Payload').item.json.pdf_url }}\",\n  \"quote_number\": \"{{ $('Valida & Normalizza Payload').item.json.quote_number }}\",\n  \"n8n_execution_id\": \"{{ $execution.id }}\"\n}",
+        "options": {
+          "timeout": 8000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "waitBetweenRetries": 2000
+          }
+        }
+      },
+      "id": "update-firestore-status",
+      "name": "Aggiorna Stato Progetto → Firestore",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1520, 500],
+      "continueOnFail": false,
+      "notes": "CRITICO: aggiorna status='quote_sent' su Firestore via backend. Retry 3x con backoff 2s."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Build Audit Log Entry ───────────────────────────────────────────────────\nconst payload = $('Valida & Normalizza Payload').item.json;\n\n// Raccogli risultati da tutti i branch (con fallback sicuro)\nlet emailSuccess = false;\nlet whatsappSuccess = false;\n\ntry {\n  // Verifica se email è stata inviata (branch email_only o both)\n  const emailNode = $('Email → Solo Email').item ?? $('Email → Canale Both').item;\n  emailSuccess = emailNode ? !emailNode.json?.error : false;\n} catch(e) { emailSuccess = false; }\n\ntry {\n  const waNode = $('WhatsApp Twilio → Solo WA').item ?? $('WhatsApp Twilio → Canale Both').item;\n  whatsappSuccess = waNode ? !waNode.json?.error : false;\n} catch(e) { whatsappSuccess = false; }\n\nconst firestoreResult = $input.item.json;\nconst firestoreSuccess = !firestoreResult.error && firestoreResult.status === 200;\n\nreturn [{\n  json: {\n    audit_event: 'quote_delivered',\n    project_id: payload.project_id,\n    quote_number: payload.quote_number,\n    client_email: payload.client_email,\n    quote_total: payload.quote_total,\n    delivery_channel: payload.delivery_channel,\n    email_sent: emailSuccess,\n    whatsapp_sent: whatsappSuccess,\n    firestore_updated: firestoreSuccess,\n    overall_success: firestoreSuccess && (emailSuccess || whatsappSuccess),\n    timestamp: payload.timestamp,\n    workflow_execution_id: $execution.id\n  }\n}];"
+      },
+      "id": "build-audit-log",
+      "name": "Prepara Audit Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 500]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['SYD_BACKEND_URL'] }}/api/internal/audit-log",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env['SYD_INTERNAL_TOKEN'] }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 5000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 2,
+            "waitBetweenRetries": 500
+          }
+        }
+      },
+      "id": "post-audit-log",
+      "name": "POST Audit Log → Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1960, 500],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'delivered', project_id: $('Valida & Normalizza Payload').item.json.project_id, quote_number: $('Valida & Normalizza Payload').item.json.quote_number, channel: $('Valida & Normalizza Payload').item.json.delivery_channel, execution_id: $execution.id, timestamp: $('Valida & Normalizza Payload').item.json.timestamp }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-ok",
+      "name": "Risposta 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2180, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'error', message: $json.message ?? 'Validazione payload fallita', code: 'VALIDATION_ERROR' }) }}",
+        "options": {
+          "responseCode": 422
+        }
+      },
+      "id": "respond-422",
+      "name": "Risposta 422 Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [640, 700]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'error', message: 'Firma HMAC non valida', code: 'WEBHOOK_AUTH_FAILED' }) }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "respond-401",
+      "name": "Risposta 401 Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [420, 700]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [{ "node": "Valida Firma HMAC", "type": "main", "index": 0 }]
+      ]
+    },
+    "Valida Firma HMAC": {
+      "main": [
+        [{ "node": "Valida & Normalizza Payload", "type": "main", "index": 0 }]
+      ],
+      "error": [
+        [{ "node": "Risposta 401 Unauthorized", "type": "main", "index": 0 }]
+      ]
+    },
+    "Valida & Normalizza Payload": {
+      "main": [
+        [
+          { "node": "Build Email HTML", "type": "main", "index": 0 },
+          { "node": "Routing per Canale", "type": "main", "index": 0 }
+        ]
+      ],
+      "error": [
+        [{ "node": "Risposta 422 Validation Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Email HTML": {
+      "main": [[]]
+    },
+    "Routing per Canale": {
+      "main": [
+        [{ "node": "Email → Solo Email", "type": "main", "index": 0 }],
+        [{ "node": "WhatsApp Twilio → Solo WA", "type": "main", "index": 0 }],
+        [{ "node": "Email → Canale Both", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email → Solo Email": {
+      "main": [
+        [{ "node": "Aggiorna Stato Progetto → Firestore", "type": "main", "index": 0 }]
+      ]
+    },
+    "WhatsApp Twilio → Solo WA": {
+      "main": [
+        [{ "node": "Aggiorna Stato Progetto → Firestore", "type": "main", "index": 0 }]
+      ]
+    },
+    "Email → Canale Both": {
+      "main": [
+        [{ "node": "WhatsApp Twilio → Canale Both", "type": "main", "index": 0 }]
+      ]
+    },
+    "WhatsApp Twilio → Canale Both": {
+      "main": [
+        [{ "node": "Aggiorna Stato Progetto → Firestore", "type": "main", "index": 0 }]
+      ]
+    },
+    "Aggiorna Stato Progetto → Firestore": {
+      "main": [
+        [{ "node": "Prepara Audit Log", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prepara Audit Log": {
+      "main": [
+        [{ "node": "POST Audit Log → Backend", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST Audit Log → Backend": {
+      "main": [
+        [{ "node": "Risposta 200 OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "SYD — Error Handler",
+    "timezone": "Europe/Rome"
+  },
+  "staticData": null,
+  "tags": ["syd", "quote", "deliver", "client", "v2", "enterprise"],
+  "meta": {
+    "templateId": "syd-deliver-quote-v2",
+    "instanceId": "syd-bioedilizia",
+    "version": "2.0.0",
+    "description": "Enterprise-grade quote delivery con HMAC validation, Twilio WhatsApp, Firestore sync, audit logging e error handling"
+  }
+}

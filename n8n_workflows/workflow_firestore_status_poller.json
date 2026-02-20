@@ -1,0 +1,247 @@
+{
+  "name": "SYD — Firestore Status Poller (Quote Ready Trigger)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Ogni 5 Minuti",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400],
+      "notes": "Polling ogni 5 minuti. In produzione si può ridurre a 2 minuti o usare Firestore triggers via Cloud Functions per zero-latency."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env['SYD_BACKEND_URL'] }}/api/internal/projects/pending-review",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env['SYD_INTERNAL_TOKEN'] }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "waitBetweenRetries": 2000
+          }
+        }
+      },
+      "id": "fetch-pending-projects",
+      "name": "Fetch Progetti in Attesa → Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 400],
+      "notes": "Chiama /api/internal/projects/pending-review che restituisce i progetti con status='ready_for_quote' non ancora notificati."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "typeValidation": "strict" },
+          "conditions": [
+            {
+              "id": "p1",
+              "leftValue": "={{ $json.projects?.length ?? 0 }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-pending",
+      "name": "Ci Sono Progetti?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [640, 400]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "projects",
+        "options": {}
+      },
+      "id": "split-projects",
+      "name": "Itera su Ogni Progetto",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [860, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Calcola Urgency & Prepara Payload Notifica ──────────────────────────────\n// Determina l'urgenza in base a valore stimato e anzianità del draft.\nconst project = $json;\nconst now = new Date();\nconst createdAt = new Date(project.created_at ?? project.quote_draft?.generated_at ?? now);\nconst ageHours = (now - createdAt) / (1000 * 60 * 60);\nconst estimatedValue = project.quote_draft?.financials?.grand_total ?? 0;\n\n// Logica urgenza:\n// - Valore > 20.000€ → ALTA\n// - Draft più vecchio di 4 ore → ALTA  \n// - Altrimenti → NORMALE\nconst isHighValue = estimatedValue > 20000;\nconst isOld = ageHours > 4;\nconst urgency = (isHighValue || isOld) ? 'high' : 'normal';\n\n// Costruisci riassunto voci per l'AI summary\nconst items = project.quote_draft?.items ?? [];\nconst topItems = items\n  .sort((a, b) => b.total - a.total)\n  .slice(0, 3)\n  .map(i => `${i.description} (€${i.total.toFixed(2)})`)\n  .join(', ');\n\nconst aiSummary = project.ai_summary \n  || (topItems ? `Voci principali: ${topItems}. ${items.length} voci totali.` : 'Nessun dettaglio disponibile.');\n\n// Costruisci review URL (link diretto alla console admin per questo progetto)\nconst adminConsoleUrl = $env['ADMIN_CONSOLE_URL'] ?? 'https://admin.sydarchitetto.it';\nconst reviewUrl = `${adminConsoleUrl}/quotes/${project.project_id}`;\n\nreturn [{\n  json: {\n    project_id: project.project_id,\n    client_name: project.client_name ?? project.lead_name ?? 'N/D',\n    estimated_value: estimatedValue,\n    item_count: items.length,\n    urgency,\n    ai_summary: aiSummary,\n    review_url: reviewUrl,\n    age_hours: Math.round(ageHours * 10) / 10,\n    notify_channels: ['email', 'telegram']\n  }\n}];"
+      },
+      "id": "calc-urgency",
+      "name": "Calcola Urgenza & Build Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env['N8N_INSTANCE_URL'] ?? 'https://n8n.sydarchitetto.it' }}/webhook/syd-notify-admin",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-SYD-Signature",
+              "value": "={{ (() => { const crypto = require('crypto'); const payload = JSON.stringify($json); return 'sha256=' + crypto.createHmac('sha256', $env['SYD_WEBHOOK_SECRET'] ?? '').update(payload).digest('hex'); })() }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 15000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "waitBetweenRetries": 5000
+          }
+        }
+      },
+      "id": "trigger-notify-workflow",
+      "name": "Trigger Notify Admin Workflow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1300, 300],
+      "notes": "Chiama il webhook del workflow SYD Notify Admin con firma HMAC corretta."
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $env['SYD_BACKEND_URL'] }}/api/internal/projects/{{ $('Calcola Urgenza & Build Payload').item.json.project_id }}/mark-notified",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $env['SYD_INTERNAL_TOKEN'] }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"admin_notified_at\": \"{{ new Date().toISOString() }}\",\n  \"notification_execution_id\": \"{{ $execution.id }}\"\n}",
+        "options": {
+          "timeout": 8000,
+          "retry": {
+            "enabled": true,
+            "maxRetries": 3,
+            "waitBetweenRetries": 2000
+          }
+        }
+      },
+      "id": "mark-as-notified",
+      "name": "Segna come Notificato → Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1520, 300],
+      "notes": "CRITICO: Aggiorna il flag admin_notified su Firestore per evitare notifiche duplicate al prossimo polling."
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Poller Run Summary ──────────────────────────────────────────────────────\n// Aggrega i risultati di tutti i progetti processati in questa run.\n// Utile per monitoring e debug.\nconst results = $input.all();\nconst successCount = results.filter(r => !r.json.error).length;\nconst failCount = results.length - successCount;\n\nconsole.log(`[SYD Poller] Run completata: ${successCount} notifiche inviate, ${failCount} fallite`);\n\nreturn [{\n  json: {\n    run_timestamp: new Date().toISOString(),\n    projects_processed: results.length,\n    notifications_sent: successCount,\n    notifications_failed: failCount,\n    execution_id: $execution.id\n  }\n}];"
+      },
+      "id": "run-summary",
+      "name": "Summary Run Poller",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1740, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nessun progetto in attesa — log silenzioso per evitare spam\nconsole.log('[SYD Poller] Nessun progetto in attesa di revisione.');\nreturn [{ json: { status: 'idle', timestamp: new Date().toISOString() } }];"
+      },
+      "id": "no-projects-log",
+      "name": "Nessun Progetto — Skip",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [860, 520]
+    }
+  ],
+  "connections": {
+    "Ogni 5 Minuti": {
+      "main": [
+        [{ "node": "Fetch Progetti in Attesa → Backend", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Progetti in Attesa → Backend": {
+      "main": [
+        [{ "node": "Ci Sono Progetti?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Ci Sono Progetti?": {
+      "main": [
+        [{ "node": "Itera su Ogni Progetto", "type": "main", "index": 0 }],
+        [{ "node": "Nessun Progetto — Skip", "type": "main", "index": 0 }]
+      ]
+    },
+    "Itera su Ogni Progetto": {
+      "main": [
+        [{ "node": "Calcola Urgenza & Build Payload", "type": "main", "index": 0 }]
+      ]
+    },
+    "Calcola Urgenza & Build Payload": {
+      "main": [
+        [{ "node": "Trigger Notify Admin Workflow", "type": "main", "index": 0 }]
+      ]
+    },
+    "Trigger Notify Admin Workflow": {
+      "main": [
+        [{ "node": "Segna come Notificato → Backend", "type": "main", "index": 0 }]
+      ]
+    },
+    "Segna come Notificato → Backend": {
+      "main": [
+        [{ "node": "Summary Run Poller", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "SYD — Error Handler",
+    "timezone": "Europe/Rome"
+  },
+  "staticData": null,
+  "tags": ["syd", "poller", "firestore", "automation", "enterprise"],
+  "meta": {
+    "templateId": "syd-firestore-poller-v1",
+    "instanceId": "syd-bioedilizia",
+    "version": "1.0.0",
+    "description": "Polling scheduler che controlla Firestore ogni 5 minuti per nuovi preventivi 'ready_for_quote'. Calcola urgency, genera firma HMAC e triggera il workflow di notifica admin. Aggiorna il flag admin_notified per prevenire duplicati."
+  }
+}
