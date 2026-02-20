@@ -28,7 +28,7 @@ async def lifespan(_app: FastAPI):
     yield
     logger.info("SYD Brain API shutting down.")
 
-app = FastAPI(title="SYD Brain", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="SYD Brain", version="2.9.21", lifespan=lifespan)
 
 # 🔒 CORS Middleware (Hardened)
 from fastapi.middleware.cors import CORSMiddleware
