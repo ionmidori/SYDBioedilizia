@@ -1,0 +1,10 @@
+credentials:
+  usernames:
+    admin:
+      email: admin@sydbioedilizia.it
+      name: Administrator
+      password: $2b$12$q7x8QdzsaiHZiQpaRlAdfOGkXoK2Aiin8c6rGvnvC5Gcf9/Xf4Gli
+cookie:
+  expiry_days: 30
+  key: random_signature_key
+  name: syd_admin_cookie
