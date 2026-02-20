@@ -7,7 +7,16 @@ class Settings(BaseSettings):
     Enforces strict typing and validation of environment variables.
     """
     ENV: str = Field(default="development", description="Environment: development, production")
-    PROJECT_ID: str = Field(default="chatbotluca-a8a73", description="Google Cloud Project ID")
+    # GOOGLE_CLOUD_PROJECT is the canonical GCP env var name.
+    # PROJECT_ID is kept for backward compatibility with legacy code.
+    GOOGLE_CLOUD_PROJECT: str = Field(
+        default="chatbotluca-a8a73",
+        description="GCP Project ID used by FirestoreSaver, Firestore, and Firebase Admin SDK.",
+    )
+    PROJECT_ID: str = Field(
+        default="chatbotluca-a8a73",
+        description="Legacy alias — prefer GOOGLE_CLOUD_PROJECT for new code.",
+    )
     
     # Secrets
     # We allow None during init if .env is missing, but logic should check them.
@@ -30,11 +39,18 @@ class Settings(BaseSettings):
     FIREBASE_CLIENT_EMAIL: str | None = None
     FIREBASE_CLIENT_ID: str | None = None
     FIREBASE_STORAGE_BUCKET: str | None = None
+
+    # n8n MCP Integration (Webhook URLs)
+    N8N_WEBHOOK_NOTIFY_ADMIN: str | None = Field(None, description="n8n webhook URL to notify admin of new quote draft")
+    N8N_WEBHOOK_DELIVER_QUOTE: str | None = Field(None, description="n8n webhook URL to deliver approved quote to client")
+    N8N_API_KEY: str | None = Field(None, description="Optional API key for n8n webhook authentication")
+    ADMIN_DASHBOARD_URL: str = Field(default="http://localhost:8501", description="Base URL of the Streamlit admin console")
     
     model_config = SettingsConfigDict(
-        env_file=".env", 
+        env_file=".env",
         env_file_encoding="utf-8",
-        extra="ignore"  # Allow extra keys in .env
+        extra="ignore",  # Allow extra keys in .env
+        populate_by_name=True,  # Allow field name OR alias for setting values
     )
 
     @property
