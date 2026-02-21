@@ -21,10 +21,33 @@ export const metadata: Metadata = {
 };
 
 export default function BlogPostUmidita() {
-  // 2. Schema JSON-LD Strutturato (FAQ + Breadcrumb)
+  // 2. Schema JSON-LD Strutturato (FAQ + Breadcrumb + Article)
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
+      {
+        "@type": "Article",
+        "headline": "Come eliminare definitivamente l'umidità di risalita nei palazzi storici romani",
+        "author": {
+          "@type": "Organization",
+          "name": "SYD Bioedilizia",
+          "url": "https://sydbioedilizia.it"
+        },
+        "publisher": {
+            "@type": "Organization",
+            "name": "SYD Bioedilizia",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://sydbioedilizia.it/images/logo.png"
+            }
+        },
+        "datePublished": "2026-02-20",
+        "dateModified": "2026-02-21",
+        "mainEntityOfPage": {
+            "@type": "WebPage",
+            "@id": "https://sydbioedilizia.it/blog/umidita-risalita-roma"
+        }
+      },
       {
         "@type": "BreadcrumbList",
         "itemListElement": [
@@ -118,6 +141,19 @@ export default function BlogPostUmidita() {
             Chi possiede un immobile al piano terra o seminterrato a Roma conosce bene il nemico silenzioso che sgretola gli intonaci: l'<strong>umidità di risalita capillare</strong>. 
             Non è solo un problema estetico, ma una patologia edilizia legata a doppio filo con la geologia stessa della Città Eterna.
           </p>
+
+          {/* GEO Optimization: Key Takeaways for AI Overviews */}
+          <div className="bg-primary/5 border-l-4 border-primary p-6 my-8 rounded-r-xl not-prose">
+            <h3 className="text-lg font-bold text-primary mb-2 flex items-center gap-2">
+              📌 In Breve (Key Takeaways)
+            </h3>
+            <ul className="space-y-2 text-muted-foreground">
+              <li><strong className="text-foreground">Causa:</strong> Il tufo e la pozzolana romana assorbono acqua e sali dal sottosuolo (capillarità).</li>
+              <li><strong className="text-foreground">Errore comune:</strong> Cemento e contropareti peggiorano il problema (effetto tappo e muffe nascoste).</li>
+              <li><strong className="text-foreground">Soluzione Bio:</strong> Barriera chimica silanica + Intonaco macroporoso NHL (calce idraulica).</li>
+              <li><strong className="text-foreground">Bonus 2026:</strong> L'intervento è detraibile al 50% come manutenzione straordinaria.</li>
+            </ul>
+          </div>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Perché i muri di Roma "bevono"?</h2>
           <p>

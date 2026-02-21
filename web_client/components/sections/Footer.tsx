@@ -90,7 +90,7 @@ export function Footer() {
                                 { label: 'Servizi', href: '/#servizi' },
                                 { label: 'Portfolio', href: '/#portfolio' },
                                 { label: 'Chi Siamo', href: '/chi-siamo' },
-                                { label: 'Blog', href: '/blog/umidita-risalita-roma' },
+                                { label: 'Blog', href: '/blog' },
                             ].map((item) => (
                                 <li key={item.label}>
                                     <Link href={item.href} className="text-luxury-text/70 hover:text-luxury-gold transition-colors text-sm font-light">
