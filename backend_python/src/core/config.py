@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     
     # Feature Flags (App Check enabled by default for production safety)
     ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")
+    USE_CHECKPOINTER: bool = Field(
+        default=False,
+        description="Enable FirestoreSaver checkpointing on the main conversation graph. "
+                    "Quote graph always uses checkpointing regardless of this flag.",
+    )
     
     # Auth & Infrastructure
     RP_ID: str | None = Field(None, description="WebAuthn Relying Party ID")

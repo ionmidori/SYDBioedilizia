@@ -12,7 +12,9 @@ from src.utils.download import download_image_smart
 from src.db.leads import save_lead
 from src.models.lead import LeadData
 from src.api.perplexity import fetch_market_prices
-from src.db.quotes import save_quote_draft
+# DEPRECATED: save_quote_draft uses legacy 'quotes/' collection.
+# New path: projects/{pid}/private_data/quote via suggest_quote_items.
+# from src.db.quotes import save_quote_draft
 # from src.vision.analyze import analyze_room_structure (Unused after triage fix)
 from src.vision.triage import analyze_media_triage
 from src.vision.cad_engine import analyze_floorplan_vector, generate_dxf_bytes
@@ -128,24 +130,9 @@ async def generate_render(
             
     return result
 
-@tool
-@require_auth
-async def save_quote(
-    user_id: str,
-    ai_data: Dict[str, Any],
-    image_url: Optional[str] = None
-) -> str:
-    """
-    Save a structured quote draft to the database.
-    Use this when the user completes the 'Technical Surveyor' interview.
-    """
-    logger.info(f"[Tool] 📝 save_quote called for user {user_id}")
-    try:
-        quote_id = await save_quote_draft(user_id, image_url, ai_data)
-        return f"✅ Preventivo salvato in bozza! ID: {quote_id}"
-    except Exception as e:
-        logger.error(f"[Tool] ❌ save_quote failed: {e}")
-        return f"❌ Errore nel salvare il preventivo: {str(e)}"
+# DEPRECATED: save_quote uses legacy QuoteDraftData → 'quotes/' collection.
+# Use suggest_quote_items instead → QuoteSchema → projects/{pid}/private_data/quote.
+# Kept for backward compatibility but removed from ALL_TOOLS registry.
 
 @tool
 @require_auth
@@ -288,7 +275,6 @@ ALL_TOOLS = [
     submit_lead,
     get_market_prices,
     generate_render,
-    save_quote,
     suggest_quote_items,
     notify_admin,
     deliver_quote,
@@ -297,5 +283,5 @@ ALL_TOOLS = [
     list_project_files,
     show_project_gallery,
     generate_cad,
-    request_login
+    request_login,
 ]

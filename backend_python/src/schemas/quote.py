@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.utils.datetime_utils import utc_now
+
+# Canonical status lifecycle: draft → pending_review → approved → sent | rejected
+QuoteStatusType = Literal["draft", "pending_review", "approved", "sent", "rejected"]
 
 class QuoteItem(BaseModel):
     sku: str = Field(..., description="Unique Identifier from Master Price Book")
@@ -28,7 +31,7 @@ class QuoteSchema(BaseModel):
     id: Optional[str] = None
     project_id: str
     user_id: str
-    status: str = Field("draft", description="Status (draft, pending_review, approved, sent)")
+    status: QuoteStatusType = Field("draft", description="Status lifecycle: draft → pending_review → approved → sent | rejected")
     items: list[QuoteItem] = Field(default_factory=list)
     financials: QuoteFinancials = Field(default_factory=QuoteFinancials)
     admin_notes: Optional[str] = None

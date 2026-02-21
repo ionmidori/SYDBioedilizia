@@ -1,3 +1,13 @@
+"""
+DEPRECATED: Legacy quote storage module (v1 schema → 'quotes/' collection).
+
+New code should use:
+  - src/schemas/quote.py (QuoteSchema, QuoteItem, QuoteFinancials)
+  - src/tools/quote_tools.py → projects/{pid}/private_data/quote
+  - src/api/routes/quote_routes.py (CRUD + HITL endpoints)
+
+Kept for backward compatibility with existing production data.
+"""
 from datetime import datetime
 from src.utils.datetime_utils import utc_now
 from typing import Optional, Dict, Any, Literal
@@ -10,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 from src.utils.serialization import parse_firestore_datetime
 
-# Pydantic Models for Quote Data Structure
+# Pydantic Models for Quote Data Structure (LEGACY v1 — see schemas/quote.py for v2)
 
 class LogisticsData(BaseModel):
     floor: Optional[str] = None

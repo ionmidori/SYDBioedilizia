@@ -12,6 +12,7 @@ from src.services.intent_classifier import IntentClassifier
 from src.graph.edges import route_step
 from src.agents.sop_manager import SOPManager
 from src.models.reasoning import ReasoningStep
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -150,13 +151,15 @@ class AgentGraphFactory:
             
             for msg in new_messages:
                 if isinstance(msg, ToolMessage):
-                    # Flag: Quote Completed
+                    # Flag: Lead Submitted
                     if msg.name == "submit_lead" and "Leadsavedsuccessfully" in msg.content.replace(" ", ""):
                         updates["is_quote_completed"] = True
-                        # Cache Contact Info (Optimization)
-                        # We extract it from the tool call arguments in the LAST AI Message
-                        # But simpler: just set flag for now. Data cache can be added if needed.
-                        logger.info("✅ JOURNEY: Quote Completed. Flag set.")
+                        logger.info("JOURNEY: Lead submitted. Flag set.")
+
+                    # Flag: Quote Generated (via suggest_quote_items)
+                    if msg.name == "suggest_quote_items" and "Estimated" in msg.content:
+                        updates["is_quote_completed"] = True
+                        logger.info("JOURNEY: Quote generated. Flag set.")
 
                     # Flag: Render Completed
                     if msg.name == "generate_render" and "http" in msg.content:
@@ -193,4 +196,16 @@ class AgentGraphFactory:
         
         workflow.add_edge("tools", "reasoning")
         
-        return workflow.compile()
+        checkpointer = None
+        if settings.USE_CHECKPOINTER:
+            try:
+                from src.graph.quote_graph import get_checkpointer
+                checkpointer = get_checkpointer()
+                logger.info("Main graph compiled with FirestoreSaver checkpointer.")
+            except ImportError:
+                logger.warning(
+                    "USE_CHECKPOINTER=true but langgraph-checkpoint-firestore not installed. "
+                    "Falling back to stateless mode."
+                )
+
+        return workflow.compile(checkpointer=checkpointer)

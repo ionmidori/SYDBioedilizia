@@ -224,7 +224,7 @@ export default function BlogPostUmidita() {
             </h2>
             
             <div className="grid gap-6 md:grid-cols-1">
-              {jsonLd["@graph"][1].mainEntity.map((faq, index) => (
+              {(jsonLd["@graph"][2]! as { mainEntity: Array<{ name: string; acceptedAnswer: { text: string } }> }).mainEntity.map((faq, index) => (
                 <div 
                   key={index} 
                   className="group border border-border rounded-xl p-6 bg-card hover:bg-accent/5 transition-all duration-200 hover:border-primary/20 hover:shadow-lg"
