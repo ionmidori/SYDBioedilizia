@@ -85,10 +85,16 @@ export function Footer() {
                     <div>
                         <h4 className="text-luxury-text font-serif font-bold mb-6 text-lg">Esplora</h4>
                         <ul className="space-y-4">
-                            {['Home', 'Servizi', 'Portfolio', 'Chi Siamo', 'Blog'].map((item) => (
-                                <li key={item}>
-                                    <Link href="#" className="text-luxury-text/70 hover:text-luxury-gold transition-colors text-sm font-light">
-                                        {item}
+                            {[
+                                { label: 'Home', href: '/' },
+                                { label: 'Servizi', href: '/#servizi' },
+                                { label: 'Portfolio', href: '/#portfolio' },
+                                { label: 'Chi Siamo', href: '/chi-siamo' },
+                                { label: 'Blog', href: '/blog/umidita-risalita-roma' },
+                            ].map((item) => (
+                                <li key={item.label}>
+                                    <Link href={item.href} className="text-luxury-text/70 hover:text-luxury-gold transition-colors text-sm font-light">
+                                        {item.label}
                                     </Link>
                                 </li>
                             ))}
@@ -174,9 +180,9 @@ export function Footer() {
                         © {currentYear} SYD BIOEDILIZIA. Tutti i diritti riservati.
                     </p>
                     <div className="flex gap-6 text-sm text-luxury-text/40">
-                        <Link href="#" className="hover:text-luxury-gold transition-colors">Privacy Policy</Link>
-                        <Link href="#" className="hover:text-luxury-gold transition-colors">Termini di Servizio</Link>
-                        <Link href="#" className="hover:text-luxury-gold transition-colors">Cookie Policy</Link>
+                        <Link href="/privacy" className="hover:text-luxury-gold transition-colors">Privacy Policy</Link>
+                        <Link href="/terms" className="hover:text-luxury-gold transition-colors">Termini di Servizio</Link>
+                        <Link href="/cookie-policy" className="hover:text-luxury-gold transition-colors">Cookie Policy</Link>
                     </div>
                 </div>
             </div>
