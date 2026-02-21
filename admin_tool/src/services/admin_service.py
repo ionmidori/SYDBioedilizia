@@ -126,34 +126,32 @@ class AdminService:
         if admin_notes:
             quote_data["admin_notes"] = admin_notes
 
-        # 3. Generate PDF in thread pool (CPU-bound — skill: generating-pdf-documents)
+        # 3. Generate PDF in thread pool (CPU-bound) + deliver n8n webhook
+        # Single event loop for both operations — avoids resource overhead of two loops.
         logger.info("Generating PDF...", extra={"project_id": project_id})
         loop = asyncio.new_event_loop()
         try:
-            pdf_url: str = loop.run_in_executor(
-                _PDF_EXECUTOR,
-                self.pdf_service.generate_and_deliver,
-                quote_data,
+            pdf_url: str = loop.run_until_complete(
+                loop.run_in_executor(
+                    _PDF_EXECUTOR,
+                    self.pdf_service.generate_and_deliver,
+                    quote_data,
+                )
             )
-            pdf_url = loop.run_until_complete(pdf_url)
-        finally:
-            loop.close()
 
-        # 4. Fetch real client info from project document (not hardcoded!)
-        client_data = self.repo.get_client_info(project_id)
-        grand_total: float = quote_data.get("financials", {}).get("grand_total", 0.0)
+            # 4. Fetch real client info from project document
+            client_data = self.repo.get_client_info(project_id)
+            grand_total: float = quote_data.get("financials", {}).get("grand_total", 0.0)
 
-        # 5. Trigger n8n webhook (async HTTP, skill: n8n-mcp-integration)
-        logger.info("Triggering n8n delivery...", extra={"project_id": project_id})
-        loop2 = asyncio.new_event_loop()
-        try:
-            loop2.run_until_complete(
+            # 5. Trigger n8n webhook (async HTTP) — reuse same loop
+            logger.info("Triggering n8n delivery...", extra={"project_id": project_id})
+            loop.run_until_complete(
                 self.delivery_service.deliver_quote(
                     project_id, pdf_url, client_data, grand_total
                 )
             )
         finally:
-            loop2.close()
+            loop.close()
 
         # 6. Update DB status + notes
         self.repo.update_quote(
