@@ -2,7 +2,6 @@
 .venv/
 venv/
 .python-version
-uv.lock
 
 # Exclude python cache
 __pycache__/
@@ -42,9 +41,6 @@ scripts/
 # Exclude documentation and project files
 docs/
 *.md
-.dockerignore
-Dockerfile
-pyproject.toml
 .gcloudignore
 
 # Exclude env files (secrets should be injected at runtime)
