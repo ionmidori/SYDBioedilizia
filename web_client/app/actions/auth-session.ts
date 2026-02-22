@@ -9,15 +9,16 @@ import { cookies } from "next/headers";
 export async function setAuthCookie(token: string): Promise<void> {
     const cookieStore = await cookies();
 
-    // Set the cookie with appropriate security settings
+    // Set the cookie with appropriate security settings.
+    // Firebase ID tokens expire after 1 hour; the cookie lifetime mirrors this.
+    // The client-side TokenManager refreshes the token 5 min before expiry and
+    // calls setAuthCookie again, so the cookie stays fresh during active sessions.
     cookieStore.set("auth-token", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        // Firebase ID tokens expire in 1 hour usually, but we can set a reasonable max age here
-        // or rely on the client to refresh and update it.
-        maxAge: 60 * 60 * 24 * 5, // 5 days
+        maxAge: 60 * 60, // 1 hour — matches Firebase ID token lifetime
     });
 }
 
