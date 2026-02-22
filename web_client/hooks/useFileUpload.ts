@@ -4,6 +4,7 @@ import { storage } from '@/lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
+import { compressImage } from '@/lib/media-utils';
 
 export interface UploadProgress {
     progress: number;
@@ -40,7 +41,13 @@ export function useFileUpload(): UseFileUploadResult {
             throw new Error('Devi effettuare il login per caricare file.');
         }
 
-        const fileId = `${Date.now()}_${file.name}`;
+        // 🖼️ Client-side Compression: Optimize images before upload to save bandwidth & cost
+        let fileToUpload = file;
+        if (fileType === 'image') {
+            fileToUpload = await compressImage(file);
+        }
+
+        const fileId = `${Date.now()}_${fileToUpload.name}`;
         const storagePath = `projects/${projectId}/uploads/${fileId}`;
         const storageRef = ref(storage, storagePath);
 
@@ -52,8 +59,8 @@ export function useFileUpload(): UseFileUploadResult {
             }));
 
             // Create upload task
-            const uploadTask = uploadBytesResumable(storageRef, file, {
-                contentType: file.type,
+            const uploadTask = uploadBytesResumable(storageRef, fileToUpload, {
+                contentType: fileToUpload.type,
                 customMetadata: {
                     uploadedBy: user.uid,
                     projectId: projectId
@@ -95,9 +102,9 @@ export function useFileUpload(): UseFileUploadResult {
                         // Store metadata in Firestore
                         const fileMetadata = {
                             url: downloadURL,
-                            name: file.name,
+                            name: fileToUpload.name,
                             type: fileType,
-                            size: file.size,
+                            size: fileToUpload.size,
                             uploadedAt: new Date(),
                             uploadedBy: user.uid,
                             projectId,

@@ -27,6 +27,8 @@ import { cn } from '@/lib/utils';
 import type { UploadItem } from '@/types/media';
 import { FilePreviewItem } from '@/components/chat/FilePreviewItem';
 import { triggerHaptic } from '@/lib/haptics';
+import { validateFileForUpload } from "@/lib/validation/file-upload-schema";
+import { validateVideo } from "@/lib/media-utils";
 
 interface ChatInputProps {
     /** Current text input value */
@@ -87,9 +89,30 @@ export function ChatInput({
         hasActiveUploads;
 
     // Handle file selection from input
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            onFileSelect(Array.from(e.target.files));
+            const filesToUpload: File[] = [];
+            for (const file of Array.from(e.target.files)) {
+                // Validate video size/duration if applicable
+                if (file.type.startsWith('video/')) {
+                    const videoValidation = await validateVideo(file);
+                    if (!videoValidation.valid) {
+                        alert(videoValidation.error);
+                        continue; // Skip this file if validation fails
+                    }
+                }
+
+                const validation = validateFileForUpload(file);
+                if (!validation.valid) {
+                    alert(validation.error);
+                    continue; // Skip this file if validation fails
+                }
+                filesToUpload.push(file);
+            }
+
+            if (filesToUpload.length > 0) {
+                onFileSelect(filesToUpload);
+            }
             e.target.value = ''; // Reset input to allow re-selecting same file
         }
     };
@@ -166,8 +189,24 @@ export function ChatInput({
                                     "text-luxury-text transition-all duration-500 rounded-2xl group relative overflow-hidden",
                                     "shadow-sm hover:shadow-luxury-gold/5 hover:shadow-lg"
                                 )}
-                                onClick={() => {
+                                onClick={async () => {
                                     setIsAttachDialogOpen(false);
+
+                                    // 🔧 Security Best Practice: Check for permission before attempting capture
+                                    try {
+                                        // Some browsers/environments don't support permissions.query for camera
+                                        if (navigator.permissions && navigator.permissions.query) {
+                                            const status = await navigator.permissions.query({ name: 'camera' as PermissionName });
+                                            if (status.state === 'denied') {
+                                                alert("Permessi fotocamera negati. Per favore, abilita l'accesso nelle impostazioni del browser/dispositivo per usare questa funzione.");
+                                                return;
+                                            }
+                                        }
+                                    } catch (e) {
+                                        // Silent fail-through for unsupported permission query
+                                        console.warn("Permission query not supported", e);
+                                    }
+
                                     setTimeout(() => cameraInputRef.current?.click(), 100);
                                 }}
                             >

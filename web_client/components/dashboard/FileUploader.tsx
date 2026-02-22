@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Loader2, Camera } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Loader2, Camera, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -12,6 +12,8 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { validateFileForUpload } from '@/lib/validation/file-upload-schema';
+import { validateVideo } from '@/lib/media-utils';
+import { cn } from '@/lib/utils';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
@@ -78,6 +80,15 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
         const uploadedFiles: UploadedFile[] = [];
 
         for (const file of fileArray) {
+            // 🛡️ Security & Optimization: Validate video size/duration
+            if (file.type.startsWith('video/')) {
+                const videoValidation = await validateVideo(file);
+                if (!videoValidation.valid) {
+                    alert(videoValidation.error);
+                    continue;
+                }
+            }
+
             // Validate file
             const validation = validateFileForUpload(file);
 
@@ -321,9 +332,23 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
                                 <Button
                                     variant="outline"
                                     className="h-16 justify-start px-6 bg-white/5 border-luxury-gold/20 hover:border-luxury-gold/60 hover:bg-white/10 text-luxury-text transition-all"
-                                    onClick={(e) => {
+                                    onClick={async (e) => {
                                         e.stopPropagation();
                                         setIsUploadDialogOpen(false);
+
+                                        // 🔧 Security Best Practice: Check for permission before attempting capture
+                                        try {
+                                            if (navigator.permissions && navigator.permissions.query) {
+                                                const status = await navigator.permissions.query({ name: 'camera' as PermissionName });
+                                                if (status.state === 'denied') {
+                                                    alert("Permessi fotocamera negati. Per favore, abilita l'accesso nelle impostazioni del browser/dispositivo per usare questa funzione.");
+                                                    return;
+                                                }
+                                            }
+                                        } catch (e) {
+                                            console.warn("Permission query not supported", e);
+                                        }
+
                                         setTimeout(() => cameraInputRef.current?.click(), 100);
                                     }}
                                 >

@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { Upload, X, FileText, Image, Video, CheckCircle2, AlertCircle, Loader2, FolderKanban } from 'lucide-react';
 import { validateFileForUpload } from '@/lib/validation/file-upload-schema';
+import { validateVideo } from '@/lib/media-utils';
 import { cn } from '@/lib/utils';
 import { useFileUpload, UploadProgress } from '@/hooks/useFileUpload';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -46,11 +47,20 @@ export function GlobalFileUploader({ projects, onUploadComplete, maxFiles = 10 }
         }));
     }, []);
 
-    const addFiles = useCallback((newFiles: FileList | File[]) => {
+    const addFiles = useCallback(async (newFiles: FileList | File[]) => {
         const fileArray = Array.from(newFiles);
         const uploadedFiles: UploadedFile[] = [];
 
         for (const file of fileArray) {
+            // 🛡️ Security & Optimization: Validate video size/duration
+            if (file.type.startsWith('video/')) {
+                const videoValidation = await validateVideo(file);
+                if (!videoValidation.valid) {
+                    alert(videoValidation.error);
+                    continue;
+                }
+            }
+
             // Validate
             const validation = validateFileForUpload(file);
             const id = Math.random().toString(36).substring(7);

@@ -1,4 +1,5 @@
 import { Message } from '@/types/chat';
+import imageCompression from 'browser-image-compression';
 
 export interface MediaAsset {
     id: string;
@@ -90,6 +91,58 @@ export function extractMediaFromMessages(messages: Message[]): MediaAsset[] {
 
     // Sort by timestamp descending (newest first)
     return assets.reverse();
+}
+
+/**
+ * Image compression options optimized for architectural photos
+ * Target: 1920px (Full HD) at ~1.2MB
+ */
+const DEFAULT_IMAGE_OPTIONS = {
+    maxSizeMB: 1.2,
+    maxWidthOrHeight: 1920,
+    useWebWorker: true,
+    fileType: 'image/webp' as const // Target WebP for better compression/quality ratio
+};
+
+/**
+ * Compresses an image file client-side before upload
+ * @param file The original File object
+ * @returns A compressed File object or the original if compression fails/unsupported
+ */
+export async function compressImage(file: File): Promise<File> {
+    // Only compress images
+    if (!file.type.startsWith('image/')) return file;
+
+    // Skip small images already under 500KB
+    if (file.size < 0.5 * 1024 * 1024) return file;
+
+    try {
+        const compressedFile = await imageCompression(file, DEFAULT_IMAGE_OPTIONS);
+
+        // Log optimization results for engineering monitoring
+        const originalSize = (file.size / 1024 / 1024).toFixed(2);
+        const compressedSize = (compressedFile.size / 1024 / 1024).toFixed(2);
+        console.log(`[MediaUtils] Optimization: ${originalSize}MB -> ${compressedSize}MB`);
+
+        return compressedFile;
+    } catch (error) {
+        console.error('[MediaUtils] Image compression failed:', error);
+        return file; // Procedere comunque con l'originale per non bloccare l'utente
+    }
+}
+
+/**
+ * Validates video duration and size for mobile uploads
+ */
+export async function validateVideo(file: File): Promise<{ valid: boolean; error?: string }> {
+    if (!file.type.startsWith('video/')) return { valid: true };
+
+    // Limit to 50MB for mobile uploads to avoid timeout/cost issues
+    if (file.size > 50 * 1024 * 1024) {
+        return { valid: false, error: "Il video supera il limite di 50MB per l'upload mobile." };
+    }
+
+    return { valid: true };
 }
 
 /**
