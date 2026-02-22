@@ -1,6 +1,8 @@
 # Exclude local virtual environments
 .venv/
 venv/
+.python-version
+uv.lock
 
 # Exclude python cache
 __pycache__/
@@ -8,10 +10,42 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Exclude test cache
+# Exclude test files and cache
+tests/
+tests_manual/
+testsprite_tests/
 .pytest_cache/
 .coverage
 htmlcov/
+repro_issues.py
+test_*.py
+verify_*.py
+
+# Exclude debug and maintenance scripts in root
+debug_*.py
+debug_*.txt
+fix_*.py
+list_*.py
+process_*.py
+punch_*.py
+diecut_*.py
+fade_*.py
+flood_*.py
+magic_*.py
+saturation_*.py
+targeted_*.py
+scripts/
+*.ps1
+*.sh
+!entrypoint.sh
+
+# Exclude documentation and project files
+docs/
+*.md
+.dockerignore
+Dockerfile
+pyproject.toml
+.gcloudignore
 
 # Exclude env files (secrets should be injected at runtime)
 .env
