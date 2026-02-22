@@ -28,24 +28,32 @@ async def test_analyze_room(
     user_session: UserSession = Depends(verify_token)
 ):
     """Exposes analyze_room tool for TestSprite TC005."""
-    from src.vision.triage import analyze_room_binary # Assuming binary-capable analysis
+    from src.vision.triage import analyze_media_triage
     try:
         content = await file.read()
-        return await analyze_room_binary(content=content, mime_type=file.content_type)
+        return await analyze_media_triage(media_data=content, mime_type=file.content_type)
     except Exception as e:
         logger.error(f"Test Analyze Room failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/tools/generate-render")
 async def test_generate_render(
-    prompt: str,
+    payload: dict,
     session_id: str,
     user_session: UserSession = Depends(verify_token)
 ):
     """Exposes generate_render tool for TestSprite TC003."""
     from src.tools.generate_render import generate_render_wrapper
     try:
-        return await generate_render_wrapper(prompt=prompt, session_id=session_id, uid=user_session.uid)
+        return await generate_render_wrapper(
+            prompt=payload.get("prompt", "A modern room"),
+            room_type=payload.get("room_type", "living room"),
+            style=payload.get("style", "modern"),
+            session_id=session_id,
+            mode=payload.get("mode", "creation"),
+            source_image_url=payload.get("source_image_url"),
+            keep_elements=payload.get("keep_elements")
+        )
     except Exception as e:
         logger.error(f"Test Generate Render failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
