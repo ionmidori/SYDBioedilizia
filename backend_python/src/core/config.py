@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
+from pydantic import Field, model_validator
 
 class Settings(BaseSettings):
     """
@@ -10,11 +10,10 @@ class Settings(BaseSettings):
     # GOOGLE_CLOUD_PROJECT is the canonical GCP env var name.
     # PROJECT_ID is kept for backward compatibility with legacy code.
     GOOGLE_CLOUD_PROJECT: str = Field(
-        default="chatbotluca-a8a73",
         description="GCP Project ID used by FirestoreSaver, Firestore, and Firebase Admin SDK.",
     )
     PROJECT_ID: str = Field(
-        default="chatbotluca-a8a73",
+        default="",
         description="Legacy alias — prefer GOOGLE_CLOUD_PROJECT for new code.",
     )
     
@@ -58,6 +57,13 @@ class Settings(BaseSettings):
         extra="ignore",  # Allow extra keys in .env
         populate_by_name=True,  # Allow field name OR alias for setting values
     )
+
+    @model_validator(mode="after")
+    def _sync_project_id(self) -> "Settings":
+        """Keep PROJECT_ID in sync with GOOGLE_CLOUD_PROJECT for legacy code."""
+        if not self.PROJECT_ID:
+            self.PROJECT_ID = self.GOOGLE_CLOUD_PROJECT
+        return self
 
     @property
     def api_key(self) -> str:

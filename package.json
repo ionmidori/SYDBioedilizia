@@ -12,10 +12,42 @@
         "next": "^15.5.12",
         "opencode-ai": "^1.1.53",
         "react": "18.3.1",
-        "react-dom": "18.3.1"
+        "react-dom": "18.3.1",
+        "minimatch": "10.2.2"
     },
     "overrides": {
         "zod": "^3.23.8",
-        "fast-xml-parser": "5.3.6"
+        "fast-xml-parser": "5.3.6",
+        "minimatch": "$minimatch",
+        "eslint": {
+            "minimatch": "$minimatch"
+        },
+        "@eslint/config-array": {
+            "minimatch": "$minimatch"
+        },
+        "@eslint/eslintrc": {
+            "minimatch": "$minimatch"
+        },
+        "@typescript-eslint/typescript-estree": {
+            "minimatch": "$minimatch"
+        },
+        "eslint-plugin-import": {
+            "minimatch": "$minimatch"
+        },
+        "eslint-plugin-jsx-a11y": {
+            "minimatch": "$minimatch"
+        },
+        "eslint-plugin-react": {
+            "minimatch": "$minimatch"
+        },
+        "glob": {
+            "minimatch": "$minimatch"
+        },
+        "rimraf": {
+            "minimatch": "$minimatch"
+        },
+        "test-exclude": {
+            "minimatch": "$minimatch"
+        }
     }
 }

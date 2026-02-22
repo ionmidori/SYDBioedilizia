@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "submit_lead_saves_contact_and_project_info",
+    "description": "Test /api/submit-lead to ensure lead data creates a new project session retrievable via /api/projects."
+  },
+  {
+    "id": "TC002",
+    "title": "get_market_prices_returns_current_data",
+    "description": "Verify that the market price fetching endpoint correctly retrieves up-to-date renovation material and service prices from Perplexity AI and returns them in the expected format."
+  },
+  {
+    "id": "TC003",
+    "title": "generate_render_produces_photorealistic_images",
+    "description": "Test the render generation endpoint to confirm it produces photorealistic interior design images based on user inputs using Gemini Image Gen and stores the results properly."
+  },
+  {
+    "id": "TC004",
+    "title": "save_quote_stores_structured_renovation_draft",
+    "description": "Validate that the quote saving endpoint stores renovation quote drafts in a structured format in Firestore and allows retrieval for editing or review."
+  },
+  {
+    "id": "TC005",
+    "title": "analyze_room_outputs_structural_style_condition_insights",
+    "description": "Ensure the room analysis endpoint processes uploaded images or videos and returns accurate structural, style, and condition insights consistent with the input media."
+  },
+  {
+    "id": "TC006",
+    "title": "plan_renovation_generates_skeleton_skin_architectural_plan",
+    "description": "Test the renovation planning endpoint to verify it generates coherent text-based architectural plans following the Skeleton & Skin methodology based on room analysis."
+  },
+  {
+    "id": "TC007",
+    "title": "list_project_files_returns_complete_asset_listing",
+    "description": "Verify that assets uploaded via /api/upload/image appear correctly in the global /api/reports/gallery."
+  },
+  {
+    "id": "TC008",
+    "title": "show_project_gallery_displays_recent_renders_and_photos",
+    "description": "Validate that the project gallery endpoint correctly visualizes recently generated renderings and photos related to the project."
+  },
+  {
+    "id": "TC009",
+    "title": "generate_cad_creates_downloadable_dxf_file",
+    "description": "Test the CAD generation endpoint to ensure it extracts structural geometry from room images and generates a downloadable DXF file without format errors."
+  },
+  {
+    "id": "TC010",
+    "title": "role_based_access_enforces_permissions_and_validation",
+    "description": "Verify that role-based tool access and Pydantic validation correctly reject unauthorized or malformed requests, enforcing security policies across all endpoints."
+  }
+]

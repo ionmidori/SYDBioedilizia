@@ -1,4 +1,5 @@
 import logging
+import re
 import sys
 import os
 import json
@@ -6,30 +7,45 @@ from logging.handlers import RotatingFileHandler
 from src.core.config import settings
 from src.core.context import get_request_id, get_session_id
 
+# PII redaction patterns
+_EMAIL_RE = re.compile(r'[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}')
+_PHONE_RE = re.compile(r'\+?[\d\s\-()]{7,20}')
+_JWT_RE = re.compile(r'Bearer\s+[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+')
+
+def _redact(text: str) -> str:
+    """Replace PII patterns with safe placeholders."""
+    text = _EMAIL_RE.sub('[EMAIL]', text)
+    text = _PHONE_RE.sub('[PHONE]', text)
+    text = _JWT_RE.sub('Bearer [TOKEN]', text)
+    return text
+
+
 class JsonFormatter(logging.Formatter):
     """
     Formatter that outputs JSON strings with context variables.
     Essential for centralized logging systems (ELK, Datadog, etc).
+    PII (emails, phones, tokens) is redacted before writing.
     """
     def format(self, record):
+        message = _redact(record.getMessage())
         log_record = {
             "timestamp": self.formatTime(record, self.datefmt),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": message,
             "request_id": get_request_id(),
             "session_id": get_session_id() or "system"
         }
-        
+
         # Merge extra fields (like duration_ms from trace_span)
         if hasattr(record, "duration_ms"):
              log_record["duration_ms"] = record.duration_ms
         if hasattr(record, "span"):
              log_record["span"] = record.span
-             
-        # Handle Exception info
+
+        # Handle Exception info (redact tracebacks too)
         if record.exc_info:
-            log_record["exception"] = self.formatException(record.exc_info)
+            log_record["exception"] = _redact(self.formatException(record.exc_info))
 
         return json.dumps(log_record)
 

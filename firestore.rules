@@ -115,13 +115,18 @@ service cloud.firestore {
       allow read: if request.auth != null
         && resource.data.userId == request.auth.uid;
 
-      // Create: any authenticated user
+      // Create: any authenticated user + schema validation
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.userId is string
+        && request.resource.data.keys().hasAll(['userId'])
+        && request.resource.data.size() <= 50;
 
-      // Update: only owner
+      // Update: only owner + schema validation
       allow update: if request.auth != null
-        && resource.data.userId == request.auth.uid;
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.size() <= 50;
 
       // Delete: only owner
       allow delete: if request.auth != null
@@ -137,8 +142,13 @@ service cloud.firestore {
       // Allow authenticated users to read their own data
       allow read: if request.auth != null && request.auth.uid == userId;
 
-      // Allow authenticated users to write their own data
-      allow write: if request.auth != null && request.auth.uid == userId;
+      // Allow authenticated users to write their own data + schema validation
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.size() <= 30
+        && (!('email' in request.resource.data) || request.resource.data.email is string)
+        && (!('displayName' in request.resource.data) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 200))
+        && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string);
     }
 
     // ==========================================

@@ -1,0 +1,138 @@
+{
+  "meta": {
+    "project": "SYD Renovation Chatbot Backend",
+    "date": "2026-02-04",
+    "prepared_by": "Software Development Manager"
+  },
+  "product_overview": "The SYD Renovation Chatbot Backend is an AI-powered orchestration engine that supports the entire renovation consulting workflow. It utilizes advanced AI tools to analyze room conditions, generate architectural plans, render photorealistic interior designs, provide market price estimates, and manage project documents and quotes. Built on FastAPI with a multi-tier chain-of-thought design, it ensures efficient, validated, and secure execution of renovation tasks integrated with Firebase for data persistence and Google Gemini AI for generation capabilities.",
+  "core_goals": [
+    "Provide clients and renovation consultants an intelligent assistant for end-to-end renovation planning.",
+    "Enable automated room condition analysis and architectural plan generation using visual inputs.",
+    "Generate realistic interior design renderings to visualize renovation outcomes.",
+    "Offer dynamic market price retrieval to inform renovation budgeting.",
+    "Securely manage leads, renovation quotes, and project file assets with seamless cloud storage integration.",
+    "Enforce business logic, role-based tool access, and fail-fast validation to maintain system integrity and security.",
+    "Optimize latency for routine user interactions to improve responsiveness."
+  ],
+  "key_features": [
+    "Lead submission capturing contact and project info stored in Firestore.",
+    "Room analysis tool that interprets structure, style, and condition from images or videos.",
+    "Automated generation of text architectural renovation plans applying Skeleton & Skin methodology.",
+    "Photorealistic interior design rendering using Google Gemini Image Gen integration.",
+    "Real-time market price fetching for renovation materials and services via Perplexity AI.",
+    "Saving structured renovation quotes drafts securely to Firestore database.",
+    "Project asset management with listing and gallery visualization for renders, photos, and documents.",
+    "CAD file generation by extracting structural geometry from room images, downloadable as DXF files.",
+    "Multi-tiered AI reasoning orchestration using LangGraph and Google Gemini with enforced business and security policies.",
+    "Role-Based Tool Access (RBTA) managed dynamically to enforce permissions."
+  ],
+  "user_flow_summary": [
+    "User submits lead contact information and project details through a lead capture interface, data saved to Firestore.",
+    "User uploads room images or videos which are analyzed for condition, style, and structural insights.",
+    "Based on the analysis, the system generates a detailed architectural renovation plan using the Skeleton & Skin methodology.",
+    "User requests photorealistic interior renders of the planned renovation; the backend generates these via Gemini Image Gen and stores them.",
+    "User queries current market prices for materials or services through integration with Perplexity AI to inform budgeting.",
+    "Renovation quote drafts are created or saved to Firestore for client review.",
+    "User accesses the project gallery displaying generated renders, photos, and documents related to the project.",
+    "User may download CAD drawings extracted from room images for technical use.",
+    "System applies role-based access and validation guardrails to ensure only authorized tools and features are accessible during flows."
+  ],
+  "validation_criteria": [
+    "All lead submissions must be accurately saved to Firestore and retrievable via API.",
+    "Room analysis outputs must include structural, style, and condition insights consistent with uploaded images/video.",
+    "Architectural plans generated must follow the Skeleton & Skin methodology and be textually coherent for renovation purposes.",
+    "Photorealistic renders must reflect user inputs and be delivered in expected quality within target latency.",
+    "Market price data must be current and sourced correctly from Perplexity AI endpoints.",
+    "Renovation quotes must be stored in structured format and retrievable for editing or review.",
+    "Project files listing and gallery views must be complete and correctly link to stored assets.",
+    "DXF CAD files generated must correspond correctly to the structural data extracted and be downloadable without format errors.",
+    "Role-based tool access and Pydantic validation must reject unauthorized or malformed requests, enforcing security policies.",
+    "System must maintain 100% code coverage on critical paths and pass all integration tests before deployment."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "Python",
+      "FastAPI",
+      "Firebase (Firestore/Storage)",
+      "LangChain",
+      "LangGraph",
+      "Gemini",
+      "Perplexity",
+      "ezdxf"
+    ],
+    "features": [
+      {
+        "name": "submit_lead",
+        "description": "Saves lead contact information and project details to Firestore.",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/db/leads.py"
+        ]
+      },
+      {
+        "name": "get_market_prices",
+        "description": "Fetches current market prices for renovation materials or services using Perplexity AI.",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/api/perplexity.py"
+        ]
+      },
+      {
+        "name": "generate_render",
+        "description": "Generates photorealistic interior design renderings using Gemini Image Gen (via wrapper).",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/tools/generate_render.py"
+        ]
+      },
+      {
+        "name": "save_quote",
+        "description": "Saves a structured renovation quote draft to Firestore.",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/db/quotes.py"
+        ]
+      },
+      {
+        "name": "analyze_room",
+        "description": "Analyzes room structure, style, and condition from uploaded images or videos.",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/vision/triage.py"
+        ]
+      },
+      {
+        "name": "plan_renovation",
+        "description": "Generates a text-based architectural plan using the Skeleton & Skin methodology.",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/vision/architect.py"
+        ]
+      },
+      {
+        "name": "list_project_files",
+        "description": "Lists all assets (images, documents, videos) associated with a project.",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/tools/project_files.py"
+        ]
+      },
+      {
+        "name": "show_project_gallery",
+        "description": "Visualizes the project gallery with recently generated renderings and photos.",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/tools/gallery.py"
+        ]
+      },
+      {
+        "name": "generate_cad",
+        "description": "Extracts structural geometry from an image and generates a downloadable DXF file.",
+        "files": [
+          "src/graph/tools_registry.py",
+          "src/vision/cad_engine.py"
+        ]
+      }
+    ]
+  }
+}

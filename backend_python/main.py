@@ -1,8 +1,11 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Header, HTTPException, Depends, Request, Security
+from fastapi import FastAPI, Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from src.auth.jwt_handler import verify_token, security
 from src.schemas.internal import UserSession
 from src.core.logger import setup_logging, get_logger
@@ -12,6 +15,8 @@ import uuid
 from src.core.context import set_request_id
 from src.core.schemas import APIErrorResponse
 from src.core.exceptions import AppException
+
+limiter = Limiter(key_func=get_remote_address)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🔥 LOGGING & APP SETUP
@@ -29,6 +34,8 @@ async def lifespan(_app: FastAPI):
     logger.info("SYD Brain API shutting down.")
 
 app = FastAPI(title="SYD Brain", version="2.9.21", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # 🔒 CORS Middleware (Hardened)
 from fastapi.middleware.cors import CORSMiddleware
@@ -189,7 +196,12 @@ class LeadSubmissionRequest(BaseModel):
         return v.lower().strip()
 
 @app.post("/api/submit-lead")
-async def submit_lead_endpoint(request: LeadSubmissionRequest, user_session: UserSession = Depends(verify_token)):
+@limiter.limit("5/minute")
+async def submit_lead_endpoint(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    body: LeadSubmissionRequest,
+    user_session: UserSession = Depends(verify_token),
+):
     """
     Direct endpoint for the Lead Generation Form widget.
     Bypasses the agent to save data directly to DB.
@@ -199,12 +211,12 @@ async def submit_lead_endpoint(request: LeadSubmissionRequest, user_session: Use
     user_id = user_session.uid
     
     result = await submit_lead_wrapper(
-        name=request.name,
-        email=request.email,
-        phone=request.phone,
-        project_details=request.quote_summary, # Map summary to details
+        name=body.name,
+        email=body.email,
+        phone=body.phone,
+        project_details=body.quote_summary,
         uid=user_id,
-        session_id=request.session_id
+        session_id=body.session_id
     )
     
     return {"status": "success", "message": result}
@@ -266,8 +278,10 @@ async def chat_stream_generator(
         yield chunk
 
 @app.post("/chat/stream")
+@limiter.limit("30/minute")
 async def chat_stream(
-    request: ChatRequest, 
+    request: Request,  # required by slowapi for IP extraction  # type: ignore[unused-parameter]
+    body: ChatRequest,
     credentials: HTTPAuthorizationCredentials | None = Security(security),
     orchestrator: AgentOrchestrator = Depends(get_orchestrator)
 ):
@@ -277,11 +291,11 @@ async def chat_stream(
     """
     logger.info(
         "Chat stream request received.",
-        extra={"message_count": len(request.messages), "session_id": request.session_id},
+        extra={"message_count": len(body.messages), "session_id": body.session_id},
     )
-    
+
     return StreamingResponse(
-        chat_stream_generator(request, credentials, orchestrator),
+        chat_stream_generator(body, credentials, orchestrator),
         media_type="text/plain; charset=utf-8",
         headers={"Connection": "close", "X-Vercel-AI-Data-Stream": "v1"}
     )
