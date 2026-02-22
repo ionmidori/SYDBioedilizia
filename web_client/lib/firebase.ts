@@ -49,8 +49,19 @@ if (typeof window !== 'undefined') {
 export const waitForAuth = (): Promise<void> => authReadyPromise;
 
 // Initialize Firestore
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
 const db = getFirestore(app);
+
+// Enable Offline Persistence for Resilience against Network Drops (QUIC/DNS errors)
+if (typeof window !== 'undefined') {
+    enableMultiTabIndexedDbPersistence(db).catch((err) => {
+        if (err.code == 'failed-precondition') {
+            console.warn('[Firestore] Persistence failed: Multiple tabs open, but multi-tab persistence is not supported by this browser.');
+        } else if (err.code == 'unimplemented') {
+            console.warn('[Firestore] Persistence not supported by this browser.');
+        }
+    });
+}
 
 // Initialize Storage
 import { getStorage } from 'firebase/storage';

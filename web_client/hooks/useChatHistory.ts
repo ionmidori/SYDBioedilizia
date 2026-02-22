@@ -78,23 +78,29 @@ export function useChatHistory(
     const [error, setError] = useState<Error | undefined>(undefined);
 
     useEffect(() => {
+        let isMounted = true;
         let unsubscribe: () => void;
 
         async function setupListener() {
             if (!shouldFetch) {
                 // Determine if we should be loading or just waiting
-                if (authLoading) setIsLoading(true);
-                else setIsLoading(false); // 🔥 Fix: Guest mode = loaded (empty)
+                if (authLoading && isMounted) setIsLoading(true);
+                else if (isMounted) setIsLoading(false); // 🔥 Fix: Guest mode = loaded (empty)
                 return;
             }
 
-            setIsLoading(true);
-            setError(undefined);
+            if (isMounted) {
+                setIsLoading(true);
+                setError(undefined);
+            }
 
             try {
                 // Ensure db is ready (though we import it directly, clean check)
                 const { db } = await import('@/lib/firebase');
                 const { collection, query, orderBy, limit: firestoreLimit, onSnapshot: firestoreOnSnapshot } = await import('firebase/firestore');
+
+                // CRITICAL FIX: If component unmounted while waiting for import, abort!
+                if (!isMounted) return;
 
                 const q = query(
                     collection(db, 'sessions', sessionId, 'messages'),
@@ -202,6 +208,7 @@ export function useChatHistory(
         setupListener();
 
         return () => {
+            isMounted = false;
             if (unsubscribe) unsubscribe();
         };
     }, [sessionId, shouldFetch, limit, authLoading]);

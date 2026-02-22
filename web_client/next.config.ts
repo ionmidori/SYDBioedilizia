@@ -42,9 +42,23 @@ const nextConfig: NextConfig = {
 
   async headers() {
     // Only apply strict security headers in production
-    // Development mode needs looser CSP for Turbopack HMR
     if (process.env.NODE_ENV !== 'production') {
-      return [];
+      // In development, we still need COOP for Firebase OAuth popups
+      return [
+        {
+          source: '/:path*',
+          headers: [
+            {
+              key: 'Cross-Origin-Opener-Policy',
+              value: 'unsafe-none'
+            },
+            {
+              key: 'Cross-Origin-Embedder-Policy',
+              value: 'unsafe-none'
+            }
+          ]
+        }
+      ];
     }
 
     return [
@@ -58,6 +72,10 @@ const nextConfig: NextConfig = {
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload'
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'unsafe-none'
           },
           {
             key: 'X-Frame-Options',
