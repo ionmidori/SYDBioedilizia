@@ -53,6 +53,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
     const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
     const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const showWarningRef = useRef(false); // Ref mirror to avoid effect re-subscription on state change
 
     const clearAllTimers = useCallback(() => {
         if (inactivityTimerRef.current) {
@@ -72,6 +73,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
     const startCountdown = useCallback(() => {
         let seconds = warningMinutes * 60;
         setSecondsRemaining(seconds);
+        showWarningRef.current = true;
         setShowWarning(true);
 
         // Update countdown every second
@@ -90,6 +92,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
 
     const resetTimer = useCallback(() => {
         clearAllTimers();
+        showWarningRef.current = false;
         setShowWarning(false);
 
         if (!enabled) return;
@@ -126,7 +129,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
             // Throttle to run max once per second
             if (now - lastActivity > 1000) {
                 lastActivity = now;
-                if (!showWarning) {
+                if (!showWarningRef.current) {
                     resetTimer();
                 }
             }
@@ -148,7 +151,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
             if (throttleTimer) clearTimeout(throttleTimer);
             clearAllTimers();
         };
-    }, [enabled, resetTimer, showWarning, clearAllTimers]);
+    }, [enabled, resetTimer, clearAllTimers]); // showWarning read via ref to avoid re-subscription
 
     return {
         showWarning,

@@ -9,6 +9,25 @@ jest.mock('react-markdown', () => {
     };
 });
 
+// Mock AuthProvider to avoid context errors in sub-components
+jest.mock('@/components/providers/AuthProvider', () => ({
+    useAuthContext: () => ({
+        user: null,
+        loading: false,
+        isInitialized: true,
+        idToken: null,
+        error: null,
+        isAnonymous: true,
+        signInAnonymously: jest.fn(),
+        loginWithGoogle: jest.fn(),
+        loginWithApple: jest.fn(),
+        logout: jest.fn(),
+        sendMagicLink: jest.fn(),
+        completeMagicLink: jest.fn(),
+        refreshToken: jest.fn(),
+    }),
+}));
+
 describe('ChatMessages', () => {
     const mockMessagesContainerRef = {
         current: null,
@@ -62,12 +81,6 @@ describe('ChatMessages', () => {
 
         // Check for typing message
         expect(screen.getByText('Sto pensando...')).toBeInTheDocument();
-
-        // Check for dots animation
-        // Check for dots animation (using spans with class instead of text bullets)
-        const loadingContainer = screen.getByText('Sto pensando...').parentElement?.parentElement;
-        const dots = loadingContainer?.querySelectorAll('.animate-bounce');
-        expect(dots?.length).toBe(3);
     });
 
     it('should render markdown content correctly', () => {

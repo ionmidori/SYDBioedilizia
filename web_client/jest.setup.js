@@ -54,6 +54,10 @@ jest.mock('firebase/firestore', () => ({
     orderBy: jest.fn(),
     limit: jest.fn(),
     getDocs: jest.fn(),
+    enableMultiTabIndexedDbPersistence: jest.fn(() => Promise.resolve()),
+    onSnapshot: jest.fn(),
+    increment: jest.fn(),
+    serverTimestamp: jest.fn(() => new Date()),
 }));
 
 jest.mock('firebase/storage', () => ({
@@ -88,6 +92,43 @@ const localStorageMock = (() => {
 
 Object.defineProperty(window, 'localStorage', {
     value: localStorageMock,
+});
+
+// Mock crypto.randomUUID (not available in JSDOM < Node 19)
+if (typeof globalThis.crypto === 'undefined' || typeof globalThis.crypto.randomUUID === 'undefined') {
+    Object.defineProperty(globalThis, 'crypto', {
+        value: {
+            randomUUID: () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            }),
+            getRandomValues: (arr) => { for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256); return arr; },
+        },
+        writable: true,
+        configurable: true,
+    });
+}
+
+// Mock ResizeObserver (not implemented in JSDOM)
+global.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+};
+
+// Mock window.matchMedia (not implemented in JSDOM)
+Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation((query) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+    })),
 });
 
 // Mock visualViewport for mobile tests

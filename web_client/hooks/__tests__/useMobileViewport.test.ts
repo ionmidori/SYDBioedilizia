@@ -102,31 +102,29 @@ describe('useMobileViewport', () => {
         expect(document.body.style.position).toBe('');
     });
 
-    it('should handle visualViewport events on mobile', () => {
+    it('should register resize event on window', () => {
         const mockRef: RefObject<HTMLDivElement | null> = {
             current: document.createElement('div'),
         };
 
-        const addEventListenerSpy = jest.spyOn(window.visualViewport!, 'addEventListener');
+        const addEventListenerSpy = jest.spyOn(window, 'addEventListener');
 
         renderHook(() => useMobileViewport(true, mockRef));
 
+        // Implementation uses window resize listener for mobile detection
         expect(addEventListenerSpy).toHaveBeenCalledWith('resize', expect.any(Function));
-        expect(addEventListenerSpy).toHaveBeenCalledWith('scroll', expect.any(Function));
     });
 
-    it('should clean up event listeners on unmount', () => {
+    it('should clean up window resize listener on unmount', () => {
         const mockRef: RefObject<HTMLDivElement | null> = { current: null };
 
         const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
-        const visualViewportRemoveSpy = jest.spyOn(window.visualViewport!, 'removeEventListener');
 
         const { unmount } = renderHook(() => useMobileViewport(true, mockRef));
 
         unmount();
 
         expect(removeEventListenerSpy).toHaveBeenCalledWith('resize', expect.any(Function));
-        expect(visualViewportRemoveSpy).toHaveBeenCalled();
     });
 
     it('should update chatContainer height on mobile when visualViewport changes', () => {

@@ -2,6 +2,9 @@ import { renderHook } from '@testing-library/react';
 import { useChatScroll } from '../useChatScroll';
 import { act } from 'react';
 
+// Enable fake timers for setTimeout-based scroll
+jest.useFakeTimers();
+
 describe('useChatScroll', () => {
     beforeEach(() => {
         // Mock scrollIntoView
@@ -29,16 +32,19 @@ describe('useChatScroll', () => {
     });
 
     it('should scroll to bottom when messages increase', () => {
+        // Start with chat closed so initial scroll doesn't fire before refs are set
         const { result, rerender } = renderHook(
             ({ count, isOpen }) => useChatScroll(count, isOpen),
-            { initialProps: { count: 1, isOpen: true } }
+            { initialProps: { count: 1, isOpen: false } }
         );
 
-        // Create mock elements
+        // Create mock elements and assign refs
+        // clientHeight must be close to scrollHeight so isNearBottomRef stays true
         const mockContainer = document.createElement('div');
         const mockEnd = document.createElement('div');
         Object.defineProperty(mockContainer, 'scrollHeight', { value: 1000, writable: true });
-        Object.defineProperty(mockContainer, 'scrollTop', { value: 0, writable: true });
+        Object.defineProperty(mockContainer, 'scrollTop', { value: 950, writable: true });
+        Object.defineProperty(mockContainer, 'clientHeight', { value: 100, writable: true });
 
         // @ts-ignore - assign mock elements to refs
         result.current.messagesContainerRef.current = mockContainer;
@@ -46,12 +52,20 @@ describe('useChatScroll', () => {
 
         const scrollIntoViewSpy = jest.spyOn(mockEnd, 'scrollIntoView');
 
-        // Increase message count
-        rerender({ count: 2, isOpen: true });
+        // Open chat first (clears initial scroll via setTimeout)
+        act(() => { rerender({ count: 1, isOpen: true }); });
+        act(() => { jest.advanceTimersByTime(50); }); // flush setTimeout (instant scroll fires)
+
+        // Clear calls from the initial open scroll
+        scrollIntoViewSpy.mockClear();
+
+        // Increase message count — should trigger smooth scroll
+        act(() => { rerender({ count: 2, isOpen: true }); });
 
         expect(scrollIntoViewSpy).toHaveBeenCalledWith({
             behavior: 'smooth',
             block: 'end',
+            inline: 'nearest',
         });
     });
 
@@ -70,9 +84,13 @@ describe('useChatScroll', () => {
         // Open chat
         rerender({ count: 1, isOpen: true });
 
+        // Hook uses setTimeout(50ms) for initial scroll when opening
+        act(() => { jest.advanceTimersByTime(50); });
+
         expect(scrollIntoViewSpy).toHaveBeenCalledWith({
             behavior: 'instant',
             block: 'end',
+            inline: 'nearest',
         });
     });
 
@@ -97,26 +115,39 @@ describe('useChatScroll', () => {
         expect(scrollIntoViewSpy).toHaveBeenCalledWith({
             behavior: 'auto',
             block: 'end',
+            inline: 'nearest',
         });
     });
 
-    it('should set container scrollTop when available', () => {
+    it('should call scrollIntoView when messages increase with container available', () => {
         const { result, rerender } = renderHook(
             ({ count, isOpen }) => useChatScroll(count, isOpen),
-            { initialProps: { count: 1, isOpen: true } }
+            { initialProps: { count: 1, isOpen: false } }
         );
 
         const mockContainer = document.createElement('div');
+        const mockEnd = document.createElement('div');
         Object.defineProperty(mockContainer, 'scrollHeight', { value: 1000, writable: true });
-        Object.defineProperty(mockContainer, 'scrollTop', { value: 0, writable: true });
+        // scrollTop near bottom so isNearBottomRef stays true
+        Object.defineProperty(mockContainer, 'scrollTop', { value: 950, writable: true });
+        Object.defineProperty(mockContainer, 'clientHeight', { value: 100, writable: true });
 
         // @ts-ignore
         result.current.messagesContainerRef.current = mockContainer;
+        result.current.messagesEndRef.current = mockEnd;
 
-        // Trigger scroll
-        rerender({ count: 2, isOpen: true });
+        // Open chat and flush initial instant-scroll setTimeout before creating spy
+        act(() => { rerender({ count: 1, isOpen: true }); });
+        act(() => { jest.advanceTimersByTime(50); });
 
-        expect(mockContainer.scrollTop).toBe(1000);
+        // Attach spy after initial scroll is flushed
+        const scrollIntoViewSpy = jest.spyOn(mockEnd, 'scrollIntoView');
+
+        // Trigger smooth scroll by increasing count
+        act(() => { rerender({ count: 2, isOpen: true }); });
+
+        // Hook scrolls via scrollIntoView (iOS-compatible approach)
+        expect(scrollIntoViewSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
     });
 
     it('should handle null refs gracefully', () => {

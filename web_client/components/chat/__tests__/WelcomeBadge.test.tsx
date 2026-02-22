@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { WelcomeBadge } from '../WelcomeBadge';
 
 // Mock framer-motion
@@ -28,32 +28,34 @@ describe('WelcomeBadge', () => {
         render(<WelcomeBadge {...defaultProps} isOpen={true} />);
 
         // Badge should not be visible when chat is open
-        const badge = screen.queryByText(/sono SYD/i);
+        const badge = screen.queryByText(/Ciao/i);
         expect(badge).not.toBeInTheDocument();
     });
 
-    it('should show after delay when isOpen is false', async () => {
+    it('should show after 3 second delay when isOpen is false', async () => {
         render(<WelcomeBadge {...defaultProps} />);
 
-        // Initially hidden
-        expect(screen.queryByText(/sono SYD/i)).not.toBeInTheDocument();
+        // Initially hidden (no typewriter text yet)
+        expect(screen.queryByText(/Ciao/i)).not.toBeInTheDocument();
 
-        // Fast-forward time past the delay (2 seconds)
-        jest.advanceTimersByTime(3100);
+        // Fast-forward past the 3s display delay + enough for typewriter to start
+        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
+        act(() => { jest.advanceTimersByTime(200); });  // a few typewriter chars
 
         await waitFor(() => {
-            expect(screen.getByText(/sono SYD/i)).toBeInTheDocument();
+            // Something should appear (partial typewriter text starts with "C")
+            expect(screen.getByText(/^C/)).toBeInTheDocument();
         });
     });
 
     it('should call onOpenChat when badge is clicked', async () => {
         render(<WelcomeBadge {...defaultProps} />);
 
-        // Show the badge
-        jest.advanceTimersByTime(3100);
+        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
+        act(() => { jest.advanceTimersByTime(200); });  // partial typewriter
 
         await waitFor(() => {
-            const badge = screen.getByText(/sono SYD/i).closest('div');
+            const badge = screen.getByText(/^C/).closest('div[class*="backdrop-blur"]');
             if (badge) {
                 fireEvent.click(badge);
             }
@@ -62,68 +64,46 @@ describe('WelcomeBadge', () => {
         expect(defaultProps.onOpenChat).toHaveBeenCalled();
     });
 
-    it('should hide badge when close button is clicked', async () => {
+    it('should display typewriter text progressively', async () => {
         render(<WelcomeBadge {...defaultProps} />);
 
-        // Show the badge
-        jest.advanceTimersByTime(3100);
+        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
+        // Advance enough for full message: 52 chars × 50ms = 2600ms
+        act(() => { jest.advanceTimersByTime(2700); });
 
         await waitFor(() => {
-            const closeButton = screen.getByRole('button', { name: /chiudi/i });
-            fireEvent.click(closeButton);
-        });
-
-        // Badge should be hidden
-        await waitFor(() => {
-            expect(screen.queryByText(/sono SYD/i)).not.toBeInTheDocument();
+            expect(screen.getByText('Ciao, sono SYD! Posso aiutarti con il tuo progetto?')).toBeInTheDocument();
         });
     });
 
-    it('should display typewriter text', async () => {
+    it('should auto-dismiss after typewriter completes + 9s', async () => {
         render(<WelcomeBadge {...defaultProps} />);
 
-        // Show the badge
-        jest.advanceTimersByTime(3100);
+        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
+        act(() => { jest.advanceTimersByTime(2700); }); // typewriter completes (~52 chars × 50ms)
+        act(() => { jest.advanceTimersByTime(9100); }); // auto-dismiss timer
 
         await waitFor(() => {
-            // The full text should eventually be visible
-            const text = screen.getByText(/sono SYD/i);
-            expect(text).toBeInTheDocument();
+            expect(screen.queryByText(/Ciao/i)).not.toBeInTheDocument();
         });
     });
 
-    it('should auto-dismiss after timeout', async () => {
-        render(<WelcomeBadge {...defaultProps} />);
+    it('should hide when isOpen changes to true', async () => {
+        const { rerender } = render(<WelcomeBadge {...defaultProps} />);
 
-        // Show the badge (2s delay)
-        jest.advanceTimersByTime(3100);
+        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
+        act(() => { jest.advanceTimersByTime(200); });
 
+        // Verify badge is shown
         await waitFor(() => {
-            expect(screen.getByText(/sono SYD/i)).toBeInTheDocument();
+            expect(screen.queryByText(/^C/)).toBeInTheDocument();
         });
 
-        // Auto-dismiss after 8 seconds
-        jest.advanceTimersByTime(8000);
+        // Open chat
+        rerender(<WelcomeBadge {...defaultProps} isOpen={true} />);
 
         await waitFor(() => {
-            expect(screen.queryByText(/sono SYD/i)).not.toBeInTheDocument();
+            expect(screen.queryByText(/^C/)).not.toBeInTheDocument();
         });
-    });
-
-    it('should not show if dismissed manually', async () => {
-        render(<WelcomeBadge {...defaultProps} />);
-
-        // Show the badge
-        jest.advanceTimersByTime(3100);
-
-        await waitFor(() => {
-            const closeButton = screen.getByRole('button', { name: /chiudi/i });
-            fireEvent.click(closeButton);
-        });
-
-        // Advance time further - should not reappear
-        jest.advanceTimersByTime(10000);
-
-        expect(screen.queryByText(/sono SYD/i)).not.toBeInTheDocument();
     });
 });

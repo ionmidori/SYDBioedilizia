@@ -4,7 +4,7 @@ import { RefObject } from 'react';
 import { ChatInput } from '../ChatInput';
 
 
-// Mock Lucide React
+// Mock Lucide React (all icons used by ChatInput)
 jest.mock('lucide-react', () => ({
     Send: () => <div data-testid="icon-send" />,
     Paperclip: () => <div data-testid="icon-paperclip" />,
@@ -12,6 +12,14 @@ jest.mock('lucide-react', () => ({
     FileVideo: () => <div data-testid="icon-file-video" />,
     X: () => <div data-testid="icon-x" />,
     Scissors: () => <div data-testid="icon-scissors" />,
+    Camera: () => <div data-testid="icon-camera" />,
+    Image: () => <div data-testid="icon-image" />,
+    FileText: () => <div data-testid="icon-file-text" />,
+    Mic: () => <div data-testid="icon-mic" />,
+    ChevronUp: () => <div data-testid="icon-chevron-up" />,
+    ChevronDown: () => <div data-testid="icon-chevron-down" />,
+    Plus: () => <div data-testid="icon-plus" />,
+    Sparkles: () => <div data-testid="icon-sparkles" />,
 }));
 
 // Mock framer-motion
@@ -148,19 +156,17 @@ describe('ChatInput', () => {
         expect(fileInput).toHaveAttribute('accept', 'image/*,video/mp4,video/webm,video/quicktime,video/x-m4v');
     });
 
-    it('should trigger file input click when attachment button clicked', () => {
-        const clickSpy = jest.spyOn(HTMLInputElement.prototype, 'click');
-
-        // We don't need to pass fileInputRef manually if we spy on prototype, 
-        // the component matches the snapshot or we find by ID?
-        // Actually, we can just render default.
+    it('should open attach dialog when paperclip button clicked', () => {
         render(<ChatInput {...defaultProps} />);
 
-        // Find the button containing the Paperclip icon
+        // Dialog is closed initially
+        expect(screen.queryByText(/carica un file/i)).not.toBeInTheDocument();
+
+        // Find the button containing the Paperclip icon and click it
         const attachButton = screen.getByTestId('icon-paperclip').closest('button')!;
         fireEvent.click(attachButton);
 
-        expect(clickSpy).toHaveBeenCalled();
-        clickSpy.mockRestore();
+        // After clicking, the dialog should open showing "Carica un file" title
+        expect(screen.getByText(/carica un file/i)).toBeInTheDocument();
     });
 });

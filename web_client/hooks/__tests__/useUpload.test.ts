@@ -5,10 +5,12 @@ import { useUpload } from '../useUpload';
 // MOCKS
 // =============================================================================
 
-// Mock useAuth
+// Mock useAuth — must include user + signInAnonymously so the hook skips anon sign-in
 jest.mock('../useAuth', () => ({
     useAuth: () => ({
+        user: { uid: 'mock-user-123' },
         refreshToken: jest.fn().mockResolvedValue('mock-jwt-token'),
+        signInAnonymously: jest.fn().mockResolvedValue(undefined),
     }),
 }));
 
