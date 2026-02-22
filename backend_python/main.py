@@ -165,6 +165,11 @@ app.include_router(metadata_router)
 from src.api.routes.quote_routes import router as quote_router
 app.include_router(quote_router)
 
+# 🧪 TEST AUTOMATION ROUTER (Only in development)
+if settings.ENV == "development":
+    from src.api.test_router import router as test_router
+    app.include_router(test_router)
+
 
 
 
