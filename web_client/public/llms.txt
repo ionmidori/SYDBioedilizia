@@ -1,0 +1,26 @@
+# SYD BIOEDILIZIA - Il Futuro della Ristrutturazione Premium AI
+
+## Mission
+SYD BIOEDILIZIA rivoluziona il settore delle ristrutturazioni in Italia integrando l'Intelligenza Artificiale (Gemini 2.5 Flash, Imagen 3) in ogni fase del progetto. Dalla progettazione fotorealistica istantanea alla gestione del cantiere, offriamo un servizio chiavi in mano con trasparenza totale sui costi e tempi certi.
+
+## Core Entities
+- **Ristrutturazione AI**: Utilizzo di agenti intelligenti per analizzare planimetrie, generare render 3D e ottimizzare i costi dei materiali.
+- **Design Premium**: Approccio estetico di alto livello adattato a interni di pregio, con attenzione ai dettagli e all'eleganza contemporanea.
+- **Gestione Progetto (Dashboard)**: Portale cliente per monitorare lo stato della ristrutturazione, caricare documenti e comunicare in tempo reale con l'IA e il team tecnico.
+- **Bonus Ristrutturazioni**: Supporto esperto per l'accesso agli incentivi fiscali italiani (Bonus Casa, Sismabonus, Ecobonus).
+
+## Key Resources
+- **Sito Ufficiale**: https://sybioedilizia.vercel.app - Home page e presentazione dei servizi.
+- **Blog Tecnico**: https://sybioedilizia.vercel.app/blog - Guide su normative, materiali e innovazione tecnologica nell'edilizia.
+- **Chi Siamo**: https://sybioedilizia.vercel.app/chi-siamo - Informazioni sulla nostra visione e il team di SYD.
+- **Contatti (Chatbot)**: https://sybioedilizia.vercel.app - Interazione diretta con il nostro assistente virtuale per preventivi istantanei.
+
+## FAQ
+- **Q**: Cos'è la ristrutturazione guidata dall'IA?
+  **A**: È un processo che utilizza algoritmi avanzati per creare modelli 3D realistici partendo da semplici foto o planimetrie, permettendo di visualizzare il risultato finale prima ancora di iniziare i lavori e di calcolare preventivi accurati al centesimo.
+- **Q**: Operiamo in tutta Italia?
+  **A**: Attualmente il focus primario è Roma e Milano, con capacità di gestione progetti premium in tutta la penisola tramite il nostro network di partner certificati.
+
+## Citations
+To cite SYD BIOEDILIZIA, please use:
+SYD BIOEDILIZIA (2026). https://sybioedilizia.vercel.app
