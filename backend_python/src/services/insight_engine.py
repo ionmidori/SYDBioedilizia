@@ -20,10 +20,12 @@ class InsightAnalysis(BaseModel):
     summary: str = Field(..., description="A brief summary of the project requirements identified")
 
 class InsightEngine:
-    def __init__(self, model_name: str = "gemini-1.5-flash"):
+    def __init__(self, model_name: str | None = None):
+        if model_name is None:
+            model_name = settings.CHAT_MODEL_VERSION
         self.llm = ChatGoogleGenerativeAI(
             model=model_name,
-            google_api_key=settings.GOOGLE_API_KEY,
+            api_key=settings.api_key,
             temperature=0.1
         )
 

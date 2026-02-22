@@ -30,38 +30,31 @@ def test_generate_render_produces_photorealistic_images():
     try:
         response = requests.post(
             f"{BASE_URL}/api/test/tools/generate-render",
-            json={
-                "prompt": payload["room_description"],
+            params={
                 "session_id": payload["project_id"]
             },
-            headers={**headers, "Authorization": "Bearer dummy"},
+            json={
+                "prompt": payload["room_description"],
+                "room_type": "living room",
+                "style": payload["style"]
+            },
+            headers={**headers, "Authorization": "Bearer eyJhbGciOiJSUzI1NiIsImtpZCI6ImY1MzMwMzNhMTMzYWQyM2EyYzlhZGNmYzE4YzRlM2E3MWFmYWY2MjkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vY2hhdGJvdGx1Y2EtYThhNzMiLCJhdWQiOiJjaGF0Ym90bHVjYS1hOGE3MyIsImF1dGhfdGltZSI6MTc3MTcxNDQ1NSwidXNlcl9pZCI6InRlc3RzcHJpdGUtcWEtdXNlciIsInN1YiI6InRlc3RzcHJpdGUtcWEtdXNlciIsImlhdCI6MTc3MTcxNDQ1NSwiZXhwIjoxNzcxNzE4MDU1LCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7fSwic2lnbl9pbl9wcm92aWRlciI6ImN1c3RvbSJ9fQ.0WvnjqNuVvEzfNsoT0-pNuqlKJUEnNkSTX5H44SsRYMM1Q6kqVEnbHx32Tht_5pa8lZHrAxAihbEZMAd0F27Tx6huUnME3vrFzN9aAjMJZwlcHem4c1kpqcnZdDtNuhjF9sq7sc9Uku5ZRQ-0paCapYRcarEmdAZ9_stz4L_-qNHZV0ggVfn5-T5kMlvf6nPotGFAslgrw4uPQO_fW4Tr01AyvQv19hPiUFOUS_JvqVHc25pbzsdww0v7CIvL4WH3c4hPfCA_ROeeQsjm2VQ2gjXPigecJXamhFz7gvx_76M0y2hpEgwpJoaw7SvMnmEgZt2r3VxFKNFxImvN0wI1g"},
             timeout=TIMEOUT
         )
+        print(f"Generate Render response: {response.text}")
         assert response.status_code == 201 or response.status_code == 200, \
-            f"Expected status 200 or 201, got {response.status_code}"
+            f"Expected status 200 or 201, got {response.status_code}: {response.text}"
 
         data = response.json()
-        # Validate presence of render ID or URL in response
-        assert "render_id" in data or "render_url" in data, "Response missing render_id or render_url"
-
-        if "render_id" in data:
-            render_id = data["render_id"]
+        # Validate presence of imageUrl in response
+        assert "imageUrl" in data, "Response missing imageUrl"
 
         # If a URL is returned, validate URL is a non-empty string
-        if "render_url" in data:
-            assert isinstance(data["render_url"], str) and data["render_url"].startswith("http"), \
-                "render_url is not valid"
+        assert isinstance(data["imageUrl"], str) and data["imageUrl"].startswith("http"), \
+            "imageUrl is not valid"
 
-        # Optionally validate more about the returned details if available e.g. quality, resolution
-        if "quality" in data:
-            assert data["quality"] in ["high", "photorealistic", "ultra"], \
-                f"Unexpected quality level: {data['quality']}"
+        assert data.get("status") == "success", "Expected status success"
 
-        if "metadata" in data:
-            metadata = data["metadata"]
-            # Example: check that metadata contains model info and inputs echoed back correctly
-            assert metadata.get("model") == "Gemini Image Gen", "Incorrect model in metadata"
-            assert "room_description" in metadata, "Metadata missing room_description"
 
     finally:
         # Cleanup: delete the render resource if an ID was returned
