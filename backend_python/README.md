@@ -1,17 +1,18 @@
 # 🧠 SYD Brain (Python Backend)
 
 The core AI orchestration engine for the SYD Renovation Chatbot.
-Built with **FastAPI**, **LangGraph**, and **Google Gemini 2.5 Flash**.
+Built with **FastAPI**, **LangGraph**, and **Google Gemini 2.0 Flash**.
 
 ---
 
 ## 🚀 Key Features
 
 - **Architecture:** Async-native FastAPI service optimized for Cloud Run.
-- **AI Engine:** Structured reasoning steps managed by **Gemini 2.5 Flash** + LangGraph.
 - **Guided Flows:** State tracking logic (`is_quote_completed`, `is_render_completed`) for proactive cross-selling.
+- **HITL Pipeline:** Human-in-the-Loop quote approval logic with automated PDF generation (WeasyPrint) and deliverable tracking.
+- **n8n Connectivity:** Native MCP tools for Telegram/Email notifications and document delivery via n8n webhooks.
 - **Vision Integration:** Automated room analysis and CAD extraction support (Wide-angle 0.5x optimization).
-- **Security:** Pydantic-based guardrails and RSA token verification for specialized tool access.
+- **Security:** Pydantic-based guardrails, RSA token verification, and strict schema synchronization ("Golden Sync").
 - **Latency Optimization:** "Hello" Gatekeeper bypassing heavy reasoning for simple greetings.
 - **Observability:** Structured JSON logging via `structlog` and request tracing (`X-Request-ID`).
 
@@ -49,7 +50,9 @@ Create a `.env` file in `backend_python/`:
 GEMINI_API_KEY=AIzaSy...
 FIREBASE_STORAGE_BUCKET=your-project.appspot.com
 GOOGLE_APPLICATION_CREDENTIALS=credentials.json
-INTERNAL_JWT_SECRET=your-secret-here
+N8N_WEBHOOK_NOTIFY_ADMIN=https://n8n.your-instance.com/webhook/...
+N8N_WEBHOOK_DELIVER_QUOTE=https://n8n.your-instance.com/webhook/...
+N8N_API_KEY=your-n8n-key
 ENV=development
 ```
 
@@ -79,7 +82,10 @@ backend_python/
 │   ├── graph/             # Node & Edge definitions (The CoT Graph)
 │   ├── models/            # Pydantic Schemas (Reasoning, State)
 │   ├── prompts/           # Modular System Instructions
-│   ├── tools/             # AI Tools (Imagen, Auth, Lead, etc.)
+│   ├── repositories/      # Firestore/Data access isolation
+│   ├── schemas/           # Pydantic models (Sync'd with Frontend TS)
+│   ├── services/          # Business logic (AdminService, PricingService)
+│   ├── tools/             # AI Tools (Imagen, n8n_mcp, Lead, etc.)
 │   └── vision/            # Image/Video Analysis modules
 ├── tests/                 # Unit (Guards) & Integration tests
 ├── main.py                # App Entrypoint
