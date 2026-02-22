@@ -9,6 +9,7 @@ import { ProjectFilesView } from '@/components/dashboard/ProjectFilesView';
 import { ProjectSettingsView } from '@/components/dashboard/ProjectSettingsView';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
+import { MobileSwipeLayout, SwipeHints } from '@/components/mobile/MobileSwipeLayout';
 import { createSlideVariants, M3Spring } from '@/lib/m3-motion';
 import type { LucideIcon } from 'lucide-react';
 
@@ -86,6 +87,14 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
             className="flex flex-col h-full w-full bg-luxury-bg relative overflow-hidden"
             {...containerProps}
         >
+            {/* M3 Expressive Edge Swipe Indicators */}
+            <SwipeHints
+                activeIndex={activeIndex}
+                totalPanes={TABS.length}
+                swipeX={swipeX}
+                hasExitGesture={true}
+            />
+
             {/* Main Content Area */}
             <div className="flex-1 relative overflow-hidden touch-pan-y">
                 <AnimatePresence
@@ -101,7 +110,6 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
                         initial="enter"
                         animate="center"
                         exit="exit"
-                        style={{ x: swipeX }}
                     >
                         {activeTab === 'chat' && (
                             <div className="h-full w-full">
@@ -122,51 +130,8 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
                 </AnimatePresence>
             </div>
 
-            {/* Bottom Navigation Bar */}
-            <div className="h-16 bg-luxury-bg/80 backdrop-blur-lg flex items-center justify-around px-2 z-20 pb-safe relative">
-                <NavButton
-                    active={activeTab === 'chat'}
-                    onClick={() => handleTabChange('chat')}
-                    icon={MessageSquare}
-                    label="Chat"
-                />
-                <NavButton
-                    active={activeTab === 'files'}
-                    onClick={() => handleTabChange('files')}
-                    icon={FileText}
-                    label="Files"
-                />
-                <NavButton
-                    active={activeTab === 'settings'}
-                    onClick={() => handleTabChange('settings')}
-                    icon={Settings}
-                    label="Settings"
-                />
-            </div>
         </div >
     );
 }
 
-// ─── NavButton ───────────────────────────────────────────────────────────────
-
-interface NavButtonProps {
-    active: boolean;
-    onClick: () => void;
-    icon: LucideIcon;
-    label: string;
-}
-
-function NavButton({ active, onClick, icon: Icon, label }: NavButtonProps) {
-    return (
-        <button
-            onClick={onClick}
-            className={cn(
-                "flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-300 w-16",
-                active ? "text-luxury-gold bg-luxury-gold/5" : "text-luxury-text/40 hover:text-luxury-text/60"
-            )}
-        >
-            <Icon className={cn("w-6 h-6 mb-1", active && "fill-current")} />
-            <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
-        </button>
-    );
-}
+// ─── NavButton (REMOVED: Redundant with DashboardHeader) ─────────────────────

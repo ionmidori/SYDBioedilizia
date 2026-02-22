@@ -1,0 +1,70 @@
+version: "2"
+type: frontend
+tech_stack:
+  - typescript
+  - next.js (app router)
+  - react
+  - tailwindcss
+  - shadcn/ui
+  - firebase
+routes:
+  - path: /
+    file: app/page.tsx
+    auth_required: false
+    description: Landing page
+  - path: /auth/login
+    file: app/auth/login/page.tsx
+    auth_required: false
+    description: User authentication
+  - path: /dashboard
+    file: app/dashboard/page.tsx
+    auth_required: true
+    description: User projects dashboard
+  - path: /dashboard/[id]
+    file: app/dashboard/[id]/page.tsx
+    auth_required: true
+    description: Project workspace chat and media viewer
+features:
+  - name: User Authentication
+    description: Login with Google provider or credentials
+    files:
+      - app/auth/login/page.tsx
+    entry_route: /auth/login
+    user_interactions:
+      - Click "Sign in with Google" button
+      - Complete Firebase Auth popup
+      - Wait for redirection to dashboard
+    api_calls:
+      - method: POST
+        endpoint: /api/auth/session
+    auth_required: false
+  - name: Dashboard Projects List
+    description: Displays the user's renovation projects and allows creating new ones.
+    files:
+      - app/dashboard/page.tsx
+      - components/dashboard/projects-list.tsx
+    entry_route: /dashboard
+    user_interactions:
+      - Navigate to /dashboard
+      - View list of existing projects
+      - Click on a project to enter workspace
+    auth_required: true
+  - name: AI Chat Workspace
+    description: Interact with the AI architect for renovation analysis
+    files:
+      - app/dashboard/[id]/page.tsx
+      - components/chat/chat-interface.tsx
+    entry_route: /dashboard/[id]
+    user_interactions:
+      - Type message into chat input
+      - Click attach button to upload room image
+      - Send message
+      - View AI response and generated renders
+    api_calls:
+      - method: POST
+        endpoint: /api/chat/stream
+    auth_required: true
+known_limitations:
+  - issue: Chat history listeners sometimes trigger permission errors on unmount
+    location: hooks/useChatHistory.ts
+    impact: Minor console errors during routing

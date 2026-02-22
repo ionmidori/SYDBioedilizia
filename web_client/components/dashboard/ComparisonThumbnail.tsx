@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { ArrowLeftRight } from 'lucide-react';
+import { Sparkles, Camera } from 'lucide-react';
 
-interface ComparisonThumbnailProps {
+interface PhotoSlideshowThumbnailProps {
     beforeImage: string;
     afterImage: string;
     alt?: string;
@@ -15,95 +15,91 @@ interface ComparisonThumbnailProps {
 export function ComparisonThumbnail({
     beforeImage,
     afterImage,
-    alt = 'Project comparison',
+    alt = 'Project photos',
     className
-}: ComparisonThumbnailProps) {
-    const [sliderX, setSliderX] = useState(50);
-    const containerRef = useRef<HTMLDivElement>(null);
+}: PhotoSlideshowThumbnailProps) {
+    const [showAfter, setShowAfter] = useState(false);
 
-    const handleMove = useCallback((clientX: number) => {
-        if (!containerRef.current) return;
-        const rect = containerRef.current.getBoundingClientRect();
-        const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-        const percentage = (x / rect.width) * 100;
-        setSliderX(percentage);
+    // Auto-play interval
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setShowAfter((prev) => !prev);
+        }, 3000); // 3 seconds per photo
+        return () => clearInterval(interval);
     }, []);
-
-    const onMouseMove = (e: React.MouseEvent) => handleMove(e.clientX);
-    const onTouchMove = (e: React.TouchEvent) => handleMove(e.touches[0].clientX);
 
     return (
         <div
-            ref={containerRef}
-            className={cn("relative w-full h-full overflow-hidden cursor-ew-resize group select-none", className)}
-            onMouseMove={onMouseMove}
-            onTouchMove={onTouchMove}
-            onMouseLeave={() => setSliderX(50)}
+            className={cn("relative w-full h-full overflow-hidden group select-none", className)}
         >
-            {/* AFTER IMAGE (The Render) - Always in background */}
-            <div className="absolute inset-0 z-0">
+            {/* BEFORE IMAGE (The original Photo) */}
+            <div
+                className="absolute inset-0 z-10 transition-opacity duration-1000 ease-in-out"
+                style={{ opacity: showAfter ? 0 : 1 }}
+            >
                 <Image
-                    src={afterImage}
-                    alt={`After ${alt}`}
+                    src={beforeImage}
+                    alt={`Original ${alt}`}
                     fill
-                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover transition-transform duration-[4000ms] group-hover:scale-105"
                 />
             </div>
 
-            {/* BEFORE IMAGE (The Photo) - Clipped with soft edge blur */}
+            {/* AFTER IMAGE (The Render AI) */}
             <div
-                className="absolute inset-0 z-10 overflow-hidden"
-                style={{
-                    clipPath: `inset(0 ${100 - sliderX}% 0 0)`,
-                    transition: 'clip-path 0.1s ease-out'
-                }}
+                className="absolute inset-0 z-20 transition-opacity duration-1000 ease-in-out"
+                style={{ opacity: showAfter ? 1 : 0 }}
             >
-                <div className="relative w-full h-full">
-                    <Image
-                        src={beforeImage}
-                        alt={`Before ${alt}`}
-                        fill
-                        className="object-cover"
-                    />
-                    {/* Dynamic Blur Transition Overlay */}
-                    <div
-                        className="absolute inset-0 bg-black/10 backdrop-blur-[2px] pointer-events-none"
-                        style={{ opacity: sliderX / 100 }}
-                    />
-                </div>
+                <Image
+                    src={afterImage}
+                    alt={`Render ${alt}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover transition-transform duration-[4000ms] group-hover:scale-105"
+                />
             </div>
 
-            {/* TRANSITION EDGE (The Light Ray) */}
-            <div
-                className="absolute top-0 bottom-0 z-20 w-[2px] bg-gradient-to-b from-transparent via-luxury-gold to-transparent shadow-[0_0_15px_rgba(233,196,106,0.5)] pointer-events-none transition-all duration-100 ease-out"
-                style={{ left: `${sliderX}%` }}
-            />
-
-            {/* HANDLE CONTROL */}
-            <div
-                className="absolute top-1/2 -translate-y-1/2 z-30 pointer-events-none transition-all duration-100 ease-out"
-                style={{ left: `${sliderX}%`, transform: `translate(-50%, -50%)` }}
-            >
-                <div className="w-8 h-8 rounded-full bg-luxury-bg/80 backdrop-blur-xl border border-luxury-gold/50 flex items-center justify-center shadow-[0_0_20px_rgba(0,0,0,0.4)] group-hover:scale-110 transition-transform">
-                    <ArrowLeftRight className="w-4 h-4 text-luxury-gold" />
-                </div>
-            </div>
-
-            {/* BADGES - Golden Glassmorphism */}
-            <div className="absolute top-3 left-3 z-40 flex items-center gap-2 pointer-events-none">
-                <div className="px-2 py-1 bg-luxury-bg/60 backdrop-blur-md border border-white/10 rounded-lg text-[9px] uppercase font-bold tracking-widest text-white/70 shadow-lg">
-                    Foto Originale
-                </div>
-            </div>
-
-            <div className="absolute top-3 right-3 z-40 flex items-center gap-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="px-2 py-1 bg-luxury-gold/20 backdrop-blur-md border border-luxury-gold/30 rounded-lg text-[9px] uppercase font-bold tracking-widest text-luxury-gold shadow-lg shadow-luxury-gold/10">
-                    Render AI
+            {/* BADGES - Dynamic Status */}
+            <div className="absolute top-3 left-3 z-40 flex items-center gap-2 pointer-events-none transition-all duration-500">
+                <div className={cn(
+                    "px-2.5 py-1 backdrop-blur-md rounded-lg text-[9px] uppercase font-bold tracking-widest shadow-lg flex items-center gap-1.5 transition-all duration-500",
+                    showAfter
+                        ? "bg-luxury-gold/20 border border-luxury-gold/30 text-luxury-gold shadow-luxury-gold/10"
+                        : "bg-luxury-bg/60 border border-white/10 text-white/70"
+                )}>
+                    {showAfter ? (
+                        <>
+                            <Sparkles className="w-3 h-3" />
+                            Render AI
+                        </>
+                    ) : (
+                        <>
+                            <Camera className="w-3 h-3" />
+                            Stato Iniziale
+                        </>
+                    )}
                 </div>
             </div>
 
             {/* Bottom Glow Overlay */}
-            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/40 to-transparent z-10 pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent z-30 pointer-events-none" />
+
+            {/* Progress Bar Indicator */}
+            <div className="absolute bottom-4 left-4 right-4 z-40 flex gap-1 pointer-events-none">
+                <div className="h-1 flex-1 rounded-full overflow-hidden bg-white/20">
+                    <div
+                        className="h-full bg-white transition-all duration-[3000ms] ease-linear"
+                        style={{ width: !showAfter ? '100%' : '0%', opacity: !showAfter ? 1 : 0 }}
+                    />
+                </div>
+                <div className="h-1 flex-1 rounded-full overflow-hidden bg-white/20">
+                    <div
+                        className="h-full bg-luxury-gold transition-all duration-[3000ms] ease-linear"
+                        style={{ width: showAfter ? '100%' : '0%', opacity: showAfter ? 1 : 0 }}
+                    />
+                </div>
+            </div>
         </div>
     );
 }

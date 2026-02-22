@@ -12,7 +12,22 @@ interface ActionProps {
 
 export function QuickActionsRow({ actions }: { actions: ActionProps[] }) {
     return (
-        <div data-no-swipe className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div
+            data-no-swipe
+            className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 overflow-x-auto pb-6 pt-2 snap-x snap-mandatory scrollbar-hide px-1"
+            ref={(el) => {
+                if (el) {
+                    el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+                    el.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
+                }
+            }}
+            style={{
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-x',
+                transform: 'translateZ(0)',
+                willChange: 'transform'
+            }}
+        >
             {actions.map((action, index) => (
                 <ActionCard
                     key={index}
@@ -38,7 +53,7 @@ function ActionCard({ label, description, icon: Icon, onClick, highlight, index,
             whileTap={{ scale: 0.98 }}
             onClick={onClick}
             className={`
-                group flex items-center gap-3 rounded-[16px] text-left transition-all cursor-pointer
+                group flex items-center gap-3 rounded-[16px] text-left transition-all cursor-pointer shrink-0 snap-start w-[260px] sm:w-auto
                 ${span ? 'sm:col-span-2 lg:col-span-1 p-4' : 'p-3'}
                 ${highlight
                     ? 'bg-luxury-gold/10 border border-luxury-gold/30 hover:bg-luxury-gold/15 hover:border-luxury-gold/50 hover:shadow-elevation-high'

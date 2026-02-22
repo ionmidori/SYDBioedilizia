@@ -1,7 +1,16 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Loader2, Camera } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { validateFileForUpload } from '@/lib/validation/file-upload-schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,9 +35,21 @@ interface FileUploaderProps {
 export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: FileUploaderProps) {
     const [files, setFiles] = useState<UploadedFile[]>([]);
     const [isDragging, setIsDragging] = useState(false);
+    const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
+    const previewUrlsRef = useRef<Set<string>>(new Set());
     const { user } = useAuth();
     const router = useRouter();
+
+    // 🔧 Cleanup previews on unmount to prevent memory leaks (mobile-camera-capture skill)
+    useEffect(() => {
+        return () => {
+            const urls = previewUrlsRef.current;
+            urls.forEach(url => URL.revokeObjectURL(url));
+            urls.clear();
+        };
+    }, []);
 
     // 🔧 Tier-3 Integration: Use Firebase Storage hook
     const { uploadFile: uploadToStorage, uploadProgress } = useFileUpload();
@@ -75,6 +96,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
             let preview: string | undefined;
             if (file.type.startsWith('image/')) {
                 preview = URL.createObjectURL(file);
+                previewUrlsRef.current.add(preview);
             }
 
             uploadedFiles.push({
@@ -172,6 +194,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
             const file = prev.find(f => f.id === id);
             if (file?.preview) {
                 URL.revokeObjectURL(file.preview);
+                previewUrlsRef.current.delete(file.preview);
             }
             return prev.filter(f => f.id !== id);
         });
@@ -244,15 +267,14 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
                 </div>
             ) : (
                 <div
-                    onClick={() => fileInputRef.current?.click()}
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     className={`
-                        relative border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer
+                        relative border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center
                         transition-all duration-300
                         ${isDragging
-                            ? 'border-luxury-gold bg-luxury-gold/5 scale-105'
+                            ? 'border-luxury-gold bg-luxury-gold/5 scale-[1.02]'
                             : 'border-luxury-gold/20 bg-white/5 hover:border-luxury-gold/40 hover:bg-white/10'
                         }
                     `}
@@ -265,14 +287,74 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
                         onChange={handleFileInput}
                         className="hidden"
                     />
+                    {/* Enterprise Mobile Capture Pattern */}
+                    <input
+                        ref={cameraInputRef}
+                        type="file"
+                        accept="image/*,video/mp4,video/quicktime;capture=camera"
+                        capture="environment"
+                        onChange={handleFileInput}
+                        className="hidden"
+                    />
 
-                    <Upload className="w-16 h-16 mx-auto mb-4 text-luxury-gold" />
-                    <h3 className="text-xl font-bold text-luxury-text mb-2">
-                        Trascina i file qui
+                    <Upload className="w-16 h-16 mx-auto mb-6 text-luxury-gold/50" />
+
+                    <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                        <DialogTrigger asChild>
+                            <div className="flex justify-center mb-6">
+                                <Button
+                                    variant="default"
+                                    className="bg-luxury-gold text-luxury-bg hover:bg-luxury-gold/90 w-full sm:w-auto font-bold shadow-lg shadow-luxury-gold/20"
+                                >
+                                    <Upload className="w-4 h-4 mr-2" /> Carica File
+                                </Button>
+                            </div>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-md bg-luxury-bg border-luxury-gold/20 z-[100]">
+                            <DialogHeader>
+                                <DialogTitle className="text-luxury-text">Scegli la modalità di caricamento</DialogTitle>
+                                <DialogDescription className="text-luxury-text/60">
+                                    Vuoi scattare una foto/video dal vivo o caricare un file esistente?
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <Button
+                                    variant="outline"
+                                    className="h-16 justify-start px-6 bg-white/5 border-luxury-gold/20 hover:border-luxury-gold/60 hover:bg-white/10 text-luxury-text transition-all"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsUploadDialogOpen(false);
+                                        setTimeout(() => cameraInputRef.current?.click(), 100);
+                                    }}
+                                >
+                                    <Camera className="w-6 h-6 mr-4 text-luxury-gold" />
+                                    <div className="flex flex-col items-start">
+                                        <span className="font-semibold text-base">Fotocamera / Videocamera</span>
+                                        <span className="text-xs text-luxury-text/60">Scatta dal vivo con il dispositivo</span>
+                                    </div>
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-16 justify-start px-6 bg-white/5 border-luxury-gold/20 hover:border-luxury-gold/60 hover:bg-white/10 text-luxury-text transition-all"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setIsUploadDialogOpen(false);
+                                        setTimeout(() => fileInputRef.current?.click(), 100);
+                                    }}
+                                >
+                                    <ImageIcon className="w-6 h-6 mr-4 text-luxury-gold" />
+                                    <div className="flex flex-col items-start">
+                                        <span className="font-semibold text-base">Galleria o Documenti</span>
+                                        <span className="text-xs text-luxury-text/60">Scegli file già salvati</span>
+                                    </div>
+                                </Button>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+
+                    <h3 className="text-xl font-bold text-luxury-text mb-2 hidden sm:block">
+                        oppure trascina i file qui
                     </h3>
-                    <p className="text-luxury-text/60">
-                        oppure clicca per selezionare
-                    </p>
                     <p className="text-sm text-luxury-text/40 mt-4">
                         Immagini (JPG, PNG, WEBP) • PDF • Video (MP4, MOV)
                     </p>

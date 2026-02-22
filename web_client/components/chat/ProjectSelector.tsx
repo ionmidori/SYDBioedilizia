@@ -108,59 +108,74 @@ export function ProjectSelector({ currentProjectId, onProjectSelect }: ProjectSe
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute top-full right-0 mt-2 w-64 max-h-[300px] overflow-y-auto rounded-xl border border-luxury-gold/20 bg-[#0f1014]/95 backdrop-blur-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col p-1 custom-scrollbar">
+                <div className="absolute top-full right-0 mt-3 w-64 md:w-72 max-h-[350px] overflow-y-auto rounded-[1.5rem] border border-luxury-gold/20 bg-luxury-bg/80 backdrop-blur-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-50 animate-in fade-in slide-in-from-top-2 duration-200 flex flex-col p-2 custom-scrollbar">
                     {loading && projects.length === 0 && (
-                        <div className="flex items-center justify-center p-4 text-luxury-gold">
-                            <Loader2 className="w-5 h-5 animate-spin" />
+                        <div className="flex items-center justify-center p-6 text-luxury-gold">
+                            <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                     )}
 
                     {!loading && projects.length === 0 && (
-                        <div className="p-3 text-center text-xs text-white/50">
+                        <div className="p-4 text-center text-sm text-luxury-text/50">
                             Nessun altro progetto
                         </div>
                     )}
 
-                    {projects.map((proj) => (
-                        <button
-                            key={proj.session_id}
-                            onClick={() => handleSelect(proj.session_id)}
-                            className={cn(
-                                "flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-colors",
-                                proj.session_id === currentProjectId
-                                    ? "bg-luxury-gold/20 text-luxury-gold"
-                                    : "hover:bg-white/5 text-luxury-text/80 hover:text-luxury-text"
-                            )}
-                        >
-                            <div className={cn(
-                                "p-1.5 rounded-md flex-shrink-0",
-                                proj.session_id === currentProjectId ? "bg-luxury-gold/20" : "bg-white/5"
-                            )}>
-                                <FolderKanban className="w-4 h-4" />
-                            </div>
-                            <span className="flex-1 truncate text-sm font-medium">
-                                {proj.title}
-                            </span>
-                            {proj.session_id === currentProjectId && (
-                                <Check className="w-4 h-4 flex-shrink-0" />
-                            )}
-                        </button>
-                    ))}
+                    {projects.map((proj) => {
+                        const isCurrent = proj.session_id === currentProjectId;
+                        return (
+                            <button
+                                key={proj.session_id}
+                                onClick={() => handleSelect(proj.session_id)}
+                                className={cn(
+                                    "flex items-center gap-3 w-full p-3 rounded-xl text-left transition-all duration-300 group relative overflow-hidden",
+                                    isCurrent ? "bg-luxury-gold/10" : "hover:bg-luxury-gold/5"
+                                )}
+                            >
+                                {/* Inner glow on hover */}
+                                <div className={cn(
+                                    "absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/5 to-luxury-gold/0 opacity-0 transition-opacity duration-500",
+                                    isCurrent ? "opacity-100" : "group-hover:opacity-100"
+                                )} />
+
+                                <div className={cn(
+                                    "p-2 rounded-lg flex-shrink-0 transition-colors duration-300 relative z-10",
+                                    isCurrent ? "bg-luxury-gold/20 text-luxury-gold" : "bg-white/5 text-luxury-text/60 group-hover:bg-luxury-gold/10 group-hover:text-luxury-gold/90"
+                                )}>
+                                    <FolderKanban className="w-4 h-4 md:w-5 md:h-5" />
+                                </div>
+                                <span className={cn(
+                                    "flex-1 truncate font-medium relative z-10 transition-colors duration-300 text-sm md:text-base",
+                                    isCurrent ? "text-luxury-gold" : "text-luxury-text/80 group-hover:text-luxury-text"
+                                )}>
+                                    {proj.title}
+                                </span>
+                                {isCurrent && (
+                                    <Check className="w-4 h-4 md:w-5 md:h-5 text-luxury-gold flex-shrink-0 relative z-10 drop-shadow-sm" />
+                                )}
+                            </button>
+                        );
+                    })}
+
+                    {/* Divider */}
+                    <div className="h-px bg-gradient-to-r from-transparent via-luxury-gold/20 to-transparent my-2 mx-4" />
 
                     {/* New Project Action */}
-                    <div className="h-px bg-white/10 my-1 mx-2" />
                     <button
                         onClick={() => {
                             setIsOpen(false);
                             setShowCreateDialog(true);
                         }}
-                        className="flex items-center gap-3 w-full p-2.5 rounded-lg text-left transition-colors hover:bg-luxury-gold/10 text-luxury-gold hover:text-luxury-gold/80"
+                        className="flex items-center gap-3 w-full p-3 rounded-xl text-left transition-all duration-300 group hover:bg-luxury-gold/10 relative overflow-hidden"
                     >
-                        <div className="p-1.5 rounded-md bg-luxury-gold/10 flex-shrink-0">
-                            <FolderKanban className="w-4 h-4" />
+                        {/* Inner glow on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/5 to-luxury-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                        <div className="p-2 rounded-lg bg-luxury-gold/10 flex-shrink-0 relative z-10 group-hover:scale-110 transition-transform duration-300">
+                            <FolderKanban className="w-4 h-4 md:w-5 md:h-5 text-luxury-gold" />
                         </div>
-                        <span className="flex-1 text-sm font-bold">
-                            + Nuovo Progetto
+                        <span className="flex-1 text-sm md:text-base font-bold text-luxury-gold relative z-10">
+                            Nuovo Progetto
                         </span>
                     </button>
                 </div>

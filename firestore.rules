@@ -19,12 +19,16 @@ service cloud.firestore {
 
       // Messages subcollection
       match /messages/{messageId} {
-        // Allow read only if user owns the parent session
-        allow read: if request.auth != null
-          && (
-            !exists(/databases/$(database)/documents/sessions/$(sessionId))
-            || get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid
-          );
+        // Allow read only if user owns the parent session, 
+        // OR if the sessionId matches their own global chat fallback,
+        // OR if it's a guest session (starts with 'guest-')
+        allow read: if (request.auth != null && (
+            sessionId == 'global-' + request.auth.uid
+            || (
+              !exists(/databases/$(database)/documents/sessions/$(sessionId))
+              || get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid
+            )
+          )) || (sessionId.matches('^guest-.*'));
 
         // Only server can write messages
         allow write: if false;

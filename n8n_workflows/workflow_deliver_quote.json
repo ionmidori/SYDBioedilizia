@@ -14,18 +14,24 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 500],
+      "position": [
+        200,
+        500
+      ],
       "webhookId": "syd-deliver-quote"
     },
     {
       "parameters": {
-        "jsCode": "// ─── HMAC-SHA256 Signature Validation ───────────────────────────────────────\nconst crypto = require('crypto');\nconst rawBody = $input.item.json.rawBody || JSON.stringify($input.item.json.body);\nconst signature = $input.item.json.headers['x-syd-signature'] || '';\nconst secret = $env['SYD_WEBHOOK_SECRET'];\n\nif (!secret) {\n  console.warn('[SYD] WARNING: SYD_WEBHOOK_SECRET non configurato. Bypass validazione (solo dev).');\n  return $input.all();\n}\n\nif (!signature.startsWith('sha256=')) {\n  throw new Error('Signature mancante o formato non valido');\n}\n\nconst expectedSig = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(rawBody)\n  .digest('hex');\n\nconst sigBuffer = Buffer.from(signature);\nconst expectedBuffer = Buffer.from(expectedSig);\n\nif (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {\n  throw new Error('Signature non valida: richiesta rifiutata');\n}\n\nreturn $input.all();"
+        "jsCode": "// ─── HMAC-SHA256 Signature Validation ───────────────────────────────────────\nconst crypto = require('crypto');\nconst rawBody = $input.item.json.rawBody || JSON.stringify($input.item.json.body);\nconst signature = $input.item.json.headers['x-syd-signature'] || '';\nconst secret = $env['SYD_WEBHOOK_SECRET'];\n\nif (!secret) {\n  throw new Error('Configurazione server critica mancante: SYD_WEBHOOK_SECRET');\n}\n\nif (!signature.startsWith('sha256=')) {\n  throw new Error('Signature mancante o formato non valido');\n}\n\nconst expectedSig = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(rawBody)\n  .digest('hex');\n\nconst sigBuffer = Buffer.from(signature);\nconst expectedBuffer = Buffer.from(expectedSig);\n\nif (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {\n  throw new Error('Signature non valida: richiesta rifiutata');\n}\n\nreturn $input.all();"
       },
       "id": "validate-signature",
       "name": "Valida Firma HMAC",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [420, 500]
+      "position": [
+        420,
+        500
+      ]
     },
     {
       "parameters": {
@@ -35,7 +41,10 @@
       "name": "Valida & Normalizza Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [640, 500]
+      "position": [
+        640,
+        500
+      ]
     },
     {
       "parameters": {
@@ -43,12 +52,17 @@
           "values": [
             {
               "conditions": {
-                "options": { "caseSensitive": true },
+                "options": {
+                  "caseSensitive": true
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.delivery_channel }}",
                     "rightValue": "email",
-                    "operator": { "type": "string", "operation": "equals" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -58,12 +72,17 @@
             },
             {
               "conditions": {
-                "options": { "caseSensitive": true },
+                "options": {
+                  "caseSensitive": true
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.delivery_channel }}",
                     "rightValue": "whatsapp",
-                    "operator": { "type": "string", "operation": "equals" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -73,12 +92,17 @@
             },
             {
               "conditions": {
-                "options": { "caseSensitive": true },
+                "options": {
+                  "caseSensitive": true
+                },
                 "conditions": [
                   {
                     "leftValue": "={{ $json.delivery_channel }}",
                     "rightValue": "both",
-                    "operator": { "type": "string", "operation": "equals" }
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
                   }
                 ],
                 "combinator": "and"
@@ -94,7 +118,10 @@
       "name": "Routing per Canale",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [860, 500]
+      "position": [
+        860,
+        500
+      ]
     },
     {
       "parameters": {
@@ -112,7 +139,10 @@
       "name": "Email → Solo Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1100, 340]
+      "position": [
+        1100,
+        340
+      ]
     },
     {
       "parameters": {
@@ -128,7 +158,10 @@
       "name": "WhatsApp Twilio → Solo WA",
       "type": "n8n-nodes-base.twilio",
       "typeVersion": 1,
-      "position": [1100, 540],
+      "position": [
+        1100,
+        540
+      ],
       "continueOnFail": true,
       "notes": "Richiede credenziali Twilio con WhatsApp Business abilitato"
     },
@@ -147,7 +180,10 @@
       "name": "Email → Canale Both",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1100, 700]
+      "position": [
+        1100,
+        700
+      ]
     },
     {
       "parameters": {
@@ -163,7 +199,10 @@
       "name": "WhatsApp Twilio → Canale Both",
       "type": "n8n-nodes-base.twilio",
       "typeVersion": 1,
-      "position": [1300, 700],
+      "position": [
+        1300,
+        700
+      ],
       "continueOnFail": true
     },
     {
@@ -174,7 +213,10 @@
       "name": "Build Email HTML",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [860, 260],
+      "position": [
+        860,
+        260
+      ],
       "notes": "Genera HTML email riutilizzabile da tutti i branch email"
     },
     {
@@ -210,7 +252,10 @@
       "name": "Aggiorna Stato Progetto → Firestore",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1520, 500],
+      "position": [
+        1520,
+        500
+      ],
       "continueOnFail": false,
       "notes": "CRITICO: aggiorna status='quote_sent' su Firestore via backend. Retry 3x con backoff 2s."
     },
@@ -222,7 +267,10 @@
       "name": "Prepara Audit Log",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1740, 500]
+      "position": [
+        1740,
+        500
+      ]
     },
     {
       "parameters": {
@@ -257,7 +305,10 @@
       "name": "POST Audit Log → Backend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1960, 500],
+      "position": [
+        1960,
+        500
+      ],
       "continueOnFail": true
     },
     {
@@ -272,7 +323,10 @@
       "name": "Risposta 200 OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2180, 500]
+      "position": [
+        2180,
+        500
+      ]
     },
     {
       "parameters": {
@@ -286,7 +340,10 @@
       "name": "Risposta 422 Validation Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [640, 700]
+      "position": [
+        640,
+        700
+      ]
     },
     {
       "parameters": {
@@ -300,77 +357,174 @@
       "name": "Risposta 401 Unauthorized",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [420, 700]
+      "position": [
+        420,
+        700
+      ]
     }
   ],
   "connections": {
     "Webhook Trigger": {
       "main": [
-        [{ "node": "Valida Firma HMAC", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Valida Firma HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Valida Firma HMAC": {
       "main": [
-        [{ "node": "Valida & Normalizza Payload", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Valida & Normalizza Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ],
       "error": [
-        [{ "node": "Risposta 401 Unauthorized", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Risposta 401 Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Valida & Normalizza Payload": {
       "main": [
         [
-          { "node": "Build Email HTML", "type": "main", "index": 0 },
-          { "node": "Routing per Canale", "type": "main", "index": 0 }
+          {
+            "node": "Build Email HTML",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Routing per Canale",
+            "type": "main",
+            "index": 0
+          }
         ]
       ],
       "error": [
-        [{ "node": "Risposta 422 Validation Error", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Risposta 422 Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Build Email HTML": {
-      "main": [[]]
+      "main": [
+        []
+      ]
     },
     "Routing per Canale": {
       "main": [
-        [{ "node": "Email → Solo Email", "type": "main", "index": 0 }],
-        [{ "node": "WhatsApp Twilio → Solo WA", "type": "main", "index": 0 }],
-        [{ "node": "Email → Canale Both", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Email → Solo Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp Twilio → Solo WA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email → Canale Both",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Email → Solo Email": {
       "main": [
-        [{ "node": "Aggiorna Stato Progetto → Firestore", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Aggiorna Stato Progetto → Firestore",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "WhatsApp Twilio → Solo WA": {
       "main": [
-        [{ "node": "Aggiorna Stato Progetto → Firestore", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Aggiorna Stato Progetto → Firestore",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Email → Canale Both": {
       "main": [
-        [{ "node": "WhatsApp Twilio → Canale Both", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "WhatsApp Twilio → Canale Both",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "WhatsApp Twilio → Canale Both": {
       "main": [
-        [{ "node": "Aggiorna Stato Progetto → Firestore", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Aggiorna Stato Progetto → Firestore",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Aggiorna Stato Progetto → Firestore": {
       "main": [
-        [{ "node": "Prepara Audit Log", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Prepara Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepara Audit Log": {
       "main": [
-        [{ "node": "POST Audit Log → Backend", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "POST Audit Log → Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "POST Audit Log → Backend": {
       "main": [
-        [{ "node": "Risposta 200 OK", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Risposta 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -382,7 +536,14 @@
     "timezone": "Europe/Rome"
   },
   "staticData": null,
-  "tags": ["syd", "quote", "deliver", "client", "v2", "enterprise"],
+  "tags": [
+    "syd",
+    "quote",
+    "deliver",
+    "client",
+    "v2",
+    "enterprise"
+  ],
   "meta": {
     "templateId": "syd-deliver-quote-v2",
     "instanceId": "syd-bioedilizia",

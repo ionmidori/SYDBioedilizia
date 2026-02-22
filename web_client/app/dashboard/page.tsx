@@ -8,7 +8,7 @@ import { QuickActionsRow } from '@/components/dashboard/QuickActionsRow';
 import { ProjectsCarousel } from '@/components/dashboard/ProjectsCarousel';
 import { EmptyProjectsState } from '@/components/dashboard/EmptyProjectsState';
 import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
-import { FolderKanban, FileText, Image, Plus, Upload, Receipt, Ruler } from 'lucide-react';
+import { FolderKanban, FileText, Image, Plus, Upload, Receipt, Ruler, Calculator, Wand2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -64,7 +64,7 @@ export default function DashboardPage() {
 
     return (
         <motion.div
-            className="bento-grid py-4 px-3 md:px-8 max-w-7xl mx-auto w-full pb-32 md:pb-8"
+            className="bento-grid py-4 px-3 md:px-8 max-w-7xl mx-auto w-full pb-12 md:pb-8"
             variants={sectionStagger}
             initial="hidden"
             animate="visible"
@@ -129,6 +129,32 @@ export default function DashboardPage() {
                             description: 'Gestisci i tuoi documenti',
                             icon: Upload,
                             onClick: () => router.push('/dashboard/gallery'),
+                            highlight: true
+                        },
+                        {
+                            label: 'Crea Preventivo',
+                            description: 'Genera preventivo col Cantiere AI',
+                            icon: Calculator,
+                            onClick: () => {
+                                if (recentProjects[0]) {
+                                    router.push(`/dashboard/${recentProjects[0].session_id}?intent=quote`);
+                                } else {
+                                    handleCreateProject();
+                                }
+                            },
+                            highlight: true
+                        },
+                        {
+                            label: 'Crea Rendering',
+                            description: 'Render architettonico via AI',
+                            icon: Wand2,
+                            onClick: () => {
+                                if (recentProjects[0]) {
+                                    router.push(`/dashboard/${recentProjects[0].session_id}?intent=render`);
+                                } else {
+                                    handleCreateProject();
+                                }
+                            },
                             highlight: true
                         },
                         {

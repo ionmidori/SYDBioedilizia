@@ -1,0 +1,70 @@
+version: "2"
+type: backend
+tech_stack:
+  - language: Python 3.12
+  - framework: FastAPI
+  - database: Firebase Firestore
+  - ai_orchestration: LangGraph
+  - model_provider: Google Gemini 1.5/2.0
+  - hosting: GCP Cloud Run
+features:
+  - name: Chat AI Orchestration
+    description: Streaming chat interface with multimodal support (images/videos) and automated tool calling.
+    files:
+      - main.py
+      - src/services/agent_orchestrator.py
+    endpoints:
+      - method: POST
+        path: /chat/stream
+        description: Main streaming chat endpoint
+        auth_required: true
+        response_schema:
+          "200": string (streaming)
+  - name: Project Management
+    description: CRUD operations for renovation projects and files.
+    files:
+      - src/api/projects_router.py
+      - src/db/projects.py
+    endpoints:
+      - method: GET
+        path: /api/projects
+        description: List user projects
+        auth_required: true
+      - method: POST
+        path: /api/projects
+        description: Create a new project
+        auth_required: true
+      - method: GET
+        path: /api/projects/{session_id}
+        description: Get project details
+        auth_required: true
+      - method: DELETE
+        path: /api/projects/{session_id}
+        description: Delete a project
+        auth_required: true
+  - name: Renovation Quote (HITL)
+    description: Human-in-the-loop workflow for generating and approving renovation quotes.
+    files:
+      - src/api/routes/quote_routes.py
+      - src/graph/quote_graph.py
+    endpoints:
+      - method: POST
+        path: /quote/{project_id}/start
+        description: Start quote analysis flow (Phase 1)
+        auth_required: true
+      - method: POST
+        path: /quote/{project_id}/approve
+        description: Admin decision to approve/reject quote (Phase 2)
+        auth_required: true
+      - method: GET
+        path: /quote/{project_id}
+        description: Retrieve quote details
+        auth_required: true
+  - name: Health & Utility
+    description: System monitoring and administrative endpoints.
+    endpoints:
+      - method: GET
+        path: /health
+        description: Cloud Run health check
+        auth_required: false
+known_limitations: []

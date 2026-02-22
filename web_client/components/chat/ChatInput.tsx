@@ -11,10 +11,18 @@
  *
  * @see hooks/useUpload.ts - Source of upload state
  */
-import React, { RefObject, useState, useMemo } from 'react';
+import React, { RefObject, useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Send, Paperclip, Loader2 } from 'lucide-react';
+import { Send, Paperclip, Loader2, Camera, Image, FileText } from 'lucide-react';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import type { UploadItem } from '@/types/media';
 import { FilePreviewItem } from '@/components/chat/FilePreviewItem';
@@ -62,6 +70,8 @@ export function ChatInput({
     authLoading = false,
 }: ChatInputProps) {
     const [isFocused, setIsFocused] = useState(false);
+    const [isAttachDialogOpen, setIsAttachDialogOpen] = useState(false);
+    const cameraInputRef = useRef<HTMLInputElement>(null);
 
     // Derived state
     const uploadItems = useMemo(() => Object.values(uploads), [uploads]);
@@ -110,31 +120,98 @@ export function ChatInput({
             }}
         >
             <div className="flex gap-2 items-end max-w-full">
-                {/* Attachment Button */}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(
-                        'text-luxury-text/60 hover:text-luxury-gold shrink-0 relative',
-                        'hover:bg-luxury-gold/5 transition-all w-10 h-10 sm:w-9 sm:h-9',
-                        'focus-visible:ring-2 focus-visible:ring-luxury-gold/50 rounded-full',
-                        'mb-1' // Align with Send button
-                    )}
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isLoading || isGlobalUploading || authLoading}
-                    aria-label="Allega file o immagine"
-                    asChild
-                >
-                    <motion.button whileTap={{ scale: 0.9 }}>
-                        {isGlobalUploading ? (
-                            <Loader2 className="w-5 h-5 animate-spin text-luxury-teal" />
-                        ) : (
-                            <Paperclip className="w-5 h-5" />
-                        )}
-                    </motion.button>
-                </Button>
+                {/* Attachment Selection Dialog */}
+                <Dialog open={isAttachDialogOpen} onOpenChange={setIsAttachDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn(
+                                'text-luxury-text/60 hover:text-luxury-gold shrink-0 relative',
+                                'hover:bg-luxury-gold/5 transition-all w-10 h-10 sm:w-9 sm:h-9',
+                                'focus-visible:ring-2 focus-visible:ring-luxury-gold/50 rounded-full',
+                                'mb-1' // Align with Send button
+                            )}
+                            disabled={isLoading || isGlobalUploading || authLoading}
+                            aria-label="Allega file"
+                            asChild
+                        >
+                            <motion.button whileTap={{ scale: 0.9 }}>
+                                {isGlobalUploading ? (
+                                    <Loader2 className="w-5 h-5 animate-spin text-luxury-teal" />
+                                ) : (
+                                    <Paperclip className="w-5 h-5" />
+                                )}
+                            </motion.button>
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md bg-luxury-bg/60 backdrop-blur-[48px] border border-luxury-gold/30 shadow-[0_0_60px_-15px_rgba(0,0,0,0.8)] rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden p-0 gap-0">
+                        {/* Decorative top glow */}
+                        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-luxury-gold/60 to-transparent opacity-80" />
 
-                {/* Hidden File Input */}
+                        <DialogHeader className="pt-8 pb-4 px-6 relative z-10 w-full flex flex-col items-center">
+                            <div className="w-16 h-1.5 bg-luxury-gold/20 rounded-full mb-6 md:hidden mx-auto" />
+                            <DialogTitle className="text-xl md:text-2xl font-trajan text-luxury-gold tracking-wide text-center w-full">Carica un file</DialogTitle>
+                            <DialogDescription className="text-luxury-text/50 text-center text-sm md:text-base mt-2 mx-auto w-[80%]">
+                                Scegli l&apos;origine del file da allegare al messaggio.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="grid gap-3 p-6 pt-2">
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    "h-auto py-5 justify-start px-5 bg-white-[0.02] border-luxury-gold/10",
+                                    "hover:border-luxury-gold/40 hover:bg-luxury-gold-[0.04]",
+                                    "text-luxury-text transition-all duration-500 rounded-2xl group relative overflow-hidden",
+                                    "shadow-sm hover:shadow-luxury-gold/5 hover:shadow-lg"
+                                )}
+                                onClick={() => {
+                                    setIsAttachDialogOpen(false);
+                                    setTimeout(() => cameraInputRef.current?.click(), 100);
+                                }}
+                            >
+                                {/* Hover Glow */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/5 to-luxury-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+                                <div className="p-3.5 bg-luxury-gold/10 rounded-xl mr-5 group-hover:scale-110 group-hover:bg-luxury-gold/20 transition-all duration-500 shrink-0">
+                                    <Camera className="w-6 h-6 text-luxury-gold drop-shadow-md" />
+                                </div>
+                                <div className="flex flex-col items-start relative z-10 text-left">
+                                    <span className="font-bold tracking-tight text-base mb-1">Scatta Foto o Video</span>
+                                    <span className="text-[13px] text-luxury-text/50 group-hover:text-luxury-text/70 transition-colors duration-300">Usa la fotocamera del dispositivo</span>
+                                </div>
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                className={cn(
+                                    "h-auto py-5 justify-start px-5 bg-white-[0.02] border-luxury-gold/10",
+                                    "hover:border-luxury-gold/40 hover:bg-luxury-gold-[0.04]",
+                                    "text-luxury-text transition-all duration-500 rounded-2xl group relative overflow-hidden",
+                                    "shadow-sm hover:shadow-luxury-gold/5 hover:shadow-lg"
+                                )}
+                                onClick={() => {
+                                    setIsAttachDialogOpen(false);
+                                    setTimeout(() => fileInputRef.current?.click(), 100);
+                                }}
+                            >
+                                {/* Hover Glow */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/5 to-luxury-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+                                <div className="p-3.5 bg-luxury-gold/10 rounded-xl mr-5 group-hover:scale-110 group-hover:bg-luxury-gold/20 transition-all duration-500 shrink-0">
+                                    <Image className="w-6 h-6 text-luxury-gold drop-shadow-md" />
+                                </div>
+                                <div className="flex flex-col items-start relative z-10 text-left">
+                                    <span className="font-bold tracking-tight text-base mb-1">Galleria o Documento</span>
+                                    <span className="text-[13px] text-luxury-text/50 group-hover:text-luxury-text/70 transition-colors duration-300">Sfoglia i file memorizzati</span>
+                                </div>
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Hidden File Input - Standard */}
                 <input
                     type="file"
                     ref={fileInputRef as React.RefObject<HTMLInputElement>}
@@ -142,6 +219,18 @@ export function ChatInput({
                     accept="image/*,video/mp4,video/webm,video/quicktime,video/x-m4v"
                     onChange={handleFileChange}
                     multiple
+                    aria-hidden="true"
+                    tabIndex={-1}
+                />
+
+                {/* Hidden Camera Input - Enterprise Pattern (mobile-camera-capture skill) */}
+                <input
+                    type="file"
+                    ref={cameraInputRef}
+                    className="hidden"
+                    accept="image/*,video/mp4,video/quicktime;capture=camera"
+                    capture="environment" /* Forces native camera app */
+                    onChange={handleFileChange}
                     aria-hidden="true"
                     tabIndex={-1}
                 />

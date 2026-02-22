@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useTransform, MotionValue } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -92,23 +92,49 @@ export const SUBPAGE_LABELS = ['Cantiere AI', 'Galleria', 'Settaggi'] as const;
 
 // ─── Swipe Hint Affordance ───────────────────────────────────────────────────
 
-function SwipeHints({ activeIndex, totalPanes }: { activeIndex: number; totalPanes: number }) {
-    const canGoLeft = activeIndex > 0;
+export function SwipeHints({
+    activeIndex,
+    totalPanes,
+    swipeX,
+    hasExitGesture = false
+}: {
+    activeIndex: number;
+    totalPanes: number;
+    swipeX: MotionValue<number>;
+    hasExitGesture?: boolean;
+}) {
+    const canGoLeft = activeIndex > 0 || hasExitGesture;
     const canGoRight = activeIndex < totalPanes - 1;
 
+    // Swipe Right (dx > 0) -> Reveal Left Chevron (indicating we are going to a previous pane)
+    const leftOpacity = useTransform(swipeX, [0, 80], [0, 1]);
+    const leftX = useTransform(swipeX, [0, 80], [-20, 10]);
+    const leftScale = useTransform(swipeX, [0, 80], [0.8, 1.2]);
+
+    // Swipe Left (dx < 0) -> Reveal Right Chevron (indicating we are going to a next pane)
+    const rightOpacity = useTransform(swipeX, [0, -80], [0, 1]);
+    const rightX = useTransform(swipeX, [0, -80], [20, -10]);
+    const rightScale = useTransform(swipeX, [0, -80], [0.8, 1.2]);
+
     return (
-        <>
+        <div className="absolute inset-y-0 left-0 right-0 pointer-events-none z-[110] overflow-hidden">
             {canGoLeft && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 z-10 opacity-20 pointer-events-none">
-                    <ChevronLeft className="w-6 h-6 text-luxury-gold animate-pulse" />
-                </div>
+                <motion.div
+                    className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-16 h-24 bg-gradient-to-r from-luxury-bg/90 to-transparent rounded-r-3xl drop-shadow-2xl"
+                    style={{ opacity: leftOpacity, x: leftX, scale: leftScale }}
+                >
+                    <ChevronLeft className="w-8 h-8 text-luxury-gold drop-shadow-lg" />
+                </motion.div>
             )}
             {canGoRight && (
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 z-10 opacity-20 pointer-events-none">
-                    <ChevronRight className="w-6 h-6 text-luxury-gold animate-pulse" />
-                </div>
+                <motion.div
+                    className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-16 h-24 bg-gradient-to-l from-luxury-bg/90 to-transparent rounded-l-3xl drop-shadow-2xl"
+                    style={{ opacity: rightOpacity, x: rightX, scale: rightScale }}
+                >
+                    <ChevronRight className="w-8 h-8 text-luxury-gold drop-shadow-lg" />
+                </motion.div>
             )}
-        </>
+        </div>
     );
 }
 
@@ -159,18 +185,18 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
             className="relative h-[100dvh] w-full bg-luxury-bg overflow-hidden"
             {...containerProps}
         >
-            {/* Swipe Hints (chevrons on edges) */}
-            <SwipeHints activeIndex={activeIndex} totalPanes={PANES.length} />
+            {/* High-fidelity M3 Edge Swipe Indicators */}
+            <SwipeHints activeIndex={activeIndex} totalPanes={PANES.length} swipeX={swipeX} />
 
-            {/* Main Dashboard Content — uses MotionValue for zero-rerender drag */}
-            <motion.div
-                className="absolute inset-0 z-0 h-full w-full"
-                style={{ x: swipeX }}
-            >
-                <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-luxury-bg">
+            {/* Main Application Container — Fixed structural wrapper.
+                Physical translation via 'style={{ x: swipeX }}' was removed because
+                it generated a new containing block and deformed the fixed AppSidebar layout.
+                Navigation is now handled purely functionally + native AnimatePresence. */}
+            <div className="absolute inset-0 z-0 h-full w-full bg-luxury-bg">
+                <div className="h-full w-full overflow-hidden bg-luxury-bg">
                     {children}
                 </div>
-            </motion.div>
+            </div>
         </div>
     );
 }

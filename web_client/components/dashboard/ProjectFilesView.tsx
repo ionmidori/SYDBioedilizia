@@ -68,9 +68,11 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
             setAssets(prev => {
                 const uniqueAssets = [...prev];
                 const filtered = uniqueAssets.filter(a => !uploadedFiles.some((u: MediaAsset) => u.id === a.id));
-                return [...uploadedFiles, ...filtered].sort((a, b) =>
-                    b.createdAt.getTime() - a.createdAt.getTime()
-                );
+                return [...uploadedFiles, ...filtered].sort((a: any, b: any) => {
+                    const timeA = a.createdAt?.getTime ? a.createdAt.getTime() : new Date(a.timestamp).getTime();
+                    const timeB = b.createdAt?.getTime ? b.createdAt.getTime() : new Date(b.timestamp).getTime();
+                    return timeB - timeA;
+                });
             });
         });
 

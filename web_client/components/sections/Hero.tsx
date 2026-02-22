@@ -41,10 +41,11 @@ function HeroVideo({ className = '', isMobile = false }: { className?: string; i
             <div className="aspect-[4/3] md:aspect-video relative">
                 <video
                     ref={videoRef}
-                    src="/videos/ai-interior-design.mp4"
                     autoPlay
                     muted
                     playsInline
+                    preload="auto"
+                    crossOrigin="anonymous"
                     onEnded={(e) => {
                         if (loopCountRef.current < 1) {
                             e.currentTarget.play();
@@ -52,7 +53,9 @@ function HeroVideo({ className = '', isMobile = false }: { className?: string; i
                         }
                     }}
                     className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 opacity-90 group-hover:opacity-100"
-                />
+                >
+                    <source src="/videos/ai-interior-design.mp4" type="video/mp4" />
+                </video>
 
                 <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg/40 via-transparent to-transparent pointer-events-none" />
 

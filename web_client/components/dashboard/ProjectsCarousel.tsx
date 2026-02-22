@@ -43,9 +43,13 @@ export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsC
             <div
                 data-no-swipe
                 aria-label="Progetti recenti"
-                onTouchStart={(e) => e.stopPropagation()}
-                onTouchMove={(e) => e.stopPropagation()}
-                className="pb-6 -mx-3 px-3 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-hide w-full"
+                ref={(el) => {
+                    if (el) {
+                        el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+                        el.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
+                    }
+                }}
+                className="pb-6 px-1 snap-x snap-mandatory scrollbar-hide w-full"
                 style={{
                     display: 'flex',
                     overflowX: 'auto',
@@ -53,6 +57,8 @@ export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsC
                     touchAction: 'pan-x',
                     WebkitOverflowScrolling: 'touch',
                     overscrollBehaviorX: 'contain',
+                    transform: 'translateZ(0)',
+                    willChange: 'transform'
                 }}
             >
                 {projects.map((project, index) => (

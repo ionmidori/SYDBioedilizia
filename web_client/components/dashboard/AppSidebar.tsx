@@ -217,7 +217,10 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
         if (!isMobile && !open) {
             toggleSidebar()
         }
-    }, [isMobile, open, toggleSidebar])
+        if (isMobile) {
+            setOpenMobile(false)
+        }
+    }, [isMobile, open, toggleSidebar, setOpenMobile])
 
     const handleNavClick = React.useCallback(() => {
         if (isMobile) {

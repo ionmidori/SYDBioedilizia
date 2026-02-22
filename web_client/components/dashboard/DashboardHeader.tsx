@@ -29,7 +29,7 @@ export function DashboardHeader() {
             <div className="h-14 flex items-center justify-between">
                 {/* Left: SYD Logo */}
                 <div className="flex-shrink-0">
-                    <Link href="/dashboard" className="block active:opacity-80 transition-opacity">
+                    <Link href="/" className="block active:opacity-80 transition-opacity">
                         <SydLogo className="h-6 w-auto scale-[0.85] sm:scale-100 origin-left" showSubtitle={false} />
                     </Link>
                 </div>

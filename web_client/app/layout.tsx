@@ -32,9 +32,49 @@ const lato = Lato({
 });
 
 export const metadata: Metadata = {
-  title: "SYD BIOEDILIZIA - Il Futuro della Ristrutturazione",
-  description: "Trasforma la tua casa con il potere dell'Intelligenza Artificiale. Design premium, esecuzione impeccabile.",
+  metadataBase: new URL("https://sybioedilizia.vercel.app"),
+  title: {
+    template: "%s | SYD BIOEDILIZIA",
+    default: "SYD BIOEDILIZIA - Il Futuro della Ristrutturazione Premium AI",
+  },
+  description: "Trasforma la tua casa con il potere dell'Intelligenza Artificiale. Design premium, ristrutturazioni chiavi in mano ed esecuzione impeccabile.",
+  alternates: {
+    canonical: "/",
+  },
   manifest: "/manifest.json",
+  openGraph: {
+    title: "SYD BIOEDILIZIA - Il Futuro della Ristrutturazione",
+    description: "Design premium ed esecuzione impeccabile guidata dall'IA.",
+    url: "https://sybioedilizia.vercel.app",
+    siteName: "SYD BIOEDILIZIA",
+    locale: "it_IT",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "SYD BIOEDILIZIA - Ristrutturazione di Lusso con AI",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SYD BIOEDILIZIA - Ristrutturazione AI",
+    description: "Trasforma la tua casa con il potere dell'Intelligenza Artificiale.",
+    images: ["/og-image.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export const viewport = {
@@ -56,7 +96,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it" className="scroll-smooth" suppressHydrationWarning>
+    <html lang="it" className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
         className={`${outfit.variable} ${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
         suppressHydrationWarning
