@@ -21,7 +21,8 @@ class TestNotifyAdminWrapper:
     @pytest.mark.asyncio
     async def test_notify_admin_soft_skip_if_webhook_not_configured(self, monkeypatch):
         """Webhook not configured (None) → returns skipped message, no error."""
-        monkeypatch.setenv("N8N_WEBHOOK_NOTIFY_ADMIN", "")
+        from src.core.config import settings
+        monkeypatch.setattr(settings, "N8N_WEBHOOK_NOTIFY_ADMIN", "")
 
         from src.tools.n8n_mcp_tools import notify_admin_wrapper
 
@@ -85,7 +86,8 @@ class TestDeliverQuoteWrapper:
     @pytest.mark.asyncio
     async def test_deliver_quote_soft_skip_if_webhook_not_configured(self, monkeypatch):
         """Webhook not configured → returns skipped message, no error."""
-        monkeypatch.setenv("N8N_WEBHOOK_DELIVER_QUOTE", "")
+        from src.core.config import settings
+        monkeypatch.setattr(settings, "N8N_WEBHOOK_DELIVER_QUOTE", "")
 
         from src.tools.n8n_mcp_tools import deliver_quote_wrapper
 
@@ -126,17 +128,17 @@ class TestDeliverQuoteWrapper:
 
         call_count = [0]
 
-        async def side_effect(*args, **kwargs):
-            call_count[0] += 1
-            if call_count[0] < 3:
-                raise httpx.TimeoutException("Timeout")
-            return {"status": "success"}
-
         with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
-            mock_response.json = AsyncMock(return_value={"status": "success"})
-            mock_response.raise_for_status = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"status": "success"}
+            mock_response.raise_for_status.return_value = None
+
+            async def side_effect(*args, **kwargs):
+                call_count[0] += 1
+                if call_count[0] < 3:
+                    raise httpx.TimeoutException("Timeout")
+                return mock_response
 
             mock_client.post = AsyncMock(side_effect=side_effect)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -213,9 +215,9 @@ class TestCallN8nWebhook:
 
         with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
-            mock_response.json = AsyncMock(return_value={"status": "success", "id": 123})
-            mock_response.raise_for_status = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.json.return_value = {"status": "success", "id": 123}
+            mock_response.raise_for_status.return_value = None
 
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -238,9 +240,9 @@ class TestCallN8nWebhook:
 
         with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
-            mock_response.json = AsyncMock(return_value={})
-            mock_response.raise_for_status = AsyncMock()
+            mock_response = MagicMock()
+            mock_response.json.return_value = {}
+            mock_response.raise_for_status.return_value = None
 
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -266,8 +268,8 @@ class TestCallN8nWebhook:
 
         with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
-            mock_response.raise_for_status = AsyncMock(side_effect=httpx.HTTPStatusError("400 Bad Request", request=None, response=None))
+            mock_response = MagicMock()
+            mock_response.raise_for_status.side_effect = httpx.HTTPStatusError("400 Bad Request", request=None, response=None)
 
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
@@ -288,10 +290,10 @@ class TestCallN8nWebhook:
 
         with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            mock_response = AsyncMock()
+            mock_response = MagicMock()
             mock_response.content = b""
-            mock_response.json = AsyncMock(side_effect=ValueError("No JSON"))
-            mock_response.raise_for_status = AsyncMock()
+            mock_response.json.side_effect = ValueError("No JSON")
+            mock_response.raise_for_status.return_value = None
 
             mock_client.post = AsyncMock(return_value=mock_response)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)

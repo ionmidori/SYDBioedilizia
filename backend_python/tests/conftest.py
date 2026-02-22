@@ -150,10 +150,11 @@ def mock_quote_state():
 
 @pytest.fixture
 def mock_n8n_webhook_urls(monkeypatch):
-    """Setup n8n webhook URLs for testing."""
-    monkeypatch.setenv("N8N_WEBHOOK_NOTIFY_ADMIN", "https://n8n.example.com/webhook/notify-admin")
-    monkeypatch.setenv("N8N_WEBHOOK_DELIVER_QUOTE", "https://n8n.example.com/webhook/deliver-quote")
-    monkeypatch.setenv("N8N_API_KEY", "test-n8n-api-key")
+    """Setup n8n webhook URLs for testing by patching settings object."""
+    from src.core.config import settings
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_NOTIFY_ADMIN", "https://n8n.example.com/webhook/notify-admin")
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_DELIVER_QUOTE", "https://n8n.example.com/webhook/deliver-quote")
+    monkeypatch.setattr(settings, "N8N_API_KEY", "test-n8n-api-key")
     return {
         "notify_admin": "https://n8n.example.com/webhook/notify-admin",
         "deliver_quote": "https://n8n.example.com/webhook/deliver-quote",
@@ -213,10 +214,15 @@ def mock_n8n_delivery():
 def mock_firestore_update():
     """Mock Firestore update for testing admin approval pipeline."""
     with patch("src.services.admin_service.get_async_firestore_client") as mock_fs:
-        mock_client = AsyncMock()
+        # get_async_firestore_client is async, so its mock must be awaited
+        mock_client = MagicMock()
         mock_doc = AsyncMock()
-        mock_client.collection.return_value.document.return_value = mock_doc
-        mock_fs.return_value = mock_client
+        
+        # Sync ref chain
+        mock_client.collection.return_value.document.return_value.collection.return_value.document.return_value = mock_doc
+        
+        # Async return value for the function itself
+        mock_fs.side_effect = AsyncMock(return_value=mock_client)
         yield mock_fs
 
 
@@ -225,12 +231,19 @@ def mock_httpx_async_client():
     """Mock httpx.AsyncClient for testing n8n delivery with retries."""
     with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.json = AsyncMock(return_value={"status": "success"})
+        mock_response = MagicMock()
+        
+        # Mock sync methods
+        mock_response.json.return_value = {"status": "success"}
+        mock_response.raise_for_status.return_value = None
         mock_response.status_code = 200
+        mock_response.content = b'{"status": "success"}'
 
+        # Mock async context manager
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
+        
+        # Mock async post
         mock_client.post = AsyncMock(return_value=mock_response)
 
         mock_client_class.return_value = mock_client

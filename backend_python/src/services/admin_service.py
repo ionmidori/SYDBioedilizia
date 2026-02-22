@@ -57,8 +57,8 @@ class AdminService:
         except Exception as exc:
             logger.error("PDF generation failed.", extra={"project_id": project_id})
             raise PDFGenerationError(
-                f"PDF generation failed: {exc}",
-                error_code="PDF_GEN_ERROR",
+                project_id=project_id,
+                reason=str(exc),
             ) from exc
 
         # Step 2: Upload to Firebase Storage
