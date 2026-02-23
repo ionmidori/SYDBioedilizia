@@ -1,8 +1,19 @@
 - **Last Updated**: 2026-02-23
-- **Current Version**: `v3.5.09` (Infra Optimization & Vertex AI Design)
+- **Current Version**: `v3.5.10` (Mobile UX & Backend Warmup)
 - **Last Major Sync**: 2026-02-23
-- **Status**: `Active Development - Cloud Infrastructure`
+- **Status**: `Active Development - Mobile Experience`
 - **Next High Priority**: 1) Vertex AI Agent Playbooks | 2) Domain Migration
+
+- **Video Strategy & Roadmap (v3.5.10)**:
+    - **Research**: Completed technical audit of video compression patterns. Recommended **Google Cloud Transcoder API** for cost-effective (pay-as-you-go) backend optimization.
+    - **Documentation**: Consolidated `docs/FUTURE_IDEAS.md` as the source of truth for long-term technical evolution, purging redundant/implemented tasks.
+    - **Sync**: Verified baseline implementation of Backend Warmup and AI SEO strategies.
+- **Mobile UX & Backend Warmup (v3.5.10)**:
+    - **Camera Capture**: Separated photo/video/gallery into 3 distinct dialog options with dedicated file inputs. Fixed `accept` attributes for iOS/Android reliability.
+    - **Security**: Restricted video formats to backend-validated set (mp4, quicktime, x-msvideo), added max 3 file selection limit, fixed event closure in handleFocus.
+    - **Backend Warmup**: Implemented invisible `BackendWarmup.tsx` component that pings `/health` once per session (sessionStorage flag) with 5s AbortController timeout.
+    - **Testing**: All 15 tests passing (11 ChatInput + 4 BackendWarmup), 0 type-check errors.
+    - **Commit**: `6db95c8` — feat(mobile-ux): camera capture & backend warmup improvements
 
 - **Infra Optimization & Vertex AI Design (v3.5.09)**:
     - **Artifact Registry**: Implemented automated cleanup policies (14-day retention/10 versions) and optimized Dockerfile caching to mitigate rising storage costs.
@@ -67,4 +78,29 @@ Per la cronologia dettagliata delle fasi precedenti (Phase 1 - Phase 36), consul
 [HISTORICAL_MILESTONES.md](file:///c:/Users/User01/.gemini/antigravity/scratch/renovation-next/directives/HISTORICAL_MILESTONES.md)
 
 ---
+---
+
+## 🎯 Phase 35 Summary (2026-02-23)
+
+**Mobile Experience + Performance Optimization**
+
+### Camera/Gallery Capture Redesign
+- **Problem**: Single file input with `capture="environment"` + combined `accept` didn't reliably trigger camera vs. gallery on iOS/Android
+- **Solution**: 3 dedicated inputs with clear user intent
+  - "Scatta Foto" → `accept="image/*"` + `capture="environment"`
+  - "Registra Video" → `accept="video/mp4,video/quicktime,video/x-msvideo"` + `capture="environment"`
+  - "Galleria o Documento" → full accept, no capture
+- **Security**: Video format restriction prevents unsupported codec uploads; 3-file limit prevents DoS
+
+### Backend Instance Pre-warming
+- **Goal**: Reduce Cold Start latency for first chat interaction
+- **Pattern**: Invisible component fires single `GET /health` on page load
+- **Guards**: sessionStorage flag (1 ping/tab), AbortController 5s timeout, fire-and-forget error handling
+- **Why Not fetchWithAuth**: `/health` is public (no auth overhead needed)
+
+### Verification
+✅ Type-check: 0 errors
+✅ Tests: 15/15 passing
+✅ Commit: 6db95c8 (single atomic change)
+
 _Documento aggiornato: Febbraio 23, 2026_
