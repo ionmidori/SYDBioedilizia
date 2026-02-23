@@ -208,13 +208,13 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **QA Skill Creation**: Creata la skill `testsprite-automated-qa` per formalizzare i pattern di test e prevenire regressioni architettoniche.
 - **Status**: Backend QA-Ready (v2.9.30).
 
-## � Phase 29: Mobile Capture & Security Audit (Feb-21-2026)
+##  Phase 29: Mobile Capture & Security Audit (Feb-21-2026)
 *Implementazione della cattura multimediale nativa e rafforzamento della sicurezza.*
 - **Mobile Capture**: Integrazione della skill `mobile-camera-capture`. Supporto nativo per foto/video in Chat e Dashboard.
 - **Security Audit**: Hardening del workflow n8n (fix HMAC fail-open) e analisi privacy per la cattura mobile.
 - **Enterprise UX**: Prime applicazioni della skill `enterprise-user-dashboard-ux` (Bento/Glassmorphism).
 
-## �📰 Fase 30: Blog Modernization & SEO/GEO Optimization (Feb-21-2026)
+## 📰 Fase 30: Blog Modernization & SEO/GEO Optimization (Feb-21-2026)
 *Refactoring completo del blog con approccio "Image-First" e ottimizzazione per i motori di ricerca generativi (GEO).*
 - **Blog Index Overhaul**: Implementazione di un layout a schede (grid) con immagini di alta qualità pertinenti al mondo delle ristrutturazioni d'interni e bioedilizia.
 - **SEO & GEO Compliance**: Iniezione di dati strutturati JSON-LD (`Blog`, `BlogPosting`) per favorire l'indicizzazione da parte di LLM e motori tradizionali.
@@ -278,8 +278,14 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **M3 Expressive Login**: Redesign completo di `AuthDialog.tsx` con forme asimmetriche, fisica elastica (framer-motion) e Notch UI.
 - **Passkey UX Polish**: Aggiornamento `PasskeyButton.tsx` con supporto Luxury Gold e feedback di caricamento migliorato.
 - **Chat Toggle Ergo**: Aumentato target touch a 158px e risolto bug di rendering sfocato tramite isolamento del layer GPU.
-- **CI Cost Control**: Disabilitazione dei test Vision API live nella pipeline GitHub Actions (risparmio stima ~90%).
+- **CI & AR Cost Control**: Disabilitazione test Vision API live in CI e attivazione policy di cleanup su Artifact Registry (14gg/10 versioni).
 - **Versioning**: `v3.5.13`
 
----
+## 📚 Phase 38: Architecture & Documentation Solidification (Feb-23-2026)
+*Consolidamento della documentazione architettonica e pianificazione Mascot Dinamica.*
+- **Documentation Overhaul**: Aggiornamento completo dei report architettonici (`backend_architecture_report.md`, `CHATBOT_ARCHITECTURE.md`, `ADMIN_CONSOLE_PRICING_ENGINE.md`) per riflettere lo stato di produzione v3.5.
+- **Mascot Strategy**: Definizione del piano "Layered Puppet" per il Robot Dinamico (`docs/PLANS/dynamic_mascot_implementation.md`).
+- **Code Hygiene**: Rimozione di endpoint morti (`/api/magic-link/verify`) e verifica della conformità Type Safety nel frontend.
+- **Status**: Production-Ready (v3.5.14).
+
 _Documento aggiornato: Febbraio 23, 2026_
