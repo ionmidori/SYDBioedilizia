@@ -47,14 +47,6 @@ function VerifyContent() {
             setStatus("loading");
             await completeMagicLink(emailLink, email);
 
-            // Log analytics
-            const { fetchWithAuth } = await import('@/lib/api-client');
-            await fetchWithAuth("/api/magic-link/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email })
-            });
-
             setStatus("success");
 
             // Redirect after 2 seconds

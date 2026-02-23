@@ -260,5 +260,26 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **CI/CD Stabilization**: Risolto fallimento Cloud Run correggendo il `.dockerignore` per permettere `uv sync`.
 - **Git Hygiene**: Pulizia rami remoti obsoleti, mantenendo solo `main` come source of truth.
 
+## 💰 Phase 36: Cost Optimization - Live API Tests (Feb-23-2026)
+*Eliminazione della spesa inutile nei test di integrazione CI.*
+- **Root Cause**: `test_imagen_isolation.py` (no markers) e `integration/test_vision_live.py` (already marked) eseguivano automaticamente a ogni push su GitHub, consumando quota Gemini Vision API.
+- **Fix Applied**:
+  - `.github/workflows/backend-tests.yml` → Aggiunto `-m "not integration"` al comando pytest (riga 54)
+  - `backend_python/tests/test_imagen_isolation.py` → Rinominato in `verify_imagen_isolation.py` per evitare auto-collection pytest
+- **Result**:
+  - ✅ Live API tests esclusi dalla pipeline CI
+  - ✅ Test unitari non marcati rimangono eseguiti normalmente
+  - ✅ Esecuzione manuale ancora possibile per verifica locale
+  - ✅ Stima risparmio: ~90% dei consumi Gemini Vision API in CI
+- **Versioning**: `v3.5.13`
+
+## 🏗️ Phase 37: M3 Expressive Redesign & Cost Stabilization (Feb-23-2026)
+*Implementazione dello stile "Luxury Tech" e ottimizzazione dei consumi API.*
+- **M3 Expressive Login**: Redesign completo di `AuthDialog.tsx` con forme asimmetriche, fisica elastica (framer-motion) e Notch UI.
+- **Passkey UX Polish**: Aggiornamento `PasskeyButton.tsx` con supporto Luxury Gold e feedback di caricamento migliorato.
+- **Chat Toggle Ergo**: Aumentato target touch a 158px e risolto bug di rendering sfocato tramite isolamento del layer GPU.
+- **CI Cost Control**: Disabilitazione dei test Vision API live nella pipeline GitHub Actions (risparmio stima ~90%).
+- **Versioning**: `v3.5.13`
+
 ---
-_Documento aggiornato: Febbraio 22, 2026_
+_Documento aggiornato: Febbraio 23, 2026_

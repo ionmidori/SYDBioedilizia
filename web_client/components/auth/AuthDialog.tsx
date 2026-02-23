@@ -3,14 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
-    DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProviderButton } from './ProviderButton';
 import { EmailAuthForm } from './EmailAuthForm';
 import { MagicLinkForm } from './MagicLinkForm';
@@ -18,12 +16,13 @@ import { PasskeyButton } from './PasskeyButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useSessionId } from '@/hooks/useSessionId';
 import { projectsApi } from '@/lib/projects-api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AuthDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    redirectOnLogin?: boolean; // 🔥 NEW PROP
+    redirectOnLogin?: boolean;
 }
 
 export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthDialogProps) {
@@ -31,22 +30,15 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
     const sessionId = useSessionId();
     const router = useRouter();
 
-    /**
-     * Safety Valve: Auto-close and redirect if user is already authenticated
-     * This handles edge cases where the dialog stays open after successful login
-     */
     useEffect(() => {
         if (open && user && !user.isAnonymous) {
             console.log('[AuthDialog] Closing for authenticated user');
-
-            // Debounce per evitare loop se navigation fallisce
             const timer = setTimeout(() => {
                 onOpenChange(false);
                 if (redirectOnLogin) {
                     router.push('/dashboard');
                 }
             }, 100);
-
             return () => clearTimeout(timer);
         }
     }, [open, user, onOpenChange, router, redirectOnLogin]);
@@ -55,26 +47,14 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
     const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
     const [claimStatus, setClaimStatus] = useState<string | null>(null);
 
-    /**
-     * Handles post-login logic: claim session and redirect.
-     * It attempts to "claim" the current guest session for the new user.
-     */
     const handleLoginSuccess = async () => {
         setClaimStatus('Finalizzazione...');
-
-        // Close dialog FIRST to prevent state persistence across navigation
         onOpenChange(false);
-
         try {
-            // 1. Attempt to claim the current project/session
             if (sessionId) {
-                console.log('[AuthDialog] Attempting to claim session:', sessionId);
                 await projectsApi.claimProject(sessionId);
-                console.log('[AuthDialog] Session claimed successfully.');
             }
         } catch (error) {
-            // Non-blocking error: If claiming fails (e.g., already claimed), just log it.
-            // The user is still logged in, so we proceed to dashboard.
             console.warn('[AuthDialog] Claim failed (non-fatal):', error);
         } finally {
             setClaimStatus(null);
@@ -87,13 +67,10 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
     const handleGoogleSignIn = async () => {
         if (loading) return;
         setLoading('google');
-
         try {
             await loginWithGoogle();
-            // Proceed to claim logic
             await handleLoginSuccess();
         } catch (error) {
-            console.error('Google sign-in error:', error);
             const err = error as { code?: string };
             if (err.code !== 'auth/popup-closed-by-user') {
                 alert('Errore durante il login con Google. Riprova.');
@@ -106,13 +83,10 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
     const handleAppleSignIn = async () => {
         if (loading) return;
         setLoading('apple');
-
         try {
             await loginWithApple();
-            // Proceed to claim logic
             await handleLoginSuccess();
         } catch (error) {
-            console.error('Apple sign-in error:', error);
             const err = error as { code?: string };
             if (err.code !== 'auth/popup-closed-by-user') {
                 alert('Errore durante il login con Apple. Riprova.');
@@ -122,97 +96,158 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
         }
     };
 
+    const tabs = [
+        { id: 'social', label: 'Social' },
+        { id: 'magic', label: 'Magic Link' },
+        { id: 'email', label: 'Email' },
+    ] as const;
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800">
-                <DialogHeader>
-                    <DialogTitle className="text-2xl font-bold text-white text-center">
-                        Benvenuto in SYD
-                    </DialogTitle>
-                    <DialogDescription className="text-slate-400 text-center">
-                        Accedi per salvare le tue conversazioni e accedere a tutte le funzionalità
-                    </DialogDescription>
-                </DialogHeader>
+            <DialogContent className={cn(
+                "sm:max-w-md p-0 overflow-hidden border-white/10 bg-slate-900/80 backdrop-blur-xl",
+                "rounded-tl-[32px] rounded-tr-[12px] rounded-bl-[12px] rounded-br-[32px]", // Organic M3 Shape
+                "shadow-2xl shadow-black/50",
+                "[&>button]:hidden" // Hide default close button
+            )}>
+                {/* Contextual Background Glow */}
+                <div className="absolute inset-0 bg-gradient-to-br from-luxury-gold/5 via-transparent to-blue-500/5 pointer-events-none" />
 
-                {claimStatus ? (
-                    <div className="py-12 flex flex-col items-center justify-center space-y-4">
-                        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                        <p className="text-slate-400">{claimStatus}</p>
+                {/* Draggable Notch / Close Pill */}
+                <div className="absolute top-0 left-0 w-full flex justify-center pt-3 pb-1 z-50">
+                    <button 
+                        onClick={() => onOpenChange(false)}
+                        className="w-12 h-1.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors cursor-pointer active:scale-95"
+                        aria-label="Chiudi"
+                    />
+                </div>
+
+                <div className="relative z-10 p-6 pt-10">
+                    <div className="text-center mb-8">
+                        <DialogTitle className="text-3xl md:text-4xl font-trajan text-white mb-2 drop-shadow-md">
+                            Benvenuto in SYD
+                        </DialogTitle>
+                        <p className="text-slate-400 font-sans text-sm tracking-wide">
+                            Accedi all'ecosistema premium
+                        </p>
                     </div>
-                ) : (
-                    <Tabs value={activeTab} onValueChange={(v: string) => setActiveTab(v as 'social' | 'magic' | 'email')} className="mt-4">
-                        <TabsList className="grid w-full grid-cols-3 bg-slate-800/50">
-                            <TabsTrigger value="social" className="data-[state=active]:bg-slate-700">
-                                Social
-                            </TabsTrigger>
-                            <TabsTrigger value="magic" className="data-[state=active]:bg-slate-700">
-                                Magic Link
-                            </TabsTrigger>
-                            <TabsTrigger value="email" className="data-[state=active]:bg-slate-700">
-                                Email
-                            </TabsTrigger>
-                        </TabsList>
 
-                        <TabsContent value="social" className="space-y-3 mt-6">
-                            {/* Passkey (Biometric) Button - Premium Option */}
-                            <PasskeyButton mode="login" onSuccess={handleLoginSuccess} />
-
-                            <div className="relative my-4">
-                                <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-slate-700"></div>
-                                </div>
-                                <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-slate-900 px-2 text-slate-500">Oppure</span>
-                                </div>
+                    {claimStatus ? (
+                        <div className="py-12 flex flex-col items-center justify-center space-y-4">
+                            <Loader2 className="w-8 h-8 text-luxury-gold animate-spin" />
+                            <p className="text-slate-300 font-medium">{claimStatus}</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {/* M3 Segmented Control */}
+                            <div className="bg-black/20 p-1 rounded-xl flex relative">
+                                {tabs.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={cn(
+                                            "flex-1 relative py-2.5 text-xs font-medium tracking-wide z-10 transition-colors duration-200",
+                                            activeTab === tab.id ? "text-white" : "text-slate-400 hover:text-slate-300"
+                                        )}
+                                    >
+                                        {activeTab === tab.id && (
+                                            <motion.div
+                                                layoutId="activeTab"
+                                                className="absolute inset-0 bg-white/10 rounded-lg shadow-sm border border-white/5"
+                                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                            />
+                                        )}
+                                        {tab.label}
+                                    </button>
+                                ))}
                             </div>
 
-                            <ProviderButton
-                                provider="google"
-                                onClick={handleGoogleSignIn}
-                                loading={loading === 'google'}
-                                disabled={loading !== null}
-                            />
-                            <ProviderButton
-                                provider="apple"
-                                onClick={handleAppleSignIn}
-                                loading={loading === 'apple'}
-                                disabled={loading !== null}
-                            />
+                            <div className="min-h-[300px]">
+                                <AnimatePresence mode="wait">
+                                    <motion.div
+                                        key={activeTab}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        transition={{ type: "spring", stiffness: 120, damping: 12 }} // Elastic Physics
+                                    >
+                                        {activeTab === 'social' && (
+                                            <div className="space-y-4">
+                                                {/* Luxury Biometric Button */}
+                                                <div className="relative group">
+                                                    <div className="absolute -inset-0.5 bg-gradient-to-r from-[#C9A84C] via-[#E6C97F] to-[#C9A84C] rounded-xl opacity-75 blur group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-tilt"></div>
+                                                    <div className="relative">
+                                                        <PasskeyButton mode="login" onSuccess={handleLoginSuccess} />
+                                                    </div>
+                                                </div>
 
-                            <div className="relative my-6">
-                                <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-slate-700"></div>
-                                </div>
-                                <div className="relative flex justify-center text-xs uppercase">
-                                    <span className="bg-slate-900 px-2 text-slate-500">Oppure</span>
-                                </div>
+                                                <div className="relative my-6">
+                                                    <div className="absolute inset-0 flex items-center">
+                                                        <div className="w-full border-t border-white/10"></div>
+                                                    </div>
+                                                    <div className="relative flex justify-center text-[10px] tracking-[0.2em] font-medium text-slate-500 uppercase">
+                                                        <span className="bg-slate-900/50 backdrop-blur-md px-2">Oppure</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid gap-3">
+                                                    <ProviderButton
+                                                        provider="google"
+                                                        onClick={handleGoogleSignIn}
+                                                        loading={loading === 'google'}
+                                                        disabled={loading !== null}
+                                                        className="h-14 bg-slate-800/50 border-white/5 hover:bg-slate-800 text-white hover:scale-[1.01] transition-transform duration-200"
+                                                    />
+                                                    <ProviderButton
+                                                        provider="apple"
+                                                        onClick={handleAppleSignIn}
+                                                        loading={loading === 'apple'}
+                                                        disabled={loading !== null}
+                                                        className="h-14 bg-white/5 border-white/5 hover:bg-white/10 text-white hover:scale-[1.01] transition-transform duration-200"
+                                                    />
+                                                </div>
+
+                                                <div className="relative my-6">
+                                                    <div className="absolute inset-0 flex items-center">
+                                                        <div className="w-full border-t border-white/10"></div>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => setActiveTab('email')}
+                                                    className="w-full group relative inline-flex items-center justify-center text-sm text-luxury-gold/80 hover:text-luxury-gold transition-colors"
+                                                >
+                                                    <span>Usa Email e Password</span>
+                                                    <span className="absolute -bottom-1 left-0 w-0 h-px bg-luxury-gold transition-all group-hover:w-full" />
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {activeTab === 'magic' && (
+                                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                                <MagicLinkForm onSuccess={handleLoginSuccess} />
+                                            </div>
+                                        )}
+
+                                        {activeTab === 'email' && (
+                                            <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                                <EmailAuthForm onSuccess={handleLoginSuccess} />
+                                            </div>
+                                        )}
+                                    </motion.div>
+                                </AnimatePresence>
                             </div>
+                        </div>
+                    )}
 
-                            <button
-                                onClick={() => setActiveTab('email')}
-                                className="w-full text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                            >
-                                Usa Email e Password →
-                            </button>
-                        </TabsContent>
-
-                        <TabsContent value="magic" className="mt-6">
-                            <MagicLinkForm onSuccess={handleLoginSuccess} />
-                        </TabsContent>
-
-                        <TabsContent value="email" className="mt-6">
-                            <EmailAuthForm onSuccess={handleLoginSuccess} />
-                        </TabsContent>
-                    </Tabs>
-                )}
-
-                <div className="mt-8 pt-6 border-t border-slate-800 text-center">
-                    <p className="text-[10px] text-slate-500 leading-relaxed">
-                        Proseguendo, dichiari di aver letto la nostra{" "}
-                        <Link href="/privacy" className="text-luxury-gold hover:underline">Informativa sulla Privacy</Link>
-                        {" "}e di accettare i{" "}
-                        <Link href="/terms" className="text-luxury-gold hover:underline">Termini di Servizio</Link>.
-                    </p>
+                    <div className="mt-6 pt-6 border-t border-white/5 text-center">
+                        <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
+                            Proseguendo, accetti i nostri{" "}
+                            <Link href="/terms" className="text-slate-400 hover:text-luxury-gold transition-colors underline decoration-slate-700 underline-offset-2">Termini</Link>
+                            {" "}e la{" "}
+                            <Link href="/privacy" className="text-slate-400 hover:text-luxury-gold transition-colors underline decoration-slate-700 underline-offset-2">Privacy Policy</Link>.
+                        </p>
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>

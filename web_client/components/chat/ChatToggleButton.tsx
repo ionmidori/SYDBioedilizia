@@ -60,10 +60,8 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
             animate={{ opacity: 1, scale: 1 }}
 
             // Base position via CSS - bottom-right corner
-            // Added flex container for badge + button
-            // Base position via CSS - bottom-right corner
-            // Added flex container for badge + button
             className="fixed bottom-1 right-0 md:right-1 z-50 flex items-center justify-end gap-0"
+            style={{ backfaceVisibility: 'hidden', transform: 'translateZ(0)' }}
 
             // Drag configuration
             drag
@@ -99,14 +97,15 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                 {isOpen ? (
                     <X className="w-8 h-8 text-luxury-gold" />
                 ) : (
-                    <div className="relative w-full h-full flex items-center justify-center !overflow-visible">
+                    <div className="relative w-full h-full flex items-center justify-center overflow-visible">
                         <Image
                             src="/assets/syd_final_v9.png"
                             alt="Chat"
                             fill
-                            sizes="(max-width: 768px) 150px, 220px"
-                            className="object-contain drop-shadow-xl transform transition-transform duration-300"
+                            sizes="(max-width: 768px) 158px, 208px"
+                            className="object-contain"
                             draggable={false}
+                            style={{ imageRendering: 'auto', willChange: 'auto' }}
                         />
                     </div>
                 )}

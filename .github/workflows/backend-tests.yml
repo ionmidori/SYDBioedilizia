@@ -51,7 +51,7 @@ jobs:
           GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
           GOOGLE_API_KEY: '${{ secrets.GOOGLE_API_KEY }}'
         run: |
-          uv run pytest -v --tb=short --cov=src --cov-report=term-missing
+          uv run pytest -v --tb=short --cov=src --cov-report=term-missing -m "not integration"
 
       - name: 'Upload coverage'
         if: 'always()'

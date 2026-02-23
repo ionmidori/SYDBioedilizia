@@ -6,6 +6,7 @@ import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { User, Mail, Lock, Bell, Camera, Save, Loader2, AlertTriangle } from "lucide-react";
 import NextImage from "next/image";
 import { updateUserProfile, uploadUserAvatar } from "@/app/actions/profile";
+import { PasskeyButton } from "@/components/auth/PasskeyButton";
 
 export default function ProfilePage() {
     const { user } = useAuth();
@@ -83,6 +84,11 @@ export default function ProfilePage() {
         }
 
         setIsUploadingAvatar(false);
+    };
+    
+    const handlePasskeySuccess = () => {
+        setSuccessMessage("Dispositivo biometrico registrato con successo! Ora puoi accedere senza password.");
+        setTimeout(() => setSuccessMessage(null), 5000);
     };
 
 
@@ -206,12 +212,25 @@ export default function ProfilePage() {
                     Sicurezza
                 </h2>
 
-                <div className="space-y-4">
-                    <button className="w-full md:w-auto px-6 py-3 bg-white/5 border border-luxury-gold/10 rounded-xl text-luxury-text hover:bg-white/10 hover:border-luxury-gold/20 transition-all flex items-center gap-3">
-                        <Lock className="w-4 h-4 text-luxury-gold" />
-                        Cambia Password
-                    </button>
-                    <p className="text-xs text-luxury-text/40">
+                <div className="space-y-6">
+                    <div className="space-y-2">
+                         <h3 className="text-lg font-medium text-luxury-text">Accesso Biometrico (Consigliato)</h3>
+                         <p className="text-sm text-luxury-text/60 max-w-xl">
+                            Attiva FaceID o TouchID per accedere al tuo account in modo istantaneo e sicuro, senza dover inserire la password.
+                         </p>
+                         <div className="pt-2 max-w-sm">
+                            <PasskeyButton mode="register" onSuccess={handlePasskeySuccess} />
+                         </div>
+                    </div>
+                    
+                    <div className="border-t border-luxury-gold/10 pt-6">
+                        <button className="w-full md:w-auto px-6 py-3 bg-white/5 border border-luxury-gold/10 rounded-xl text-luxury-text hover:bg-white/10 hover:border-luxury-gold/20 transition-all flex items-center gap-3">
+                            <Lock className="w-4 h-4 text-luxury-gold" />
+                            Cambia Password
+                        </button>
+                    </div>
+
+                    <p className="text-xs text-luxury-text/40 pt-2">
                         Ultimo accesso: {new Date().toLocaleDateString('it-IT', {
                             day: 'numeric',
                             month: 'long',
