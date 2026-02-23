@@ -8,6 +8,7 @@ import { ProjectListItem } from "@/types/projects";
 import { Button } from "@/components/ui/button";
 
 import { useProjects } from "@/hooks/useProjects";
+import { ScallopedInlineLoader } from "@/components/ui/ScallopedPageTransition";
 
 export default function GlobalSettingsPage() {
     const { projects, loading: isLoading, error: projectsError } = useProjects();
@@ -52,10 +53,8 @@ export default function GlobalSettingsPage() {
                 </h2>
 
                 {isLoading ? (
-                    <div className="flex justify-center py-20">
-                        <div className="animate-spin w-8 h-8 border-3 border-luxury-gold border-t-transparent rounded-full shadow-lg shadow-luxury-gold/10" />
-                    </div>
-                ) : projects.length === 0 ? (
+                    <ScallopedInlineLoader />
+                ) :projects.length === 0 ? (
                     <div className="text-center py-16 glass-premium border-dashed border-luxury-gold/20 rounded-[2rem]">
                         <p className="text-luxury-text/40 font-medium italic">Non hai ancora creato nessun progetto.</p>
                         <Button asChild variant="link" className="text-luxury-gold mt-4 font-bold tracking-widest uppercase text-xs hover:text-luxury-gold/80">

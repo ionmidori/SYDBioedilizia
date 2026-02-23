@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { ProjectMobileTabs } from '@/components/mobile/ProjectMobileTabs';
 import { projectsApi } from '@/lib/projects-api';
 import { Project } from '@/types/projects';
-import { Loader2 } from 'lucide-react';
+import { ScallopedInlineLoader } from '@/components/ui/ScallopedPageTransition';
 
 export default function ProjectPage() {
     const params = useParams();
@@ -48,9 +48,7 @@ function ProjectPageContent({ projectId }: { projectId: string }) {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-full w-full bg-luxury-bg">
-                <Loader2 className="w-10 h-10 text-luxury-gold animate-spin" />
-            </div>
+            <ScallopedInlineLoader />
         );
     }
 

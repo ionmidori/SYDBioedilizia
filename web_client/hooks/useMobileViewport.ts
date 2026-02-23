@@ -1,14 +1,17 @@
-import { useState, useEffect, RefObject } from 'react';
+import { useState, useEffect, useCallback, RefObject } from 'react';
 
 /**
- * Custom hook for mobile viewport handling and body scroll locking
- * Extracted from ChatWidget.tsx (lines 222-230, 419-458)
- * Handles iOS keyboard resize and prevents background scroll
+ * Custom hook for mobile viewport handling, keyboard detection, and body scroll locking.
+ *
+ * Uses the `visualViewport` API to detect when the virtual keyboard
+ * opens/closes on iOS and Android — eliminating arbitrary setTimeout hacks.
  */
 export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<HTMLDivElement | null>) {
     const [isMobile, setIsMobile] = useState(false);
+    const [keyboardOpen, setKeyboardOpen] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-    // Detect mobile
+    // ─── Mobile detection ────────────────────────────────────────────────────
     useEffect(() => {
         setIsMobile(window.innerWidth < 768);
         const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -16,11 +19,31 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Viewport Logic (Mobile/iOS Fix)
-    // REMOVED: JS Height calculation (relying on CSS 100dvh + interactive-widget)
-    // Keeping scroll locking below.
+    // ─── visualViewport keyboard detection ───────────────────────────────────
+    // When the virtual keyboard opens, visualViewport.height shrinks while
+    // window.innerHeight stays the same (or changes less on some browsers).
+    // A ratio < 0.85 reliably indicates keyboard presence on both iOS & Android.
+    const handleViewportResize = useCallback(() => {
+        const vv = window.visualViewport;
+        if (!vv) return;
 
-    // Body Lock
+        const ratio = vv.height / window.innerHeight;
+        const isKeyboard = ratio < 0.85;
+        const kbHeight = isKeyboard ? Math.round(window.innerHeight - vv.height) : 0;
+
+        setKeyboardOpen(isKeyboard);
+        setKeyboardHeight(kbHeight);
+    }, []);
+
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!vv) return;
+
+        vv.addEventListener('resize', handleViewportResize);
+        return () => vv.removeEventListener('resize', handleViewportResize);
+    }, [handleViewportResize]);
+
+    // ─── Body lock (when fullscreen chat is open on mobile) ──────────────────
     useEffect(() => {
         const html = document.documentElement;
         const body = document.body;
@@ -34,6 +57,12 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
             body.style.height = '100%';
             body.style.position = 'fixed';
             body.style.overscrollBehavior = 'none';
+            body.style.pointerEvents = 'none';
+
+            // Re-enable pointer events inside the chat container
+            if (chatContainerRef.current) {
+                chatContainerRef.current.style.pointerEvents = 'auto';
+            }
         } else {
             html.style.overflow = '';
             html.style.height = '';
@@ -43,8 +72,9 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
             body.style.height = '';
             body.style.position = '';
             body.style.overscrollBehavior = '';
+            body.style.pointerEvents = '';
         }
-    }, [isOpen]);
+    }, [isOpen, chatContainerRef]);
 
-    return { isMobile };
+    return { isMobile, keyboardOpen, keyboardHeight };
 }

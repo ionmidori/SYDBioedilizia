@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { User, Mail, Lock, Bell, Camera, Save, Loader2, AlertTriangle } from "lucide-react";
@@ -17,6 +17,20 @@ export default function ProfilePage() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+    // Clear all pending timers on unmount
+    useEffect(() => {
+        return () => {
+            timersRef.current.forEach(clearTimeout);
+        };
+    }, []);
+
+    const safeTimeout = useCallback((fn: () => void, ms: number) => {
+        const id = setTimeout(fn, ms);
+        timersRef.current.push(id);
+        return id;
+    }, []);
 
     // Form state
     const [displayName, setDisplayName] = useState(user?.displayName || '');
@@ -47,7 +61,7 @@ export default function ProfilePage() {
         setIsLoading(false);
 
         // Clear messages after 5 seconds
-        setTimeout(() => {
+        safeTimeout(() => {
             setSuccessMessage(null);
             setErrorMessage(null);
         }, 5000);
@@ -77,7 +91,7 @@ export default function ProfilePage() {
         if (result.success) {
             setSuccessMessage(result.message);
             // Refresh page to update auth context
-            setTimeout(() => window.location.reload(), 1500);
+            safeTimeout(() => window.location.reload(), 1500);
         } else {
             setErrorMessage(result.message);
             setAvatarPreview(null);
@@ -88,7 +102,7 @@ export default function ProfilePage() {
     
     const handlePasskeySuccess = () => {
         setSuccessMessage("Dispositivo biometrico registrato con successo! Ora puoi accedere senza password.");
-        setTimeout(() => setSuccessMessage(null), 5000);
+        safeTimeout(() => setSuccessMessage(null), 5000);
     };
 
 

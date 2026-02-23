@@ -8,12 +8,12 @@ import { useInactivityLogout } from "@/hooks/useInactivityLogout"
 import { InactivityWarningDialog } from "@/components/auth/InactivityWarningDialog"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { Loader2 } from "lucide-react"
 import { MobileSwipeLayout } from "@/components/mobile/MobileSwipeLayout"
 import { OnboardingTour } from "@/components/dashboard/OnboardingTour"
 import { AnimatePresence, motion } from "framer-motion"
 import { usePathname } from "next/navigation"
 import { createFadeSlideVariants } from "@/lib/m3-motion"
+import { ScallopedPageTransition } from "@/components/ui/ScallopedPageTransition"
 
 // Sidebar dimensions
 const SIDEBAR_WIDTH_EXPANDED = '18rem'
@@ -45,11 +45,7 @@ export default function DashboardLayout({
 
     // Show loading state while initializing
     if (!isInitialized) {
-        return (
-            <div className="h-[100dvh] supports-[height:100dvh]:h-[100dvh] w-full flex items-center justify-center bg-luxury-bg">
-                <Loader2 className="w-10 h-10 text-luxury-gold animate-spin" />
-            </div>
-        );
+        return <ScallopedPageTransition isNavigating />;
     }
 
     if (!user) return null;

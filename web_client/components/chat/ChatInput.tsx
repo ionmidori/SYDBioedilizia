@@ -133,10 +133,29 @@ export function ChatInput({
     const handleFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
         setIsFocused(true);
         const target = e.target;
-        setTimeout(() => {
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            onScrollToBottom();
-        }, 300);
+
+        // Use visualViewport API to scroll once the keyboard is fully open,
+        // instead of an arbitrary 300ms delay that races with keyboard animation.
+        const vv = window.visualViewport;
+        if (vv) {
+            const onViewportResize = () => {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                onScrollToBottom();
+                vv.removeEventListener('resize', onViewportResize);
+            };
+            vv.addEventListener('resize', onViewportResize, { once: true });
+            // Fallback: if visualViewport doesn't fire (desktop or no keyboard)
+            setTimeout(() => {
+                vv.removeEventListener('resize', onViewportResize);
+                onScrollToBottom();
+            }, 500);
+        } else {
+            // No visualViewport support — fallback
+            setTimeout(() => {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                onScrollToBottom();
+            }, 300);
+        }
     };
 
     return (
@@ -174,7 +193,7 @@ export function ChatInput({
                             </motion.button>
                         </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md bg-luxury-bg/60 backdrop-blur-[48px] border border-luxury-gold/30 shadow-[0_0_60px_-15px_rgba(0,0,0,0.8)] rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden p-0 gap-0">
+                    <DialogContent className="sm:max-w-md mx-4 sm:mx-auto bg-luxury-bg/60 backdrop-blur-[48px] border border-luxury-gold/30 shadow-[0_0_60px_-15px_rgba(0,0,0,0.8)] rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden p-0 gap-0">
                         {/* Decorative top glow */}
                         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-luxury-gold/60 to-transparent opacity-80" />
 

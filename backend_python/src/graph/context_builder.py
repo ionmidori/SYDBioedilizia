@@ -15,6 +15,7 @@ class ContextBuilder:
     1. Static Base Instruction (Persona, Tools, Rules)
     2. Dynamic Context (Auth, Project, Media)
     3. System Status (Loop Guard, Last Tool Execution)
+    4. Active Playbook (Vertex AI Strategy)
     """
 
     @staticmethod

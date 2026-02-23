@@ -222,7 +222,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                             ? "bg-luxury-teal text-white rounded-[24px_24px_4px_24px] border border-transparent shadow-luxury-teal/20" // Organic shape USER
                             : "bg-luxury-bg/95 border border-white/10 text-luxury-text rounded-[24px_24px_24px_4px] shadow-black/5" // Organic shape AI + Stronger Glass
                     )}>
-                        <div className="prose prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg max-w-none break-words overflow-hidden w-full">
+                        <div className="prose prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
                             {isThinking ? (
                                 <ThinkingIndicator message={typingMessage} />
                             ) : (

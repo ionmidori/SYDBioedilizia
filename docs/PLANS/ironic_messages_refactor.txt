@@ -1,0 +1,23 @@
+# TASK: Ironic Messages Implementation Plan
+
+## OBJECTIVE
+Replace generic "Thinking..." messages with engaging, ironic, and thematic messages (Renovation/Space) to improve UX personality. Simplify the logic by centralizing messages in the source hook.
+
+## FILES TO MODIFY
+1. web_client/hooks/useTypingIndicator.ts
+   - Replace generic messages array.
+   - Increase interval to 3000ms for readability.
+   - Set initial state to a fun message.
+
+2. web_client/components/chat/ThinkingIndicator.tsx
+   - Simplify component: Remove internal message rotation logic.
+   - Remove GENERIC_MESSAGES blacklist.
+   - Make it purely presentational (visualizes props.message).
+
+## EXECUTION STEPS
+- [ ] Modify useTypingIndicator.ts with new message array.
+- [ ] Clean up ThinkingIndicator.tsx (remove complexity).
+- [ ] Verify TypeScript compilation.
+
+## ROLLBACK PLAN
+- Revert changes to both files using git checkout.

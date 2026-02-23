@@ -1,6 +1,7 @@
 "use client"
 
-import { FolderKanban, Plus, Loader2 } from "lucide-react"
+import { FolderKanban, Plus } from "lucide-react"
+import { ScallopedInlineLoader } from "@/components/ui/ScallopedPageTransition"
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 
@@ -24,9 +25,7 @@ export default function ProjectsPage() {
 
     if (isLoading) {
         return (
-            <div className="flex items-center justify-center min-h-[400px]">
-                <Loader2 className="w-10 h-10 text-luxury-gold animate-spin" />
-            </div>
+            <ScallopedInlineLoader />
         )
     }
 

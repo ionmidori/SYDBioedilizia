@@ -24,8 +24,10 @@ export function useChatScroll(dep: any, isOpen: boolean) {
     const checkScrollPosition = () => {
         if (!messagesContainerRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
-        // User is considered "near bottom" if within 100px of end
-        isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < 100;
+        // Responsive threshold: 25% of visible height, minimum 100px.
+        // Accounts for large input areas on big phones (iPhone Pro Max).
+        const threshold = Math.max(100, clientHeight * 0.25);
+        isNearBottomRef.current = scrollHeight - scrollTop - clientHeight < threshold;
     };
 
     // Attach scroll listener to track position

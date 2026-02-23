@@ -1,36 +1,53 @@
 - **Last Updated**: 2026-02-23
-- **Current Version**: `v3.5.13` (M3 Expressive Login & Cost Control)
+- **Current Version**: `v3.5.14` (Doc Solidification & Mascot Plan)
 - **Last Major Sync**: 2026-02-23
-- **Status**: `Active Development - UX Polish`
-- **Next High Priority**: 1) Vertex AI Agent Playbooks | 2) Domain Migration | 3) Video Compression Optimization
+- **Status**: `Production-Ready - Feature Planning`
+- **Next High Priority**: 1) Dynamic Robot Mascot | 2) Vertex AI Agent Playbooks | 3) Domain Migration
+
+- **Architecture & Documentation Solidification (v3.5.14)**:
+    - **Full Audit**: Comprehensive update of all system documentation to reflect the "Luxury Tech" and "Reasoning Engine" reality.
+    - **Artifacts Updated**:
+        - `backend_architecture_report.md`: Detailed the 3-Tier Execution and Zero-Trust Security.
+        - `CHATBOT_ARCHITECTURE.md`: Documented the Vercel AI SDK -> LangGraph streaming pipeline.
+        - `ADMIN_CONSOLE_PRICING_ENGINE.md`: Clarified the "Golden Sync" between Price Book JSON and AI Reasoning.
+        - `web_client/README.md`: Updated stack versions (Tailwind 4, Framer Motion 12) and "Luxury Tech" vision.
+    - **Clean-up**: Removed dead Magic Link analytics code and verified frontend type safety.
+    - **Mascot Plan**: Created `docs/PLANS/dynamic_mascot_implementation.md` outlining the "Layered Puppet" strategy for the upcoming interactive robot.
 
 - **ChatToggleButton Blur Fix (v3.5.13)**:
     - **Bug**: Image appeared blurry due to GPU compositing layer conflicts.
     - **Root Cause**: `drop-shadow-xl` + `transform transition-transform` combined with Framer Motion `scale` transforms forced separate GPU layers with aggressive antialiasing.
     - **Fix**: Removed shadow/transform classes from `Image`, added `backfaceVisibility: 'hidden'` + `transform: translateZ(0)` to motion container for unified stacking context.
     - **Result**: Sharp, crisp rendering across all viewports and screen sizes.
+
 - **Login Modal Redesign (v3.5.13)**:
     - **Visual Overhaul**: Transformed `AuthDialog` into a "Luxury Tech" interface using M3 Expressive principles.
     - **Key Features**: Glassmorphism container, Organic shapes (asymmetric radii), Elastic motion (spring physics), and Draggable Notch visual.
     - **Typography**: Integrated `Cinzel` (via `font-trajan`) for headlines to align with brand luxury identity.
     - **Components**: Updated `PasskeyButton` to support custom styling and `h-14` (56px) height for touch targets.
+
 - **Cost Optimization (v3.5.13)**:
     - **CI/CD**: Disabled live API tests in CI by renaming `test_imagen_isolation.py` → `verify_imagen_isolation.py` and adding `-m "not integration"` to pytest.
-    - **Result**: ~90% reduction in Gemini Vision API spend during CI/CD pipeline.
-    - **Execution**: Manual verification still possible via direct Python execution.
+        - **Result**: ~90% reduction in Gemini Vision API spend during CI/CD pipeline.
+    - **Artifact Registry**: Activated automated cleanup policies (14-day retention & 10-version limit) for `cloud-run-source-deploy` and `mcp-cloud-run-deployments`.
+    - **Result**: Automated storage cost control (Standardizing on `policy.json`).
+
 - **Biometric Auth Integration (v3.5.12)**:
     - **Feature**: Enabled Biometric Login (Passkeys/WebAuthn) directly from User Profile.
     - **UX**: Refactored `PasskeyButton.tsx` to match Luxury Gold design system.
     - **Guidance**: Implemented smart "User Not Found" dialog handling for login attempts without prior registration, guiding users to first-time setup.
     - **Profile**: Integrated registration flow into `app/dashboard/profile/page.tsx` with success feedback.
+
 - **Mobile UX Polish (v3.5.11)**:
     - **Chat Toggle**: Increased mobile touch target to 158px (+10%) and verified right-alignment for better ergonomics.
     - **Code**: Updated `ChatToggleButton.tsx` and aligned test comments.
     - **Verification**: Tests passed.
+
 - **Video Strategy & Roadmap (v3.5.10)**:
     - **Research**: Completed technical audit of video compression patterns. Recommended **Google Cloud Transcoder API** for cost-effective (pay-as-you-go) backend optimization.
     - **Documentation**: Consolidated `docs/FUTURE_IDEAS.md` as the source of truth for long-term technical evolution, purging redundant/implemented tasks.
     - **Sync**: Verified baseline implementation of Backend Warmup and AI SEO strategies.
+
 - **Mobile UX & Backend Warmup (v3.5.10)**:
     - **Camera Capture**: Separated photo/video/gallery into 3 distinct dialog options with dedicated file inputs. Fixed `accept` attributes for iOS/Android reliability.
     - **Security**: Restricted video formats to backend-validated set (mp4, quicktime, x-msvideo), added max 3 file selection limit, fixed event closure in handleFocus.
@@ -42,6 +59,7 @@
     - **Artifact Registry**: Implemented automated cleanup policies (14-day retention/10 versions) and optimized Dockerfile caching to mitigate rising storage costs.
     - **Quote System**: Designed **Vertex-Native Strategy D**, shifting from self-hosted PostgreSQL/LangGraph to managed Vertex AI Agent Builder. Reduced estimated infra costs by ~$45/mo.
     - **Chat Resilience**: Added `SendMessage` facade in `ChatProvider.tsx` with robust guest-to-anonymous conversion and empty-message guarding.
+
 - **M3 Expressive Chat Refactoring (v3.5.08)**:
     - **Chat UI**: Complete redesign of message bubbles using **M3 Expressive** shapes (asymmetric, organic radii).
     - **Motion**: Implemented "Elastic Physics" (spring: stiffness 120, damping 12) for message entry.
@@ -56,60 +74,25 @@
         - **UI Layer**: `web_client/app/faq/page.tsx` with Server-Side Rendering and M3 Expressive animations (`FAQItem.tsx`).
         - **Metadata**: Automated JSON-LD `FAQPage` schema injection for Google Rich Snippets.
     - **Integration**: Added deep links in `Navbar` and `Footer` pointing to `/faq`.
+
 - **Gemini CLI Mastery & Session Finalization (v3.5.06)**:
     - **Integration**: Standardized on official `gemini-cli` patterns via the new `antigravity-gemini-mastery` skill. 
     - **Optimization**: Defined the "Startup Ritual" (`/ide enable`, `/memory refresh`) for high-performance terminal workflows.
     - **Consistency**: Verified `GEMINI.md` as the primary source of truth for terminal agents, ensuring they follow the 3-Tier Law and Golden Sync.
-- **Official Gemini-Antigravity Integration (v3.5.05)**:
-    - **Standards First**: Removed custom `syd-cli` wrapper in favor of the official `npx @google/gemini-cli` pattern.
-    - **Gemini CLI Mastery**: Workflow ottimizzato con `/ide enable` e automazione checkpointing.
-    - **Gemini 2.5 Standard**: Migrazione completa a Gemini 2.5 (minimo) per tutto il backend e gli orchestratori.
-    - **Cleanup**: Purged custom script and internal agent instruction files.
-- **Blog UX & Stability Fix (v3.5.03)**:
-    - **Critical Fix**: Resolved widespread `ReferenceError: Navbar is not defined` crash in Blog subpages. Re-injected missing imports (`Navbar`, `Footer`, `lucide-react`) that were stripped during the `BlogBackButton` rollout.
-    - **UI Enhancement**: Implemented `BlogBackButton` with M3 Expressive design (Glassmorphism Pill + Framer Motion) for consistent navigation.
-    - **Validation**: Verified page rendering and navigation via Browser Subagent.
-- **Professional Release Restoration (v3.5.01)**:
-    - **Phase 37 (Gemini 2.5 & Deployment Stabilization)**: Consolidation of memory files, **Total Upgrade to Gemini 2.5** standard, and resolution of Cloud Run startup crashes via resilient environment mapping.
-    - **Dashboard Actions**: Restored "Crea Preventivo" and "Crea Rendering" quick actions with horizontal snap-scrolling.
-    - **Swipe Indicators**: Restored M3 gold chevrons (SwipeHints) for visual navigation feedback.
-    - **UI Cleanup**: Removed redundant project footer to optimize vertical workspace.
-    - **Security Hardening**: Remediated High-Severity ReDoS in `minimatch` (CVE-2024-XXXX) by forcing versions `3.1.3` and `9.0.6` via root overrides.
-- **Status**: v3.5.01 (Production Sync + Secured)
-- **Professional Release Synchronization (v3.5.00)**: 
-    - Merged `feat/technical-stabilization-v3.5.0` into `main`.
-    - Pushed synchronized states to `origin/main` using secure PAT authentication.
-    - Consolidated 10+ atomic commits into the production baseline.
-- **Technical Stabilization**:
-    - **CI/CD Fix**: Resolved Cloud Run deployment failure by removing `pyproject.toml` and `uv.lock` from `.dockerignore`, ensuring `uv sync` succeeds in the build context.
-    - **Git Clean-up**: Purged all stale and merged remote branches on GitHub, maintaining only `main` for a pristine source of truth.
-    - **Backend (Pytest)**: Achieved **100% pass rate** (173/173 tests).
-    - **n8n Mocks**: Fixed `httpx` async/sync mocking mismatches in `conftest.py`.
-    - **Schema Sync**: Updated `QuoteItem` schema to allow zero-quantity items (`ge=0`).
-- **Web Modernization & SEO/GEO**:
-    - **Blog Overhaul**: Implemented "Image-First" interactive blog with photorealistic renovation content.
-    - **AI Visibility**: Completed standard `llms.txt`, `robots.ts`, and `sitemap.ts` implementation.
-    - **M3 UI Polish**: Finalized M3 Edge Swipe indicators and hardened Firebase Auth resilience against COOP/COEP blockers.
-- **Infrastructure**:
-    - **Test Automation**: Integrated `test_router.py` into production main and updated `insight_engine` telemetry.
-- **Artifacts**: [walkthrough.md](file:///C:/Users/User01/.gemini/antigravity/brain/3914d1d0-a713-4c6a-9663-4e6b33eac828/walkthrough.md) | [task.md](file:///C:/Users/User01/.gemini/antigravity/brain/3914d1d0-a713-4c6a-9663-4e6b33eac828/task.md)
 
 ---
 
-## 📜 Repository History
-Per la cronologia dettagliata delle fasi precedenti (Phase 1 - Phase 36), consulta il documento:
-[HISTORICAL_MILESTONES.md](file:///c:/Users/User01/.gemini/antigravity/scratch/renovation-next/directives/HISTORICAL_MILESTONES.md)
+## 🎯 Phase 38 Summary (2026-02-23)
 
----
----
+**Architecture & Documentation Solidification**
 
-## 🎯 Phase 36 Summary (2026-02-23)
+### Documentation Overhaul
+- **Problem**: Documentation was lagging behind the rapid V3 development cycle (especially regarding 3-Tier Architecture and AI Streaming).
+- **Solution**: Fully updated `backend_architecture_report.md`, `CHATBOT_ARCHITECTURE.md`, `ADMIN_CONSOLE_PRICING_ENGINE.md`, and `web_client/README.md`.
+- **Result**: Accurate, production-grade documentation for future scaling and onboarding.
 
-**Mobile UX Polish & Chat Ergonomics**
-
-### Chat Toggle Button Optimization
-- **Problem**: Default size (144px) felt slightly too small on larger mobile screens; positioning needed verification.
-- **Solution**: Increased size to 158px (~10% boost). Verified right-aligned positioning (`right-0`).
-- **Verification**: Unit tests passed. Badge overlap confirmed acceptable.
+### Dynamic Mascot Plan
+- **Strategy**: Defined "Layered Puppet" approach for the upcoming interactive robot.
+- **Artifact**: `docs/PLANS/dynamic_mascot_implementation.md` ready for execution.
 
 _Documento aggiornato: Febbraio 23, 2026_

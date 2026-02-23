@@ -1,40 +1,81 @@
-# 🎨 SYD Vision (Web Client)
+# 🎨 SYD Bioedilizia (Web Client)
 
-The premium, high-fidelity frontend for the SYD Renovation Ecosystem.
-Built with **Next.js 16**, **Tailwind CSS 4**, and **Shadcn/UI**.
+**Status:** Production-Ready (v3.5.13)
+**Vision:** Luxury Tech Renovation Platform
+**Stack:** Next.js 16.1, Tailwind CSS 4, Framer Motion 12
 
 ---
 
-## 🚀 Key Features
+## 💎 The "Luxury Tech" Experience
+This is not just a renovation website; it is a high-fidelity **Progressive Web App (PWA)** designed to feel like a native application.
+It combines the solidity of traditional craftsmanship with the fluidity of modern interface design.
 
-- **Next.js 16 App Router**: Leveraging React Server Components (RSC) for maximum performance and SEO.
-- **Premium Aesthetics**: Glassmorphism, Bento Grids, and fluid micro-animations via Framer Motion 12.
-- **Vercel AI SDK**: Resilient streaming architecture for real-time AI interactions.
-- **Golden Sync**: Strict TypeScript interfaces mirrored 1:1 with backend Pydantic models.
-- **Enterprise Dashboard**: Comprehensive admin and user views with complex data visualizations.
-- **Universal Gestures**: Custom-engineered mobile swipe engine for a fluid app-like experience.
+### Key UX Pillars
+*   **Golden Glassmorphism:** A custom design system (M3 Expressive) blending deep "Luxury Black" backgrounds with "Gold" accents (`#E9C46A`) and frosted glass surfaces.
+*   **Elastic Physics:** All interactions (modals, swipes, buttons) use `framer-motion` springs (stiffness: 400, damping: 30) for a tactile, organic feel.
+*   **Mobile-First Engine:** A custom-engineered **Swipe Navigation System** (60fps) that mimics native iOS gestures, allowing users to glide between the Dashboard, Chat, and Gallery.
 
-## 🏛️ Architectural Boundaries
+---
 
-Following the **3-Tier Law**:
-- **Execution Logic**: Offloaded to the Tier 3 (Python Backend).
-- **Presentation Logic**: Managed via Server Actions and strongly-typed API clients.
-- **State Management**: Prefer URL-state (Zustand/SWR for complex sessions).
+## 🛠️ Technology Stack
 
-## 🛠️ Tech Stack
+| Component | Technology | Version | Role |
+| :--- | :--- | :--- | :--- |
+| **Framework** | Next.js (App Router) | 16.1 | Server Components, SEO, Routing |
+| **Styling** | Tailwind CSS | 4.0 | Zero-runtime styling, CSS Variables |
+| **Animation** | Framer Motion | 12.23 | Gesture-driven UI, Shared Layout Animations |
+| **AI Streaming** | Vercel AI SDK | 3.0 | Real-time "Reasoning Engine" integration |
+| **Auth** | Firebase Auth | 12.8 | Zero-Trust (Biometric + Magic Link + JWT) |
+| **Validation** | Zod | 4.3 | Runtime schema validation (Golden Sync) |
 
-- **Framework**: Next.js 16.1 (App Router)
-- **Styling**: Tailwind CSS 4, Lucide React
-- **Animations**: Framer Motion 12
-- **Validation**: Zod (mapped to Pydantic schemas)
-- **Authentication**: Firebase Auth + App Check
-- **Data Fetching**: SWR / Server Actions
+---
 
-## 📦 Setup & Installation
+## 🚀 Core Features
+
+### 1. The Reasoning Engine (Chat)
+We don't just "stream text". We stream **thought processes**.
+*   **UI:** `ThinkingIndicator` pulses while the backend plans. `ReasoningStepView` reveals the AI's internal logic card-by-card.
+*   **Protocol:** Vercel AI Data Stream Protocol (Events: `0`=Text, `2`=Data, `9`=Tool).
+
+### 2. Hybrid Authentication
+A security fortress with a luxury onboarding experience.
+*   **Biometric (Passkey):** Users can log in with FaceID/TouchID (WebAuthn).
+*   **Magic Link:** Passwordless email entry with cross-device support.
+*   **Zero-Trust:** Every request is signed with a Firebase App Check token (ReCAPTCHA Enterprise).
+
+### 3. The "Golden Sync"
+**Strict Type Safety Contract.**
+*   Backend Pydantic Models (`QuoteSchema`) are mirrored 1:1 in Frontend TypeScript Interfaces (`types/quote.ts`).
+*   **Rule:** If it's not in the schema, it doesn't exist in the UI. No `any` types allowed.
+
+---
+
+## 📦 Project Structure
+
+```bash
+web_client/
+├── app/                  # Next.js App Router (Server Components)
+│   ├── api/chat/         # Node.js Proxy for AI Streaming
+│   ├── auth/             # Login/Verify Pages
+│   └── dashboard/        # Protected User Area (Bento Grid)
+├── components/
+│   ├── chat/             # Chat Interface & Streaming Logic
+│   ├── mobile/           # SwipeGestureEngine & Layouts
+│   ├── ui/               # Shadcn/UI Primitive Components
+│   └── providers/        # Context Providers (Auth, AppCheck, Chat)
+├── hooks/                # Custom React Hooks (useAuth, useSwipe)
+├── lib/                  # Utilities (Firebase, Haptics, API)
+├── types/                # Golden Sync Interfaces
+└── public/               # Static Assets (Images, Icons)
+```
+
+---
+
+## 🛠️ Setup & Development
 
 ### Prerequisites
-- Node.js 20+
-- npm 10+
+*   Node.js 20+
+*   npm 10+
 
 ### Installation
 ```bash
@@ -42,8 +83,7 @@ cd web_client
 npm install
 ```
 
-### Environment Variables
-Create a `.env.local` file in `web_client/`:
+### Environment Variables (.env.local)
 ```ini
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=chatbotluca-a8a73
@@ -51,39 +91,21 @@ NEXT_PUBLIC_FIREBASE_APP_CHECK_KEY=...
 BACKEND_API_URL=http://localhost:8080/api
 ```
 
-## ▶️ Running Locally
-
+### Commands
 ```bash
-# Start dev server
+# Start Dev Server (Port 3000)
 npm run dev
-```
 
-## 🧪 Quality Assurance
-
-```bash
-# Type check strictly (no any allowed)
+# Type Check (Strict)
 npm run type-check
 
-# Run production build validation
-npm run build
-
-# Unit testing (Jest)
+# Run Tests
 npm test
-```
 
-## 📂 Project Structure
-
-```
-web_client/
-├── app/             # App Router Pages & Layouts
-├── components/      # UI, Layout, & Shared Components
-├── hooks/           # Custom React Hooks
-├── lib/             # API Clients & Utility Libraries
-├── types/           # Golden Sync TypeScript Interfaces
-├── public/          # Static Assets & Global Config
-└── vercel.json      # Deployment Configuration
+# Build for Production
+npm run build
 ```
 
 ---
 
-_Updated: Feb 22, 2026_
+_Updated: Feb 2026_

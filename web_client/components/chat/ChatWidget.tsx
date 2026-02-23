@@ -154,7 +154,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // We filter messages to show welcome message vs real messages
     // The Provider already handles initial welcome messages in `messages`.
     const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(messages, isOpen);
-    const { isMobile } = useMobileViewport(isOpen && !isInline, chatContainerRef);
+    const { isMobile, keyboardHeight } = useMobileViewport(isOpen && !isInline, chatContainerRef);
 
     // 7. Handlers
 
@@ -423,7 +423,11 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                 ref={chatContainerRef}
                                 style={{
-                                    height: isMobile ? '100dvh' : undefined,
+                                    height: isMobile
+                                        ? keyboardHeight > 0
+                                            ? `calc(100dvh - ${keyboardHeight}px)`
+                                            : '100dvh'
+                                        : undefined,
                                     bottom: isMobile ? 0 : undefined,
                                     position: 'fixed'
                                 }}
