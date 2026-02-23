@@ -7,6 +7,8 @@ import { ChatContext } from '@/hooks/useChatContext';
 import { useAuth } from '@/hooks/useAuth';
 import { getChatHistory } from '@/lib/api-client'; // Keep for legacy if needed, or remove
 import { useChatHistory } from '@/hooks/useChatHistory';
+import { appCheck } from '@/lib/firebase';
+import { getToken } from 'firebase/app-check';
 
 /**
  * ChatProvider
@@ -158,6 +160,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             headers['Authorization'] = `Bearer ${token}`;
         } else if (!user) {
             console.warn('[ChatProvider] No token available for guest request');
+        }
+
+        // 🔒 App Check token injection (required in production)
+        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
+            if (appCheck) {
+                try {
+                    const result = await getToken(appCheck, false);
+                    if (result.token) {
+                        headers['X-Firebase-AppCheck'] = result.token;
+                    }
+                } catch (err) {
+                    console.error('[ChatProvider] App Check token error:', err);
+                }
+            } else {
+                console.warn('[ChatProvider] appCheck instance unavailable');
+            }
         }
 
         return {
