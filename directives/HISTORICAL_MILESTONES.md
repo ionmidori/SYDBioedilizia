@@ -236,11 +236,15 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 *Risoluzione blocchi OAuth e pulizia gesture native.*
 - **Firebase OAuth Fix**: Configurazione header COOP/COEP `unsafe-none` per sbloccare i popup di login in Chrome.
 - **Gesture Hardening**: Disabilitazione del `overscroll-behavior-x` nativo per evitare conflitti con il design M3.
+- **Swipe Stabilization**: Rimozione della traslazione fisica delle tab mobili in favore degli indicatori M3 Edge Swipe (gold chevrons).
 
 ## 📱 Phase 34: QA Verification & Infrastructure Polish (Feb-22-2026)
 *Verifica end-to-end e allineamento TestSprite.*
-- **TestSprite Alignment**: Verifica dei TC001-TC005 tramite orchestratori Python.
-- **Infrastructure Fixes**: Risoluzione bug critici su hero video e race condition nel logout Firebase.
+- **TestSprite API Fix**: Aggiornamento `mcp_config.json` e `config.json` con API key attiva.
+- **Backend Verification**: Verifica di `TC001`, `TC003`, `TC004`, `TC005` tramite orchestratori Python.
+- **Context Injection**: Verifica dell'iniezione del contesto della chat history nel flusso LangGraph.
+- **E2E UI Audit**: Utilizzo del Browser Subagent per la verifica di homepage, chat-backend sync e routing dashboard.
+- **Infrastructure Fixes**: Risoluzione bug critici su hero video, race condition nel logout Firebase e fix COOP/COEP.
 
 ## 🏗️ Phase 35: Build Verification & Technical Stabilization (Feb-22-2026)
 *Stabilizzazione del backend e raggiungimento del 100% test pass rate.*
@@ -250,11 +254,11 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **Documentation Audit**: Audit completo e aggiornamento di tutti i README (Root, Backend, Frontend) e delle direttive storiche.
 
 ## 🏗️ Phase 36: GitHub Connection & Technical Sync (Feb-22-2026)
-*Configurazione sicura del repository tramite Personal Access Token (PAT) e sincronizzazione branch.*
-- **GitHub Authentication**: Configurazione della connessione remota `origin` tramite PAT fornito dall'utente.
-- **Credential Persistence**: Abilitazione del `credential.helper store` per garantire la persistenza dell'autenticazione.
-- **Main Branch Sync**: Sincronizzazione del branch `main` con il repository remoto (`ionmidori/Website-renovation`).
-- **Status**: Repository Sincronizzato ✅.
+*Configurazione sicura del repository e sincronizzazione definitiva.*
+- **GitHub Authentication**: Configurazione `origin` tramite PAT e abilitazione `credential.helper store`.
+- **Professional Release (v3.5.00)**: Merge di `feat/technical-stabilization-v3.5.0` in `main` e push sincronizzato.
+- **CI/CD Stabilization**: Risolto fallimento Cloud Run correggendo il `.dockerignore` per permettere `uv sync`.
+- **Git Hygiene**: Pulizia rami remoti obsoleti, mantenendo solo `main` come source of truth.
 
 ---
 _Documento aggiornato: Febbraio 22, 2026_

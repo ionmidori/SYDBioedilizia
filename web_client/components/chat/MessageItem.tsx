@@ -98,7 +98,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
             opacity: 1,
             y: 0,
             scale: 1,
-            transition: { type: "spring", stiffness: 500, damping: 30 }
+            transition: { type: "spring", stiffness: 120, damping: 12, mass: 0.8 }
         },
         exit: {
             opacity: 0,
@@ -217,10 +217,10 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                 {/* 2. Main Text Bubble */}
                 {shouldShow && (
                     <div className={cn(
-                        "p-4 rounded-2xl text-sm leading-relaxed shadow-lg backdrop-blur-md",
+                        "p-4 text-sm leading-relaxed shadow-lg backdrop-blur-xl transition-all duration-300", // Increased blur and transition
                         message.role === 'user'
-                            ? "bg-luxury-teal text-white rounded-tr-none border border-transparent"
-                            : "bg-luxury-bg/95 border border-luxury-gold/20 text-luxury-text rounded-tl-none" // Stronger Glass
+                            ? "bg-luxury-teal text-white rounded-[24px_24px_4px_24px] border border-transparent shadow-luxury-teal/20" // Organic shape USER
+                            : "bg-luxury-bg/95 border border-white/10 text-luxury-text rounded-[24px_24px_24px_4px] shadow-black/5" // Organic shape AI + Stronger Glass
                     )}>
                         <div className="prose prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg max-w-none break-words overflow-hidden w-full">
                             {isThinking ? (

@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = Field(None, description="Required for Gemini AI models")
     GOOGLE_API_KEY: str | None = Field(None, description="Legacy alias for GEMINI_API_KEY")
     PERPLEXITY_API_KEY: str | None = Field(None, description="Required for Market Prices")
-    CHAT_MODEL_VERSION: str = Field(default="gemini-1.5-flash", description="Default model for chat and analysis")
+    CHAT_MODEL_VERSION: str = Field(default="gemini-2.5-flash-lite", description="Default model for chat and analysis")
     
     # Feature Flags (App Check enabled by default for production safety)
     ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")

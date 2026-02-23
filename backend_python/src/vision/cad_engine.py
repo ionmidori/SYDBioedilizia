@@ -45,8 +45,8 @@ async def analyze_floorplan_vector(image_bytes: bytes) -> CadVectorData:
     """
     Usa Gemini Vision per estrarre vettori (muri, porte) da un'immagine raster.
     """
-    # model_name = "gemini-1.5-pro-latest" # Usiamo Pro per maggiore precisione spaziale
-    model_name = "gemini-1.5-flash" # Passaggio a Flash per ottimizzazione costi (User request)
+    # model_name = "gemini-2.5-pro-preview-tts" # Usiamo Pro per maggiore precisione spaziale
+    model_name = "gemini-2.5-flash-lite" # Passaggio a 2.5 per standard progetto
     
     logger.info(f"[CadEngine] Starting vector analysis with {model_name}...")
 

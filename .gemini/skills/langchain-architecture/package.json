@@ -1,0 +1,10 @@
+{
+    "name": "langchain-architecture",
+    "version": "1.0.0",
+    "description": "Design LLM applications using LangChain 1.x and LangGraph for agents, memory, and tool integration.",
+    "author": {
+        "name": "Senior Principal Architect",
+        "email": "architect@website-renovation.com"
+    },
+    "license": "MIT"
+}

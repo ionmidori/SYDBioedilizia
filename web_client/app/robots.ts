@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://sybioedilizia.vercel.app';
+  const baseUrl = 'https://sydbioedilizia.vercel.app';
 
   return {
     rules: {

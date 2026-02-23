@@ -61,7 +61,7 @@ async def quantity_surveyor_node(state: QuoteState) -> dict[str, Any]:
 
     Output: ai_draft (InsightAnalysis.model_dump())
 
-    Note: For cost optimization, uses gemini-1.5-flash with temperature=0.1
+    Note: For cost optimization, uses gemini-2.5-flash-lite with temperature=0.1
           as recommended in QUANTITY_SURVEYOR.md.
     """
     from src.tools.quote_tools import suggest_quote_items_wrapper

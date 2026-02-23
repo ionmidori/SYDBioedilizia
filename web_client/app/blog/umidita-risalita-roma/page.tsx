@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
+import { BlogBackButton } from '@/components/blog/BlogBackButton';
 
 // 1. Definizione dei Metadati (SEO Server-Side)
 export const metadata: Metadata = {
@@ -114,16 +113,7 @@ export default function BlogPostUmidita() {
       />
 
       <div className="max-w-4xl mx-auto">
-        {/* Navigation / Back Link */}
-        <div className="mb-8">
-          <Link 
-            href="/blog" 
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Torna al Blog
-          </Link>
-        </div>
+        <BlogBackButton />
 
         <article className="prose prose-stone lg:prose-lg dark:prose-invert max-w-none">
           {/* Header */}

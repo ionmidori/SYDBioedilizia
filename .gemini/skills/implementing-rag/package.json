@@ -1,0 +1,10 @@
+{
+    "name": "rag-implementation",
+    "version": "1.0.0",
+    "description": "Build Retrieval-Augmented Generation (RAG) systems with vector databases.",
+    "author": {
+        "name": "Seth Hobson",
+        "email": "seth@major7apps.com"
+    },
+    "license": "MIT"
+}

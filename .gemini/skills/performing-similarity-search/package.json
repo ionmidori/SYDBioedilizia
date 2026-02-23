@@ -1,0 +1,10 @@
+{
+    "name": "similarity-search-patterns",
+    "version": "1.0.0",
+    "description": "Patterns for efficient similarity search with Pinecone and Gemini.",
+    "author": {
+        "name": "Seth Hobson",
+        "email": "seth@major7apps.com"
+    },
+    "license": "MIT"
+}

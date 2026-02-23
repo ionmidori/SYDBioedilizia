@@ -1,0 +1,10 @@
+{
+    "name": "auth-implementation-patterns",
+    "version": "1.0.0",
+    "description": "Authentication and authorization patterns for FastAPI and Firebase.",
+    "author": {
+        "name": "Seth Hobson",
+        "email": "seth@major7apps.com"
+    },
+    "license": "MIT"
+}

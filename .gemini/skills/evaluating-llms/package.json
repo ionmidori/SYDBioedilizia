@@ -1,0 +1,10 @@
+{
+    "name": "llm-evaluation",
+    "version": "1.0.0",
+    "description": "Implement comprehensive evaluation strategies for LLM applications using automated metrics, human feedback, and benchmarking.",
+    "author": {
+        "name": "Senior Principal Architect",
+        "email": "architect@website-renovation.com"
+    },
+    "license": "MIT"
+}

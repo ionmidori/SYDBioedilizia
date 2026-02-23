@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ReasoningStep, ReasoningEvent } from '@/types/reasoning';
+import { ReasoningStep } from '@/types/reasoning';
 import { cn } from '@/lib/utils';
 import { ChevronDown, ChevronUp, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
+import { M3LoaderShape } from './M3LoaderShape';
 
 interface ThinkingIndicatorProps {
     message?: string;
@@ -34,15 +35,29 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
         return "bg-red-500";
     };
 
+    const displayMessage = statusMessage || message || "Thinking...";
+
     return (
         <div className="flex flex-col gap-2 min-w-[200px] max-w-full">
             {/* Header / Summary */}
-            <div className="flex items-center justify-between gap-3 text-luxury-gold/80 text-sm">
-                <div className="flex items-center gap-2">
-                    <div className="m3-morph-shape shrink-0" />
-                    <span className="font-medium animate-pulse">
-                        {statusMessage || message || "Thinking..."}
-                    </span>
+            <div className="flex items-center justify-between gap-3 text-luxury-gold/80 text-sm h-8">
+                <div className="flex items-center gap-3">
+                    <M3LoaderShape />
+                    
+                    <div className="relative overflow-hidden h-5 w-[240px]">
+                        <AnimatePresence mode='wait'>
+                            <motion.span 
+                                key={displayMessage}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.3 }}
+                                className="font-medium text-xs tracking-wide opacity-80 absolute top-0 left-0 truncate w-full"
+                            >
+                                {displayMessage}
+                            </motion.span>
+                        </AnimatePresence>
+                    </div>
                 </div>
 
                 {reasoningData && (
@@ -127,3 +142,4 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
         </div>
     );
 };
+

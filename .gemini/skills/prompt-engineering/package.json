@@ -1,0 +1,10 @@
+{
+    "name": "prompt-engineering",
+    "version": "1.0.0",
+    "description": "Master prompt design for Google Gemini models.",
+    "author": {
+        "name": "Senior Prompt Engineer",
+        "email": "architect@website-renovation.com"
+    },
+    "license": "MIT"
+}

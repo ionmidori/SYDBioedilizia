@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { ArrowLeft, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
+import { CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
+import { BlogBackButton } from '@/components/blog/BlogBackButton';
 
 // 1. METADATA SEO & GEO
 export const metadata: Metadata = {
@@ -14,8 +14,6 @@ export const metadata: Metadata = {
     type: "article",
     locale: "it_IT",
     siteName: "SYD Bioedilizia",
-    publishedTime: "2026-02-21T08:00:00.000Z",
-    authors: ["SYD Bioedilizia"],
   },
   alternates: {
     canonical: "/blog/bonus-ristrutturazioni-2025-2026",
@@ -101,16 +99,7 @@ export default function BlogPostBonus() {
       />
 
       <div className="max-w-4xl mx-auto">
-        {/* Back Link */}
-        <div className="mb-8">
-          <Link 
-            href="/blog" 
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Torna al Blog
-          </Link>
-        </div>
+        <BlogBackButton />
 
         <article className="prose prose-stone lg:prose-lg dark:prose-invert max-w-none">
           {/* Header */}

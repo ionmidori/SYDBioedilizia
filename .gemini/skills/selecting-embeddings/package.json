@@ -1,0 +1,10 @@
+{
+    "name": "embedding-strategies",
+    "version": "1.0.0",
+    "description": "Select and optimize embedding models for semantic search and RAG applications.",
+    "author": {
+        "name": "Seth Hobson",
+        "email": "seth@major7apps.com"
+    },
+    "license": "MIT"
+}

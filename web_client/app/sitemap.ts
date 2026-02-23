@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://sybioedilizia.vercel.app';
+  const baseUrl = 'https://sydbioedilizia.vercel.app';
   const currentDate = new Date();
 
   // Static routes
@@ -32,6 +32,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${baseUrl}/blog/umidita-risalita-roma`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/blog/tendenze-bagno-2026`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/blog/isolamento-acustico-interni`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/blog/pavimenti-resina-vantaggi`,
       lastModified: currentDate,
       changeFrequency: 'monthly',
       priority: 0.7,

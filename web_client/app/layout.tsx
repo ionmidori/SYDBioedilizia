@@ -32,20 +32,37 @@ const lato = Lato({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://sybioedilizia.vercel.app"),
+  metadataBase: new URL("https://sydbioedilizia.vercel.app"),
   title: {
     template: "%s | SYD BIOEDILIZIA",
-    default: "SYD BIOEDILIZIA - Il Futuro della Ristrutturazione Premium AI",
+    default: "SYD BIOEDILIZIA - Ristrutturazioni Tradizionali e Bioedilizia a Roma",
   },
-  description: "Trasforma la tua casa con il potere dell'Intelligenza Artificiale. Design premium, ristrutturazioni chiavi in mano ed esecuzione impeccabile.",
+  description: "Leader a Roma e Provincia: uniamo l'eccellenza artigiana tradizionale all'innovazione della bioedilizia. Ristrutturazioni su misura a Fiumicino, Pomezia, Tivoli, Castelli Romani e litorale.",
+  keywords: [
+    "ristrutturazioni roma",
+    "bioedilizia roma",
+    "ristrutturazioni tradizionali",
+    "impresa edile roma",
+    "fiumicino",
+    "pomezia",
+    "tivoli",
+    "albano laziale",
+    "cerveteri",
+    "bracciano",
+    "ciampino",
+    "ladispoli",
+    "frascati",
+    "acilia",
+    "ristrutturazioni chiavi in mano"
+  ],
   alternates: {
     canonical: "/",
   },
   manifest: "/manifest.json",
   openGraph: {
-    title: "SYD BIOEDILIZIA - Il Futuro della Ristrutturazione",
-    description: "Design premium ed esecuzione impeccabile guidata dall'IA.",
-    url: "https://sybioedilizia.vercel.app",
+    title: "SYD BIOEDILIZIA - Ristrutturazioni e Bioedilizia a Roma",
+    description: "Dalla tradizione alla bioedilizia: realizziamo la casa dei tuoi sogni a Roma, Castelli Romani e litorale. Servizi su misura per ogni esigenza.",
+    url: "https://sydbioedilizia.vercel.app",
     siteName: "SYD BIOEDILIZIA",
     locale: "it_IT",
     type: "website",
@@ -54,14 +71,14 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "SYD BIOEDILIZIA - Ristrutturazione di Lusso con AI",
+        alt: "SYD BIOEDILIZIA - Ristrutturazioni Roma e Provincia",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "SYD BIOEDILIZIA - Ristrutturazione AI",
-    description: "Trasforma la tua casa con il potere dell'Intelligenza Artificiale.",
+    title: "SYD BIOEDILIZIA - Ristrutturazioni Roma",
+    description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
     images: ["/og-image.jpg"],
   },
   robots: {
@@ -75,6 +92,12 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  other: {
+    "geo.region": "IT-RM",
+    "geo.placename": "Roma",
+    "geo.position": "41.9028;12.4964",
+    "ICBM": "41.9028, 12.4964"
+  }
 };
 
 export const viewport = {

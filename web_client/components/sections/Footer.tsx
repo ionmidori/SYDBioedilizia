@@ -91,6 +91,7 @@ export function Footer() {
                                 { label: 'Portfolio', href: '/#portfolio' },
                                 { label: 'Chi Siamo', href: '/chi-siamo' },
                                 { label: 'Blog', href: '/blog' },
+                                { label: 'FAQ', href: '/faq' },
                             ].map((item) => (
                                 <li key={item.label}>
                                     <Link href={item.href} className="text-luxury-text/70 hover:text-luxury-gold transition-colors text-sm font-light">

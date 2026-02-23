@@ -64,8 +64,9 @@ export function Navbar() {
     const navLinks = [
         { name: 'Servizi', href: pathname === '/' ? '#services' : '/#services' },
         { name: 'Progetti', href: pathname === '/' ? '#portfolio' : '/#portfolio' },
+        { name: 'Blog', href: '/blog' },
         { name: 'Chi Siamo', href: '/chi-siamo' },
-        { name: 'FAQ', href: pathname === '/' ? '#faq' : '/#faq' },
+        { name: 'FAQ', href: '/faq' },
     ];
 
     const contactLinks = [
