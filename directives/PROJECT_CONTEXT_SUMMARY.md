@@ -1,9 +1,13 @@
 - **Last Updated**: 2026-02-23
-- **Current Version**: `v3.5.08` (M3 Expressive Chat & Refactoring)
+- **Current Version**: `v3.5.09` (Infra Optimization & Vertex AI Design)
 - **Last Major Sync**: 2026-02-23
-- **Status**: `Active Development - UI Polish`
-- **Next High Priority**: 1) Domain Migration | 2) Monitoring Production Build
+- **Status**: `Active Development - Cloud Infrastructure`
+- **Next High Priority**: 1) Vertex AI Agent Playbooks | 2) Domain Migration
 
+- **Infra Optimization & Vertex AI Design (v3.5.09)**:
+    - **Artifact Registry**: Implemented automated cleanup policies (14-day retention/10 versions) and optimized Dockerfile caching to mitigate rising storage costs.
+    - **Quote System**: Designed **Vertex-Native Strategy D**, shifting from self-hosted PostgreSQL/LangGraph to managed Vertex AI Agent Builder. Reduced estimated infra costs by ~$45/mo.
+    - **Chat Resilience**: Added `SendMessage` facade in `ChatProvider.tsx` with robust guest-to-anonymous conversion and empty-message guarding.
 - **M3 Expressive Chat Refactoring (v3.5.08)**:
     - **Chat UI**: Complete redesign of message bubbles using **M3 Expressive** shapes (asymmetric, organic radii).
     - **Motion**: Implemented "Elastic Physics" (spring: stiffness 120, damping 12) for message entry.
@@ -32,7 +36,7 @@
     - **UI Enhancement**: Implemented `BlogBackButton` with M3 Expressive design (Glassmorphism Pill + Framer Motion) for consistent navigation.
     - **Validation**: Verified page rendering and navigation via Browser Subagent.
 - **Professional Release Restoration (v3.5.01)**:
-    - **Phase 37 (Memory & Model Optimization)**: Consolidation of memory files and **Total Upgrade to Gemini 2.5** standard across the ecosystem.
+    - **Phase 37 (Gemini 2.5 & Deployment Stabilization)**: Consolidation of memory files, **Total Upgrade to Gemini 2.5** standard, and resolution of Cloud Run startup crashes via resilient environment mapping.
     - **Dashboard Actions**: Restored "Crea Preventivo" and "Crea Rendering" quick actions with horizontal snap-scrolling.
     - **Swipe Indicators**: Restored M3 gold chevrons (SwipeHints) for visual navigation feedback.
     - **UI Cleanup**: Removed redundant project footer to optimize vertical workspace.
