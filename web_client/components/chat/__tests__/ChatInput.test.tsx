@@ -14,6 +14,7 @@ jest.mock('lucide-react', () => ({
     Scissors: () => <div data-testid="icon-scissors" />,
     Camera: () => <div data-testid="icon-camera" />,
     Image: () => <div data-testid="icon-image" />,
+    Video: () => <div data-testid="icon-video" />,
     FileText: () => <div data-testid="icon-file-text" />,
     Mic: () => <div data-testid="icon-mic" />,
     ChevronUp: () => <div data-testid="icon-chevron-up" />,
@@ -26,7 +27,9 @@ jest.mock('lucide-react', () => ({
 jest.mock('framer-motion', () => ({
     motion: {
         button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
+        div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
     },
+    AnimatePresence: ({ children }: any) => <>{children}</>,
 }));
 
 // Mock haptics
@@ -153,7 +156,7 @@ describe('ChatInput', () => {
 
         const fileInput = container.querySelector('input[type="file"]');
         expect(fileInput).toBeInTheDocument();
-        expect(fileInput).toHaveAttribute('accept', 'image/*,video/mp4,video/webm,video/quicktime,video/x-m4v');
+        expect(fileInput).toHaveAttribute('accept', 'image/*,video/mp4,video/webm,video/quicktime,video/x-m4v,application/pdf');
     });
 
     it('should open attach dialog when paperclip button clicked', () => {

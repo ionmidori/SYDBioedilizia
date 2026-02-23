@@ -112,6 +112,7 @@ export const viewport = {
 
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { CookieConsent } from "@/components/CookieConsent";
+import { BackendWarmup } from "@/components/BackendWarmup";
 
 export default function RootLayout({
   children,
@@ -128,6 +129,7 @@ export default function RootLayout({
           <AuthProvider>
             <ChatProvider>
               {children}
+              <BackendWarmup />
               <CookieConsent />
             </ChatProvider>
           </AuthProvider>
