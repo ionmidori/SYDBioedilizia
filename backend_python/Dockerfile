@@ -15,10 +15,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
 
-# Copy ALL application code first (before creating .venv)
+# Copy dependency files first to leverage Docker layer caching
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies without the project code (creates .venv)
+RUN uv sync --no-install-project
+
+# Copy remaining application code
 COPY . .
 
-# Install dependencies (creates .venv with all packages including uvicorn)
+# Final sync to include project code
 RUN uv sync
 
 # Place the virtual environment in the PATH
