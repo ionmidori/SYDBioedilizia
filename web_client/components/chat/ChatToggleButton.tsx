@@ -90,7 +90,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                 size="icon"
                 aria-label={isOpen ? "Chiudi chat" : "Apri chat"}
                 className={cn(
-                    "w-36 h-36 md:w-52 md:h-48 rounded-full transition-all duration-300 relative flex items-center justify-center !overflow-visible",
+                    "w-[158px] h-[158px] md:w-52 md:h-48 rounded-full transition-all duration-300 relative flex items-center justify-center !overflow-visible",
                     isOpen
                         ? "bg-luxury-bg text-luxury-text shadow-2xl border border-luxury-gold/20 w-14 h-14 md:w-16 md:h-16"
                         : "bg-transparent shadow-none border-none hover:scale-105"

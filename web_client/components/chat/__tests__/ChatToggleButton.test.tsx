@@ -43,7 +43,7 @@ describe('ChatToggleButton', () => {
         const { rerender } = render(<ChatToggleButton {...defaultProps} />);
 
         let button = screen.getByRole('button');
-        // Component uses w-32 h-28 when closed, w-16 h-16 when open
+        // Component uses w-[158px] h-[158px] when closed, w-14 h-14 when open
         expect(button).toHaveClass('rounded-full');
 
         // Rerender with isOpen=true

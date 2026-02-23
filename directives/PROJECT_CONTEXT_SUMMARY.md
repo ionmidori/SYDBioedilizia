@@ -1,9 +1,18 @@
 - **Last Updated**: 2026-02-23
-- **Current Version**: `v3.5.10` (Mobile UX & Backend Warmup)
+- **Current Version**: `v3.5.12` (Biometric Auth & Mobile UX)
 - **Last Major Sync**: 2026-02-23
-- **Status**: `Active Development - Mobile Experience`
+- **Status**: `Active Development - Security & UX`
 - **Next High Priority**: 1) Vertex AI Agent Playbooks | 2) Domain Migration
 
+- **Biometric Auth Integration (v3.5.12)**:
+    - **Feature**: Enabled Biometric Login (Passkeys/WebAuthn) directly from User Profile.
+    - **UX**: Refactored `PasskeyButton.tsx` to match Luxury Gold design system.
+    - **Guidance**: Implemented smart "User Not Found" dialog handling for login attempts without prior registration, guiding users to first-time setup.
+    - **Profile**: Integrated registration flow into `app/dashboard/profile/page.tsx` with success feedback.
+- **Mobile UX Polish (v3.5.11)**:
+    - **Chat Toggle**: Increased mobile touch target to 158px (+10%) and verified right-alignment for better ergonomics.
+    - **Code**: Updated `ChatToggleButton.tsx` and aligned test comments.
+    - **Verification**: Tests passed.
 - **Video Strategy & Roadmap (v3.5.10)**:
     - **Research**: Completed technical audit of video compression patterns. Recommended **Google Cloud Transcoder API** for cost-effective (pay-as-you-go) backend optimization.
     - **Documentation**: Consolidated `docs/FUTURE_IDEAS.md` as the source of truth for long-term technical evolution, purging redundant/implemented tasks.
@@ -80,27 +89,13 @@ Per la cronologia dettagliata delle fasi precedenti (Phase 1 - Phase 36), consul
 ---
 ---
 
-## 🎯 Phase 35 Summary (2026-02-23)
+## 🎯 Phase 36 Summary (2026-02-23)
 
-**Mobile Experience + Performance Optimization**
+**Mobile UX Polish & Chat Ergonomics**
 
-### Camera/Gallery Capture Redesign
-- **Problem**: Single file input with `capture="environment"` + combined `accept` didn't reliably trigger camera vs. gallery on iOS/Android
-- **Solution**: 3 dedicated inputs with clear user intent
-  - "Scatta Foto" → `accept="image/*"` + `capture="environment"`
-  - "Registra Video" → `accept="video/mp4,video/quicktime,video/x-msvideo"` + `capture="environment"`
-  - "Galleria o Documento" → full accept, no capture
-- **Security**: Video format restriction prevents unsupported codec uploads; 3-file limit prevents DoS
-
-### Backend Instance Pre-warming
-- **Goal**: Reduce Cold Start latency for first chat interaction
-- **Pattern**: Invisible component fires single `GET /health` on page load
-- **Guards**: sessionStorage flag (1 ping/tab), AbortController 5s timeout, fire-and-forget error handling
-- **Why Not fetchWithAuth**: `/health` is public (no auth overhead needed)
-
-### Verification
-✅ Type-check: 0 errors
-✅ Tests: 15/15 passing
-✅ Commit: 6db95c8 (single atomic change)
+### Chat Toggle Button Optimization
+- **Problem**: Default size (144px) felt slightly too small on larger mobile screens; positioning needed verification.
+- **Solution**: Increased size to 158px (~10% boost). Verified right-aligned positioning (`right-0`).
+- **Verification**: Unit tests passed. Badge overlap confirmed acceptable.
 
 _Documento aggiornato: Febbraio 23, 2026_
