@@ -1,0 +1,20 @@
+[
+    {
+        "name": "delete-old-images",
+        "action": {
+            "type": "Delete"
+        },
+        "condition": {
+            "olderThan": "14d"
+        }
+    },
+    {
+        "name": "keep-recent-versions",
+        "action": {
+            "type": "Keep"
+        },
+        "mostRecentVersions": {
+            "keepCount": 10
+        }
+    }
+]
