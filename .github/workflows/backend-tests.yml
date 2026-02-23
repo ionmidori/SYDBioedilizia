@@ -18,6 +18,7 @@ jobs:
     env:
       ENV: development
       FIREBASE_STORAGE_BUCKET: test-bucket.firebasestorage.app
+      GOOGLE_CLOUD_PROJECT: chatbotluca-a8a73
     
     defaults:
       run:

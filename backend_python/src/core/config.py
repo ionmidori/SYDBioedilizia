@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, AliasChoices
 
 class Settings(BaseSettings):
     """
@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     # GOOGLE_CLOUD_PROJECT is the canonical GCP env var name.
     # PROJECT_ID is kept for backward compatibility with legacy code.
     GOOGLE_CLOUD_PROJECT: str = Field(
+        default="",
+        validation_alias=AliasChoices("GOOGLE_CLOUD_PROJECT", "PROJECT_ID", "GCP_PROJECT", "FIREBASE_PROJECT_ID"),
         description="GCP Project ID used by FirestoreSaver, Firestore, and Firebase Admin SDK.",
     )
     PROJECT_ID: str = Field(
