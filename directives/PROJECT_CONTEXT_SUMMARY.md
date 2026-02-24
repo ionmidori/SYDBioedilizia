@@ -75,10 +75,7 @@
         - **Metadata**: Automated JSON-LD `FAQPage` schema injection for Google Rich Snippets.
     - **Integration**: Added deep links in `Navbar` and `Footer` pointing to `/faq`.
 
-- **Gemini CLI Mastery & Session Finalization (v3.5.06)**:
-    - **Integration**: Standardized on official `gemini-cli` patterns via the new `antigravity-gemini-mastery` skill. 
-    - **Optimization**: Defined the "Startup Ritual" (`/ide enable`, `/memory refresh`) for high-performance terminal workflows.
-    - **Consistency**: Verified `GEMINI.md` as the primary source of truth for terminal agents, ensuring they follow the 3-Tier Law and Golden Sync.
+- **Governance**: Standardized on official `gemini-cli` patterns and implemented the **Multi-Agent Collaboration Protocol (v1.0)** in `directives/MULTI_AGENT_PROTOCOL.md` for parallel Antigravity, Gemini-CLI, and Claude Code orchestration.
 
 ---
 
