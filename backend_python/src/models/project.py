@@ -96,7 +96,7 @@ class ProjectDocument(ProjectBase):
     updated_at: datetime = Field(..., description="Last activity timestamp")
     construction_details: Optional[ProjectDetails] = Field(None, description="Construction site details")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
 class ProjectListItem(BaseModel):
@@ -112,4 +112,4 @@ class ProjectListItem(BaseModel):
     updated_at: datetime
     message_count: int = 0
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)

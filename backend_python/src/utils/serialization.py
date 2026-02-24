@@ -11,29 +11,34 @@ T = TypeVar('T', bound=Enum)
 
 def parse_firestore_datetime(value: Any) -> datetime:
     """
-    Robustly parses a value into a datetime object.
+    Robustly parses a value into a standard Python datetime object.
     Handles:
     - Firestore Timestamp/DatetimeWithNanoseconds (has .to_datetime())
     - ISO strings (via dateutil)
     - Existing datetime objects
     - None/Invalid (returns utc_now())
+
+    Always returns a plain datetime.datetime (JSON-serializable), never Firestore-specific types.
     """
     if value is None:
         return utc_now()
-        
+
     if hasattr(value, "to_datetime"):
-        return value.to_datetime()
-        
+        dt = value.to_datetime()
+        # Convert Firestore DatetimeWithNanoseconds to plain datetime
+        return datetime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.microsecond, tzinfo=dt.tzinfo)
+
     if isinstance(value, datetime):
-        return value
-        
+        # If it's a custom datetime subclass (like DatetimeWithNanoseconds), convert to plain datetime
+        return datetime(value.year, value.month, value.day, value.hour, value.minute, value.second, value.microsecond, tzinfo=value.tzinfo)
+
     if isinstance(value, str):
         try:
             return parser.parse(value)
         except Exception as e:
             logger.warning(f"Failed to parse datetime string '{value}': {e}")
             return utc_now()
-            
+
     return utc_now()
 
 
