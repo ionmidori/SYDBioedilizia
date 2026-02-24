@@ -169,7 +169,7 @@ describe('ChatInput', () => {
         const attachButton = screen.getByTestId('icon-paperclip').closest('button')!;
         fireEvent.click(attachButton);
 
-        // After clicking, the dialog should open showing "Carica un file" title
-        expect(screen.getByText(/carica un file/i)).toBeInTheDocument();
+        // After clicking, the dialog should open showing "Allega" title
+        expect(screen.getByText(/allega/i)).toBeInTheDocument();
     });
 });

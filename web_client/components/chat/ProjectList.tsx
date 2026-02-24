@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FolderKanban, Loader2, Check, Plus, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { projectsApi } from '@/lib/projects-api';
-import { ProjectListItem } from '@/types/projects';
+import { useProjects } from '@/hooks/use-projects';
 import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
 
 interface ProjectListProps {
@@ -16,37 +15,15 @@ interface ProjectListProps {
 
 export function ProjectList({ currentProjectId, onProjectSelect, className }: ProjectListProps) {
     const router = useRouter();
-    const [projects, setProjects] = useState<ProjectListItem[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { data: projects = [], isLoading } = useProjects();
     const [searchQuery, setSearchQuery] = useState('');
     const [showCreateDialog, setShowCreateDialog] = useState(false);
-
-    useEffect(() => {
-        async function load() {
-            try {
-                setLoading(true);
-                const list = await projectsApi.listProjects();
-                setProjects(list);
-            } catch (err) {
-                console.error("Failed to load projects", err);
-            } finally {
-                setLoading(false);
-            }
-        }
-        load();
-    }, []);
 
     const filteredProjects = projects.filter(p =>
         p.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const handleSelect = (projectId: string) => {
-        // Persist Project ID always
-        localStorage.setItem('activeProjectId', projectId);
-
-        // Dispatch Custom Event for Realtime Sync
-        window.dispatchEvent(new CustomEvent('projectChanged', { detail: projectId }));
-
         if (onProjectSelect) {
             onProjectSelect(projectId);
         } else {
@@ -73,24 +50,24 @@ export function ProjectList({ currentProjectId, onProjectSelect, className }: Pr
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 custom-scrollbar space-y-1">
-                {loading && (
+                {isLoading && (
                     <div className="flex items-center justify-center p-8 text-luxury-gold">
                         <Loader2 className="w-6 h-6 animate-spin" />
                     </div>
                 )}
 
-                {!loading && filteredProjects.length === 0 && (
+                {!isLoading && filteredProjects.length === 0 && (
                     <div className="p-8 text-center text-luxury-text/40 text-sm">
                         {searchQuery ? "Nessun progetto trovato" : "Nessun progetto attivo"}
                     </div>
                 )}
 
                 {filteredProjects.map((proj) => (
-                    <button
+                    <div
                         key={proj.session_id}
                         onClick={() => handleSelect(proj.session_id)}
                         className={cn(
-                            "flex items-center gap-3 w-full p-3 rounded-xl text-left transition-all active:scale-[0.98]",
+                            "flex items-center gap-3 w-full p-3 rounded-xl text-left transition-all active:scale-[0.98] cursor-pointer",
                             proj.session_id === currentProjectId
                                 ? "bg-luxury-gold/20 text-luxury-gold border border-luxury-gold/20"
                                 : "hover:bg-white/5 text-luxury-text/80 hover:text-luxury-text border border-transparent"
@@ -113,7 +90,7 @@ export function ProjectList({ currentProjectId, onProjectSelect, className }: Pr
                         {proj.session_id === currentProjectId && (
                             <Check className="w-5 h-5 flex-shrink-0" />
                         )}
-                    </button>
+                    </div>
                 ))}
             </div>
 
@@ -131,7 +108,6 @@ export function ProjectList({ currentProjectId, onProjectSelect, className }: Pr
                 open={showCreateDialog}
                 onOpenChange={setShowCreateDialog}
                 onProjectCreated={(newProjectId) => {
-                    projectsApi.listProjects().then(setProjects);
                     handleSelect(newProjectId);
                 }}
             />

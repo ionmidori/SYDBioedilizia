@@ -103,6 +103,21 @@
     @apply border-border;
   }
 
+  /* Mobile Native Hardening */
+  html, body {
+    overscroll-behavior-y: none; /* Prevent bounce scroll on iOS */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Re-enable text selection for content */
+  p, h1, h2, h3, h4, h5, h6, span, input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
   body {
     @apply bg-background text-foreground;
     overscroll-behavior-y: none;

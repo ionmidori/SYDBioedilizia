@@ -113,6 +113,7 @@ export const viewport = {
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { CookieConsent } from "@/components/CookieConsent";
 import { BackendWarmup } from "@/components/BackendWarmup";
+import QueryProvider from "@/components/providers/QueryProvider";
 
 export default function RootLayout({
   children,
@@ -127,11 +128,13 @@ export default function RootLayout({
       >
         <AppCheckProvider>
           <AuthProvider>
-            <ChatProvider>
-              {children}
-              <BackendWarmup />
-              <CookieConsent />
-            </ChatProvider>
+            <QueryProvider>
+              <ChatProvider>
+                {children}
+                <BackendWarmup />
+                <CookieConsent />
+              </ChatProvider>
+            </QueryProvider>
           </AuthProvider>
         </AppCheckProvider>
         <SpeedInsights />

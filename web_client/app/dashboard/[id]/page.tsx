@@ -1,15 +1,14 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import ChatWidget from '@/components/chat/ChatWidget';
 import ProjectInfoCard from '@/components/dashboard/ProjectInfoCard';
 import { useParams } from 'next/navigation';
 import { useChatContext } from '@/hooks/useChatContext';
 import { cn } from '@/lib/utils';
 import { ProjectMobileTabs } from '@/components/mobile/ProjectMobileTabs';
-import { projectsApi } from '@/lib/projects-api';
-import { Project } from '@/types/projects';
 import { ScallopedInlineLoader } from '@/components/ui/ScallopedPageTransition';
+import { useProject } from '@/hooks/use-project';
 
 export default function ProjectPage() {
     const params = useParams();
@@ -20,8 +19,7 @@ export default function ProjectPage() {
 
 function ProjectPageContent({ projectId }: { projectId: string }) {
     const { setProjectId } = useChatContext();
-    const [project, setProject] = useState<Project | null>(null);
-    const [loading, setLoading] = useState(true);
+    const { data: project, isLoading } = useProject(projectId);
 
     useEffect(() => {
         if (projectId) {
@@ -29,24 +27,7 @@ function ProjectPageContent({ projectId }: { projectId: string }) {
         }
     }, [projectId, setProjectId]);
 
-    useEffect(() => {
-        async function loadProject() {
-            try {
-                setLoading(true);
-                const data = await projectsApi.getProject(projectId);
-                setProject(data);
-            } catch (err) {
-                console.error('[ProjectPage] Error loading project:', err);
-            } finally {
-                setLoading(false);
-            }
-        }
-        if (projectId) {
-            loadProject();
-        }
-    }, [projectId]);
-
-    if (loading) {
+    if (isLoading) {
         return (
             <ScallopedInlineLoader />
         );

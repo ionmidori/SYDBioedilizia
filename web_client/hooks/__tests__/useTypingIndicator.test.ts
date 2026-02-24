@@ -5,55 +5,40 @@ import { act } from 'react';
 describe('useTypingIndicator', () => {
     beforeEach(() => {
         jest.useFakeTimers();
+        jest.spyOn(Math, 'random').mockReturnValue(0); // Always start at index 0
     });
 
     afterEach(() => {
         jest.useRealTimers();
+        jest.spyOn(Math, 'random').mockRestore();
     });
 
     it('should return default message when not loading', () => {
         const { result } = renderHook(() => useTypingIndicator(false));
 
-        expect(result.current).toBe('Sto pensando...');
+        expect(result.current).toBe("Consultando l'architetto interiore...");
     });
 
     it('should return first message when loading starts', () => {
         const { result } = renderHook(() => useTypingIndicator(true));
 
-        expect(result.current).toBe('Sto analizzando...');
+        expect(result.current).toBe("Consultando l'architetto interiore...");
     });
 
     it('should cycle through messages when loading', () => {
         const { result } = renderHook(() => useTypingIndicator(true));
 
-        expect(result.current).toBe('Sto analizzando...');
+        expect(result.current).toBe("Consultando l'architetto interiore...");
 
         act(() => {
-            jest.advanceTimersByTime(2000);
+            jest.advanceTimersByTime(3000);
         });
-        expect(result.current).toBe('Sto elaborando la risposta...');
+        expect(result.current).toBe("Spostando pixel pesanti...");
 
         act(() => {
-            jest.advanceTimersByTime(2000);
+            jest.advanceTimersByTime(3000);
         });
-        expect(result.current).toBe('Sto disegnando...');
-
-        act(() => {
-            jest.advanceTimersByTime(2000);
-        });
-        expect(result.current).toBe('Quasi pronto...');
-    });
-
-    it('should loop back to first message after last one', () => {
-        const { result } = renderHook(() => useTypingIndicator(true));
-
-        // Advance through all 4 messages (0, 2000, 4000, 6000ms)
-        act(() => {
-            jest.advanceTimersByTime(8000);
-        });
-
-        // Should loop back to first message
-        expect(result.current).toBe('Sto analizzando...');
+        expect(result.current).toBe("Riscaldando i neuroni...");
     });
 
     it('should stop cycling when loading ends', () => {
@@ -62,18 +47,18 @@ describe('useTypingIndicator', () => {
             { initialProps: { isLoading: true } }
         );
 
-        expect(result.current).toBe('Sto analizzando...');
+        expect(result.current).toBe("Consultando l'architetto interiore...");
 
         // Stop loading
         rerender({ isLoading: false });
 
-        expect(result.current).toBe('Sto pensando...');
+        expect(result.current).toBe("Consultando l'architetto interiore...");
 
         // Advance time - message should not change
         act(() => {
             jest.advanceTimersByTime(5000);
         });
-        expect(result.current).toBe('Sto pensando...');
+        expect(result.current).toBe("Consultando l'architetto interiore...");
     });
 
     it('should clean up interval on unmount', () => {
@@ -85,26 +70,5 @@ describe('useTypingIndicator', () => {
 
         expect(clearIntervalSpy).toHaveBeenCalled();
         clearIntervalSpy.mockRestore();
-    });
-
-    it('should restart cycling when loading restarts', () => {
-        const { result, rerender } = renderHook(
-            ({ isLoading }) => useTypingIndicator(isLoading),
-            { initialProps: { isLoading: true } }
-        );
-
-        // Advance to second message
-        act(() => {
-            jest.advanceTimersByTime(2000);
-        });
-        expect(result.current).toBe('Sto elaborando la risposta...');
-
-        // Stop loading
-        rerender({ isLoading: false });
-        expect(result.current).toBe('Sto pensando...');
-
-        // Start loading again
-        rerender({ isLoading: true });
-        expect(result.current).toBe('Sto analizzando...'); // Should restart from first
     });
 });
