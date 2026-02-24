@@ -49,7 +49,10 @@ async def list_projects(
         return projects
     except Exception as e:
         logger.error(f"[API] Error in list_projects: {e}", exc_info=True)
-        raise e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Impossibile caricare i progetti"
+        )
 
 
 @router.get("/{session_id}", response_model=ProjectDocument)
