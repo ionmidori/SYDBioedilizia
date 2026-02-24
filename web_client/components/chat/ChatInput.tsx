@@ -11,7 +11,7 @@
  *
  * @see hooks/useUpload.ts - Source of upload state
  */
-import React, { RefObject, useState, useMemo, useRef } from 'react';
+import React, { RefObject, useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Loader2 } from 'lucide-react';
@@ -68,6 +68,7 @@ export function ChatInput({
     const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // Derived state
     const uploadItems = useMemo(() => Object.values(uploads), [uploads]);
@@ -81,6 +82,23 @@ export function ChatInput({
         authLoading ||
         (!inputValue.trim() && uploadItems.length === 0) ||
         hasActiveUploads;
+
+    // Handle click outside to close attachment menu
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsAttachMenuOpen(false);
+            }
+        };
+
+        if (isAttachMenuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isAttachMenuOpen]);
 
     // Handle file selection from input (max 5 files per selection to prevent browser overload)
     const MAX_FILES_PER_SELECTION = 3;
@@ -162,7 +180,7 @@ export function ChatInput({
         >
             <div className="flex gap-2 items-end max-w-full">
                 {/* Attachment Menu Trigger & Dropdown */}
-                <div className="relative">
+                <div className="relative" ref={containerRef}>
                     <Button
                         variant="ghost"
                         size="icon"
