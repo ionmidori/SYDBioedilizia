@@ -1,8 +1,14 @@
-- **Last Updated**: 2026-02-23
-- **Current Version**: `v3.5.14` (Doc Solidification & Mascot Plan)
-- **Last Major Sync**: 2026-02-23
+- **Last Updated**: 2026-02-24
+- **Current Version**: `v3.5.15` (Attachment Menu Refactor)
+- **Last Major Sync**: 2026-02-24
 - **Status**: `Production-Ready - Feature Planning`
 - **Next High Priority**: 1) Dynamic Robot Mascot | 2) Vertex AI Agent Playbooks | 3) Domain Migration
+
+- **Attachment Menu Refactor (v3.5.15)**:
+    - **Refactoring**: Transformed the full-screen attachment `Dialog` into a sleek, context-aware `AttachmentMenu` (Dropdown).
+    - **UI/UX**: Implemented **M3 Expressive** design with Glassmorphism (`backdrop-blur-xl`), custom Spring animations (`framer-motion`), and rounded organic shapes (`rounded-2xl`).
+    - **Components**: Created `AttachmentMenu.tsx` to encapsulate logic and clean up `ChatInput.tsx`.
+    - **Risks Mitigated**: Added ESC key support for accessibility and verified stacking context to prevent clipping.
 
 - **Architecture & Documentation Solidification (v3.5.14)**:
     - **Full Audit**: Comprehensive update of all system documentation to reflect the "Luxury Tech" and "Reasoning Engine" reality.
@@ -79,17 +85,13 @@
 
 ---
 
-## 🎯 Phase 38 Summary (2026-02-23)
+## 🎯 Phase 39 Summary (2026-02-24)
 
-**Architecture & Documentation Solidification**
+**Attachment Menu Refactor**
 
-### Documentation Overhaul
-- **Problem**: Documentation was lagging behind the rapid V3 development cycle (especially regarding 3-Tier Architecture and AI Streaming).
-- **Solution**: Fully updated `backend_architecture_report.md`, `CHATBOT_ARCHITECTURE.md`, `ADMIN_CONSOLE_PRICING_ENGINE.md`, and `web_client/README.md`.
-- **Result**: Accurate, production-grade documentation for future scaling and onboarding.
+### UI/UX Modernization
+- **Problem**: The attachment selection was a full-screen modal, interrupting the chat flow.
+- **Solution**: Implemented a **M3 Expressive Dropdown Menu** (`AttachmentMenu.tsx`) anchored to the input bar.
+- **Design**: Leveraged Glassmorphism and Spring animations for a premium, non-intrusive feel.
 
-### Dynamic Mascot Plan
-- **Strategy**: Defined "Layered Puppet" approach for the upcoming interactive robot.
-- **Artifact**: `docs/PLANS/dynamic_mascot_implementation.md` ready for execution.
-
-_Documento aggiornato: Febbraio 23, 2026_
+_Documento aggiornato: Febbraio 24, 2026_

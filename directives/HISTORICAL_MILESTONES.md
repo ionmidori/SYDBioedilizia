@@ -288,4 +288,11 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **Code Hygiene**: Rimozione di endpoint morti (`/api/magic-link/verify`) e verifica della conformità Type Safety nel frontend.
 - **Status**: Production-Ready (v3.5.14).
 
-_Documento aggiornato: Febbraio 23, 2026_
+## 🗃️ Phase 39: Attachment Menu Refactor (Feb-24-2026)
+*Modernizzazione dell'interfaccia allegati con M3 Expressive Dropdown.*
+- **Refactoring**: Sostituzione del modale full-screen con un menu dropdown (`AttachmentMenu.tsx`) per un flusso chat non interrotto.
+- **M3 Polish**: Utilizzo di Glassmorphism, animazioni a molla (Spring Physics) e forme organiche arrotondate.
+- **Risk Mitigation**: Implementazione sicura con supporto tasto ESC e gestione stacking context per evitare clipping.
+- **Versioning**: `v3.5.15`.
+
+_Documento aggiornato: Febbraio 24, 2026_
