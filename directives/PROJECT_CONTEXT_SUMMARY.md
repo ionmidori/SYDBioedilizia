@@ -1,8 +1,19 @@
 - **Last Updated**: 2026-02-24
-- **Current Version**: `v3.5.15` (Attachment Menu Refactor)
+- **Current Version**: `v3.6.00` (Modern Stack & Mobile Native UI)
 - **Last Major Sync**: 2026-02-24
 - **Status**: `Production-Ready - Feature Planning`
 - **Next High Priority**: 1) Dynamic Robot Mascot | 2) Vertex AI Agent Playbooks | 3) Domain Migration
+
+- **Modern State Management & Mobile Native UI (v3.6.00)**:
+    - **State Architecture**: Migrated from SWR/Legacy to **TanStack Query v5** (Server State) + **Zustand** (Client State).
+    - **Mobile UX**: Implemented **Vaul** (Drawer) for "True Native" mobile experience in Create/Rename workflows.
+    - **Components**:
+        - `QueryProvider.tsx`: Centralized query client with DevTools.
+        - `useUIStore.ts`: Global UI state management.
+        - `ResponsiveDrawer.tsx`: Adaptive component (Dialog on Desktop, Drawer on Mobile).
+    - **Hardening**: Enforced `overscroll-behavior-y: none` and removed tap highlights for app-like feel.
+    - **Testing**: Updated `useTypingIndicator` to be deterministic and fixed `ChatInput` tests.
+    - **Clean-up**: Removed `swr` and legacy `window.dispatchEvent` patterns.
 
 - **Attachment Menu Refactor (v3.5.15)**:
     - **Refactoring**: Transformed the full-screen attachment `Dialog` into a sleek, context-aware `AttachmentMenu` (Dropdown).

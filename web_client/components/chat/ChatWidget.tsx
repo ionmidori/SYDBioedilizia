@@ -154,7 +154,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // We filter messages to show welcome message vs real messages
     // The Provider already handles initial welcome messages in `messages`.
     const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(messages, isOpen);
-    const { isMobile, keyboardHeight } = useMobileViewport(isOpen && !isInline, chatContainerRef);
+    // 🔥 FIX: Enable keyboard tracking for both floating and inline variants
+    const { isMobile, keyboardHeight } = useMobileViewport(isOpen, chatContainerRef);
 
     // 7. Handlers
 
@@ -402,6 +403,11 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         {isInline ? (
                             <div
                                 ref={chatContainerRef}
+                                style={{
+                                    // Push content up when keyboard is open (respecting M3 easing)
+                                    paddingBottom: isMobile && keyboardHeight > 0 ? `${keyboardHeight}px` : undefined,
+                                    transition: 'padding-bottom 0.3s cubic-bezier(0.05, 0.7, 0.1, 1.0)'
+                                }}
                                 className={cn(
                                     "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-10",
                                     "relative !w-full !max-w-none h-full rounded-3xl border border-luxury-gold/10 shadow-2xl"

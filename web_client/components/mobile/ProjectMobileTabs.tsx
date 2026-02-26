@@ -84,7 +84,7 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
 
     return (
         <div
-            className="flex flex-col h-full w-full bg-luxury-bg relative overflow-hidden"
+            className="flex flex-col h-[100dvh] w-full bg-luxury-bg relative overflow-hidden"
             {...containerProps}
         >
             {/* M3 Expressive Edge Swipe Indicators */}
