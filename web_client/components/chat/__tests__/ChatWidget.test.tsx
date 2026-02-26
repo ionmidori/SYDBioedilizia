@@ -58,8 +58,6 @@ jest.mock('../ChatInput', () => ({ ChatInput: () => <div /> }));
 jest.mock('../ChatToggleButton', () => ({ ChatToggleButton: () => <button>Toggle</button> }));
 jest.mock('@/hooks/useSessionId', () => ({ useSessionId: () => 'fallback' }));
 jest.mock('@/hooks/useChatHistory', () => ({ useChatHistory: () => ({ historyLoaded: true, historyMessages: [] }) }));
-jest.mock('@/hooks/useMediaUpload', () => ({ useMediaUpload: () => ({ mediaItems: [], isGlobalUploading: false }) }));
-jest.mock('@/hooks/useVideoUpload', () => ({ useVideoUpload: () => ({ videos: [], isUploading: false }) }));
 jest.mock('@/hooks/useChatScroll', () => ({ useChatScroll: () => ({ messagesContainerRef: { current: null }, messagesEndRef: { current: null }, scrollToBottom: jest.fn() }) }));
 jest.mock('@/hooks/useMobileViewport', () => ({ useMobileViewport: () => ({ isMobile: false }) }));
 jest.mock('@/hooks/useTypingIndicator', () => ({ useTypingIndicator: () => null }));
