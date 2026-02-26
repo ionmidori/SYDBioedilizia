@@ -6,7 +6,7 @@ import { useState } from 'react';
  */
 export function useSessionId() {
     const [sessionId] = useState(() => {
-        if (typeof window === 'undefined') return `session-${Date.now()}`;
+        if (typeof window === 'undefined') return crypto.randomUUID();
 
         // 1. Priority: Project Context (Logged in User)
         const activeProjectId = localStorage.getItem('activeProjectId');
@@ -22,7 +22,9 @@ export function useSessionId() {
             return stored;
         }
 
-        const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        // crypto.randomUUID() provides 122 bits of cryptographic randomness,
+        // preventing session ID brute-force that was possible with Math.random().
+        const newSessionId = crypto.randomUUID();
         localStorage.setItem('chatSessionId', newSessionId);
         console.log('[SessionID] Created new session:', newSessionId);
         return newSessionId;

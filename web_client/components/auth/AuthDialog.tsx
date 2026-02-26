@@ -22,7 +22,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSessionId } from '@/hooks/useSessionId';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { projectsApi } from '@/lib/projects-api';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AuthDialogProps {
@@ -51,19 +51,26 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
 
     const [loading, setLoading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
-    const [claimStatus, setClaimStatus] = useState<string | null>(null);
+    const [claimStatus, setClaimStatus] = useState<'pending' | 'error' | null>(null);
 
     const handleLoginSuccess = async () => {
-        setClaimStatus('Finalizzazione...');
-        onOpenChange(false);
+        // Keep dialog open during claim so the user sees progress and any errors.
+        setClaimStatus('pending');
         try {
             if (sessionId) {
                 await projectsApi.claimProject(sessionId);
+                // Clear anonymous session key from localStorage only after a confirmed claim.
+                // Prevents stale sessionId from being re-claimed by the next user on this device.
+                localStorage.removeItem('chatSessionId');
             }
         } catch (error) {
-            console.warn('[AuthDialog] Claim failed (non-fatal):', error);
+            console.warn('[AuthDialog] Claim failed:', error);
+            // Show the error briefly so the user knows their anonymous work wasn't linked.
+            setClaimStatus('error');
+            await new Promise(resolve => setTimeout(resolve, 2500));
         } finally {
             setClaimStatus(null);
+            onOpenChange(false);
             if (redirectOnLogin) {
                 router.push('/dashboard');
             }
@@ -124,8 +131,22 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
 
             {claimStatus ? (
                 <div className="py-12 flex flex-col items-center justify-center space-y-4">
-                    <Loader2 className="w-8 h-8 text-luxury-gold animate-spin" />
-                    <p className="text-slate-300 font-medium">{claimStatus}</p>
+                    {claimStatus === 'pending' ? (
+                        <>
+                            <Loader2 className="w-8 h-8 text-luxury-gold animate-spin" />
+                            <p className="text-slate-300 font-medium">Finalizzazione...</p>
+                        </>
+                    ) : (
+                        <>
+                            <AlertCircle className="w-8 h-8 text-amber-400" />
+                            <div className="text-center space-y-1">
+                                <p className="text-slate-200 font-semibold text-sm">Accesso completato</p>
+                                <p className="text-slate-400 text-xs max-w-[240px] leading-relaxed">
+                                    La sessione anonima non è stata collegata. Il tuo account è attivo, ma i dati precedenti potrebbero non essere disponibili.
+                                </p>
+                            </div>
+                        </>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-6">

@@ -16,6 +16,7 @@ import {
 import { auth, waitForAuth } from '@/lib/firebase';
 import { tokenManager } from '@/lib/auth/token-manager';
 import { setAuthCookie, removeAuthCookie } from '@/app/actions/auth-session';
+import { queryClient } from '@/lib/query-client';
 
 /**
  * AuthContext Interface
@@ -221,18 +222,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setIdToken(null);
             tokenManager.stopMonitoring();
 
-            // 2. Clear Server Session
+            // 2. Clear TanStack Query cache — prevents cross-user data leakage
+            //    on shared/kiosk devices where multiple users share the same tab.
+            queryClient.clear();
+
+            // 3. Clear Server Session
             await removeAuthCookie();
 
-            // 3. Clear Firebase Auth
+            // 4. Clear Firebase Auth
             await signOut(auth);
-
-            // 4. Force Redirect (Safety net)
-            // window.location.href = '/auth'; // Optional: let the component handle it via useEffect
         } catch (error) {
             console.error('[AuthProvider] Logout error:', error);
             // Even if error, force local state clear
             setUser(null);
+            queryClient.clear();
         }
     };
 
