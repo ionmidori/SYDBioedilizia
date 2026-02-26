@@ -1,22 +1,21 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronDown, FolderKanban, Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { projectsApi } from '@/lib/projects-api';
 import { ProjectListItem } from '@/types/projects';
 import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
+import { useProjects } from '@/hooks/use-projects';
 
 interface ProjectSelectorProps {
     currentProjectId: string;
-    onProjectSelect?: (projectId: string) => void; // Support custom handling (e.g. no navigation)
+    onProjectSelect?: (projectId: string) => void;
 }
 
 export function ProjectSelector({ currentProjectId, onProjectSelect }: ProjectSelectorProps) {
     const router = useRouter();
-    const [projects, setProjects] = useState<ProjectListItem[]>([]);
-    const [loading, setLoading] = useState(false);
+    const { data: projects = [], isLoading } = useProjects();
     const [isOpen, setIsOpen] = useState(false);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
@@ -32,35 +31,8 @@ export function ProjectSelector({ currentProjectId, onProjectSelect }: ProjectSe
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Load projects ONLY when opening to save resources, or on mount? 
-    // Better on mount so we can display the name correctly if logic requires, 
-    // but here we just show "Select Project" or similar if name is missing? 
-    // Actually, we usually want to show the CURRENT project name. 
-    // We can infer it from the list.
-    useEffect(() => {
-        async function load() {
-            try {
-                setLoading(true);
-                const list = await projectsApi.listProjects();
-                setProjects(list);
-            } catch (err) {
-                console.error("Failed to load projects", err);
-            } finally {
-                setLoading(false);
-            }
-        }
-        load();
-    }, []);
-
-    const currentProject = projects.find(p => p.session_id === currentProjectId);
+    const currentProject = projects.find((p: ProjectListItem) => p.session_id === currentProjectId);
     const displayName = currentProject ? currentProject.title : "Seleziona Progetto";
-
-    // 🔄 STATE SYNC: Keep localStorage updated with current project
-    useEffect(() => {
-        if (currentProjectId) {
-            localStorage.setItem('activeProjectId', currentProjectId);
-        }
-    }, [currentProjectId]);
 
     const handleSelect = (projectId: string) => {
         if (projectId === currentProjectId) {
@@ -68,21 +40,13 @@ export function ProjectSelector({ currentProjectId, onProjectSelect }: ProjectSe
             return;
         }
 
-        // Persist Project ID always (redundant if effect exists, but safe)
-        localStorage.setItem('activeProjectId', projectId);
+        setIsOpen(false);
 
-        // 🔥 Dispatch Custom Event for Realtime Sync
-        window.dispatchEvent(new CustomEvent('projectChanged', { detail: projectId }));
-
-        // If custom handler exists, use it and SKIP navigation
         if (onProjectSelect) {
             onProjectSelect(projectId);
-            setIsOpen(false);
             return;
         }
 
-        // Default: Navigate to Dashboard
-        setIsOpen(false);
         router.push(`/dashboard/${projectId}`);
     };
 
@@ -97,7 +61,7 @@ export function ProjectSelector({ currentProjectId, onProjectSelect }: ProjectSe
                         Progetto Attivo
                     </span>
                     <span className="text-sm font-medium text-luxury-text leading-none w-full truncate" title={displayName}>
-                        {loading && projects.length === 0 ? "Caricamento..." : displayName}
+                        {isLoading && projects.length === 0 ? "Caricamento..." : displayName}
                     </span>
                 </div>
                 <ChevronDown className={cn(
@@ -109,19 +73,19 @@ export function ProjectSelector({ currentProjectId, onProjectSelect }: ProjectSe
             {/* Dropdown Menu */}
             {isOpen && (
                 <div className="absolute top-full right-0 mt-3 w-64 md:w-72 max-h-[350px] overflow-y-auto rounded-[1.5rem] border border-luxury-gold/20 bg-luxury-bg/80 backdrop-blur-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-50 animate-in fade-in slide-in-from-top-2 duration-200 flex flex-col p-2 custom-scrollbar">
-                    {loading && projects.length === 0 && (
+                    {isLoading && projects.length === 0 && (
                         <div className="flex items-center justify-center p-6 text-luxury-gold">
                             <Loader2 className="w-6 h-6 animate-spin" />
                         </div>
                     )}
 
-                    {!loading && projects.length === 0 && (
+                    {!isLoading && projects.length === 0 && (
                         <div className="p-4 text-center text-sm text-luxury-text/50">
                             Nessun altro progetto
                         </div>
                     )}
 
-                    {projects.map((proj) => {
+                    {projects.map((proj: ProjectListItem) => {
                         const isCurrent = proj.session_id === currentProjectId;
                         return (
                             <button
@@ -185,16 +149,9 @@ export function ProjectSelector({ currentProjectId, onProjectSelect }: ProjectSe
                 open={showCreateDialog}
                 onOpenChange={setShowCreateDialog}
                 onProjectCreated={(newProjectId) => {
-                    // Refresh local list (optimistic or re-fetch)
-                    // Then select
-                    // For now, simpler to just trigger select, but we need to re-fetch to show title
-                    // Triggering onProjectSelect will handle context switch
-                    // Re-fetching project list might be needed if component doesn't unmount
-                    // Let's force a reload of projects next time it opens or now
-                    projectsApi.listProjects().then(setProjects);
-
+                    // Cache is invalidated automatically by use-create-project mutation
                     if (onProjectSelect) {
-                        onProjectSelect(newProjectId); // Sync Context
+                        onProjectSelect(newProjectId);
                     } else {
                         router.push(`/dashboard/${newProjectId}`);
                     }

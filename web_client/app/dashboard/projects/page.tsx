@@ -7,12 +7,13 @@ import { motion } from 'framer-motion';
 
 
 import { Button } from "@/components/ui/button"
-import { useProjects } from "@/hooks/useProjects"
+import { useProjects } from "@/hooks/use-projects"
 import { ProjectCard } from "@/components/dashboard/ProjectCard"
 import { CreateProjectDialog } from "@/components/dashboard/CreateProjectDialog"
 
 export default function ProjectsPage() {
-    const { projects, loading: isLoading, error, refresh } = useProjects();
+    const { data: projects = [], isLoading, isError, error: queryError, refetch } = useProjects();
+    const error = isError ? (queryError as Error)?.message ?? 'Errore caricamento' : null;
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
     const handleCreateProject = () => {
@@ -20,7 +21,7 @@ export default function ProjectsPage() {
     };
 
     const handleDeleteProject = () => {
-        refresh();
+        refetch();
     };
 
     if (isLoading) {

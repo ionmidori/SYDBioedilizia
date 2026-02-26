@@ -1,23 +1,15 @@
 'use client';
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FolderKanban, Settings, ArrowRight, Info } from "lucide-react";
-import { projectsApi } from "@/lib/projects-api";
-import { ProjectListItem } from "@/types/projects";
 import { Button } from "@/components/ui/button";
 
-import { useProjects } from "@/hooks/useProjects";
+import { useProjects } from "@/hooks/use-projects";
 import { ScallopedInlineLoader } from "@/components/ui/ScallopedPageTransition";
 
 export default function GlobalSettingsPage() {
-    const { projects, loading: isLoading, error: projectsError } = useProjects();
-    const [error, setError] = useState<string | null>(null);
-
-    // Update local error if hook has error
-    useEffect(() => {
-        if (projectsError) setError(projectsError);
-    }, [projectsError]);
+    const { data: projects = [], isLoading, isError, error: queryError } = useProjects();
+    const error = isError ? (queryError as Error)?.message ?? 'Errore caricamento' : null;
 
     return (
         <div className="max-w-4xl mx-auto py-12 px-6 space-y-12">

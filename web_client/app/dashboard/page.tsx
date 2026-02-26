@@ -1,6 +1,6 @@
 'use client';
 
-import { useProjects } from '@/hooks/useProjects';
+import { useProjects } from '@/hooks/use-projects';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAuth } from '@/hooks/useAuth';
 import { StatsGrid } from '@/components/dashboard/StatsGrid';
@@ -17,7 +17,8 @@ import { DebugLayout } from "@/components/DebugLayout";
 
 export default function DashboardPage() {
     const { user } = useAuth();
-    const { projects, loading: projectsLoading, error, refresh } = useProjects();
+    const { data: projects = [], isLoading: projectsLoading, isError, error: queryError } = useProjects();
+    const error = isError ? (queryError as Error)?.message ?? 'Errore caricamento' : null;
     const { stats, loading: statsLoading } = useDashboardStats();
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const router = useRouter();
