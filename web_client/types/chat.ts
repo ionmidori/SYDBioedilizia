@@ -2,6 +2,7 @@
  * Chat types for SYD Renovation
  * Fully compatible with Vercel AI SDK Data Protocol
  */
+import type { ReasoningStep } from './reasoning';
 
 export interface ToolInvocation {
     toolCallId: string;
@@ -28,16 +29,11 @@ export interface Attachment {
 
 /**
  * AI Reasoning Metadata
- * Synchronized with backend_python/src/models/reasoning.py
+ * Canonical type imported from types/reasoning.ts (Golden Sync with backend_python/src/models/reasoning.py).
+ * Do NOT redefine this struct here — import it instead.
  */
-export interface ReasoningStep {
-    analysis: string;
-    action: 'call_tool' | 'ask_user' | 'terminate';
-    tool_name?: string;
-    confidence_score: number; // 0.0 - 1.0
-    protocol_status: 'continue' | 'pause' | 'complete';
-    missing_info: string[];
-}
+export type { ReasoningStep };
+
 
 export interface Message {
     id: string;
