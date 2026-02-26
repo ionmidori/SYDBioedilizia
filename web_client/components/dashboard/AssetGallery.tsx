@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Image from 'next/image';
 import { MediaAsset } from '@/lib/media-utils';
 import { Download, X, FileText, Image as ImageIcon, Video, Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { OptimizedGalleryViewer, GalleryImage } from '@/components/gallery/OptimizedGalleryViewer';
 
 interface AssetGalleryProps {
     assets: MediaAsset[];
@@ -13,10 +14,12 @@ interface AssetGalleryProps {
 
 export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
     const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [selectedIndex, setSelectedIndex] = useState(0);
     const { user } = useAuth();
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const handleDownload = async (asset: MediaAsset) => {
+    const handleDownload = useCallback(async (asset: MediaAsset) => {
         try {
             const response = await fetch(asset.url);
             const blob = await response.blob();
@@ -31,7 +34,7 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
         } catch (error) {
             console.error('Download failed:', error);
         }
-    };
+    }, []);
 
     const handleDelete = async (asset: MediaAsset) => {
         if (!confirm('Sei sicuro di voler eliminare questo file? Questa azione non può essere annullata.')) return;
@@ -96,6 +99,17 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
         }
     };
 
+    // Convert to GalleryImage format
+    const galleryImages: GalleryImage[] = assets.map(asset => ({
+        id: asset.id,
+        url: asset.url,
+        thumbnail: asset.thumbnail,
+        title: asset.title,
+        description: '',
+        type: asset.type as 'image' | 'render' | 'video' | 'quote',
+        metadata: asset.metadata,
+    }));
+
     if (assets.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-32 text-center border border-luxury-gold/20 rounded-[2.5rem] glass-premium relative overflow-hidden group">
@@ -118,8 +132,22 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
 
     return (
         <>
-            {/* Gallery Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
+            {/* Optimized Gallery Viewer */}
+            <div className="w-full h-[70vh]">
+                <OptimizedGalleryViewer
+                    images={galleryImages}
+                    title="File Progetto"
+                    enableVirtualization={assets.length > 50}
+                    onImageClick={(image, index) => {
+                        setSelectedIndex(index);
+                        setIsLightboxOpen(true);
+                    }}
+                />
+            </div>
+
+            {/* Old Grid (kept for reference, can be removed after testing) */}
+            <div className="hidden">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
                 {assets.map((asset) => (
                     <div key={asset.id} className="flex flex-col gap-2">
                         <div
@@ -204,11 +232,12 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
                     </div>
                 ))}
             </div>
+            </div>
 
-            {/* Lightbox Modal */}
+            {/* Legacy Lightbox Modal (can be removed) */}
             {selectedAsset && (
                 <div
-                    className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-luxury-bg/95 backdrop-blur-2xl p-4 sm:p-8 animate-in fade-in duration-300"
+                    className="hidden fixed inset-0 z-50 flex flex-col items-center justify-center bg-luxury-bg/95 backdrop-blur-2xl p-4 sm:p-8 animate-in fade-in duration-300"
                     onClick={() => setSelectedAsset(null)}
                 >
                     {/* Close Button - High Z-Index & Better Positioning */}
@@ -317,3 +346,4 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
         </>
     );
 }
+

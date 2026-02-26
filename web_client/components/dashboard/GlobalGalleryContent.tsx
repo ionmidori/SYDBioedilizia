@@ -5,6 +5,7 @@ import { collectionGroup, query, orderBy, getDocs, limit, startAfter, QueryDocum
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { AssetGallery } from '@/components/dashboard/AssetGallery';
+import { OptimizedGalleryViewer, type GalleryImage } from '@/components/gallery/OptimizedGalleryViewer';
 import { MediaAsset } from '@/lib/media-utils';
 import { Loader2, LayoutGrid, Calendar, FolderKanban, ChevronDown, Search, X, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -365,37 +366,52 @@ export function GlobalGalleryContent() {
                 </div>
             </div>
 
-            {/* Grouped Gallery Sections */}
-            <div className="space-y-8 md:space-y-12 pb-20">
-                {Object.entries(groupedAssets).map(([groupName, groupAssets]) => (
-                    <motion.section
-                        key={groupName}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                        className="space-y-4 md:space-y-6"
-                    >
-                        {/* Section Header */}
-                        <div className="flex items-center gap-3 md:gap-4 pb-3 border-b border-luxury-gold/10">
-                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-luxury-gold/20 to-transparent" />
-                            <h2 className="text-lg md:text-2xl font-bold text-luxury-text font-serif tracking-tight">
-                                {groupName}
-                            </h2>
-                            <span className="px-3 py-1 bg-luxury-gold/10 border border-luxury-gold/20 rounded-full text-luxury-gold text-xs md:text-sm font-bold">
-                                {groupAssets.length}
-                            </span>
-                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-luxury-gold/20 to-transparent" />
-                        </div>
+            {/* Optimized Gallery Sections */}
+            <div className="space-y-12 md:space-y-16 pb-20">
+                {Object.entries(groupedAssets).map(([groupName, groupAssets]) => {
+                    const galleryImages: GalleryImage[] = groupAssets.map(asset => ({
+                        id: asset.id,
+                        url: asset.url,
+                        thumbnail: asset.thumbnail,
+                        title: asset.title,
+                        description: '',
+                        type: asset.type as 'image' | 'render' | 'video' | 'quote',
+                        metadata: asset.metadata,
+                    }));
 
-                        {/* Assets Grid */}
-                        <AssetGallery
-                            assets={groupAssets}
-                            onDelete={(deletedId) => {
-                                setAssets(prev => prev.filter(a => a.id !== deletedId));
-                            }}
-                        />
-                    </motion.section>
-                ))}
+                    return (
+                        <motion.section
+                            key={groupName}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.4 }}
+                            className="space-y-4 md:space-y-6"
+                        >
+                            {/* Section Header */}
+                            <div className="flex items-center gap-3 md:gap-4 pb-3 border-b border-luxury-gold/10">
+                                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-luxury-gold/20 to-transparent" />
+                                <h2 className="text-lg md:text-2xl font-bold text-luxury-text font-serif tracking-tight">
+                                    {groupName}
+                                </h2>
+                                <span className="px-3 py-1 bg-luxury-gold/10 border border-luxury-gold/20 rounded-full text-luxury-gold text-xs md:text-sm font-bold">
+                                    {groupAssets.length}
+                                </span>
+                                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-luxury-gold/20 to-transparent" />
+                            </div>
+
+                            {/* Optimized Gallery */}
+                            <div className="h-[500px]">
+                                <OptimizedGalleryViewer
+                                    images={galleryImages}
+                                    enableVirtualization={groupAssets.length > 50}
+                                    onImageClick={() => {
+                                        // Image click handled by lightbox in OptimizedGalleryViewer
+                                    }}
+                                />
+                            </div>
+                        </motion.section>
+                    );
+                })}
 
                 {/* Load More Button */}
                 {hasMore && !loading && assets.length > 0 && !searchQuery && (
