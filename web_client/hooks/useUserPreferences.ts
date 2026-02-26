@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 import type { UserPreferences } from '@/lib/validation/profile-schema';
+import { usersApi } from '@/lib/users-api';
 
 /**
  * Custom hook for managing user preferences with real-time sync
@@ -29,6 +30,9 @@ export function useUserPreferences() {
             return;
         }
 
+        // ADR-001: Documented onSnapshot exception. Data is user-owned (users/{uid}/...) and read-only.
+        // All writes are delegated to the backend via usersApi.updatePreferences().
+        // See: docs/ADR/ADR-001-realtime-onSnapshot-vs-SSE.md
         const preferencesRef = doc(db, 'users', user.uid, 'preferences', 'general');
 
         const unsubscribe = onSnapshot(
@@ -50,7 +54,7 @@ export function useUserPreferences() {
         return () => unsubscribe();
     }, [user?.uid]);
 
-    // Update preferences (optimistic update + Firestore write)
+    // Update preferences (optimistic update + Backend API write)
     const updatePreferences = async (updates: Partial<UserPreferences>) => {
         if (!user?.uid) {
             setError('Utente non autenticato');
@@ -70,14 +74,7 @@ export function useUserPreferences() {
         }));
 
         try {
-            const preferencesRef = doc(db, 'users', user.uid, 'preferences', 'general');
-            const { setDoc } = await import('firebase/firestore');
-
-            await setDoc(preferencesRef, {
-                ...preferences,
-                ...updates,
-            }, { merge: true });
-
+            await usersApi.updatePreferences(updates);
             setError(null);
         } catch (err: any) {
             console.error('[useUserPreferences] Update error:', err);

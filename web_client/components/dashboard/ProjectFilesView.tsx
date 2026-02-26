@@ -39,6 +39,9 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
     }, [historyLoaded, historyMessages]);
 
     // Real-time subscription to project files
+    // ADR-001: Documented onSnapshot exception. Data is project-owned and read-only here.
+    // All writes go through the backend API (FileUploader → /api/upload).
+    // See: docs/ADR/ADR-001-realtime-onSnapshot-vs-SSE.md
     useEffect(() => {
         if (!projectId || !db) return;
 
@@ -74,7 +77,11 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
                     return timeB - timeA;
                 });
             });
-        });
+        },
+            (error) => {
+                // ADR-001 compliance: explicit error handling per hardened onSnapshot pattern
+                console.error('[ProjectFilesView] onSnapshot error:', error.code, error.message);
+            });
 
         return () => unsubscribe();
     }, [projectId]);
