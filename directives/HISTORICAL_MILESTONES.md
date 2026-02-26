@@ -288,11 +288,12 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **Code Hygiene**: Rimozione di endpoint morti (`/api/magic-link/verify`) e verifica della conformità Type Safety nel frontend.
 - **Status**: Production-Ready (v3.5.14).
 
-## 🗃️ Phase 39: Attachment Menu Refactor (Feb-24-2026)
-*Modernizzazione dell'interfaccia allegati con M3 Expressive Dropdown.*
-- **Refactoring**: Sostituzione del modale full-screen con un menu dropdown (`AttachmentMenu.tsx`) per un flusso chat non interrotto.
-- **M3 Polish**: Utilizzo di Glassmorphism, animazioni a molla (Spring Physics) e forme organiche arrotondate.
-- **Risk Mitigation**: Implementazione sicura con supporto tasto ESC e gestione stacking context per evitare clipping.
-- **Versioning**: `v3.5.15`.
+## 🛡️ Fase 40: Frontend Architecture Hardening (Feb-26-2026)
+*Solidificazione dei contratti dati e revisione real-time.*
+- **Golden Sync Validation**: Allineamento 1:1 tra tipi TypeScript (`web_client/types/`) e modelli Pydantic V2. Corrette discrepanze critiche in `ReasoningStep` e `LeadData`.
+- **ADR-001 Implementation**: Produzione del record decisionale `ADR-001` per l'uso di `onSnapshot` vs SSE.
+- **Hardened Real-time Pattern**: Applicazione di error handling obbligatorio e auth-guards a tutti i listener Firestore nel frontend.
+- **Type Safety**: Raggiunto lo stato di 0 errori `tsc` post-refactoring.
+- **Versioning**: Rilascio `v3.6.01`.
 
-_Documento aggiornato: Febbraio 24, 2026_
+_Documento aggiornato: Febbraio 26, 2026_

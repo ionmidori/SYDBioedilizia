@@ -1,8 +1,15 @@
-- **Last Updated**: 2026-02-24
-- **Current Version**: `v3.6.00` (Modern Stack & Mobile Native UI)
-- **Last Major Sync**: 2026-02-24
+- **Last Updated**: 2026-02-26
+- **Current Version**: `v3.6.01` (Golden Sync & Architecture Hardening)
+- **Last Major Sync**: 2026-02-26
 - **Status**: `Production-Ready - Feature Planning`
 - **Next High Priority**: 1) Dynamic Robot Mascot | 2) Vertex AI Agent Playbooks | 3) Domain Migration
+
+- **Frontend Architecture Hardening (v3.6.01)**:
+    - **Golden Sync**: Validated and aligned 1:1 parity between frontend (`types/`) and backend (`models/`, `schemas/`).
+    - **Real-time Engine**: Conducted an architectural review of real-time listeners.
+    - **ADR-001**: Created `ADR-001` documenting the decision to maintain `onSnapshot` as a documented exception for user-owned data.
+    - **Hardening**: Implemented error handlers and guardrails for all 3 `onSnapshot` usage points.
+    - **Performance**: Verified 0 type-check errors across the ecosystem.
 
 - **Modern State Management & Mobile Native UI (v3.6.00)**:
     - **State Architecture**: Migrated from SWR/Legacy to **TanStack Query v5** (Server State) + **Zustand** (Client State).
