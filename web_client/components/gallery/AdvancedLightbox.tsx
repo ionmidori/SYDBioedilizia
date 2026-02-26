@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { X, ChevronLeft, ChevronRight, RotateCcw, Download, Share2, Info, Maximize2 } from 'lucide-react';
 import { M3Spring } from '@/lib/m3-motion';
 import { cn } from '@/lib/utils';
@@ -51,10 +51,20 @@ export function AdvancedLightbox({
     const [touchStart, setTouchStart] = useState<number | null>(null);
     const [isSharing, setIsSharing] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
-    const transformWrapperRef = useRef<any>(null);
+    const transformWrapperRef = useRef<ReactZoomPanPinchRef | null>(null);
 
-    if (images.length === 0) return null;
-    const currentImage = images[currentIndex];
+    // Navigation (defined before useEffect that references them)
+    const handleNext = useCallback(() => {
+        setCurrentIndex((prev) => (prev + 1) % images.length);
+    }, [images.length]);
+
+    const handlePrevious = useCallback(() => {
+        setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
+    }, [images.length]);
+
+    const resetZoom = useCallback(() => {
+        transformWrapperRef.current?.resetTransform?.();
+    }, []);
 
     // Ensure index stays in bounds
     useEffect(() => {
@@ -84,7 +94,7 @@ export function AdvancedLightbox({
                 case 'i':
                 case 'I':
                     e.preventDefault();
-                    setShowInfo(!showInfo);
+                    setShowInfo(prev => !prev);
                     break;
                 case '+':
                 case '=':
@@ -102,14 +112,14 @@ export function AdvancedLightbox({
                 case 'f':
                 case 'F':
                     e.preventDefault();
-                    setIsFullscreen(!isFullscreen);
+                    setIsFullscreen(prev => !prev);
                     break;
             }
         };
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, enableKeyboardShortcuts, showInfo, isFullscreen, onClose]);
+    }, [isOpen, enableKeyboardShortcuts, onClose, handleNext, handlePrevious]);
 
     // Touch/swipe handling
     const handleTouchStart = (e: React.TouchEvent) => {
@@ -134,23 +144,16 @@ export function AdvancedLightbox({
         setTouchStart(null);
     };
 
-    // Navigation
-    const handleNext = useCallback(() => {
-        setCurrentIndex((prev) => (prev + 1) % images.length);
-    }, [images.length]);
-
-    const handlePrevious = useCallback(() => {
-        setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-    }, [images.length]);
-
     // Reset zoom when changing images
-    const resetZoom = useCallback(() => {
-        transformWrapperRef.current?.resetTransform?.();
-    }, []);
-
     useEffect(() => {
         resetZoom();
     }, [currentIndex, resetZoom]);
+
+    // Derive currentImage after all hooks — safe because index is always in bounds
+    const currentImage = images[Math.min(currentIndex, images.length - 1)];
+
+    // Render nothing if no images (after all hooks)
+    if (!isOpen || images.length === 0) return null;
 
     // Fullscreen API
     const handleFullscreen = async () => {
@@ -180,28 +183,37 @@ export function AdvancedLightbox({
         }
     };
 
-    // Download handler
-    const handleDownload = () => {
-        const a = document.createElement('a');
-        a.href = currentImage.url;
-        a.download = currentImage.title || `image-${currentIndex}`;
-        a.click();
+    // Download handler — uses blob to force download across CORS origins (e.g. Firebase Storage)
+    const handleDownload = async () => {
+        try {
+            const response = await fetch(currentImage.url);
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = currentImage.title || `image-${currentIndex}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(blobUrl);
+        } catch {
+            // Fallback: open in new tab if fetch fails
+            window.open(currentImage.url, '_blank');
+        }
     };
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <motion.div
-                    ref={containerRef}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={M3Spring.expressive}
-                    className={cn(
-                        'fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl',
-                        'flex flex-col items-center justify-center',
-                        'cursor-grab active:cursor-grabbing'
-                    )}
+        <motion.div
+            ref={containerRef}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={M3Spring.expressive}
+            className={cn(
+                'fixed inset-0 z-[9999] bg-black/95 backdrop-blur-xl',
+                'flex flex-col items-center justify-center',
+                'cursor-grab active:cursor-grabbing'
+            )}
                     role="dialog"
                     aria-label="Visualizzatore immagini fullscreen"
                     aria-modal="true"
@@ -425,8 +437,6 @@ export function AdvancedLightbox({
                             </motion.div>
                         )}
                     </AnimatePresence>
-                </motion.div>
-            )}
-        </AnimatePresence>
+        </motion.div>
     );
 }

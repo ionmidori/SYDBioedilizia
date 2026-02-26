@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo } from 'react';
 import { collectionGroup, query, orderBy, getDocs, limit, startAfter, QueryDocumentSnapshot, DocumentData, collection, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
-import { AssetGallery } from '@/components/dashboard/AssetGallery';
 import { OptimizedGalleryViewer, type GalleryImage } from '@/components/gallery/OptimizedGalleryViewer';
 import { MediaAsset } from '@/lib/media-utils';
 import { Loader2, LayoutGrid, Calendar, FolderKanban, ChevronDown, Search, X, Upload } from 'lucide-react';
@@ -404,9 +403,6 @@ export function GlobalGalleryContent() {
                                 <OptimizedGalleryViewer
                                     images={galleryImages}
                                     enableVirtualization={groupAssets.length > 50}
-                                    onImageClick={() => {
-                                        // Image click handled by lightbox in OptimizedGalleryViewer
-                                    }}
                                 />
                             </div>
                         </motion.section>
