@@ -1,8 +1,15 @@
-- **Last Updated**: 2026-02-26
-- **Current Version**: `v3.6.01` (Golden Sync & Architecture Hardening)
-- **Last Major Sync**: 2026-02-26
+- **Last Updated**: 2026-02-27
+- **Current Version**: `v3.6.02` (Mobile Navigation & Dashboard Refactoring)
+- **Last Major Sync**: 2026-02-27
 - **Status**: `Production-Ready - Feature Planning`
 - **Next High Priority**: 1) Dynamic Robot Mascot | 2) Vertex AI Agent Playbooks | 3) Domain Migration
+
+- **Mobile Navigation & Dashboard Freeze Fix (v3.6.02)**:
+    - **Dashboard Freeze**: Fixed an issue where opening a project on mobile would freeze the entire application. The root cause was `useMobileViewport` forcefully setting `pointer-events: none` and `position: fixed` on the body for inline chats.
+    - **Resolution**: Added `isInline` flag to bypass body locks for non-overlay instances.
+    - **Layout Collapse**: Fixed a notorious Safari/Chrome mobile bug where flexbox containers collapse to `0px` inside nested scroll areas by restoring explicit `100dvh` boundaries in `MobileSwipeLayout.tsx` and `app/dashboard/[id]/page.tsx`.
+    - **Performance**: Changed inactive tabs in `ProjectMobileTabs.tsx` from `opacity-0` to `hidden` (`display: none`) to prevent DOM ghosting and interaction traps.
+    - **Swipe Navigation**: Removed `data-no-swipe` from `ProjectFilesView` and `ProjectSettingsView` to re-enable global fluid horizontal swipe gestures across all project tabs.
 
 - **Frontend Architecture Hardening (v3.6.01)**:
     - **Golden Sync**: Validated and aligned 1:1 parity between frontend (`types/`) and backend (`models/`, `schemas/`).
