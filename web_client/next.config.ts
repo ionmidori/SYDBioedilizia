@@ -111,13 +111,13 @@ const nextConfig: NextConfig = {
         {
           source: '/api/py/:path*',
           destination: process.env.NODE_ENV === 'development'
-            ? 'http://127.0.0.1:8081/api/:path*' // Local Python Backend
+            ? 'http://127.0.0.1:8080/api/:path*' // Local Python Backend
             : 'https://syd-brain-w6yrkh3gfa-ew.a.run.app/api/:path*', // Cloud Run (Active)
         },
         {
           source: '/chat/stream',
           destination: process.env.NODE_ENV === 'development'
-            ? 'http://127.0.0.1:8081/chat/stream' // Local Python Backend
+            ? 'http://127.0.0.1:8080/chat/stream' // Local Python Backend
             : 'https://syd-brain-w6yrkh3gfa-ew.a.run.app/chat/stream', // Cloud Run (Active)
         }
       ],

@@ -40,7 +40,7 @@ class Address(BaseModel):
     city: str = Field(..., min_length=1, max_length=100, description="City name")
     zip: str = Field(..., min_length=1, max_length=20, description="Postal code")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
 class ProjectDetails(BaseModel):
@@ -61,7 +61,7 @@ class ProjectDetails(BaseModel):
         """Serialize enum to its string value for JSON."""
         return value.value
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
 class ProjectBase(BaseModel):

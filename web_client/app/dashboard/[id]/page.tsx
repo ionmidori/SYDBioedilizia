@@ -38,12 +38,14 @@ function ProjectPageContent({ projectId }: { projectId: string }) {
     return (
         <>
             {/* Mobile View: Swipeable Tabs */}
-            <div className="md:hidden h-full w-full">
+            {/* Using a concrete height calculation to prevent flex-collapse on iOS Safari.
+                100dvh minus DashboardHeader (3.5rem/56px) and env safe area. */}
+            <div className="md:hidden h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] w-full">
                 <ProjectMobileTabs projectId={projectId} />
             </div>
 
-            {/* Desktop View: Split Screen */}
-            <div className="hidden md:flex flex-col h-full w-full relative overflow-hidden bg-luxury-bg">
+            {/* Desktop View: Split Screen (full-height, non-scrolling layout) */}
+            <div className="hidden md:flex flex-col w-full relative overflow-hidden bg-luxury-bg" style={{ height: 'calc(100dvh - 3.5rem)' }}>
                 <div className="flex-1 w-full min-h-0 relative grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px]">
                     {/* Main Chat Area */}
                     <main className="relative flex flex-col min-h-0 bg-black/20 overflow-hidden">

@@ -68,7 +68,7 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
                 <button
                     key={i}
                     onClick={() => onIndexClick?.(i)}
-                    className="group/dot relative p-1 -m-1 focus-visible:outline-none transition-transform active:scale-90"
+                    className="group/dot relative p-4 -m-4 focus-visible:outline-none transition-transform active:scale-75 touch-manipulation z-50"
                     aria-label={`Vai a ${label}`}
                 >
                     <motion.div

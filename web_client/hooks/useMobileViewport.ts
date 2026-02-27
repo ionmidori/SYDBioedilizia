@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, RefObject } from 'react';
  * Uses the `visualViewport` API to detect when the virtual keyboard
  * opens/closes on iOS and Android — eliminating arbitrary setTimeout hacks.
  */
-export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<HTMLDivElement | null>) {
+export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<HTMLDivElement | null>, isInline: boolean = false) {
     const [isMobile, setIsMobile] = useState(false);
     const [keyboardOpen, setKeyboardOpen] = useState(false);
     const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -48,21 +48,13 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
         const html = document.documentElement;
         const body = document.body;
 
-        if (isOpen) {
+        if (isOpen && !isInline) {
             html.style.overflow = 'hidden';
-            html.style.height = '100%';
-            html.style.position = 'fixed';
             html.style.overscrollBehavior = 'none';
             body.style.overflow = 'hidden';
-            body.style.height = '100%';
-            body.style.position = 'fixed';
             body.style.overscrollBehavior = 'none';
-            body.style.pointerEvents = 'none';
-
-            // Re-enable pointer events inside the chat container
-            if (chatContainerRef.current) {
-                chatContainerRef.current.style.pointerEvents = 'auto';
-            }
+            // Removed position: fixed to avoid scroll jumps
+            // Removed pointerEvents: none as it's dangerous for SPA navigation
         } else {
             html.style.overflow = '';
             html.style.height = '';
@@ -74,7 +66,7 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
             body.style.overscrollBehavior = '';
             body.style.pointerEvents = '';
         }
-    }, [isOpen, chatContainerRef]);
+    }, [isOpen, isInline]);
 
     return { isMobile, keyboardOpen, keyboardHeight };
 }

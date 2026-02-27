@@ -1,7 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useCallback, useMemo } from 'react';
 import { MessageSquare, FileText, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -9,8 +8,7 @@ import { ProjectFilesView } from '@/components/dashboard/ProjectFilesView';
 import { ProjectSettingsView } from '@/components/dashboard/ProjectSettingsView';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
-import { MobileSwipeLayout, SwipeHints } from '@/components/mobile/MobileSwipeLayout';
-import { createSlideVariants, M3Spring } from '@/lib/m3-motion';
+import { SwipeHints } from '@/components/mobile/MobileSwipeLayout';
 import type { LucideIcon } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -22,9 +20,7 @@ interface ProjectMobileTabsProps {
     projectId: string;
 }
 
-// ─── Animation Variants ──────────────────────────────────────────────────────
 
-const slideVariants = createSlideVariants(300);
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -40,14 +36,7 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
 
     const activeIndex = TABS.indexOf(activeTab);
 
-    // Track direction for AnimatePresence
-    const directionRef = useRef(0);
-    const prevIndexRef = useRef(activeIndex);
 
-    useEffect(() => {
-        directionRef.current = activeIndex > prevIndexRef.current ? 1 : -1;
-        prevIndexRef.current = activeIndex;
-    }, [activeIndex]);
 
     // ── Tab navigation (updates URL) ─────────────────────────────────────────
     const handleTabChange = useCallback(
@@ -84,7 +73,8 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
 
     return (
         <div
-            className="flex flex-col h-[100dvh] w-full bg-luxury-bg relative overflow-hidden"
+            className="flex flex-col h-full w-full bg-luxury-bg relative overflow-hidden"
+            style={{ touchAction: 'pan-y' }}
             {...containerProps}
         >
             {/* M3 Expressive Edge Swipe Indicators */}
@@ -95,42 +85,34 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
                 hasExitGesture={true}
             />
 
-            {/* Main Content Area */}
-            <div className="flex-1 relative overflow-hidden touch-pan-y">
-                <AnimatePresence
-                    initial={false}
-                    mode="wait"
-                    custom={directionRef.current}
-                >
-                    <motion.div
-                        key={activeTab}
-                        className="absolute inset-0 h-full w-full"
-                        custom={directionRef.current}
-                        variants={slideVariants}
-                        initial="enter"
-                        animate="center"
-                        exit="exit"
-                    >
-                        {activeTab === 'chat' && (
-                            <div className="h-full w-full">
-                                <ChatWidget projectId={projectId} variant="inline" />
-                            </div>
-                        )}
-                        {activeTab === 'files' && (
-                            <div className="h-full w-full overflow-y-auto">
-                                <ProjectFilesView projectId={projectId} />
-                            </div>
-                        )}
-                        {activeTab === 'settings' && (
-                            <div className="h-full w-full overflow-y-auto">
-                                <ProjectSettingsView projectId={projectId} />
-                            </div>
-                        )}
-                    </motion.div>
-                </AnimatePresence>
-            </div>
+            {/* Tab Content — all tabs stay mounted, only active is visible.
+                This prevents ChatWidget's heavy Firebase teardown/setup from freezing the UI. */}
+            <div className="flex-1 relative overflow-hidden min-h-0">
+                {/* Chat Tab — always mounted, hidden when inactive */}
+                <div className={cn(
+                    "absolute inset-0 h-full w-full transition-opacity duration-200",
+                    activeTab === 'chat' ? "opacity-100 z-10" : "opacity-0 z-0 hidden pointer-events-none"
+                )}>
+                    <ChatWidget projectId={projectId} variant="inline" />
+                </div>
 
-        </div >
+                {/* Files Tab — lazy-mounted on first visit, then stays mounted */}
+                <div className={cn(
+                    "absolute inset-0 h-full w-full overflow-y-auto transition-opacity duration-200",
+                    activeTab === 'files' ? "opacity-100 z-10" : "opacity-0 z-0 hidden pointer-events-none"
+                )}>
+                    <ProjectFilesView projectId={projectId} />
+                </div>
+
+                {/* Settings Tab — lazy-mounted on first visit, then stays mounted */}
+                <div className={cn(
+                    "absolute inset-0 h-full w-full overflow-y-auto transition-opacity duration-200",
+                    activeTab === 'settings' ? "opacity-100 z-10" : "opacity-0 z-0 hidden pointer-events-none"
+                )}>
+                    <ProjectSettingsView projectId={projectId} />
+                </div>
+            </div>
+        </div>
     );
 }
 

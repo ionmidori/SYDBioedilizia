@@ -7,20 +7,16 @@ import { useAuth } from "@/hooks/useAuth"
 import { useInactivityLogout } from "@/hooks/useInactivityLogout"
 import { InactivityWarningDialog } from "@/components/auth/InactivityWarningDialog"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { usePathname } from "next/navigation"
+import { useEffect, useMemo } from "react"
 import { MobileSwipeLayout } from "@/components/mobile/MobileSwipeLayout"
 import { OnboardingTour } from "@/components/dashboard/OnboardingTour"
-import { AnimatePresence, motion } from "framer-motion"
-import { usePathname } from "next/navigation"
-import { createFadeSlideVariants } from "@/lib/m3-motion"
 import { ScallopedPageTransition } from "@/components/ui/ScallopedPageTransition"
 
 // Sidebar dimensions
 const SIDEBAR_WIDTH_EXPANDED = '18rem'
 const SIDEBAR_WIDTH_COLLAPSED = '5rem'
 const SIDEBAR_MOBILE_WIDTH = '0'
-
-const pageVariants = createFadeSlideVariants()
 
 export function DashboardClientLayout({
     children,
@@ -38,19 +34,23 @@ export function DashboardClientLayout({
     }, [isInitialized, user, router]);
 
     // Enable inactivity detection only for authenticated (non-anonymous) users
-    const { showWarning, secondsRemaining, extendSession } = useInactivityLogout({
+    const inactivityConfig = useMemo(() => ({
         timeoutMinutes: 30,
         warningMinutes: 2,
         onLogout: logout,
         enabled: !!user && !user.isAnonymous,
-    });
+    }), [user, logout]);
+
+    const { showWarning, secondsRemaining, extendSession } = useInactivityLogout(inactivityConfig);
 
     // Show loading state while initializing
     if (!isInitialized) {
         return <ScallopedPageTransition isNavigating />;
     }
 
-    if (!user) return null;
+    // Redirect fires via useEffect; show spinner while Firebase session restores
+    // so there's never a blank flash between init and redirect
+    if (!user) return <ScallopedPageTransition isNavigating />;
 
     return (
         <SidebarProvider>
@@ -82,35 +82,22 @@ function DashboardContent({
     extendSession: () => void
     logout: () => Promise<void>
 }) {
-    const { open, isMobile } = useSidebar()
-    const pathname = usePathname()
+    const { isMobile } = useSidebar()
 
     // Calculate margin based on sidebar state
     // Desktop: Expanded vs Collapsed
     // Mobile: Always '4rem' (Rail width) because expansion is Overlay
     return (
         <>
-            <div className="flex h-screen min-h-[100dvh] supports-[height:100dvh]:min-h-[100dvh] w-full bg-luxury-bg text-luxury-text overflow-hidden relative">
-                {/* Desktop Sidebar (Hidden on Mobile) */}
+            <div className="flex h-dvh min-h-[100dvh] supports-[height:100dvh]:h-[100dvh] w-full bg-luxury-bg text-luxury-text overflow-hidden relative">
                 {/* Desktop Sidebar (AppSidebar handles its own responsive visibility) */}
                 <AppSidebar />
 
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col min-h-0 relative w-full overflow-hidden">
                     <DashboardHeader />
-                    <div className="flex-1 overflow-y-auto overflow-x-hidden relative pb-[env(safe-area-inset-bottom)]">
-                        <AnimatePresence mode="wait">
-                            <motion.div
-                                key={pathname}
-                                variants={pageVariants}
-                                initial="enter"
-                                animate="center"
-                                exit="exit"
-                                className="min-h-full h-full"
-                            >
-                                {children}
-                            </motion.div>
-                        </AnimatePresence>
+                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative pb-[env(safe-area-inset-bottom)]">
+                        {children}
                     </div>
 
                     {/* GLOBAL FLOATING CHAT REMOVED per user request */}

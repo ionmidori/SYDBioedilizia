@@ -155,7 +155,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // The Provider already handles initial welcome messages in `messages`.
     const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(messages, isOpen);
     // 🔥 FIX: Enable keyboard tracking for both floating and inline variants
-    const { isMobile, keyboardHeight } = useMobileViewport(isOpen, chatContainerRef);
+    const { isMobile, keyboardHeight } = useMobileViewport(isOpen, chatContainerRef, isInline);
 
     // 7. Handlers
 

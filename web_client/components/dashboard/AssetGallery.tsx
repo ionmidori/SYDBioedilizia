@@ -38,7 +38,7 @@ export function AssetGallery({ assets }: AssetGalleryProps) {
     }
 
     return (
-        <div className="w-full h-[70vh]">
+        <div className="flex-1 min-h-[400px] w-full">
             <OptimizedGalleryViewer
                 images={galleryImages}
                 title="File Progetto"

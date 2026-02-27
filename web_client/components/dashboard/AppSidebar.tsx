@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import NextImage from 'next/image'
 import { motion } from 'framer-motion'
@@ -171,6 +171,7 @@ const SYSTEM_ROUTES = ['projects', 'settings', 'profile', 'notifications', 'gall
 export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>) {
     const pathname = usePathname()
     const router = useRouter()
+    const searchParams = useSearchParams()
     const { logout, user } = useAuth()
     const { state, open, toggleSidebar, isMobile, openMobile, setOpenMobile } = useSidebar()
 
@@ -194,11 +195,36 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
 
     const projectSubItems = React.useMemo(() =>
         currentProjectId ? [
-            { href: `/dashboard/${currentProjectId}`, label: 'Cantiere AI', icon: MessageSquare },
-            { href: isMobile ? `/dashboard/${currentProjectId}?view=files` : `/dashboard/${currentProjectId}/files`, label: 'Galleria & File', icon: FileText },
-            { href: isMobile ? `/dashboard/${currentProjectId}?view=settings` : `/dashboard/${currentProjectId}/settings`, label: 'Parametri Cantiere', icon: Sliders },
+            {
+                href: `/dashboard/${currentProjectId}`,
+                label: 'Cantiere AI',
+                icon: MessageSquare,
+                // active when on project root with no ?view= param (or view=chat)
+                isActive: pathname === `/dashboard/${currentProjectId}` &&
+                    (!searchParams.get('view') || searchParams.get('view') === 'chat'),
+            },
+            {
+                href: isMobile
+                    ? `/dashboard/${currentProjectId}?view=files`
+                    : `/dashboard/${currentProjectId}/files`,
+                label: 'Galleria & File',
+                icon: FileText,
+                isActive: isMobile
+                    ? searchParams.get('view') === 'files'
+                    : pathname === `/dashboard/${currentProjectId}/files`,
+            },
+            {
+                href: isMobile
+                    ? `/dashboard/${currentProjectId}?view=settings`
+                    : `/dashboard/${currentProjectId}/settings`,
+                label: 'Parametri Cantiere',
+                icon: Sliders,
+                isActive: isMobile
+                    ? searchParams.get('view') === 'settings'
+                    : pathname === `/dashboard/${currentProjectId}/settings`,
+            },
         ] : []
-        , [currentProjectId, isMobile])
+        , [currentProjectId, isMobile, pathname, searchParams])
 
     // ========================================================================
     // EVENT HANDLERS
@@ -325,7 +351,8 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     whileDrag={{ scale: 1.1 }}
                     dragConstraints={{ top: -500, bottom: 150 }}
                     onClick={() => setOpenMobile(true)}
-                    className="fixed right-0 top-3/4 z-[90] notch-draggable flex items-center justify-center w-6 h-12 bg-luxury-gold/25 backdrop-blur-xl text-luxury-gold shadow-2xl rounded-l-xl border-y border-l border-luxury-gold/40 cursor-grab active:cursor-grabbing hover:w-7 transition-[width,background-color] overflow-hidden group"
+                    data-no-swipe
+                    className="fixed right-0 top-3/4 z-[115] notch-draggable flex items-center justify-center w-6 h-12 bg-luxury-gold/25 backdrop-blur-xl text-luxury-gold shadow-2xl rounded-l-xl border-y border-l border-luxury-gold/40 cursor-grab active:cursor-grabbing hover:w-7 transition-[width,background-color] overflow-hidden group pointer-events-auto"
                     style={{ marginTop: '-1.5rem' }}
                     aria-label="Toggle sidebar"
                     tabIndex={0}
@@ -354,11 +381,12 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
             {/* ============================================================ */}
             <div
                 onClick={(e) => e.stopPropagation()}
+                data-no-swipe
                 className={cn(
                     "group/sidebar peer text-sidebar-foreground transition-all duration-300 ease-in-out",
                     isMobile
                         ? cn(
-                            "fixed inset-y-0 right-0 !z-[100] w-52 bg-luxury-bg/40 backdrop-blur-2xl shadow-2xl border-l border-luxury-gold/10",
+                            "fixed inset-y-0 right-0 !z-[120] w-52 bg-luxury-bg/40 backdrop-blur-2xl shadow-2xl border-l border-luxury-gold/10",
                             openMobile ? "translate-x-0" : "translate-x-full"
                         )
                         : cn(
@@ -434,21 +462,21 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                                             className="w-full"
                                         />
 
-                                        {/* Active Project Context */}
-                                        {projectSubItems.length > 0 && (
+                                        {/* Active Project Context — only show when sidebar is expanded or on mobile */}
+                                        {projectSubItems.length > 0 && (!isDesktopCollapsed || isMobile) && (
                                             <div className="mt-3 space-y-1 relative z-10">
                                                 {/* CANTIERE ATTIVO Header */}
-                                                {(!isDesktopCollapsed || isMobile) && (
-                                                    <span className="text-[10px] uppercase tracking-widest text-luxury-gold/60 font-bold px-3 block mb-2">
-                                                        Cantiere Attivo
-                                                    </span>
-                                                )}
+                                                <span className="text-[10px] uppercase tracking-widest text-luxury-gold/60 font-bold px-3 block mb-2">
+                                                    Cantiere Attivo
+                                                </span>
                                                 <div className="ml-3 space-y-1 pl-3">
                                                     {projectSubItems.map((subItem) => (
                                                         <NavItem
                                                             key={subItem.href}
-                                                            {...subItem}
-                                                            active={pathname === subItem.href}
+                                                            href={subItem.href}
+                                                            label={subItem.label}
+                                                            icon={subItem.icon}
+                                                            active={subItem.isActive}
                                                             collapsed={false}
                                                             onClick={handleNavClick}
                                                             className="text-xs"

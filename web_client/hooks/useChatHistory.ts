@@ -73,6 +73,9 @@ export function useChatHistory(
     const shouldFetch = !authLoading && !!user && !!sessionId;
 
     // -- REALTIME LISTENER (Protocol G) --
+    // ADR-001: Documented onSnapshot exception for real-time chat updates.
+    // This allows zero-latency UI updates without persistent backend SSE/WS overhead.
+    // See: docs/ADR/ADR-001-realtime-onSnapshot-vs-SSE.md
     const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<Error | undefined>(undefined);

@@ -65,7 +65,7 @@ export default function DashboardPage() {
 
     return (
         <motion.div
-            className="bento-grid py-4 px-3 md:px-8 max-w-7xl mx-auto w-full pb-12 md:pb-8"
+            className="bento-grid py-4 px-3 md:px-12 w-full pb-12 md:pb-8"
             variants={sectionStagger}
             initial="hidden"
             animate="visible"

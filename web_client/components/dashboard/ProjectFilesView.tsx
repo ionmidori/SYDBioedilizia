@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { AssetGallery } from '@/components/dashboard/AssetGallery';
 import { FileUploader } from '@/components/dashboard/FileUploader';
 import { extractMediaFromMessages, groupAssetsByType, MediaAsset } from '@/lib/media-utils';
-import { Loader2, FileImage, Upload, X } from 'lucide-react';
+import { Loader2, FileImage, Upload, X, AlertCircle } from 'lucide-react';
 import { useChatHistory } from '@/hooks/useChatHistory';
+import { useAuth } from '@/hooks/useAuth';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils'; // Assuming cn utility exists
@@ -15,10 +16,12 @@ interface ProjectFilesViewProps {
 }
 
 export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
+    const { user, loading: authLoading } = useAuth();
     const { historyLoaded, historyMessages } = useChatHistory(projectId);
     const [assets, setAssets] = useState<MediaAsset[]>([]);
     const [selectedFilter, setSelectedFilter] = useState<string>('all');
     const [showUploader, setShowUploader] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Initial load from chat history
     useEffect(() => {
@@ -43,7 +46,8 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
     // All writes go through the backend API (FileUploader → /api/upload).
     // See: docs/ADR/ADR-001-realtime-onSnapshot-vs-SSE.md
     useEffect(() => {
-        if (!projectId || !db) return;
+        // ADR-001: Added explicit null-checks for guest sessions to prevent persistence/permission errors.
+        if (!projectId || !db || authLoading || !user) return;
 
         const q = query(
             collection(db, 'projects', projectId, 'files'),
@@ -51,6 +55,8 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
         );
 
         const unsubscribe = onSnapshot(q, (snapshot: any) => {
+            // Guardrail: For collection listeners, snapshot itself is never null, 
+            // but we check if it contains docs. empty is the collection equivalent of !exists()
             const uploadedFiles = snapshot.docs.map((doc: any) => {
                 const data = doc.data();
                 return {
@@ -77,14 +83,20 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
                     return timeB - timeA;
                 });
             });
+            setError(null);
         },
             (error) => {
                 // ADR-001 compliance: explicit error handling per hardened onSnapshot pattern
                 console.error('[ProjectFilesView] onSnapshot error:', error.code, error.message);
+                if (error.code === 'permission-denied') {
+                    setError('Non hai i permessi per visualizzare i file di questo progetto.');
+                } else {
+                    setError('Errore durante l\'aggiornamento dei file in tempo reale.');
+                }
             });
 
         return () => unsubscribe();
-    }, [projectId]);
+    }, [projectId, user, authLoading]);
 
     const groupedAssets = groupAssetsByType(assets);
     const filteredAssets = selectedFilter === 'all'
@@ -165,6 +177,14 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
                     </button>
                 ))}
             </div>
+
+            {/* Error Message */}
+            {error && (
+                <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
+                    <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+                    <p className="text-sm text-red-200 font-medium">{error}</p>
+                </div>
+            )}
 
             {/* Gallery */}
             <div className="flex-1 min-h-0"> {/* Allow gallery to scroll independently if needed, though outer container scrolls */}

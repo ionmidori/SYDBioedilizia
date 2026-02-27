@@ -102,18 +102,28 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
 
         // Schedule warning dialog
         warningTimerRef.current = setTimeout(() => {
-            console.log('[InactivityLogout] ⚠️ Showing inactivity warning');
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[InactivityLogout] ⚠️ Showing inactivity warning');
+            }
             startCountdown();
         }, warningTimeMs);
 
-        console.log(
-            `[InactivityLogout] Timer reset. Warning will show in ${timeoutMinutes - warningMinutes} minutes.`
-        );
+        if (process.env.NODE_ENV === 'development') {
+            console.log(
+                `[InactivityLogout] Timer reset. Warning will show in ${timeoutMinutes - warningMinutes} minutes.`
+            );
+        }
     }, [enabled, timeoutMinutes, warningMinutes, clearAllTimers, startCountdown]);
 
     const extendSession = useCallback(() => {
-        console.log('[InactivityLogout] ✅ Session extended by user');
         resetTimer();
+    }, [resetTimer]);
+
+    // Store resetTimer in a ref so the event listener effect doesn't need
+    // it as a dependency (avoids infinite effect re-mount loop).
+    const resetTimerRef = useRef(resetTimer);
+    useEffect(() => {
+        resetTimerRef.current = resetTimer;
     }, [resetTimer]);
 
     // Monitor activity events
@@ -122,15 +132,14 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
 
         const activityEvents = ['mousemove', 'keydown', 'touchstart', 'scroll', 'click'];
         let lastActivity = Date.now();
-        let throttleTimer: NodeJS.Timeout | null = null;
 
         const handleActivity = () => {
             const now = Date.now();
-            // Throttle to run max once per second
-            if (now - lastActivity > 1000) {
+            // Throttle: activity relevant for a 30-min timeout doesn't need sub-minute resolution
+            if (now - lastActivity > 60_000) {
                 lastActivity = now;
                 if (!showWarningRef.current) {
-                    resetTimer();
+                    resetTimerRef.current();
                 }
             }
         };
@@ -141,17 +150,17 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
         });
 
         // Initial timer start
-        resetTimer();
+        resetTimerRef.current();
 
         // Cleanup
         return () => {
             activityEvents.forEach(event => {
                 window.removeEventListener(event, handleActivity);
             });
-            if (throttleTimer) clearTimeout(throttleTimer);
             clearAllTimers();
         };
-    }, [enabled, resetTimer, clearAllTimers]); // showWarning read via ref to avoid re-subscription
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [enabled, clearAllTimers]); // resetTimer intentionally excluded — accessed via ref
 
     return {
         showWarning,
