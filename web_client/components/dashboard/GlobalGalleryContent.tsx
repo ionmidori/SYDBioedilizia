@@ -10,15 +10,10 @@ import { Loader2, LayoutGrid, Calendar, FolderKanban, ChevronDown, Search, X, Up
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { GlobalFileUploader } from '@/components/dashboard/GlobalFileUploader';
-import { projectsApi } from '@/lib/projects-api';
+import { useProjects } from '@/hooks/use-projects';
 import { galleryApi } from '@/lib/gallery-api';
 
 type GroupingMode = 'project' | 'type' | 'date';
-
-interface Project {
-    id: string;
-    name: string;
-}
 
 const ITEMS_PER_PAGE = 50;
 
@@ -29,7 +24,14 @@ const ITEMS_PER_PAGE = 50;
 export function GlobalGalleryContent() {
     const { user } = useAuth();
     const [assets, setAssets] = useState<MediaAsset[]>([]);
-    const [projects, setProjects] = useState<Project[]>([]);
+    
+    // Modern State Management: Use TanStack Query
+    const { data: rawProjects = [], isLoading: projectsLoading } = useProjects();
+    const projects = useMemo(() => rawProjects.map(p => ({
+        id: p.session_id,
+        name: p.title || 'Progetto Senza Nome'
+    })), [rawProjects]);
+
     const [loading, setLoading] = useState(true);
     const [groupingMode, setGroupingMode] = useState<GroupingMode>('project');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -40,26 +42,6 @@ export function GlobalGalleryContent() {
     const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-    // Fetch all projects for name mapping
-    useEffect(() => {
-        if (!user?.uid || !db) return;
-
-        const fetchProjects = async () => {
-            try {
-                const data = await projectsApi.listProjects();
-                const projectList = data.map(p => ({
-                    id: p.session_id,
-                    name: p.title || 'Progetto Senza Nome'
-                }));
-                setProjects(projectList);
-            } catch (error) {
-                console.error('[GlobalGallery] Error fetching projects:', error);
-            }
-        };
-
-        fetchProjects();
-    }, [user?.uid]);
 
     // Fetch files with pagination
     const fetchFiles = async (isInitial = true) => {
@@ -104,10 +86,11 @@ export function GlobalGalleryContent() {
 
     // Initial Load Effect (and auto-refresh when projects load)
     useEffect(() => {
-        if (user?.uid) {
+        if (user?.uid && !projectsLoading) {
             fetchFiles(true);
         }
-    }, [user?.uid, refreshTrigger, projects.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.uid, refreshTrigger, projects.length, projectsLoading]);
 
     // Grouping logic (with Filter)
     const groupedAssets = useMemo(() => {
@@ -170,7 +153,7 @@ export function GlobalGalleryContent() {
         { value: 'date' as GroupingMode, label: 'Per Data', icon: Calendar },
     ];
 
-    if (loading) {
+    if (loading || projectsLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-700">
                 <div className="relative">

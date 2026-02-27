@@ -1,11 +1,8 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { projectsApi } from '@/lib/projects-api';
-import { Project } from '@/types/projects';
+import { useProject } from '@/hooks/use-project';
 import ConstructionDetailsForm from '@/components/dashboard/ConstructionDetailsForm';
 import { Loader2, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 
 interface ProjectSettingsViewProps {
@@ -14,39 +11,15 @@ interface ProjectSettingsViewProps {
 
 export function ProjectSettingsView({ projectId }: ProjectSettingsViewProps) {
     const { user, loading: authLoading } = useAuth();
-    const [project, setProject] = useState<Project | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    
+    // Modern State Management: Use TanStack Query
+    const { data: project, isLoading: projectLoading, error } = useProject(projectId);
 
-    useEffect(() => {
-        async function loadProject() {
-            try {
-                setLoading(true);
-                const data = await projectsApi.getProject(projectId);
+    // Show loading if either auth is loading or project is loading
+    // But don't block if we're not authenticated (allow errors to show)
+    const isLoading = authLoading || (user && projectLoading);
 
-                if (data === null) {
-                    setError('Progetto non trovato');
-                    return;
-                }
-
-                setProject(data);
-                setError(null);
-            } catch (err) {
-                console.error('[SettingsView] Error loading project:', err);
-                setError('Errore nel caricamento');
-            } finally {
-                setLoading(false);
-            }
-        }
-
-        if (projectId && !authLoading && user) {
-            loadProject();
-        } else if (!authLoading && !user) {
-            setLoading(false);
-        }
-    }, [projectId, authLoading, user]);
-
-    if (loading) {
+    if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-[50vh]">
                 <Loader2 className="w-10 h-10 text-luxury-gold animate-spin" />
@@ -61,7 +34,9 @@ export function ProjectSettingsView({ projectId }: ProjectSettingsViewProps) {
                     <AlertCircle className="w-8 h-8 text-red-500" />
                 </div>
                 <h3 className="text-xl font-bold text-luxury-text mb-2">Errore</h3>
-                <p className="text-luxury-text/60">{error || 'Progetto non trovato'}</p>
+                <p className="text-luxury-text/60">
+                    {error ? 'Errore nel caricamento del progetto' : 'Progetto non trovato'}
+                </p>
             </div>
         );
     }

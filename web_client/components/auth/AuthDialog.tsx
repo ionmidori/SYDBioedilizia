@@ -23,7 +23,7 @@ import { PasskeyButton } from './PasskeyButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useSessionId } from '@/hooks/useSessionId';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { projectsApi } from '@/lib/projects-api';
+import { useClaimProject } from '@/hooks/use-claim-project';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -37,6 +37,9 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
     const { loginWithGoogle, loginWithApple, logout, user } = useAuth();
     const sessionId = useSessionId();
     const router = useRouter();
+    
+    // Modern State Management
+    const claimProjectMutation = useClaimProject();
 
     // Track initial state when dialog opens to distinguish "just logged in" from "already logged in"
     const userWasAnonymousRef = useRef(user?.isAnonymous ?? true);
@@ -83,7 +86,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
         setClaimStatus('pending');
         try {
             if (sessionId) {
-                await projectsApi.claimProject(sessionId);
+                await claimProjectMutation.mutateAsync(sessionId);
                 // Clear anonymous session key from localStorage only after a confirmed claim.
                 // Prevents stale sessionId from being re-claimed by the next user on this device.
                 localStorage.removeItem('chatSessionId');

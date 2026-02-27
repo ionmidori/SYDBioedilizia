@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { ProjectListItem, ProjectStatus } from '@/types/projects';
 import { useRouter } from 'next/navigation';
-import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2 } from 'lucide-react';
+import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { RenameProjectDialog } from './RenameProjectDialog';
-import { projectsApi } from '@/lib/projects-api';
+import { useDeleteProject } from '@/hooks/use-delete-project';
 import { ComparisonThumbnail } from './ComparisonThumbnail';
 import { motion } from 'framer-motion';
 
@@ -26,11 +26,14 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     completed: { label: 'Completato', color: 'text-emerald-300', bg: 'bg-emerald-500/15' },
 };
 
-export function ProjectCard({ project, index, onDelete }: ProjectCardProps) {
+export function ProjectCard({ project, index }: ProjectCardProps) {
     const router = useRouter();
     const status = statusConfig[project.status] || statusConfig.draft;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+
+    // Modern State Management
+    const deleteProjectMutation = useDeleteProject();
 
     const handleCardClick = () => {
         router.push(`/dashboard/${project.session_id}`);
@@ -47,8 +50,7 @@ export function ProjectCard({ project, index, onDelete }: ProjectCardProps) {
     };
 
     const handleDelete = async (sessionId: string) => {
-        await projectsApi.deleteProject(sessionId);
-        onDelete?.(sessionId);
+        await deleteProjectMutation.mutateAsync(sessionId);
     };
 
     const formattedDate = new Intl.DateTimeFormat('it-IT', {
@@ -73,7 +75,10 @@ export function ProjectCard({ project, index, onDelete }: ProjectCardProps) {
                 delay: index ? index * 0.05 : 0,
                 ease: [0.05, 0.7, 0.1, 1.0]
             }}
-            className="group relative flex flex-col gap-3 p-5 rounded-[24px] surface-container-low hover:surface-container-high hover:shadow-elevation-high transition-all duration-500 cursor-pointer overflow-hidden"
+            className={cn(
+                "group relative flex flex-col gap-3 p-5 rounded-[24px] surface-container-low hover:surface-container-high hover:shadow-elevation-high transition-all duration-500 cursor-pointer overflow-hidden",
+                deleteProjectMutation.isPending && "opacity-50 pointer-events-none"
+            )}
         >
             {/* Cinematic Gradient Sweep (on hover) */}
             <div className="absolute inset-0 bg-gradient-to-tr from-luxury-teal/0 via-luxury-teal/5 to-luxury-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -101,10 +106,15 @@ export function ProjectCard({ project, index, onDelete }: ProjectCardProps) {
                 {/* Delete Button */}
                 <button
                     onClick={handleDeleteClick}
+                    disabled={deleteProjectMutation.isPending}
                     className="opacity-0 group-hover:opacity-100 transition-all duration-300 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 flex items-center justify-center text-red-400 hover:text-red-300 hover:scale-110 active:scale-90"
                     title="Elimina progetto"
                 >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    {deleteProjectMutation.isPending ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                    )}
                 </button>
             </div>
 
@@ -173,7 +183,6 @@ export function ProjectCard({ project, index, onDelete }: ProjectCardProps) {
                 onOpenChange={setRenameDialogOpen}
                 currentTitle={project.title}
                 sessionId={project.session_id}
-                onRename={() => onDelete?.(project.session_id)} // Trigger refresh (using onDelete as refresh callback for now)
             />
         </motion.div>
     );

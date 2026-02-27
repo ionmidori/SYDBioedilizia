@@ -3,20 +3,19 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, FolderOpen, Loader2 } from 'lucide-react';
-import { projectsApi } from '@/lib/projects-api';
 import { useRouter } from 'next/navigation';
+import { useCreateProject } from '@/hooks/use-create-project';
 
 export function ProjectsEmptyState() {
-    const [creating, setCreating] = useState(false);
     const router = useRouter();
-
+    const createProjectMutation = useCreateProject();
     const [error, setError] = useState<string | null>(null);
 
     const handleCreateProject = async () => {
-        setCreating(true);
         setError(null);
         try {
-            const result = await projectsApi.createProject({ title: 'Nuovo Progetto' });
+            const result = await createProjectMutation.mutateAsync({ title: 'Nuovo Progetto' });
+            
             console.log('Provide creation result:', result);
 
             if (!result || !result.session_id) {
@@ -28,9 +27,10 @@ export function ProjectsEmptyState() {
         } catch (error: any) {
             console.error('Failed to create project:', error);
             setError(error.message || 'Errore sconosciuto');
-            setCreating(false);
         }
     };
+
+    const isCreating = createProjectMutation.isPending;
 
     return (
         <div className="flex flex-col items-center justify-center py-20 px-6 text-center border border-luxury-gold/20 rounded-[2.5rem] glass-premium relative overflow-hidden group">
@@ -50,12 +50,12 @@ export function ProjectsEmptyState() {
 
             <Button
                 onClick={handleCreateProject}
-                disabled={creating}
+                disabled={isCreating}
                 className="h-14 px-10 bg-luxury-gold hover:bg-luxury-gold text-luxury-bg font-extrabold hover:scale-[1.03] active:scale-95 transition-all shadow-2xl shadow-luxury-gold/20 relative z-10 rounded-2xl uppercase tracking-[0.2em] text-[10px] border border-white/20 group/btn overflow-hidden"
             >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500" />
                 <span className="relative z-10 flex items-center">
-                    {creating ? (
+                    {isCreating ? (
                         <>
                             <Loader2 className="w-5 h-5 animate-spin mr-3" />
                             Inizializzazione...
