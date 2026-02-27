@@ -93,16 +93,19 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     }), [onImageClick]);
 
     const variants: Variants = {
-        hidden: { opacity: 0, y: 10, scale: 0.9 },
+        hidden: { opacity: 0, y: 15, scale: 0.98 },
         visible: {
             opacity: 1,
             y: 0,
             scale: 1,
-            transition: { type: "spring", stiffness: 120, damping: 12, mass: 0.8 }
+            transition: {
+                duration: 0.45,
+                ease: [0.23, 1, 0.32, 1] // Skill: animating-ui-interactions Custom Luxury Ease
+            }
         },
         exit: {
             opacity: 0,
-            scale: 0.9,
+            scale: 0.95,
             transition: { duration: 0.2 }
         }
     };
@@ -178,6 +181,8 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                             src={user.photoURL}
                             alt={user.displayName || "User"}
                             fill
+                            sizes="32px"
+                            priority
                             className="object-cover"
                         />
                     ) : (

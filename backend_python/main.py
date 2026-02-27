@@ -2,7 +2,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
+from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, field_validator, model_validator
+from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -70,7 +72,11 @@ async def request_id_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
     set_request_id(request_id)
     
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        logger.error(f"[RequestID Middleware] Unhandled exception: {exc}", exc_info=True)
+        raise
     
     response.headers["X-Request-ID"] = request_id
     return response
@@ -93,10 +99,23 @@ async def app_exception_handler(request: Request, exc: AppException):
         ).model_dump()
     )
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handles Pydantic 422 validation errors, normalizing them to our APIErrorResponse format."""
+    logger.warning(f"[Validation] Request validation failed: {exc.errors()[:3]}")
+    return JSONResponse(
+        status_code=422,
+        content=APIErrorResponse(
+            error_code="VALIDATION_ERROR",
+            message="Request validation failed.",
+            detail={"errors": exc.errors()},
+        ).model_dump()
+    )
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Handles unexpected crashes."""
-    logger.error(f"🔥 Global Exception: {exc}", exc_info=True)
+    """Handles unexpected crashes inside route handlers."""
+    logger.error(f"🔥 Global Exception (route handler): {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content=APIErrorResponse(
@@ -108,6 +127,43 @@ async def global_exception_handler(request: Request, exc: Exception):
 # 🛡️ Security Headers Middleware (HSTS, CSP, XSS)
 from src.middleware.security_headers import SecurityHeadersMiddleware
 app.add_middleware(SecurityHeadersMiddleware)
+
+# 🔥 Global Error Catcher Middleware
+# ─── THIS MUST BE REGISTERED LAST (via add_middleware) ───────────────────────
+# Starlette uses LIFO ordering for add_middleware(), so the LAST registered
+# middleware executes FIRST in the request chain.
+# This gives us a true try/except around the ENTIRE application, catching
+# exceptions that even escape @app.exception_handler (i.e., from other middlewares).
+class GlobalErrorCatcherMiddleware(BaseHTTPMiddleware):
+    """
+    Outermost safety net for the entire application.
+    
+    Catches any unhandled exception from ALL layers (middlewares, routes, etc.)
+    and returns a standardized APIErrorResponse JSON, preventing Starlette's
+    generic plain-text '500 Internal Server Error' from ever reaching the client.
+    
+    CRITICAL: Must be added via app.add_middleware() AFTER all others.
+    """
+    async def dispatch(self, request: Request, call_next):
+        try:
+            return await call_next(request)
+        except Exception as exc:
+            logger.error(
+                f"🚨 [GlobalErrorCatcher] Unhandled exception escaped middleware stack: "
+                f"{type(exc).__name__}: {exc}",
+                exc_info=True
+            )
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=500,
+                content=APIErrorResponse(
+                    error_code="INTERNAL_SERVER_ERROR",
+                    message="An unexpected internal error occurred. Our team has been alerted.",
+                ).model_dump()
+            )
+
+app.add_middleware(GlobalErrorCatcherMiddleware)
+# ─────────────────────────────────────────────────────────────────────────────
 
 # 🔒 App Check Middleware
 from src.middleware.app_check import validate_app_check_token
@@ -171,6 +227,10 @@ app.include_router(metadata_router)
 # Register quote HITL router (skill: langgraph-hitl-patterns)
 from src.api.routes.quote_routes import router as quote_router
 app.include_router(quote_router)
+
+# Register users router
+from src.api.users_router import router as users_router
+app.include_router(users_router)
 
 # 🧪 TEST AUTOMATION ROUTER (Only in development)
 if settings.ENV == "development":

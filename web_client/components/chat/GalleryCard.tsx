@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ZoomIn, Download, Edit2, Check, XCircle } from 'lucide-react';
+import Image from 'next/image';
 import { useMetadataEditor } from '@/hooks/useMetadataEditor';
 
 interface GalleryImage {
@@ -52,12 +53,16 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                         className="relative aspect-square rounded-xl overflow-hidden cursor-pointer group bg-luxury-bg/30 border border-luxury-gold/10 hover:border-luxury-gold/30 transition-all"
                         onClick={() => setSelectedIndex(idx)}
                     >
-                        <img
-                            src={item.url}
-                            alt={item.name}
-                            loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                        />
+                        <motion.div layoutId={`image-${item.url}`} className="w-full h-full relative">
+                            <Image
+                                src={item.url}
+                                alt={item.name}
+                                fill
+                                sizes="(max-width: 768px) 50vw, 33vw"
+                                priority={idx < 3}
+                                className="object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                        </motion.div>
 
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
@@ -228,11 +233,19 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                             className="max-w-6xl max-h-[90vh] relative"
                             onClick={(e: React.MouseEvent) => e.stopPropagation()}
                         >
-                            <img
-                                src={selectedImage.url}
-                                alt={selectedImage.name}
-                                className="max-w-full max-h-[90vh] object-contain rounded-lg"
-                            />
+                            <motion.div
+                                layoutId={`image-${selectedImage.url}`}
+                                className="relative w-full aspect-[4/3] md:aspect-auto md:h-[80vh]"
+                            >
+                                <Image
+                                    src={selectedImage.url}
+                                    alt={selectedImage.name}
+                                    fill
+                                    sizes="90vw"
+                                    priority
+                                    className="object-contain rounded-lg"
+                                />
+                            </motion.div>
 
                             {/* Info Bar */}
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg">

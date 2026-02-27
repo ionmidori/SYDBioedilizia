@@ -9,7 +9,6 @@ import { M3Spring, M3Transition, M3Duration } from '@/lib/m3-motion';
 import { Menu, X, Mail, FileText, Image as ImageIcon, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignInButton } from '@/components/auth/SignInButton';
-import { AuthDialog } from '@/components/auth/AuthDialog'; // Import AuthDialog
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
 
@@ -17,8 +16,6 @@ export function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [contactMenuOpen, setContactMenuOpen] = useState(false);
-    const [authDialogOpen, setAuthDialogOpen] = useState(false); // Hoisted state
-    const [redirectOnLogin, setRedirectOnLogin] = useState(true); // 🔥 Control redirection
     const contactMenuRef = useRef<HTMLDivElement>(null);
 
     // Close contact menu when clicking outside
@@ -46,16 +43,8 @@ export function Navbar() {
         };
         window.addEventListener('scroll', handleScroll, { passive: true });
 
-        // 🔥 LISTEN FOR LOGIN REQUESTS FROM CHAT
-        const handleOpenLogin = () => {
-            setRedirectOnLogin(false); // Chat trigger = Stay on page
-            setAuthDialogOpen(true);
-        };
-        window.addEventListener('OPEN_LOGIN_MODAL', handleOpenLogin);
-
         return () => {
             window.removeEventListener('scroll', handleScroll);
-            window.removeEventListener('OPEN_LOGIN_MODAL', handleOpenLogin);
         };
     }, []);
 
@@ -165,10 +154,10 @@ export function Navbar() {
                                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-luxury-gold transition-all group-hover:w-full" />
                             </Link>
                         ))}
-                        {/* Desktop SignIn Button -> Uses global dialog */}
                         <SignInButton onLoginClick={() => {
-                            setRedirectOnLogin(true); // Explicit login = Redirect to Dashboard
-                            setAuthDialogOpen(true);
+                            window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
+                                detail: { redirectOnLogin: true }
+                            }));
                         }} />
                     </div>
 
@@ -300,12 +289,12 @@ export function Navbar() {
                                     transition={{ delay: M3Duration.long1, ...M3Spring.gentle }}
                                     className="mt-8 flex justify-center"
                                 >
-                                    {/* Mobile SignIn Button -> Closes menu AND opens dialog */}
                                     <SignInButton
                                         onLoginClick={() => {
                                             setMobileMenuOpen(false);
-                                            setRedirectOnLogin(true); // Explicit login = Redirect
-                                            setAuthDialogOpen(true);
+                                            window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
+                                                detail: { redirectOnLogin: true }
+                                            }));
                                         }}
                                     />
                                 </motion.div>
@@ -315,8 +304,6 @@ export function Navbar() {
                 )}
             </AnimatePresence>
 
-            {/* Global Auth Dialog - Lives here, safe from mobile menu unmounting */}
-            <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} redirectOnLogin={redirectOnLogin} />
         </>
     );
 }

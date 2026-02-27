@@ -82,8 +82,10 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
         return projects
         
     except Exception as e:
-        logger.error(f"[Projects] Error fetching projects: {str(e)}", exc_info=True)
-        return []
+        # Re-raise to let the router's exception handler log a proper error and return 500.
+        # This is intentionally NOT silenced: query-level failures are critical and must be visible.
+        logger.error(f"[Projects] Critical error fetching projects for user {user_id}: {str(e)}", exc_info=True)
+        raise
 
 
 async def count_user_projects(user_id: str) -> int:
@@ -420,6 +422,63 @@ async def update_project_details(session_id: str, user_id: str, details: Project
         logger.error(f"[Projects] Error updating project details {session_id}: {str(e)}", exc_info=True)
         return False
 
+
+async def save_project_file_metadata(session_id: str, user_id: str, file_metadata: dict) -> bool:
+    """
+    Save metadata for an uploaded file to the project's 'files' subcollection.
+    
+    Args:
+        session_id: Project ID.
+        user_id: UID for ownership verification.
+        file_metadata: Dictionary containing file details (url, name, type, size, etc.).
+        
+    Returns:
+        True if saved successfully, False if project not found or unauthorized.
+    """
+    try:
+        db = get_async_firestore_client()
+        
+        doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
+        doc = await doc_ref.get()
+        
+        if not doc.exists:
+            logger.warning(f"[Projects] Cannot save file metadata for non-existent project {session_id}")
+            return False
+            
+        # Ownership check
+        if doc.to_dict().get("userId") != user_id:
+            logger.warning(f"[Projects] User {user_id} not authorized to save file to {session_id}")
+            return False
+            
+        file_id = file_metadata.get("file_id")
+        if not file_id:
+            logger.error("[Projects] file_id is required in file_metadata")
+            return False
+            
+        # Prepare the document data
+        doc_data = {
+            "url": file_metadata.get("url"),
+            "name": file_metadata.get("name"),
+            "type": file_metadata.get("type"),
+            "size": file_metadata.get("size"),
+            "uploadedAt": utc_now(),
+            "uploadedBy": user_id,
+            "projectId": session_id
+        }
+        
+        # Save to the 'files' subcollection
+        files_ref = doc_ref.collection("files").document(file_id)
+        await files_ref.set(doc_data)
+        
+        # Also update the project's updatedAt timestamp
+        await doc_ref.update({"updatedAt": utc_now()})
+        
+        logger.info(f"[Projects] Saved file metadata {file_id} for project {session_id}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"[Projects] Error saving file metadata for {session_id}: {str(e)}", exc_info=True)
+        return False
 
 
 async def _delete_storage_blobs(bucket, prefix: str) -> int:

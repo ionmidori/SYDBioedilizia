@@ -15,8 +15,8 @@ interface MobileSwipeLayoutProps {
     children: React.ReactNode;
 }
 
-const PANES = ['dashboard', 'gallery', 'projects'] as const;
-const PANE_ROUTES = ['/dashboard', '/dashboard/gallery', '/dashboard/projects'] as const;
+export const PANES = ['dashboard', 'gallery', 'projects'] as const;
+export const PANE_ROUTES = ['/dashboard', '/dashboard/gallery', '/dashboard/projects'] as const;
 
 const PROJECT_SUBPAGES = ['chat', 'files', 'settings'] as const;
 export type ProjectSubpage = (typeof PROJECT_SUBPAGES)[number];
@@ -54,28 +54,35 @@ interface PaneIndicatorProps {
     activeIndex: number;
     labels: readonly string[];
     size?: 'normal' | 'small';
+    onIndexClick?: (index: number) => void;
 }
 
-export function PaneIndicator({ activeIndex, labels, size = 'normal' }: PaneIndicatorProps) {
+export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexClick }: PaneIndicatorProps) {
     const dotWidth = size === 'small' ? 14 : 20;
     const dotHeight = size === 'small' ? 4 : 6;
     const inactiveDot = size === 'small' ? 4 : 6;
 
     return (
         <div className="flex items-center justify-center gap-1.5 py-1">
-            {labels.map((_, i) => (
-                <motion.div
+            {labels.map((label, i) => (
+                <button
                     key={i}
-                    className={cn(
-                        "rounded-full transition-colors duration-200",
-                        i === activeIndex ? "bg-luxury-gold" : "bg-luxury-text/20"
-                    )}
-                    animate={{
-                        width: i === activeIndex ? dotWidth : inactiveDot,
-                        height: dotHeight,
-                    }}
-                    transition={M3Spring.expressive}
-                />
+                    onClick={() => onIndexClick?.(i)}
+                    className="group/dot relative p-1 -m-1 focus-visible:outline-none transition-transform active:scale-90"
+                    aria-label={`Vai a ${label}`}
+                >
+                    <motion.div
+                        className={cn(
+                            "rounded-full transition-colors duration-200",
+                            i === activeIndex ? "bg-luxury-gold" : "bg-luxury-text/20 group-hover/dot:bg-luxury-text/40"
+                        )}
+                        animate={{
+                            width: i === activeIndex ? dotWidth : inactiveDot,
+                            height: dotHeight,
+                        }}
+                        transition={M3Spring.expressive}
+                    />
+                </button>
             ))}
             <span className={cn(
                 "ml-1.5 font-bold uppercase tracking-wider text-luxury-text/40",
@@ -183,6 +190,7 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
     return (
         <div
             className="relative h-[100dvh] w-full bg-luxury-bg overflow-hidden"
+            style={{ touchAction: 'pan-y' }}
             {...containerProps}
         >
             {/* High-fidelity M3 Edge Swipe Indicators */}

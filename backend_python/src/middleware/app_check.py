@@ -44,10 +44,10 @@ async def validate_app_check_token(request: Request) -> Optional[dict]:
             init_firebase()
             decoded_token = app_check.verify_token(app_check_token)
             logger.info(f"[App Check] ✅ Valid token from {request.client.host}")
-        except app_check.TokenVerificationError as e:
-            logger.warning(f"[App Check] ⚠️ Invalid token from {request.client.host}: {str(e)[:100]}")
         except Exception as e:
-            logger.error(f"[App Check] Verification error (non-fatal): {str(e)}")
+            # Handles: InvalidTokenError, ExpiredSignatureError, InvalidAudienceError, etc.
+            # None of these are fatal in monitoring mode — they just mean decoded_token remains None.
+            logger.warning(f"[App Check] ⚠️ Token verification failed from {request.client.host}: {type(e).__name__}: {str(e)[:100]}")
 
     # Enforcement Logic
     if ENABLE_APP_CHECK:

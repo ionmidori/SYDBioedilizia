@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,11 +8,13 @@ import {
     Dialog,
     DialogContent,
     DialogTitle,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import {
     Drawer,
     DrawerContent,
     DrawerTitle,
+    DrawerDescription,
 } from '@/components/ui/drawer';
 import { ProviderButton } from './ProviderButton';
 import { EmailAuthForm } from './EmailAuthForm';
@@ -32,22 +34,45 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthDialogProps) {
-    const { loginWithGoogle, loginWithApple, user } = useAuth();
+    const { loginWithGoogle, loginWithApple, logout, user } = useAuth();
     const sessionId = useSessionId();
     const router = useRouter();
 
+    // Track initial state when dialog opens to distinguish "just logged in" from "already logged in"
+    const userWasAnonymousRef = useRef(user?.isAnonymous ?? true);
+
     useEffect(() => {
-        if (open && user && !user.isAnonymous) {
-            console.log('[AuthDialog] Closing for authenticated user');
+        if (open) {
+            userWasAnonymousRef.current = user?.isAnonymous ?? true;
+        }
+    }, [open, user?.isAnonymous]);
+
+    useEffect(() => {
+        if (open) {
+            console.log('[AuthDialog] 🟢 Opened. User state:', {
+                uid: user?.uid,
+                isAnonymous: user?.isAnonymous,
+                redirectOnLogin
+            });
+        }
+    }, [open, user, redirectOnLogin]);
+
+    useEffect(() => {
+        // This effect handles auto-closing the dialog after a successful login,
+        // but only if the user was previously anonymous and is now authenticated.
+        const justLoggedIn = userWasAnonymousRef.current && user && !user.isAnonymous;
+
+        if (open && justLoggedIn) {
+            console.log('[AuthDialog] 🔴 Auto-Closing: Transition to authenticated complete');
             const timer = setTimeout(() => {
                 onOpenChange(false);
                 if (redirectOnLogin) {
                     router.push('/dashboard');
                 }
-            }, 100);
+            }, 1500); // 1.5s delay to show final feedback if any
             return () => clearTimeout(timer);
         }
-    }, [open, user, onOpenChange, router, redirectOnLogin]);
+    }, [open, user, onOpenChange, router, redirectOnLogin, userWasAnonymousRef]);
 
     const [loading, setLoading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
@@ -70,10 +95,9 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
             await new Promise(resolve => setTimeout(resolve, 2500));
         } finally {
             setClaimStatus(null);
-            onOpenChange(false);
-            if (redirectOnLogin) {
-                router.push('/dashboard');
-            }
+            // The auto-close effect will handle closing the dialog and redirecting.
+            // We don't close it here directly to allow the auto-close effect to trigger
+            // after the claim status has been shown.
         }
     };
 
@@ -287,6 +311,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
                 )}>
                     {shellDecorations}
                     <DialogTitle className="sr-only">Benvenuto in SYD</DialogTitle>
+                    <DialogDescription className="sr-only">Effettua l'accesso per salvare i tuoi progetti</DialogDescription>
                     {content}
                 </DialogContent>
             </Dialog>
@@ -303,6 +328,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
             )}>
                 {shellDecorations}
                 <DrawerTitle className="sr-only">Benvenuto in SYD</DrawerTitle>
+                <DrawerDescription className="sr-only">Effettua l'accesso per salvare i tuoi progetti</DrawerDescription>
                 <div className="overflow-y-auto max-h-[90svh] pb-safe">
                     {content}
                 </div>

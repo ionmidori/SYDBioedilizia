@@ -1,8 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import { storage } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { projectsApi } from '@/lib/projects-api';
 import { useAuth } from '@/hooks/useAuth';
 import { compressImage } from '@/lib/media-utils';
 
@@ -99,21 +98,14 @@ export function useFileUpload(): UseFileUploadResult {
                         // Get download URL
                         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-                        // Store metadata in Firestore
-                        const fileMetadata = {
+                        // Store metadata via Backend API (3-Tier Architecture)
+                        await projectsApi.addProjectFile(projectId, {
+                            file_id: fileId,
                             url: downloadURL,
                             name: fileToUpload.name,
                             type: fileType,
                             size: fileToUpload.size,
-                            uploadedAt: new Date(),
-                            uploadedBy: user.uid,
-                            projectId,
-                        };
-
-                        await setDoc(
-                            doc(db, 'projects', projectId, 'files', fileId),
-                            fileMetadata
-                        );
+                        });
 
                         // Update progress to success
                         setUploadProgress(prev => new Map(prev).set(fileId, {

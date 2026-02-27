@@ -5,7 +5,11 @@ import { Lock } from 'lucide-react';
 export const LoginRequest = () => {
 
     const triggerLogin = () => {
-        window.dispatchEvent(new Event('OPEN_LOGIN_MODAL'));
+        console.log('[LoginRequest] Triggering OPEN_LOGIN_MODAL');
+        window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
+            bubbles: true,
+            composed: true
+        }));
     };
 
     return (

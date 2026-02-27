@@ -21,6 +21,7 @@ from src.models.project import (
     ProjectListItem,
     ProjectUpdate,
     ProjectDetails,
+    ProjectFileMetadata,
 )
 
 logger = logging.getLogger(__name__)
@@ -231,6 +232,33 @@ async def update_project_details(
     
     logger.info(f"[API] Successfully updated construction details for project {session_id}")
     return {"success": True, "message": "Dettagli del cantiere aggiornati con successo"}
+
+
+@router.post("/{session_id}/files", response_model=dict)
+async def add_project_file(
+    session_id: str,
+    file_metadata: ProjectFileMetadata,
+    user_session: UserSession = Depends(verify_token)
+) -> dict:
+    """
+    Add file metadata to a project after a successful upload.
+    """
+    user_id = user_session.uid
+    logger.info(f"[API] add_project_file request for session_id: {session_id} from user_id: {user_id}")
+    
+    success = await projects_db.save_project_file_metadata(
+        session_id=session_id, 
+        user_id=user_id, 
+        file_metadata=file_metadata.model_dump()
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Progetto non trovato o non autorizzato"
+        )
+    
+    return {"success": True, "message": "Metadati file salvati con successo"}
 
 
 @router.delete("/{session_id}", response_model=dict)

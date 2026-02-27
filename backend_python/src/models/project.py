@@ -6,11 +6,12 @@ which is an extension of the existing Firestore "sessions" collection.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from datetime import datetime as _datetime_type
 
 
 class ProjectStatus(str, Enum):
@@ -96,6 +97,17 @@ class ProjectDocument(ProjectBase):
     updated_at: datetime = Field(..., description="Last activity timestamp")
     construction_details: Optional[ProjectDetails] = Field(None, description="Construction site details")
 
+    @field_serializer('updated_at', 'created_at')
+    def serialize_datetime_fields(self, dt: _datetime_type, _info) -> str:
+        """Serialize datetime to UTC ISO 8601 with Z suffix.
+        
+        Naive datetimes are treated as UTC per the Firestore SDK contract.
+        Output is always compatible with Zod .datetime({ offset: true }).
+        """
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat().replace("+00:00", "Z")
+
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
@@ -112,4 +124,25 @@ class ProjectListItem(BaseModel):
     updated_at: datetime
     message_count: int = 0
 
+    @field_serializer('updated_at')
+    def serialize_updated_at(self, dt: _datetime_type, _info) -> str:
+        """Serialize datetime to UTC ISO 8601 with Z suffix.
+        
+        Naive datetimes are treated as UTC per the Firestore SDK contract.
+        Output is always compatible with Zod .datetime({ offset: true }).
+        """
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat().replace("+00:00", "Z")
+
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+
+class ProjectFileMetadata(BaseModel):
+    """Metadata for an uploaded project file."""
+    file_id: str = Field(..., description="Unique file ID (used as document ID)")
+    url: str = Field(..., description="Download URL")
+    name: str = Field(..., description="Original file name")
+    type: str = Field(..., description="File type (e.g. image, document, video)")
+    size: int = Field(..., description="File size in bytes")
+

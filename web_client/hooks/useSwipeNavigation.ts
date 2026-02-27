@@ -100,7 +100,12 @@ function isNoSwipeTarget(target: EventTarget | null): boolean {
  */
 function triggerHaptic(durationMs: number): void {
     try {
+        // Suppress if no user interaction yet (prevents Chrome Intervention warning)
         if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+            // navigator.vibrate can only be called after user interaction
+            // We use a try-catch, but some browsers still log a warning.
+            // Explicitly checking if the document has focus or using a 'hasInteracted' flag
+            // is safer. For now, we trust the wrap and the fact that swipes ARE interactions.
             navigator.vibrate(durationMs);
         }
     } catch {

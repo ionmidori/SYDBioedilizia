@@ -195,10 +195,10 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
     const projectSubItems = React.useMemo(() =>
         currentProjectId ? [
             { href: `/dashboard/${currentProjectId}`, label: 'Cantiere AI', icon: MessageSquare },
-            { href: `/dashboard/${currentProjectId}/files`, label: 'Galleria & File', icon: FileText },
-            { href: `/dashboard/${currentProjectId}/settings`, label: 'Parametri Cantiere', icon: Sliders },
+            { href: isMobile ? `/dashboard/${currentProjectId}?view=files` : `/dashboard/${currentProjectId}/files`, label: 'Galleria & File', icon: FileText },
+            { href: isMobile ? `/dashboard/${currentProjectId}?view=settings` : `/dashboard/${currentProjectId}/settings`, label: 'Parametri Cantiere', icon: Sliders },
         ] : []
-        , [currentProjectId])
+        , [currentProjectId, isMobile])
 
     // ========================================================================
     // EVENT HANDLERS

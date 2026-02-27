@@ -10,6 +10,8 @@ import { useChatHistory } from '@/hooks/useChatHistory';
 import { appCheck } from '@/lib/firebase';
 import { getToken } from 'firebase/app-check';
 
+import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
+
 /**
  * ChatProvider
  * 
@@ -30,12 +32,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
+    const welcomeInjectedRef = useRef(false);
+    const isFirstSyncRef = useRef(true);
+
+    // -- STABLE SESSION ID (L3 Persistent Guest) --
+    const [stableGuestId, setStableGuestId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const key = 'chatSessionId';
+            let id = localStorage.getItem(key);
+            if (!id) {
+                // Use crypto.randomUUID() for high entropy standard
+                id = crypto.randomUUID();
+                localStorage.setItem(key, id);
+            }
+            setStableGuestId(id);
+        }
+    }, []);
 
     // Derived Session ID
     const sessionId = useMemo(() => {
-        if (!user) return `guest-${Date.now()}`;
+        if (!user) return stableGuestId || 'guest-loading';
         return currentProjectId || `global-${user.uid}`;
-    }, [user, currentProjectId]);
+    }, [user, currentProjectId, stableGuestId]);
 
     // -- AI SDK HOOK --
     // -- HISTORY SYNC --
@@ -63,12 +83,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }) as any; // 🛡️ Temporary cast until SDK types resolve
 
     const isLoading = status === 'streaming' || status === 'submitted';
-    const welcomeInjectedRef = useRef(false);
-
-    // Reset welcome flag when session changes
-    useEffect(() => {
-        welcomeInjectedRef.current = false;
-    }, [sessionId]);
 
     // Sync History to SDK State
     useEffect(() => {
@@ -95,8 +109,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
             // 2. Length mismatch
             if (messages.length !== historyMessages.length) {
-                console.log(`[ChatProvider] Syncing history (length mismatch: ${messages.length} vs ${historyMessages.length})`);
+                if (!isFirstSyncRef.current) {
+                    console.log(`[ChatProvider] Syncing history (length mismatch: ${messages.length} vs ${historyMessages.length})`);
+                }
                 setMessages(historyMessages);
+                isFirstSyncRef.current = false;
                 return;
             }
 
@@ -288,6 +305,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     return (
         <ChatContext.Provider value={value}>
             {children}
+            <GlobalAuthListener />
         </ChatContext.Provider>
     );
 }

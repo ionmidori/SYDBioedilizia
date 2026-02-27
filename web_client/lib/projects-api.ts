@@ -1,5 +1,6 @@
 import { fetchWithAuth } from '@/lib/api-client';
 import { ProjectListItem, Project, ProjectCreate, ProjectUpdate } from '@/types/projects';
+import { projectListResponseSchema } from '@/lib/validation/project-list-schema';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py'; // Use proxy or direct URL
 
@@ -16,7 +17,19 @@ export const projectsApi = {
             throw new Error('Impossibile caricare i progetti');
         }
 
-        return response.json();
+        const data = await response.json();
+
+        // 🛡️ Validate response shape against our Zod schema.
+        // Uses safeParse for graceful degradation: a schema mismatch warns but does not crash.
+        const parsed = projectListResponseSchema.safeParse(data);
+        if (!parsed.success) {
+            console.warn('[ProjectsApi] ⚠️ Schema drift detected in listProjects response:');
+            console.error('Validation Errors:', parsed.error.format());
+            console.log('Received Data:', data);
+            return data as ProjectListItem[]; // Graceful degradation: trust the data, alert the developer
+        }
+
+        return parsed.data;
     },
 
     /**
@@ -108,6 +121,21 @@ export const projectsApi = {
 
         if (!response.ok) {
             throw new Error('Impossibile eliminare il progetto');
+        }
+    },
+
+    /**
+     * Add file metadata to a project.
+     */
+    addProjectFile: async (sessionId: string, fileMetadata: { file_id: string, url: string, name: string, type: string, size: number }): Promise<void> => {
+        const response = await fetchWithAuth(`${API_ROOT}/projects/${sessionId}/files`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fileMetadata),
+        });
+
+        if (!response.ok) {
+            throw new Error('Impossibile salvare i metadati del file');
         }
     }
 };
