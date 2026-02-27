@@ -296,4 +296,12 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **Type Safety**: Raggiunto lo stato di 0 errori `tsc` post-refactoring.
 - **Versioning**: Rilascio `v3.6.01`.
 
-_Documento aggiornato: Febbraio 26, 2026_
+## 🛡️ Fase 41: Dashboard Data Stability & Compliance Audit (Feb-27-2026)
+*Risoluzione errori di caricamento dati e audit dell'accessibilità.*
+- **Dashboard Stats Fix**: Risolto il bug critico in `stats-api.ts` che impediva il caricamento delle statistiche ("Impossibile caricare le statistiche").
+- **Mobile Viewport Hardening**: Stabilizzato il layout dashboard prevenendo i freeze in visualizzazione mobile.
+- **Accessibility & Form Audit**: Eseguito audit completo su navigazione e dialoghi. Una proposta di refactor basata su `Sheet` e Zod Form è stata implementata e successivamente rimossa per allineamento design strategico.
+- **Versioning**: Rilascio `v3.6.05`.
+
+_Documento aggiornato: Febbraio 27, 2026_
+

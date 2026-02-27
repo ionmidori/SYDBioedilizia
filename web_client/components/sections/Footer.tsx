@@ -1,46 +1,46 @@
 'use client';
 
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { Facebook, Instagram, Linkedin, Twitter, Mail, MapPin, Phone, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
+import { resetPasswordSchema, type ResetPasswordValues } from '@/lib/validation/auth-schema';
+import { triggerHaptic } from '@/utils/haptics';
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
-    const [email, setEmail] = useState('');
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
 
-    const sanitizeInput = (input: string) => {
-        // Basic sanitization to prevent XSS (though React renders text safely by default)
-        return input.replace(/[<>]/g, "").trim();
-    };
-
-    const handleSubscribe = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (status === 'loading') return;
-
-        const cleanEmail = sanitizeInput(email);
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-        if (!emailRegex.test(cleanEmail)) {
-            setStatus('error');
-            setMessage('Inserisci un indirizzo email valido.');
-            return;
+    const {
+        register,
+        handleSubmit,
+        reset,
+        formState: { errors }
+    } = useForm<ResetPasswordValues>({
+        resolver: zodResolver(resetPasswordSchema),
+        defaultValues: {
+            email: ''
         }
+    });
 
+    const onSubscribe = async (data: ResetPasswordValues) => {
+        if (status === 'loading') return;
+        
         setStatus('loading');
+        triggerHaptic();
 
         // Simulate API call
         setTimeout(() => {
-            // Here you would typically fetch to your API
             setStatus('success');
             setMessage('Grazie per l\'iscrizione!');
-            setEmail('');
+            reset();
 
-            // Reset after 3 seconds
+            // Reset status after 3 seconds
             setTimeout(() => {
                 setStatus('idle');
                 setMessage('');
@@ -126,19 +126,15 @@ export function Footer() {
                         <p className="text-luxury-text/70 text-sm mb-4 font-light">
                             Iscriviti per ricevere consigli di design e offerte esclusive.
                         </p>
-                        <form className="space-y-3" onSubmit={handleSubscribe}>
+                        <form className="space-y-3" onSubmit={handleSubmit(onSubscribe)}>
                             <div className="relative">
                                 <input
+                                    {...register('email')}
                                     type="email"
-                                    value={email}
-                                    onChange={(e) => {
-                                        setEmail(e.target.value);
-                                        if (status === 'error') setStatus('idle');
-                                    }}
                                     placeholder="La tua email"
                                     className={cn(
                                         "w-full bg-black/20 border rounded-lg px-4 py-3 text-sm text-luxury-text focus:outline-none transition-colors",
-                                        status === 'error' ? "border-red-500 focus:border-red-500" : "border-luxury-gold/10 focus:border-luxury-teal"
+                                        errors.email || status === 'error' ? "border-red-500 focus:border-red-500" : "border-luxury-gold/10 focus:border-luxury-teal"
                                     )}
                                     disabled={status === 'loading' || status === 'success'}
                                     aria-label="Email address for newsletter"
@@ -165,10 +161,10 @@ export function Footer() {
                                 )}
                             </Button>
 
-                            {status === 'error' && (
+                            {(errors.email || status === 'error') && (
                                 <p className="text-xs text-red-400 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
                                     <XCircle className="w-3 h-3" />
-                                    {message}
+                                    {errors.email?.message || message}
                                 </p>
                             )}
                         </form>
@@ -190,4 +186,3 @@ export function Footer() {
         </footer>
     );
 }
-

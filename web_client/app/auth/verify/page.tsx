@@ -5,23 +5,36 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
 import { CheckCircle, XCircle, Loader2, Mail } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { magicLinkSchema, type MagicLinkValues } from "@/lib/validation/auth-schema";
+import { triggerHaptic } from "@/utils/haptics";
 
 /**
  * Magic Link Verification Content
- * Separated for Suspense boundary optimization    
+ * Separated for Suspense boundary optimization
  */
 function VerifyContent() {
     const router = useRouter();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const searchParams = useSearchParams();
     const { completeMagicLink } = useAuth();
 
     const [status, setStatus] = useState<"loading" | "success" | "error" | "confirm_email">("loading");
     const [errorMessage, setErrorMessage] = useState("");
-    const [emailInput, setEmailInput] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Extract the full URL (contains oobCode)     
+    // React Hook Form for email confirmation
+    const {
+        register,
+        handleSubmit,
+        formState: { errors }
+    } = useForm<MagicLinkValues>({
+        resolver: zodResolver(magicLinkSchema),
+        defaultValues: {
+            email: ""
+        }
+    });
+
+    // Extract the full URL (contains oobCode)
     const emailLink = typeof window !== "undefined" ? window.location.href : "";
 
     const attemptVerification = useCallback(async (email: string) => {
@@ -30,6 +43,7 @@ function VerifyContent() {
             await completeMagicLink(emailLink, email);
 
             setStatus("success");
+            triggerHaptic();
 
             // Redirect after 2 seconds
             setTimeout(() => {
@@ -39,7 +53,7 @@ function VerifyContent() {
         } catch (error: unknown) {
             console.error("[VerifyPage] Verification failed:", error);
             setStatus("error");
-            
+
             let msg = "Errore nella verifica. Riprova.";
             if (error instanceof Error && error.message === "Invalid email link") {
                 msg = "Il link non è valido o è scaduto.";
@@ -54,7 +68,7 @@ function VerifyContent() {
             const storedEmail = window.localStorage.getItem("emailForSignIn");
 
             if (storedEmail) {
-                // Same device - auto-verify       
+                // Same device - auto-verify
                 await attemptVerification(storedEmail);
             } else {
                 // Cross-device - request confirmation
@@ -67,12 +81,10 @@ function VerifyContent() {
         }
     }, [emailLink, attemptVerification]);
 
-    const handleEmailSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!emailInput.trim()) return;
-
+    const onConfirmEmail = async (data: MagicLinkValues) => {
         setIsSubmitting(true);
-        await attemptVerification(emailInput.toLowerCase());
+        triggerHaptic();
+        await attemptVerification(data.email.toLowerCase());
         setIsSubmitting(false);
     };
 
@@ -125,15 +137,20 @@ function VerifyContent() {
                             Per motivi di sicurezza, conferma l&apos;indirizzo email che hai utilizzato
                         </p>
 
-                        <form onSubmit={handleEmailSubmit} className="space-y-4">
-                            <input
-                                type="email"
-                                value={emailInput}
-                                onChange={(e) => setEmailInput(e.target.value)}
-                                placeholder="tua@email.com"
-                                required
-                                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                        <form onSubmit={handleSubmit(onConfirmEmail)} className="space-y-4">
+                            <div className="space-y-1">
+                                <input
+                                    {...register("email")}
+                                    type="email"
+                                    placeholder="tua@email.com"
+                                    className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                                        errors.email ? 'border-red-500 ring-1 ring-red-500/50' : 'border-white/20'
+                                    }`}
+                                />
+                                {errors.email && (
+                                    <p className="text-xs text-red-400 text-left mt-1">{errors.email.message}</p>
+                                )}
+                            </div>
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
@@ -171,4 +188,3 @@ export default function VerifyPage() {
         </Suspense>
     );
 }
-

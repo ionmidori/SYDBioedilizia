@@ -29,6 +29,13 @@ function isTokenExpired(token: string): boolean {
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
+    const response = NextResponse.next();
+
+    // 🛡️ Security Headers
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
     // -----------------------------------------------------------------
     // 1. Authentication Guard (Runs in all environments)
@@ -49,14 +56,14 @@ export function middleware(request: NextRequest) {
 
     // Bypass maintenance mode in development
     if (process.env.NODE_ENV === 'development') {
-        return NextResponse.next()
+        return response;
     }
 
     // Check for maintenance mode via environment variable
     const isMaintenanceMode = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true'
 
     if (!isMaintenanceMode) {
-        return NextResponse.next()
+        return response;
     }
 
     if (
@@ -66,7 +73,7 @@ export function middleware(request: NextRequest) {
         pathname === '/maintenance' ||
         pathname.includes('.') // file extensions (images, etc)
     ) {
-        return NextResponse.next()
+        return response;
     }
 
     // Rewrite EVERYTHING else to maintenance

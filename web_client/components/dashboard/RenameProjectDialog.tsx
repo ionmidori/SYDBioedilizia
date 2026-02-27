@@ -26,11 +26,12 @@ export function RenameProjectDialog({
     onRename
 }: RenameProjectDialogProps) {
     const { mutate: updateProject, isPending } = useUpdateProject();
-    
-    const { 
-        register, 
+
+    const {
+        register,
         handleSubmit,
-        formState: { errors } 
+        reset,
+        formState: { errors }
     } = useForm<RenameProjectValues>({
         resolver: zodResolver(renameProjectSchema),
         defaultValues: {
@@ -78,8 +79,8 @@ export function RenameProjectDialog({
                             {...register('title')}
                             id="title"
                             className={`w-full px-4 py-3 rounded-xl bg-white/5 border outline-none transition-all placeholder:text-white/20 ${
-                                errors.title 
-                                    ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50" 
+                                errors.title
+                                    ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50"
                                     : "border-white/10 focus:border-luxury-gold/50 focus:ring-1 focus:ring-luxury-gold/50"
                             }`}
                             autoFocus

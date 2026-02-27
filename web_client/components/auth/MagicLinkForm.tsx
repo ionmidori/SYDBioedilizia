@@ -1,8 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Send, CheckCircle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Mail, Send, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { magicLinkSchema, type MagicLinkValues } from '@/lib/validation/auth-schema';
+import { triggerHaptic } from '@/utils/haptics';
 
 interface MagicLinkFormProps {
     onSuccess?: () => void;
@@ -10,30 +14,32 @@ interface MagicLinkFormProps {
 
 /**
  * Magic Link login form.
- * 
- * UX Flow:
- * 1. Input email
- * 2. Click "Invia Link"
- * 3. Show success message "✉️ Controlla la tua posta"
- * 4. User clicks link in email
- * 5. Redirected to /auth/verify
+ * Refactored to React Hook Form + Zod for 'advanced-form-patterns' compliance.
  */
 export function MagicLinkForm({ onSuccess }: MagicLinkFormProps) {
     const { sendMagicLink } = useAuth();
-    const [email, setEmail] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!email.trim() || isLoading) return;
+    const {
+        register,
+        handleSubmit,
+        formState: { errors }
+    } = useForm<MagicLinkValues>({
+        resolver: zodResolver(magicLinkSchema),
+        defaultValues: {
+            email: ''
+        }
+    });
 
+    const onSubmit = async (data: MagicLinkValues) => {
         setIsLoading(true);
         setError('');
+        triggerHaptic();
 
         try {
-            await sendMagicLink(email.toLowerCase());
+            await sendMagicLink(data.email.toLowerCase());
             setSuccess(true);
 
             // Close dialog after 3 seconds
@@ -71,7 +77,7 @@ export function MagicLinkForm({ onSuccess }: MagicLinkFormProps) {
     }
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
                 <label htmlFor="magic-email" className="text-sm font-medium text-slate-300">
                     Email
@@ -79,15 +85,18 @@ export function MagicLinkForm({ onSuccess }: MagicLinkFormProps) {
                 <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                     <input
+                        {...register('email')}
                         id="magic-email"
                         type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="tua@email.com"
-                        required
-                        className="w-full pl-11 pr-4 py-3 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className={`w-full pl-11 pr-4 py-3 bg-slate-800/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                            errors.email ? 'border-red-500 ring-1 ring-red-500/50' : 'border-slate-700'
+                        }`}
                     />
                 </div>
+                {errors.email && (
+                    <p className="text-xs text-red-400 mt-1">{errors.email.message}</p>
+                )}
             </div>
 
             {error && (
@@ -100,7 +109,10 @@ export function MagicLinkForm({ onSuccess }: MagicLinkFormProps) {
                 className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 text-white font-medium rounded-lg transition-all flex items-center justify-center space-x-2"
             >
                 {isLoading ? (
-                    <span>Invio in corso...</span>
+                    <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        <span>Invio in corso...</span>
+                    </>
                 ) : (
                     <>
                         <Send className="w-4 h-4" />

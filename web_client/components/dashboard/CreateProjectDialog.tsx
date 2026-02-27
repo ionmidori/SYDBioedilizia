@@ -16,19 +16,19 @@ import { triggerHaptic } from '@/utils/haptics';
 interface CreateProjectDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onProjectCreated?: (projectId: string) => void; // Optional callback to override navigation
+    onProjectCreated?: (projectId: string) => void;
 }
 
 export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: CreateProjectDialogProps) {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const router = useRouter();
     const { mutate: createProject, isPending } = useCreateProject();
-    
-    const { 
-        register, 
-        handleSubmit, 
+
+    const {
+        register,
+        handleSubmit,
         reset,
-        formState: { errors } 
+        formState: { errors }
     } = useForm<CreateProjectValues>({
         resolver: zodResolver(createProjectSchema),
         defaultValues: {
@@ -56,7 +56,10 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
     };
 
     const handleOpenChange = (nextOpen: boolean) => {
-        if (!nextOpen) setErrorMessage(null);
+        if (!nextOpen) {
+            setErrorMessage(null);
+            reset();
+        }
         onOpenChange(nextOpen);
     };
 
@@ -83,8 +86,8 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
                             id="title"
                             placeholder="Es. Ristrutturazione Bagno"
                             className={`w-full px-6 py-4 rounded-2xl bg-luxury-bg/50 backdrop-blur-md border outline-none transition-all placeholder:text-luxury-text/20 text-center text-lg font-medium text-luxury-text ${
-                                errors.title 
-                                    ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50" 
+                                errors.title
+                                    ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50"
                                     : "border-luxury-gold/20 focus:border-luxury-gold/50 focus:ring-1 focus:ring-luxury-gold/50"
                             }`}
                             autoFocus
@@ -112,18 +115,15 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
                             disabled={isPending}
                             className="group relative w-full h-14 bg-luxury-gold/15 border border-luxury-gold/40 hover:border-luxury-gold/60 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/10 flex items-center justify-center gap-3"
                         >
-                            {/* Internal Glow Effect */}
                             <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/10 to-luxury-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
                             <div className="relative z-10 flex items-center justify-center gap-3">
                                 {isPending ? (
                                     <Loader2 className="w-5 h-5 animate-spin text-luxury-gold" />
                                 ) : (
-                                    <>
-                                        <span className="text-luxury-gold font-bold text-base uppercase tracking-[0.2em]">
-                                            Crea e Inizia
-                                        </span>
-                                    </>
+                                    <span className="text-luxury-gold font-bold text-base uppercase tracking-[0.2em]">
+                                        Crea e Inizia
+                                    </span>
                                 )}
                             </div>
                         </motion.button>
