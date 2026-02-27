@@ -48,20 +48,13 @@ if (typeof window !== 'undefined') {
  */
 export const waitForAuth = (): Promise<void> => authReadyPromise;
 
-// Initialize Firestore
-import { getFirestore, enableMultiTabIndexedDbPersistence } from 'firebase/firestore';
-const db = getFirestore(app);
-
-// Enable Offline Persistence for Resilience against Network Drops (QUIC/DNS errors)
-if (typeof window !== 'undefined') {
-    enableMultiTabIndexedDbPersistence(db).catch((err) => {
-        if (err.code == 'failed-precondition') {
-            console.warn('[Firestore] Persistence failed: Multiple tabs open, but multi-tab persistence is not supported by this browser.');
-        } else if (err.code == 'unimplemented') {
-            console.warn('[Firestore] Persistence not supported by this browser.');
-        }
-    });
-}
+// Initialize Firestore with modern persistence
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+    })
+});
 
 // Initialize Storage
 import { getStorage } from 'firebase/storage';
@@ -71,9 +64,7 @@ const storage = getStorage(app);
 let appCheck: AppCheck | undefined;
 
 if (typeof window !== 'undefined') {
-    if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK !== 'true') {
-        console.warn('[Firebase] ⚠️ App Check is DISABLED (NEXT_PUBLIC_ENABLE_APP_CHECK != true)');
-    } else {
+    if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
         const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
         if (!siteKey) {
             console.error('[Firebase] ❌ App Check initialization FAILED: NEXT_PUBLIC_RECAPTCHA_SITE_KEY is missing!');
@@ -87,9 +78,7 @@ if (typeof window !== 'undefined') {
                     });
                     // @ts-ignore - Mark as initialized
                     window._firebaseAppCheckInitialized = true;
-                    console.log('[Firebase] ✅ App Check initialized with siteKey:', siteKey.substring(0, 5) + '...');
-                } else {
-                    console.log('[Firebase] ✅ App Check already initialized (skipped)');
+                    console.log('[Firebase] ✅ App Check initialized');
                 }
             } catch (error) {
                 console.error('[Firebase] ❌ App Check initialization error:', error);

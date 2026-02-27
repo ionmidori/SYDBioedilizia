@@ -40,4 +40,10 @@ Questo documento delinea il piano d'azione dettagliato, suddiviso in task, per r
 ## Fase 5: Revisione Architettura Real-time
 - [x] **5.1.** Mappare tutti i punti nel frontend in cui viene utilizzato `onSnapshot` di Firebase (es. `useUserPreferences`).
 - [x] **5.2.** Valutare tecnicamente la fattibilità di migrare questi flussi in tempo reale verso Server-Sent Events (SSE) o WebSockets gestiti da FastAPI, per rispettare al 100% la "3-Tier Law".
-- [x] **5.3.** Produrre un breve Architectural Decision Record (ADR) per decidere se mantenere `onSnapshot` come eccezione architetturale documentata o procedere con il refactoring tramite backend.
+## Fase 6: Standardizzazione Accessibilità & Form (v3.6.06)
+- [x] **6.1.** Creare primitive `components/ui/form.tsx` conformi allo standard Shadcn/UI (wrapping di `react-hook-form` e `zod`).
+- [x] **6.2.** Refattorizzare `Navbar.tsx` per utilizzare `Sheet` (Radix UI) sia per il menu principale che per il `ContactMenu` (drawer), eliminando `framer-motion` custom per la logica di apertura.
+- [x] **6.3.** Migrare `CreateProjectDialog.tsx` all'uso delle nuove primitive `Form` e `FormField`.
+- [x] **6.4.** Migrare `RenameProjectDialog.tsx` all'uso delle nuove primitive `Form` e `FormField`.
+- [x] **6.5.** Verificare la risoluzione dei warning console relativi ad `aria-hidden` e focus management.
+- [x] **6.6.** Eseguire `npm run type-check` globale per validare la coerenza dei tipi nei form refattorizzati.

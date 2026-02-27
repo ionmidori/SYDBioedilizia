@@ -299,9 +299,17 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 ## 🛡️ Fase 41: Dashboard Data Stability & Compliance Audit (Feb-27-2026)
 *Risoluzione errori di caricamento dati e audit dell'accessibilità.*
 - **Dashboard Stats Fix**: Risolto il bug critico in `stats-api.ts` che impediva il caricamento delle statistiche ("Impossibile caricare le statistiche").
-- **Mobile Viewport Hardening**: Stabilizzato il layout dashboard prevenendo i freeze in visualizzazione mobile.
-- **Accessibility & Form Audit**: Eseguito audit completo su navigazione e dialoghi. Una proposta di refactor basata su `Sheet` e Zod Form è stata implementata e successivamente rimossa per allineamento design strategico.
-- **Versioning**: Rilascio `v3.6.05`.
+- **Phase 41 (Feb 27, 2026):** **Stability, Accessibility & Form Standard.**
+  - **Stability:** Fixed "Undefined" status and project stats synchronization on Dashboard.
+  - **Accessibility:** Replaced custom mobile navigation and contact menus in `Navbar.tsx` with Radix-based `Sheet` (Drawer).
+  - **Standardization:** Created `form.tsx` primitives and refactored `CreateProjectDialog` and `RenameProjectDialog` to follow Enterprise Form standards.
+  - **Verification:** Passed `npm run type-check` with Exit code: 0.
+## 🛡️ Phase 42: Frontend Polish & Accessibility Hardening (Feb-28-2026)
+*Raffinamento finale della UX mobile e risoluzione debiti tecnici frontend.*
+- **A11y Focus Fix**: Aggiunto delay di 300ms al trigger del Login Modal in `Navbar.tsx` per prevenire conflitti di focus con la chiusura del mobile `Sheet`.
+- **Firestore Modernization**: Migrazione completa a `initializeFirestore` e `persistentLocalCache` in `firebase.ts`, eliminando i warning di deprecazione.
+- **Security & CSP**: Hardening di `next.config.ts` tramite policy COOP/COEP per sbloccare popup OAuth e integrazione domini Vercel Analytics nella Content Security Policy.
+- **SVG Integrity**: Correzione del path malformato dell'icona WhatsApp nel `Navbar.tsx`.
+- **Versioning**: Rilascio stabile `v3.6.10`.
 
-_Documento aggiornato: Febbraio 27, 2026_
-
+_Documento aggiornato: Febbraio 28, 2026_

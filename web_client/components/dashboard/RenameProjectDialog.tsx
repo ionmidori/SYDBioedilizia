@@ -8,6 +8,15 @@ import { renameProjectSchema, type RenameProjectValues } from '@/lib/validation/
 import { motion } from 'framer-motion';
 import { useUpdateProject } from '@/hooks/use-update-project';
 import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form';
+
 import { triggerHaptic } from '@/utils/haptics';
 
 interface RenameProjectDialogProps {
@@ -27,12 +36,7 @@ export function RenameProjectDialog({
 }: RenameProjectDialogProps) {
     const { mutate: updateProject, isPending } = useUpdateProject();
 
-    const {
-        register,
-        handleSubmit,
-        reset,
-        formState: { errors }
-    } = useForm<RenameProjectValues>({
+    const form = useForm<RenameProjectValues>({
         resolver: zodResolver(renameProjectSchema),
         defaultValues: {
             title: currentTitle
@@ -70,48 +74,53 @@ export function RenameProjectDialog({
                     ease: [0.05, 0.7, 0.1, 1.0]
                 }}
             >
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 py-4">
-                    <div className="space-y-2">
-                        <label htmlFor="title" className="text-sm font-medium text-luxury-text/70">
-                            Nuovo Nome
-                        </label>
-                        <input
-                            {...register('title')}
-                            id="title"
-                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border outline-none transition-all placeholder:text-white/20 ${
-                                errors.title
-                                    ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50"
-                                    : "border-white/10 focus:border-luxury-gold/50 focus:ring-1 focus:ring-luxury-gold/50"
-                            }`}
-                            autoFocus
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                        <FormField
+                            control={form.control}
+                            name="title"
+                            render={({ field }) => (
+                                <FormItem className="space-y-2">
+                                    <FormLabel className="text-sm font-medium text-luxury-text/70">
+                                        Nuovo Nome
+                                    </FormLabel>
+                                    <FormControl>
+                                        <input
+                                            {...field}
+                                            id="title"
+                                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border outline-none transition-all placeholder:text-white/20 ${form.formState.errors.title
+                                                    ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50"
+                                                    : "border-white/10 focus:border-luxury-gold/50 focus:ring-1 focus:ring-luxury-gold/50"
+                                                }`}
+                                            autoFocus
+                                        />
+                                    </FormControl>
+                                    <FormMessage className="text-sm font-medium text-red-400 animate-in fade-in slide-in-from-top-1" />
+                                </FormItem>
+                            )}
                         />
-                        {errors.title && (
-                            <p className="text-sm font-medium text-red-400 animate-in fade-in slide-in-from-top-1">
-                                {errors.title.message}
-                            </p>
-                        )}
-                    </div>
 
-                    <div className="flex flex-col sm:flex-row justify-end gap-2">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => onOpenChange(false)}
-                            className="hover:bg-white/5 text-luxury-text/70 hover:text-luxury-text"
-                        >
-                            Annulla
-                        </Button>
-                        <Button
-                            type="submit"
-                            onClick={() => triggerHaptic()}
-                            disabled={isPending}
-                            className="bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold"
-                        >
-                            {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                            Salva
-                        </Button>
-                    </div>
-                </form>
+                        <div className="flex flex-col sm:flex-row justify-end gap-2">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => onOpenChange(false)}
+                                className="hover:bg-white/5 text-luxury-text/70 hover:text-luxury-text"
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                type="submit"
+                                onClick={() => triggerHaptic()}
+                                disabled={isPending}
+                                className="bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold"
+                            >
+                                {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                Salva
+                            </Button>
+                        </div>
+                    </form>
+                </Form>
             </motion.div>
         </ResponsiveDrawer>
     );

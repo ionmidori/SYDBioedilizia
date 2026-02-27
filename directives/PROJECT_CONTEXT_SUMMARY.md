@@ -1,5 +1,5 @@
-- **Last Updated**: 2026-02-27
-- **Current Version**: `v3.6.07` (Accessibility & Navigation Standardization)
+- **Last Updated**: 2026-02-28
+- **Current Version**: `v3.6.10` (Frontend Polish & Accessibility Fix)
 - **Last Major Sync**: 2026-02-27
 - **Status**: `Production-Ready - Security Hardened & Accessible`
 - **Next High Priority**: 1) Biometric Auth Expansion | 2) Dynamic Robot Mascot | 3) Vertex AI Agent Playbooks
@@ -26,6 +26,12 @@
     - **Dashboard UI Resilience**: Verified and hardened the dashboard against navigation freezes on mobile viewports.
     - **Accessibility Audit**: Completed a comprehensive accessibility audit of the mobile navigation and project dialogs. The proposed refactor (Sheet-based navigation and Zod/Form primitives) was analyzed but subsequently reverted for further design review.
 
+- **Phase 41 (Feb 27, 2026):** **Stability, Accessibility & Form Standard.**
+  - **Stability:** Fixed "Undefined" status and project stats synchronization on Dashboard.
+  - **Accessibility:** Replaced custom mobile navigation in `Navbar.tsx` with Radix-based `Sheet` (Drawer).
+  - **Standardization:** Created `form.tsx` primitives and refactored `CreateProjectDialog` and `RenameProjectDialog` to follow Enterprise Form standards.
+  - **Verification:** Passed `npm run type-check` with Exit code: 0.
+
 - **Enterprise UX Polish & Backend DB Fix (v3.6.04)**:
     - **Mobile Navigation (`Navbar.tsx`)**: Refactored the mobile drawer menu to align with `enterprise-user-dashboard-ux` standards. Replaced the generic dashboard icon with "AREA PERSONALE" and unified all navigation links into identical premium glass containers (`bg-white/5`, `border-white/10`) featuring haptic feedback (`navigator.vibrate`) and M3 Expressive scaling on press. Updated the header to use "MENU" with editorial tracking (`tracking-[0.3em]`).
     - **Profile Hub (`SignInButton.tsx`)**: Upgraded the user profile trigger to a dual-label design ("Profilo" / "Account") to provide clear context on all screen sizes. Applied luxury-gold borders and a subtle glass effect, linking directly to `/dashboard/profile`.
@@ -34,17 +40,29 @@
 - **Frontend Dead Code Elimination (v3.6.03)**:
     - **Asset Pruning**: Removed 26+ isolated and unused files across `components`, `hooks`, `stores`, and `types` (e.g., `StatCard`, `ThinkingSurface`, `useDocumentUpload`, `zustand` store since TanStack Query took over).
 ... [69.000 characters omitted] ...
+- **Phase 42 (Feb 28, 2026):** **Frontend Polish & A11y Fix (v3.6.10)**:
+  - **A11y Fix**: Implemented 300ms delay for Login Modal trigger in `Navbar.tsx` to prevent `aria-hidden` focus restoration conflict with mobile `Sheet`.
+  - **Modernization**: Updated `firebase.ts` to use `initializeFirestore` + `persistentLocalCache`, clearing deprecation warnings.
+  - **Security**: Hardened `next.config.ts` with COOP/COEP for Firebase Auth and enriched CSP for Vercel Analytics.
+  - **SVG Fix**: Corrected malformed WhatsApp path in `Navbar.tsx`.
+  - **Verification**: All backend/frontend checks passed.
+
 - **Governance**: Standardized on official `gemini-cli` patterns and implemented the **Multi-Agent Collaboration Protocol (v1.0)** in `directives/MULTI_AGENT_PROTOCOL.md` for parallel Antigravity, Gemini-CLI, and Claude Code orchestration.
 
 ---
 
-## 🎯 Phase 41 Summary (2026-02-27)
+# PROJECT_CONTEXT_SUMMARY.md
 
-**Accessibility & Navigation Standardization**
+**Current Version:** v3.6.10
+**Last Updated:** 2026-02-28T00:45:00Z
+**Project Phase:** Phase 42 - Frontend Polish & Accessibility [COMPLETE]
 
-### A11y & Architecture
-- **Problem**: Custom mobile navigation caused `aria-hidden` attribute warnings and lacked Focus Trap, violating enterprise accessibility standards.
-- **Solution**: Created a standardized `Sheet` component using Radix UI primitives. Refactored `Navbar.tsx` to utilize this primitive for the mobile drawer.
-- **Outcome**: 100% compliant mobile navigation with automatic focus management and backdrop logic, while preserving M3 Expressive aesthetics.
+---
 
-_Documento aggiornato: Febbraio 27, 2026_
+## 🚀 ACTIVE PRIORITIES (Phase 42)
+
+1.  **Accessibility & UX Polish (Success):** Resolved focus restoration warnings and fixed malformed SVG.
+2.  **Infrastructure Hybrid Sync (Success):** Modernized Firestore persistence and hardened CSP/COOP policies.
+3.  **Enterprise UI Clean-up (Success):** Finalized form primitive migration.
+
+_Documento aggiornato: Febbraio 28, 2026_
