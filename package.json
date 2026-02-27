@@ -13,7 +13,7 @@
         "opencode-ai": "^1.1.53",
         "react": "18.3.1",
         "react-dom": "18.3.1",
-        "minimatch": "10.2.2"
+        "minimatch": "10.2.3"
     },
     "overrides": {
         "zod": "^3.23.8",
