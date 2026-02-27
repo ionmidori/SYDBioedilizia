@@ -47,12 +47,12 @@ export default function PrivacyPage() {
                     {/* Content */}
                     <div className="prose prose-invert prose-luxury max-w-none space-y-10 text-luxury-text/80 leading-relaxed font-medium">
                         <p className="text-lg leading-relaxed first-letter:text-5xl first-letter:font-serif first-letter:text-luxury-gold first-letter:mr-3 first-letter:float-left">
-                            La presente informativa privacy, resa ai sensi dell'art. 13 del Regolamento generale sulla protezione dei dati UE 2016/679 ("GDPR"), contiene informazioni sul trattamento dei dati personali dell'utente forniti durante la navigazione oppure in fase di compilazione di form presenti all'interno del sito web (di seguito "Sito web") come meglio specificato di seguito.
+                            La presente informativa privacy, resa ai sensi dell&apos;art. 13 del Regolamento generale sulla protezione dei dati UE 2016/679 (&quot;GDPR&quot;), contiene informazioni sul trattamento dei dati personali dell&apos;utente forniti durante la navigazione oppure in fase di compilazione di form presenti all&apos;interno del sito web (di seguito &quot;Sito web&quot;) come meglio specificato di seguito.
                         </p>
 
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Il Titolare del trattamento</h2>
-                            <p>I dati del Titolare del trattamento nonché i dati di contatto sono specificati all'interno del Sito web.</p>
+                            <p>I dati del Titolare del trattamento nonché i dati di contatto sono specificati all&apos;interno del Sito web.</p>
                         </section>
 
                         <section className="space-y-6">
@@ -60,12 +60,12 @@ export default function PrivacyPage() {
                             <div className="space-y-4">
                                 <h3 className="text-lg font-bold text-luxury-text/90 uppercase tracking-widest text-sm border-l-2 border-luxury-gold pl-4">a) Dati di navigazione</h3>
                                 <p>
-                                    I sistemi informatici e le procedure software preposte al funzionamento del Sito web possono acquisire, nel corso del loro normale esercizio, alcuni dati personali la cui trasmissione è implicita nell'uso dei protocolli di comunicazione di Internet... Questi dati vengono utilizzati al solo fine di ricavare informazioni statistiche sull'uso del Sito web e per controllarne il corretto funzionamento.
+                                    I sistemi informatici e le procedure software preposte al funzionamento del Sito web possono acquisire, nel corso del loro normale esercizio, alcuni dati personali la cui trasmissione è implicita nell&apos;uso dei protocolli di comunicazione di Internet... Questi dati vengono utilizzati al solo fine di ricavare informazioni statistiche sull&apos;uso del Sito web e per controllarne il corretto funzionamento.
                                 </p>
                                 <p className="p-4 bg-luxury-teal/5 rounded-2xl border border-luxury-teal/10 italic text-sm">
                                     Con riferimento ai dati personali raccolti tramite cookie, si prega di prendere visione della <Link href="/cookie-policy" className="text-luxury-gold hover:underline decoration-luxury-gold/30">Cookie Policy</Link>.
                                 </p>
-                                <h3 className="text-lg font-bold text-luxury-text/90 uppercase tracking-widest text-sm border-l-2 border-luxury-gold pl-4 mt-8">b) Altri dati volontariamente forniti dall'utente</h3>
+                                <h3 className="text-lg font-bold text-luxury-text/90 uppercase tracking-widest text-sm border-l-2 border-luxury-gold pl-4 mt-8">b) Altri dati volontariamente forniti dall&apos;utente</h3>
                                 <p>
                                     Il Titolare del trattamento potrà trattare anche ulteriori dati personali quali ad esempio nome, cognome, indirizzo e-mail, numero di telefono, dati di pagamento ed eventuali ulteriori dati spontaneamente conferiti ad esempio durante la compilazione di form presenti nel Sito web.
                                 </p>
@@ -89,7 +89,7 @@ export default function PrivacyPage() {
                                 ))}
                             </div>
                             <p className="text-sm border-t border-luxury-gold/10 pt-6 opacity-60">
-                                La base giuridica delle predette finalità è l'esecuzione di un contratto di cui l'utente è parte o l'esecuzione di misure precontrattuali adottate su sua richiesta. Il conferimento dei dati personali in tali casi è necessario.
+                                La base giuridica delle predette finalità è l&apos;esecuzione di un contratto di cui l&apos;utente è parte o l&apos;esecuzione di misure precontrattuali adottate su sua richiesta. Il conferimento dei dati personali in tali casi è necessario.
                             </p>
                         </section>
 
@@ -108,22 +108,22 @@ export default function PrivacyPage() {
                             <ul className="list-disc list-inside space-y-2 text-sm opacity-70">
                                 <li>Professionisti e studi di consulenza (contabile, legale, amministrativa);</li>
                                 <li>Banche e istituti di credito;</li>
-                                <li>Società terze di intelligenza artificiale per l'erogazione dei servizi del Sito;</li>
+                                <li>Società terze di intelligenza artificiale per l&apos;erogazione dei servizi del Sito;</li>
                                 <li>Autorità ed enti pubblici in forza di disposizioni di legge.</li>
                             </ul>
                         </section>
 
                         <section className="space-y-6">
-                            <h2 className="text-2xl font-serif text-luxury-gold italic">Trasferimento dei dati all'estero</h2>
+                            <h2 className="text-2xl font-serif text-luxury-gold italic">Trasferimento dei dati all&apos;estero</h2>
                             <p>
-                                In caso di trasferimento dati fuori dall'UE in paesi senza una Decisione di Adeguatezza, il Titolare si impegna ad adottare clausole contrattuali tipo (art. 46 GDPR) e misure supplementari tecniche e organizzative per garantire un livello di protezione equivalente a quello dell'Unione Europea.
+                                In caso di trasferimento dati fuori dall&apos;UE in paesi senza una Decisione di Adeguatezza, il Titolare si impegna ad adottare clausole contrattuali tipo (art. 46 GDPR) e misure supplementari tecniche e organizzative per garantire un livello di protezione equivalente a quello dell&apos;Unione Europea.
                             </p>
                         </section>
 
                         <section className="space-y-6">
-                            <h2 className="text-2xl font-serif text-luxury-gold italic">Diritti dell'interessato</h2>
+                            <h2 className="text-2xl font-serif text-luxury-gold italic">Diritti dell&apos;interessato</h2>
                             <p>
-                                Ai sensi degli artt. 15 - 22 del GDPR l'interessato potrà in qualunque momento esercitare i suoi diritti (accesso, rettifica, cancellazione, limitazione, opposizione). Per esercitare tali diritti, è possibile inviare una richiesta all'indirizzo e-mail del Titolare del trattamento.
+                                Ai sensi degli artt. 15 - 22 del GDPR l&apos;interessato potrà in qualunque momento esercitare i suoi diritti (accesso, rettifica, cancellazione, limitazione, opposizione). Per esercitare tali diritti, è possibile inviare una richiesta all&apos;indirizzo e-mail del Titolare del trattamento.
                             </p>
                         </section>
                     </div>

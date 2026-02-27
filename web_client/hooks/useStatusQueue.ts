@@ -8,6 +8,7 @@ export function useStatusQueue() {
     const queueRef = useRef<string[]>([]);
     const processingRef = useRef<boolean>(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const processQueueRef = useRef<() => void>(() => {});
 
     const processQueue = useCallback(() => {
         if (processingRef.current) return;
@@ -29,12 +30,17 @@ export function useStatusQueue() {
         // Wait minimum time before processing next
         timeoutRef.current = setTimeout(() => {
             processingRef.current = false;
-            processQueue();
+            processQueueRef.current();
         }, MIN_DISPLAY_MS);
     }, []);
 
+    // Update ref whenever processQueue changes
+    useEffect(() => {
+        processQueueRef.current = processQueue;
+    }, [processQueue]);
+
     const addStatus = useCallback((message: string) => {
-        // Prevent duplicate consecutive messages
+        // Prevent duplicate consecutive messages  
         const lastInQueue = queueRef.current[queueRef.current.length - 1];
         if (lastInQueue === message && !process.env.NEXT_PUBLIC_IS_PROD) {
             console.log('[useStatusQueue] Skipping duplicate:', message);
@@ -68,3 +74,4 @@ export function useStatusQueue() {
         clearQueue
     };
 }
+

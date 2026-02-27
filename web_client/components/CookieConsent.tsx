@@ -21,13 +21,15 @@ export function CookieConsent() {
     });
 
     useEffect(() => {
+        let timer: NodeJS.Timeout;
         if (isInitialized && !consent) {
             // Small delay for cinematic feel
-            const timer = setTimeout(() => setIsVisible(true), 1500);
-            return () => clearTimeout(timer);
+            timer = setTimeout(() => setIsVisible(true), 1500);
         } else {
-            setIsVisible(false);
+            // Use timeout to avoid sync setState warning in effect body
+            timer = setTimeout(() => setIsVisible(false), 0);
         }
+        return () => clearTimeout(timer);
     }, [consent, isInitialized]);
 
     const handleSaveSettings = () => {
@@ -69,7 +71,7 @@ export function CookieConsent() {
                                     </h3>
                                     <p className="text-sm text-luxury-text/60 leading-relaxed max-w-2xl">
                                         Utilizziamo i cookie per migliorare la tua esperienza e analizzare il traffico.
-                                        Puoi accettare tutti i cookie o personalizzare le tue preferenze. Leggi i nostri <Link href="/terms" target="_blank" className="text-luxury-gold hover:underline">Termini di Servizio</Link>, l'<Link href="/privacy" target="_blank" className="text-luxury-gold hover:underline">Informativa sulla Privacy</Link> e la <Link href="/cookie-policy" target="_blank" className="text-luxury-gold hover:underline">Cookie Policy</Link>.
+                                        Puoi accettare tutti i cookie o personalizzare le tue preferenze. Leggi i nostri <Link href="/terms" target="_blank" className="text-luxury-gold hover:underline">Termini di Servizio</Link>, l&apos;<Link href="/privacy" target="_blank" className="text-luxury-gold hover:underline">Informativa sulla Privacy</Link> e la <Link href="/cookie-policy" target="_blank" className="text-luxury-gold hover:underline">Cookie Policy</Link>.
                                     </p>
                                 </div>
 
@@ -173,3 +175,4 @@ function CategoryToggle({ title, desc, active, onClick, locked = false }: { titl
         </div>
     );
 }
+

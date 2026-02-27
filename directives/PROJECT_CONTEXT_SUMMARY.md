@@ -1,8 +1,20 @@
 - **Last Updated**: 2026-02-27
-- **Current Version**: `v3.6.02` (Mobile Navigation & Dashboard Refactoring)
+- **Current Version**: `v3.6.04` (Enterprise UX Polish & Backend DB Fix)
 - **Last Major Sync**: 2026-02-27
-- **Status**: `Production-Ready - Feature Planning`
+- **Status**: `Production-Ready - UX Refinement`
 - **Next High Priority**: 1) Dynamic Robot Mascot | 2) Vertex AI Agent Playbooks | 3) Domain Migration
+
+- **Enterprise UX Polish & Backend DB Fix (v3.6.04)**:
+    - **Mobile Navigation (`Navbar.tsx`)**: Refactored the mobile drawer menu to align with `enterprise-user-dashboard-ux` standards. Replaced the generic dashboard icon with "AREA PERSONALE" and unified all navigation links into identical premium glass containers (`bg-white/5`, `border-white/10`) featuring haptic feedback (`navigator.vibrate`) and M3 Expressive scaling on press. Updated the header to use "MENU" with editorial tracking (`tracking-[0.3em]`).
+    - **Profile Hub (`SignInButton.tsx`)**: Upgraded the user profile trigger to a dual-label design ("Profilo" / "Account") to provide clear context on all screen sizes. Applied luxury-gold borders and a subtle glass effect, linking directly to `/dashboard/profile`.
+    - **Backend Database Fix**: Resolved an `AttributeError` in `backend_python/src/db/projects.py` that caused `test_construction_details.py` to fail. Removed the `.value` accessor from `details.property_type` since the `ProjectDetails` Pydantic model is already configured with `use_enum_values=True`. All 172 backend tests now pass.
+
+- **Frontend Dead Code Elimination (v3.6.03)**:
+    - **Asset Pruning**: Removed 26+ isolated and unused files across `components`, `hooks`, `stores`, and `types` (e.g., `StatCard`, `ThinkingSurface`, `useDocumentUpload`, `zustand` store since TanStack Query took over).
+    - **Dependency Cleanup**: Uninstalled 9 unused dependencies from `web_client/package.json` (including `zustand`, `date-fns`, `jsonwebtoken`, `@radix-ui/react-tabs`).
+    - **Code Refactoring**: Removed dead exports from `api-client.ts`, simplified motion variants in `m3-motion.ts`, and cleaned up validation schemas.
+    - **Linting & Performance**: Resolved over 100 ESLint warnings, primarily focusing on unused imports and critically fixing `set-state-in-effect` cascading renders in `ChatProvider.tsx` and `ChatWidget.tsx` using `setTimeout` wrappers.
+    - **Verification**: Maintained strict "Zero-Refactor" policy by guaranteeing 0 errors on `npm run type-check` and `npm run build` post-cleanup.
 
 - **Mobile Navigation & Dashboard Freeze Fix (v3.6.02)**:
     - **Dashboard Freeze**: Fixed an issue where opening a project on mobile would freeze the entire application. The root cause was `useMobileViewport` forcefully setting `pointer-events: none` and `position: fixed` on the body for inline chats.

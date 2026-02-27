@@ -399,7 +399,7 @@ async def update_project_details(session_id: str, user_id: str, details: Project
         details_dict = {
             "id": details.id,
             "footage_sqm": details.footage_sqm,
-            "property_type": details.property_type.value,
+            "property_type": details.property_type,
             "address": {
                 "street": details.address.street,
                 "city": details.address.city,

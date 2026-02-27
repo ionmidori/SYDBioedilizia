@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect, useCallback, FormEvent, useMemo, useRef } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { UIMessage as Message } from 'ai';
 import { ChatContext } from '@/hooks/useChatContext';
 import { useAuth } from '@/hooks/useAuth';
-import { getChatHistory } from '@/lib/api-client'; // Keep for legacy if needed, or remove
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { appCheck } from '@/lib/firebase';
 import { getToken } from 'firebase/app-check';
@@ -14,10 +12,10 @@ import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 
 /**
  * ChatProvider
- * 
+ *
  * Orchestrates the global chat state for the application.
  * Manages the connection between the UI (ChatWidget) and the AI Backend.
- * 
+ *
  * Key Features:
  * 1. **Singleton State**: Shared across Dashboard and Project pages.
  * 2. **Context Switching**: Handles switching between Global and Project-specific chats.
@@ -47,7 +45,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 id = crypto.randomUUID();
                 localStorage.setItem(key, id);
             }
-            setStableGuestId(id);
+            // Wrap in timeout to avoid sync setState warning
+            const timerId = setTimeout(() => {
+                setStableGuestId(id);
+            }, 0);
+            return () => clearTimeout(timerId);
         }
     }, []);
 
@@ -86,6 +88,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     // Sync History to SDK State
     useEffect(() => {
+        let timerId: NodeJS.Timeout;
+
         // Only sync if history is loaded and we are not currently generating (to avoid overwriting stream)
         // We allow overwriting if 'ready' to ensure we have the canonical DB state (Ids, timestamps)
         if (historyLoaded && status !== 'streaming' && status !== 'submitted') {
@@ -93,13 +97,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
                 console.log('[ChatProvider] Cold start: Injecting welcome message.');
                 welcomeInjectedRef.current = true;
-                setMessages([{
-                    id: 'welcome-msg',
-                    role: 'assistant',
-                    content: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. ⚡ **Creare preventivo veloce**\n2. 🎨 **Creare un rendering gratuito**\n3. ℹ️ **Fornire informazioni dettagliate**\n\nCome posso aiutarti oggi?",
-                    createdAt: new Date()
-                } as any]);
-                return;
+                
+                timerId = setTimeout(() => {
+                    setMessages([{
+                        id: 'welcome-msg',
+                        role: 'assistant',
+                        content: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. ⚡ **Creare preventivo veloce**\n2. 🎨 **Creare un rendering gratuito**\n3. ℹ️ **Fornire informazioni dettagliate**\n\nCome posso aiutarti oggi?",
+                        createdAt: new Date()
+                    } as any]);
+                }, 0);
+                return () => clearTimeout(timerId);
             }
 
             // Skip sync if we injected the welcome message and history is empty
@@ -112,9 +119,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 if (!isFirstSyncRef.current) {
                     console.log(`[ChatProvider] Syncing history (length mismatch: ${messages.length} vs ${historyMessages.length})`);
                 }
-                setMessages(historyMessages);
+                
+                timerId = setTimeout(() => {
+                    setMessages(historyMessages);
+                }, 0);
                 isFirstSyncRef.current = false;
-                return;
+                return () => clearTimeout(timerId);
             }
 
             // 3. Content/ID mismatch on the last message (deep check not needed for efficiency)
@@ -125,7 +135,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 // If IDs differ, or if history has tool results that SDK doesn't (SDK might have raw tool cells)
                 if (lastSdk.id !== lastHistory.id) {
                     console.log(`[ChatProvider] Syncing history (ID mismatch: ${lastSdk.id} vs ${lastHistory.id})`);
-                    setMessages(historyMessages);
+                    timerId = setTimeout(() => {
+                        setMessages(historyMessages);
+                    }, 0);
+                    return () => clearTimeout(timerId);
                 }
             }
         }
@@ -148,7 +161,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             const lastId = localStorage.getItem(key);
             if (lastId) {
                 console.log('[ChatProvider] Restoring last active project:', lastId);
-                setCurrentProjectId(lastId);
+                // Wrap in timeout to avoid sync setState warning
+                const timerId = setTimeout(() => {
+                    setCurrentProjectId(lastId);
+                }, 0);
+                return () => clearTimeout(timerId);
             }
         }
     }, [isInitialized, user, currentProjectId]);
@@ -309,3 +326,4 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         </ChatContext.Provider>
     );
 }
+

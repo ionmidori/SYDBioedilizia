@@ -48,7 +48,7 @@ export default function TermsPage() {
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">1. Accettazione dei Termini</h2>
                             <p>
-                                Accedendo o utilizzando il sito web di Syd Bioedilizia, l'utente accetta di essere vincolato dai presenti Termini di Servizio e da tutte le leggi e i regolamenti applicabili.
+                                Accedendo o utilizzando il sito web di Syd Bioedilizia, l&apos;utente accetta di essere vincolato dai presenti Termini di Servizio e da tutte le leggi e i regolamenti applicabili.
                             </p>
                         </section>
 

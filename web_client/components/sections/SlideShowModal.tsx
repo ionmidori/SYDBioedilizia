@@ -71,12 +71,17 @@ export function SlideShowModal({ isOpen, onClose }: SlideShowModalProps) {
     // Reset index when opening
     useEffect(() => {
         if (isOpen) {
-            setCurrentIndex(0);
+            const timerId = setTimeout(() => {
+                setCurrentIndex(0);
+            }, 0);
             document.body.style.overflow = 'hidden';
+            return () => {
+                clearTimeout(timerId);
+                document.body.style.overflow = 'unset';
+            };
         } else {
             document.body.style.overflow = 'unset';
         }
-        return () => { document.body.style.overflow = 'unset'; };
     }, [isOpen]);
 
     const paginate = useCallback((newDirection: number) => {

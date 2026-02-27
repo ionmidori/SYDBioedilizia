@@ -1,5 +1,4 @@
 import { LucideIcon } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 interface StatProps {
     label: string;
@@ -16,14 +15,14 @@ export function StatsGrid({ stats, isLoading }: { stats: StatProps[], isLoading:
         >
             {stats.map((stat, index) => (
                 <div key={index} className="min-w-0 w-full relative">
-                    <StatCard {...stat} isLoading={isLoading} index={index} />
+                    <StatCard {...stat} isLoading={isLoading} />
                 </div>
             ))}
         </div>
     );
 }
 
-function StatCard({ label, value, icon: Icon, isLoading, index }: StatProps & { index: number }) {
+function StatCard({ label, value, isLoading }: StatProps) {
     return (
         <div
             className="group relative flex items-center justify-between px-3 py-2 rounded-xl bg-luxury-teal/10 md:bg-luxury-teal/5 border border-luxury-teal/40 md:border-luxury-teal/20 hover:border-luxury-teal/50 hover:bg-luxury-teal/10 transition-all duration-300 backdrop-blur-md shadow-sm w-full"

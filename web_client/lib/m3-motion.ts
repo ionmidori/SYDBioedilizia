@@ -62,20 +62,6 @@ export const M3Duration = {
     long2: 0.7,
 } as const;
 
-// ─── Easing Curves ───────────────────────────────────────────────────────────
-
-/** CSS cubic-bezier easing curves for non-spring animations */
-export const M3Easing = {
-    /** Standard — most UI transitions */
-    standard: 'cubic-bezier(0.2, 0, 0, 1)',
-    /** Emphasized — draws attention to key moments */
-    emphasized: 'cubic-bezier(0.05, 0.7, 0.1, 1)',
-    /** Decelerate — elements entering the screen */
-    decelerate: 'cubic-bezier(0, 0, 0, 1)',
-    /** Accelerate — elements leaving the screen */
-    accelerate: 'cubic-bezier(0.3, 0, 1, 1)',
-} as const;
-
 // ─── framer-motion Easing Arrays ────────────────────────────────────────────
 
 /** Easing as number arrays for framer-motion's `ease` prop */
@@ -159,68 +145,5 @@ export function createStaggerVariants(
                 transition: M3Spring.standard,
             },
         },
-    };
-}
-
-/**
- * Creates directional slide variants for tab/pane transitions.
- * Pass `custom={direction}` to `AnimatePresence` children:
- *   - `1` = slide from right (next)
- *   - `-1` = slide from left (previous)
- */
-/**
- * Creates fade + vertical slide variants for page-level transitions.
- * Lighter than full horizontal slides — ideal for dashboard page changes.
- *
- * Usage with AnimatePresence:
- * ```tsx
- * <AnimatePresence mode="wait">
- *   <motion.div key={pathname} variants={fadeSlide} initial="enter" animate="center" exit="exit">
- *     {children}
- *   </motion.div>
- * </AnimatePresence>
- * ```
- */
-export function createFadeSlideVariants(distance = 20): Variants {
-    return {
-        enter: {
-            opacity: 0,
-            y: distance,
-        },
-        center: {
-            opacity: 1,
-            y: 0,
-            transition: M3Spring.gentle,
-        },
-        exit: {
-            opacity: 0,
-            y: -distance * 0.5,
-            transition: {
-                duration: M3Duration.medium1,
-                ease: M3EasingFM.accelerate,
-            },
-        },
-    };
-}
-
-export function createSlideVariants(distance = 300): Variants {
-    return {
-        enter: (direction: number) => ({
-            x: direction > 0 ? distance : -distance,
-            opacity: 0,
-        }),
-        center: {
-            x: 0,
-            opacity: 1,
-            transition: M3Spring.expressive,
-        },
-        exit: (direction: number) => ({
-            x: direction < 0 ? distance : -distance,
-            opacity: 0,
-            transition: {
-                duration: M3Duration.medium1,
-                ease: M3EasingFM.accelerate,
-            },
-        }),
     };
 }

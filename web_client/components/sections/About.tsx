@@ -54,10 +54,11 @@ export function About() {
                         {/* Company Intro */}
                         <div className="prose prose-invert prose-lg text-luxury-text/80 leading-relaxed font-light">
                             <p>
-                                <span className="text-luxury-gold font-medium font-trajan tracking-tight">SYD BIOEDILIZIA</span> è una realtà operativa in tutta la Provincia di Roma, nata per offrire a privati e aziende soluzioni edili complete e personalizzate.
+                                <span className="text-luxury-gold font-medium font-trajan tracking-tight">SYD BIOEDILIZIA</span>
+                                &nbsp;è una realtà operativa in tutta la Provincia di Roma, nata per offrire a privati e aziende soluzioni edili complete e personalizzate.
                             </p>
                             <p className="mt-4">
-                                Sebbene l'azienda sia giovane, le nostre fondamenta sono storiche: il nostro lavoro si basa sulla competenza di un team di tecnici con <span className="text-luxury-text font-medium">oltre 30 anni di esperienza</span> sul campo, supportati oggi dalle tecnologie più avanzate.
+                                Sebbene l&apos;azienda sia giovane, le nostre fondamenta sono storiche: il nostro lavoro si basa sulla competenza di un team di tecnici con <span className="text-luxury-text font-medium">oltre 30 anni di esperienza</span> sul campo, supportati oggi dalle tecnologie più avanzate.
                             </p>
                         </div>
 
@@ -71,7 +72,7 @@ export function About() {
                                 La Nostra Filosofia
                             </h3>
                             <p className="text-luxury-text/80 mb-6 font-light">
-                                Il nostro nome è una garanzia: siamo specialisti dell'isolamento termico e del benessere abitativo. Utilizziamo esclusivamente materiali certificati che rispettano i <span className="text-luxury-gold">Criteri Minimi Ambientali (CAM)</span>, privilegiando prodotti naturali e traspiranti.
+                                Il nostro nome è una garanzia: siamo specialisti dell&apos;isolamento termico e del benessere abitativo. Utilizziamo esclusivamente materiali certificati che rispettano i <span className="text-luxury-gold">Criteri Minimi Ambientali (CAM)</span>, privilegiando prodotti naturali e traspiranti.
                             </p>
 
                             <h4 className="font-serif font-bold text-luxury-gold text-lg mb-4">Le nostre eccellenze tecniche:</h4>
@@ -86,7 +87,7 @@ export function About() {
                                 </li>
                                 <li className="flex items-start gap-3">
                                     <Sparkles className="w-5 h-5 text-luxury-teal mt-1 shrink-0" />
-                                    <span className="text-sm text-luxury-text/80"><strong>Salubrità dell'aria:</strong> Impieghiamo solo vernici naturali, inodori e lavabili.</span>
+                                    <span className="text-sm text-luxury-text/80"><strong>Salubrità dell&apos;aria:</strong> Impieghiamo solo vernici naturali, inodori e lavabili.</span>
                                 </li>
                             </ul>
                         </div>
@@ -132,7 +133,7 @@ export function About() {
                         <div className="bg-gradient-to-br from-luxury-gold/10 to-transparent p-8 rounded-2xl border border-luxury-gold/20">
                             <h3 className="text-2xl font-serif font-bold text-luxury-gold mb-4">Perché Scegliere <span className="font-trajan tracking-tight">SYD BIOEDILIZIA</span></h3>
                             <p className="text-luxury-text/80 mb-6 leading-relaxed">
-                                Non offriamo solo lavorazioni di alta qualità. Ti supportiamo anche nella burocrazia, guidandoti nell'accesso alle <strong>detrazioni fiscali</strong> e agli <strong>Ecobonus</strong> per interventi come l'insufflaggio termico e la riqualificazione energetica.
+                                Non offriamo solo lavorazioni di alta qualità. Ti supportiamo anche nella burocrazia, guidandoti nell&apos;accesso alle <strong>detrazioni fiscali</strong> e agli <strong>Ecobonus</strong> per interventi come l&apos;insufflaggio termico e la riqualificazione energetica.
                             </p>
                             <Button
                                 variant="premium"
@@ -150,3 +151,4 @@ export function About() {
         </section>
     );
 }
+

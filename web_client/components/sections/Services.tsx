@@ -75,10 +75,16 @@ export function Services() {
 
     // Mobile detection
     useEffect(() => {
-        setIsMobile(window.innerWidth < 768);
         const handleResize = () => setIsMobile(window.innerWidth < 768);
+        
+        // Initial check wrapped in timeout to avoid sync setState warning
+        const timerId = setTimeout(handleResize, 0);
+        
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        return () => {
+            clearTimeout(timerId);
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
 
     return (
@@ -218,7 +224,7 @@ export function Services() {
                                         <span className="text-luxury-gold italic">Prossimamente</span>
                                     </h3>
                                     <p className="text-sm font-light text-luxury-text/60 leading-relaxed">
-                                        La funzione <span className="text-luxury-text font-medium">"{comingSoon.title}"</span> è attualmente in fase di sviluppo avanzato e sarà disponibile a breve per tutti i nostri clienti.
+                                        La funzione <span className="text-luxury-text font-medium">&quot;{comingSoon.title}&quot;</span> è attualmente in fase di sviluppo avanzato e sarà disponibile a breve per tutti i nostri clienti.
                                     </p>
                                 </div>
 

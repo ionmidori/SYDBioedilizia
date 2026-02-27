@@ -1,11 +1,11 @@
 
 import { NextResponse } from 'next/server';
-import { db, storage } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase-admin';
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { assetId, projectId, type, url } = body;
+        const { assetId, projectId, type } = body;
 
         console.log('[API] Deleting asset:', { assetId, projectId, type });
 
@@ -22,9 +22,9 @@ export async function POST(req: Request) {
         }
 
         try {
-            const decodedToken = await auth().verifyIdToken(authHeader.split('Bearer ')[1]);
+            await auth().verifyIdToken(authHeader.split('Bearer ')[1]);
             // Optional: Check if user owns the project
-        } catch (e) {
+        } catch (_e) {
             return NextResponse.json({ error: 'Invalid Token' }, { status: 401 });
         }
 

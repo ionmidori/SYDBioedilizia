@@ -195,6 +195,13 @@ export function useSwipeNavigation(config: SwipeConfig): SwipeResult {
 
             if (directionLockedRef.current !== 'horizontal') return;
 
+            // 🛡️ Chrome Intervention Fix: Prevent default only if event is cancelable
+            // and we have confirmed horizontal intent. This stops browser-managed
+            // scrolling from conflicting with our custom swipe navigation.
+            if (e.cancelable) {
+                e.preventDefault();
+            }
+
             // Boundary resistance: apply rubber-band effect at edges
             const isAtStart = activeIndex === 0 && dx > 0;
             const isAtEnd = activeIndex === panes.length - 1 && dx < 0;
@@ -211,7 +218,7 @@ export function useSwipeNavigation(config: SwipeConfig): SwipeResult {
                 swipeX.set(dx);
             }
         },
-        [activeIndex, panes.length, swipeX],
+        [activeIndex, onSwipePastStart, panes.length, swipeX],
     );
 
     const onTouchEnd = useCallback(

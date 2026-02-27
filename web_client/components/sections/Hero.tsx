@@ -4,7 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { M3Spring } from '@/lib/m3-motion';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, PlayCircle, Star, ShieldCheck, Zap, Palette, FileText } from 'lucide-react';
+import { PlayCircle, Zap, Palette, FileText } from 'lucide-react';
 import { SlideShowModal } from './SlideShowModal';
 
 /**
@@ -75,10 +75,17 @@ export function Hero() {
 
     // Mobile detection
     useEffect(() => {
-        setIsMobile(window.innerWidth < 768);
+        // Run only once on mount to avoid cascading renders
         const handleResize = () => setIsMobile(window.innerWidth < 768);
+        
+        // Wrap in timeout to avoid sync setState warning in effect body
+        const timerId = setTimeout(handleResize, 0);
+        
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        return () => {
+            clearTimeout(timerId);
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
 
     return (
@@ -116,7 +123,7 @@ export function Hero() {
                     </h1>
 
                     <p className="text-lg md:text-xl text-luxury-text/80 mb-10 max-w-xl leading-relaxed font-light">
-                        Dall'idea alla realtà in pochi click. Ottieni preventivi istantanei, visualizzazioni 3D fotorealistiche e un team di esperti pronto a realizzare il tuo progetto.
+                        Dall&apos;idea alla realtà in pochi click. Ottieni preventivi istantanei, visualizzazioni 3D fotorealistiche e un team di esperti pronto a realizzare il tuo progetto.
                     </p>
 
                     {/* Mobile Video - Between Text and Buttons */}

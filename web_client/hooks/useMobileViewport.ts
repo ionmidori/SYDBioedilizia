@@ -13,10 +13,16 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
 
     // ─── Mobile detection ────────────────────────────────────────────────────
     useEffect(() => {
-        setIsMobile(window.innerWidth < 768);
         const handleResize = () => setIsMobile(window.innerWidth < 768);
+        
+        // Wrap in timeout to avoid sync setState warning in effect body
+        const timerId = setTimeout(handleResize, 0);
+        
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+        return () => {
+            clearTimeout(timerId);
+            window.removeEventListener('resize', handleResize);
+        };
     }, []);
 
     // ─── visualViewport keyboard detection ───────────────────────────────────

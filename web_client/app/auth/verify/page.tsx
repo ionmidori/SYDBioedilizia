@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
@@ -8,10 +8,11 @@ import { CheckCircle, XCircle, Loader2, Mail } from "lucide-react";
 
 /**
  * Magic Link Verification Content
- * Separated for Suspense boundary optimization
+ * Separated for Suspense boundary optimization    
  */
 function VerifyContent() {
     const router = useRouter();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const searchParams = useSearchParams();
     const { completeMagicLink } = useAuth();
 
@@ -20,29 +21,10 @@ function VerifyContent() {
     const [emailInput, setEmailInput] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Extract the full URL (contains oobCode)
+    // Extract the full URL (contains oobCode)     
     const emailLink = typeof window !== "undefined" ? window.location.href : "";
 
-    useEffect(() => {
-        const verifyLink = async () => {
-            // Check if email is stored (same device)
-            const storedEmail = window.localStorage.getItem("emailForSignIn");
-
-            if (storedEmail) {
-                // Same device - auto-verify
-                await attemptVerification(storedEmail);
-            } else {
-                // Cross-device - request confirmation
-                setStatus("confirm_email");
-            }
-        };
-
-        if (emailLink) {
-            verifyLink();
-        }
-    }, [emailLink]);
-
-    const attemptVerification = async (email: string) => {
+    const attemptVerification = useCallback(async (email: string) => {
         try {
             setStatus("loading");
             await completeMagicLink(emailLink, email);
@@ -54,16 +36,36 @@ function VerifyContent() {
                 router.push("/");
             }, 2000);
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("[VerifyPage] Verification failed:", error);
             setStatus("error");
-            setErrorMessage(
-                error.message === "Invalid email link"
-                    ? "Il link non è valido o è scaduto."
-                    : "Errore nella verifica. Riprova."
-            );
+            
+            let msg = "Errore nella verifica. Riprova.";
+            if (error instanceof Error && error.message === "Invalid email link") {
+                msg = "Il link non è valido o è scaduto.";
+            }
+            setErrorMessage(msg);
         }
-    };
+    }, [emailLink, completeMagicLink, router]);
+
+    useEffect(() => {
+        const verifyLink = async () => {
+            // Check if email is stored (same device)
+            const storedEmail = window.localStorage.getItem("emailForSignIn");
+
+            if (storedEmail) {
+                // Same device - auto-verify       
+                await attemptVerification(storedEmail);
+            } else {
+                // Cross-device - request confirmation
+                setStatus("confirm_email");
+            }
+        };
+
+        if (emailLink) {
+            verifyLink();
+        }
+    }, [emailLink, attemptVerification]);
 
     const handleEmailSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -120,7 +122,7 @@ function VerifyContent() {
                         <Mail className="w-16 h-16 mx-auto text-blue-500 mb-4" />
                         <h2 className="text-2xl font-bold text-white mb-2">Conferma la tua email</h2>
                         <p className="text-gray-400 mb-6">
-                            Per motivi di sicurezza, conferma l'indirizzo email che hai utilizzato
+                            Per motivi di sicurezza, conferma l&apos;indirizzo email che hai utilizzato
                         </p>
 
                         <form onSubmit={handleEmailSubmit} className="space-y-4">
@@ -169,3 +171,4 @@ export default function VerifyPage() {
         </Suspense>
     );
 }
+

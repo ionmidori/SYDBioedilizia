@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Cookie, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Cookie } from 'lucide-react';
 
 export default function CookiePolicyPage() {
     return (
@@ -54,7 +53,7 @@ export default function CookiePolicyPage() {
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Cosa sono i cookie</h2>
                             <p>
-                                I cookie sono piccoli file di testo che vengono automaticamente posizionati sul PC del navigatore all'interno del browser. Essi contengono informazioni di base sulla navigazione in Internet e grazie al browser vengono riconosciuti ogni volta che l'utente visita il sito.
+                                I cookie sono piccoli file di testo che vengono automaticamente posizionati sul PC del navigatore all&apos;interno del browser. Essi contengono informazioni di base sulla navigazione in Internet e grazie al browser vengono riconosciuti ogni volta che l&apos;utente visita il sito.
                             </p>
                         </section>
 
@@ -73,7 +72,7 @@ export default function CookiePolicyPage() {
                                 />
                                 <CookieCategoryItem
                                     title="3. Cookie Analitici"
-                                    desc="Utilizzati per raccogliere informazioni statistiche sull'uso del Sito in forma aggregata o non. Richiedono il preventivo consenso."
+                                    desc="Utilizzati per raccogliere informazioni statistiche sull&apos;uso del Sito in forma aggregata o non. Richiedono il preventivo consenso."
                                 />
                                 <CookieCategoryItem
                                     title="4. Cookie di Profilazione"
@@ -85,7 +84,7 @@ export default function CookiePolicyPage() {
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Come gestire le tue preferenze</h2>
                             <p>
-                                Puoi gestire le tue preferenze tramite il pop-up banner che appare al primo accesso o cliccando sull'icona della gestione consenso presente in basso a sinistra in ogni pagina. Inoltre, puoi gestire i cookie direttamente dalle impostazioni del tuo browser:
+                                Puoi gestire le tue preferenze tramite il pop-up banner che appare al primo accesso o cliccando sull&apos;icona della gestione consenso presente in basso a sinistra in ogni pagina. Inoltre, puoi gestire i cookie direttamente dalle impostazioni del tuo browser:
                             </p>
                             <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-none p-0">
                                 <BrowserLink name="Google Chrome" url="https://support.google.com/chrome/answer/95647?hl=it" />
@@ -98,11 +97,11 @@ export default function CookiePolicyPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[11px] leading-relaxed opacity-60">
                                     <div className="space-y-2">
                                         <p className="font-bold">Firefox:</p>
-                                        <p>Gestione: Pannello Privacy in Impostazioni. È possibile inibire il tracciamento e gestire singolarmente i cookie di terze parti.</p>
+                                        <p>Gestione: Pannello Privacy in Impostazioni. &Egrave; possibile inibire il tracciamento e gestire singolarmente i cookie di terze parti.</p>
                                     </div>
                                     <div className="space-y-2">
                                         <p className="font-bold">Safari:</p>
-                                        <p>Gestione: Preferenze - Privacy. È possibile bloccare tutti i cookie o rimuoverli selettivamente.</p>
+                                        <p>Gestione: Preferenze - Privacy. &Egrave; possibile bloccare tutti i cookie o rimuoverli selettivamente.</p>
                                     </div>
                                 </div>
                             </div>

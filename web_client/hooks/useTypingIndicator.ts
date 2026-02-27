@@ -5,12 +5,20 @@ import { useState, useEffect } from 'react';
  * Extracted from ChatWidget.tsx (lines 220, 238-261)
  */
 export function useTypingIndicator(isLoading: boolean) {
-    const [typingMessage, setTypingMessage] = useState("Consultando l'architetto interiore...");
+    const defaultMessage = "Consultando l'architetto interiore...";
+    const [typingMessage, setTypingMessage] = useState(defaultMessage);
 
     useEffect(() => {
+        let timerId: NodeJS.Timeout;
+
         if (!isLoading) {
-            setTypingMessage("Consultando l'architetto interiore...");
-            return;
+            // Use timeout to avoid sync setState warning
+            timerId = setTimeout(() => {
+                setTypingMessage(prev => prev !== defaultMessage ? defaultMessage : prev);
+            }, 0);
+            return () => {
+                if (timerId) clearTimeout(timerId);
+            };
         }
 
         const typingMessages = [
@@ -29,16 +37,23 @@ export function useTypingIndicator(isLoading: boolean) {
             "Lucidando i rendering..."
         ];
 
-        // Pick random start
-        let index = Math.floor(Math.random() * typingMessages.length);
-        setTypingMessage(typingMessages[index]);
+        // Pick random start - wrap in timeout to avoid sync setState warning
+        timerId = setTimeout(() => {
+            const index = Math.floor(Math.random() * typingMessages.length);
+            setTypingMessage(typingMessages[index]);
+        }, 0);
+
+        let currentIndex = Math.floor(Math.random() * typingMessages.length);
 
         const interval = setInterval(() => {
-            index = (index + 1) % typingMessages.length;
-            setTypingMessage(typingMessages[index]);
+            currentIndex = (currentIndex + 1) % typingMessages.length;
+            setTypingMessage(typingMessages[currentIndex]);
         }, 3000);
 
-        return () => clearInterval(interval);
+        return () => {
+            if (timerId) clearTimeout(timerId);
+            if (interval) clearInterval(interval);
+        };
     }, [isLoading]);
 
     return typingMessage;

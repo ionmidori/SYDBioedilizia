@@ -23,15 +23,15 @@ export const galleryApi = {
             throw new Error('Impossibile caricare la galleria');
         }
 
-        const data = await response.json();
+        const data = await response.json() as GalleryResponse;
 
         // Convert ISO strings back to Date objects
         return {
             ...data,
-            assets: data.assets.map((asset: any) => ({
+            assets: data.assets.map((asset) => ({
                 ...asset,
-                createdAt: new Date(asset.createdAt),
-                timestamp: new Date(asset.timestamp)
+                createdAt: asset.createdAt ? new Date(asset.createdAt as string) : undefined,
+                timestamp: new Date(asset.timestamp as string)
             }))
         };
     }

@@ -213,7 +213,7 @@ export function GlobalFileUploader({ projects, onUploadComplete, maxFiles = 10 }
                     <div key={file.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
                         <div className="w-10 h-10 rounded-lg bg-black/20 flex items-center justify-center shrink-0">
                             {file.preview ? (
-                                <img src={file.preview} className="w-full h-full object-cover rounded-lg" />
+                                <img src={file.preview} alt={`Preview di ${file.file.name}`} className="w-full h-full object-cover rounded-lg" />
                             ) : getFileIcon(file.file)}
                         </div>
                         <div className="flex-1 min-w-0">

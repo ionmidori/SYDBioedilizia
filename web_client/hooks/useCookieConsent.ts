@@ -8,17 +8,26 @@ export function useCookieConsent() {
     const [isInitialized, setIsInitialized] = useState(false);
 
     useEffect(() => {
-        // Initial load
-        setConsent(CookieManager.getConsent());
-        setIsInitialized(true);
+        // Initial load using setTimeout to avoid sync setState warning in effect
+        const timer = setTimeout(() => {
+            setConsent(CookieManager.getConsent());
+            setIsInitialized(true);
+        }, 0);
 
         // Listen for updates from other parts of the app
-        const handleUpdate = (e: any) => {
-            setConsent(e.detail);
+        const handleUpdate = (e: Event) => {
+            const customEvent = e as CustomEvent<Record<CookieCategory, boolean>>;
+            if (customEvent.detail) {
+                setConsent(customEvent.detail);
+            }
         };
 
         window.addEventListener('cookie_consent_updated', handleUpdate);
-        return () => window.removeEventListener('cookie_consent_updated', handleUpdate);
+        
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('cookie_consent_updated', handleUpdate);
+        };
     }, []);
 
     const updateConsent = (newConsent: Record<CookieCategory, boolean>) => {

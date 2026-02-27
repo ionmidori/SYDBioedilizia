@@ -111,7 +111,7 @@ export default function BlogPostBonus() {
               Bonus Ristrutturazioni 2026: La Guida Completa senza sorprese
             </h1>
             <p className="text-xl text-muted-foreground font-medium max-w-2xl">
-              Aliquote, massimali e la checklist dei documenti obbligatori per non perdere le detrazioni fiscali quest'anno.
+              Aliquote, massimali e la checklist dei documenti obbligatori per non perdere le detrazioni fiscali quest&apos;anno.
             </p>
           </header>
 
@@ -146,16 +146,16 @@ export default function BlogPostBonus() {
                 <FileText className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
                 <div>
                   <strong className="block text-foreground text-sm">Obbligo CILA</strong>
-                  <span className="text-sm text-muted-foreground">Fondamentale presentare la pratica edilizia PRIMA dell'inizio lavori.</span>
+                  <span className="text-sm text-muted-foreground">Fondamentale presentare la pratica edilizia PRIMA dell&apos;inizio lavori.</span>
                 </div>
               </div>
             </div>
           </div>
-          
+
           {/* BODY CONTENT */}
           <p className="lead text-xl text-foreground/80 mb-8">
-            Pianificare una ristrutturazione a Roma nel 2026 richiede non solo competenza tecnica, ma anche un'attenta pianificazione fiscale. 
-            Con la fine dell'era del Superbonus e dello sconto in fattura, il <strong>Bonus Ristrutturazioni "classico"</strong> torna ad essere il protagonista indiscusso.
+            Pianificare una ristrutturazione a Roma nel 2026 richiede non solo competenza tecnica, ma anche un&apos;attenta pianificazione fiscale.
+            Con la fine dell&apos;era del Superbonus e dello sconto in fattura, il <strong>Bonus Ristrutturazioni &quot;classico&quot;</strong> torna ad essere il protagonista indiscusso.
           </p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Cosa puoi detrarre esattamente?</h2>
@@ -172,38 +172,38 @@ export default function BlogPostBonus() {
           </ul>
 
           <div className="bg-amber-500/10 border-l-4 border-amber-500 p-4 my-6 text-sm text-amber-700 dark:text-amber-400">
-            <strong>Attenzione alla Manutenzione Ordinaria:</strong> La semplice tinteggiatura o la sostituzione dei pavimenti SENZA rifacimento impianti o demolizioni NON è detraibile, a meno che non faccia parte di un intervento più ampio di manutenzione straordinaria (c.d. "lavori trainati").
+            <strong>Attenzione alla Manutenzione Ordinaria:</strong> La semplice tinteggiatura o la sostituzione dei pavimenti SENZA rifacimento impianti o demolizioni NON è detraibile, a meno che non faccia parte di un intervento più ampio di manutenzione straordinaria (c.d. &quot;lavori trainati&quot;).
           </div>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">La Burocrazia: I 3 Pilastri per non perdere i soldi</h2>
           <p>
-            L'Agenzia delle Entrate intensificherà i controlli nel 2026. Per dormire sonni tranquilli, assicurati di avere questi tre elementi in ordine:
+            L&apos;Agenzia delle Entrate intensificherà i controlli nel 2026. Per dormire sonni tranquilli, assicurati di avere questi tre elementi in ordine:
           </p>
 
           <h3 className="text-xl font-semibold mt-6 mb-3 text-primary">1. La CILA (o SCIA)</h3>
           <p>
-            Non si può detrarre nulla senza un titolo abilitativo. La <strong>CILA (Comunicazione Inizio Lavori Asseverata)</strong> deve essere protocollata al Comune di Roma (tramite SUET) <strong>prima</strong> dell'inizio dei lavori e prima del pagamento delle prime fatture.
-            La data della CILA fa fede per l'inizio della detrazione.
+            Non si può detrarre nulla senza un titolo abilitativo. La <strong>CILA (Comunicazione Inizio Lavori Asseverata)</strong> deve essere protocollata al Comune di Roma (tramite SUET) <strong>prima</strong> dell&apos;inizio dei lavori e prima del pagamento delle prime fatture.
+            La data della CILA fa fede per l&apos;inizio della detrazione.
           </p>
 
-          <h3 className="text-xl font-semibold mt-6 mb-3 text-primary">2. Il Bonifico "Parlante"</h3>
+          <h3 className="text-xl font-semibold mt-6 mb-3 text-primary">2. Il Bonifico &quot;Parlante&quot;</h3>
           <p>
             Non basta un bonifico ordinario. Devi usare il bonifico specifico per ristrutturazioni (art. 16-bis DPR 917/86), che riporti:
           </p>
           <ul className="list-disc pl-6 mb-2">
             <li>Codice Fiscale del beneficiario della detrazione (TU).</li>
-            <li>Partita IVA dell'impresa esecutrice.</li>
+            <li>Partita IVA dell&apos;impresa esecutrice.</li>
             <li>Riferimento alla fattura pagata.</li>
           </ul>
 
           <h3 className="text-xl font-semibold mt-6 mb-3 text-primary">3. La Pratica ENEA</h3>
           <p>
-            Spesso dimenticata, ma obbligatoria. Se installi nuovi infissi, caldaie, pompe di calore o isolamenti, devi trasmettere i dati all'ENEA entro 90 giorni dalla fine lavori. La mancata comunicazione può comportare la perdita dell'Ecobonus (65%) e sanzioni per il Bonus Casa (50%).
+            Spesso dimenticata, ma obbligatoria. Se installi nuovi infissi, caldaie, pompe di calore o isolamenti, devi trasmettere i dati all&apos;ENEA entro 90 giorni dalla fine lavori. La mancata comunicazione può comportare la perdita dell&apos;Ecobonus (65%) e sanzioni per il Bonus Casa (50%).
           </p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Il vantaggio nascosto: IVA agevolata al 10%</h2>
           <p>
-            Oltre alla detrazione IRPEF, sulle ristrutturazioni si applica l'IVA ridotta al 10% (invece del 22%) sulla manodopera e, con certi limiti, sui beni significativi (rubinetterie, sanitari, infissi).
+            Oltre alla detrazione IRPEF, sulle ristrutturazioni si applica l&apos;IVA ridotta al 10% (invece del 22%) sulla manodopera e, con certi limiti, sui beni significativi (rubinetterie, sanitari, infissi).
             <br/>
             Esempio: Su un preventivo di 10.000€ + IVA, pagherai 11.000€ invece di 12.200€, risparmiando subito 1.200€ di liquidità, oltre a recuperarne 5.500€ in 10 anni.
           </p>
@@ -230,3 +230,4 @@ export default function BlogPostBonus() {
     </>
   );
 }
+

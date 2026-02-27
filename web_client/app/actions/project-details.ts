@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { projectDetailsSchema, type ProjectDetailsFormData } from "@/lib/validation/project-details-schema";
+import { projectDetailsSchema } from "@/lib/validation/project-details-schema";
 
 interface ActionResult {
     success: boolean;

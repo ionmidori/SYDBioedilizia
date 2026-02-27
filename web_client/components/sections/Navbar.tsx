@@ -12,6 +12,15 @@ import { SignInButton } from '@/components/auth/SignInButton';
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
 
+/**
+ * Trigger a short haptic feedback on supported mobile devices
+ */
+const triggerHaptic = () => {
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(10);
+    }
+};
+
 export function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -196,7 +205,10 @@ export function Navbar() {
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="flex items-center gap-3 p-3 rounded-xl hover:bg-luxury-gold/5 text-luxury-text hover:text-luxury-gold transition-all group"
-                                                onClick={() => setContactMenuOpen(false)}
+                                                onClick={() => {
+                                                    triggerHaptic();
+                                                    setContactMenuOpen(false);
+                                                }}
                                             >
                                                 <span className="w-8 h-8 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 group-hover:bg-luxury-teal group-hover:text-white transition-all">
                                                     <Icon className="w-4 h-4" />
@@ -213,6 +225,7 @@ export function Navbar() {
                         <button
                             className="p-2 rounded-full text-luxury-text hover:text-luxury-gold transition-colors"
                             onClick={() => {
+                                triggerHaptic();
                                 setMobileMenuOpen(true);
                                 setContactMenuOpen(false); // Close contact menu if open
                             }}
@@ -244,61 +257,78 @@ export function Navbar() {
                             animate={{ x: 0 }}
                             exit={{ x: '100%' }}
                             transition={M3Spring.expressive}
-                            className="fixed top-0 right-0 bottom-0 z-[60] w-auto min-w-[170px] bg-luxury-bg/80 backdrop-blur-xl border-l border-luxury-gold/10 shadow-2xl shadow-black/50 px-4 py-6 flex flex-col md:hidden"
+                            className="fixed top-0 right-0 bottom-0 z-[60] w-auto min-w-[220px] bg-luxury-bg/80 backdrop-blur-xl border-l border-luxury-gold/10 shadow-2xl shadow-black/50 px-6 py-8 flex flex-col md:hidden"
                         >
-                            <div className="flex justify-between items-center mb-8">
-                                <span className="text-xl font-bold text-luxury-gold">Menu</span>
+                            <div className="flex justify-between items-center mb-10">
+                                <span className="text-xs font-bold uppercase tracking-[0.3em] text-luxury-gold/60">Menu</span>
                                 <button
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    className="p-2 bg-black/20 rounded-full text-luxury-text hover:text-white"
+                                    onClick={() => {
+                                        triggerHaptic();
+                                        setMobileMenuOpen(false);
+                                    }}
+                                    className="p-2 bg-white/5 rounded-full text-luxury-text hover:text-white border border-white/10 active:scale-90 transition-transform"
                                 >
-                                    <X />
+                                    <X className="w-5 h-5" />
                                 </button>
                             </div>
 
-                            {/* Primary Actions - Icon Only Row */}
-                            <div className="flex flex-col items-center gap-6 mb-8 mt-4">
-                                <Link
-                                    href="/dashboard"
-                                    className="flex items-center justify-center w-14 h-14 rounded-full bg-luxury-teal/10 border border-luxury-teal/20 text-luxury-teal hover:bg-luxury-teal hover:text-white transition-all duration-300 shadow-lg shadow-luxury-teal/10 active:scale-95 group"
-                                    onClick={() => setMobileMenuOpen(false)}
-                                    aria-label="Dashboard"
+                            {/* Navigation Links Unificato */}
+                            <div className="flex flex-col gap-3">
+                                {/* Area Personale - Now Unified */}
+                                <motion.div
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: M3Duration.short1, ...M3Spring.standard }}
                                 >
-                                    <LayoutDashboard className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                                </Link>
-                            </div>
+                                    <Link
+                                        href="/dashboard"
+                                        className="flex items-center justify-center px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-luxury-text/80 hover:bg-luxury-gold/10 hover:border-luxury-gold/30 hover:text-luxury-gold transition-all duration-300 active:scale-95 group w-full"
+                                        onClick={() => {
+                                            triggerHaptic();
+                                            setMobileMenuOpen(false);
+                                        }}
+                                    >
+                                        <span className="font-bold uppercase tracking-[0.2em] text-[10px]">Area Personale</span>
+                                    </Link>
+                                </motion.div>
 
-                            <div className="flex flex-col gap-6">
                                 {navLinks.map((link, idx) => (
-                                    <motion.a
+                                    <motion.div
                                         key={link.name}
-                                        href={link.href}
-                                        className="text-2xl font-semibold text-luxury-text hover:text-luxury-gold"
                                         initial={{ opacity: 0, x: 20 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: M3Duration.short2 + idx * 0.08, ...M3Spring.standard }}
-                                        onClick={() => setMobileMenuOpen(false)}
+                                        transition={{ delay: M3Duration.short2 + idx * 0.05, ...M3Spring.standard }}
                                     >
-                                        {link.name}
-                                    </motion.a>
+                                        <Link
+                                            href={link.href}
+                                            className="flex items-center justify-center px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-luxury-text/80 hover:bg-luxury-gold/10 hover:border-luxury-gold/30 hover:text-luxury-gold transition-all duration-300 active:scale-95 group w-full"
+                                            onClick={() => {
+                                                triggerHaptic();
+                                                setMobileMenuOpen(false);
+                                            }}
+                                        >
+                                            <span className="font-bold uppercase tracking-[0.2em] text-[10px]">{link.name}</span>
+                                        </Link>
+                                    </motion.div>
                                 ))}
-
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: M3Duration.long1, ...M3Spring.gentle }}
-                                    className="mt-8 flex justify-center"
-                                >
-                                    <SignInButton
-                                        onLoginClick={() => {
-                                            setMobileMenuOpen(false);
-                                            window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
-                                                detail: { redirectOnLogin: true }
-                                            }));
-                                        }}
-                                    />
-                                </motion.div>
                             </div>
+
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: M3Duration.long1, ...M3Spring.gentle }}
+                                className="mt-auto pt-8 flex justify-center"
+                            >
+                                <SignInButton
+                                    onLoginClick={() => {
+                                        triggerHaptic();
+                                        setMobileMenuOpen(false);
+                                        window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
+                                            detail: { redirectOnLogin: true }
+                                        }));
+                                    }}
+                                />
+                            </motion.div>
                         </motion.div>
                     </>
                 )}
@@ -307,3 +337,4 @@ export function Navbar() {
         </>
     );
 }
+

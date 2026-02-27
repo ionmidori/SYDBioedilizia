@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from 'react';
-import { collectionGroup, query, orderBy, getDocs, limit, startAfter, QueryDocumentSnapshot, DocumentData, collection, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { OptimizedGalleryViewer, type GalleryImage } from '@/components/gallery/OptimizedGalleryViewer';
 import { MediaAsset } from '@/lib/media-utils';
@@ -24,7 +22,7 @@ const ITEMS_PER_PAGE = 50;
 export function GlobalGalleryContent() {
     const { user } = useAuth();
     const [assets, setAssets] = useState<MediaAsset[]>([]);
-    
+
     // Modern State Management: Use TanStack Query
     const { data: rawProjects = [], isLoading: projectsLoading } = useProjects();
     const projects = useMemo(() => rawProjects.map(p => ({
@@ -39,7 +37,6 @@ export function GlobalGalleryContent() {
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-    const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
     const [hasMore, setHasMore] = useState(true);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -50,7 +47,6 @@ export function GlobalGalleryContent() {
         if (isInitial) {
             setLoading(true);
             setHasMore(true);
-            setLastVisible(null);
         } else {
             setIsLoadingMore(true);
         }
@@ -145,7 +141,7 @@ export function GlobalGalleryContent() {
         });
 
         return groups;
-    }, [assets, groupingMode]);
+    }, [assets, groupingMode, searchQuery]);
 
     const groupingOptions = [
         { value: 'project' as GroupingMode, label: 'Per Progetto', icon: FolderKanban },
@@ -432,3 +428,4 @@ export function GlobalGalleryContent() {
         </div>
     );
 }
+

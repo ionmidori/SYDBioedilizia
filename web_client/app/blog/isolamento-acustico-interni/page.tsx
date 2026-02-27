@@ -131,8 +131,8 @@ export default function BlogPostIsolamento() {
               <div className="flex gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="block text-foreground text-sm">Sistema "Massa-Molla-Massa"</strong>
-                  <span className="text-sm text-muted-foreground">La tecnica più efficace per rompere l'onda sonora.</span>
+                  <strong className="block text-foreground text-sm">Sistema &quot;Massa-Molla-Massa&quot;</strong>
+                  <span className="text-sm text-muted-foreground">La tecnica più efficace per rompere l&apos;onda sonora.</span>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -151,21 +151,21 @@ export default function BlogPostIsolamento() {
               </div>
             </div>
           </div>
-          
+
           <p className="lead text-xl text-foreground/80 mb-8">
-            Il comfort abitativo non è solo termico, ma anche acustico. Vivere in un ambiente rumoroso aumenta lo stress e riduce la qualità del sonno. 
+            Il comfort abitativo non è solo termico, ma anche acustico. Vivere in un ambiente rumoroso aumenta lo stress e riduce la qualità del sonno.
             Fortunatamente, la bioedilizia offre soluzioni eccellenti per isolare la casa dai rumori esterni e dai vicini, utilizzando materiali che rispettano la salute.
           </p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Il principio Massa-Molla-Massa</h2>
           <p>
-            Per bloccare il suono non serve solo "peso" (massa), ma anche un elemento smorzante (molla). 
+            Per bloccare il suono non serve solo &quot;peso&quot; (massa), ma anche un elemento smorzante (molla).
             Le contropareti acustiche a secco funzionano proprio così:
           </p>
           <ul className="list-disc pl-6 mb-6 space-y-2">
             <li><strong>Massa 1:</strong> La parete esistente in muratura.</li>
-            <li><strong>Molla:</strong> Il pannello isolante fibroso (Canapa o Fibra di Legno) inserito nell'intercapedine, che assorbe l'energia sonora.</li>
-            <li><strong>Massa 2:</strong> Il rivestimento finale in lastre (Cartongesso ad alta densità o Gessofibra), che riflette l'onda residua.</li>
+            <li><strong>Molla:</strong> Il pannello isolante fibroso (Canapa o Fibra di Legno) inserito nell&apos;intercapedine, che assorbe l&apos;energia sonora.</li>
+            <li><strong>Massa 2:</strong> Il rivestimento finale in lastre (Cartongesso ad alta densità o Gessofibra), che riflette l&apos;onda residua.</li>
           </ul>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Perché scegliere materiali naturali?</h2>
@@ -173,8 +173,8 @@ export default function BlogPostIsolamento() {
             A differenza delle lane minerali sintetiche, i materiali naturali come la <strong>fibra di canapa</strong> o i pannelli in <strong>legno mineralizzato</strong> offrono vantaggi aggiuntivi:
           </p>
           <ul className="list-disc pl-6 mb-6 space-y-2">
-            <li><strong>Traspirabilità:</strong> Regolano l'umidità interna, prevenendo muffe dietro la controparete.</li>
-            <li><strong>Inerzia Termica:</strong> Migliorano anche l'isolamento dal caldo e dal freddo.</li>
+            <li><strong>Traspirabilità:</strong> Regolano l&apos;umidità interna, prevenendo muffe dietro la controparete.</li>
+            <li><strong>Inerzia Termica:</strong> Migliorano anche l&apos;isolamento dal caldo e dal freddo.</li>
             <li><strong>Durata:</strong> Non si sfaldano nel tempo e mantengono le prestazioni inalterate.</li>
           </ul>
 
@@ -199,3 +199,5 @@ export default function BlogPostIsolamento() {
     </>
   );
 }
+
+

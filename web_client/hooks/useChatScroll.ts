@@ -5,7 +5,7 @@ import { useRef, useEffect } from 'react';
  * @param dep - Dependency that triggers scroll check (e.g. messages array or length)
  * @param isOpen - Whether the chat window is open
  */
-export function useChatScroll(dep: any, isOpen: boolean) {
+export function useChatScroll<T>(dep: T, isOpen: boolean) {
     const messagesContainerRef = useRef<HTMLDivElement | null>(null);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const isNearBottomRef = useRef(true); // Track if user is at bottom
@@ -39,7 +39,7 @@ export function useChatScroll(dep: any, isOpen: boolean) {
             container.addEventListener('scroll', checkScrollPosition, { passive: true });
             return () => container.removeEventListener('scroll', checkScrollPosition);
         }
-    }, [messagesContainerRef.current]);
+    }, []); // Only on mount
 
     // Auto-scroll on dependency change (messages updated)
     useEffect(() => {
@@ -52,9 +52,11 @@ export function useChatScroll(dep: any, isOpen: boolean) {
     useEffect(() => {
         if (isOpen) {
             // Small delay to ensure content is fully rendered
-            setTimeout(() => {
-                scrollToBottom('instant');
+            const timer = setTimeout(() => {
+                // 'instant' is not a standard ScrollBehavior, using 'auto' for same effect
+                scrollToBottom('auto');
             }, 50);
+            return () => clearTimeout(timer);
         }
     }, [isOpen]);
 

@@ -67,7 +67,7 @@ export default function BlogPostResina() {
             "name": "È possibile posare la resina sopra le vecchie piastrelle?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Sì, è uno dei grandi vantaggi. Grazie al basso spessore (2-4mm), si può applicare direttamente sull'esistente, risparmiando costi di demolizione."
+              "text": "Sì, è uno dei grandi vantaggi. Grazie al basso spessore (2-4mm), si può applicare direttamente sull&apos;esistente, risparmiando costi di demolizione."
             }
           },
           {
@@ -75,7 +75,7 @@ export default function BlogPostResina() {
             "name": "La resina è adatta al riscaldamento a pavimento?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Assolutamente sì. Avendo uno spessore ridotto, garantisce un'ottima conducibilità termica e una rapida messa a regime dell'impianto."
+              "text": "Assolutamente sì. Avendo uno spessore ridotto, garantisce un&apos;ottima conducibilità termica e una rapida messa a regime dell&apos;impianto."
             }
           },
           {
@@ -112,7 +112,7 @@ export default function BlogPostResina() {
               Pavimenti in Resina e Microcemento: Vantaggi e Applicazioni
             </h1>
             <p className="text-xl text-muted-foreground font-medium max-w-2xl">
-              Superfici continue, resistenti e di design. Scopri perché sono la scelta ideale per le ristrutturazioni moderne.
+              Superfici continue, resistenti e di design. Scopri perché sono la scelta ideale per le ristrutturazioni moderne. 
             </p>
           </header>
 
@@ -151,22 +151,22 @@ export default function BlogPostResina() {
               </div>
             </div>
           </div>
-          
+
           <p className="lead text-xl text-foreground/80 mb-8">
             Se stai pensando di ristrutturare casa ma temi polvere, macerie e tempi lunghi, il <strong>microcemento</strong> (o resina cementizia) potrebbe essere la soluzione che cerchi.
-            Questo materiale permette di trasformare radicalmente l'estetica di un ambiente in pochi giorni, senza rimuovere il vecchio pavimento.
+            Questo materiale permette di trasformare radicalmente l&apos;estetica di un ambiente in pochi giorni, senza rimuovere il vecchio pavimento.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Cos'è il Microcemento?</h2>
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Cos&apos;è il Microcemento?</h2>
           <p>
-            È un rivestimento a base cementizia, polimeri a base d'acqua, additivi e pigmenti minerali. 
+            È un rivestimento a base cementizia, polimeri a base d&apos;acqua, additivi e pigmenti minerali.
             A differenza della resina epossidica (più plastica), il microcemento ha un aspetto più naturale e materico, simile al calcestruzzo ma più caldo al tatto.
           </p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Vantaggi in Ristrutturazione</h2>
           <ul className="list-disc pl-6 mb-6 space-y-2">
             <li><strong>Velocità:</strong> Un cantiere medio si chiude in 5-7 giorni lavorativi.</li>
-            <li><strong>Continuità:</strong> Puoi rivestire pavimenti, pareti e persino mobili, creando un effetto "scatola" molto contemporaneo.</li>
+            <li><strong>Continuità:</strong> Puoi rivestire pavimenti, pareti e persino mobili, creando un effetto &quot;scatola&quot; molto contemporaneo.</li>
             <li><strong>Resistenza:</strong> Una volta protetto, resiste a urti, graffi e agenti chimici domestici.</li>
           </ul>
 
@@ -191,3 +191,6 @@ export default function BlogPostResina() {
     </>
   );
 }
+
+
+

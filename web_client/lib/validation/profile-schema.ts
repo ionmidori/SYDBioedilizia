@@ -19,18 +19,6 @@ export const profileUpdateSchema = z.object({
 });
 
 /**
- * Avatar Upload Schema
- * Validates avatar file uploads
- */
-export const avatarUploadSchema = z.object({
-    file: z.instanceof(File, { message: "File richiesto" }),
-    size: z.number().max(5 * 1024 * 1024, "Il file non può superare i 5MB"),
-    type: z.enum(["image/jpeg", "image/png", "image/webp", "image/heic"], {
-        message: "Formato file non supportato. Usa JPG, PNG, WEBP o HEIC"
-    }),
-});
-
-/**
  * User Preferences Schema
  * Validates notification and UI preferences
  */
@@ -51,5 +39,4 @@ export const userPreferencesSchema = z.object({
 
 // Type exports for TypeScript
 export type ProfileUpdateData = z.infer<typeof profileUpdateSchema>;
-export type AvatarUploadData = z.infer<typeof avatarUploadSchema>;
 export type UserPreferences = z.infer<typeof userPreferencesSchema>;

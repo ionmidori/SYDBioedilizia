@@ -159,7 +159,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
             });
             clearAllTimers();
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [enabled, clearAllTimers]); // resetTimer intentionally excluded — accessed via ref
 
     return {

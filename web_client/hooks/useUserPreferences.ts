@@ -25,9 +25,13 @@ export function useUserPreferences() {
 
     // Subscribe to preferences changes
     useEffect(() => {
+        let timeoutId: NodeJS.Timeout;
+
         if (!user?.uid) {
-            setIsLoading(false);
-            return;
+            timeoutId = setTimeout(() => {
+                setIsLoading(false);
+            }, 0);
+            return () => clearTimeout(timeoutId);
         }
 
         // ADR-001: Documented onSnapshot exception. Data is user-owned (users/{uid}/...) and read-only.
@@ -51,7 +55,10 @@ export function useUserPreferences() {
             }
         );
 
-        return () => unsubscribe();
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+            unsubscribe();
+        };
     }, [user?.uid]);
 
     // Update preferences (optimistic update + Backend API write)
@@ -76,8 +83,9 @@ export function useUserPreferences() {
         try {
             await usersApi.updatePreferences(updates);
             setError(null);
-        } catch (err: any) {
-            console.error('[useUserPreferences] Update error:', err);
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            console.error('[useUserPreferences] Update error:', errorMessage);
             setError('Errore nel salvataggio delle preferenze');
             // Revert optimistic update by re-fetching
             // The snapshot listener will handle the revert automatically

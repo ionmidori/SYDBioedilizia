@@ -27,17 +27,22 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
     useEffect(() => {
         if (historyLoaded && historyMessages.length > 0) {
             const extractedAssets = extractMediaFromMessages(historyMessages);
-            setAssets(prev => {
-                let changed = false;
-                const uniqueAssets = [...prev];
-                extractedAssets.forEach(newAsset => {
-                    if (!uniqueAssets.some(a => a.id === newAsset.id)) {
-                        uniqueAssets.push(newAsset);
-                        changed = true;
-                    }
+            
+            const timerId = setTimeout(() => {
+                setAssets(prev => {
+                    let changed = false;
+                    const uniqueAssets = [...prev];
+                    extractedAssets.forEach(newAsset => {
+                        if (!uniqueAssets.some(a => a.id === newAsset.id)) {
+                            uniqueAssets.push(newAsset);
+                            changed = true;
+                        }
+                    });
+                    return changed ? uniqueAssets : prev;
                 });
-                return changed ? uniqueAssets : prev;
-            });
+            }, 0);
+
+            return () => clearTimeout(timerId);
         }
     }, [historyLoaded, historyMessages]);
 

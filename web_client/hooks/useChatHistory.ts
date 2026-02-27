@@ -2,33 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { Message } from '@/types/chat';
 
-/**
- * Backend message format from Python API
- */
-interface BackendMessage {
-    id: string;
-    role: string;
-    content: string;
-    timestamp?: string;
-    tool_call_id?: string;
-    tool_calls?: any[];
-    attachments?: {
-        images?: string[];
-        videos?: string[];
-        documents?: string[];
-    };
-}
-
 interface UseChatHistoryOptions {
-    /**
-     * Enable automatic polling (revalidation) for realtime-like updates.
-     * Default: 5000ms (5 seconds)
-     */
-    refreshInterval?: number;
-    /**
-     * Disable automatic revalidation on focus/reconnect.
-     */
-    revalidateOnFocus?: boolean;
     /**
      * Number of messages to fetch per page.
      */
@@ -64,8 +38,6 @@ export function useChatHistory(
     const { user, loading: authLoading } = useAuth();
 
     const {
-        refreshInterval = 5000, // Poll every 5 seconds for new messages
-        revalidateOnFocus = true,
         limit = 50
     } = options;
 
@@ -106,7 +78,7 @@ export function useChatHistory(
                 if (!isMounted) return;
 
                 const q = query(
-                    collection(db, 'sessions', sessionId, 'messages'),
+                    collection(db, 'sessions', sessionId as string, 'messages'),
                     orderBy('timestamp', 'desc'),
                     firestoreLimit(limit)
                 );
@@ -178,7 +150,7 @@ export function useChatHistory(
                                                 (toolResultMsg.content.startsWith('{') || toolResultMsg.content.startsWith('['))) {
                                                 parsedResult = JSON.parse(toolResultMsg.content);
                                             }
-                                        } catch (e) { /* ignore */ }
+                                        } catch (_e) { /* ignore */ }
 
                                         return {
                                             ...tool,
@@ -201,9 +173,9 @@ export function useChatHistory(
                     setIsLoading(false);
                 });
 
-            } catch (err: any) {
+            } catch (err: unknown) {
                 console.error('[useChatHistory] Setup Error:', err);
-                setError(err);
+                setError(err instanceof Error ? err : new Error(String(err)));
                 setIsLoading(false);
             }
         }

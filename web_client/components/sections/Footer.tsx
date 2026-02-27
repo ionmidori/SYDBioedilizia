@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Hammer, Facebook, Instagram, Linkedin, Twitter, Mail, MapPin, Phone, CheckCircle, XCircle } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Twitter, Mail, MapPin, Phone, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
@@ -64,7 +63,7 @@ export function Footer() {
                             <SydLogo className="group-hover:opacity-90 transition-opacity" />
                         </Link>
                         <p className="text-luxury-text/70 text-sm leading-relaxed max-w-xs font-light">
-                            Rivoluzioniamo il modo di progettare e ristrutturare casa. Tecnologia AI all'avanguardia per risultati garantiti e senza sorprese.
+                            Rivoluzioniamo il modo di progettare e ristrutturare casa. Tecnologia AI all&apos;avanguardia per risultati garantiti e senza sorprese.
                         </p>
                         <div className="flex gap-4">
                             {[Facebook, Instagram, Linkedin, Twitter].map((Icon, i) => (
@@ -188,6 +187,7 @@ export function Footer() {
                 </div>
             </div>
 
-        </footer >
+        </footer>
     );
 }
+

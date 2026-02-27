@@ -1,0 +1,30 @@
+# Piano: Conformità Form e Risoluzione Lint
+
+## Obiettivo
+Allineare i componenti di creazione e rinomina progetto allo standard "Advanced Form Patterns" (Zod + React Hook Form) e risolvere gli errori di linting emersi.
+
+## 1. Implementazione `advanced-form-patterns`
+- [x] **Creare schema Zod condiviso**: Creare `web_client/lib/validation/project-actions-schema.ts`
+      - `createProjectSchema`: `{ title: z.string().min(3).max(50) }`
+      - `renameProjectSchema`: `{ title: z.string().min(3).max(50) }`
+- [x] **Refactoring `CreateProjectDialog.tsx`**
+      - Integrare `zodResolver` e `useForm`.
+      - Usare i componenti Form di Shadcn/UI se disponibili, altrimenti standardizzare il binding.
+- [x] **Refactoring `RenameProjectDialog.tsx`**
+      - Integrare `zodResolver` e `useForm`.
+      - Mantenere la logica di mutazione (o aggiornarla a TanStack Query se serve).
+
+## 2. Risoluzione Lint: `useEffect` Synchronous Updates
+Molti componenti (es. sezioni Home, `MobileViewport`, ecc.) lanciano l'errore:
+`Calling setState synchronously within an effect can trigger cascading renders`
+Questo avviene quando in un effetto senza dipendenze si imposta subito lo stato (es. `setIsMobile(window.innerWidth < 768)`).
+- [ ] **Fix**: Spostare l'inizializzazione dello stato direttamente in `useState` o gestirlo in modo da evitare doppi render.
+      - Esempi critici: `Portfolio.tsx`, `Services.tsx`, `Testimonials.tsx`, `useMobileViewport.ts`, `useParallax.ts`, `useCookieConsent.ts`
+
+## 3. Risoluzione Lint: Dependencies e `refs`
+- [ ] `useChatScroll.ts`: Non usare `.current` nel dependency array.
+- [ ] `useStatusQueue.ts` / `page.tsx`: Correggere l'utilizzo di variabili prima della dichiarazione (es. `attemptVerification`, `processQueue`).
+
+## 4. Risoluzione Lint: `any` Types & Escaping
+- [ ] `web_client/hooks/useUserPreferences.ts`, `lib/debounce.ts`: Rimuovere `any` espliciti e aggiungere tipi corretti.
+- [ ] Escaping quotes: Fixare le entity HTML non scappate nei file del Blog.

@@ -127,6 +127,15 @@ export function AdvancedLightbox({
         setTouchStart(e.touches[0].clientX);
     };
 
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!enableSwipeNavigation || touchStart === null) return;
+        
+        // 🛡️ Chrome Intervention Fix: Prevent default only if event is cancelable
+        if (e.cancelable) {
+            // e.preventDefault(); // Optional: only if we want to block scroll
+        }
+    };
+
     const handleTouchEnd = (e: React.TouchEvent) => {
         if (!enableSwipeNavigation || touchStart === null) return;
 

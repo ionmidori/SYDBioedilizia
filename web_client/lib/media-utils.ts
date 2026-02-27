@@ -7,7 +7,8 @@ export interface MediaAsset {
     url: string;
     thumbnail?: string;
     title?: string;
-    timestamp: string;
+    timestamp: string | Date;
+    createdAt?: string | Date;
     messageId?: string;
     metadata?: {
         projectId?: string;

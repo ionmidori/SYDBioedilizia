@@ -113,7 +113,7 @@ export default function BlogPostBagno() {
               Tendenze 2026 per il Bagno: Materiali Ecologici e Design Minimalista
             </h1>
             <p className="text-xl text-muted-foreground font-medium max-w-2xl">
-              Scopri come trasformare il tuo bagno in un'oasi di benessere utilizzando resine ecocompatibili e illuminazione integrata.
+              Scopri come trasformare il tuo bagno in un&apos;oasi di benessere utilizzando resine ecocompatibili e illuminazione integrata.
             </p>
           </header>
 
@@ -148,40 +148,40 @@ export default function BlogPostBagno() {
                 <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
                 <div>
                   <strong className="block text-foreground text-sm">Sostenibilità Idrica</strong>
-                  <span className="text-sm text-muted-foreground">Sistemi per il risparmio dell'acqua senza rinunciare al comfort.</span>
+                  <span className="text-sm text-muted-foreground">Sistemi per il risparmio dell&apos;acqua senza rinunciare al comfort.</span>
                 </div>
               </div>
             </div>
           </div>
-          
+
           {/* BODY CONTENT */}
           <p className="lead text-xl text-foreground/80 mb-8">
-            Il bagno non è più solo una stanza di servizio, ma un vero e proprio santuario domestico dedicato al benessere e al relax. 
+            Il bagno non è più solo una stanza di servizio, ma un vero e proprio santuario domestico dedicato al benessere e al relax.
             Nel 2026, le tendenze di design puntano tutto sulla fusione tra <strong>natura e tecnologia</strong>, creando spazi che rigenerano corpo e mente.
           </p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Materiali Ecologici e Tattili</h2>
           <p>
-            L'attenzione alla sostenibilità si riflette nella scelta dei materiali. Le piastrelle lucide lasciano il posto a superfici opache e materiche.
+            L&apos;attenzione alla sostenibilità si riflette nella scelta dei materiali. Le piastrelle lucide lasciano il posto a superfici opache e materiche.
             Il <strong>microcemento</strong> e le <strong>resine ecologiche</strong> sono protagonisti assoluti, permettendo di creare superfici continue, prive di fughe, facili da pulire e visivamente rilassanti.
-            Il legno, opportunamente trattato per resistere all'umidità, porta calore e un tocco organico indispensabile.
+            Il legno, opportunamente trattato per resistere all&apos;umidità, porta calore e un tocco organico indispensabile.
           </p>
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Design Minimalista e Funzionale</h2>
           <p>
-            "Less is more" rimane il mantra, ma con una declinazione più calda e accogliente rispetto al passato. 
+            &quot;Less is more&quot; rimane il mantra, ma con una declinazione più calda e accogliente rispetto al passato.
             Mobili sospesi dalle linee pulite, sanitari compatti e rubinetterie incassate a muro contribuiscono a creare un senso di spaziosità e ordine.
             Le nicchie illuminate a LED non sono solo decorative, ma offrono spazio contenitivo senza ingombrare visivamente.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">L'Illuminazione come Elemento di Design</h2>
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">L&apos;Illuminazione come Elemento di Design</h2>
           <p>
-            La luce gioca un ruolo cruciale nel definire l'atmosfera. Dimenticate la singola plafoniera centrale.
-            Il trend del 2026 prevede un'illuminazione stratificata:
+            La luce gioca un ruolo cruciale nel definire l&apos;atmosfera. Dimenticate la singola plafoniera centrale.
+            Il trend del 2026 prevede un&apos;illuminazione stratificata:
           </p>
           <ul className="list-disc pl-6 mb-6 space-y-2">
             <li>Luce funzionale attorno allo specchio per la cura della persona.</li>
-            <li>Luce d'ambiente soffusa per i momenti di relax in vasca o doccia.</li>
+            <li>Luce d&apos;ambiente soffusa per i momenti di relax in vasca o doccia.</li>
             <li>Strisce LED nascoste per enfatizzare texture e volumi architettonici.</li>
           </ul>
 
@@ -208,3 +208,4 @@ export default function BlogPostBagno() {
     </>
   );
 }
+

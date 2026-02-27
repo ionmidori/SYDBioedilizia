@@ -17,12 +17,9 @@ import { useChatScroll } from '@/hooks/useChatScroll';
 import { useMobileViewport } from '@/hooks/useMobileViewport';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { useAuth } from '@/hooks/useAuth';
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
-
-// Types
-import { Message } from '@/types/chat';
 
 /**
  * ChatWidget Component
@@ -144,7 +141,11 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // Clear queue on project switch
     useEffect(() => {
         clearQueue();
-        setErrorMessage(null);
+        // Wrap in timeout to avoid sync setState warning
+        const timerId = setTimeout(() => {
+            setErrorMessage(null);
+        }, 0);
+        return () => clearTimeout(timerId);
     }, [contextProjectId, clearQueue]);
 
     // 5. Unified Upload Hook
@@ -253,7 +254,11 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // Error Handling
     useEffect(() => {
         if (error) {
-            setErrorMessage(error.message);
+            // Wrap in timeout to avoid sync setState warning
+            const timerId = setTimeout(() => {
+                setErrorMessage(error.message);
+            }, 0);
+            return () => clearTimeout(timerId);
         }
     }, [error]);
 

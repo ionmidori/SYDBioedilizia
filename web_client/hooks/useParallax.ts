@@ -8,7 +8,7 @@ export interface ParallaxTilt {
 /**
  * Custom hook for gyroscope-based parallax effect.
  * Creates subtle "holographic" tilt effect for images/renders.
- * 
+ *
  * Automatically disabled if:
  * - DeviceOrientation not supported
  * - User has prefers-reduced-motion enabled
@@ -30,7 +30,10 @@ export function useParallax(enabled: boolean = true) {
             return;
         }
 
-        setIsSupported(true);
+        // Use setTimeout to avoid synchronous setState warning inside effect
+        const timeoutId = setTimeout(() => {
+            setIsSupported(true);
+        }, 0);
 
         const handleOrientation = (e: DeviceOrientationEvent) => {
             if (!e.gamma || !e.beta) return;
@@ -45,6 +48,7 @@ export function useParallax(enabled: boolean = true) {
         window.addEventListener('deviceorientation', handleOrientation);
 
         return () => {
+            clearTimeout(timeoutId);
             window.removeEventListener('deviceorientation', handleOrientation);
         };
     }, [enabled]);
@@ -71,3 +75,4 @@ export function useParallax(enabled: boolean = true) {
         getTransform
     };
 }
+

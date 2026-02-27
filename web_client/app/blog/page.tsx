@@ -6,7 +6,7 @@ import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
 
 export const metadata: Metadata = {
-    title: "Blog Ristrutturazioni Roma | SYD Bioedilizia",
+    title: "Blog Ristrutturazioni Roma | SYD Bioedilizia",      
     description: "Approfondimenti, guide e consigli sulle ristrutturazioni d'interni, bioedilizia e riqualificazione energetica.",
     alternates: {
         canonical: "/blog",
@@ -18,7 +18,7 @@ const BLOG_POSTS = [
         id: 'bonus-ristrutturazioni-2025-2026',
         title: "Bonus Ristrutturazioni 2026: La Guida Completa senza sorprese",
         excerpt: "Aliquote 50%, massimali e la checklist dei documenti obbligatori (CILA, Bonifici, ENEA) per non perdere le detrazioni fiscali.",
-        image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=800&auto=format&fit=crop", // Calculator/Plans
+        image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=800&auto=format&fit=crop", // Calculator/Plans 
         category: "Fisco & Normative",
         date: "21 Feb 2026"
     },
@@ -61,7 +61,7 @@ export default function BlogIndexPage() {
     const jsonLd = {
         "@context": "https://schema.org",
         "@type": "Blog",
-        "name": "Blog Ristrutturazioni Roma | SYD Bioedilizia",
+        "name": "Blog Ristrutturazioni Roma | SYD Bioedilizia", 
         "description": "Approfondimenti, guide e consigli sulle ristrutturazioni d'interni, bioedilizia e riqualificazione energetica.",
         "url": "https://sydbioedilizia.it/blog",
         "publisher": {
@@ -77,7 +77,7 @@ export default function BlogIndexPage() {
             "headline": post.title,
             "description": post.excerpt,
             "image": post.image,
-            "url": `https://sydbioedilizia.it/blog/${post.id}`
+            "url": `https://sydbioedilizia.it/blog/${post.id}`  
         }))
     };
 
@@ -105,22 +105,22 @@ export default function BlogIndexPage() {
                         {BLOG_POSTS.map((post) => (
                             <Link
                                 key={post.id}
-                                href={`/blog/${post.id}`}
-                                className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border hover:shadow-xl hover:border-primary/30 transition-all duration-300"
+                                href={`/blog/${post.id}`}       
+                                className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border hover:shadow-xl hover:border-primary/30 transition-all duration-300"    
                             >
                                 {/* Image Card */}
                                 <div className="relative h-64 w-full overflow-hidden bg-muted">
                                     <Image
-                                        src={post.image}
-                                        alt={post.title}
+                                        src={post.image}        
+                                        alt={post.title}        
                                         fill
-                                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                        className="object-cover transition-transform duration-500 group-hover:scale-105"        
                                         sizes="(max-w-768px) 100vw, (max-w-1200px) 50vw, 33vw"
                                         priority={post.id === 'umidita-risalita-roma'}
                                     />
                                     <div className="absolute top-4 left-4">
                                         <span className="bg-background/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-primary">
-                                            {post.category}
+                                            {post.category}     
                                         </span>
                                     </div>
                                 </div>
@@ -138,8 +138,8 @@ export default function BlogIndexPage() {
                                     </p>
 
                                     <div className="mt-auto flex items-center text-primary font-semibold text-sm">
-                                        Leggi l'articolo
-                                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                                        Leggi l&apos;articolo        
+                                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />  
                                     </div>
                                 </div>
                             </Link>
@@ -152,3 +152,4 @@ export default function BlogIndexPage() {
         </>
     );
 }
+
