@@ -21,7 +21,6 @@ import { EmailAuthForm } from './EmailAuthForm';
 import { MagicLinkForm } from './MagicLinkForm';
 import { PasskeyButton } from './PasskeyButton';
 import { useAuth } from '@/hooks/useAuth';
-import { useSessionId } from '@/hooks/useSessionId';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useClaimProject } from '@/hooks/use-claim-project';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -35,9 +34,8 @@ interface AuthDialogProps {
 
 export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthDialogProps) {
     const { loginWithGoogle, loginWithApple, logout, user } = useAuth();
-    const sessionId = useSessionId();
     const router = useRouter();
-    
+
     // Modern State Management
     const claimProjectMutation = useClaimProject();
 
@@ -85,10 +83,19 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
         // Keep dialog open during claim so the user sees progress and any errors.
         setClaimStatus('pending');
         try {
-            if (sessionId) {
-                await claimProjectMutation.mutateAsync(sessionId);
-                // Clear anonymous session key from localStorage only after a confirmed claim.
-                // Prevents stale sessionId from being re-claimed by the next user on this device.
+            // Guard 1: Only attempt claim when the user was anonymous before this login.
+            //          If the dialog was opened while already authenticated (e.g. re-auth),
+            //          there is nothing to claim and we must not pass a live project ID.
+            // Guard 2: Read chatSessionId directly — useSessionId() also returns
+            //          activeProjectId (a real authenticated project), which is NOT a
+            //          guest session and would always cause a 400 from the backend.
+            const anonymousSessionId = typeof window !== 'undefined'
+                ? localStorage.getItem('chatSessionId')
+                : null;
+
+            if (userWasAnonymousRef.current && anonymousSessionId) {
+                await claimProjectMutation.mutateAsync(anonymousSessionId);
+                // Clear only after a confirmed claim to prevent stale re-claims.
                 localStorage.removeItem('chatSessionId');
             }
         } catch (error) {
@@ -99,8 +106,6 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
         } finally {
             setClaimStatus(null);
             // The auto-close effect will handle closing the dialog and redirecting.
-            // We don't close it here directly to allow the auto-close effect to trigger
-            // after the claim status has been shown.
         }
     };
 

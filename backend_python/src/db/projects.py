@@ -321,7 +321,12 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
         
         current_data = doc.to_dict()
         current_owner = current_data.get("userId", "")
-        
+
+        # Idempotent: already owned by this user → success (no-op)
+        if current_owner == new_user_id:
+            logger.info(f"[Projects] Project {session_id} already owned by {new_user_id}, skipping claim")
+            return True
+
         # Only allow claiming if current owner is a guest
         if not current_owner.startswith("guest_"):
             logger.warning(f"[Projects] Project {session_id} is already owned by {current_owner}")
