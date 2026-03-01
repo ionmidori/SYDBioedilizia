@@ -349,7 +349,7 @@ export function GlobalGalleryContent() {
                             </div>
 
                             {/* Optimized Gallery */}
-                            <div className="h-[500px]">
+                            <div className={groupAssets.length > 50 ? "h-[500px] md:h-[600px]" : "w-full"}>
                                 <OptimizedGalleryViewer
                                     images={galleryImages}
                                     enableVirtualization={groupAssets.length > 50}

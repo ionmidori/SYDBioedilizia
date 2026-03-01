@@ -87,8 +87,9 @@ FastAPI /chat/stream
   - Frontend type-check: 0 errors (npm run type-check)
   - npm audit: 0 vulnerabilities (fast-xml-parser + minimatch patched in commit 7ad26d5)
   - pip-audit (backend): 0 vulnerabilities
-- **Recent fixes** (Session 6):
-  - Gallery page performance optimization (parallel backend fetching, TanStack Query migration, Golden Sync strict typing).
+- **Recent fixes** (Session Mar 02):
+  - Gallery page: fixed mobile layout pushing images to bottom by removing hardcoded 500px heights when not virtualized.
+  - Gallery page: AdvancedLightbox centered images vertically across all devices while maintaining 90vw/85vh breathing margins.
   - profile/page.tsx TypeScript errors (result.error → message, PasskeyButton mode prop)
   - Image domain SSRF hardening (wildcard → project-specific domains)
 
@@ -99,4 +100,4 @@ FastAPI /chat/stream
 - `docs/PLANS/unify_dashboard_loaders.txt` — Piano UI/UX prossimo task
 - `SESSION_RECAP.md` — Recap dettagliato sessione 4
 
-_Documento aggiornato: Marzo 01, 2026 (Session 6: Gallery optimization, TanStack Query migration, Golden Sync strict typing)_
+_Documento aggiornato: Marzo 02, 2026 (Session: Gallery UI Height & Lightbox centering on mobile)_

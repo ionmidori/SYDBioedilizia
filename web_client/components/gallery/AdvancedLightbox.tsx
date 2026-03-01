@@ -298,8 +298,10 @@ export function AdvancedLightbox({
                 >
                     {({ zoomIn, zoomOut, resetTransform }) => (
                         <TransformComponent
+                            wrapperStyle={{ width: "100%", height: "100%" }}
                             wrapperClass="!w-full !h-full flex items-center justify-center"
-                            contentClass="flex items-center justify-center"
+                            contentClass="!w-full !h-full flex items-center justify-center"
+                            contentStyle={{ width: "100%", height: "100%" }}
                         >
                             <motion.img
                                 key={currentIndex}
@@ -309,7 +311,7 @@ export function AdvancedLightbox({
                                 transition={M3Spring.standard}
                                 src={currentImage.url}
                                 alt={currentImage.title || 'Full screen image view'}
-                                className="max-w-[90vw] max-h-[90vh] object-contain rounded-lg select-none"
+                                className="max-w-[95vw] md:max-w-[90vw] max-h-[85vh] md:max-h-[90vh] object-contain rounded-lg select-none"
                                 draggable={false}
                             />
                         </TransformComponent>
