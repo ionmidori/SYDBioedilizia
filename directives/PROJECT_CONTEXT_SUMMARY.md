@@ -74,14 +74,22 @@ FastAPI /chat/stream
 | P0: Auth/RBAC quote routes | ✅ Fixed (commit 35d1f8d) |
 | P1: n8n HMAC signing | ✅ Fixed (commit 35d1f8d) |
 | P1: Pricing qty bounds | ✅ Fixed (commit 35d1f8d) |
+| P1: Image domain hardening (SSRF prevention) | ✅ Fixed (commit c60c789) |
 | P2: Input/Output filtering | ✅ src/adk/filters.py |
 | P2: Admin resumption token | ✅ src/adk/hitl.py |
 | P2: GDPR EU region | ✅ ADK_LOCATION=europe-west1 |
 
-## Test Status
+## Test & Deployment Status
 
 - **172/172 unit test passing** (`pytest tests/unit/`)
 - Test isolamento settings: `Settings(_env_file=None, ...)` per default check
+- **Vercel builds**: ✅ Production-ready (commit c60c789)
+  - Frontend type-check: 0 errors (npm run type-check)
+  - npm audit: 0 vulnerabilities (fast-xml-parser + minimatch patched in commit 7ad26d5)
+  - pip-audit (backend): 0 vulnerabilities
+- **Recent fixes** (Session 5):
+  - profile/page.tsx TypeScript errors (result.error → message, PasskeyButton mode prop)
+  - Image domain SSRF hardening (wildcard → project-specific domains)
 
 ## Documentation
 
@@ -90,4 +98,4 @@ FastAPI /chat/stream
 - `docs/PLANS/unify_dashboard_loaders.txt` — Piano UI/UX prossimo task
 - `SESSION_RECAP.md` — Recap dettagliato sessione 4
 
-_Documento aggiornato: Marzo 01, 2026_
+_Documento aggiornato: Marzo 01, 2026 (Session 5: Frontend build fixes, security hardening, dependency audit)_
