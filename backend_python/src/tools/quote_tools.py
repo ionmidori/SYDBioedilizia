@@ -10,6 +10,11 @@ from src.schemas.quote import QuoteSchema
 
 logger = logging.getLogger(__name__)
 
+# Quantity bounds: reject AI-suggested quantities outside this range to prevent pricing injection
+_MIN_QTY = 0.01   # Allow fractional units (e.g. 0.5 m²)
+_MAX_QTY = 10_000  # Hard cap — anything above is almost certainly an AI hallucination
+
+
 class SuggestQuoteItemsInput(BaseModel):
     session_id: str = Field(..., description="The ID of the current chat session")
     project_id: Optional[str] = Field(None, description="Optional: ID of the project associated with the session")
@@ -36,14 +41,33 @@ def validate_sku_suggestions(suggestions: List[Any]) -> List[str]:
     """
     price_book = PricingService.load_price_book()
     valid_skus = {i["sku"] for i in price_book}
-    
+
     unknown_skus = []
     for s in suggestions:
         if s.sku not in valid_skus:
             unknown_skus.append(s.sku)
             logger.warning(f"[QS] SKU sconosciuto dall'AI: {s.sku}")
-    
+
     return unknown_skus
+
+
+def _validate_qty_bounds(suggestions: List[Any]) -> tuple[List[Any], List[str]]:
+    """
+    Filters out suggestions with quantities outside safe bounds (_MIN_QTY .. _MAX_QTY).
+    Returns (valid_suggestions, list_of_warning_messages).
+    Prevents pricing injection via AI-hallucinated extreme quantities.
+    """
+    valid = []
+    warnings = []
+    for s in suggestions:
+        qty = getattr(s, "qty", None)
+        if qty is None or qty < _MIN_QTY or qty > _MAX_QTY:
+            msg = f"SKU {s.sku}: qty={qty} rejected (must be {_MIN_QTY} ≤ qty ≤ {_MAX_QTY})"
+            logger.warning(f"[QuoteTool] Qty out of bounds — {msg}")
+            warnings.append(msg)
+        else:
+            valid.append(s)
+    return valid, warnings
 
 async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str] = None, user_id: Optional[str] = None) -> str:
     """
@@ -86,13 +110,19 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
 
 Summary: {analysis.summary}"""
 
-        # Validation Pattern
+        # Validation Pattern: SKU existence check
         unknown_skus = validate_sku_suggestions(analysis.suggestions)
-        # We filter out unknown SKUs to avoid crashing the pricing service or DB
         valid_suggestions = [s for s in analysis.suggestions if s.sku not in unknown_skus]
 
         if not valid_suggestions:
-             return f"I identified potential works ({', '.join(unknown_skus)}) but they don't match our current price book. Please contact a human agent."
+            return f"I identified potential works ({', '.join(unknown_skus)}) but they don't match our current price book. Please contact a human agent."
+
+        # Validation Pattern: quantity bounds check (pricing injection prevention)
+        valid_suggestions, qty_warnings = _validate_qty_bounds(valid_suggestions)
+        if qty_warnings:
+            logger.warning(f"[QuoteTool] Filtered {len(qty_warnings)} suggestion(s) with out-of-bounds qty")
+        if not valid_suggestions:
+            return "Quote generation failed: all suggested quantities were outside acceptable bounds. Please describe the project scope in more detail."
 
         # 4. Generate Pricing
         sku_list = [{"sku": s.sku, "qty": s.qty, "ai_reasoning": s.ai_reasoning} for s in valid_suggestions]
@@ -100,7 +130,15 @@ Summary: {analysis.summary}"""
         final_user_id = user_id or "guest_" + session_id
         
         quote = PricingService.create_quote_from_skus(project_id or session_id, final_user_id, sku_list)
-        
+
+        # Sanity check: suspiciously low totals often indicate malformed AI output
+        if quote.financials.grand_total < 100 and len(quote.items) > 1:
+            logger.warning(
+                f"[QuoteTool] Suspicious grand_total=€{quote.financials.grand_total:.2f} "
+                f"for {len(quote.items)} items (project={project_id or session_id}). "
+                "Verify pricing service and AI output."
+            )
+
         # 5. Save the draft to Firestore (Collection: projects/{projectId}/private_data/quote)
         db = get_async_firestore_client()
         target_project_id = project_id or session_id

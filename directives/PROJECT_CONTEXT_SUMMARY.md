@@ -1,7 +1,7 @@
-- **Last Updated**: 2026-02-28
-- **Current Version**: `v3.6.10` (Frontend Polish & Accessibility Fix)
-- **Last Major Sync**: 2026-02-27
-- **Status**: `Production-Ready - Security Hardened & Accessible`
+- **Last Updated**: 2026-03-01
+- **Current Version**: `v3.6.11` (Quote System Security Hardening)
+- **Last Major Sync**: 2026-03-01
+- **Status**: `Production-Ready - Enterprise Security Complete`
 - **Next High Priority**: 1) Biometric Auth Expansion | 2) Dynamic Robot Mascot | 3) Vertex AI Agent Playbooks
 
 - **Accessibility & Navigation Standardization (v3.6.07)**:
@@ -47,22 +47,39 @@
   - **SVG Fix**: Corrected malformed WhatsApp path in `Navbar.tsx`.
   - **Verification**: All backend/frontend checks passed.
 
+- **Phase 43 (Mar 01, 2026):** **Quote System Security Hardening (v3.6.11)**:
+  - **P0 Auth + RBAC**: All 6 quote endpoints secured via `Depends(verify_token)`. Added admin role checks (`_require_admin`) and project ownership validation (`_verify_project_ownership`). IDOR vulnerability on `/quote/user/{user_id}` patched.
+  - **P0 Rate Limiting**: Dedicated limiter module created (`src/core/rate_limit.py`). Endpoint-specific limits: start 5/h, approve 10/h, list/get 60/min, update 20/min, delete 5/h, pdf 20/min.
+  - **P1 n8n Webhook Hardening**: Implemented HMAC-SHA256 request signing with timestamp. Added SSRF prevention via `N8N_ALLOWED_WEBHOOK_HOSTS` allowlist. Idempotency keys added to payloads. Request body compact-serialized for exact signature matching.
+  - **P1 Pricing Tool Bounds**: Added quantity validation (`_MIN_QTY=0.01`, `_MAX_QTY=10,000`) to prevent pricing injection. Grand total sanity check (<€100 for multi-item quotes) logs hallucination signals.
+  - **P2 PDF On-Demand**: New endpoint `GET /{project_id}/pdf` generates 15-min signed URLs dynamically. Soft-delete pattern implemented (status="deleted" + deleted_at) preserving audit trail.
+  - **Infrastructure**: Added env vars `N8N_WEBHOOK_HMAC_SECRET` and `N8N_ALLOWED_WEBHOOK_HOSTS` to `src/core/config.py`.
+  - **Files Modified**: `src/api/routes/quote_routes.py` (complete rewrite), `src/tools/n8n_mcp_tools.py` (complete rewrite), `src/tools/quote_tools.py` (qty validation), `src/core/config.py`, `src/core/rate_limit.py` (new), `main.py`.
+
 - **Governance**: Standardized on official `gemini-cli` patterns and implemented the **Multi-Agent Collaboration Protocol (v1.0)** in `directives/MULTI_AGENT_PROTOCOL.md` for parallel Antigravity, Gemini-CLI, and Claude Code orchestration.
 
 ---
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v3.6.10
-**Last Updated:** 2026-02-28T00:45:00Z
-**Project Phase:** Phase 42 - Frontend Polish & Accessibility [COMPLETE]
+**Current Version:** v3.6.11
+**Last Updated:** 2026-03-01T14:30:00Z
+**Project Phase:** Phase 43 - Quote System Security Hardening [COMPLETE]
 
 ---
 
-## 🚀 ACTIVE PRIORITIES (Phase 42)
+## 🚀 ACTIVE PRIORITIES (Phase 43)
 
-1.  **Accessibility & UX Polish (Success):** Resolved focus restoration warnings and fixed malformed SVG.
-2.  **Infrastructure Hybrid Sync (Success):** Modernized Firestore persistence and hardened CSP/COOP policies.
-3.  **Enterprise UI Clean-up (Success):** Finalized form primitive migration.
+1.  **Quote System Security Hardening (Complete):** All 7 vulnerabilities (P0–P3) patched. Authentication, rate limiting, HMAC signing, qty bounds, soft-delete, and PDF on-demand signed URLs implemented.
+2.  **Next: Biometric Auth Expansion**: Extend WebAuthn passkey enrollment to additional devices and recovery flows.
+3.  **Backlog: Dynamic Robot Mascot**: Context-aware mascot animations based on conversation phase and project type.
+4.  **Backlog: Vertex AI Agent Playbooks**: Plan D implementation (Agent Builder native, session persistence, HITL via ADK).
+
+## 📚 DOCUMENTATION HUB (Master Documents)
+*For deep-dives into specific architectural domains, consult:*
+- `docs/MASTER_AI_LOGIC.md`
+- `docs/MASTER_FRONTEND_MOBILE.md`
+- `docs/MASTER_SECURITY_QUALITY.md`
+- `docs/MASTER_PRODUCT_JOURNEY.md`
 
 _Documento aggiornato: Febbraio 28, 2026_

@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     N8N_WEBHOOK_NOTIFY_ADMIN: str | None = Field(None, description="n8n webhook URL to notify admin of new quote draft")
     N8N_WEBHOOK_DELIVER_QUOTE: str | None = Field(None, description="n8n webhook URL to deliver approved quote to client")
     N8N_API_KEY: str | None = Field(None, description="Optional API key for n8n webhook authentication")
+    # Shared HMAC-SHA256 secret for webhook request signing (prevents replay attacks).
+    # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+    N8N_WEBHOOK_HMAC_SECRET: str | None = Field(None, description="Shared HMAC-SHA256 secret for n8n webhook signature verification")
+    # Comma-separated allowlist of valid n8n hostnames (SSRF prevention).
+    # Example: "n8n.sydbioedilizia.com,n8n-staging.sydbioedilizia.com"
+    N8N_ALLOWED_WEBHOOK_HOSTS: str | None = Field(None, description="Comma-separated allowlist of n8n webhook hostnames (SSRF guard)")
     ADMIN_DASHBOARD_URL: str = Field(default="http://localhost:8501", description="Base URL of the Streamlit admin console")
     
     model_config = SettingsConfigDict(
