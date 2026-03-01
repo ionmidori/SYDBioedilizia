@@ -15,8 +15,20 @@ class PricingEngineArgs(BaseModel):
 
 async def _pricing_engine_handler(args: PricingEngineArgs) -> Dict[str, Any]:
     from src.services.pricing_service import PricingService
-    # Implementation routes to the central Tier 3 service
-    return {"status": "success", "result": f"Calculated pricing for {args.sku} x {args.qty}"}
+    item = PricingService.get_item_by_sku(args.sku)
+    if not item:
+        return {"status": "error", "message": f"SKU '{args.sku}' not found in price book."}
+    unit_price: float = item.get("unit_price", 0.0)
+    total = round(unit_price * args.qty, 2)
+    return {
+        "status": "success",
+        "sku": args.sku,
+        "description": item.get("description", ""),
+        "unit": item.get("unit", ""),
+        "unit_price": unit_price,
+        "qty": args.qty,
+        "total": total,
+    }
 
 pricing_engine_tool = FunctionTool(
     name="pricing_engine_tool",
@@ -72,7 +84,8 @@ class StringArg(BaseModel):
     query: str
 
 async def _market_prices_handler(args: StringArg) -> str:
-    return "Market prices are stable."
+    from src.tools.market_prices import get_market_prices_wrapper
+    return await get_market_prices_wrapper(args.query)
 
 market_prices = FunctionTool(
     name="get_market_prices",
@@ -82,7 +95,16 @@ market_prices = FunctionTool(
 )
 
 async def _analyze_room_handler(args: StringArg) -> str:
-    return "Room analysis complete."
+    """Analyzes a room description using the insight engine."""
+    from src.services.insight_engine import InsightEngine
+    try:
+        engine = InsightEngine()
+        result = await engine.analyze_project_for_quote(
+            chat_history=[{"role": "user", "content": args.query}]
+        )
+        return result.model_dump_json()
+    except Exception as e:
+        return f"Room analysis failed: {e}"
 
 analyze_room = FunctionTool(
     name="analyze_room",
@@ -98,8 +120,17 @@ class RenderArgs(BaseModel):
     style: str = Field(default="photorealistic", description="Style of the render.")
 
 async def _generate_render_handler(args: RenderArgs) -> str:
-    # Routes to Tier 3 tools/generate_render.py logic
-    return f"Render generated for prompt: {args.prompt} in style: {args.style}"
+    from src.tools.generate_render import generate_render_wrapper
+    try:
+        result = await generate_render_wrapper(
+            prompt=args.prompt,
+            room_type="unknown",
+            style=args.style,
+            mode="text_to_image",
+        )
+        return result
+    except Exception as e:
+        return f"Render generation failed: {e}"
 
 generate_render = FunctionTool(
     name="generate_render",
@@ -109,7 +140,8 @@ generate_render = FunctionTool(
 )
 
 async def _show_project_gallery_handler(args: StringArg) -> str:
-    return "Gallery fetched."
+    from src.tools.gallery import show_project_gallery
+    return show_project_gallery(session_id=args.query)
 
 show_project_gallery = FunctionTool(
     name="show_project_gallery",
@@ -119,7 +151,8 @@ show_project_gallery = FunctionTool(
 )
 
 async def _list_project_files_handler(args: StringArg) -> str:
-    return "CAD files listed."
+    from src.tools.project_files import list_project_files
+    return list_project_files.func(args.query)
 
 list_project_files = FunctionTool(
     name="list_project_files",
@@ -129,7 +162,8 @@ list_project_files = FunctionTool(
 )
 
 async def _suggest_quote_items_handler(args: StringArg) -> str:
-    return "Suggested: Drywall, Painting, Flooring."
+    from src.tools.quote_tools import suggest_quote_items_wrapper
+    return await suggest_quote_items_wrapper(session_id=args.query)
 
 suggest_quote_items = FunctionTool(
     name="suggest_quote_items",
