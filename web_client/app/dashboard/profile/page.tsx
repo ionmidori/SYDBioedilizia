@@ -44,7 +44,7 @@ export default function ProfilePage() {
                 setSuccessMessage("Foto profilo aggiornata!");
                 setTimeout(() => setSuccessMessage(null), 3000);
             } else {
-                setErrorMessage(result.error || "Errore durante l'upload.");
+                setErrorMessage(result.message || "Errore durante l'upload.");
             }
         } catch (error) {
             setErrorMessage("Errore di connessione.");
