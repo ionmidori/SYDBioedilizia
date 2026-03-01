@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Loader2, Camera, Trash2 } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Camera, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import { SydLoader } from '@/components/ui/SydLoader';
 
 export interface UploadedFile {
     file: File;
@@ -245,7 +246,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
     const getStatusIcon = (status: UploadedFile['status']) => {
         switch (status) {
             case 'uploading':
-                return <Loader2 className="w-5 h-5 text-luxury-gold animate-spin" />;
+                return <SydLoader size="sm" />;
             case 'success':
                 return <CheckCircle2 className="w-5 h-5 text-green-500" />;
             case 'error':

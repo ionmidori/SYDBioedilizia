@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { Upload, X, FileText, Image, Video, CheckCircle2, AlertCircle, Loader2, FolderKanban } from 'lucide-react';
+import { Upload, X, FileText, Image, Video, CheckCircle2, AlertCircle, FolderKanban } from 'lucide-react';
 import { validateFileForUpload } from '@/lib/validation/file-upload-schema';
 import { validateVideo } from '@/lib/media-utils';
 import { cn } from '@/lib/utils';
 import { useFileUpload, UploadProgress } from '@/hooks/useFileUpload';
 import { motion, AnimatePresence } from 'framer-motion';
+import { SydLoader } from '@/components/ui/SydLoader';
 
 export interface UploadedFile {
     file: File;
@@ -246,7 +247,7 @@ export function GlobalFileUploader({ projects, onUploadComplete, maxFiles = 10 }
             >
                 {files.some(f => f.status === 'uploading') ? (
                     <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
+                        <SydLoader size="sm" />
                         Caricamento in corso...
                     </>
                 ) : (

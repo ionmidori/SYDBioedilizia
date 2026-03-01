@@ -153,10 +153,7 @@ export function GlobalGalleryContent() {
     if (loading || projectsLoading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-700">
-                <div className="relative">
-                    <div className="w-16 h-16 border-4 border-luxury-gold/20 border-t-luxury-gold rounded-full animate-spin shadow-lg shadow-luxury-gold/10" />
-                    <div className="absolute inset-0 bg-luxury-gold/5 blur-xl rounded-full" />
-                </div>
+                <SydLoader size="xl" />
                 <p className="mt-8 text-luxury-gold font-bold tracking-[0.2em] uppercase text-xs animate-pulse">
                     Caricamento Galleria Globale...
                 </p>

@@ -115,22 +115,24 @@ export function DeleteProjectDialog({
                         disabled={isDeleting}
                         className="text-slate-400 hover:text-white hover:bg-slate-800"
                     >
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={!isValid || isDeleting}
-                            className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isDeleting ? (
-                                <>
-                                    <SydLoader size="sm" className="mr-2" />
-                                    Eliminazione...
-                                </>
-                            ) : (
-                                'Elimina Definitivamente'
-                            )}
-                        </Button>
+                        Annulla
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={handleDelete}
+                        disabled={!isValid || isDeleting}
+                        className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        {isDeleting ? (
+                            <>
+                                <SydLoader size="sm" />
+                                Eliminazione...
+                            </>
+                        ) : (
+                            'Elimina Definitivamente'
+                        )}
+                    </Button>
                 </div>
             </motion.div>
         </ResponsiveDrawer>

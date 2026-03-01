@@ -9,7 +9,8 @@ import {
 } from "@/app/actions/project-details";
 import { projectDetailsSchema, type ProjectDetailsFormData } from "@/lib/validation/project-details-schema";
 import type { ProjectDetails, PropertyType } from "@/types/projects";
-import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle } from "lucide-react";
+import { SydLoader } from "@/components/ui/SydLoader";
 
 interface ConstructionDetailsFormProps {
     sessionId: string;
@@ -330,7 +331,7 @@ export default function ConstructionDetailsForm({
                     >
                         {isPending ? (
                             <>
-                                <Loader2 className="animate-spin h-5 w-5" />
+                                <SydLoader size="sm" />
                                 Archiviazione...
                             </>
                         ) : (

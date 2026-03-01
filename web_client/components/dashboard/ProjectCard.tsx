@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ProjectListItem, ProjectStatus } from '@/types/projects';
 import { useRouter } from 'next/navigation';
-import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2, Loader2 } from 'lucide-react';
+import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
@@ -11,6 +11,7 @@ import { RenameProjectDialog } from './RenameProjectDialog';
 import { useDeleteProject } from '@/hooks/use-delete-project';
 import { ComparisonThumbnail } from './ComparisonThumbnail';
 import { motion } from 'framer-motion';
+import { SydLoader } from '@/components/ui/SydLoader';
 
 interface ProjectCardProps {
     project: ProjectListItem;
@@ -111,7 +112,7 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
                     title="Elimina progetto"
                 >
                     {deleteProjectMutation.isPending ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <SydLoader size="sm" />
                     ) : (
                         <Trash2 className="w-3.5 h-3.5" />
                     )}
