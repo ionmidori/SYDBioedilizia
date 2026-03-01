@@ -48,7 +48,6 @@ class AgentOrchestrator(BaseOrchestrator):
         # 🛡️ Prevent GC of fire-and-forget tasks
         self._background_tasks = set()
 
-    @trace_span(name="stream_chat", log_args=False)
     async def stream_chat(
         self,
         request: Any, # Typed as ChatRequest in usage

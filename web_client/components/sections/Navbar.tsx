@@ -298,10 +298,10 @@ export function Navbar() {
                             </SheetTrigger>
                             <SheetContent
                                 side="right"
-                                className="w-[80vw] max-w-[320px] min-w-[240px] bg-luxury-bg/95 backdrop-blur-xl border-l border-luxury-gold/10 p-5 flex flex-col sm:max-w-none"
+                                className="w-[45vw] sm:w-[33vw] min-w-[180px] max-w-[260px] bg-luxury-bg/95 backdrop-blur-xl border-l border-luxury-gold/10 p-4 flex flex-col"
                             >
-                                <SheetHeader className="mb-8 text-left space-y-0">
-                                    <SheetTitle className="text-[10px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
+                                <SheetHeader className="mb-6 text-left space-y-0">
+                                    <SheetTitle className="text-[9px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
                                         Menu
                                     </SheetTitle>
                                     <SheetDescription className="sr-only">
@@ -320,9 +320,9 @@ export function Navbar() {
                                     <motion.div variants={mobileMenuItem}>
                                         <button
                                             onClick={handlePersonalAreaClick}
-                                            className="flex items-center justify-center px-4 py-3 rounded-xl glass-premium border-luxury-gold/20 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/20 hover:shadow-elevation-high hover:shadow-luxury-gold/40 hover:bg-luxury-gold/10"
+                                            className="flex items-center justify-center px-3 py-2.5 rounded-xl glass-premium border-luxury-gold/20 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/20 hover:shadow-elevation-high hover:shadow-luxury-gold/40 hover:bg-luxury-gold/10"
                                         >
-                                            <span className="font-bold uppercase tracking-[0.2em] text-[10px]">Area Personale</span>
+                                            <span className="font-bold uppercase tracking-[0.15em] text-[9px]">Area Personale</span>
                                         </button>
                                     </motion.div>
 
@@ -333,13 +333,13 @@ export function Navbar() {
                                         >
                                             <Link
                                                 href={link.href}
-                                                className="flex items-center justify-center px-4 py-3 rounded-xl glass-premium border-luxury-gold/20 text-luxury-text hover:text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/10 hover:shadow-elevation-high hover:shadow-luxury-gold/30 hover:bg-luxury-gold/5"
+                                                className="flex items-center justify-center px-3 py-2.5 rounded-xl glass-premium border-luxury-gold/20 text-luxury-text hover:text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/10 hover:shadow-elevation-high hover:shadow-luxury-gold/30 hover:bg-luxury-gold/5"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
                                                 }}
                                             >
-                                                <span className="font-bold uppercase tracking-[0.2em] text-[10px]">{link.name}</span>
+                                                <span className="font-bold uppercase tracking-[0.15em] text-[9px]">{link.name}</span>
                                             </Link>
                                         </motion.div>
                                     ))}
@@ -351,7 +351,7 @@ export function Navbar() {
                                     transition={{ delay: 0.4, ...M3Spring.gentle }}
                                     className="mt-auto pt-6 flex justify-center w-full"
                                 >
-                                    <div className="w-full scale-90 origin-bottom">
+                                    <div className="w-full scale-[0.8] origin-bottom">
                                         <SignInButton
                                             onLoginClick={() => {
                                                 triggerHaptic();

@@ -23,18 +23,28 @@ export function useTypingIndicator(isLoading: boolean) {
 
         const typingMessages = [
             "Consultando l'architetto interiore...",
-            "Spostando pixel pesanti...",
+            "Spostando mobili immaginari...",
+            "Litigando con l'idraulico virtuale...",
+            "Calcolando lo spessore dell'intonaco quantistico...",
+            "Versando il cemento nel metaverso...",
             "Riscaldando i neuroni...",
-            "Contando fino a infinito (due volte)...",
+            "Contando i mattoni, uno per uno...",
             "Disegnando planimetrie mentali...",
-            "Allineando i chakra digitali...",
-            "Cercando l'ispirazione tra le nuvole...",
-            "Evocando lo spirito del design...",
-            "Mettendo in ordine i bit disordinati...",
-            "Generando magia...",
+            "Cercando la chiave a brugola perduta nel server...",
+            "Dipingendo i pixel di fresco...",
+            "Montando impalcature nel cloud...",
+            "Abbattendo pareti di codice...",
+            "Aspettando che il parquet si asciughi...",
+            "Livellando l'architettura del database...",
+            "Mettendo in bolla l'interfaccia utente...",
+            "Spazzando via i calcinacci dai log...",
+            "Lucidando i rendering 3D con olio di gomito...",
+            "Stuccando le crepe di sistema...",
+            "Facendo amicizia con l'elettricista...",
+            "Allineando i chakra digitali del cantiere...",
+            "Generando planimetrie e magia...",
             "Un attimo, sto pensando forte...",
-            "Consultando le stelle...",
-            "Lucidando i rendering..."
+            "Consultando le stelle e il catasto..."
         ];
 
         // Pick random start - wrap in timeout to avoid sync setState warning

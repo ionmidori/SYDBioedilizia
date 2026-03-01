@@ -90,7 +90,6 @@ const nextConfig: NextConfig = {
       beforeFiles: [
         // These rewrites are checked before headers/redirects
         // and before all files including _next/public files which
-        // allows required files to be overridden
         {
           source: '/api/py/:path*',
           destination: process.env.NODE_ENV === 'development'

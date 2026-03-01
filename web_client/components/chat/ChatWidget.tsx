@@ -380,7 +380,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         <>
             {/* Toggle Button - Hide if inline */}
             {!isInline && (
-                <div className="fixed bottom-4 right-2 md:bottom-8 md:right-6 z-50 flex items-center gap-4">
+                <div className="fixed bottom-2 right-0 md:bottom-4 md:right-2 z-50 flex items-center gap-4">
                     <ChatToggleButton
                         isOpen={isOpen}
                         onClick={() => setIsOpen(!isOpen)}

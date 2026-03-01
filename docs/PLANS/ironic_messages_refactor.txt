@@ -15,9 +15,9 @@ Replace generic "Thinking..." messages with engaging, ironic, and thematic messa
    - Make it purely presentational (visualizes props.message).
 
 ## EXECUTION STEPS
-- [ ] Modify useTypingIndicator.ts with new message array.
-- [ ] Clean up ThinkingIndicator.tsx (remove complexity).
-- [ ] Verify TypeScript compilation.
+- [x] Modify useTypingIndicator.ts with new message array.
+- [x] Clean up ThinkingIndicator.tsx (remove complexity).
+- [x] Verify TypeScript compilation.
 
 ## ROLLBACK PLAN
 - Revert changes to both files using git checkout.

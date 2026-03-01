@@ -35,7 +35,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
         return "bg-red-500";
     };
 
-    const displayMessage = statusMessage || message || "Thinking...";
+    const displayMessage = statusMessage || message || "Elaborazione in corso...";
 
     return (
         <div className="flex flex-col gap-2 min-w-[200px] max-w-full">

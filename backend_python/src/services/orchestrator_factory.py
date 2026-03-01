@@ -68,7 +68,7 @@ class CanaryOrchestratorProxy(BaseOrchestrator):
         # "Drenare sessioni HITL LangGraph in-flight":
         # Check if session exists. If so, default to LangGraph to safely finish it.
         try:
-            messages = await self.repo.get_messages(session_id, limit=1)
+            messages = await self.repo.get_context(session_id, limit=1)
             if messages:
                 logger.debug(f"[Canary] Session {session_id} exists. Draining via LangGraph.")
                 return self.langgraph_orchest
