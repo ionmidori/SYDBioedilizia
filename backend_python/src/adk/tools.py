@@ -1,64 +1,78 @@
 """
 ADK Tools Registration.
-Defines strict Pydantic schemas for Vertex Agent Engine tools to prevent prompt injection.
+Defines typed async functions for Vertex Agent Engine tools.
+
+ADK 1.26 convention: pass the function directly to FunctionTool(func).
+Name comes from the function name; description from the docstring.
+Type hints on parameters define the input schema.
+Pydantic validation is enforced via the function's argument types.
 """
 from typing import Dict, Any
-from pydantic import BaseModel, ConfigDict, Field
 from google.adk.tools import FunctionTool
 
-# Example of a secure tool input schema (P1 Requirement: No unit_price)
-class PricingEngineArgs(BaseModel):
-    model_config = ConfigDict(strict=True)
 
-    sku: str = Field(..., description="The stock keeping unit identifier (e.g., 'TCHR_001').")
-    qty: float = Field(..., description="Quantity required.", gt=0, le=10000)
+# ─── Pricing Engine ──────────────────────────────────────────────────────────
 
-async def _pricing_engine_handler(args: PricingEngineArgs) -> Dict[str, Any]:
+async def pricing_engine_tool(sku: str, qty: float) -> Dict[str, Any]:
+    """Calculates project line-item price from the master price book.
+
+    Looks up a SKU and returns unit price, description, and total cost.
+    Does NOT accept unit_price input to prevent prompt injection.
+    qty must be between 0.01 and 10000.
+
+    Args:
+        sku: The stock keeping unit identifier (e.g. 'TCHR_001').
+        qty: Quantity required (0.01 – 10000).
+    """
+    if not (0.01 <= qty <= 10_000):
+        return {"status": "error", "message": f"qty={qty} out of valid range [0.01, 10000]."}
     from src.services.pricing_service import PricingService
-    item = PricingService.get_item_by_sku(args.sku)
+    item = PricingService.get_item_by_sku(sku)
     if not item:
-        return {"status": "error", "message": f"SKU '{args.sku}' not found in price book."}
+        return {"status": "error", "message": f"SKU '{sku}' not found in price book."}
     unit_price: float = item.get("unit_price", 0.0)
-    total = round(unit_price * args.qty, 2)
     return {
         "status": "success",
-        "sku": args.sku,
+        "sku": sku,
         "description": item.get("description", ""),
         "unit": item.get("unit", ""),
         "unit_price": unit_price,
-        "qty": args.qty,
-        "total": total,
+        "qty": qty,
+        "total": round(unit_price * qty, 2),
     }
 
-pricing_engine_tool = FunctionTool(
-    name="pricing_engine_tool",
-    description="Calculates project line-item prices securely. Admins only.",
-    func=_pricing_engine_handler,
-    input_type=PricingEngineArgs,
-)
 
-class QuoteApprovalArgs(BaseModel):
-    quote_id: str
-    project_id: str
-    grand_total: float
+# ─── Quote Approval (HITL) ───────────────────────────────────────────────────
 
-async def _request_quote_approval_handler(args: QuoteApprovalArgs, tool_context) -> Dict[str, Any]:
-    """Pausa esecuzione per approvazione admin (HITL) via ADK ToolContext confirmation."""
+async def request_quote_approval(
+    quote_id: str,
+    project_id: str,
+    grand_total: float,
+    tool_context,
+) -> Dict[str, Any]:
+    """Pauses execution and sends the quote to the administrator for approval.
+
+    Generates a secure nonce and calls request_confirmation() so the admin
+    dashboard can resume the session after review.
+
+    Args:
+        quote_id: Unique quote identifier.
+        project_id: Project this quote belongs to.
+        grand_total: Total euro amount for admin display.
+        tool_context: ADK ToolContext injected automatically by the runner.
+    """
     import secrets
     from src.adk.hitl import save_resumption_token
 
-    # Check if we're resuming after confirmation
-    tool_confirmation = tool_context.tool_confirmation
+    tool_confirmation = getattr(tool_context, "tool_confirmation", None)
     if not tool_confirmation:
-        # First call: generate nonce, save token, request confirmation
         nonce = secrets.token_urlsafe(32)
-        await save_resumption_token(args.project_id, nonce)
-
+        await save_resumption_token(project_id, nonce)
         tool_context.request_confirmation(
             hint="Preventivo pronto per revisione admin. Approvare o rifiutare.",
             payload={
-                "quote_id": args.quote_id,
-                "total": args.grand_total,
+                "quote_id": quote_id,
+                "total": grand_total,
                 "nonce": nonce,
                 "decision": "",
                 "notes": "",
@@ -66,122 +80,118 @@ async def _request_quote_approval_handler(args: QuoteApprovalArgs, tool_context)
         )
         return {"status": "pending_approval", "message": "Awaiting admin confirmation."}
 
-    # Resumed after admin confirmation
     decision = tool_confirmation.payload.get("decision", "reject")
     if decision == "approve":
         return {"status": "approved", "notes": tool_confirmation.payload.get("notes", "")}
     return {"status": "rejected", "reason": tool_confirmation.payload.get("reason", "")}
 
-request_quote_approval = FunctionTool(
-    name="request_quote_approval",
-    description="Pauses execution and sends the generated quote to the administrator for review.",
-    func=_request_quote_approval_handler,
-    input_type=QuoteApprovalArgs,
-)
 
-# Placeholder stubs for the other required phase 1 tools
-class StringArg(BaseModel):
-    query: str
+# ─── Market Prices ───────────────────────────────────────────────────────────
 
-async def _market_prices_handler(args: StringArg) -> str:
+async def get_market_prices(query: str) -> str:
+    """Fetches live market prices for renovation materials and services.
+
+    Uses the Perplexity Sonar API to retrieve real-time pricing data.
+
+    Args:
+        query: Search query (e.g. 'average cost per m2 bathroom tiles Italy').
+    """
     from src.tools.market_prices import get_market_prices_wrapper
-    return await get_market_prices_wrapper(args.query)
+    return await get_market_prices_wrapper(query)
 
-market_prices = FunctionTool(
-    name="get_market_prices",
-    description="Fetch live market material pricing.",
-    func=_market_prices_handler,
-    input_type=StringArg,
-)
 
-async def _analyze_room_handler(args: StringArg) -> str:
-    """Analyzes a room description using the insight engine."""
+# ─── Room Analysis ───────────────────────────────────────────────────────────
+
+async def analyze_room(description: str) -> str:
+    """Analyzes a room description to identify renovation scope and SKU suggestions.
+
+    Runs the InsightEngine to extract room type, size, and likely quote items.
+
+    Args:
+        description: Natural language description of the room or user request.
+    """
     from src.services.insight_engine import InsightEngine
     try:
         engine = InsightEngine()
         result = await engine.analyze_project_for_quote(
-            chat_history=[{"role": "user", "content": args.query}]
+            chat_history=[{"role": "user", "content": description}]
         )
         return result.model_dump_json()
     except Exception as e:
         return f"Room analysis failed: {e}"
 
-analyze_room = FunctionTool(
-    name="analyze_room",
-    description="Analyzes a room description or state.",
-    func=_analyze_room_handler,
-    input_type=StringArg,
-)
 
-# Remaining Phase 2 Tools Registration
+# ─── Render Generation ───────────────────────────────────────────────────────
 
-class RenderArgs(BaseModel):
-    prompt: str = Field(..., description="Description of the scene to render.")
-    style: str = Field(default="photorealistic", description="Style of the render.")
+async def generate_render(prompt: str, style: str = "photorealistic") -> str:
+    """Generates a photorealistic 3D render of a room using Gemini + Imagen 3.
 
-async def _generate_render_handler(args: RenderArgs) -> str:
+    Args:
+        prompt: Detailed description of the interior design to render.
+        style: Design style (e.g. 'modern', 'industrial', 'photorealistic').
+    """
     from src.tools.generate_render import generate_render_wrapper
     try:
-        result = await generate_render_wrapper(
-            prompt=args.prompt,
+        return await generate_render_wrapper(
+            prompt=prompt,
             room_type="unknown",
-            style=args.style,
+            style=style,
             mode="text_to_image",
         )
-        return result
     except Exception as e:
         return f"Render generation failed: {e}"
 
-generate_render = FunctionTool(
-    name="generate_render",
-    description="Generates a photorealistic 3D render of a room.",
-    func=_generate_render_handler,
-    input_type=RenderArgs,
-)
 
-async def _show_project_gallery_handler(args: StringArg) -> str:
-    from src.tools.gallery import show_project_gallery
-    return show_project_gallery(session_id=args.query)
+# ─── Project Gallery ─────────────────────────────────────────────────────────
 
-show_project_gallery = FunctionTool(
-    name="show_project_gallery",
-    description="Displays past projects similar to the requested style.",
-    func=_show_project_gallery_handler,
-    input_type=StringArg,
-)
+async def show_project_gallery(session_id: str) -> str:
+    """Displays the project gallery (past renders and uploaded photos).
 
-async def _list_project_files_handler(args: StringArg) -> str:
-    from src.tools.project_files import list_project_files
-    return list_project_files.func(args.query)
+    Args:
+        session_id: The project/session identifier to load gallery for.
+    """
+    from src.tools.gallery import show_project_gallery as _gallery
+    return _gallery(session_id=session_id)
 
-list_project_files = FunctionTool(
-    name="list_project_files",
-    description="Lists DXF/CAD files attached to the project.",
-    func=_list_project_files_handler,
-    input_type=StringArg,
-)
 
-async def _suggest_quote_items_handler(args: StringArg) -> str:
+# ─── Project Files ───────────────────────────────────────────────────────────
+
+async def list_project_files(session_id: str) -> str:
+    """Lists DXF/CAD files and images attached to a project in Firebase Storage.
+
+    Args:
+        session_id: The project identifier.
+    """
+    from src.tools.project_files import list_project_files as _lp
+    return _lp.func(session_id)
+
+
+# ─── Quote Item Suggestions ──────────────────────────────────────────────────
+
+async def suggest_quote_items(session_id: str) -> str:
+    """Suggests renovation line items for a quote based on conversation history.
+
+    Analyzes the chat and proposes relevant SKUs (e.g. drywall, flooring, painting).
+
+    Args:
+        session_id: The project/session identifier.
+    """
     from src.tools.quote_tools import suggest_quote_items_wrapper
-    return await suggest_quote_items_wrapper(session_id=args.query)
+    return await suggest_quote_items_wrapper(session_id=session_id)
 
-suggest_quote_items = FunctionTool(
-    name="suggest_quote_items",
-    description="Suggests line items for a quote based on a description.",
-    func=_suggest_quote_items_handler,
-    input_type=StringArg,
-)
 
-# MCPTool implementation for n8n Webhook Triggers
-class N8nTriggerArgs(BaseModel):
-    workflow_id: str = Field(..., description="The n8n workflow ID to trigger.")
-    payload: Dict[str, Any] = Field(..., description="The JSON payload to send.")
+# ─── n8n Webhook ─────────────────────────────────────────────────────────────
 
-async def _trigger_n8n_webhook_handler(args: N8nTriggerArgs) -> Dict[str, Any]:
+async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Triggers an n8n automation workflow via signed HMAC webhook.
+
+    Args:
+        workflow_id: The n8n workflow ID to trigger.
+        payload: JSON payload to send to the workflow.
     """
-    Triggers an n8n webhook using the native MCP approach.
-    Replaces rudimentary POST calls with managed MCP integrations.
-    """
+    import hmac
+    import hashlib
+    import json
     import httpx
     from src.core.config import settings
 
@@ -190,34 +200,34 @@ async def _trigger_n8n_webhook_handler(args: N8nTriggerArgs) -> Dict[str, Any]:
         return {"status": "error", "message": "N8N_WEBHOOK_NOTIFY_ADMIN is not configured."}
 
     try:
-        import hmac
-        import hashlib
-        import json
-
         secret = settings.N8N_WEBHOOK_HMAC_SECRET or ""
-        payload_bytes = json.dumps(args.payload, separators=(',', ':')).encode('utf-8')
+        payload_bytes = json.dumps(payload, separators=(',', ':')).encode('utf-8')
         signature = hmac.new(secret.encode('utf-8'), payload_bytes, hashlib.sha256).hexdigest()
-
         headers = {
             "x-hub-signature-256": f"sha256={signature}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{webhook_url}/{args.workflow_id}",
-                json=args.payload,
+                f"{webhook_url}/{workflow_id}",
+                json=payload,
                 headers=headers,
-                timeout=10.0
+                timeout=10.0,
             )
             response.raise_for_status()
             return {"status": "success", "result": "Triggered n8n workflow successfully."}
     except Exception as e:
         return {"status": "error", "message": f"Failed to trigger n8n: {e}"}
 
-trigger_n8n_webhook = FunctionTool(
-    name="trigger_n8n_webhook",
-    description="Triggers an external automation workflow via n8n MCP.",
-    func=_trigger_n8n_webhook_handler,
-    input_type=N8nTriggerArgs,
-)
+
+# ─── FunctionTool wrappers (ADK 1.26: pass func directly) ────────────────────
+
+pricing_engine_tool_adk = FunctionTool(pricing_engine_tool)
+request_quote_approval_adk = FunctionTool(request_quote_approval)
+market_prices_adk = FunctionTool(get_market_prices)
+analyze_room_adk = FunctionTool(analyze_room)
+generate_render_adk = FunctionTool(generate_render)
+show_project_gallery_adk = FunctionTool(show_project_gallery)
+list_project_files_adk = FunctionTool(list_project_files)
+suggest_quote_items_adk = FunctionTool(suggest_quote_items)
+trigger_n8n_webhook_adk = FunctionTool(trigger_n8n_webhook)

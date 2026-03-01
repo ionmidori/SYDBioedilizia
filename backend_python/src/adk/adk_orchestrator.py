@@ -6,7 +6,7 @@ import json
 import logging
 from typing import AsyncIterator, Any
 from google.adk.runners import Runner
-from google.adk import types
+from google.genai import types
 
 from src.services.base_orchestrator import BaseOrchestrator
 from src.adk.agents import syd_orchestrator
@@ -36,6 +36,7 @@ class ADKOrchestrator(BaseOrchestrator):
         )
 
         self.runner = Runner(
+            app_name="syd_orchestrator",
             agent=syd_orchestrator,
             session_service=get_session_service(),
         )

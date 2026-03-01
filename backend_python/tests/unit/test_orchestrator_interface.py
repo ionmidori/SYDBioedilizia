@@ -132,10 +132,12 @@ def test_factory_falls_back_to_langgraph_for_unknown_mode(mock_repo):
 # ─── 5. Config ────────────────────────────────────────────────────────────────
 
 def test_orchestrator_mode_default_is_langgraph():
-    """Settings default for ORCHESTRATOR_MODE must be 'langgraph'."""
+    """Settings field default for ORCHESTRATOR_MODE must be 'langgraph' (ignoring .env)."""
     from src.core.config import Settings
 
+    # Use _env_file=None to bypass .env so we test the field default, not the active config.
     fresh = Settings(
+        _env_file=None,
         GOOGLE_CLOUD_PROJECT="test-project",
         GEMINI_API_KEY="test-key",
     )
