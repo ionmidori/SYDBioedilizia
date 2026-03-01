@@ -85,8 +85,10 @@ export default function DashboardPage() {
                     {greeting}, <br className="md:hidden" />
                     <span className="text-luxury-gold italic">{userName}</span>
                 </h1>
-                <p className="text-luxury-text/40 font-sans text-xs md:text-sm">
-                    La tua bacheca operativa
+                <p className="text-luxury-text/50 font-sans text-xs md:text-sm max-w-2xl leading-relaxed">
+                    Benvenuto nella tua centrale di controllo SYD. Da qui puoi monitorare lo stato dei tuoi cantieri,
+                    caricare nuovi documenti tecnici, generare render fotorealistici con l'IA e accedere
+                    rapidamente ai tuoi progetti recenti dal carosello in basso.
                 </p>
             </motion.header>
 

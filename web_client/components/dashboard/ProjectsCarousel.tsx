@@ -129,11 +129,13 @@ function ProjectCard({ project, index }: { project: ProjectListItem, index: numb
     );
 }
 
+import { Skeleton } from '@/components/ui/skeleton';
+
 function LoadingSkeleton() {
     return (
         <div className="flex gap-4 overflow-hidden py-2">
             {[1, 2, 3].map((i) => (
-                <div key={i} className="shrink-0 w-[260px] h-[240px] rounded-[24px] bg-luxury-text/5 animate-pulse" />
+                <Skeleton key={i} className="shrink-0 w-[260px] h-[240px] rounded-[24px]" />
             ))}
         </div>
     );

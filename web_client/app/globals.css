@@ -104,8 +104,10 @@
   }
 
   /* Mobile Native Hardening */
-  html, body {
-    overscroll-behavior-y: none; /* Prevent bounce scroll on iOS */
+  html,
+  body {
+    overscroll-behavior-y: none;
+    /* Prevent bounce scroll on iOS */
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -113,7 +115,16 @@
   }
 
   /* Re-enable text selection for content */
-  p, h1, h2, h3, h4, h5, h6, span, input, textarea {
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  input,
+  textarea {
     -webkit-user-select: text;
     user-select: text;
   }
@@ -342,6 +353,8 @@
 .bento-grid {
   display: grid;
   gap: 0.75rem;
+  min-height: 100%;
+  align-content: space-between;
   grid-template-columns: 1fr;
   grid-template-areas:
     "hero"

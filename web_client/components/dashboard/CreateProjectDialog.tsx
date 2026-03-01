@@ -2,12 +2,13 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectValues } from '@/lib/validation/project-actions-schema';
 import { useRouter } from 'next/navigation';
 import { useCreateProject } from '@/hooks/use-create-project';
+import { SydLoader } from '@/components/ui/SydLoader';
 import {
     Dialog,
     DialogContent,
@@ -137,7 +138,7 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
                                 >
                                     <div className="relative z-10 flex items-center justify-center gap-2">
                                         {isPending ? (
-                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                            <SydLoader size="md" />
                                         ) : (
                                             <span className="font-bold text-sm tracking-widest transition-colors">
                                                 CREA

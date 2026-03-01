@@ -5,8 +5,9 @@ import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { SydLoader } from '@/components/ui/SydLoader';
 
 interface DeleteProjectDialogProps {
     open: boolean;
@@ -114,22 +115,22 @@ export function DeleteProjectDialog({
                         disabled={isDeleting}
                         className="text-slate-400 hover:text-white hover:bg-slate-800"
                     >
-                        Annulla
-                    </Button>
-                    <Button
-                        onClick={handleDelete}
-                        disabled={!isValid || isDeleting}
-                        className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isDeleting ? (
-                            <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Eliminazione...
-                            </>
-                        ) : (
-                            'Elimina Definitivamente'
-                        )}
-                    </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={!isValid || isDeleting}
+                            className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <SydLoader size="sm" className="mr-2" />
+                                    Eliminazione...
+                                </>
+                            ) : (
+                                'Elimina Definitivamente'
+                            )}
+                        </Button>
                 </div>
             </motion.div>
         </ResponsiveDrawer>

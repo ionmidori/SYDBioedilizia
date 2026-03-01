@@ -2,8 +2,9 @@
 
 import { useProject } from '@/hooks/use-project';
 import ConstructionDetailsForm from '@/components/dashboard/ConstructionDetailsForm';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { SydLoader } from '@/components/ui/SydLoader';
 
 interface ProjectSettingsViewProps {
     projectId: string;
@@ -22,7 +23,7 @@ export function ProjectSettingsView({ projectId }: ProjectSettingsViewProps) {
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-[50vh]">
-                <Loader2 className="w-10 h-10 text-luxury-gold animate-spin" />
+                <SydLoader size="lg" />
             </div>
         );
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { SydLoader } from '@/components/ui/SydLoader';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { renameProjectSchema, type RenameProjectValues } from '@/lib/validation/project-actions-schema';
@@ -115,7 +115,7 @@ export function RenameProjectDialog({
                                 disabled={isPending}
                                 className="bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold"
                             >
-                                {isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                {isPending && <SydLoader size="sm" className="mr-2" />}
                                 Salva
                             </Button>
                         </div>

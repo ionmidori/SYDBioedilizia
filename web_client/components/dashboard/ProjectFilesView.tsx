@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { AssetGallery } from '@/components/dashboard/AssetGallery';
 import { FileUploader } from '@/components/dashboard/FileUploader';
 import { extractMediaFromMessages, groupAssetsByType, MediaAsset } from '@/lib/media-utils';
-import { Loader2, FileImage, Upload, X, AlertCircle } from 'lucide-react';
+import { FileImage, Upload, X, AlertCircle } from 'lucide-react';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useAuth } from '@/hooks/useAuth';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils'; // Assuming cn utility exists
+import { SydLoader } from '@/components/ui/SydLoader';
 
 interface ProjectFilesViewProps {
     projectId: string;
@@ -118,7 +119,7 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
     if (!historyLoaded) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-700">
-                <Loader2 className="w-10 h-10 text-luxury-gold animate-spin" />
+                <SydLoader size="lg" />
             </div>
         );
     }

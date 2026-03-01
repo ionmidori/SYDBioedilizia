@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { GlobalFileUploader } from '@/components/dashboard/GlobalFileUploader';
 import { useProjects } from '@/hooks/use-projects';
 import { galleryApi } from '@/lib/gallery-api';
+import { SydLoader } from '@/components/ui/SydLoader';
 
 type GroupingMode = 'project' | 'type' | 'date';
 
@@ -397,7 +398,7 @@ export function GlobalGalleryContent() {
                             className="group flex items-center gap-3 px-8 py-4 bg-white/5 hover:bg-white/10 border border-luxury-gold/20 hover:border-luxury-gold/40 rounded-2xl transition-all duration-300 backdrop-blur-md"
                         >
                             {isLoadingMore ? (
-                                <Loader2 className="w-5 h-5 text-luxury-gold animate-spin" />
+                                <SydLoader size="md" />
                             ) : (
                                 <div className="p-1 rounded-full bg-luxury-gold/10 group-hover:bg-luxury-gold/20 transition-colors">
                                     <ChevronDown className="w-4 h-4 text-luxury-gold" />
