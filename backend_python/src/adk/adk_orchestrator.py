@@ -109,6 +109,12 @@ class ADKOrchestrator(BaseOrchestrator):
             yield f'3:{json.dumps(str(e))}\n'
 
     async def health_check(self) -> bool:
-        """Verifies if the Agent Builder backend is accessible."""
-        # Simple healthcheck placeholder
-        return True
+        """Verifies if the Vertex AI ADK backend is accessible by listing sessions."""
+        try:
+            session_service = get_session_service()
+            # Attempt a lightweight Firestore read to verify connectivity
+            await session_service.list_sessions(user_id="__healthcheck__", app_name="syd_orchestrator")
+            return True
+        except Exception as e:
+            logger.warning(f"[ADKOrchestrator] Health check failed: {e}")
+            return False

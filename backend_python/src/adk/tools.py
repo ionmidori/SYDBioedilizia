@@ -30,34 +30,35 @@ class QuoteApprovalArgs(BaseModel):
     project_id: str
     grand_total: float
 
-async def _request_quote_approval_handler(args: QuoteApprovalArgs) -> Dict[str, Any]:
-    """Pausa esecuzione per approvazione admin (HITL)."""
+async def _request_quote_approval_handler(args: QuoteApprovalArgs, tool_context) -> Dict[str, Any]:
+    """Pausa esecuzione per approvazione admin (HITL) via ADK ToolContext confirmation."""
     import secrets
     from src.adk.hitl import save_resumption_token
-    from google.adk.contexts import get_context
-    
-    # Generate nonce and save
-    nonce = secrets.token_urlsafe(32)
-    await save_resumption_token(args.project_id, nonce)
 
-    # Interrupt the ADK Runner
-    ctx = get_context()
-    if not ctx:
-        return {"status": "error", "message": "No active ADK context found."}
-        
-    response = ctx.interrupt(
-        message="Preventivo pronto per revisione",
-        payload={
-            "quote_id": args.quote_id,
-            "total": args.grand_total,
-            "nonce": nonce,  # Send nonce to client (or keep internal based on security)
-        }
-    )
-    
-    # Resumes here post-approval
-    if response and response.get("decision") == "approve":
-        return {"status": "approved", "notes": response.get("notes", "")}
-    return {"status": "rejected", "reason": response.get("reason", "")}
+    # Check if we're resuming after confirmation
+    tool_confirmation = tool_context.tool_confirmation
+    if not tool_confirmation:
+        # First call: generate nonce, save token, request confirmation
+        nonce = secrets.token_urlsafe(32)
+        await save_resumption_token(args.project_id, nonce)
+
+        tool_context.request_confirmation(
+            hint="Preventivo pronto per revisione admin. Approvare o rifiutare.",
+            payload={
+                "quote_id": args.quote_id,
+                "total": args.grand_total,
+                "nonce": nonce,
+                "decision": "",
+                "notes": "",
+            },
+        )
+        return {"status": "pending_approval", "message": "Awaiting admin confirmation."}
+
+    # Resumed after admin confirmation
+    decision = tool_confirmation.payload.get("decision", "reject")
+    if decision == "approve":
+        return {"status": "approved", "notes": tool_confirmation.payload.get("notes", "")}
+    return {"status": "rejected", "reason": tool_confirmation.payload.get("reason", "")}
 
 request_quote_approval = FunctionTool(
     name="request_quote_approval",
@@ -147,23 +148,22 @@ async def _trigger_n8n_webhook_handler(args: N8nTriggerArgs) -> Dict[str, Any]:
     Triggers an n8n webhook using the native MCP approach.
     Replaces rudimentary POST calls with managed MCP integrations.
     """
-    import os
     import httpx
-    
-    webhook_url = os.getenv("N8N_WEBHOOK_URL")
+    from src.core.config import settings
+
+    webhook_url = settings.N8N_WEBHOOK_NOTIFY_ADMIN
     if not webhook_url:
-        return {"status": "error", "message": "N8N_WEBHOOK_URL is not configured."}
-        
+        return {"status": "error", "message": "N8N_WEBHOOK_NOTIFY_ADMIN is not configured."}
+
     try:
-        # P1 Requirement: HMAC signing for n8n webhooks
         import hmac
         import hashlib
         import json
-        
-        secret = os.getenv("N8N_WEBHOOK_SECRET", "")
+
+        secret = settings.N8N_WEBHOOK_HMAC_SECRET or ""
         payload_bytes = json.dumps(args.payload, separators=(',', ':')).encode('utf-8')
         signature = hmac.new(secret.encode('utf-8'), payload_bytes, hashlib.sha256).hexdigest()
-        
+
         headers = {
             "x-hub-signature-256": f"sha256={signature}",
             "Content-Type": "application/json"

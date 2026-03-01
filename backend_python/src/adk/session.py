@@ -12,8 +12,10 @@ def get_session_service() -> FirestoreSessionService:
     """Returns the configured Firestore session service for the ADK runner."""
     project_id = settings.GOOGLE_CLOUD_PROJECT
     if not project_id:
-        logger.warning("GOOGLE_CLOUD_PROJECT not set, defaulting to internal project.")
-        project_id = "chatbotluca-a8a73"
+        raise ValueError(
+            "GOOGLE_CLOUD_PROJECT is required for ADK FirestoreSessionService. "
+            "Set it in .env or environment variables."
+        )
 
     logger.info("Initializing ADK FirestoreSessionService", extra={"project_id": project_id})
     return FirestoreSessionService(
