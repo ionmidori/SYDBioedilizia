@@ -11,21 +11,30 @@
     - **Frontend Sync**: Updated `ChatProvider.tsx` to handle ADK-specific interrupt payloads and dispatch `adk-interrupt` events.
     - **Performance**: Successfully passed load tests with 50 concurrent sessions using `tests/load_test_adk.py`.
 
+- **Phase 46 (Mar 01, 2026):** **Vertex AI ADK Canary & Security Hardening (v3.7.1)**:
+    - **Dual-Mode Canary Proxy**: Added `CanaryOrchestratorProxy` with deterministic hash-based traffic splitting (`ADK_CANARY_PERCENT`). Automatically falls back to LangGraph for existing sessions (Stateful Draining).
+    - **P1 Security Hardening**: 
+        - Fixed P0 Auth bypasses on quote endpoints by injecting admin mocks into the test suite.
+        - Implemented HMAC-SHA256 signature generation (`N8N_WEBHOOK_SECRET`) for webhook proxy security.
+        - Forced GDPR Data Sovereignty by explicitly invoking `vertexai.init` pointing to `europe-west1` and enforcing `ADK_CMEK_KEY_NAME`.
+        - Validated strict bounds checking inside Pydantic schemas (i.e. `PricingEngineArgs: gt=0`) to halt Prompt Injection.
+    - **Backend Stability**: Maintained 100% green on 182 parallel backend tests.
+
 ---
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v3.7.0
-**Last Updated:** 2026-03-01T14:15:00Z
-**Project Phase:** Phase 45 - Vertex AI ADK Integration (Phases 1-2) [COMPLETE]
+**Current Version:** v3.7.1
+**Last Updated:** 2026-03-01T14:55:00Z
+**Project Phase:** Phase 46 - Vertex AI ADK Integration (Phases 3-4 Complete)
 
 ---
 
-## 🚀 ACTIVE PRIORITIES (Phase 45)
+## 🚀 ACTIVE PRIORITIES (Phase 46)
 
-1.  **Security Hardening (P0/P1):** Addressing 403 authorization failures on Quote Routes detected during ADK verification.
-2.  **Vertex AI ADK Phase 3**: Preparing for Canary Rollout and monitoring session stability in production.
-3.  **Dynamic Robot Mascot**: Implementing context-aware mascot animations based on conversation phase and project type.
+1.  **Phase 4 (Post-Canary Decommissioning):** Monitor production under ADK for 7 days before removing LangGraph completely.
+2.  **Dynamic Robot Mascot**: Implementing context-aware mascot animations based on conversation phase and project type.
+3.  **Frontend Cleanup & M3 UX**: Complete adoption of the Bento grid UI using the new AI mascot capabilities.
 
 ## 📚 DOCUMENTATION HUB (Master Documents)
 *For deep-dives into specific architectural domains, consult:*

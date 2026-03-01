@@ -107,27 +107,26 @@ def test_factory_returns_base_orchestrator_for_langgraph(mock_repo):
 
 
 def test_factory_falls_back_to_langgraph_for_vertex_adk(mock_repo):
-    """Factory must fall back to LangGraphOrchestrator when vertex_adk not yet implemented."""
-    from src.services.agent_orchestrator import LangGraphOrchestrator
-    from src.services.orchestrator_factory import get_orchestrator
+    """Factory must initialize ADK or Canary based on mode, but always returns Proxy."""
+    from src.services.orchestrator_factory import get_orchestrator, CanaryOrchestratorProxy
     from src.core.config import settings
 
     with patch.object(settings, "ORCHESTRATOR_MODE", "vertex_adk"):
         orchestrator = get_orchestrator(repo=mock_repo)
 
-    assert isinstance(orchestrator, LangGraphOrchestrator)
+    assert isinstance(orchestrator, CanaryOrchestratorProxy)
 
 
 def test_factory_falls_back_to_langgraph_for_unknown_mode(mock_repo):
-    """Factory must not raise for unknown ORCHESTRATOR_MODE — fall back gracefully."""
-    from src.services.agent_orchestrator import LangGraphOrchestrator
-    from src.services.orchestrator_factory import get_orchestrator
+    """Factory returns Proxy which falls back to LangGraph for unknown mode (adk_orchest is None)."""
+    from src.services.orchestrator_factory import get_orchestrator, CanaryOrchestratorProxy
     from src.core.config import settings
 
     with patch.object(settings, "ORCHESTRATOR_MODE", "completely_unknown_mode"):
         orchestrator = get_orchestrator(repo=mock_repo)
 
-    assert isinstance(orchestrator, LangGraphOrchestrator)
+    assert isinstance(orchestrator, CanaryOrchestratorProxy)
+    assert orchestrator.adk_orchest is None
 
 
 # ─── 5. Config ────────────────────────────────────────────────────────────────

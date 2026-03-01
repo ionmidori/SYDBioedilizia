@@ -28,14 +28,30 @@ def quote_router():
 
 
 @pytest.fixture
+def quote_router():
+    """Import and return the quote router for testing."""
+    from src.api.routes.quote_routes import router
+    return router
+
+
+@pytest.fixture
 def app_with_quote_router():
     """FastAPI app with quote routes registered."""
     from fastapi import FastAPI
+    from src.auth.jwt_handler import verify_token
+    from src.schemas.internal import UserSession
 
     app = FastAPI()
     from src.api.routes.quote_routes import router
 
     app.include_router(router)
+
+    # Inject an admin user to bypass project ownership and RBAC checks
+    async def override_verify_token():
+        return UserSession(uid="admin-test-uid", email="admin@test.com", claims={"role": "admin"})
+
+    app.dependency_overrides[verify_token] = override_verify_token
+
     return app
 
 

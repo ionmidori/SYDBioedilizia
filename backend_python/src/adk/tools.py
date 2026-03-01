@@ -155,11 +155,25 @@ async def _trigger_n8n_webhook_handler(args: N8nTriggerArgs) -> Dict[str, Any]:
         return {"status": "error", "message": "N8N_WEBHOOK_URL is not configured."}
         
     try:
-        # P1 Requirement: HMAC signing for n8n webhooks would go here
+        # P1 Requirement: HMAC signing for n8n webhooks
+        import hmac
+        import hashlib
+        import json
+        
+        secret = os.getenv("N8N_WEBHOOK_SECRET", "")
+        payload_bytes = json.dumps(args.payload, separators=(',', ':')).encode('utf-8')
+        signature = hmac.new(secret.encode('utf-8'), payload_bytes, hashlib.sha256).hexdigest()
+        
+        headers = {
+            "x-hub-signature-256": f"sha256={signature}",
+            "Content-Type": "application/json"
+        }
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{webhook_url}/{args.workflow_id}",
                 json=args.payload,
+                headers=headers,
                 timeout=10.0
             )
             response.raise_for_status()

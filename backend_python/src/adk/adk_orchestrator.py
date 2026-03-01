@@ -17,6 +17,24 @@ logger = logging.getLogger(__name__)
 
 class ADKOrchestrator(BaseOrchestrator):
     def __init__(self):
+        from src.core.config import settings
+        import vertexai
+        
+        # P1 Requirement: EU Region constraint for ADK and CMEK Encryption
+        logger.info(
+            "Initializing Vertex AI for ADK", 
+            extra={
+                "project_id": settings.GOOGLE_CLOUD_PROJECT, 
+                "location": settings.ADK_LOCATION,
+                "cmek": bool(settings.ADK_CMEK_KEY_NAME)
+            }
+        )
+        
+        vertexai.init(
+            project=settings.GOOGLE_CLOUD_PROJECT,
+            location=settings.ADK_LOCATION
+        )
+
         self.runner = Runner(
             agent=syd_orchestrator,
             session_service=get_session_service(),

@@ -230,64 +230,56 @@ export function Navbar() {
                     {/* Mobile Actions */}
                     <div className="flex items-center gap-2 xl:hidden z-10 shrink-0">
                         {/* Contact Dropdown Trigger */}
-                        <div className="relative">
-                            <Sheet open={contactMenuOpen} onOpenChange={setContactMenuOpen}>
-                                <SheetTrigger asChild>
-                                    <button
-                                        className={cn(
-                                            "p-2 rounded-full text-luxury-text hover:text-luxury-gold transition-colors",
-                                            contactMenuOpen && "text-luxury-gold bg-luxury-gold/10"
-                                        )}
-                                        onClick={() => triggerHaptic()}
-                                        aria-label="Contatti"
+                        <div className="relative" ref={contactMenuRef}>
+                            <button
+                                className={cn(
+                                    "p-2 rounded-full text-luxury-text hover:text-luxury-gold transition-colors",
+                                    contactMenuOpen && "text-luxury-gold bg-luxury-gold/10"
+                                )}
+                                onClick={() => {
+                                    triggerHaptic();
+                                    setContactMenuOpen(!contactMenuOpen);
+                                }}
+                                aria-label="Contatti"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 md:w-6 md:h-6">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                                </svg>
+                            </button>
+
+                            {/* Contact Menù Dropdown */}
+                            <AnimatePresence>
+                                {contactMenuOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        transition={M3Spring.standard}
+                                        className="absolute top-12 right-0 bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/10 shadow-xl shadow-black/20 rounded-2xl p-4 flex flex-col gap-2 min-w-[200px]"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 md:w-6 md:h-6">
-                                            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                                        </svg>
-                                    </button>
-                                </SheetTrigger>
-                                <SheetContent
-                                    side="bottom"
-                                    className="bg-luxury-bg/95 backdrop-blur-xl border-t border-luxury-gold/10 p-5 rounded-t-[2rem] sm:max-w-none"
-                                >
-                                    <SheetHeader className="mb-4 text-left">
-                                        <SheetTitle className="text-[10px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
-                                            Contatti Rapidi
-                                        </SheetTitle>
-                                    </SheetHeader>
-                                    <div className="flex flex-col gap-2">
+                                        <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/95 border-t border-l border-luxury-gold/10 rotate-45 transform" />
+                                        
                                         {contactLinks.map(({ Icon, label, href }, i) => (
-                                            <motion.a
+                                            <a
                                                 key={i}
                                                 href={href}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                initial={{ opacity: 0, y: 10 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ delay: i * 0.05, ...M3Spring.standard }}
-                                                className="flex items-center gap-3 p-3 rounded-xl bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg transition-all group"
+                                                className="flex items-center gap-3 p-3 rounded-xl hover:bg-luxury-gold/5 text-luxury-text hover:text-luxury-gold transition-all group relative z-10"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setContactMenuOpen(false);
                                                 }}
                                             >
-                                                <span className="w-8 h-8 rounded-full bg-luxury-bg/10 flex items-center justify-center text-luxury-bg border border-luxury-bg/20 transition-all">
+                                                <span className="w-8 h-8 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 group-hover:bg-luxury-teal group-hover:text-white transition-all">
                                                     <Icon className="w-4 h-4" />
                                                 </span>
-                                                <span className="font-bold uppercase tracking-[0.1em] text-[10px] font-serif">{label}</span>
-                                            </motion.a>
+                                                <span className="font-medium text-sm">{label}</span>
+                                            </a>
                                         ))}
-                                    </div>
-                                    <div className="mt-6 flex justify-center">
-                                        <button
-                                            onClick={() => { triggerHaptic(); setContactMenuOpen(false); }}
-                                            className="text-[10px] font-bold uppercase tracking-widest text-luxury-text/30 hover:text-luxury-text/60 transition-colors"
-                                        >
-                                            Chiudi
-                                        </button>
-                                    </div>
-                                </SheetContent>
-                            </Sheet>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
 
                         {/* Hamburger Menu Trigger using Sheet */}
@@ -381,3 +373,4 @@ export function Navbar() {
         </>
     );
 }
+

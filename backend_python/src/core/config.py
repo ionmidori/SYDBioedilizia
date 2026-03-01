@@ -29,10 +29,24 @@ class Settings(BaseSettings):
     
     # Feature Flags (App Check enabled by default for production safety)
     ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")
-    # Orchestration backend selector — Phase 0: langgraph only; Phase 1+: vertex_adk
+    # Orchestration backend selector — Phase 0: langgraph only; Phase 1+: vertex_adk, canary
     ORCHESTRATOR_MODE: str = Field(
         default="langgraph",
-        description="Orchestration backend: 'langgraph' (default) or 'vertex_adk' (Phase 1+)",
+        description="Orchestration backend: 'langgraph', 'vertex_adk', or 'canary'",
+    )
+    ADK_CANARY_PERCENT: int = Field(
+        default=0,
+        description="Percentage of new sessions (0-100) routed to ADK when ORCHESTRATOR_MODE=canary."
+    )
+    # P1 Requirement: EU Region constraint for ADK
+    ADK_LOCATION: str = Field(
+        default="europe-west1",
+        description="GCP Region for Vertex AI ADK to enforce GDPR Data Residency"
+    )
+    # P1 Requirement: CMEK Encryption
+    ADK_CMEK_KEY_NAME: str | None = Field(
+        None,
+        description="Cloud KMS Key Name for CMEK encryption of ADK Sessions"
     )
     USE_CHECKPOINTER: bool = Field(
         default=False,
