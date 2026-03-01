@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useFileUpload, UploadProgress } from '@/hooks/useFileUpload';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SydLoader } from '@/components/ui/SydLoader';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export interface UploadedFile {
     file: File;
@@ -87,27 +88,35 @@ export function GlobalFileUploader({ projects, onUploadComplete, maxFiles = 10 }
         setFiles(prev => [...prev, ...uploadedFiles].slice(0, maxFiles));
     }, [maxFiles]);
 
-    const uploadAll = async () => {
-        if (!selectedProjectId) return;
+    const queryClient = useQueryClient();
 
-        const pendingFiles = files.filter(f => f.status === 'pending');
+    const uploadMutation = useMutation({
+        mutationFn: async () => {
+            if (!selectedProjectId) throw new Error('No project selected');
+            const pendingFiles = files.filter(f => f.status === 'pending');
 
-        await Promise.all(pendingFiles.map(async (fileData) => {
-            updateFileStatus(fileData.id, 'uploading', 0);
+            await Promise.all(pendingFiles.map(async (fileData) => {
+                updateFileStatus(fileData.id, 'uploading', 0);
+                try {
+                    const fileType = fileData.file.type.startsWith('image/') ? 'image' :
+                        fileData.file.type.startsWith('video/') ? 'video' : 'document';
 
-            try {
-                const fileType = fileData.file.type.startsWith('image/') ? 'image' :
-                    fileData.file.type.startsWith('video/') ? 'video' : 'document';
+                    await uploadFile(fileData.file, selectedProjectId, fileType);
+                    updateFileStatus(fileData.id, 'success', 100);
+                } catch (error) {
+                    updateFileStatus(fileData.id, 'error', 0, 'Upload fallito');
+                    throw error;
+                }
+            }));
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['gallery'] });
+            queryClient.invalidateQueries({ queryKey: ['projects'] });
+            if (onUploadComplete) onUploadComplete();
+        }
+    });
 
-                await uploadFile(fileData.file, selectedProjectId, fileType);
-                updateFileStatus(fileData.id, 'success', 100);
-            } catch (error) {
-                updateFileStatus(fileData.id, 'error', 0, 'Upload fallito');
-            }
-        }));
-
-        if (onUploadComplete) onUploadComplete();
-    };
+    const uploadAll = () => uploadMutation.mutate();
 
     const removeFile = (id: string) => {
         setFiles(prev => {

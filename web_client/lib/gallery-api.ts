@@ -1,13 +1,7 @@
 import { fetchWithAuth } from '@/lib/api-client';
-import { MediaAsset } from '@/lib/media-utils';
+import { GalleryResponse } from '@/types/gallery';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py';
-
-interface GalleryResponse {
-    assets: MediaAsset[];
-    hasMore: boolean;
-    lastVisibleId?: string;
-}
 
 export const galleryApi = {
     listAssets: async (limit: number = 50, lastId?: string): Promise<GalleryResponse> => {
@@ -30,9 +24,10 @@ export const galleryApi = {
             ...data,
             assets: data.assets.map((asset) => ({
                 ...asset,
-                createdAt: asset.createdAt ? new Date(asset.createdAt as string) : undefined,
+                createdAt: new Date(asset.createdAt as string),
                 timestamp: new Date(asset.timestamp as string)
             }))
         };
     }
 };
+

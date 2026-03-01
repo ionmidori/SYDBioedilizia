@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { OptimizedGalleryViewer, type GalleryImage } from '@/components/gallery/OptimizedGalleryViewer';
-import { MediaAsset } from '@/lib/media-utils';
+import { GalleryAsset } from '@/types/gallery';
 import { Loader2, LayoutGrid, Calendar, FolderKanban, ChevronDown, Search, X, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { GlobalFileUploader } from '@/components/dashboard/GlobalFileUploader';
 import { useProjects } from '@/hooks/use-projects';
-import { galleryApi } from '@/lib/gallery-api';
+import { useGalleryAssets } from '@/hooks/use-gallery';
 import { SydLoader } from '@/components/ui/SydLoader';
 
 type GroupingMode = 'project' | 'type' | 'date';
@@ -22,7 +22,6 @@ const ITEMS_PER_PAGE = 50;
  */
 export function GlobalGalleryContent() {
     const { user } = useAuth();
-    const [assets, setAssets] = useState<MediaAsset[]>([]);
 
     // Modern State Management: Use TanStack Query
     const { data: rawProjects = [], isLoading: projectsLoading } = useProjects();
@@ -31,67 +30,41 @@ export function GlobalGalleryContent() {
         name: p.title || 'Progetto Senza Nome'
     })), [rawProjects]);
 
-    const [loading, setLoading] = useState(true);
     const [groupingMode, setGroupingMode] = useState<GroupingMode>('project');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-    const [hasMore, setHasMore] = useState(true);
-    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    // Fetch files with pagination using TanStack Query
+    const {
+        data: galleryData,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        isLoading: isGalleryLoading,
+        refetch
+    } = useGalleryAssets(ITEMS_PER_PAGE, !!user?.uid);
 
-    // Fetch files with pagination
-    const fetchFiles = async (isInitial = true) => {
-        if (!user || (isLoadingMore && !isInitial)) return;
+    const assets = useMemo(() => {
+        if (!galleryData) return [];
+        return galleryData.pages.flatMap((page) => page.assets);
+    }, [galleryData]);
 
-        if (isInitial) {
-            setLoading(true);
-            setHasMore(true);
+    const loading = isGalleryLoading;
+    const hasMore = hasNextPage;
+    const isLoadingMore = isFetchingNextPage;
+
+    const fetchFiles = (isInitial = true) => {
+        if (!isInitial) {
+            fetchNextPage();
         } else {
-            setIsLoadingMore(true);
-        }
-
-        try {
-            // API Call instead of direct Firestore
-            const lastId = !isInitial && assets.length > 0 ? assets[assets.length - 1].id : undefined;
-            const data = await galleryApi.listAssets(ITEMS_PER_PAGE, lastId);
-
-            const newFiles = data.assets.map(asset => ({
-                ...asset,
-                metadata: {
-                    ...asset.metadata,
-                    projectName: projects.find(p => p.id === asset.metadata?.projectId)?.name || 'Progetto Sconosciuto'
-                }
-            }));
-
-            if (isInitial) {
-                setAssets(newFiles);
-            } else {
-                setAssets(prev => [...prev, ...newFiles]);
-            }
-
-            setHasMore(data.hasMore);
-
-        } catch (error) {
-            console.error('[GlobalGallery] Error fetching files:', error);
-        } finally {
-            setLoading(false);
-            setIsLoadingMore(false);
+            refetch();
         }
     };
 
-    // Initial Load Effect (and auto-refresh when projects load)
-    useEffect(() => {
-        if (user?.uid && !projectsLoading) {
-            fetchFiles(true);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.uid, refreshTrigger, projects.length, projectsLoading]);
-
     // Grouping logic (with Filter)
     const groupedAssets = useMemo(() => {
-        const groups: Record<string, MediaAsset[]> = {};
+        const groups: Record<string, GalleryAsset[]> = {};
 
         // Filter assets first
         const filteredAssets = assets.filter(asset => {
@@ -150,7 +123,7 @@ export function GlobalGalleryContent() {
         { value: 'date' as GroupingMode, label: 'Per Data', icon: Calendar },
     ];
 
-    if (loading || projectsLoading) {
+    if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-700">
                 <SydLoader size="xl" />
@@ -231,7 +204,7 @@ export function GlobalGalleryContent() {
                             <GlobalFileUploader
                                 projects={projects}
                                 onUploadComplete={() => {
-                                    setRefreshTrigger(prev => prev + 1);
+                                    refetch();
                                     setTimeout(() => setIsUploadModalOpen(false), 1000);
                                 }}
                             />

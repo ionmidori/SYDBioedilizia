@@ -32,6 +32,11 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        pathname: '/chatbotluca-a8a73.firebasestorage.app/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'chatbotluca-a8a73.firebasestorage.app',
       },
       {

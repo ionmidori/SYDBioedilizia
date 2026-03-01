@@ -1,5 +1,5 @@
-- **Last Updated**: 2026-03-01T22:00:00Z
-- **Current Version**: `v3.8.21` (ADK 100% Live — LangGraph Decommission Ready)
+- **Last Updated**: 2026-03-01T23:30:00Z
+- **Current Version**: `v3.8.22` (Gallery Optimized & ADK 100% Live)
 - **Last Major Sync**: 2026-03-01
 - **Status**: `Production-Ready — ORCHESTRATOR_MODE=vertex_adk (100% ADK)`
 - **Next High Priority**: 1) Phase 4: Decommissioning LangGraph | 2) Unify Dashboard Loaders (SydLoader) | 3) Dynamic Robot Mascot
@@ -24,8 +24,8 @@
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v3.8.21
-**Last Updated:** 2026-03-01T22:00:00Z
+**Current Version:** v3.8.22
+**Last Updated:** 2026-03-01T23:30:00Z
 **Project Phase:** Phase 46.2 - ADK 100% Live
 
 ---
@@ -87,7 +87,8 @@ FastAPI /chat/stream
   - Frontend type-check: 0 errors (npm run type-check)
   - npm audit: 0 vulnerabilities (fast-xml-parser + minimatch patched in commit 7ad26d5)
   - pip-audit (backend): 0 vulnerabilities
-- **Recent fixes** (Session 5):
+- **Recent fixes** (Session 6):
+  - Gallery page performance optimization (parallel backend fetching, TanStack Query migration, Golden Sync strict typing).
   - profile/page.tsx TypeScript errors (result.error → message, PasskeyButton mode prop)
   - Image domain SSRF hardening (wildcard → project-specific domains)
 
@@ -98,4 +99,4 @@ FastAPI /chat/stream
 - `docs/PLANS/unify_dashboard_loaders.txt` — Piano UI/UX prossimo task
 - `SESSION_RECAP.md` — Recap dettagliato sessione 4
 
-_Documento aggiornato: Marzo 01, 2026 (Session 5: Frontend build fixes, security hardening, dependency audit)_
+_Documento aggiornato: Marzo 01, 2026 (Session 6: Gallery optimization, TanStack Query migration, Golden Sync strict typing)_
