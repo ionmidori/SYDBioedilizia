@@ -45,7 +45,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                     className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
                 >
                     <div
-                        className="relative w-full h-full flex flex-col items-center justify-center"
+                        className="relative w-full h-full"
                         onClick={e => e.stopPropagation()}
                     >
                         {/* 🔍 Pinch to Zoom Wrapper */}
@@ -59,21 +59,21 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                         >
                             {/* @ts-ignore */}
                             <TransformComponent
-                                wrapperClass="!w-full !h-[80vh] flex items-center justify-center"
-                                contentClass="flex items-center justify-center"
+                                wrapperStyle={{ width: "100%", height: "100%", position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+                                contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}
                             >
                                 <motion.img
                                     initial={{ scale: 0.9, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
                                     src={imageUrl}
                                     alt="Full preview"
-                                    className="max-w-full max-h-[80vh] rounded-lg shadow-2xl border border-white/10"
+                                    className="max-w-[95vw] max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/10"
                                     style={parallaxSupported ? getTransform(15) : {}}  // 🎮 Apply parallax
                                 />
                             </TransformComponent>
                         </TransformWrapper>
 
-                        <div className="absolute bottom-8 flex gap-4 z-[130]">
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 z-[130]">
                             <Button
                                 onClick={onClose}
                                 variant="outline"

@@ -72,7 +72,7 @@ export function ProjectSelector({ currentProjectId, onProjectSelect }: ProjectSe
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute top-full right-0 mt-3 w-64 md:w-72 max-h-[350px] overflow-y-auto rounded-[1.5rem] border border-luxury-gold/20 bg-luxury-bg/80 backdrop-blur-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-50 animate-in fade-in slide-in-from-top-2 duration-200 flex flex-col p-2 custom-scrollbar">
+                <div className="absolute top-full right-0 mt-3 w-64 md:w-72 max-h-[350px] overflow-y-auto rounded-[1.5rem] border border-luxury-gold/20 bg-luxury-bg/95 backdrop-blur-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] z-50 animate-in fade-in slide-in-from-top-2 duration-200 flex flex-col p-2 custom-scrollbar">
                     {isLoading && projects.length === 0 && (
                         <div className="flex items-center justify-center p-6 text-luxury-gold">
                             <Loader2 className="w-6 h-6 animate-spin" />

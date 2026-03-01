@@ -8,8 +8,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { createProjectSchema, type CreateProjectValues } from '@/lib/validation/project-actions-schema';
 import { useRouter } from 'next/navigation';
 import { useCreateProject } from '@/hooks/use-create-project';
-import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
-import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 import {
     Form,
@@ -68,85 +73,83 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
     };
 
     return (
-        <ResponsiveDrawer
-            open={open}
-            onOpenChange={handleOpenChange}
-            title="Nuovo Progetto"
-            description="Dai un nome al tuo spazio di lavoro per iniziare"
-            className="w-[90%] max-w-[400px] sm:rounded-3xl bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/20 text-luxury-text p-6 shadow-2xl overflow-hidden sm:mx-auto"
-        >
-            <motion.div
-                initial={{ opacity: 0, scale: 0.92, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{
-                    duration: 0.5,
-                    ease: [0.05, 0.7, 0.1, 1.0]
-                }}
-            >
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 py-2">
-                        <FormField
-                            control={form.control}
-                            name="title"
-                            render={({ field }) => (
-                                <FormItem className="space-y-2">
-                                    <FormLabel className="sr-only">Titolo Progetto</FormLabel>
-                                    <FormControl>
-                                        <input
-                                            {...field}
-                                            id="title"
-                                            placeholder="Es. Ristrutturazione Bagno"
-                                            className={`w-full px-6 py-4 rounded-2xl bg-luxury-bg/50 backdrop-blur-md border outline-none transition-all placeholder:text-luxury-text/20 text-center text-lg font-medium text-luxury-text ${form.formState.errors.title
-                                                    ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50"
-                                                    : "border-luxury-gold/20 focus:border-luxury-gold/50 focus:ring-1 focus:ring-luxury-gold/50"
-                                                }`}
-                                            autoFocus
-                                            autoComplete="off"
-                                        />
-                                    </FormControl>
-                                    <FormMessage className="text-center text-sm font-medium text-red-400 animate-in fade-in slide-in-from-top-1" />
-                                </FormItem>
-                            )}
-                        />
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent className="w-[90%] max-w-[380px] p-8 rounded-[32px] bg-luxury-bg/70 backdrop-blur-3xl border border-luxury-gold/20 text-luxury-text shadow-2xl overflow-hidden sm:mx-auto">
+                {/* Hidden header for accessibility */}
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Nuovo Progetto</DialogTitle>
+                    <DialogDescription>Inserisci il nome del nuovo progetto</DialogDescription>
+                </DialogHeader>
 
-                        <div className="flex flex-col gap-3">
-                            {errorMessage && (
-                                <div className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                                    <p className="text-sm font-medium text-red-400">{errorMessage}</p>
-                                </div>
-                            )}
-                            <motion.button
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                                type="submit"
-                                onClick={() => triggerHaptic()}
-                                disabled={isPending}
-                                className="group relative w-full h-14 bg-luxury-gold/15 border border-luxury-gold/40 hover:border-luxury-gold/60 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/10 flex items-center justify-center gap-3"
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/10 to-luxury-gold/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{
+                        duration: 0.4,
+                        ease: [0.05, 0.7, 0.1, 1.0]
+                    }}
+                >
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
 
-                                <div className="relative z-10 flex items-center justify-center gap-3">
-                                    {isPending ? (
-                                        <Loader2 className="w-5 h-5 animate-spin text-luxury-gold" />
-                                    ) : (
-                                        <span className="text-luxury-gold font-bold text-base uppercase tracking-[0.2em]">
-                                            Crea e Inizia
-                                        </span>
-                                    )}
-                                </div>
-                            </motion.button>
-                            <button
-                                type="button"
-                                onClick={() => handleOpenChange(false)}
-                                className="w-full py-2 bg-transparent text-luxury-text/40 hover:text-luxury-text/70 text-sm font-medium transition-colors"
-                            >
-                                Annulla
-                            </button>
-                        </div>
-                    </form>
-                </Form>
-            </motion.div>
-        </ResponsiveDrawer>
+                            <div className="text-center space-y-2 mb-6">
+                                <h2 className="text-xl font-serif font-bold text-luxury-text">Nuovo Progetto</h2>
+                            </div>
+
+                            <FormField
+                                control={form.control}
+                                name="title"
+                                render={({ field }) => (
+                                    <FormItem className="space-y-1">
+                                        <FormLabel className="sr-only">Titolo Progetto</FormLabel>
+                                        <FormControl>
+                                            <input
+                                                {...field}
+                                                id="title"
+                                                placeholder="Es. Casa Rossi"
+                                                className={`w-full px-4 py-3 bg-transparent border-b outline-none transition-all placeholder:text-luxury-text/30 text-center text-xl font-medium text-luxury-text ${form.formState.errors.title
+                                                    ? "border-red-500/50 focus:border-red-500"
+                                                    : "border-luxury-gold/30 focus:border-luxury-gold"
+                                                    }`}
+                                                autoFocus
+                                                autoComplete="off"
+                                            />
+                                        </FormControl>
+                                        <FormMessage className="text-center text-sm font-medium text-red-400 absolute w-full mt-1" />
+                                    </FormItem>
+                                )}
+                            />
+
+                            <div className="flex flex-col gap-4 mt-8 pt-4">
+                                {errorMessage && (
+                                    <div className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20">
+                                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                                        <p className="text-xs font-medium text-red-400">{errorMessage}</p>
+                                    </div>
+                                )}
+                                <motion.button
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                    type="submit"
+                                    onClick={() => triggerHaptic()}
+                                    disabled={isPending}
+                                    className="group relative w-full h-12 bg-luxury-gold/20 border border-luxury-gold/50 hover:bg-luxury-gold hover:text-luxury-bg rounded-2xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/10 flex items-center justify-center gap-2"
+                                >
+                                    <div className="relative z-10 flex items-center justify-center gap-2">
+                                        {isPending ? (
+                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                        ) : (
+                                            <span className="font-bold text-sm tracking-widest transition-colors">
+                                                CREA
+                                            </span>
+                                        )}
+                                    </div>
+                                </motion.button>
+                            </div>
+                        </form>
+                    </Form>
+                </motion.div>
+            </DialogContent>
+        </Dialog>
     );
 }
