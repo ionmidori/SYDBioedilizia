@@ -1,10 +1,10 @@
 - **Last Updated**: 2026-03-01T22:00:00Z
-- **Current Version**: `v3.8.20` (ADK 100% Live — LangGraph Decommission Ready)
+- **Current Version**: `v3.8.21` (ADK 100% Live — LangGraph Decommission Ready)
 - **Last Major Sync**: 2026-03-01
 - **Status**: `Production-Ready — ORCHESTRATOR_MODE=vertex_adk (100% ADK)`
 - **Next High Priority**: 1) Phase 4: Decommissioning LangGraph | 2) Unify Dashboard Loaders (SydLoader) | 3) Dynamic Robot Mascot
 
-- **Phase 46.2 (Mar 01, 2026):** **ADK 100% Rollout + API Compat Fixes (v3.8.20)**:
+- **Phase 46.2 (Mar 01, 2026):** **ADK 100% Rollout + API Compat Fixes (v3.8.21)**:
     - **ORCHESTRATOR_MODE=vertex_adk**: Backend ora instrada il 100% del traffico su ADKOrchestrator. Singolo sviluppatore → skip canary graduale.
     - **google-adk 1.26 breaking changes risolti**:
         - `from google.adk import types` → `from google.genai import types`
@@ -24,7 +24,7 @@
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v3.8.20
+**Current Version:** v3.8.21
 **Last Updated:** 2026-03-01T22:00:00Z
 **Project Phase:** Phase 46.2 - ADK 100% Live
 
