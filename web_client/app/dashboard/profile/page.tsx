@@ -149,7 +149,7 @@ export default function ProfilePage() {
                         <p className="text-sm text-luxury-text/60 leading-relaxed">
                             Accedi istantaneamente senza password usando FaceID o TouchID sul tuo dispositivo.
                         </p>
-                        <PasskeyButton />
+                        <PasskeyButton mode="register" />
                     </div>
                 </div>
             </div>
