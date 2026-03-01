@@ -12,7 +12,8 @@ from src.auth.jwt_handler import verify_token, security
 from src.schemas.internal import UserSession
 from src.core.logger import setup_logging, get_logger
 from src.core.config import settings
-from src.services.agent_orchestrator import AgentOrchestrator, get_orchestrator
+from src.services.base_orchestrator import BaseOrchestrator
+from src.services.orchestrator_factory import get_orchestrator
 import uuid
 from src.core.context import set_request_id
 from src.core.schemas import APIErrorResponse
@@ -325,9 +326,9 @@ def health_check():
     return {"status": "ok", "service": "syd-brain"}
 
 async def chat_stream_generator(
-    request: ChatRequest, 
+    request: ChatRequest,
     credentials: HTTPAuthorizationCredentials | None,
-    orchestrator: AgentOrchestrator
+    orchestrator: BaseOrchestrator,
 ):
     """
     Delegates streaming to the AgentOrchestrator.
@@ -341,7 +342,7 @@ async def chat_stream(
     request: Request,  # required by slowapi for IP extraction  # type: ignore[unused-parameter]
     body: ChatRequest,
     credentials: HTTPAuthorizationCredentials | None = Security(security),
-    orchestrator: AgentOrchestrator = Depends(get_orchestrator)
+    orchestrator: BaseOrchestrator = Depends(get_orchestrator)
 ):
     """
     Streaming chat endpoint - Secured by Internal JWT.

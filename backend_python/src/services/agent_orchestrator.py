@@ -13,6 +13,7 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 from src.repositories.conversation_repository import ConversationRepository
 from src.graph.agent import get_agent_graph
 from src.graph.state import AgentState
+from src.services.base_orchestrator import BaseOrchestrator
 from src.utils.stream_protocol import (
     stream_text,
     stream_tool_call,
@@ -28,14 +29,18 @@ logger = logging.getLogger(__name__)
 
 from src.core.telemetry import trace_span
 
-class AgentOrchestrator:
+class AgentOrchestrator(BaseOrchestrator):
     """
+    LangGraph implementation of BaseOrchestrator.
+
     Orchestrates the chat interaction:
     1. Prepares context (User, Media).
     2. Persists User Message.
-    3. Runs Agent Graph (LangGraph).
+    3. Runs Agent Graph (LangGraph astream_events v2).
     4. Streams events (Vercel Protocol).
     5. Persists AI/Tool Messages.
+
+    Use LangGraphOrchestrator (alias below) as the canonical name in new code.
     """
     
     def __init__(self, repository: ConversationRepository):
@@ -400,8 +405,37 @@ class AgentOrchestrator:
         msg = str(e) if settings.ENV != "production" else "An internal error occurred."
         return f'3:{json.dumps(msg)}\n'
 
+    # ── BaseOrchestrator contract ──────────────────────────────────────────────
+
+    async def resume_interrupt(self, session_id: str, response: dict):  # type: ignore[override]
+        """
+        LangGraph HITL resume is handled directly in quote_routes.py via the
+        quote_graph module, not through the orchestrator interface.
+        This method exists for BaseOrchestrator contract compliance.
+        ADKOrchestrator (Phase 1) will implement the full streaming resume here.
+        """
+        raise NotImplementedError(
+            "LangGraph HITL resume is handled via quote_routes.py + quote_graph, "
+            "not through the orchestrator. See src/api/routes/quote_routes.py."
+        )
+
+    async def health_check(self) -> bool:
+        """Verify the LangGraph agent graph can be compiled."""
+        try:
+            get_agent_graph()
+            return True
+        except Exception as exc:
+            logger.warning(f"[LangGraphOrchestrator] Health check failed: {exc}")
+            return False
+
+
+# ── Canonical alias (use in new code) ─────────────────────────────────────────
+LangGraphOrchestrator = AgentOrchestrator
+
+
 from fastapi import Depends
 def get_orchestrator(
     repo: ConversationRepository = Depends(ConversationRepository)
 ) -> AgentOrchestrator:
+    """Legacy dependency — prefer OrchestratorFactory.get_orchestrator() in new code."""
     return AgentOrchestrator(repo)

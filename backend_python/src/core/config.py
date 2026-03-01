@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     
     # Feature Flags (App Check enabled by default for production safety)
     ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")
+    # Orchestration backend selector — Phase 0: langgraph only; Phase 1+: vertex_adk
+    ORCHESTRATOR_MODE: str = Field(
+        default="langgraph",
+        description="Orchestration backend: 'langgraph' (default) or 'vertex_adk' (Phase 1+)",
+    )
     USE_CHECKPOINTER: bool = Field(
         default=False,
         description="Enable FirestoreSaver checkpointing on the main conversation graph. "
