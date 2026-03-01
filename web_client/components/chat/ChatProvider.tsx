@@ -97,7 +97,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
                 console.log('[ChatProvider] Cold start: Injecting welcome message.');
                 welcomeInjectedRef.current = true;
-                
+
                 timerId = setTimeout(() => {
                     setMessages([{
                         id: 'welcome-msg',
@@ -119,7 +119,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 if (!isFirstSyncRef.current) {
                     console.log(`[ChatProvider] Syncing history (length mismatch: ${messages.length} vs ${historyMessages.length})`);
                 }
-                
+
                 timerId = setTimeout(() => {
                     setMessages(historyMessages);
                 }, 0);
@@ -143,6 +143,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             }
         }
     }, [historyLoaded, historyMessages, sessionId, setMessages, status, messages.length]); // Dependencies optimized
+
+    // -- ADK HITL INTERRUPT HANDLER --
+    useEffect(() => {
+        if (data && data.length > 0) {
+            const latestData = data[data.length - 1] as any;
+            if (latestData && latestData.type === 'interrupt') {
+                console.log('[ChatProvider] 🛑 ADK Interrupt Received:', latestData);
+                // Dispatch a custom event that the UI (e.g., ChatWidget) can listen to
+                // to show the Quote Approval dialog
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('adk-interrupt', { detail: latestData.payload }));
+                }
+            }
+        }
+    }, [data]);
 
     // -- PERSISTENCE: Save/Restore Last Project --
     useEffect(() => {

@@ -53,11 +53,14 @@ def get_orchestrator(
     #   1. Instantiate ADKOrchestrator
     #   2. Call health_check() → fallback to LangGraph on failure
     if mode == "vertex_adk":
-        logger.warning(
-            "[OrchestratorFactory] ORCHESTRATOR_MODE=vertex_adk is not yet implemented "
-            "(Phase 1). Falling back to langgraph."
-        )
-        return LangGraphOrchestrator(repo)
+        logger.info("[OrchestratorFactory] ORCHESTRATOR_MODE=vertex_adk. Using ADKOrchestrator.")
+        try:
+            from src.adk.adk_orchestrator import ADKOrchestrator
+            return ADKOrchestrator()
+        except Exception as e:
+            logger.error(f"[OrchestratorFactory] Failed to initialize ADKOrchestrator ({e}). Falling back to langgraph.")
+            return LangGraphOrchestrator(repo)
+
 
     logger.error(
         f"[OrchestratorFactory] Unknown ORCHESTRATOR_MODE='{mode}'. "

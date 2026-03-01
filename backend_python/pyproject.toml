@@ -27,6 +27,7 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "langgraph-checkpoint-firestore>=0.1.0",
     "slowapi>=0.1.9",
+    "google-adk>=1.26.0",
 ]
 
 [project.optional-dependencies]

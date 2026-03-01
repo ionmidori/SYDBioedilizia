@@ -129,7 +129,7 @@ export function AdvancedLightbox({
 
     const handleTouchMove = (e: React.TouchEvent) => {
         if (!enableSwipeNavigation || touchStart === null) return;
-        
+
         // 🛡️ Chrome Intervention Fix: Prevent default only if event is cancelable
         if (e.cancelable) {
             // e.preventDefault(); // Optional: only if we want to block scroll
@@ -282,7 +282,7 @@ export function AdvancedLightbox({
 
             {/* Main Image Area */}
             <div
-                className="flex-1 w-full relative h-[60dvh] md:h-full flex items-center justify-center overflow-hidden"
+                className="flex-1 w-full relative h-full flex items-center justify-center overflow-hidden"
                 style={{ touchAction: 'none' }}
             >
                 <TransformWrapper

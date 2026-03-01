@@ -121,35 +121,58 @@ In ogni workflow SYD, nel pannello Settings → Error Workflow: `SYD — Error H
 
 ---
 
-## Workflow 4: Firestore Poller (`workflow_firestore_status_poller.json`) v1
+# ⚡ SYD Automation Suite (n8n Workflows)
 
-**Tipo**: Scheduled (ogni 5 minuti)
-**Funzione**: Polling automatico dei progetti `ready_for_quote` non ancora notificati
+**Status:** Production (v2.x)
+**Core Engine:** n8n v1.x+
+**Security:** HMAC-SHA256 Multi-Layer Validation
 
-### Funzionalità Enterprise
-| Feature | Dettaglio |
-|---------|-----------|
-| **Polling 5 min** | Schedule trigger, configurabile in produzione |
-| **Urgency Engine** | Calcola urgency: valore >€20k = high · draft >4h = high |
-| **HMAC Self-sign** | Genera firma HMAC corretta prima di triggerare il workflow notifica |
-| **De-duplication** | `PATCH /mark-notified` aggiorna flag per prevenire notifiche doppie |
-| **Run Summary** | Log aggregato per monitoring: N notifiche inviate / N fallite |
+---
 
-### Endpoint Backend Richiesti
-```
-GET  /api/internal/projects/pending-review     → Lista progetti ready_for_quote non notificati
-PATCH /api/internal/projects/:id/mark-notified → Setta admin_notified_at
+## 🏗️ Architecture & Security Patterns
+
+The SYD Automation Suite handles critical notifications and document delivery. It is integrated with the Python Backend via the **MCP (Model Context Protocol)**.
+
+### 1. HMAC Validation (Zero-Trust)
+Every webhook entry point enforces **HMAC-SHA256 signature verification**.
+- The payload is signed by the Python backend using a shared `SYD_WEBHOOK_SECRET`.
+- n8n validates the `X-Hub-Signature-256` header before execution.
+- Prevents unauthorized triggers and replay attacks.
+
+### 2. Standardized Response Format
+Workflows return a consistent JSON schema for tool-calling integration:
+```json
+{ "status": "success", "request_id": "...", "timestamp": "..." }
 ```
 
 ---
 
-## Variabili d'Ambiente n8n
+## 📂 Workflow Catalog
 
-Configurare in n8n → Settings → Variables:
+### 🔔 `notify_admin` (Telegram/Email)
+Triggered when high-value events occur (e.g., Lead captured, Error in AI Graph).
+- **Channels:** Telegram Bot + SendGrid Email.
+- **Priority:** High.
 
-```env
-# Sicurezza
-SYD_WEBHOOK_SECRET=<secret-condiviso-con-backend>  # Stesso valore di WEBHOOK_SIGNING_KEY in .env
+### 📄 `deliver_quote` (Document Dispatch)
+Automated delivery of generated PDFs to clients.
+- **Logics:** Fetches Signed URL from Firebase, attaches to email, and logs final delivery state in Firestore.
+
+### 🧪 `test_webhook` (Diagnostic)
+Used for connectivity and HMAC validation verification during deployment.
+
+---
+
+## 🛠️ Configuration
+
+### Required Credentials in n8n
+- **Telegram:** `sy_bot` credentials.
+- **SendGrid:** API Key for document delivery.
+- **Firebase:** Service Account for Firestore updates (Status: Sent).
+- **HMAC Secret:** `SYD_WEBHOOK_SECRET`.
+
+---
+*Updated: March 1, 2026 — Phase 42*
 SYD_INTERNAL_TOKEN=<jwt-token-service-account>      # Token per chiamate backend → backend
 
 # URL

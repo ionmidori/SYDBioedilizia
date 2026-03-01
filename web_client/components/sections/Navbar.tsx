@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { M3Spring, M3Duration } from '@/lib/m3-motion';
+import { M3Spring, M3Transition, createStaggerVariants } from '@/lib/m3-motion';
 import { Menu, Mail, LayoutDashboard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignInButton } from '@/components/auth/SignInButton';
@@ -30,9 +30,11 @@ const triggerHaptic = () => {
 };
 
 export function Navbar() {
+    const { container: mobileMenuContainer, item: mobileMenuItem } = createStaggerVariants({ x: 20 }, 0.05);
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [contactMenuOpen, setContactMenuOpen] = useState(false);
+    const [hoveredNavIndex, setHoveredNavIndex] = useState<number | null>(null);
     const contactMenuRef = useRef<HTMLDivElement>(null);
     const { user, isAnonymous } = useAuth();
     const router = useRouter();
@@ -122,77 +124,103 @@ export function Navbar() {
         <>
             <motion.nav
                 className={cn(
-                    'fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-transparent',
+                    'fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent',
                     isScrolled
-                        ? 'bg-luxury-bg/80 backdrop-blur-md border-luxury-gold/10 py-3 shadow-lg shadow-black/20'
+                        ? 'glass-premium border-luxury-gold/10 py-3 shadow-elevation-low'
                         : 'bg-transparent py-5'
                 )}
                 initial={{ y: -100 }}
                 animate={{ y: 0 }}
                 transition={M3Spring.gentle}
             >
-                <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
-                    <div className="flex items-center gap-6">
-                        <Link href="/" className="group">
+                <div className="container mx-auto px-4 md:px-6 flex items-center justify-between relative">
+                    <div className="flex items-center gap-4 xl:gap-6 z-10 shrink-0">
+                        <Link href="/" onClick={() => triggerHaptic()} className="group shrink-0">
                             <SydLogo className="group-hover:opacity-90 transition-opacity" />
                         </Link>
                         {/* Desktop Contact Icons */}
-                        <div className="hidden lg:flex items-center gap-2">
+                        <div className="hidden xl:flex items-center gap-2">
                             {contactLinks.map(({ Icon, label, href }, i) => (
                                 <a
                                     key={i}
                                     href={href}
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    onClick={() => triggerHaptic()}
                                     className={cn(
-                                        "w-10 h-10 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 hover:bg-luxury-teal hover:text-white transition-all shadow-sm shadow-luxury-teal/10",
+                                        "w-9 h-9 xl:w-10 xl:h-10 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 hover:bg-luxury-teal hover:text-white transition-all shadow-sm shadow-luxury-teal/10",
                                         i === 0 && "group"
                                     )}
                                     aria-label={label}
                                 >
-                                    <Icon className="w-5 h-5" />
+                                    <Icon className="w-4 h-4 xl:w-5 xl:h-5" />
                                 </a>
                             ))}
                         </div>
                     </div>
 
                     {/* Desktop Nav */}
-                    <div className="hidden md:flex items-center gap-4">
-                        <div className="flex items-center gap-4">
-                            <Button
-                                variant="premium"
-                                size="sm"
-                                className="bg-luxury-teal hover:bg-luxury-teal/90 text-white border-none shadow-md shadow-luxury-teal/20"
-                                onClick={() => {
-                                    const event = new CustomEvent('OPEN_CHAT');
-                                    window.dispatchEvent(event);
-                                }}
-                            >
-                                Richiedi Preventivo
-                            </Button>
-                            <Button
-                                variant="premium"
-                                size="sm"
-                                className="bg-luxury-teal hover:bg-luxury-teal/90 text-white border-none shadow-md shadow-luxury-teal/20"
-                                onClick={() => {
-                                    const event = new CustomEvent('OPEN_CHAT');
-                                    window.dispatchEvent(event);
-                                }}
-                            >
-                                Crea Rendering
-                            </Button>
-                        </div>
-                        {navLinks.map((link) => (
-                            <Link
+                    <div className="hidden xl:flex flex-1 justify-center items-center gap-1 z-10 px-2 min-w-0">
+                        {navLinks.map((link, idx) => (
+                            <motion.div
                                 key={link.name}
-                                href={link.href}
-                                className="text-sm font-medium text-luxury-text hover:text-luxury-gold transition-colors relative group"
+                                whileTap={{ scale: 0.95 }}
+                                transition={M3Transition.buttonPress}
+                                className="shrink-0"
                             >
-                                {link.name}
-                                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-luxury-gold transition-all group-hover:w-full" />
-                            </Link>
+                                <Link
+                                    href={link.href}
+                                    onMouseEnter={() => setHoveredNavIndex(idx)}
+                                    onMouseLeave={() => setHoveredNavIndex(null)}
+                                    onClick={() => triggerHaptic()}
+                                    className="relative px-2 py-2 xl:px-3 text-[13px] xl:text-sm font-medium text-luxury-text hover:text-luxury-gold transition-colors group whitespace-nowrap"
+                                >
+                                    {hoveredNavIndex === idx && (
+                                        <motion.div
+                                            layoutId="nav-pill"
+                                            className="absolute inset-0 bg-luxury-gold/10 rounded-full"
+                                            transition={M3Spring.gentle}
+                                        />
+                                    )}
+                                    <span className="relative z-10">{link.name}</span>
+                                </Link>
+                            </motion.div>
                         ))}
+                    </div>
+
+                    <div className="hidden xl:flex items-center gap-2 z-10 shrink-0">
+                        <div className="flex items-center gap-2">
+                            <motion.div whileTap={{ scale: 0.98 }} transition={M3Transition.buttonPress}>
+                                <Button
+                                    variant="premium"
+                                    size="sm"
+                                    className="m3-shape-pill bg-luxury-teal hover:bg-luxury-teal/90 text-white border border-white/20 shadow-elevation-low hover:shadow-elevation-high hover:shadow-luxury-teal/30 transition-all duration-300 whitespace-nowrap px-3 text-[13px] h-9"
+                                    onClick={() => {
+                                        triggerHaptic();
+                                        const event = new CustomEvent('OPEN_CHAT');
+                                        window.dispatchEvent(event);
+                                    }}
+                                >
+                                    Richiedi Preventivo
+                                </Button>
+                            </motion.div>
+                            <motion.div whileTap={{ scale: 0.98 }} transition={M3Transition.buttonPress}>
+                                <Button
+                                    variant="premium"
+                                    size="sm"
+                                    className="m3-shape-pill bg-luxury-teal hover:bg-luxury-teal/90 text-white border border-white/20 shadow-elevation-low hover:shadow-elevation-high hover:shadow-luxury-teal/30 transition-all duration-300 whitespace-nowrap px-3 text-[13px] h-9"
+                                    onClick={() => {
+                                        triggerHaptic();
+                                        const event = new CustomEvent('OPEN_CHAT');
+                                        window.dispatchEvent(event);
+                                    }}
+                                >
+                                    Crea Rendering
+                                </Button>
+                            </motion.div>
+                        </div>
                         <SignInButton onLoginClick={() => {
+                            triggerHaptic();
                             window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
                                 detail: { redirectOnLogin: true }
                             }));
@@ -200,7 +228,7 @@ export function Navbar() {
                     </div>
 
                     {/* Mobile Actions */}
-                    <div className="flex items-center gap-2 md:hidden">
+                    <div className="flex items-center gap-2 xl:hidden z-10 shrink-0">
                         {/* Contact Dropdown Trigger */}
                         <div className="relative">
                             <Sheet open={contactMenuOpen} onOpenChange={setContactMenuOpen}>
@@ -213,24 +241,21 @@ export function Navbar() {
                                         onClick={() => triggerHaptic()}
                                         aria-label="Contatti"
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 md:w-6 md:h-6">
                                             <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                                         </svg>
                                     </button>
                                 </SheetTrigger>
                                 <SheetContent
                                     side="bottom"
-                                    className="bg-luxury-bg/95 backdrop-blur-xl border-t border-luxury-gold/10 p-6 rounded-t-[2rem] sm:max-w-none"
+                                    className="bg-luxury-bg/95 backdrop-blur-xl border-t border-luxury-gold/10 p-5 rounded-t-[2rem] sm:max-w-none"
                                 >
-                                    <SheetHeader className="mb-6 text-left">
-                                        <SheetTitle className="text-xs font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
+                                    <SheetHeader className="mb-4 text-left">
+                                        <SheetTitle className="text-[10px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
                                             Contatti Rapidi
                                         </SheetTitle>
-                                        <SheetDescription className="text-luxury-text/60 text-sm">
-                                            Scegli come preferisci metterti in contatto con noi.
-                                        </SheetDescription>
                                     </SheetHeader>
-                                    <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-2">
                                         {contactLinks.map(({ Icon, label, href }, i) => (
                                             <motion.a
                                                 key={i}
@@ -240,23 +265,23 @@ export function Navbar() {
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: i * 0.05, ...M3Spring.standard }}
-                                                className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-luxury-text hover:bg-luxury-gold/10 hover:border-luxury-gold/30 hover:text-luxury-gold transition-all group"
+                                                className="flex items-center gap-3 p-3 rounded-xl bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg transition-all group"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setContactMenuOpen(false);
                                                 }}
                                             >
-                                                <span className="w-10 h-10 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 group-hover:bg-luxury-teal group-hover:text-white transition-all">
-                                                    <Icon className="w-5 h-5" />
+                                                <span className="w-8 h-8 rounded-full bg-luxury-bg/10 flex items-center justify-center text-luxury-bg border border-luxury-bg/20 transition-all">
+                                                    <Icon className="w-4 h-4" />
                                                 </span>
-                                                <span className="font-bold uppercase tracking-[0.1em] text-xs font-serif">{label}</span>
+                                                <span className="font-bold uppercase tracking-[0.1em] text-[10px] font-serif">{label}</span>
                                             </motion.a>
                                         ))}
                                     </div>
-                                    <div className="mt-8 flex justify-center">
+                                    <div className="mt-6 flex justify-center">
                                         <button
-                                            onClick={() => setContactMenuOpen(false)}
-                                            className="text-xs font-bold uppercase tracking-widest text-luxury-text/30 hover:text-luxury-text/60 transition-colors"
+                                            onClick={() => { triggerHaptic(); setContactMenuOpen(false); }}
+                                            className="text-[10px] font-bold uppercase tracking-widest text-luxury-text/30 hover:text-luxury-text/60 transition-colors"
                                         >
                                             Chiudi
                                         </button>
@@ -276,15 +301,15 @@ export function Navbar() {
                                     }}
                                     aria-label="Menu"
                                 >
-                                    <Menu className="w-6 h-6" />
+                                    <Menu className="w-5 h-5 md:w-6 md:h-6" />
                                 </button>
                             </SheetTrigger>
                             <SheetContent
                                 side="right"
-                                className="w-auto min-w-[260px] bg-luxury-bg/90 backdrop-blur-xl border-l border-luxury-gold/10 p-6 flex flex-col sm:max-w-none"
+                                className="w-[80vw] max-w-[320px] min-w-[240px] bg-luxury-bg/95 backdrop-blur-xl border-l border-luxury-gold/10 p-5 flex flex-col sm:max-w-none"
                             >
-                                <SheetHeader className="mb-10 text-left space-y-0">
-                                    <SheetTitle className="text-xs font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
+                                <SheetHeader className="mb-8 text-left space-y-0">
+                                    <SheetTitle className="text-[10px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
                                         Menu
                                     </SheetTitle>
                                     <SheetDescription className="sr-only">
@@ -293,31 +318,30 @@ export function Navbar() {
                                 </SheetHeader>
 
                                 {/* Navigation Links */}
-                                <div className="flex flex-col gap-3">
+                                <motion.div 
+                                    className="flex flex-col gap-2"
+                                    variants={mobileMenuContainer}
+                                    initial="hidden"
+                                    animate="visible"
+                                >
                                     {/* Area Personale */}
-                                    <motion.div
-                                        initial={{ opacity: 0, x: 20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: 0.1, ...M3Spring.standard }}
-                                    >
+                                    <motion.div variants={mobileMenuItem}>
                                         <button
                                             onClick={handlePersonalAreaClick}
-                                            className="flex items-center justify-center px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-luxury-text/80 hover:bg-luxury-gold/10 hover:border-luxury-gold/30 hover:text-luxury-gold transition-all duration-300 active:scale-95 group w-full"
+                                            className="flex items-center justify-center px-4 py-3 rounded-xl glass-premium border-luxury-gold/20 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/20 hover:shadow-elevation-high hover:shadow-luxury-gold/40 hover:bg-luxury-gold/10"
                                         >
                                             <span className="font-bold uppercase tracking-[0.2em] text-[10px]">Area Personale</span>
                                         </button>
                                     </motion.div>
 
-                                    {navLinks.map((link, idx) => (
+                                    {navLinks.map((link) => (
                                         <motion.div
                                             key={link.name}
-                                            initial={{ opacity: 0, x: 20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: 0.15 + idx * 0.05, ...M3Spring.standard }}
+                                            variants={mobileMenuItem}
                                         >
                                             <Link
                                                 href={link.href}
-                                                className="flex items-center justify-center px-6 py-4 rounded-2xl bg-white/5 border border-white/10 text-luxury-text/80 hover:bg-luxury-gold/10 hover:border-luxury-gold/30 hover:text-luxury-gold transition-all duration-300 active:scale-95 group w-full"
+                                                className="flex items-center justify-center px-4 py-3 rounded-xl glass-premium border-luxury-gold/20 text-luxury-text hover:text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/10 hover:shadow-elevation-high hover:shadow-luxury-gold/30 hover:bg-luxury-gold/5"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
@@ -327,25 +351,27 @@ export function Navbar() {
                                             </Link>
                                         </motion.div>
                                     ))}
-                                </div>
+                                </motion.div>
 
                                 <motion.div
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.4, ...M3Spring.gentle }}
-                                    className="mt-auto pt-8 flex justify-center"
+                                    className="mt-auto pt-6 flex justify-center w-full"
                                 >
-                                    <SignInButton
-                                        onLoginClick={() => {
-                                            triggerHaptic();
-                                            setMobileMenuOpen(false);
-                                            setTimeout(() => {
-                                                window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
-                                                    detail: { redirectOnLogin: true }
-                                                }));
-                                            }, 300);
-                                        }}
-                                    />
+                                    <div className="w-full scale-90 origin-bottom">
+                                        <SignInButton
+                                            onLoginClick={() => {
+                                                triggerHaptic();
+                                                setMobileMenuOpen(false);
+                                                setTimeout(() => {
+                                                    window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
+                                                        detail: { redirectOnLogin: true }
+                                                    }));
+                                                }, 300);
+                                            }}
+                                        />
+                                    </div>
                                 </motion.div>
                             </SheetContent>
                         </Sheet>
