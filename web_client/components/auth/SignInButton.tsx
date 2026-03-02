@@ -61,10 +61,10 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
 
     if (user) {
         return (
-            <div className={cn("flex items-center gap-3", className)}>
+            <div className={cn("flex items-center p-2 rounded-[1.25rem] glass-premium border border-luxury-gold/10 transition-all duration-300 hover:border-luxury-gold/30 hover:bg-white/5 shadow-xl group", className)}>
                 <Link
                     href="/dashboard/profile"
-                    className="flex items-center gap-3 p-1.5 pr-4 rounded-full bg-luxury-gold/5 backdrop-blur-md border border-luxury-gold/20 hover:border-luxury-gold/50 transition-all duration-300 group active:scale-95"
+                    className="flex items-center gap-3 flex-1 px-1 active:scale-95 transition-transform"
                     onClick={() => {
                         if (typeof navigator !== 'undefined' && navigator.vibrate) {
                             navigator.vibrate(10);
@@ -72,7 +72,7 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
                     }}
                 >
                     {user.photoURL ? (
-                        <div className="relative w-8 h-8 rounded-full overflow-hidden border border-luxury-gold/10 group-hover:border-luxury-gold/30 transition-colors shadow-sm">
+                        <div className="relative w-8 h-8 rounded-full overflow-hidden border border-luxury-gold/10 group-hover:border-luxury-gold/30 transition-colors shadow-sm shrink-0">
                             <Image
                                 src={user.photoURL}
                                 alt={user.displayName || "User"}
@@ -82,12 +82,12 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
                             />
                         </div>
                     ) : (
-                        <div className="w-8 h-8 rounded-full bg-luxury-gold/10 flex items-center justify-center border border-luxury-gold/20 group-hover:bg-luxury-gold/20 transition-all shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-luxury-gold/10 flex items-center justify-center border border-luxury-gold/20 group-hover:bg-luxury-gold/20 transition-all shadow-sm shrink-0">
                             <UserIcon className="w-4 h-4 text-luxury-gold" />
                         </div>
                     )}
-                    <div className="flex flex-col items-start leading-none">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-luxury-text group-hover:text-luxury-gold transition-colors">
+                    <div className="flex flex-col items-start leading-none min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-luxury-text group-hover:text-luxury-gold transition-colors truncate w-full text-left">
                             {user.displayName?.split(' ')[0] || "Profilo"}
                         </span>
                         <span className="text-[8px] font-medium uppercase tracking-[0.1em] text-luxury-text/40 group-hover:text-luxury-gold/60 transition-colors mt-0.5">
@@ -95,15 +95,17 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
                         </span>
                     </div>
                 </Link>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleLogout}
-                    title="Logout"
-                    className="text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded-full w-8 h-8"
-                >
-                    <LogOut className="w-3.5 h-3.5" />
-                </Button>
+                <div className="pl-2 border-l border-luxury-gold/10 shrink-0 ml-2">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleLogout}
+                        title="Logout"
+                        className="text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded-full w-8 h-8"
+                    >
+                        <LogOut className="w-3.5 h-3.5" />
+                    </Button>
+                </div>
             </div>
         );
     }

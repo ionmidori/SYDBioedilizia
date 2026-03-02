@@ -268,7 +268,7 @@ export function Navbar() {
                                 side="right"
                                 className="w-[45vw] sm:w-[33vw] min-w-[180px] max-w-[260px] bg-luxury-bg/80 backdrop-blur-xl border-l border-luxury-gold/10 p-4 flex flex-col"
                             >
-                                <SheetHeader className="mb-6 text-center space-y-0">
+                                <SheetHeader className="mt-6 mb-6 text-center space-y-0">
                                     <SheetTitle className="text-[12px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
                                         Menu
                                     </SheetTitle>
@@ -279,18 +279,18 @@ export function Navbar() {
 
                                 {/* Navigation Links */}
                                 <motion.div
-                                    className="flex flex-col gap-2"
+                                    className="flex flex-col gap-2 w-full"
                                     variants={mobileMenuContainer}
                                     initial="hidden"
                                     animate="visible"
                                 >
                                     {/* Area Personale */}
-                                    <motion.div variants={mobileMenuItem}>
+                                    <motion.div variants={mobileMenuItem} className="w-full">
                                         <button
                                             onClick={handlePersonalAreaClick}
-                                            className="flex items-center justify-center px-3 py-2.5 rounded-xl bg-luxury-gold/5 hover:bg-luxury-gold/15 backdrop-blur-md border border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)]"
+                                            className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-luxury-gold/10 transition-all duration-300 hover:border-luxury-gold/30 hover:bg-white/5 active:scale-95 group shadow-xl"
                                         >
-                                            <span className="font-bold uppercase tracking-[0.15em] text-[9px]">Area Personale</span>
+                                            <span className="font-bold uppercase tracking-[0.15em] text-[10px] text-luxury-gold">Area Personale</span>
                                         </button>
                                     </motion.div>
 
@@ -298,25 +298,27 @@ export function Navbar() {
                                         <motion.div
                                             key={link.name}
                                             variants={mobileMenuItem}
+                                            className="w-full"
                                         >
                                             <Link
                                                 href={link.href}
-                                                className="flex items-center justify-center px-3 py-3 rounded-xl bg-luxury-gold/5 hover:bg-luxury-gold/15 backdrop-blur-md border border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)]"
+                                                className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-luxury-gold/10 transition-all duration-300 hover:border-luxury-gold/30 hover:bg-white/5 active:scale-95 group shadow-xl"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
                                                 }}
                                             >
-                                                <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{link.name}</span>
+                                                <span className="font-bold uppercase tracking-[0.1em] text-[10px] text-luxury-text hover:text-luxury-gold transition-colors">{link.name}</span>
                                             </Link>
                                         </motion.div>
                                     ))}
 
                                     {/* Spacer and Sign In/Profile Button below FAQ */}
-                                    <motion.div variants={mobileMenuItem} className="flex flex-col">
+                                    <motion.div variants={mobileMenuItem} className="flex flex-col w-full">
                                         <div className="h-[44px] w-full" aria-hidden="true" />
-                                        <div className="scale-[0.8] origin-center">
+                                        <div className="w-full flex justify-center">
                                             <SignInButton
+                                                className="w-full justify-between"
                                                 onLoginClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
