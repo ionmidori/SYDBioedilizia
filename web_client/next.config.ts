@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // Enable verbose logging in development
-  output: "standalone",
   logging: {
     fetches: {
       fullUrl: true,
