@@ -16,7 +16,7 @@ def configure_cors():
                 "http://localhost:3000",
                 "https://website-renovation.vercel.app",
                 "https://sydbioedilizia.vercel.app",
-                "https://syd-brain-w6yrkh3gfa-ew.a.run.app"
+                "https://syd-brain-972229558318.europe-west1.run.app"
             ],
             "method": ["GET", "PUT", "POST", "DELETE", "OPTIONS"],
             "responseHeader": ["Content-Type", "x-goog-resumable"],
