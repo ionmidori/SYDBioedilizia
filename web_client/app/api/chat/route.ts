@@ -46,9 +46,38 @@ export async function POST(req: Request) {
         }
 
 
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 🔄 NORMALIZE: Vercel AI SDK v3+ → Backend Contract
+        // SDK sends {role, parts: [{type, text}]}, Backend expects {role, content: string}
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        const normalizedMessages = (messages || []).map((msg: any) => {
+            // If message already has 'content' as string, pass through
+            if (typeof msg.content === 'string') {
+                return { role: msg.role, content: msg.content };
+            }
+            // If message has 'parts' array (Vercel AI SDK v3+ format), extract text
+            if (Array.isArray(msg.parts)) {
+                const textContent = msg.parts
+                    .filter((p: any) => p.type === 'text')
+                    .map((p: any) => p.text)
+                    .join('');
+                return { role: msg.role, content: textContent };
+            }
+            // If content is an array (legacy format), stringify
+            if (Array.isArray(msg.content)) {
+                const textContent = msg.content
+                    .filter((p: any) => typeof p === 'string' || p.type === 'text')
+                    .map((p: any) => typeof p === 'string' ? p : p.text)
+                    .join('');
+                return { role: msg.role, content: textContent };
+            }
+            // Fallback: stringify whatever we got
+            return { role: msg.role, content: String(msg.content || '') };
+        });
+
         // Build payload for Python backend
         const pythonPayload = {
-            messages: messages || [],
+            messages: normalizedMessages,
             sessionId: sessionId,
             imageUrls: imageUrls || [],
             mediaUrls: mediaUrls || [],
@@ -135,16 +164,15 @@ export async function POST(req: Request) {
             }
         });
 
-        // Return the manual stream
+        // Return the manual stream (UI Message Stream SSE protocol for AI SDK v6)
         return new Response(stream, {
             status: 200,
             headers: {
-                'Content-Type': 'text/plain; charset=utf-8',
-                'X-Vercel-AI-Data-Stream': 'v1',
+                'Content-Type': 'text/event-stream; charset=utf-8',
+                'x-vercel-ai-ui-message-stream': 'v1',
                 'Cache-Control': 'no-cache, no-transform, no-store',
                 'Connection': 'keep-alive',
                 'X-Content-Type-Options': 'nosniff',
-                'Transfer-Encoding': 'chunked'
             },
         });
 

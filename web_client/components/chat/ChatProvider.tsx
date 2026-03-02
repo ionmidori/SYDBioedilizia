@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, FormEvent, useMemo, useRef } from 'react';
 import { useChat } from '@ai-sdk/react';
+import { DefaultChatTransport } from 'ai';
 import { ChatContext } from '@/hooks/useChatContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatHistory } from '@/hooks/useChatHistory';
@@ -16,12 +17,10 @@ import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
  * Orchestrates the global chat state for the application.
  * Manages the connection between the UI (ChatWidget) and the AI Backend.
  *
- * Key Features:
- * 1. **Singleton State**: Shared across Dashboard and Project pages.
- * 2. **Context Switching**: Handles switching between Global and Project-specific chats.
- * 3. **Ghosting Prevention**: Clears state immediately on switch (with skeleton loader).
- * 4. **Robustness**: Forces `projectId` in every request body.
- * 5. **Cold Start**: Injects welcome message if history is empty.
+ * AI SDK v6 Migration:
+ * - Uses DefaultChatTransport for api/headers/body configuration
+ * - sendMessage uses { text: string } format (not { content, role })
+ * - No more `data` return — use onData callback for streaming metadata
  */
 export function ChatProvider({ children }: { children: React.ReactNode }) {
     const { user, refreshToken, isInitialized, signInAnonymously } = useAuth();
@@ -30,6 +29,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
+    const [streamData, setStreamData] = useState<any[]>([]); // Replaces useChat data
     const welcomeInjectedRef = useRef(false);
     const isFirstSyncRef = useRef(true);
 
@@ -41,11 +41,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             const key = 'chatSessionId';
             let id = localStorage.getItem(key);
             if (!id) {
-                // Use crypto.randomUUID() for high entropy standard
                 id = crypto.randomUUID();
                 localStorage.setItem(key, id);
             }
-            // Wrap in timeout to avoid sync setState warning
             const timerId = setTimeout(() => {
                 setStableGuestId(id);
             }, 0);
@@ -54,15 +52,53 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     // Derived Session ID
+    // Anonymous Firebase users keep using stableGuestId to prevent useChat reset
+    // when signInAnonymously() completes mid-message (would wipe all messages).
     const sessionId = useMemo(() => {
-        if (!user) return stableGuestId || 'guest-loading';
+        if (!user || user.isAnonymous) return stableGuestId || 'guest-loading';
         return currentProjectId || `global-${user.uid}`;
     }, [user, currentProjectId, stableGuestId]);
 
-    // -- AI SDK HOOK --
+    // Reset per-session refs when sessionId changes.
+    useEffect(() => {
+        welcomeInjectedRef.current = false;
+        isFirstSyncRef.current = true;
+        setStreamData([]);
+    }, [sessionId]);
+
     // -- HISTORY SYNC --
     const { historyMessages, historyLoaded } = useChatHistory(sessionId);
 
+    // -- DYNAMIC HEADERS/BODY RESOLVER --
+    // AI SDK v6: transport headers/body can be async functions (Resolvable)
+    const resolveHeaders = useCallback(async (): Promise<Record<string, string>> => {
+        const headers: Record<string, string> = {};
+        const token = await refreshToken();
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true' && appCheck) {
+            try {
+                const result = await getToken(appCheck, false);
+                if (result.token) {
+                    headers['X-Firebase-AppCheck'] = result.token;
+                }
+            } catch (err) {
+                console.error('[ChatProvider] App Check token error:', err);
+            }
+        }
+        return headers;
+    }, [refreshToken]);
+
+    const resolveBody = useCallback((): object => {
+        return {
+            projectId: currentProjectId,
+            is_authenticated: !!user,
+            sessionId,
+        };
+    }, [currentProjectId, user, sessionId]);
+
+    // -- AI SDK v6 HOOK --
     const {
         messages,
         status,
@@ -71,18 +107,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setMessages,
         error: sdkError,
-        data, // ⚡ Capture Data Stream
     } = useChat({
-        // api: '/api/chat', // implied default
         id: sessionId,
-        // keepLastMessageOnError: true, // Removed as not in type in v3
-        async onFinish() {
+        transport: new DefaultChatTransport({
+            api: '/api/chat',
+            headers: resolveHeaders,
+            body: resolveBody,
+        }),
+        onFinish() {
             console.log('[ChatProvider] Turn finished.');
         },
         onError: (err) => {
             console.error('[ChatProvider] SDK Error:', err);
-        }
-    }) as any; // 🛡️ Temporary cast until SDK types resolve
+        },
+    });
 
     const isLoading = status === 'streaming' || status === 'submitted';
 
@@ -90,10 +128,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         let timerId: NodeJS.Timeout;
 
-        // Only sync if history is loaded and we are not currently generating (to avoid overwriting stream)
-        // We allow overwriting if 'ready' to ensure we have the canonical DB state (Ids, timestamps)
         if (historyLoaded && status !== 'streaming' && status !== 'submitted') {
-            // 1. Cold Start (Welcome Message) — check FIRST to avoid sync loop
+            // 1. Cold Start (Welcome Message)
             if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
                 console.log('[ChatProvider] Cold start: Injecting welcome message.');
                 welcomeInjectedRef.current = true;
@@ -102,7 +138,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                     setMessages([{
                         id: 'welcome-msg',
                         role: 'assistant',
-                        content: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. ⚡ **Creare preventivo veloce**\n2. 🎨 **Creare un rendering gratuito**\n3. ℹ️ **Fornire informazioni dettagliate**\n\nCome posso aiutarti oggi?",
+                        parts: [{ type: 'text', text: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. **Creare preventivo veloce**\n2. **Creare un rendering gratuito**\n3. **Fornire informazioni dettagliate**\n\nCome posso aiutarti oggi?" }],
                         createdAt: new Date()
                     } as any]);
                 }, 0);
@@ -119,64 +155,48 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 if (!isFirstSyncRef.current) {
                     console.log(`[ChatProvider] Syncing history (length mismatch: ${messages.length} vs ${historyMessages.length})`);
                 }
-
                 timerId = setTimeout(() => {
-                    setMessages(historyMessages);
+                    setMessages(historyMessages as any);
                 }, 0);
                 isFirstSyncRef.current = false;
                 return () => clearTimeout(timerId);
             }
 
-            // 3. Content/ID mismatch on the last message (deep check not needed for efficiency)
+            // 3. Content/ID mismatch on the last message
             if (messages.length > 0) {
                 const lastSdk = messages[messages.length - 1];
                 const lastHistory = historyMessages[historyMessages.length - 1];
-
-                // If IDs differ, or if history has tool results that SDK doesn't (SDK might have raw tool cells)
                 if (lastSdk.id !== lastHistory.id) {
                     console.log(`[ChatProvider] Syncing history (ID mismatch: ${lastSdk.id} vs ${lastHistory.id})`);
                     timerId = setTimeout(() => {
-                        setMessages(historyMessages);
+                        setMessages(historyMessages as any);
                     }, 0);
                     return () => clearTimeout(timerId);
                 }
             }
         }
-    }, [historyLoaded, historyMessages, sessionId, setMessages, status, messages.length]); // Dependencies optimized
+    }, [historyLoaded, historyMessages, sessionId, setMessages, status, messages.length]);
 
     // -- ADK HITL INTERRUPT HANDLER --
     useEffect(() => {
-        if (data && data.length > 0) {
-            const latestData = data[data.length - 1] as any;
+        if (streamData.length > 0) {
+            const latestData = streamData[streamData.length - 1] as any;
             if (latestData && latestData.type === 'interrupt') {
-                console.log('[ChatProvider] 🛑 ADK Interrupt Received:', latestData);
-                // Dispatch a custom event that the UI (e.g., ChatWidget) can listen to
-                // to show the Quote Approval dialog
+                console.log('[ChatProvider] ADK Interrupt Received:', latestData);
                 if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('adk-interrupt', { detail: latestData.payload }));
                 }
             }
         }
-    }, [data]);
+    }, [streamData]);
 
     // -- PERSISTENCE: Save/Restore Last Project --
-    useEffect(() => {
-        if (!user || user.isAnonymous) return;
-
-        // Restore
-        if (!currentProjectId && !isInitialized) { // Waiting validation
-            // do nothing
-        }
-    }, [user, currentProjectId, isInitialized]);
-
-    // Restore Effect
     useEffect(() => {
         if (isInitialized && user && !user.isAnonymous && !currentProjectId) {
             const key = `last_active_project:${user.uid}`;
             const lastId = localStorage.getItem(key);
             if (lastId) {
                 console.log('[ChatProvider] Restoring last active project:', lastId);
-                // Wrap in timeout to avoid sync setState warning
                 const timerId = setTimeout(() => {
                     setCurrentProjectId(lastId);
                 }, 0);
@@ -198,49 +218,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInput(e.target.value);
     }, []);
 
-    // 🛡️ ROBUSTNESS: Force projectId in the headers/body
-    // Enhanced to use auth.currentUser fallback for race condition resilience
-    const getRequestOptions = useCallback(async () => {
-        const headers: Record<string, string> = {};
-
-        // Always try to get a token (refreshToken now has currentUser fallback)
-        const token = await refreshToken();
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        } else if (!user) {
-            console.warn('[ChatProvider] No token available for guest request');
-        }
-
-        // 🔒 App Check token injection (required in production)
-        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
-            if (appCheck) {
-                try {
-                    const result = await getToken(appCheck, false);
-                    if (result.token) {
-                        headers['X-Firebase-AppCheck'] = result.token;
-                    }
-                } catch (err) {
-                    console.error('[ChatProvider] App Check token error:', err);
-                }
-            } else {
-                console.warn('[ChatProvider] appCheck instance unavailable');
-            }
-        }
-
-        return {
-            headers,
-            body: {
-                projectId: currentProjectId,
-                is_authenticated: !!user,
-                sessionId // ⚡ Vital for Backend Validation
-            }
-        };
-    }, [user, refreshToken, currentProjectId, sessionId]);
-
-    // -- FACADE: Flexible Send Message (for Attachments) --
+    // -- FACADE: Flexible Send Message --
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sendMessage = useCallback(async (content: string, attachments?: any[], data?: any) => {
-        // 🛡️ STRICT GUARD: Prevent empty loops and "..." auto-sends
         const trimmed = content.trim();
         const hasAttachments = attachments && attachments.length > 0;
 
@@ -250,45 +230,37 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-            // ⚡ Anonymous sign-in if guest attempt - MUST happen BEFORE getRequestOptions
+            // Anonymous sign-in if guest — MUST happen BEFORE sending
             if (!user) {
                 console.log('[ChatProvider] No user found, attempting anonymous sign-in...');
                 await signInAnonymously();
-                console.log('[ChatProvider] Anonymous sign-in completed, proceeding with message send');
+                console.log('[ChatProvider] Anonymous sign-in completed');
             }
 
-            // ⚡ Get request options AFTER sign-in to ensure token is available
-            const options = await getRequestOptions();
-
-            const mergedBody = {
-                ...options.body,
-                ...data,
-                experimental_attachments: attachments
-            };
-
-            // ⚡ OPTIMISTIC UI: Clear input immediately to prevent "stuck text"
+            // Optimistic UI: Clear input immediately
             setInput('');
 
-            await sdkSendMessage({
-                content: content,
-                role: 'user'
-            } as any, {
-                body: mergedBody,
-                headers: options.headers,
-            });
-            // Input already cleared
+            // AI SDK v6: sendMessage({ text }, { body, headers })
+            // Transport-level headers/body are resolved automatically,
+            // request-level options here override/extend them.
+            const requestBody = {
+                ...data,
+                experimental_attachments: attachments,
+            };
+
+            await sdkSendMessage(
+                { text: trimmed },
+                { body: requestBody }
+            );
         } catch (err) {
             console.error('[ChatProvider] SendMessage Error:', err);
-            // Re-throw if needed, or handle gracefully
             throw err;
         }
-    }, [user, signInAnonymously, sdkSendMessage, getRequestOptions, setInput]);
+    }, [user, signInAnonymously, sdkSendMessage]);
 
-    // -- HANDLERS --
-    // Unified submit handler that uses the Facade
+    // Unified submit handler
     const handleSubmit = useCallback(async (e?: FormEvent) => {
         if (e) e.preventDefault();
-        // Use the robust sendMessage which includes Guards
         await sendMessage(input);
     }, [input, sendMessage]);
 
@@ -316,7 +288,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setInput,
         refreshHistory,
-        data // ⚡ EXPOSE DATA STREAM for CoT
+        data: streamData,
     }), [
         currentProjectId,
         isRestoringHistory,
@@ -331,7 +303,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setInput,
         refreshHistory,
-        data
+        streamData,
     ]);
 
     return (
@@ -341,4 +313,3 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         </ChatContext.Provider>
     );
 }
-

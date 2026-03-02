@@ -377,8 +377,8 @@ async def chat_stream(
 
     return StreamingResponse(
         chat_stream_generator(body, credentials, orchestrator),
-        media_type="text/plain; charset=utf-8",
-        headers={"Connection": "close", "X-Vercel-AI-Data-Stream": "v1"}
+        media_type="text/event-stream; charset=utf-8",
+        headers={"Connection": "close", "x-vercel-ai-ui-message-stream": "v1"}
     )
 
 if __name__ == "__main__":

@@ -1,9 +1,13 @@
 """
 ADK Orchestrator implementation.
 Wraps the Vertex API Agent Engine runner into the BaseOrchestrator interface for drop-in compatibility.
+
+Stream format: UI Message Stream SSE (compatible with Vercel AI SDK v6 / @ai-sdk/react v3).
+Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
 """
 import json
 import logging
+import uuid
 from typing import AsyncIterator, Any
 from google.adk.runners import Runner
 from google.genai import types
@@ -17,6 +21,11 @@ import asyncio
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
+
+
+def _sse(data: dict) -> str:
+    """Format a dict as an SSE data line (UI Message Stream protocol)."""
+    return f"data: {json.dumps(data)}\n\n"
 
 class ADKOrchestrator(BaseOrchestrator):
     def __init__(self):
@@ -116,6 +125,12 @@ class ADKOrchestrator(BaseOrchestrator):
                 )
                 logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
 
+            # UI Message Stream SSE protocol (AI SDK v6)
+            msg_id = f"msg-{uuid.uuid4().hex[:12]}"
+            text_part_id = f"txt-{uuid.uuid4().hex[:12]}"
+            yield _sse({"type": "start", "messageId": msg_id})
+            yield _sse({"type": "text-start", "id": text_part_id})
+
             async for event in self.runner.run_async(
                 session_id=session_id,
                 user_id=user_id,
@@ -125,10 +140,15 @@ class ADKOrchestrator(BaseOrchestrator):
                     for part in event.content.parts:
                         if part.text:
                             filtered = await filter_agent_output(part.text)
-                            yield f'0:{json.dumps(filtered)}\n'
+                            yield _sse({"type": "text-delta", "id": text_part_id, "delta": filtered})
+
+            yield _sse({"type": "text-end", "id": text_part_id})
+            yield _sse({"type": "finish-step"})
+            yield _sse({"type": "finish"})
+            yield "data: [DONE]\n\n"
         except Exception as e:
             logger.exception("Error in ADKOrchestrator execution.")
-            yield f'3:{json.dumps(str(e))}\n'
+            yield _sse({"type": "error", "error": str(e)})
 
     async def resume_interrupt(
         self,
@@ -138,17 +158,20 @@ class ADKOrchestrator(BaseOrchestrator):
         """HITL interrupt resumption."""
         project_id = session_id  # Assuming session_id matches project_id in our architecture
         provided_token = response.get("token")
-        
+
         from src.adk.hitl import verify_resumption_token
-        
+
         # Verify cryptographically secure token first
         if not provided_token or not await verify_resumption_token(project_id, provided_token):
-            yield f'3:{json.dumps("Invalid or expired resumption token")}\n'
+            yield _sse({"type": "error", "error": "Invalid or expired resumption token"})
             return
 
         try:
-            # P2 Requirement: Resume the runner execution
-            # Note: run_async on a resumed context yields the rest of the stream
+            msg_id = f"msg-{uuid.uuid4().hex[:12]}"
+            text_part_id = f"txt-{uuid.uuid4().hex[:12]}"
+            yield _sse({"type": "start", "messageId": msg_id})
+            yield _sse({"type": "text-start", "id": text_part_id})
+
             async for event in self.runner.run_async(
                 session_id=session_id,
                 user_id="admin",
@@ -158,10 +181,15 @@ class ADKOrchestrator(BaseOrchestrator):
                     for part in event.content.parts:
                         if part.text:
                             filtered = await filter_agent_output(part.text)
-                            yield f'0:{json.dumps(filtered)}\n'
+                            yield _sse({"type": "text-delta", "id": text_part_id, "delta": filtered})
+
+            yield _sse({"type": "text-end", "id": text_part_id})
+            yield _sse({"type": "finish-step"})
+            yield _sse({"type": "finish"})
+            yield "data: [DONE]\n\n"
         except Exception as e:
             logger.exception("Error during ADK resume_interrupt.")
-            yield f'3:{json.dumps(str(e))}\n'
+            yield _sse({"type": "error", "error": str(e)})
 
     async def health_check(self) -> bool:
         """Verifies if the Vertex AI ADK backend is accessible by listing sessions."""
