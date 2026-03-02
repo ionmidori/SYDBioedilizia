@@ -1,9 +1,16 @@
 """
 ADK Agents Definition.
 Implements the Multi-Agent routing pattern for Vertex AI Agent Engine.
+
+Prompt Architecture (Security-first, per 'securing-applications' skill):
+  - SECURITY_GUARDRAILS first in every instruction (LLM Sandwich Defense)
+  - Identity, language, and core protocols on the orchestrator
+  - Domain-specific Mode A/B flows on the specialised sub-agents
+  - OUTPUT_RULES shared on all agents to enforce Italian + no internal monologue
 """
 import logging
 from google.adk.agents import Agent
+
 from src.adk.tools import (
     pricing_engine_tool_adk,
     market_prices_adk,
@@ -15,42 +22,160 @@ from src.adk.tools import (
     request_quote_approval_adk,
 )
 
+# ── Prompt Components ─────────────────────────────────────────────────────────
+# Import the battle-tested SYD prompt system (src/prompts/).
+# Each component was used on LangGraph production and is now preserved 1:1.
+from src.prompts.components.security import SECURITY_GUARDRAILS
+from src.prompts.components.identity import (
+    IDENTITY,
+    CRITICAL_PROTOCOLS,
+    OUTPUT_RULES,
+    REASONING_INSTRUCTIONS,
+)
+from src.prompts.components.modes import MODE_A_DESIGNER, MODE_B_SURVEYOR
+from src.prompts.components.protocol import PROTOCOL
+from src.prompts.components.video import VIDEO_ANALYSIS_PROTOCOL
+
 logger = logging.getLogger(__name__)
 
-MODE_A_TRIAGE_PROMPT = """You are a Triage and Vision expert agent. 
-Analyze any images or videos provided by the user natively. 
-Identify the room type, architectural style, spatial dimensions, materials, and any potential issues (e.g. humidity, damage).
-Do NOT guess visual details if no media is provided. Rely strictly on the media provided in the chat stream."""
-MODE_A_DESIGNER_PROMPT = "You are a Design agent. Generate renders and gallery ideas."
-MODE_B_SURVEYOR_PROMPT = "You are a Surveyor agent. Use the pricing engine to build a quote."
+
+# ── Orchestrator Prompt ───────────────────────────────────────────────────────
+# Responsibility: SYD identity, Italian language, critical protocols, routing.
+# Does NOT include Mode A/B details — those live on the sub-agents.
+# Security: GUARDRAILS first (Sandwich Defense pattern, OWASP LLM Top 10).
+
+_ORCHESTRATOR_ROUTING = """
+## ROUTING RULES (Sistema Multi-Agente ADK)
+
+Sei il punto di ingresso di SYD. Il tuo compito è INSTRADARE, non rispondere direttamente.
+
+| Segnale | Agente da attivare |
+|---|---|
+| Utente carica immagine o video | `triage` |
+| Utente vuole vedere / visualizzare / render / idee | `design` |
+| Utente vuole preventivo / costi / computo metrico | `quote` |
+| Saluto generico o domanda informativa | Rispondi tu direttamente (breve, in italiano) |
+
+### Regola di Disambiguazione (Mandatoria)
+Se l'utente descrive un progetto senza specificare il tipo di servizio, PRESENTA SEMPRE le due opzioni:
+
+"Ottimo! Come vuoi procedere?
+
+1. 🎨 **Visualizzare** idee con un rendering 3D
+2. 📋 **Ricevere un preventivo** dettagliato
+
+Dimmi 1 o 2."
+
+### Regola Anti-Auto-Presentazione
+NON presentarti mai come "un orchestratore", "agente di triage" o "assistente AI generico".
+Sei SYD, consulente ristrutturazioni. Punto.
+"""
+
+SYD_ORCHESTRATOR_INSTRUCTION = "\n\n".join([
+    SECURITY_GUARDRAILS,   # 🛡️ FIRST — LLM Sandwich Defense
+    IDENTITY,
+    OUTPUT_RULES,
+    CRITICAL_PROTOCOLS,
+    _ORCHESTRATOR_ROUTING,
+    PROTOCOL,
+])
+
+
+# ── Triage Agent Prompt ───────────────────────────────────────────────────────
+# Responsibility: Native vision analysis (images + video).
+# After analysis: ALWAYS prompt user for the 2 core paths (render or quote).
+# Note: In ADK 1.26 the agent receives images natively in the Content context.
+#       No image_url parameter needed — the image IS the message content.
+
+_TRIAGE_SPECIFIC = """
+## RUOLO: Analista Visione (Triage Agent)
+
+Sei la prima fase dell'analisi tecnica di SYD. Ricevi immagini e video.
+
+### Analisi Nativa (ADK Vision)
+- Quando ricevi un'immagine, analizzala SUBITO e in autonomia (nessun tool esterno necessario).
+- Identifica: tipo di stanza, stile architettonico, materiali predominanti, dimensioni stimate,
+  criticità visibili (umidità, crepe, impianti a vista, danni).
+- Sintetizza in linguaggio naturale italiano: "Vedo un [tipo stanza] di circa [mq] con..."
+
+### Disambiguazione Post-Analisi (OBBLIGATORIA)
+Dopo ogni analisi, SEMPRE conclude con la domanda di disambiguazione:
+
+"Ho analizzato la stanza. Come vuoi procedere?
+
+1. 🎨 **Visualizzare** idee con un rendering 3D
+2. 📋 **Ricevere un preventivo** dettagliato
+
+Dimmi 1 o 2."
+
+### Regola: Una Domanda alla Volta
+Non fare domande multiple nello stesso turno.
+Se l'utente non ha caricato un'immagine ma ne parla, chiedi SOLO: "Puoi caricare una foto?"
+"""
+
+TRIAGE_AGENT_INSTRUCTION = "\n\n".join([
+    SECURITY_GUARDRAILS,       # 🛡️ LLM Sandwich Defense
+    OUTPUT_RULES,
+    REASONING_INSTRUCTIONS,
+    VIDEO_ANALYSIS_PROTOCOL,   # 🎬 Analisi video temporale
+    _TRIAGE_SPECIFIC,
+])
+
+
+# ── Design Agent Prompt ───────────────────────────────────────────────────────
+# Responsibility: Full Mode A Designer workflow (render I2I + T2I, 5 phases).
+
+DESIGN_AGENT_INSTRUCTION = "\n\n".join([
+    SECURITY_GUARDRAILS,   # 🛡️ LLM Sandwich Defense
+    OUTPUT_RULES,
+    REASONING_INSTRUCTIONS,
+    MODE_A_DESIGNER,       # Flusso completo 5 fasi render
+])
+
+
+# ── Quote Agent Prompt ────────────────────────────────────────────────────────
+# Responsibility: Full Mode B Surveyor workflow (4 pillars, cross-sell, HITL).
+
+QUOTE_AGENT_INSTRUCTION = "\n\n".join([
+    SECURITY_GUARDRAILS,   # 🛡️ LLM Sandwich Defense
+    OUTPUT_RULES,
+    REASONING_INSTRUCTIONS,
+    MODE_B_SURVEYOR,       # Flusso completo 4 pilastri preventivo
+])
+
+
+# ── Agent Definitions ─────────────────────────────────────────────────────────
 
 triage_agent = Agent(
     name="triage",
     model="gemini-2.5-flash",
     tools=[show_project_gallery_adk],
-    instruction=MODE_A_TRIAGE_PROMPT,
+    instruction=TRIAGE_AGENT_INSTRUCTION,
 )
 
 design_agent = Agent(
     name="design",
     model="gemini-2.5-flash",
-    tools=[generate_render_adk, list_project_files_adk],
-    instruction=MODE_A_DESIGNER_PROMPT,
+    tools=[generate_render_adk, list_project_files_adk, market_prices_adk],
+    instruction=DESIGN_AGENT_INSTRUCTION,
 )
 
 quote_agent = Agent(
     name="quote",
     model="gemini-2.5-flash",
     tools=[
-        pricing_engine_tool_adk, market_prices_adk, suggest_quote_items_adk,
-        trigger_n8n_webhook_adk, request_quote_approval_adk,
+        pricing_engine_tool_adk,
+        market_prices_adk,
+        suggest_quote_items_adk,
+        trigger_n8n_webhook_adk,
+        request_quote_approval_adk,
     ],
-    instruction=MODE_B_SURVEYOR_PROMPT,
+    instruction=QUOTE_AGENT_INSTRUCTION,
 )
 
 syd_orchestrator = Agent(
     name="syd_orchestrator",
     model="gemini-2.5-flash",
     sub_agents=[triage_agent, design_agent, quote_agent],
-    instruction="Route to the appropriate specialist based on conversation phase (triage, design, quote).",
+    instruction=SYD_ORCHESTRATOR_INSTRUCTION,
 )
