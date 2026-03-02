@@ -1,4 +1,3 @@
-from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 from src.api.perplexity import fetch_market_prices
 

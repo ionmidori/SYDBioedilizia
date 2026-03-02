@@ -35,7 +35,6 @@ from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, Field
-from langchain_core.tools import StructuredTool
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from src.core.config import settings
@@ -178,16 +177,7 @@ async def notify_admin_wrapper(
         return f"❌ Errore inatteso nella notifica admin: {str(e)}"
 
 
-notify_admin = StructuredTool.from_function(
-    coroutine=notify_admin_wrapper,
-    name="notify_admin",
-    description=(
-        "Notifies the admin via n8n that a new quote draft is ready for review. "
-        "Use AFTER suggest_quote_items has saved the draft to Firestore. "
-        "n8n handles email/Telegram/Notion notifications automatically."
-    ),
-    args_schema=NotifyAdminInput
-)
+notify_admin = notify_admin_wrapper
 
 
 # ─────────────────────────────────────────────
@@ -251,13 +241,4 @@ async def deliver_quote_wrapper(
         return f"❌ Errore inatteso nella consegna preventivo: {str(e)}"
 
 
-deliver_quote = StructuredTool.from_function(
-    coroutine=deliver_quote_wrapper,
-    name="deliver_quote",
-    description=(
-        "Delivers an approved quote PDF to the client via n8n (email/WhatsApp). "
-        "Use ONLY after admin has approved the quote and the PDF has been generated. "
-        "Requires a valid Firebase Storage signed URL for the PDF."
-    ),
-    args_schema=DeliverQuoteInput
-)
+deliver_quote = deliver_quote_wrapper

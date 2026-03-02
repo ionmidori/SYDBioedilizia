@@ -1,8 +1,10 @@
-import os
+import base64
 import json
 import logging
+import time
 from typing import List, Optional, Dict, Any
-from langchain_google_genai import ChatGoogleGenerativeAI
+from google import genai
+from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 from src.core.config import settings
 
@@ -33,21 +35,11 @@ class RoomAnalysis(BaseModel):
 async def analyze_room_structure(image_bytes: bytes) -> RoomAnalysis:
     """
     Analyze room structure from uploaded photo using Gemini Vision.
-    
-    This function uses Gemini to extract detailed structural information,
-    useful for technical quoting and precise renovation planning.
-    
-    Args:
-        image_bytes: The source image as bytes
-        
-    Returns:
-        RoomAnalysis object with detailed structural data
     """
-    model_name = "gemini-3-flash-preview" # Hardcoded for now, or add to Settings
-    
-    logger.info(f"[Vision] Initializing Gemini Vision analysis...")
-    logger.info(f"[Vision] Model: {model_name}")
-    
+    model_name = "gemini-2.5-flash"
+
+    logger.info(f"[Vision] Initializing Gemini Vision analysis with {model_name}...")
+
     system_prompt = """You are a professional interior designer and architect. Analyze this interior photo and extract precise structural and architectural information.
 
 Return ONLY a valid JSON object with this EXACT structure (no markdown, no explanation):
@@ -80,87 +72,49 @@ CRITICAL RULES:
 5. Ensure the JSON is valid and parseable"""
 
     try:
-        # Initialize Gemini LLM
-        llm = ChatGoogleGenerativeAI(
-            model=model_name,
-            google_api_key=settings.api_key,
-            temperature=0.1 # Low temperature for factual analysis
-        )
-        
-        # Determine content block based on input type
-        multimodal_block = {}
-        
-        # Check if it's a Native File API URI (passed as encoded bytes from download_image_smart)
-        is_file_uri = False
-        uri_string = ""
-        
+        client = genai.Client(api_key=settings.api_key)
+
+        # Determine content part based on input type
         try:
-            # Attempt to decode as UTF-8 string to check for URI
             candidate_str = image_bytes.decode('utf-8')
             if candidate_str.startswith("https://generativelanguage.googleapis.com") or candidate_str.startswith("files/"):
-                is_file_uri = True
-                uri_string = candidate_str
+                logger.info(f"[Vision] Using Native File API URI: {candidate_str}")
+                image_part = genai_types.Part(file_data=genai_types.FileData(file_uri=candidate_str))
+            else:
+                raise ValueError("not a URI")
         except Exception:
-            # decoding failed, definitely binary image data
-            pass
+            image_part = genai_types.Part(
+                inline_data=genai_types.Blob(
+                    mime_type="image/jpeg",
+                    data=base64.b64encode(image_bytes).decode('utf-8'),
+                )
+            )
 
-        if is_file_uri:
-             logger.info(f"[Vision] 🎬 Using Native File API URI: {uri_string}")
-             multimodal_block = {
-                "type": "file_data",
-                "file_data": {"file_uri": uri_string}
-             }
-        else:
-             # Standard Image Bytes -> Base64
-             import base64
-             base64_image = base64.b64encode(image_bytes).decode('utf-8')
-             multimodal_block = {
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-             }
-        
-        # Create multimodal message
-        from langchain_core.messages import HumanMessage
-        
-        message = HumanMessage(
-            content=[
-                {"type": "text", "text": system_prompt},
-                multimodal_block
-            ]
-        )
-        
-        # Monitor time
-        import time
         start_time = time.time()
-        
-        # Generate response (Async)
-        response = await llm.ainvoke([message])
-        
+        response = await client.aio.models.generate_content(
+            model=model_name,
+            contents=[genai_types.Content(parts=[
+                genai_types.Part(text=system_prompt),
+                image_part,
+            ])],
+            config=genai_types.GenerateContentConfig(temperature=0.1),
+        )
         elapsed = time.time() - start_time
-        logger.info(f"[Vision] ✅ Analysis complete in {elapsed:.1f}s")
-        
-        raw_output = response.content
-        
+        logger.info(f"[Vision] Analysis complete in {elapsed:.1f}s")
+
+        raw_output = response.text or ""
         if not raw_output:
             raise ValueError("Empty response from Vision API")
-            
-        # Clean and parse JSON
+
         cleaned_output = raw_output.replace("```json", "").replace("```", "").strip()
-        
-        try:
-            parsed = json.loads(cleaned_output)
-            
-            # Validate with Pydantic
-            analysis = RoomAnalysis(**parsed)
-            
-            logger.info(f"[Vision] Analyzed room: {analysis.room_type}, {analysis.approximate_size_sqm}mq")
-            return analysis
-            
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"[Vision] JSON Parse Error: {e}")
-            logger.error(f"[Vision] Raw output: {cleaned_output[:500]}")
-            raise ValueError(f"Failed to parse analysis JSON: {e}")
-            
+        parsed = json.loads(cleaned_output)
+        analysis = RoomAnalysis(**parsed)
+        logger.info(f"[Vision] Analyzed room: {analysis.room_type}, {analysis.approximate_size_sqm}mq")
+        return analysis
+
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error(f"[Vision] JSON Parse Error: {e}")
+        raise ValueError(f"Failed to parse analysis JSON: {e}")
     except Exception as error:
         logger.error(f"[Vision] Error during analysis: {error}")
         raise Exception(f"Room analysis failed: {str(error)}")

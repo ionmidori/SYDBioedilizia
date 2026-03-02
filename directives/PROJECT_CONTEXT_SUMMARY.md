@@ -1,8 +1,8 @@
-- **Last Updated**: 2026-03-02T13:15:00Z
-- **Current Version**: `v3.8.23` (Auth Fix & Navbar Glassmorphism)
-- **Last Major Sync**: 2026-03-01
-- **Status**: `Production-Ready — ORCHESTRATOR_MODE=vertex_adk (100% ADK)`
-- **Next High Priority**: 1) Phase 4: Decommissioning LangGraph | 2) Unify Dashboard Loaders (SydLoader) | 3) Dynamic Robot Mascot
+- **Last Updated**: 2026-03-02T15:00:00Z
+- **Current Version**: `v3.9.0` (Phase 4: LangGraph Decommissioning Complete)
+- **Last Major Sync**: 2026-03-02
+- **Status**: `Production-Ready — ADK-only, LangGraph fully decommissioned`
+- **Next High Priority**: 1) Unify Dashboard Loaders (SydLoader) | 2) Dynamic Robot Mascot | 3) ADK Session cleanup cron (GDPR retention)
 
 - **Phase 46.2 (Mar 01, 2026):** **ADK 100% Rollout + API Compat Fixes (v3.8.21)**:
     - **ORCHESTRATOR_MODE=vertex_adk**: Backend ora instrada il 100% del traffico su ADKOrchestrator. Singolo sviluppatore → skip canary graduale.
@@ -15,43 +15,52 @@
     - **Drain utility**: `src/adk/drain.py` + `scripts/drain_check.py` — 0 sessioni HITL pendenti verificato
     - **172/172 unit test passing**
 
-- **Phase 47 (Next):** **Phase 4: LangGraph Decommissioning (v3.8.30+)**:
-    - **Gate**: ADK stabile in produzione per almeno 1 settimana (sviluppatore solo → pochi giorni di test sufficienti)
-    - **Azioni**: Rimuovere `src/graph/`, `src/repositories/conversation_repository.py`, `langgraph*` da `pyproject.toml`
+- **Phase 47 (Mar 02, 2026):** **Phase 4: LangGraph Decommissioning COMPLETE (v3.9.0)**:
+    - **Rimosso**: `src/graph/`, `src/agents/`, `src/services/agent_orchestrator.py`
+    - **Rimosso da pyproject.toml**: `langchain`, `langchain-core`, `langchain-google-genai`, `langchain-google-vertexai`, `langgraph`, `langgraph-checkpoint-firestore`
+    - **Migrato**: `vision/*.py` e `services/insight_engine.py` da `ChatGoogleGenerativeAI` a `google.genai` nativo
+    - **Migrato**: tutti i `tools/*.py` — rimossi decorator `@tool`/`StructuredTool` LangChain
+    - **Semplificato**: `orchestrator_factory.py` — `CanaryOrchestratorProxy` rimosso, ritorna `ADKOrchestrator()` direttamente
+    - **Tag git**: `langgraph-archive-pre-phase4` conserva tutto il codice rimosso
     - **Poi**: Dashboard Loaders unification (SydLoader), Dynamic Robot Mascot
 
 ---
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v3.8.23
-**Last Updated:** 2026-03-02T13:15:00Z
-**Project Phase:** Phase 46.2 - ADK 100% Live (Maintenance & UI Polish)
+**Current Version:** v3.8.24
+**Last Updated:** 2026-03-02T13:28:00Z
+**Project Phase:** Phase 46.2 - ADK 100% Live (Maintenance & Vercel Fixes)
 
 ---
 
-## ACTIVE PRIORITIES (Phase 46.2)
+## RECENT FIXES (v3.8.24)
+1. **Vercel Deployment Fix**: Removed `output: "standalone"` from Next.js config to resolve Vercel deployment "Internal error". 
+2. **Next.js 16 Proxy Migration**: Migrated `middleware.ts` to `proxy.ts` (conforming to Next.js 16 deprecation standards).
 
-1. **Phase 4: Decommissioning LangGraph**: Rimozione codice legacy dopo verifica stabilità ADK in produzione (target: 2026-03-08 se nessun errore).
-2. **Unify Dashboard Loaders**: Sostituire `Loader2` / spinner custom con `SydLoader` (M3 Expressive) e `DashboardSkeleton` — piano in `docs/PLANS/unify_dashboard_loaders.txt`.
-3. **Dynamic Robot Mascot**: Animazioni contesto-aware per fase conversazione (TRIAGE/DESIGN/QUOTE).
+---
 
-## ORCHESTRATOR ARCHITECTURE (current)
+## ACTIVE PRIORITIES (Phase 47)
+
+1. **Unify Dashboard Loaders**: Sostituire `Loader2` / spinner custom con `SydLoader` (M3 Expressive) e `DashboardSkeleton` — piano in `docs/PLANS/unify_dashboard_loaders.txt`.
+2. **Dynamic Robot Mascot**: Animazioni contesto-aware per fase conversazione (TRIAGE/DESIGN/QUOTE).
+3. **ADK Session Cleanup Cron**: GDPR retention — eliminare sessioni ADK più vecchie di N giorni.
+
+## ORCHESTRATOR ARCHITECTURE (current — ADK-only)
 
 ```
 FastAPI /chat/stream
-    → CanaryOrchestratorProxy (ORCHESTRATOR_MODE=vertex_adk)
-        → ADKOrchestrator (100% traffico)
-            → Runner(app_name="syd_orchestrator", session_service=VertexAiSessionService)
-                → syd_orchestrator Agent
-                    ├── triage Agent (analyze_room, show_project_gallery)
-                    ├── design Agent (generate_render, list_project_files)
-                    └── quote Agent (pricing_engine, market_prices, suggest_quote_items,
-                                     trigger_n8n_webhook, request_quote_approval HITL)
-    → LangGraphOrchestrator (fallback: se ADK health_check() == False)
+    → get_orchestrator() → ADKOrchestrator (unico orchestratore)
+        → Runner(app_name="syd_orchestrator", session_service=FirestoreSessionService)
+            → syd_orchestrator Agent
+                ├── triage Agent (analyze_room, show_project_gallery)
+                ├── design Agent (generate_render, list_project_files)
+                └── quote Agent (pricing_engine, market_prices, suggest_quote_items,
+                                 trigger_n8n_webhook, request_quote_approval HITL)
 ```
 
-**Rollback istantaneo**: `ORCHESTRATOR_MODE=langgraph` in `.env` + restart
+**LangGraph rimosso**: nessun fallback, nessun dual-mode.
+**Tag archivio**: `langgraph-archive-pre-phase4` (recuperabile con `git checkout`)
 
 ## ADK Key Files
 
@@ -90,6 +99,7 @@ FastAPI /chat/stream
 - **Recent fixes** (Session Mar 02):
   - Auth: Fixed `AuthDialog` bug where it stayed open after successful Google login/claim error.
   - Navbar: Implemented golden glassmorphism style for all main menu items (desktop & mobile).
+  - Navbar Mobile UX V2: Lowered MENU title, enforced uniform padding/width for Area Personale button, applied luxury glassmorphism identical to dashboard, unified profile card layout to stretch full width with integrated logout button.
   - Navbar UI: Centered and enlarged "Menu" title, moved User Profile & Logout below FAQ with 44px spacing.
   - Navbar UI: Increased mobile menu background transparency (bg-luxury-bg/80) and set Logout icon color to red-500.
   - Gallery page: fixed mobile layout pushing images to bottom by removing hardcoded 500px heights when not virtualized.
@@ -104,4 +114,4 @@ FastAPI /chat/stream
 - `docs/PLANS/unify_dashboard_loaders.txt` — Piano UI/UX prossimo task
 - `SESSION_RECAP.md` — Recap dettagliato sessione 4
 
-_Documento aggiornato: Marzo 02, 2026 (Session: Navbar Mobile UX & Gallery UI)_
+_Documento aggiornato: Marzo 02, 2026 (Session: Navbar Mobile UX V2 & Glassmorphism)_

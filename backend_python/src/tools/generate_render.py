@@ -1,4 +1,3 @@
-from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from src.api.gemini_imagen import generate_image_t2i, generate_image_i2i
@@ -176,11 +175,4 @@ async def generate_render_wrapper(
             "status": "error"
         }
 
-# Tool definition
-generate_render = StructuredTool.from_function(
-    func=generate_render_wrapper,
-    name="generate_render",
-    description="Generate photorealistic interior design renderings (creation or modification).",
-    args_schema=GenerateRenderInput,
-    parse_docstring=True
-)
+generate_render = generate_render_wrapper

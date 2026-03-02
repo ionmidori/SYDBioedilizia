@@ -1,8 +1,9 @@
-import os
+import base64
 import json
 import logging
 from typing import List, Optional
-from langchain_google_genai import ChatGoogleGenerativeAI
+from google import genai
+from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 from src.core.config import settings
 
@@ -31,32 +32,23 @@ async def analyze_web_mockup(
 ) -> WebMockupAnalysis:
     """
     Analyzes a web design mockup and translates it into Shadcn/UI and Tailwind specifications.
-    
-    Args:
-        image_bytes: The source image/mockup as bytes
-        mime_type: MIME type of the image
-        user_context: Additional instructions (e.g., "Make it look like Apple's dashboard")
-        
-    Returns:
-        WebMockupAnalysis structured object
     """
-    model_name = "gemini-3-flash-preview"
-    
+    model_name = "gemini-2.5-flash"
     logger.info(f"[WebArchitect] Analyzing mockup with {model_name}...")
-    
+
     system_prompt = f"""
     ROLE: You are a Senior UI/UX Engineer specializing in Shadcn/UI and Tailwind CSS.
-    
+
     GOAL: Analyze the attached web design mockup and provide a structured implementation plan.
-    
+
     CONTEXT: {user_context}
-    
+
     YOUR TASK:
     1. Identify the high-level layout (e.g., Bento Grid).
     2. Map visual elements to specific Shadcn/UI components.
     3. Extract the color palette and typography.
     4. Suggest Tailwind CSS classes to achieve the "look and feel" (e.g., glassmorphism, gradients).
-    
+
     RESPOND WITH ONLY VALID JSON:
     {{
       "layout_type": "...",
@@ -69,38 +61,28 @@ async def analyze_web_mockup(
       "tailwind_globals": ["primary: #...", "border: #..."]
     }}
     """
-    
+
     try:
-        llm = ChatGoogleGenerativeAI(
-            model=model_name,
-            google_api_key=settings.api_key,
-            temperature=0.2
-        )
-        
-        import base64
+        client = genai.Client(api_key=settings.api_key)
         base64_image = base64.b64encode(image_bytes).decode('utf-8')
-        
-        from langchain_core.messages import HumanMessage
-        
-        message = HumanMessage(
-            content=[
-                {"type": "text", "text": system_prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:{mime_type};base64,{base64_image}"}
-                }
-            ]
+
+        response = await client.aio.models.generate_content(
+            model=model_name,
+            contents=[genai_types.Content(parts=[
+                genai_types.Part(text=system_prompt),
+                genai_types.Part(inline_data=genai_types.Blob(
+                    mime_type=mime_type,
+                    data=base64_image,
+                )),
+            ])],
+            config=genai_types.GenerateContentConfig(temperature=0.2),
         )
-        
-        response = await llm.ainvoke([message])
-        raw_output = response.content
-        
-        # Robust JSON cleaning
+
+        raw_output = response.text or ""
         cleaned_output = raw_output.replace("```json", "").replace("```", "").strip()
         parsed = json.loads(cleaned_output)
-        
         return WebMockupAnalysis(**parsed)
-        
+
     except Exception as e:
         logger.error(f"[WebArchitect] Analysis failed: {e}")
         raise ValueError(f"Web mockup analysis failed: {str(e)}")

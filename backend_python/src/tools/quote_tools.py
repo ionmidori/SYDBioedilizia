@@ -1,4 +1,3 @@
-from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import logging
@@ -161,10 +160,4 @@ Summary: {analysis.summary}"""
         logger.error(f"[QuoteTool] Error: {e}", exc_info=True)
         return f"Sorry, I encountered an error while generating the quote: {str(e)}"
 
-# Tool definition
-suggest_quote_items = StructuredTool.from_function(
-    func=suggest_quote_items_wrapper,
-    name="suggest_quote_items",
-    description="Analyze chat and images to suggest a preliminary quote with SKUs from the price book.",
-    args_schema=SuggestQuoteItemsInput
-)
+suggest_quote_items = suggest_quote_items_wrapper

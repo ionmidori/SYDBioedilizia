@@ -1,12 +1,11 @@
 import logging
 import json
-import os
-from typing import List, Dict, Any, Optional
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import SystemMessage, HumanMessage
+from typing import List, Dict, Any
+from google import genai
+from google.genai import types as genai_types
+from pydantic import BaseModel, Field
 from src.core.config import settings
 from src.services.pricing_service import PricingService
-from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +20,8 @@ class InsightAnalysis(BaseModel):
 
 class InsightEngine:
     def __init__(self, model_name: str | None = None):
-        if model_name is None:
-            model_name = settings.CHAT_MODEL_VERSION
-        self.llm = ChatGoogleGenerativeAI(
-            model=model_name,
-            api_key=settings.api_key,
-            temperature=0.1
-        )
+        self.model_name = model_name or settings.CHAT_MODEL_VERSION
+        self.client = genai.Client(api_key=settings.api_key)
 
     def _get_price_book_summary(self) -> str:
         price_book = PricingService.load_price_book()
@@ -41,9 +35,8 @@ class InsightEngine:
         Analyzes chat and media to suggest SKUs and quantities.
         """
         price_book_summary = self._get_price_book_summary()
-        
-        system_prompt = f"""
-You are a 'Quantity Surveyor' AI assistant for SYD Bioedilizia.
+
+        system_prompt = f"""You are a 'Quantity Surveyor' AI assistant for SYD Bioedilizia.
 Your task is to analyze the conversation between the user and the AI, and any provided images, to identify necessary renovation works.
 Map these works to the specific SKUs provided in the Master Price Book below.
 
@@ -56,40 +49,44 @@ RULES:
 4. If the information is missing, make a reasonable conservative estimate or omit the item.
 5. Focus on: Demolitions, Electrical, Plumbing, Structural works, and Flooring. Ignore furniture.
 
-Output your analysis in a structured JSON format.
+Output your analysis as a valid JSON object with this structure:
+{{
+  "suggestions": [
+    {{"sku": "...", "qty": 0.0, "ai_reasoning": "..."}}
+  ],
+  "summary": "..."
+}}
 """
 
-        # Prepare messages
-        messages = [SystemMessage(content=system_prompt)]
-        
-        # Add chat history summary or full history
         history_text = "Chat History:\n"
         for msg in chat_history:
             role = msg.get("role", "unknown")
             content = msg.get("content", "")
             history_text += f"{role}: {content}\n"
-        
-        human_content = [{"type": "text", "text": history_text}]
-        
-        # Add images if available
+
+        parts: list[genai_types.Part] = [
+            genai_types.Part(text=system_prompt),
+            genai_types.Part(text=history_text),
+        ]
         for url in media_urls:
-            human_content.append({"type": "image_url", "image_url": {"url": url}})
-            
-        messages.append(HumanMessage(content=human_content))
-        
-        # Invoke LLM with structured output
-        structured_llm = self.llm.with_structured_output(InsightAnalysis)
-        
+            parts.append(genai_types.Part(text=f"[Image: {url}]"))
+
         try:
             logger.info("[InsightEngine] Analyzing project for quote...")
-            analysis = await structured_llm.ainvoke(messages)
-            return analysis
+            response = await self.client.aio.models.generate_content(
+                model=self.model_name,
+                contents=[genai_types.Content(parts=parts)],
+                config=genai_types.GenerateContentConfig(temperature=0.1),
+            )
+            raw_output = (response.text or "").replace("```json", "").replace("```", "").strip()
+            parsed = json.loads(raw_output)
+            return InsightAnalysis(**parsed)
         except Exception as e:
             logger.error(f"[InsightEngine] Error during analysis: {e}")
             raise Exception(f"Failed to analyze project: {str(e)}")
 
-# Singleton instance
-_insight_engine = None
+
+_insight_engine: InsightEngine | None = None
 
 def get_insight_engine() -> InsightEngine:
     global _insight_engine

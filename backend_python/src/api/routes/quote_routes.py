@@ -29,13 +29,11 @@ from pydantic import BaseModel, Field
 
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import (
-    CheckpointError,
     QuoteAlreadyApprovedError,
     QuoteNotFoundError,
 )
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
-from src.graph.quote_graph import QuoteGraphFactory
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
 from src.services.pricing_service import PricingService
@@ -43,10 +41,6 @@ from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/quote", tags=["Quote"])
-
-# ─── Singleton graph (compiled once, reused per thread_id) ────────────────────
-_factory = QuoteGraphFactory()
-_graph = _factory.create_graph()
 
 # ─── Path parameter: project_id with strict format validation ─────────────────
 _PROJECT_ID = Path(
@@ -173,26 +167,19 @@ async def start_quote_flow(
     Caller must own the project or be admin.
     """
     await _verify_project_ownership(project_id, user_session)
-
-    config = {"configurable": {"thread_id": project_id}}
     logger.info(
-        "Starting HITL quote flow.",
+        "Starting HITL quote flow (ADK).",
         extra={"project_id": project_id, "uid": user_session.uid},
     )
 
     try:
-        await _graph.ainvoke(
-            {"project_id": project_id, "admin_decision": None, "admin_notes": ""},
-            config,
-        )
+        from src.adk.hitl import start_quote_hitl
+        await start_quote_hitl(project_id=project_id, user_id=user_session.uid)
     except QuoteAlreadyApprovedError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Quote for project '{project_id}' is already approved.",
         )
-    except CheckpointError as exc:
-        logger.error("Checkpoint save failed.", extra={"project_id": project_id})
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.detail)
     except Exception:
         logger.exception("Unexpected error in start_quote_flow.", extra={"project_id": project_id})
         raise HTTPException(
@@ -228,30 +215,24 @@ async def approve_quote(
     CRITICAL: ainvoke(None, config) resumes — do NOT pass initial state.
     """
     _require_admin(user_session)
-
-    config = {"configurable": {"thread_id": project_id}}
     logger.info(
-        "Resuming HITL quote graph.",
-        extra={
-            "project_id": project_id,
-            "decision": body.decision,
-            "admin_uid": user_session.uid,
-        },
+        "Resuming HITL quote (ADK).",
+        extra={"project_id": project_id, "decision": body.decision, "admin_uid": user_session.uid},
     )
 
     try:
-        await _graph.aupdate_state(
-            config,
-            {"admin_decision": body.decision, "admin_notes": body.notes},
+        from src.adk.hitl import approve_quote_hitl
+        await approve_quote_hitl(
+            project_id=project_id,
+            decision=body.decision,
+            notes=body.notes,
+            admin_uid=user_session.uid,
         )
-        await _graph.ainvoke(None, config)
     except QuoteNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No checkpoint found for project '{project_id}'. Run /start first.",
+            detail=f"No pending quote found for project '{project_id}'. Run /start first.",
         )
-    except CheckpointError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=exc.detail)
     except Exception:
         logger.exception("Unexpected error in approve_quote.", extra={"project_id": project_id})
         raise HTTPException(

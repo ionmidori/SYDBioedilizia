@@ -1,5 +1,4 @@
 from typing import List, Optional
-from langchain_core.tools import tool
 import firebase_admin
 from firebase_admin import storage, firestore
 from src.utils.context import get_current_user_id
@@ -7,7 +6,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-@tool
 def list_project_files(session_id: str, category: Optional[str] = None, limit: int = 20) -> str:
     """
     Lists the files available in the current project (images, documents, videos).

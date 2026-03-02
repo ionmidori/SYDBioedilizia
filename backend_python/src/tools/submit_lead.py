@@ -1,4 +1,3 @@
-from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 from typing import Optional
 from src.db.leads import save_lead

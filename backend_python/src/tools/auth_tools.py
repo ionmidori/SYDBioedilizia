@@ -1,11 +1,8 @@
-from langchain_core.tools import tool
-
-@tool
-def request_login():
+def request_login() -> str:
     """
-    Call this tool when the user requests an action that requires authentication 
+    Call this tool when the user requests an action that requires authentication
     (like generating a render) but is currently not logged in.
-    
+
     Returns:
         str: A distinct signal that the frontend will use to show a login button.
     """

@@ -1,11 +1,12 @@
+import base64
 import json
 import logging
 import io
 import ezdxf
 from typing import List, Optional, Tuple
 from pydantic import BaseModel, Field
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
+from google import genai
+from google.genai import types as genai_types
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -45,15 +46,13 @@ async def analyze_floorplan_vector(image_bytes: bytes) -> CadVectorData:
     """
     Usa Gemini Vision per estrarre vettori (muri, porte) da un'immagine raster.
     """
-    # model_name = "gemini-2.5-pro-preview-tts" # Usiamo Pro per maggiore precisione spaziale
-    model_name = "gemini-2.5-flash-lite" # Passaggio a 2.5 per standard progetto
-    
+    model_name = "gemini-2.5-flash"
     logger.info(f"[CadEngine] Starting vector analysis with {model_name}...")
 
     system_prompt = """
     ROLE: You are an Expert CAD Digitizer.
     TASK: Analyze the floorplan image and extract vector coordinates to reconstruct it digitally.
-    
+
     OUTPUT FORMAT: Return ONLY a valid JSON object matching this schema:
     {
       "scale_reference": {
@@ -77,28 +76,25 @@ async def analyze_floorplan_vector(image_bytes: bytes) -> CadVectorData:
     """
 
     try:
-        llm = ChatGoogleGenerativeAI(
-            model=model_name,
-            google_api_key=settings.api_key,
-            temperature=0.1 # Bassissima temperatura per precisione
-        )
-
-        import base64
+        client = genai.Client(api_key=settings.api_key)
         base64_image = base64.b64encode(image_bytes).decode('utf-8')
 
-        message = HumanMessage(
-            content=[
-                {"type": "text", "text": system_prompt},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
-            ]
+        response = await client.aio.models.generate_content(
+            model=model_name,
+            contents=[genai_types.Content(parts=[
+                genai_types.Part(text=system_prompt),
+                genai_types.Part(inline_data=genai_types.Blob(
+                    mime_type="image/jpeg",
+                    data=base64_image,
+                )),
+            ])],
+            config=genai_types.GenerateContentConfig(temperature=0.1),
         )
 
-        response = await llm.ainvoke([message])
-        raw_output = response.content.replace("```json", "").replace("```", "").strip()
-        
+        raw_output = (response.text or "").replace("```json", "").replace("```", "").strip()
         parsed = json.loads(raw_output)
         vector_data = CadVectorData(**parsed)
-        
+
         logger.info(f"[CadEngine] Extracted {len(vector_data.walls)} walls and {len(vector_data.openings)} openings.")
         return vector_data
 
@@ -113,56 +109,39 @@ def generate_dxf_bytes(vector_data: CadVectorData) -> bytes:
     Converte i dati vettoriali JSON in un file DXF binario valido.
     """
     try:
-        # Configura il documento DXF (Versione R2010 è molto compatibile)
         doc = ezdxf.new('R2010')
         msp = doc.modelspace()
 
-        # Calcolo fattore di scala (Pixel -> Metri)
-        # Default: 1 pixel = 1cm (0.01m) se non trovato
-        scale_factor = 0.01 
+        scale_factor = 0.01
         if vector_data.scale_reference and vector_data.scale_reference.pixel_width > 0:
-            # cm per pixel
             cm_per_pixel = vector_data.scale_reference.real_width_cm / vector_data.scale_reference.pixel_width
-            scale_factor = cm_per_pixel / 100.0 # Conversione in metri per DXF professionale
-        
+            scale_factor = cm_per_pixel / 100.0
+
         logger.info(f"[CadEngine] Generating DXF with scale factor: {scale_factor} (1px = {scale_factor:.4f}m)")
 
-        # Setup Layers
-        doc.layers.new(name='WALLS', dxfattribs={'color': 7, 'lineweight': 35}) # White/Black, Thick
-        doc.layers.new(name='OPENINGS', dxfattribs={'color': 3}) # Green
-        doc.layers.new(name='ANNOTATIONS', dxfattribs={'color': 1}) # Red
+        doc.layers.new(name='WALLS', dxfattribs={'color': 7, 'lineweight': 35})
+        doc.layers.new(name='OPENINGS', dxfattribs={'color': 3})
+        doc.layers.new(name='ANNOTATIONS', dxfattribs={'color': 1})
 
-        # Disegna Muri
         for wall in vector_data.walls:
-            # Coordinate convertite in metri
-            start = (wall.start.x * scale_factor, -wall.start.y * scale_factor) # Y invertita per CAD
+            start = (wall.start.x * scale_factor, -wall.start.y * scale_factor)
             end = (wall.end.x * scale_factor, -wall.end.y * scale_factor)
-            
-            # Linea principale muro
             msp.add_line(start, end, dxfattribs={'layer': 'WALLS'})
 
-        # Disegna Aperture (Semplificate come marcatori per ora)
         for opening in vector_data.openings:
             pos = (opening.position_pixels.x * scale_factor, -opening.position_pixels.y * scale_factor)
-            width = (opening.width_pixels * scale_factor)
-            
-            # Crea un blocco o un simbolo per l'apertura
+            width = opening.width_pixels * scale_factor
             if opening.type == 'door':
-                # Disegna un arco semplice o rettangolo per la porta
                 msp.add_circle(pos, radius=width, dxfattribs={'layer': 'OPENINGS'})
             else:
-                # Finestra: linea sottile
                 msp.add_line(
-                    (pos[0] - width/2, pos[1]), 
-                    (pos[0] + width/2, pos[1]), 
+                    (pos[0] - width / 2, pos[1]),
+                    (pos[0] + width / 2, pos[1]),
                     dxfattribs={'layer': 'OPENINGS'}
                 )
 
-        # Output in memoria
         output = io.StringIO()
         doc.write(output)
-        
-        # ezdxf scrive stringhe, ma per il download servono bytes
         return output.getvalue().encode('utf-8')
 
     except Exception as e:

@@ -11,12 +11,7 @@ dependencies = [
     "google-genai>=1.59.0",
     "google-generativeai>=0.8.6",
     "httpx>=0.28.1",
-    "langchain>=1.2.6",
-    "langchain-core>=1.2.7",
-    "langchain-google-genai>=4.2.0",
-    "langchain-google-vertexai>=3.2.1",
-    "langgraph>=1.0.6",
-    "pillow>=12.1.0",
+"pillow>=12.1.0",
     "pinecone-client>=6.0.0",
     "pyjwt>=2.10.1",
     "python-dotenv>=1.2.1",
@@ -25,8 +20,7 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "ezdxf>=1.4.3",
     "python-dateutil>=2.9.0.post0",
-    "langgraph-checkpoint-firestore>=0.1.0",
-    "slowapi>=0.1.9",
+"slowapi>=0.1.9",
     "google-adk>=1.26.0",
 ]
 

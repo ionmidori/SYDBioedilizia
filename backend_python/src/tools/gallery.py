@@ -1,7 +1,6 @@
 import json
 from datetime import timedelta
 from typing import Optional
-from langchain_core.tools import tool
 import firebase_admin
 from firebase_admin import storage, firestore
 from src.utils.context import get_current_user_id
@@ -9,7 +8,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-@tool
 def show_project_gallery(session_id: str, room: Optional[str] = None, status: Optional[str] = None) -> str:
     """
     Displays a visual gallery of project photos and renderings in the chat.
