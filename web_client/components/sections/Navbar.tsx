@@ -126,7 +126,7 @@ export function Navbar() {
                 className={cn(
                     'fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent',
                     isScrolled
-                        ? 'glass-premium border-luxury-gold/10 py-3 shadow-elevation-low'
+                        ? 'bg-luxury-gold/10 backdrop-blur-xl border-luxury-gold/20 py-3 shadow-elevation-mid'
                         : 'bg-transparent py-5'
                 )}
                 initial={{ y: -100 }}
@@ -318,7 +318,7 @@ export function Navbar() {
                                     <motion.div variants={mobileMenuItem}>
                                         <button
                                             onClick={handlePersonalAreaClick}
-                                            className="flex items-center justify-center px-3 py-2.5 rounded-xl glass-premium border-luxury-gold/20 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/20 hover:shadow-elevation-high hover:shadow-luxury-gold/40 hover:bg-luxury-gold/10"
+                                            className="flex items-center justify-center px-3 py-2.5 rounded-xl bg-luxury-gold/5 hover:bg-luxury-gold/15 backdrop-blur-md border border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)]"
                                         >
                                             <span className="font-bold uppercase tracking-[0.15em] text-[9px]">Area Personale</span>
                                         </button>

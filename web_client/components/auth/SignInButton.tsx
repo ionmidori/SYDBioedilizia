@@ -62,9 +62,9 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
     if (user) {
         return (
             <div className={cn("flex items-center gap-3", className)}>
-                <Link 
-                    href="/dashboard/profile" 
-                    className="flex items-center gap-3 p-1.5 pr-4 rounded-full glass-premium border border-luxury-gold/20 hover:border-luxury-gold/50 transition-all duration-300 group active:scale-95"
+                <Link
+                    href="/dashboard/profile"
+                    className="flex items-center gap-3 p-1.5 pr-4 rounded-full bg-luxury-gold/5 backdrop-blur-md border border-luxury-gold/20 hover:border-luxury-gold/50 transition-all duration-300 group active:scale-95"
                     onClick={() => {
                         if (typeof navigator !== 'undefined' && navigator.vibrate) {
                             navigator.vibrate(10);
