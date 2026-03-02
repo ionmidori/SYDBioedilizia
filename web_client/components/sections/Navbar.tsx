@@ -171,7 +171,7 @@ export function Navbar() {
                                 <Link
                                     href={link.href}
                                     onClick={() => triggerHaptic()}
-                                    className="relative flex items-center justify-center px-4 py-2.5 rounded-xl glass-premium border-luxury-gold/30 text-luxury-gold transition-all duration-300 group shadow-elevation-low shadow-luxury-gold/10 hover:shadow-elevation-high hover:shadow-luxury-gold/40 hover:bg-luxury-gold/10 whitespace-nowrap"
+                                    className="relative flex items-center justify-center px-4 py-2.5 rounded-xl bg-luxury-gold/5 hover:bg-luxury-gold/15 backdrop-blur-md border border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)] whitespace-nowrap"
                                 >
                                     <span className="font-bold tracking-[0.05em] text-[12px] xl:text-[13px]">{link.name}</span>
                                 </Link>
@@ -324,7 +324,7 @@ export function Navbar() {
                                         >
                                             <Link
                                                 href={link.href}
-                                                className="flex items-center justify-center px-3 py-3 rounded-xl glass-premium border-luxury-gold/30 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/10 hover:shadow-elevation-high hover:shadow-luxury-gold/40 hover:bg-luxury-gold/10"
+                                                className="flex items-center justify-center px-3 py-3 rounded-xl bg-luxury-gold/5 hover:bg-luxury-gold/15 backdrop-blur-md border border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)]"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
