@@ -1,5 +1,5 @@
-- **Last Updated**: 2026-03-01T23:30:00Z
-- **Current Version**: `v3.8.22` (Gallery Optimized & ADK 100% Live)
+- **Last Updated**: 2026-03-02T13:15:00Z
+- **Current Version**: `v3.8.23` (Auth Fix & Navbar Glassmorphism)
 - **Last Major Sync**: 2026-03-01
 - **Status**: `Production-Ready — ORCHESTRATOR_MODE=vertex_adk (100% ADK)`
 - **Next High Priority**: 1) Phase 4: Decommissioning LangGraph | 2) Unify Dashboard Loaders (SydLoader) | 3) Dynamic Robot Mascot
@@ -24,9 +24,9 @@
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v3.8.22
-**Last Updated:** 2026-03-01T23:30:00Z
-**Project Phase:** Phase 46.2 - ADK 100% Live
+**Current Version:** v3.8.23
+**Last Updated:** 2026-03-02T13:15:00Z
+**Project Phase:** Phase 46.2 - ADK 100% Live (Maintenance & UI Polish)
 
 ---
 
@@ -88,6 +88,10 @@ FastAPI /chat/stream
   - npm audit: 0 vulnerabilities (fast-xml-parser + minimatch patched in commit 7ad26d5)
   - pip-audit (backend): 0 vulnerabilities
 - **Recent fixes** (Session Mar 02):
+  - Auth: Fixed `AuthDialog` bug where it stayed open after successful Google login/claim error.
+  - Navbar: Implemented golden glassmorphism style for all main menu items (desktop & mobile).
+  - Navbar UI: Centered and enlarged "Menu" title, moved User Profile & Logout below FAQ with 44px spacing.
+  - Navbar UI: Increased mobile menu background transparency (bg-luxury-bg/80) and set Logout icon color to red-500.
   - Gallery page: fixed mobile layout pushing images to bottom by removing hardcoded 500px heights when not virtualized.
   - Gallery page: AdvancedLightbox centered images vertically across all devices while maintaining 90vw/85vh breathing margins.
   - profile/page.tsx TypeScript errors (result.error → message, PasskeyButton mode prop)
@@ -100,4 +104,4 @@ FastAPI /chat/stream
 - `docs/PLANS/unify_dashboard_loaders.txt` — Piano UI/UX prossimo task
 - `SESSION_RECAP.md` — Recap dettagliato sessione 4
 
-_Documento aggiornato: Marzo 02, 2026 (Session: Gallery UI Height & Lightbox centering on mobile)_
+_Documento aggiornato: Marzo 02, 2026 (Session: Navbar Mobile UX & Gallery UI)_

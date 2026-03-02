@@ -100,7 +100,7 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
                     size="icon"
                     onClick={handleLogout}
                     title="Logout"
-                    className="text-luxury-text/40 hover:text-red-400 hover:bg-red-500/10 rounded-full w-8 h-8"
+                    className="text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded-full w-8 h-8"
                 >
                     <LogOut className="w-3.5 h-3.5" />
                 </Button>

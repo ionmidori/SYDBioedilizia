@@ -160,8 +160,8 @@ export function Navbar() {
                     </div>
 
                     {/* Desktop Nav */}
-                    <div className="hidden xl:flex flex-1 justify-center items-center gap-1 z-10 px-2 min-w-0">
-                        {navLinks.map((link, idx) => (
+                    <div className="hidden xl:flex flex-1 justify-center items-center gap-3 z-10 px-2 min-w-0">
+                        {navLinks.map((link) => (
                             <motion.div
                                 key={link.name}
                                 whileTap={{ scale: 0.95 }}
@@ -170,19 +170,10 @@ export function Navbar() {
                             >
                                 <Link
                                     href={link.href}
-                                    onMouseEnter={() => setHoveredNavIndex(idx)}
-                                    onMouseLeave={() => setHoveredNavIndex(null)}
                                     onClick={() => triggerHaptic()}
-                                    className="relative px-2 py-2 xl:px-3 text-[13px] xl:text-sm font-medium text-luxury-text hover:text-luxury-gold transition-colors group whitespace-nowrap"
+                                    className="relative flex items-center justify-center px-4 py-2.5 rounded-xl glass-premium border-luxury-gold/30 text-luxury-gold transition-all duration-300 group shadow-elevation-low shadow-luxury-gold/10 hover:shadow-elevation-high hover:shadow-luxury-gold/40 hover:bg-luxury-gold/10 whitespace-nowrap"
                                 >
-                                    {hoveredNavIndex === idx && (
-                                        <motion.div
-                                            layoutId="nav-pill"
-                                            className="absolute inset-0 bg-luxury-gold/10 rounded-full"
-                                            transition={M3Spring.gentle}
-                                        />
-                                    )}
-                                    <span className="relative z-10">{link.name}</span>
+                                    <span className="font-bold tracking-[0.05em] text-[12px] xl:text-[13px]">{link.name}</span>
                                 </Link>
                             </motion.div>
                         ))}
@@ -258,7 +249,7 @@ export function Navbar() {
                                         className="absolute top-12 right-0 bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/10 shadow-xl shadow-black/20 rounded-2xl p-4 flex flex-col gap-2 min-w-[200px]"
                                     >
                                         <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/95 border-t border-l border-luxury-gold/10 rotate-45 transform" />
-                                        
+
                                         {contactLinks.map(({ Icon, label, href }, i) => (
                                             <a
                                                 key={i}
@@ -298,10 +289,10 @@ export function Navbar() {
                             </SheetTrigger>
                             <SheetContent
                                 side="right"
-                                className="w-[45vw] sm:w-[33vw] min-w-[180px] max-w-[260px] bg-luxury-bg/95 backdrop-blur-xl border-l border-luxury-gold/10 p-4 flex flex-col"
+                                className="w-[45vw] sm:w-[33vw] min-w-[180px] max-w-[260px] bg-luxury-bg/80 backdrop-blur-xl border-l border-luxury-gold/10 p-4 flex flex-col"
                             >
-                                <SheetHeader className="mb-6 text-left space-y-0">
-                                    <SheetTitle className="text-[9px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
+                                <SheetHeader className="mb-6 text-center space-y-0">
+                                    <SheetTitle className="text-[12px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
                                         Menu
                                     </SheetTitle>
                                     <SheetDescription className="sr-only">
@@ -310,7 +301,7 @@ export function Navbar() {
                                 </SheetHeader>
 
                                 {/* Navigation Links */}
-                                <motion.div 
+                                <motion.div
                                     className="flex flex-col gap-2"
                                     variants={mobileMenuContainer}
                                     initial="hidden"
@@ -333,37 +324,34 @@ export function Navbar() {
                                         >
                                             <Link
                                                 href={link.href}
-                                                className="flex items-center justify-center px-3 py-2.5 rounded-xl glass-premium border-luxury-gold/20 text-luxury-text hover:text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/10 hover:shadow-elevation-high hover:shadow-luxury-gold/30 hover:bg-luxury-gold/5"
+                                                className="flex items-center justify-center px-3 py-3 rounded-xl glass-premium border-luxury-gold/30 text-luxury-gold transition-all duration-300 active:scale-95 group w-full shadow-elevation-low shadow-luxury-gold/10 hover:shadow-elevation-high hover:shadow-luxury-gold/40 hover:bg-luxury-gold/10"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
                                                 }}
                                             >
-                                                <span className="font-bold uppercase tracking-[0.15em] text-[9px]">{link.name}</span>
+                                                <span className="font-bold uppercase tracking-[0.1em] text-[10px]">{link.name}</span>
                                             </Link>
                                         </motion.div>
                                     ))}
-                                </motion.div>
 
-                                <motion.div
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: 0.4, ...M3Spring.gentle }}
-                                    className="mt-auto pt-6 flex justify-center w-full"
-                                >
-                                    <div className="w-full scale-[0.8] origin-bottom">
-                                        <SignInButton
-                                            onLoginClick={() => {
-                                                triggerHaptic();
-                                                setMobileMenuOpen(false);
-                                                setTimeout(() => {
-                                                    window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
-                                                        detail: { redirectOnLogin: true }
-                                                    }));
-                                                }, 300);
-                                            }}
-                                        />
-                                    </div>
+                                    {/* Spacer and Sign In/Profile Button below FAQ */}
+                                    <motion.div variants={mobileMenuItem} className="flex flex-col">
+                                        <div className="h-[44px] w-full" aria-hidden="true" />
+                                        <div className="scale-[0.8] origin-center">
+                                            <SignInButton
+                                                onLoginClick={() => {
+                                                    triggerHaptic();
+                                                    setMobileMenuOpen(false);
+                                                    setTimeout(() => {
+                                                        window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
+                                                            detail: { redirectOnLogin: true }
+                                                        }));
+                                                    }, 300);
+                                                }}
+                                            />
+                                        </div>
+                                    </motion.div>
                                 </motion.div>
                             </SheetContent>
                         </Sheet>

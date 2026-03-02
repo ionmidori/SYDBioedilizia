@@ -46,7 +46,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
         if (open) {
             userWasAnonymousRef.current = user?.isAnonymous ?? true;
         }
-    }, [open, user?.isAnonymous]);
+    }, [open]);
 
     useEffect(() => {
         if (open) {
@@ -57,23 +57,6 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
             });
         }
     }, [open, user, redirectOnLogin]);
-
-    useEffect(() => {
-        // This effect handles auto-closing the dialog after a successful login,
-        // but only if the user was previously anonymous and is now authenticated.
-        const justLoggedIn = userWasAnonymousRef.current && user && !user.isAnonymous;
-
-        if (open && justLoggedIn) {
-            console.log('[AuthDialog] 🔴 Auto-Closing: Transition to authenticated complete');
-            const timer = setTimeout(() => {
-                onOpenChange(false);
-                if (redirectOnLogin) {
-                    router.push('/dashboard');
-                }
-            }, 1500); // 1.5s delay to show final feedback if any
-            return () => clearTimeout(timer);
-        }
-    }, [open, user, onOpenChange, router, redirectOnLogin, userWasAnonymousRef]);
 
     const [loading, setLoading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
@@ -105,7 +88,12 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
             await new Promise(resolve => setTimeout(resolve, 2500));
         } finally {
             setClaimStatus(null);
-            // The auto-close effect will handle closing the dialog and redirecting.
+
+            // Auto-close and redirect after the flow the finishes (including showing any errors)
+            onOpenChange(false);
+            if (redirectOnLogin) {
+                router.push('/dashboard');
+            }
         }
     };
 
