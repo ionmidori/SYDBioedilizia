@@ -134,11 +134,30 @@ export function Navbar() {
                 transition={M3Spring.gentle}
             >
                 <div className="container mx-auto px-4 md:px-6 flex items-center justify-between relative">
-                    {/* Left: Logo Only */}
-                    <div className="flex items-center z-10 shrink-0">
+                    {/* Left: Logo & Contacts */}
+                    <div className="flex items-center gap-4 xl:gap-8 z-10 shrink-0">
                         <Link href="/" onClick={() => triggerHaptic()} className="group shrink-0">
                             <SydLogo className="group-hover:opacity-90 transition-opacity" />
                         </Link>
+                        {/* Desktop Contact Icons - Moved here, closer to logo */}
+                        <div className="hidden xl:flex items-center gap-2">
+                            {contactLinks.map(({ Icon, label, href }, i) => (
+                                <a
+                                    key={i}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={() => triggerHaptic()}
+                                    className={cn(
+                                        "w-9 h-9 xl:w-10 xl:h-10 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 hover:bg-luxury-teal hover:text-white transition-all shadow-sm shadow-luxury-teal/10",
+                                        i === 0 && "group"
+                                    )}
+                                    aria-label={label}
+                                >
+                                    <Icon className="w-4 h-4 xl:w-5 xl:h-5" />
+                                </a>
+                            ))}
+                        </div>
                     </div>
 
                     {/* Desktop Nav - Central Group */}
@@ -166,57 +185,8 @@ export function Navbar() {
                         ))}
                     </div>
 
-                    {/* Right: Contacts + Actions Group */}
+                    {/* Right: Auth Only */}
                     <div className="hidden xl:flex items-center gap-3 z-10 shrink-0">
-                        {/* Desktop Contact Icons - Moved here */}
-                        <div className="flex items-center gap-2 mr-2 border-r border-luxury-gold/10 pr-2">
-                            {contactLinks.map(({ Icon, label, href }, i) => (
-                                <a
-                                    key={i}
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={() => triggerHaptic()}
-                                    className={cn(
-                                        "w-9 h-9 rounded-full bg-luxury-teal/5 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 hover:bg-luxury-teal hover:text-white transition-all shadow-sm",
-                                        i === 0 && "group"
-                                    )}
-                                    aria-label={label}
-                                >
-                                    <Icon className="w-4 h-4" />
-                                </a>
-                            ))}
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <motion.div whileTap={{ scale: 0.98 }} transition={M3Transition.buttonPress}>
-                                <Button
-                                    variant="premium"
-                                    size="sm"
-                                    className="m3-shape-pill bg-luxury-teal hover:bg-luxury-teal/90 text-white border border-white/20 shadow-elevation-low hover:shadow-elevation-high hover:shadow-luxury-teal/30 transition-all duration-300 whitespace-nowrap px-3 text-[13px] h-9"
-                                    onClick={() => {
-                                        triggerHaptic();
-                                        const event = new CustomEvent('OPEN_CHAT');
-                                        window.dispatchEvent(event);
-                                    }}
-                                >
-                                    Richiedi Preventivo
-                                </Button>
-                            </motion.div>
-                            <motion.div whileTap={{ scale: 0.98 }} transition={M3Transition.buttonPress}>
-                                <Button
-                                    variant="premium"
-                                    size="sm"
-                                    className="m3-shape-pill bg-luxury-teal hover:bg-luxury-teal/90 text-white border border-white/20 shadow-elevation-low hover:shadow-elevation-high hover:shadow-luxury-teal/30 transition-all duration-300 whitespace-nowrap px-3 text-[13px] h-9"
-                                    onClick={() => {
-                                        triggerHaptic();
-                                        const event = new CustomEvent('OPEN_CHAT');
-                                        window.dispatchEvent(event);
-                                    }}
-                                >
-                                    Crea Rendering
-                                </Button>
-                            </motion.div>
-                        </div>
                         <SignInButton onLoginClick={() => {
                             triggerHaptic();
                             window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
