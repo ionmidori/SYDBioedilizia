@@ -7,7 +7,6 @@ from google.adk.agents import Agent
 from src.adk.tools import (
     pricing_engine_tool_adk,
     market_prices_adk,
-    analyze_room_adk,
     generate_render_adk,
     show_project_gallery_adk,
     list_project_files_adk,
@@ -18,14 +17,17 @@ from src.adk.tools import (
 
 logger = logging.getLogger(__name__)
 
-MODE_A_TRIAGE_PROMPT = "You are a Triage agent. Classify the user intent and gather basic info."
+MODE_A_TRIAGE_PROMPT = """You are a Triage and Vision expert agent. 
+Analyze any images or videos provided by the user natively. 
+Identify the room type, architectural style, spatial dimensions, materials, and any potential issues (e.g. humidity, damage).
+Do NOT guess visual details if no media is provided. Rely strictly on the media provided in the chat stream."""
 MODE_A_DESIGNER_PROMPT = "You are a Design agent. Generate renders and gallery ideas."
 MODE_B_SURVEYOR_PROMPT = "You are a Surveyor agent. Use the pricing engine to build a quote."
 
 triage_agent = Agent(
     name="triage",
     model="gemini-2.5-flash",
-    tools=[analyze_room_adk, show_project_gallery_adk],
+    tools=[show_project_gallery_adk],
     instruction=MODE_A_TRIAGE_PROMPT,
 )
 

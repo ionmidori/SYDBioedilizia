@@ -223,9 +223,9 @@ export function Navbar() {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                         transition={M3Spring.standard}
-                                        className="absolute top-12 right-0 bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/10 shadow-xl shadow-black/20 rounded-2xl p-4 flex flex-col gap-2 min-w-[200px]"
+                                        className="absolute top-12 right-0 bg-luxury-bg/70 backdrop-blur-xl border border-luxury-gold/10 shadow-xl shadow-black/20 rounded-2xl p-4 flex flex-col gap-2 min-w-[200px]"
                                     >
-                                        <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/95 border-t border-l border-luxury-gold/10 rotate-45 transform" />
+                                        <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/70 border-t border-l border-luxury-gold/10 rotate-45 transform" />
 
                                         {contactLinks.map(({ Icon, label, href }, i) => (
                                             <a
@@ -266,10 +266,10 @@ export function Navbar() {
                             </SheetTrigger>
                             <SheetContent
                                 side="right"
-                                className="w-[45vw] sm:w-[33vw] min-w-[180px] max-w-[260px] bg-luxury-bg/80 backdrop-blur-xl border-l border-luxury-gold/10 p-4 flex flex-col"
+                                className="w-[45vw] sm:w-[33vw] min-w-[180px] max-w-[260px] bg-luxury-bg/10 backdrop-blur-xl border-l border-luxury-gold/10 p-4 flex flex-col"
                             >
                                 <SheetHeader className="mt-6 mb-6 text-center space-y-0">
-                                    <SheetTitle className="text-[12px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
+                                    <SheetTitle className="text-[16px] font-bold uppercase tracking-[0.3em] text-luxury-gold/60">
                                         Menu
                                     </SheetTitle>
                                     <SheetDescription className="sr-only">
@@ -290,7 +290,7 @@ export function Navbar() {
                                             onClick={handlePersonalAreaClick}
                                             className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-luxury-gold/10 transition-all duration-300 hover:border-luxury-gold/30 hover:bg-white/5 active:scale-95 group shadow-xl"
                                         >
-                                            <span className="font-bold uppercase tracking-[0.15em] text-[10px] text-luxury-gold">Area Personale</span>
+                                            <span className="font-bold uppercase tracking-[0.15em] text-[10px] text-luxury-text group-hover:text-luxury-gold transition-colors">Area Personale</span>
                                         </button>
                                     </motion.div>
 

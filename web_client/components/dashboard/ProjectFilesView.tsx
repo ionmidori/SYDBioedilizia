@@ -75,7 +75,8 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
                     timestamp: data.uploadedAt?.toDate() || new Date(),
                     metadata: {
                         size: data.size,
-                        uploadedBy: data.uploadedBy
+                        uploadedBy: data.uploadedBy,
+                        projectId: projectId
                     }
                 } as MediaAsset;
             });

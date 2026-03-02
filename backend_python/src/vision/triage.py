@@ -65,11 +65,11 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
     try:
         client = genai.Client(api_key=GEMINI_API_KEY)
         
-        logger.info("Performing triage analysis on image (Gemini 3 Flash)...")
-        
+        logger.info("Performing triage analysis on image (Gemini 2.5 Flash)...")
+
         try:
             response = await client.aio.models.generate_content(
-                model="gemini-3-flash-preview",
+                model="gemini-2.5-flash",
                 contents=[
                     types.Content(
                         parts=[

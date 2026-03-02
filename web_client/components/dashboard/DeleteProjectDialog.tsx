@@ -62,6 +62,8 @@ export function DeleteProjectDialog({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: [0.05, 0.7, 0.1, 1.0] }}
                 className="space-y-4 py-2"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
             >
                 {/* Icon + Project Name */}
                 <div className="flex items-center gap-3">

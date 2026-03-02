@@ -100,25 +100,6 @@ async def get_market_prices(query: str) -> str:
     return await get_market_prices_wrapper(query)
 
 
-# ─── Room Analysis ───────────────────────────────────────────────────────────
-
-async def analyze_room(description: str) -> str:
-    """Analyzes a room description to identify renovation scope and SKU suggestions.
-
-    Runs the InsightEngine to extract room type, size, and likely quote items.
-
-    Args:
-        description: Natural language description of the room or user request.
-    """
-    from src.services.insight_engine import InsightEngine
-    try:
-        engine = InsightEngine()
-        result = await engine.analyze_project_for_quote(
-            chat_history=[{"role": "user", "content": description}]
-        )
-        return result.model_dump_json()
-    except Exception as e:
-        return f"Room analysis failed: {e}"
 
 
 # ─── Render Generation ───────────────────────────────────────────────────────
@@ -225,7 +206,7 @@ async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict
 pricing_engine_tool_adk = FunctionTool(pricing_engine_tool)
 request_quote_approval_adk = FunctionTool(request_quote_approval)
 market_prices_adk = FunctionTool(get_market_prices)
-analyze_room_adk = FunctionTool(analyze_room)
+
 generate_render_adk = FunctionTool(generate_render)
 show_project_gallery_adk = FunctionTool(show_project_gallery)
 list_project_files_adk = FunctionTool(list_project_files)

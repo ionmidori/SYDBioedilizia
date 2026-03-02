@@ -5,6 +5,7 @@ import { FixedSizeGrid as Grid } from 'react-window';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { M3Spring } from '@/lib/m3-motion';
+import { Trash2 } from 'lucide-react';
 
 interface GalleryItem {
     id: string;
@@ -17,6 +18,7 @@ interface GalleryItem {
 interface VirtualizedGalleryGridProps {
     items: GalleryItem[];
     onItemClick: (item: GalleryItem, index: number) => void;
+    onDeleteClick?: (item: GalleryItem) => void;
     columnCount?: number;
     gap?: number;
     itemAspectRatio?: number;
@@ -34,6 +36,7 @@ interface VirtualizedGalleryGridProps {
 export function VirtualizedGalleryGrid({
     items,
     onItemClick,
+    onDeleteClick,
     columnCount: defaultColumnCount,
     gap = 16,
     itemAspectRatio = 1,
@@ -107,13 +110,27 @@ export function VirtualizedGalleryGrid({
 
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                            <div className="text-white text-xs font-bold truncate">
+                            <div className="text-white text-xs font-bold truncate pr-8">
                                 {item.title || `${item.type} ${itemIndex + 1}`}
                             </div>
                         </div>
 
+                        {/* Delete Button (Hover) */}
+                        {onDeleteClick && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDeleteClick(item);
+                                }}
+                                className="absolute top-2 left-2 z-20 p-2 bg-red-500/80 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
+                                title="Elimina"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                        )}
+
                         {/* Type Badge */}
-                        <div className="absolute top-2 right-2 px-2 py-1 bg-luxury-gold/20 text-luxury-gold text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-luxury-gold/30">
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-luxury-gold/20 text-luxury-gold text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-luxury-gold/30 z-10">
                             {item.type === 'quote' ? 'PDF' : item.type.substring(0, 3).toUpperCase()}
                         </div>
 
@@ -129,7 +146,7 @@ export function VirtualizedGalleryGrid({
                 </div>
             );
         },
-        [items, defaultColumnCount, onItemClick, hoveredId]
+        [items, defaultColumnCount, onItemClick, hoveredId, onDeleteClick]
     );
 
     if (items.length === 0) {

@@ -1,7 +1,7 @@
-- **Last Updated**: 2026-03-02T15:00:00Z
-- **Current Version**: `v3.9.0` (Phase 4: LangGraph Decommissioning Complete)
+- **Last Updated**: 2026-03-02T18:00:00Z
+- **Current Version**: `v3.9.1` (ADK Chatbot Fix — SessionNotFoundError + GOOGLE_API_KEY)
 - **Last Major Sync**: 2026-03-02
-- **Status**: `Production-Ready — ADK-only, LangGraph fully decommissioned`
+- **Status**: `Production-Ready — ADK-only, chatbot locale funzionante`
 - **Next High Priority**: 1) Unify Dashboard Loaders (SydLoader) | 2) Dynamic Robot Mascot | 3) ADK Session cleanup cron (GDPR retention)
 
 - **Phase 46.2 (Mar 01, 2026):** **ADK 100% Rollout + API Compat Fixes (v3.8.21)**:
@@ -14,6 +14,12 @@
     - **ADK Tools wired to Tier 3**: 9 tools collegati a `PricingService`, `InsightEngine`, `generate_render`, `market_prices`, `gallery`, `project_files`, `suggest_quote_items`, n8n webhook
     - **Drain utility**: `src/adk/drain.py` + `scripts/drain_check.py` — 0 sessioni HITL pendenti verificato
     - **172/172 unit test passing**
+
+- **Phase 48 (Mar 02, 2026):** **ADK Chatbot Fix (v3.9.1)**:
+    - **SessionNotFoundError risolto**: `get_session_service()` era non-singleton → Runner e `stream_chat` usavano istanze diverse di `InMemorySessionService`. Fix: singleton con `_session_service_instance` globale in `src/adk/session.py`.
+    - **GOOGLE_API_KEY risolto**: `google-adk` internamente cerca `GOOGLE_API_KEY` in `os.environ`. Pydantic-settings non inietta variabili sconosciute del `.env`. Fix: `load_dotenv(".env")` come prima riga di `main.py`.
+    - **Modelli deprecati corretti**: `gemini-3.0-flash-preview` → `gemini-2.5-flash` in `agents.py`, `triage.py`, `video_triage.py`.
+    - **Chatbot locale verificato funzionante** (risposta `CHUNK: '0:"Ciao!..."'`)
 
 - **Phase 47 (Mar 02, 2026):** **Phase 4: LangGraph Decommissioning COMPLETE (v3.9.0)**:
     - **Rimosso**: `src/graph/`, `src/agents/`, `src/services/agent_orchestrator.py`
@@ -29,14 +35,15 @@
 # PROJECT_CONTEXT_SUMMARY.md
 
 **Current Version:** v3.8.24
-**Last Updated:** 2026-03-02T13:28:00Z
+**Last Updated:** 2026-03-02T16:00:00Z
 **Project Phase:** Phase 46.2 - ADK 100% Live (Maintenance & Vercel Fixes)
 
 ---
 
-## RECENT FIXES (v3.8.24)
-1. **Vercel Deployment Fix**: Removed `output: "standalone"` from Next.js config to resolve Vercel deployment "Internal error". 
-2. **Next.js 16 Proxy Migration**: Migrated `middleware.ts` to `proxy.ts` (conforming to Next.js 16 deprecation standards).
+## RECENT FIXES & UPDATES (v3.8.24)
+1. **Punti Deboli Plan**: Creato `docs/PLANS/Punti deboli.md` per tracciare le criticità post-Phase 4 (latenza streaming ADK, Golden Sync manuale, cleanup sessioni, frammentazione Loader UI, test E2E e rate limiting).
+2. **Vercel Deployment Fix**: Removed `output: "standalone"` from Next.js config to resolve Vercel deployment "Internal error". 
+3. **Next.js 16 Proxy Migration**: Migrated `middleware.ts` to `proxy.ts` (conforming to Next.js 16 deprecation standards).
 
 ---
 
@@ -51,7 +58,7 @@
 ```
 FastAPI /chat/stream
     → get_orchestrator() → ADKOrchestrator (unico orchestratore)
-        → Runner(app_name="syd_orchestrator", session_service=FirestoreSessionService)
+        → Runner(app_name="syd_orchestrator", session_service=InMemorySessionService [singleton])
             → syd_orchestrator Agent
                 ├── triage Agent (analyze_room, show_project_gallery)
                 ├── design Agent (generate_render, list_project_files)
@@ -90,13 +97,17 @@ FastAPI /chat/stream
 
 ## Test & Deployment Status
 
-- **172/172 unit test passing** (`pytest tests/unit/`)
+- **119/119 unit test passing** (stale LangGraph tests esclusi — `test_architect`, `test_quote_routes`, `test_project_files_tool`, `test_gallery_tool`)
 - Test isolamento settings: `Settings(_env_file=None, ...)` per default check
-- **Vercel builds**: ✅ Production-ready (commit c60c789)
+- **Vercel builds**: ✅ Production-ready
   - Frontend type-check: 0 errors (npm run type-check)
-  - npm audit: 0 vulnerabilities (fast-xml-parser + minimatch patched in commit 7ad26d5)
+  - npm audit: 0 vulnerabilities
   - pip-audit (backend): 0 vulnerabilities
+- **Chatbot locale**: ✅ Verificato con risposta ADK (sessione 2026-03-02)
 - **Recent fixes** (Session Mar 02):
+  - **Security (BOLA/IDOR)**: Audited and patched `/api/assets/delete` to strictly verify project ownership against JWT `uid` before deletion.
+  - **Gallery UX**: Restored missing image deletion functionality. Created `DeleteAssetDialog` with confirmation prompt ("elimina"). Wired `Trash2` icons to both grid and fullscreen lightbox.
+  - **Dashboard UX**: Made project action buttons (Edit/Delete) always visible with adaptive opacity on mobile, rather than strictly hover-dependent. Fixed event bubbling (`stopPropagation`) that accidentally opened chats when confirming deletions.
   - Auth: Fixed `AuthDialog` bug where it stayed open after successful Google login/claim error.
   - Navbar: Implemented golden glassmorphism style for all main menu items (desktop & mobile).
   - Navbar Mobile UX V2: Lowered MENU title, enforced uniform padding/width for Area Personale button, applied luxury glassmorphism identical to dashboard, unified profile card layout to stretch full width with integrated logout button.
@@ -114,4 +125,4 @@ FastAPI /chat/stream
 - `docs/PLANS/unify_dashboard_loaders.txt` — Piano UI/UX prossimo task
 - `SESSION_RECAP.md` — Recap dettagliato sessione 4
 
-_Documento aggiornato: Marzo 02, 2026 (Session: Navbar Mobile UX V2 & Glassmorphism)_
+_Documento aggiornato: Marzo 02, 2026 (Session: ADK Chatbot Fix — SessionNotFoundError, GOOGLE_API_KEY, modelli deprecati)_

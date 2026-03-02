@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TransformWrapper, TransformComponent, ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
-import { X, ChevronLeft, ChevronRight, RotateCcw, Download, Share2, Info, Maximize2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, RotateCcw, Download, Share2, Info, Maximize2, Trash2 } from 'lucide-react';
 import { M3Spring } from '@/lib/m3-motion';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ interface Image {
     url: string;
     title?: string;
     description?: string;
+    type?: string;
     metadata?: Record<string, any>;
 }
 
@@ -21,6 +22,7 @@ interface AdvancedLightboxProps {
     isOpen: boolean;
     onClose: () => void;
     onShare?: (imageUrl: string) => Promise<void>;
+    onDelete?: (image: Image) => void;
     enableKeyboardShortcuts?: boolean;
     enableSwipeNavigation?: boolean;
 }
@@ -42,6 +44,7 @@ export function AdvancedLightbox({
     isOpen,
     onClose,
     onShare,
+    onDelete,
     enableKeyboardShortcuts = true,
     enableSwipeNavigation = true,
 }: AdvancedLightboxProps) {
@@ -398,6 +401,18 @@ export function AdvancedLightbox({
 
                     {/* Action Buttons */}
                     <div className="flex items-center gap-2">
+                        {onDelete && (
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => onDelete(currentImage)}
+                                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/30 border border-red-500/20 text-red-400 rounded-full text-sm font-bold transition-colors mr-2"
+                                title="Elimina"
+                                aria-label="Elimina immagine"
+                            >
+                                <Trash2 className="w-4 h-4" />
+                            </motion.button>
+                        )}
                         {onShare && (
                             <motion.button
                                 whileHover={{ scale: 1.05 }}

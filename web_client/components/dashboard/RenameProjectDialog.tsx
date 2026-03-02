@@ -73,6 +73,8 @@ export function RenameProjectDialog({
                     duration: 0.5,
                     ease: [0.05, 0.7, 0.1, 1.0]
                 }}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
             >
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">

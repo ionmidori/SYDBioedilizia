@@ -11,6 +11,8 @@ import { GlobalFileUploader } from '@/components/dashboard/GlobalFileUploader';
 import { useProjects } from '@/hooks/use-projects';
 import { useGalleryAssets } from '@/hooks/use-gallery';
 import { SydLoader } from '@/components/ui/SydLoader';
+import { DeleteAssetDialog } from './DeleteAssetDialog';
+import { useQueryClient } from '@tanstack/react-query';
 
 type GroupingMode = 'project' | 'type' | 'date';
 
@@ -22,6 +24,7 @@ const ITEMS_PER_PAGE = 50;
  */
 export function GlobalGalleryContent() {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
 
     // Modern State Management: Use TanStack Query
     const { data: rawProjects = [], isLoading: projectsLoading } = useProjects();
@@ -34,6 +37,7 @@ export function GlobalGalleryContent() {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const [assetToDelete, setAssetToDelete] = useState<GalleryImage | null>(null);
 
     // Fetch files with pagination using TanStack Query
     const {
@@ -59,6 +63,36 @@ export function GlobalGalleryContent() {
             fetchNextPage();
         } else {
             refetch();
+        }
+    };
+
+    const handleDeleteConfirm = async () => {
+        if (!assetToDelete) return;
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch('/api/assets/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    assetId: assetToDelete.id,
+                    projectId: assetToDelete.metadata?.projectId,
+                    url: assetToDelete.url
+                })
+            });
+
+            if (res.ok) {
+                // Invalidate query to refresh gallery
+                queryClient.invalidateQueries({ queryKey: ['galleryAssets'] });
+            } else {
+                console.error('Failed to delete asset');
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setAssetToDelete(null);
         }
     };
 
@@ -353,6 +387,7 @@ export function GlobalGalleryContent() {
                                 <OptimizedGalleryViewer
                                     images={galleryImages}
                                     enableVirtualization={groupAssets.length > 50}
+                                    onDeleteClick={(image) => setAssetToDelete(image)}
                                 />
                             </div>
                         </motion.section>
@@ -396,6 +431,14 @@ export function GlobalGalleryContent() {
                     </div>
                 )}
             </div>
+
+            {/* Delete Asset Dialog */}
+            <DeleteAssetDialog
+                open={!!assetToDelete}
+                onOpenChange={(open) => !open && setAssetToDelete(null)}
+                assetTitle={assetToDelete?.title || 'questo file'}
+                onDelete={handleDeleteConfirm}
+            />
         </div>
     );
 }

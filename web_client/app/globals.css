@@ -284,7 +284,7 @@
 
 /* Sidebar Glassmorphism */
 .glass-sidebar {
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.1);
   /* Dark Luxury Base - Reduced Opacity */
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);

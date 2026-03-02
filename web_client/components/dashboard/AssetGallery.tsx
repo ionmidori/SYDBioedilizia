@@ -1,13 +1,21 @@
+'use client';
+
+import { useState } from 'react';
 import { MediaAsset } from '@/lib/media-utils';
 import { Image as ImageIcon } from 'lucide-react';
 import { OptimizedGalleryViewer, GalleryImage } from '@/components/gallery/OptimizedGalleryViewer';
+import { DeleteAssetDialog } from './DeleteAssetDialog';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AssetGalleryProps {
     assets: MediaAsset[];
     onDelete?: (assetId: string) => void;
 }
 
-export function AssetGallery({ assets }: AssetGalleryProps) {
+export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
+    const [assetToDelete, setAssetToDelete] = useState<GalleryImage | null>(null);
+    const { user } = useAuth();
+
     const galleryImages: GalleryImage[] = assets.map(asset => ({
         id: asset.id,
         url: asset.url,
@@ -17,6 +25,35 @@ export function AssetGallery({ assets }: AssetGalleryProps) {
         type: asset.type as 'image' | 'render' | 'video' | 'quote',
         metadata: asset.metadata,
     }));
+
+    const handleDeleteConfirm = async () => {
+        if (!assetToDelete) return;
+        try {
+            const token = await user?.getIdToken();
+            const res = await fetch('/api/assets/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    assetId: assetToDelete.id,
+                    projectId: assetToDelete.metadata?.projectId,
+                    url: assetToDelete.url
+                })
+            });
+
+            if (res.ok) {
+                if (onDelete) onDelete(assetToDelete.id);
+            } else {
+                console.error('Failed to delete asset');
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setAssetToDelete(null);
+        }
+    };
 
     if (assets.length === 0) {
         return (
@@ -38,11 +75,19 @@ export function AssetGallery({ assets }: AssetGalleryProps) {
     }
 
     return (
-        <div className="flex-1 min-h-[400px] w-full">
+        <div className="flex-1 min-h-[400px] w-full relative">
             <OptimizedGalleryViewer
                 images={galleryImages}
                 title="File Progetto"
                 enableVirtualization={assets.length > 50}
+                onDeleteClick={(image) => setAssetToDelete(image)}
+            />
+
+            <DeleteAssetDialog
+                open={!!assetToDelete}
+                onOpenChange={(open) => !open && setAssetToDelete(null)}
+                assetTitle={assetToDelete?.title || 'questo file'}
+                onDelete={handleDeleteConfirm}
             />
         </div>
     );

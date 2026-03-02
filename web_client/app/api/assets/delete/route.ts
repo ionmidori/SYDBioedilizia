@@ -21,11 +21,25 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        let decodedToken;
         try {
-            await auth().verifyIdToken(authHeader.split('Bearer ')[1]);
-            // Optional: Check if user owns the project
+            decodedToken = await auth().verifyIdToken(authHeader.split('Bearer ')[1]);
         } catch (_e) {
             return NextResponse.json({ error: 'Invalid Token' }, { status: 401 });
+        }
+
+        // 🔒 AUTHORIZATION VERIFICATION (BOLA/IDOR Prevention)
+        const projectRef = db().collection('projects').doc(projectId);
+        const projectSnap = await projectRef.get();
+        
+        if (!projectSnap.exists) {
+            return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+        }
+        
+        const projectData = projectSnap.data();
+        if (projectData?.user_id !== decodedToken.uid) {
+            console.warn(`[SECURITY] User ${decodedToken.uid} attempted to delete asset in project ${projectId} owned by ${projectData?.user_id}`);
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
         // 1. Delete from Firestore (Project Files Subcollection)

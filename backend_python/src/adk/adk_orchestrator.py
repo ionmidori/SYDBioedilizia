@@ -12,6 +12,9 @@ from src.services.base_orchestrator import BaseOrchestrator
 from src.adk.agents import syd_orchestrator
 from src.adk.session import get_session_service
 from src.adk.filters import sanitize_before_agent, filter_agent_output
+import httpx
+import asyncio
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -48,29 +51,80 @@ class ADKOrchestrator(BaseOrchestrator):
     ) -> AsyncIterator[str]:
         """
         Streams response chunks from Vertex ADK Runner formatted for Vercel AI SDK.
+        Supports multimodal parts integration and Vision Integration (Hybrid).
         """
+        from src.core.config import settings
+
         user_id = "anonymous"
         if getattr(request, "user_session", None):
             user_id = request.user_session.uid
 
-        # P2 Requirement: Input Sanitization
-        sanitized_input = await sanitize_before_agent(request.message)
-
-        session_id = request.project_id or "default-session"
+        # Handle message extraction (works with both request.message or request.messages[-1].content)
+        user_message_text = getattr(request, "message", None)
+        if not user_message_text and hasattr(request, "messages") and request.messages:
+            last_msg_content = request.messages[-1].content
+            user_message_text = last_msg_content if isinstance(last_msg_content, str) else str(last_msg_content)
+            
+        sanitized_input = await sanitize_before_agent(user_message_text or "")
+        # FIX: Use the client's session_id to ensure chats don't mix up across projects
+        session_id = getattr(request, "session_id", "default-session")
         
+        # Multimodal Injection & Triage Trigger
+        content_parts = [types.Part(text=sanitized_input)]
+        
+        media_urls = getattr(request, "media_urls", []) or []
+        video_uris = getattr(request, "video_file_uris", []) or []
+        media_types = getattr(request, "media_types", []) or []
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            for i, url in enumerate(media_urls):
+                try:
+                    parsed_url = urlparse(url)
+                    # Enterprise Security: SSRF Prevention - enforce storage domain
+                    if settings.FIREBASE_STORAGE_BUCKET not in parsed_url.netloc:
+                        logger.warning(f"Rejected invalid media URL source: {url}")
+                        continue
+                        
+                    response = await client.get(url)
+                    response.raise_for_status()
+                    image_bytes = response.content
+                    mime_type = media_types[i] if i < len(media_types) else "image/jpeg"
+                    
+                    # 1. Native GenAI Part
+                    content_parts.append(types.Part(inline_data=types.Blob(mime_type=mime_type, data=image_bytes)))
+                except Exception as e:
+                    logger.error(f"Failed to fetch or process media URL {url}: {e}")
+                    # Graceful degradation - proceed without this image
+
+        # Handle Video File API URIs
+        for uri in video_uris:
+            content_parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type="video/mp4")))
+
         try:
-            # Note: run_async yields stream chunks containing parts
+            # Ensure session exists — ADK raises SessionNotFoundError otherwise
+            session_service = get_session_service()
+            session = await session_service.get_session(
+                app_name="syd_orchestrator",
+                user_id=user_id,
+                session_id=session_id,
+            )
+            if session is None:
+                await session_service.create_session(
+                    app_name="syd_orchestrator",
+                    user_id=user_id,
+                    session_id=session_id,
+                )
+                logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
+
             async for event in self.runner.run_async(
                 session_id=session_id,
                 user_id=user_id,
-                new_message=types.Content(parts=[types.Part(text=sanitized_input)]),
+                new_message=types.Content(parts=content_parts),
             ):
                 if event.content and event.content.parts:
                     for part in event.content.parts:
                         if part.text:
-                            # P2 Requirement: Output Filtering Layer
                             filtered = await filter_agent_output(part.text)
-                            # Yield Vercel AI Text Chunk
                             yield f'0:{json.dumps(filtered)}\n'
         except Exception as e:
             logger.exception("Error in ADKOrchestrator execution.")

@@ -68,8 +68,30 @@ Output your analysis as a valid JSON object with this structure:
             genai_types.Part(text=system_prompt),
             genai_types.Part(text=history_text),
         ]
-        for url in media_urls:
-            parts.append(genai_types.Part(text=f"[Image: {url}]"))
+        
+        if media_urls:
+            import httpx
+            import asyncio
+            from urllib.parse import urlparse
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                for url in media_urls:
+                    try:
+                        parsed_url = urlparse(url)
+                        if settings.FIREBASE_STORAGE_BUCKET not in parsed_url.netloc:
+                            logger.warning(f"[InsightEngine] Skipping unauthorized URL: {url}")
+                            continue
+                            
+                        response = await client.get(url)
+                        response.raise_for_status()
+                        mime_type = "image/jpeg" # Default assumption
+                        if "video" in url:
+                            mime_type = "video/mp4"
+                        parts.append(genai_types.Part(
+                            inline_data=genai_types.Blob(mime_type=mime_type, data=response.content)
+                        ))
+                    except Exception as e:
+                        logger.error(f"[InsightEngine] Failed to fetch image {url}: {e}")
+                        parts.append(genai_types.Part(text=f"[Image: {url} - Unfetchable]"))
 
         try:
             logger.info("[InsightEngine] Analyzing project for quote...")

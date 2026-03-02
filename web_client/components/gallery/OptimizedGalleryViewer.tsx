@@ -5,6 +5,7 @@ import { AdvancedLightbox } from './AdvancedLightbox';
 import { VirtualizedGalleryGrid } from './VirtualizedGalleryGrid';
 import { motion } from 'framer-motion';
 import { M3Spring } from '@/lib/m3-motion';
+import { Trash2 } from 'lucide-react';
 
 export interface GalleryImage {
     id: string;
@@ -22,6 +23,7 @@ interface OptimizedGalleryViewerProps {
     subtitle?: string;
     enableVirtualization?: boolean;
     onImageClick?: (image: GalleryImage, index: number) => void;
+    onDeleteClick?: (image: GalleryImage) => void;
 }
 
 /**
@@ -39,6 +41,7 @@ export function OptimizedGalleryViewer({
     subtitle,
     enableVirtualization = true,
     onImageClick,
+    onDeleteClick,
 }: OptimizedGalleryViewerProps) {
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -122,6 +125,7 @@ export function OptimizedGalleryViewer({
                         <VirtualizedGalleryGrid
                             items={galleryImages}
                             onItemClick={handleImageClick}
+                            onDeleteClick={onDeleteClick as any}
                             gap={16}
                         />
                     ) : (
@@ -160,12 +164,26 @@ export function OptimizedGalleryViewer({
                                     )}
 
                                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                                        <div className="text-white text-xs font-bold truncate">
+                                        <div className="text-white text-xs font-bold truncate pr-8">
                                             {image.title || `${image.type} ${index + 1}`}
                                         </div>
                                     </div>
 
-                                    <div className="absolute top-2 right-2 px-2 py-1 bg-luxury-gold/20 text-luxury-gold text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-luxury-gold/30">
+                                    {/* Delete Button (Hover) */}
+                                    {onDeleteClick && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDeleteClick(image);
+                                            }}
+                                            className="absolute top-2 left-2 z-20 p-2 bg-red-500/80 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
+                                            title="Elimina"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
+
+                                    <div className="absolute top-2 right-2 px-2 py-1 bg-luxury-gold/20 text-luxury-gold text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-luxury-gold/30 z-10">
                                         {image.type === 'quote' ? 'PDF' : image.type.substring(0, 3).toUpperCase()}
                                     </div>
                                 </motion.div>
@@ -182,6 +200,10 @@ export function OptimizedGalleryViewer({
                 isOpen={isLightboxOpen}
                 onClose={() => setIsLightboxOpen(false)}
                 onShare={handleShareImage}
+                onDelete={onDeleteClick ? (image) => {
+                    setIsLightboxOpen(false);
+                    onDeleteClick(image as GalleryImage);
+                } : undefined}
                 enableKeyboardShortcuts={true}
                 enableSwipeNavigation={true}
             />

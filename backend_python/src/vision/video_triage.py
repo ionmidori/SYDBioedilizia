@@ -246,10 +246,10 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
             raise Exception(f"Video processing failed. State: {video_file.state.name}")
         
         logger.info("Video ready. Performing multimodal analysis (visual + audio)...")
-        
+
         # Generate content using video + prompt
         response = await client.aio.models.generate_content(
-            model="gemini-3-flash-preview",
+            model="gemini-2.5-flash",
             contents=[
                 types.Content(
                     parts=[

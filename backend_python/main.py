@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv(".env")  # Load .env into os.environ before any other imports (required by google-adk, google-genai)
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials
@@ -348,9 +351,28 @@ async def chat_stream(
     Streaming chat endpoint - Secured by Internal JWT.
     Auth verification is delegated to Orchestrator for Zero Latency.
     """
+    # 🛡️ Multimodal Rate Limiting Penalty (Token Bucket)
+    # se la richiesta contiene immagini o video, consumiamo 4 token extra
+    # per compensare l'alto costo computazionale di Gemini 2.5/3.0 Vision.
+    has_media = bool(body.media_urls or body.video_file_uris)
+    if has_media:
+        from slowapi.util import get_remote_address
+        from slowapi.errors import RateLimitExceeded
+        
+        # slowapi exposes the underlying limits.Limiter via list of limits
+        # We manually consume extra tokens for this specific limit
+        try:
+            # Il decorator ha già consumato 1 token. Consumiamone altri 4.
+            for limit in limiter._route_limits[request.url.path]:
+                if not limiter._limiter.hit(limit.limit, get_remote_address(request), cost=4):
+                    raise RateLimitExceeded(limit)
+        except RateLimitExceeded as e:
+            logger.warning(f"Rate limit exceeded due to multimodal penalty for {get_remote_address(request)}")
+            raise e
+
     logger.info(
         "Chat stream request received.",
-        extra={"message_count": len(body.messages), "session_id": body.session_id},
+        extra={"message_count": len(body.messages), "session_id": body.session_id, "has_media": has_media},
     )
 
     return StreamingResponse(

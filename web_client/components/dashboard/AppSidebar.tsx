@@ -386,7 +386,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     "group/sidebar peer text-sidebar-foreground transition-all duration-300 ease-in-out",
                     isMobile
                         ? cn(
-                            "fixed inset-y-0 right-0 !z-[120] w-52 bg-luxury-bg/40 backdrop-blur-2xl shadow-2xl border-l border-luxury-gold/10",
+                            "fixed inset-y-0 right-0 !z-[120] w-52 bg-luxury-bg/10 backdrop-blur-2xl shadow-2xl border-l border-luxury-gold/10",
                             openMobile ? "translate-x-0" : "translate-x-full"
                         )
                         : cn(
