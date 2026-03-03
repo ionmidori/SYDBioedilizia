@@ -143,9 +143,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             yield _sse({"type": "text-delta", "id": text_part_id, "delta": filtered})
 
             yield _sse({"type": "text-end", "id": text_part_id})
-            yield _sse({"type": "finish-step"})
-            yield _sse({"type": "finish"})
-            yield "data: [DONE]\n\n"
+            yield _sse({"type": "finish", "messageId": msg_id, "finishReason": "stop"})
         except Exception as e:
             logger.exception("Error in ADKOrchestrator execution.")
             yield _sse({"type": "error", "error": str(e)})
@@ -184,9 +182,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             yield _sse({"type": "text-delta", "id": text_part_id, "delta": filtered})
 
             yield _sse({"type": "text-end", "id": text_part_id})
-            yield _sse({"type": "finish-step"})
-            yield _sse({"type": "finish"})
-            yield "data: [DONE]\n\n"
+            yield _sse({"type": "finish", "messageId": msg_id, "finishReason": "stop"})
         except Exception as e:
             logger.exception("Error during ADK resume_interrupt.")
             yield _sse({"type": "error", "error": str(e)})
