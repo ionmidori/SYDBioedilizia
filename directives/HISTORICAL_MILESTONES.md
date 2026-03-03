@@ -319,4 +319,24 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **Motion**: Staggered entrances via `createStaggerVariants` and haptic physical feedback.
 - **Skill**: Created and installed `animating-modern-react-websites` skill.
 
-_Documento aggiornato: Marzo 01, 2026_
+## 🚀 Phase 46.2: ADK 100% Rollout & API Migration (Mar-01-2026)
+- **ADK-Only Flow**: Full decommissioning of LangGraph for runtime. 100% traffic routed to `ADKOrchestrator`.
+- **google-adk 1.26**: Updated tools and session services to meet new SDK constraints.
+- **Tools Wiring**: Successfully connected image generation, pricing, and project indexing to the ADK agent.
+
+## 🧠 Phase 47: LangGraph Decommissioning (Mar-02-2026)
+- **Code Removal**: Deleted `src/graph/`, `src/agents/`, and `src/services/agent_orchestrator.py`.
+- **Dependency Cleanup**: Removed all LangChain-related packages from `pyproject.toml`.
+- **Native Migration**: Switched Vision and Tools to pure `google.genai` SDK.
+
+## 🤖 Phase 48: ADK Stability & Session Fixes (Mar-02-2026)
+- **Session Singleton**: Fixed `SessionNotFoundError` by making the session service a true singleton.
+- **Model Realignment**: Switched all deprecated Gemini 3 references to `gemini-2.5-flash`.
+- **Auth Hardening**: Ensured `.env` variables are correctly loaded for the genai client.
+
+## 🛡️ Phase 49: Audit Plan D - Security & ADK Hardening (Mar-03-2026)
+- **Production Readiness**: Implemented all security fixes from Audit Plan D (SSRF, Prompt Injection, Token Validation).
+- **Test Coverage**: Created the first comprehensive unit test suite for ADK (31 tests, 100% pass).
+- **Release 4.0.0**: Synchronized root, frontend, and backend to the new major version.
+
+_Documento aggiornato: Marzo 03, 2026_

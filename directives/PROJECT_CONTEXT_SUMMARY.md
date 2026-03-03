@@ -1,49 +1,34 @@
-- **Last Updated**: 2026-03-02T18:00:00Z
-- **Current Version**: `v3.9.1` (ADK Chatbot Fix — SessionNotFoundError + GOOGLE_API_KEY)
-- **Last Major Sync**: 2026-03-02
-- **Status**: `Production-Ready — ADK-only, chatbot locale funzionante`
+- **Last Updated**: 2026-03-03T22:40:00Z
+- **Current Version**: `v4.0.0` (ADK Hardening & Security Audit — Complete)
+- **Last Major Sync**: 2026-03-03
+- **Status**: `Production-Ready — Security Multi-Agent Audit Passed`
 - **Next High Priority**: 1) Unify Dashboard Loaders (SydLoader) | 2) Dynamic Robot Mascot | 3) ADK Session cleanup cron (GDPR retention)
 
-- **Phase 46.2 (Mar 01, 2026):** **ADK 100% Rollout + API Compat Fixes (v3.8.21)**:
-    - **ORCHESTRATOR_MODE=vertex_adk**: Backend ora instrada il 100% del traffico su ADKOrchestrator. Singolo sviluppatore → skip canary graduale.
-    - **google-adk 1.26 breaking changes risolti**:
-        - `from google.adk import types` → `from google.genai import types`
-        - `FirestoreSessionService` rimossa → `VertexAiSessionService(project, location)` + `InMemorySessionService()` fallback locale
-        - `FunctionTool(name=, func=, input_type=)` → `FunctionTool(func)` (nome da function name, desc da docstring)
-        - `Runner(agent=)` → `Runner(app_name="syd_orchestrator", agent=, session_service=)`
-    - **ADK Tools wired to Tier 3**: 9 tools collegati a `PricingService`, `InsightEngine`, `generate_render`, `market_prices`, `gallery`, `project_files`, `suggest_quote_items`, n8n webhook
-    - **Drain utility**: `src/adk/drain.py` + `scripts/drain_check.py` — 0 sessioni HITL pendenti verificato
-    - **172/172 unit test passing**
+- **Phase 49 (Mar 03, 2026):** **Audit Plan D — Security & ADK Hardening (v4.0.0)**:
+    - **Security & SSRF**: Fixed critical SSRF (H2, H3), Hardened n8n webhooks (H4), and enforced `verify_token` on all streaming paths (C2).
+    - **Sanitization & Filtering**: Implemented multi-language prompt injection sanitizer (H1) and robust PII/Traceback output filtering (M2).
+    - **Architecture**: Enforced singleton orchestrator (C1) and fixed HITL audit trail with dynamic `admin_uid` (M4).
+    - **Testing**: Added 31 unit tests for ADK filters, session, and HITL (100% passing).
+    - **Frontend**: Fixed `refreshHistory` state bug (F5) and masked sensitive error stacks in API proxy (M10).
+    - **Monorepo Versioning**: Synchronized all packages to version `4.0.0`.
 
-- **Phase 48 (Mar 02, 2026):** **ADK Chatbot Fix (v3.9.1)**:
-    - **SessionNotFoundError risolto**: `get_session_service()` era non-singleton → Runner e `stream_chat` usavano istanze diverse di `InMemorySessionService`. Fix: singleton con `_session_service_instance` globale in `src/adk/session.py`.
-    - **GOOGLE_API_KEY risolto**: `google-adk` internamente cerca `GOOGLE_API_KEY` in `os.environ`. Pydantic-settings non inietta variabili sconosciute del `.env`. Fix: `load_dotenv(".env")` come prima riga di `main.py`.
-    - **Modelli deprecati corretti**: `gemini-3.0-flash-preview` → `gemini-2.5-flash` in `agents.py`, `triage.py`, `video_triage.py`.
-    - **Chatbot locale verificato funzionante** (risposta `CHUNK: '0:"Ciao!..."'`)
-
-- **Phase 47 (Mar 02, 2026):** **Phase 4: LangGraph Decommissioning COMPLETE (v3.9.0)**:
-    - **Rimosso**: `src/graph/`, `src/agents/`, `src/services/agent_orchestrator.py`
-    - **Rimosso da pyproject.toml**: `langchain`, `langchain-core`, `langchain-google-genai`, `langchain-google-vertexai`, `langgraph`, `langgraph-checkpoint-firestore`
-    - **Migrato**: `vision/*.py` e `services/insight_engine.py` da `ChatGoogleGenerativeAI` a `google.genai` nativo
-    - **Migrato**: tutti i `tools/*.py` — rimossi decorator `@tool`/`StructuredTool` LangChain
-    - **Semplificato**: `orchestrator_factory.py` — `CanaryOrchestratorProxy` rimosso, ritorna `ADKOrchestrator()` direttamente
-    - **Tag git**: `langgraph-archive-pre-phase4` conserva tutto il codice rimosso
-    - **Poi**: Dashboard Loaders unification (SydLoader), Dynamic Robot Mascot
 
 ---
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v3.8.24
-**Last Updated:** 2026-03-02T16:00:00Z
-**Project Phase:** Phase 46.2 - ADK 100% Live (Maintenance & Vercel Fixes)
+**Current Version:** v4.0.0
+**Last Updated:** 2026-03-03T22:40:00Z
+**Project Phase:** Phase 49 - Audit Plan D (Security & ADK Hardening)
 
 ---
 
 ## RECENT FIXES & UPDATES (v3.8.24)
-1. **Punti Deboli Plan**: Creato `docs/PLANS/Punti deboli.md` per tracciare le criticità post-Phase 4 (latenza streaming ADK, Golden Sync manuale, cleanup sessioni, frammentazione Loader UI, test E2E e rate limiting).
-2. **Vercel Deployment Fix**: Removed `output: "standalone"` from Next.js config to resolve Vercel deployment "Internal error". 
-3. **Next.js 16 Proxy Migration**: Migrated `middleware.ts` to `proxy.ts` (conforming to Next.js 16 deprecation standards).
+1. **Audit Plan D Completion**: Implemented all security, architectural, and frontend fixes from `docs/PLANS/audit_plan_d_vertex_adk.md`.
+2. **SSRF & Webhook Hardening**: Strictly validated all inbound media and outbound webhooks in ADK.
+3. **Prompt Injection Sanitizer**: Multi-language (IT/EN) sanitizer implemented in `src/utils/data_sanitizer.py`.
+4. **Information Leakage Prevention**: Masked error stacks and internal paths in SSE and Proxy responses.
+5. **ADK Testing Milestone**: Zero test coverage addressed with 31 new passing unit tests for core ADK logic.
 
 ---
 
@@ -87,12 +72,15 @@ FastAPI /chat/stream
 
 | Finding | Stato |
 |---------|-------|
-| P0: Auth/RBAC quote routes | ✅ Fixed (commit 35d1f8d) |
-| P1: n8n HMAC signing | ✅ Fixed (commit 35d1f8d) |
-| P1: Pricing qty bounds | ✅ Fixed (commit 35d1f8d) |
-| P1: Image domain hardening (SSRF prevention) | ✅ Fixed (commit c60c789) |
-| P2: Input/Output filtering | ✅ src/adk/filters.py |
-| P2: Admin resumption token | ✅ src/adk/hitl.py |
+| P0: Singleton Orchestrator (C1) | ✅ Fixed (v4.0.0) |
+| P0: API Stream Auth (C2) | ✅ Fixed (v4.0.0) |
+| P0: Media/Video SSRF (H2, H3) | ✅ Fixed (v4.0.0) |
+| P1: n8n HMAC & Retry (H4) | ✅ Fixed (v4.0.0) |
+| P1: Prompt Injection Sanitizer (H1) | ✅ Fixed (v4.0.0) |
+| P1: Output/Traceback Filtering (M2) | ✅ Fixed (v4.0.0) |
+| P1: HITL Audit Trail (M4) | ✅ Fixed (v4.0.0) |
+| P1: Error Masking in SSE/Proxy (M1, M10) | ✅ Fixed (v4.0.0) |
+| P2: ADK Test Coverage | ✅ 31 Units Passing |
 | P2: GDPR EU region | ✅ ADK_LOCATION=europe-west1 |
 
 ## Test & Deployment Status
