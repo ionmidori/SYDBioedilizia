@@ -1,8 +1,8 @@
 # 🎨 SYD Bioedilizia (Web Client)
 
-**Status:** Production-Ready (v3.6.10)
+**Status:** Production-Ready (v4.0.0)
 **Vision:** Luxury Tech Renovation Platform
-**Stack:** Next.js 16.2, Tailwind CSS 4, Framer Motion 12, TanStack Query v5
+**Stack:** Next.js 16.2, Tailwind CSS 4, Framer Motion 12, SWR
 
 ---
 
@@ -28,8 +28,8 @@ It combines the solidity of traditional craftsmanship with the fluidity of moder
 | **Framework** | Next.js (App Router) | 16.2 | Server Components, SEO, Managed Routing |
 | **Styling** | Tailwind CSS | 4.0 | Enterprise Design System, Modern CSS |
 | **Animation** | Framer Motion | 12.23 | Gesture-driven UI, Fluid Transitions |
-| **Data Fetching** | TanStack Query | 5.x | Efficient Server-State synchronization (replacing SWR) |
-| **AI Streaming** | Vercel AI SDK | 3.x | Real-time "Reasoning Engine" integration |
+| **Data Fetching** | SWR | 2.x | Efficient Server-State synchronization |
+| **AI Streaming** | Vercel AI SDK | 3.x | Real-time "Google ADK" integration via `/chat/stream` |
 | **Auth** | Firebase Auth | 13.x | Zero-Trust (Passkey + JWT + App Check) |
 | **Validation** | Zod | 4.3 | Runtime schema validation (Golden Sync) |
 
@@ -98,4 +98,4 @@ npm run build
 
 ---
 
-_Updated: March 1, 2026 — Phase 42_
+_Updated: March 3, 2026 — Phase 49_

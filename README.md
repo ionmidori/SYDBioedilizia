@@ -2,11 +2,11 @@
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.130-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![LangGraph](https://img.shields.io/badge/AI_Orchestration-LangGraph-orange)](https://www.langchain.com/langgraph)
+[![ADK](https://img.shields.io/badge/AI_Orchestration-Google_ADK-blue)](https://cloud.google.com/vertex-ai)
 [![Firebase](https://img.shields.io/badge/Security-App_Check-FFCA28?logo=firebase)](https://firebase.google.com/docs/app-check)
-[![Model](https://img.shields.io/badge/AI-Gemini_2.5_Flash_Lite-darkblue)](https://deepmind.google/technologies/gemini/)
+[![Model](https://img.shields.io/badge/AI-Gemini_2.5_Flash-darkblue)](https://deepmind.google/technologies/gemini/)
 
-**SYD Bioedilizia** is a high-performance, enterprise-grade Hybrid Cloud platform designed to revolutionize the construction industry. By blending state-of-the-art **Generative AI (Gemini 2.5 Flash Lite & 1.5 Pro)** with a rigid **3-Tier Architecture** and **Human-in-the-Loop (HITL)** orchestration, it provides a seamless, secure, and intelligent renovation experience.
+**SYD Bioedilizia** is a high-performance, enterprise-grade Hybrid Cloud platform designed to revolutionize the construction industry. By blending state-of-the-art **Generative AI (Gemini 2.5 Flash & 1.5 Pro)** with a rigid **3-Tier Architecture** and **Human-in-the-Loop (HITL)** orchestration via **Google ADK**, it provides a seamless, secure, and intelligent renovation experience.
 
 ---
 
@@ -15,19 +15,19 @@
 The platform is built on a strict separation of concerns to ensure institutional-grade stability and security.
 
 ### Tier 1: Directives (Strategy & Governance)
-- **Engine**: LangGraph Planning Nodes + Formalized SOPs.
-- **Logic**: Vertex AI Intent classification routes requests to specialized agents.
-- **Context**: Dynamic context building via RAG-lite patterns (Project Memory).
+- **Engine**: Google ADK (Vertex AI Agent Builder) Multi-Agent Orchestration.
+- **Logic**: `syd_orchestrator` dynamically routes to specialized sub-agents (`triage`, `design`, `quote`).
+- **Context**: Dynamic context building via RAG-lite patterns and Vertex AI Session Services.
 
 ### Tier 2: Orchestration (UI & Interaction Layer)
 - **Framework**: Next.js 16.2 (App Router) + React 19 (RC) compatible.
 - **Accessibility**: Standardized on **Radix UI Sheet** for navigation and **Vaul** for action drawers.
-- **State**: TanStack Query v5 (Server) + Zustand (UI) + URL-driven persistence.
+- **State**: SWR (Server) + Zustand (UI) + URL-driven persistence.
 - **Logic**: Vercel AI SDK integration for resilient, streaming AI responses.
 
 ### Tier 3: Execution (Data & Logic Muscle)
 - **API**: FastAPI (Python 3.12+) with high-concurrency async support.
-- **Workflows**: Multi-turn, stateful AI graphs with Firestore persistence (Checkpointers).
+- **Workflows**: Multi-turn, stateful AI interactions with Firestore persistence and strict HITL patterns.
 - **Specialized Engines**:
   - **Vision & CAD**: Automated conversion of raster floorplans to **DXF (AutoCAD R2010)** using Gemini 1.5 Pro + `ezdxf`.
   - **Market Intelligence**: Real-time price analysis using **Perplexity Sonar** for up-to-date material costs.
@@ -50,9 +50,9 @@ The platform is built on a strict separation of concerns to ensure institutional
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend** | Next.js 16.2, Tailwind CSS 4, Framer Motion 12, TanStack Query v5 |
+| **Frontend** | Next.js 16.2, Tailwind CSS 4, Framer Motion 12, SWR |
 | **Backend** | Python 3.12+, FastAPI 0.130, Pydantic V2, `uv` Package Manager |
-| **AI - Reasoning** | **Gemini 2.5 Flash Lite** (Default), LangGraph, **Perplexity Sonar** (Market Data) |
+| **AI - Reasoning** | **Gemini 2.5 Flash** (Default), **Google ADK**, **Perplexity Sonar** (Market Data) |
 | **AI - Vision** | Gemini 1.5 Pro (CAD/Vectorization), Imagen 3 (Rendering), `ezdxf` |
 | **Cloud/Infra** | GCP (Cloud Run, Cloud Logging), Firebase (Auth, Firestore, App Check) |
 | **Performance** | MotionValue-based Swipe Engine (60fps), Standalone Docker Builds |

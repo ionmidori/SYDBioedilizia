@@ -1,33 +1,34 @@
 # 🧠 SYD Brain (Python Backend)
 
 The core AI orchestration engine for the SYD Renovation Ecosystem.
-Built with **FastAPI**, **LangGraph**, and **Google Gemini 2.5 Flash Lite**.
+Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google Gemini 2.5 Flash**.
 
 ---
 
 ## 🚀 Key Features
 
 - **Architecture:** Async-native FastAPI service optimized for high-performance Cloud Run deployments.
+- **Multi-Agent Orchestration:** Fully migrated to Google ADK with a factory-pattern routing layer (`syd_orchestrator`).
 - **Guided Flows:** Advanced state tracking (`is_quote_completed`, `is_render_completed`) for cross-selling and journey management.
 - **HITL Pipeline:** Human-in-the-Loop quote approval logic with automated PDF generation (WeasyPrint) and deliverable tracking.
-- **n8n Connectivity:** Native MCP tools for Telegram/Email notifications and document delivery.
+- **n8n Connectivity:** Native tools for Telegram/Email notifications and document delivery.
 - **Vision Integration:** Automated room analysis and CAD extraction (Gemini 1.5 Pro).
-- **Security:** Pydantic-based guardrails, RSA token verification, and strict **"Golden Sync"** schema enforcement.
+- **Security:** Pydantic-based guardrails, strict App Check enforcement, SSRF protections, and **"Golden Sync"** schema matching.
 - **Observability:** Structured JSON logging via `structlog` and per-request tracing (`X-Request-ID`).
 
-## 🏛️ Operational Tiers (AI Graph Flow)
+## 🏛️ Operational Tiers (ADK Flow)
 
-1. **Tier 1 (Directive):** `reasoning_node` - Generates a structured execution plan using **Gemini 2.5 Flash Lite**.
-2. **Tier 2 (Orchestration):** `edges.py` - Deterministic state routing between reasoning, execution, and tools.
-3. **Tier 3 (Execution):** `execution_node` & `custom_tools_node` - Direct tool invocation with atomic state reducers.
+1. **Tier 1 (Orchestration):** `syd_orchestrator` - Main router agent evaluating the phase (Triage, Design, Quote).
+2. **Tier 2 (Specialized Agents):** Sub-agents handling intent-specific logic using native tools (`triage_agent`, `design_agent`, `quote_agent`).
+3. **Tier 3 (Execution):** `src/adk/tools.py` - 100% Type-Safe tool invocations with `FunctionTool` wrappers interfacing directly with Core Services.
 
 ## 🛠️ Tech Stack
 
 - **Runtime:** Python 3.12+
 - **Manager:** `uv` (Rust-based, lightning fast)
 - **Framework:** FastAPI / Pydantic V2
-- **LLM Engine:** Vertex AI / Google GenAI (`google-genai` SDK)
-- **Persistence:** Firebase Firestore with **Checkpointer Layer** (Stateful memory)
+- **LLM Engine:** Vertex AI / Google ADK v1.26 (`google-genai` SDK)
+- **Persistence:** Firebase Firestore via `VertexAiSessionService`
 - **Config:** `pydantic-settings` for Type-Safe environment management
 
 ## 📦 Setup & Installation
@@ -67,22 +68,22 @@ uv run pytest
 ```
 backend_python/
 ├── src/
-│   ├── agents/            # Formalized SOPs (System Instructions)
+│   ├── adk/               # Google ADK Orchestration, Agents, Tools, Filters
 │   ├── api/               # FastAPI Router endpoints
 │   ├── core/              # Config, Schemas (Golden Sync), Exceptions
-│   ├── graph/             # LangGraph Nodes, Edges, State (Checkpointers)
 │   ├── repositories/      # Firestore / Firebase Admin access 
 │   ├── services/          # Business Logic (Pricing, Admin, PDF)
-│   ├── tools/             # AI Tools (Imagen, n8n, CAD, Perplexity)
-│   └── vision/            # Multi-modal analysis modules
+│   ├── tools/             # Legacy standalone tools (Perplexity, etc.)
+│   └── vision/            # Multi-modal analysis modules (`google.genai` native)
 ├── tests/                 # 172+ Unit & Integration tests
 ├── main.py                # App Initialization & Middleware
 ```
 
 ## 🔒 Security
-- **JWT Verification**: Strict validation via `check_revoked=True`.
+- **JWT Verification**: Strict validation via `verify_token` dependencies.
 - **App Check**: Enforced on all non-health routes.
-- **PII Protection**: Log argument redaction in `structlog`.
+- **Prompt Injection Defense**: Native `data_sanitizer` to block jailbreak attempts.
+- **PII Protection**: Output filtering & Log argument redaction in `structlog`.
 
 ---
-*Updated: March 1, 2026 — Phase 42*
+*Updated: March 3, 2026 — Phase 49 (v4.0.0)*
