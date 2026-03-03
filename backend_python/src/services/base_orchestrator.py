@@ -1,20 +1,10 @@
 """
 BaseOrchestrator: Abstract interface for chat orchestration engines.
 
-Defines the contract shared by all orchestration backends, enabling the
-dual-mode architecture required for the LangGraph → Vertex AI ADK migration:
+Defines the contract for the ADK-only orchestration backend (Phase 4+ completed).
+The sole concrete implementation is ADKOrchestrator (Vertex AI Agent Builder).
 
-  - LangGraphOrchestrator (AgentOrchestrator): current production implementation
-  - ADKOrchestrator: Vertex AI Agent Builder implementation (Phase 1+)
-
-OrchestratorFactory selects the backend at runtime via ORCHESTRATOR_MODE env var.
-
-Migration Phases:
-  Phase 0 (current): LangGraph only, interface defined here
-  Phase 1: ADKOrchestrator added, ORCHESTRATOR_MODE=vertex_adk in staging
-  Phase 2: Full feature parity (HITL, multi-agent, MCPTool)
-  Phase 3: Canary rollout (10% → 100%)
-  Phase 4: LangGraph decommissioned
+OrchestratorFactory returns the ADKOrchestrator singleton directly.
 """
 
 from abc import ABC, abstractmethod
@@ -23,28 +13,23 @@ from typing import AsyncIterator, Any
 
 class BaseOrchestrator(ABC):
     """
-    Abstract base for all chat orchestration backends.
+    Abstract base for the chat orchestration engine.
 
-    Defines the interface that FastAPI endpoints depend on, enabling zero-downtime
-    migration between orchestration engines without changing the API layer.
+    Defines the interface that FastAPI endpoints depend on.
 
     Contract:
-    - stream_chat() is the primary method (called by /chat/stream endpoint)
-    - resume_interrupt() handles HITL admin approval flow
-    - health_check() is called by OrchestratorFactory for auto-fallback
+    - stream_chat()       — primary streaming chat (called by /chat/stream)
+    - resume_interrupt()  — HITL admin approval flow resume
+    - health_check()      — liveness check
 
-    Streaming Protocol:
-    All methods yield Vercel AI protocol-formatted strings:
-      text:    0:"token"\n
-      error:   3:"message"\n
-      tool:    b:{...}\n / a:{...}\n
+    Streaming Protocol: UI Message Stream SSE (Vercel AI SDK v6).
     """
 
     @abstractmethod
     async def stream_chat(
         self,
-        request: Any,       # ChatRequest (typed in concrete implementations)
-        credentials: Any,   # HTTPAuthorizationCredentials | None
+        request: Any,        # ChatRequest (typed in concrete implementations)
+        user_session: Any,   # UserSession (typed in concrete implementations)
     ) -> AsyncIterator[str]:
         """
         Main streaming chat method — yields Vercel AI protocol chunks.
@@ -67,6 +52,7 @@ class BaseOrchestrator(ABC):
         self,
         session_id: str,
         response: dict,
+        admin_uid: str = "unknown",
     ) -> AsyncIterator[str]:
         """
         Resume an HITL (Human-in-the-Loop) interrupt.
@@ -79,9 +65,10 @@ class BaseOrchestrator(ABC):
             response: Admin decision payload, e.g.:
                 {"decision": "approve", "notes": "Approved with modifications"}
                 {"decision": "reject", "reason": "Pricing too high"}
+            admin_uid: The authenticated admin's UID for audit trail.
 
         Yields:
-            Vercel AI protocol strings for the resumed execution stream.
+            UI Message Stream SSE strings for the resumed execution.
         """
         ...
 
@@ -89,9 +76,6 @@ class BaseOrchestrator(ABC):
     async def health_check(self) -> bool:
         """
         Verify the orchestrator is operational.
-
-        Called by OrchestratorFactory before committing to an implementation.
-        If this returns False, the factory falls back to LangGraphOrchestrator.
 
         Returns:
             True if the orchestrator is ready to handle requests.

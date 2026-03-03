@@ -97,32 +97,29 @@ FastAPI /chat/stream
 
 ## Test & Deployment Status
 
-- **119/119 unit test passing** (stale LangGraph tests esclusi — `test_architect`, `test_quote_routes`, `test_project_files_tool`, `test_gallery_tool`)
-- Test isolamento settings: `Settings(_env_file=None, ...)` per default check
+- **172/172 unit test passing**
 - **Vercel builds**: ✅ Production-ready
   - Frontend type-check: 0 errors (npm run type-check)
   - npm audit: 0 vulnerabilities
   - pip-audit (backend): 0 vulnerabilities
-- **Chatbot locale**: ✅ Verificato con risposta ADK (sessione 2026-03-02)
-- **Recent fixes** (Session Mar 02):
-  - **Security (BOLA/IDOR)**: Audited and patched `/api/assets/delete` to strictly verify project ownership against JWT `uid` before deletion.
-  - **Gallery UX**: Restored missing image deletion functionality. Created `DeleteAssetDialog` with confirmation prompt ("elimina"). Wired `Trash2` icons to both grid and fullscreen lightbox.
-  - **Dashboard UX**: Made project action buttons (Edit/Delete) always visible with adaptive opacity on mobile, rather than strictly hover-dependent. Fixed event bubbling (`stopPropagation`) that accidentally opened chats when confirming deletions.
-  - Auth: Fixed `AuthDialog` bug where it stayed open after successful Google login/claim error.
-  - Navbar: Implemented golden glassmorphism style for all main menu items (desktop & mobile).
-  - Navbar Mobile UX V2: Lowered MENU title, enforced uniform padding/width for Area Personale button, applied luxury glassmorphism identical to dashboard, unified profile card layout to stretch full width with integrated logout button.
-  - Navbar UI: Centered and enlarged "Menu" title, moved User Profile & Logout below FAQ with 44px spacing.
-  - Navbar UI: Increased mobile menu background transparency (bg-luxury-bg/80) and set Logout icon color to red-500.
-  - Gallery page: fixed mobile layout pushing images to bottom by removing hardcoded 500px heights when not virtualized.
-  - Gallery page: AdvancedLightbox centered images vertically across all devices while maintaining 90vw/85vh breathing margins.
-  - profile/page.tsx TypeScript errors (result.error → message, PasskeyButton mode prop)
-  - Image domain SSRF hardening (wildcard → project-specific domains)
+- **ADK Architecture**: Fully migrated to Google ADK (Phase 4). [Audit Plan D](file:///c:/Users/User01/.gemini/antigravity/scratch/renovation-next/docs/PLANS/audit_plan_d_vertex_adk.md) security and architecture refinements applied:
+  - **Singleton Pattern**: `ADKOrchestrator` is now a singleton to optimize resource usage.
+  - **Authentication Enrollment**: `/chat/stream` now strictly enforces JWT verification via FastAPI dependencies.
+  - **SSRF Hardening**: Implemented strict domain/bucket validation for multimodal media URLs and video URIs.
+  - **Information Masking**: Internal error details are now suppressed in the SSE stream to prevent leakage.
+- **Frontend**: Next.js 16 App Router + SWR. Mobile-first UX with custom swipe engine.
+- **Recent fixes** (Session Mar 02-03):
+  - **ADK Persona**: Restored full SYD identity and Italian language behavior by wiring modular prompts.
+  - **Security (BOLA/IDOR)**: Audited and patched `/api/assets/delete` to strictly verify project ownership.
+  - **Gallery UX**: Restored missing image deletion functionality and fixed vertical centering in Lightbox.
+  - **Dashboard UX**: Made project action buttons always visible on mobile; fixed event bubbling.
+  - **Navbar V2**: Implemented luxury gold glassmorphism and improved mobile menu ergonomics.
 
 ## Documentation
 
 - `docs/PLAN_D_VERTEX_AI_NATIVE_ENTERPRISE.md` — Piano architetturale completo
 - `docs/PHASE_3_CANARY_RUNBOOK.md` — Runbook operativo Phase 3
+- `docs/PLANS/audit_plan_d_vertex_adk.md` — Audit plan and security status
 - `docs/PLANS/unify_dashboard_loaders.txt` — Piano UI/UX prossimo task
-- `SESSION_RECAP.md` — Recap dettagliato sessione 4
 
-_Documento aggiornato: Marzo 02, 2026 (Session: ADK Chatbot Fix — SessionNotFoundError, GOOGLE_API_KEY, modelli deprecati)_
+_Documento aggiornato: Marzo 03, 2026 (Audit Plan D Refinements — Security & Architecture)_

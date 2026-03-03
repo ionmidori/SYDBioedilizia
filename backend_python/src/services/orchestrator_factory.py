@@ -19,8 +19,13 @@ from src.services.base_orchestrator import BaseOrchestrator
 from src.adk.adk_orchestrator import ADKOrchestrator
 
 
+_orchestrator: ADKOrchestrator | None = None
+
 def get_orchestrator() -> BaseOrchestrator:
     """
-    FastAPI dependency: Returns the ADKOrchestrator.
+    FastAPI dependency: Returns the ADKOrchestrator singleton.
     """
-    return ADKOrchestrator()
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = ADKOrchestrator()
+    return _orchestrator

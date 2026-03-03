@@ -180,8 +180,7 @@ export async function POST(req: Request) {
         console.error('[Proxy] Error:', error);
         return new Response(JSON.stringify({
             error: 'Proxy Error',
-            details: error.message,
-            stack: error.stack
+            details: 'An internal error occurred while processing the request.',
         }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' }

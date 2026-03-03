@@ -312,7 +312,8 @@ class ChatRequest(BaseModel):
     project_id: str | None = Field(None, alias="projectId", max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     is_authenticated: bool = Field(False) # Matches JSON directly
     
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
+    user_session: UserSession | None = Field(None, exclude=True) # Injected by Depends(verify_token)
 
     @model_validator(mode="before")
     @classmethod
@@ -330,27 +331,30 @@ def health_check():
 
 async def chat_stream_generator(
     request: ChatRequest,
-    credentials: HTTPAuthorizationCredentials | None,
+    user_session: UserSession,
     orchestrator: BaseOrchestrator,
 ):
     """
     Delegates streaming to the AgentOrchestrator.
     """
-    async for chunk in orchestrator.stream_chat(request, credentials):
+    # Pass user_session.uid as credentials for backward compatibility if needed, 
+    # but the orchestrator should ideally use request.user_session
+    async for chunk in orchestrator.stream_chat(request, user_session):
         yield chunk
 
 @app.post("/chat/stream")
 @limiter.limit("30/minute")
 async def chat_stream(
-    request: Request,  # required by slowapi for IP extraction  # type: ignore[unused-parameter]
+    request: Request,
     body: ChatRequest,
-    credentials: HTTPAuthorizationCredentials | None = Security(security),
+    user_session: UserSession = Depends(verify_token),
     orchestrator: BaseOrchestrator = Depends(get_orchestrator)
 ):
     """
     Streaming chat endpoint - Secured by Internal JWT.
-    Auth verification is delegated to Orchestrator for Zero Latency.
+    Auth is enforced via Depends(verify_token).
     """
+    body.user_session = user_session
     # 🛡️ Multimodal Rate Limiting Penalty (Token Bucket)
     # se la richiesta contiene immagini o video, consumiamo 4 token extra
     # per compensare l'alto costo computazionale di Gemini 2.5/3.0 Vision.
@@ -376,7 +380,7 @@ async def chat_stream(
     )
 
     return StreamingResponse(
-        chat_stream_generator(body, credentials, orchestrator),
+        chat_stream_generator(body, user_session, orchestrator),
         media_type="text/event-stream; charset=utf-8",
         headers={"Connection": "close", "x-vercel-ai-ui-message-stream": "v1"}
     )

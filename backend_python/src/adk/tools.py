@@ -166,39 +166,40 @@ async def suggest_quote_items(session_id: str) -> str:
 async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Triggers an n8n automation workflow via signed HMAC webhook.
 
+    Delegates to the production-hardened n8n implementation that includes:
+    - SSRF host allowlist validation (N8N_ALLOWED_WEBHOOK_HOSTS)
+    - HMAC-SHA256 signing with timestamp (replay-attack prevention)
+    - Exponential backoff retry (tenacity)
+    - Idempotency key in payload
+
     Args:
-        workflow_id: The n8n workflow ID to trigger.
+        workflow_id: The n8n workflow ID to trigger (appended to the base webhook URL).
         payload: JSON payload to send to the workflow.
     """
-    import hmac
-    import hashlib
-    import json
-    import httpx
     from src.core.config import settings
+    from src.tools.n8n_mcp_tools import _call_n8n_webhook, _validate_webhook_url
+    import logging
+
+    _logger = logging.getLogger(__name__)
 
     webhook_url = settings.N8N_WEBHOOK_NOTIFY_ADMIN
     if not webhook_url:
         return {"status": "error", "message": "N8N_WEBHOOK_NOTIFY_ADMIN is not configured."}
 
+    target_url = f"{webhook_url}/{workflow_id}"
+
     try:
-        secret = settings.N8N_WEBHOOK_HMAC_SECRET or ""
-        payload_bytes = json.dumps(payload, separators=(',', ':')).encode('utf-8')
-        signature = hmac.new(secret.encode('utf-8'), payload_bytes, hashlib.sha256).hexdigest()
-        headers = {
-            "x-hub-signature-256": f"sha256={signature}",
-            "Content-Type": "application/json",
-        }
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{webhook_url}/{workflow_id}",
-                json=payload,
-                headers=headers,
-                timeout=10.0,
-            )
-            response.raise_for_status()
-            return {"status": "success", "result": "Triggered n8n workflow successfully."}
+        _validate_webhook_url(target_url)  # SSRF guard — raises ValueError if invalid host
+        result = await _call_n8n_webhook(target_url, payload)
+        _logger.info("[ADK Tool] n8n webhook triggered.", extra={"workflow_id": workflow_id})
+        return {"status": "success", "result": result}
+    except ValueError as e:
+        _logger.error("[ADK Tool] n8n webhook blocked — SSRF guard: %s", e)
+        return {"status": "error", "message": "Webhook host not allowed."}
     except Exception as e:
-        return {"status": "error", "message": f"Failed to trigger n8n: {e}"}
+        _logger.error("[ADK Tool] n8n webhook failed: %s", e, exc_info=True)
+        return {"status": "error", "message": "Failed to trigger n8n workflow."}
+
 
 
 # ─── FunctionTool wrappers (ADK 1.26: pass func directly) ────────────────────

@@ -56,17 +56,22 @@ class ADKOrchestrator(BaseOrchestrator):
     async def stream_chat(
         self,
         request: Any,       # ChatRequest
-        credentials: Any,   # HTTPAuthorizationCredentials | None
+        user_session: Any,  # UserSession
     ) -> AsyncIterator[str]:
         """
-        Streams response chunks from Vertex ADK Runner formatted for Vercel AI SDK.
-        Supports multimodal parts integration and Vision Integration (Hybrid).
+        Main streaming chat method for Vertex AI Agent Builder.
+        
+        Responsibilities:
+        - Use the already verified user_session (H1 fix)
+        - Session + conversation history loading via ADK Session Service
+        - Multimodal handling (GCS images/video integration)
+        - Native ADK Runner execution (Agent Engine)
+        - Vercel AI protocol SSE output (AI SDK v6)
         """
         from src.core.config import settings
 
-        user_id = "anonymous"
-        if getattr(request, "user_session", None):
-            user_id = request.user_session.uid
+        session_id = request.session_id
+        user_id = user_session.uid
 
         # Handle message extraction (works with both request.message or request.messages[-1].content)
         user_message_text = getattr(request, "message", None)
@@ -89,8 +94,8 @@ class ADKOrchestrator(BaseOrchestrator):
             for i, url in enumerate(media_urls):
                 try:
                     parsed_url = urlparse(url)
-                    # Enterprise Security: SSRF Prevention - enforce storage domain
-                    if settings.FIREBASE_STORAGE_BUCKET not in parsed_url.netloc:
+                    # Enterprise Security: SSRF Prevention - enforce storage domain (H3 fix)
+                    if parsed_url.hostname != settings.FIREBASE_STORAGE_BUCKET:
                         logger.warning(f"Rejected invalid media URL source: {url}")
                         continue
                         
@@ -107,7 +112,18 @@ class ADKOrchestrator(BaseOrchestrator):
 
         # Handle Video File API URIs
         for uri in video_uris:
-            content_parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type="video/mp4")))
+            # H2 FIX: SSRF validation for video URIs
+            try:
+                parsed_uri = urlparse(uri)
+                if parsed_uri.scheme != "gs":
+                    logger.warning(f"Rejected invalid video URI scheme: {uri}")
+                    continue
+                if parsed_uri.netloc != settings.FIREBASE_STORAGE_BUCKET:
+                    logger.warning(f"Rejected invalid video URI bucket: {uri}")
+                    continue
+                content_parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type="video/mp4")))
+            except Exception as e:
+                logger.error(f"Failed to process video URI {uri}: {e}")
 
         try:
             # Ensure session exists — ADK raises SessionNotFoundError otherwise
@@ -146,14 +162,22 @@ class ADKOrchestrator(BaseOrchestrator):
             yield _sse({"type": "finish", "messageId": msg_id, "finishReason": "stop"})
         except Exception as e:
             logger.exception("Error in ADKOrchestrator execution.")
-            yield _sse({"type": "error", "error": str(e)})
+            # P1 FIX: Mask internal error details
+            yield _sse({"type": "error", "error": "An internal error occurred while processing your request."})
 
     async def resume_interrupt(
         self,
         session_id: str,
         response: dict,
+        admin_uid: str = "unknown",
     ) -> AsyncIterator[str]:
-        """HITL interrupt resumption."""
+        """HITL interrupt resumption.
+
+        Args:
+            session_id: The paused session identifier (matches project_id).
+            response: Admin decision payload with 'token', 'decision', 'notes'.
+            admin_uid: The authenticated admin's UID for audit trail attribution.
+        """
         project_id = session_id  # Assuming session_id matches project_id in our architecture
         provided_token = response.get("token")
 
@@ -172,7 +196,7 @@ class ADKOrchestrator(BaseOrchestrator):
 
             async for event in self.runner.run_async(
                 session_id=session_id,
-                user_id="admin",
+                user_id=admin_uid,
                 interrupt_response=response,
             ):
                 if event.content and event.content.parts:
@@ -185,7 +209,7 @@ class ADKOrchestrator(BaseOrchestrator):
             yield _sse({"type": "finish", "messageId": msg_id, "finishReason": "stop"})
         except Exception as e:
             logger.exception("Error during ADK resume_interrupt.")
-            yield _sse({"type": "error", "error": str(e)})
+            yield _sse({"type": "error", "error": "An internal error occurred while resuming the session."})
 
     async def health_check(self) -> bool:
         """Verifies if the Vertex AI ADK backend is accessible by listing sessions."""

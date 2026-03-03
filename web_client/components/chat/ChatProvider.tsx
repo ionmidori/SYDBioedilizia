@@ -29,7 +29,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
-    const [streamData, setStreamData] = useState<any[]>([]); // Replaces useChat data
+    const [streamData, setStreamData] = useState<any[]>([]); // M8: Populated when backend sends message-metadata SSE events
     const welcomeInjectedRef = useRef(false);
     const isFirstSyncRef = useRef(true);
 
@@ -267,9 +267,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const submitMessage = handleSubmit;
 
     // Force refresh history
+    // F5 FIX: properly reset isRestoringHistory after sync completes
     const refreshHistory = useCallback(async () => {
         setIsRestoringHistory(true);
-        console.log('Refresh requested');
+        console.log('[ChatProvider] Refresh requested');
+        // Allow the history sync effect to run, then reset the flag
+        setTimeout(() => setIsRestoringHistory(false), 1000);
     }, []);
 
     // -- CONTEXT VALUE --
