@@ -382,7 +382,7 @@ async def chat_stream(
     return StreamingResponse(
         chat_stream_generator(body, user_session, orchestrator),
         media_type="text/event-stream; charset=utf-8",
-        headers={"Connection": "close", "x-vercel-ai-ui-message-stream": "v1"}
+        headers={"Connection": "close", "x-vercel-ai-data-stream": "v1", "X-Accel-Buffering": "no"}
     )
 
 if __name__ == "__main__":

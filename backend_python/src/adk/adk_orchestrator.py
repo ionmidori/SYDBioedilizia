@@ -11,7 +11,7 @@ import uuid
 from typing import AsyncIterator, Any
 from google.adk.runners import Runner
 from google.genai import types
-
+from google.adk.agents.run_config import RunConfig, StreamingMode
 from src.services.base_orchestrator import BaseOrchestrator
 from src.adk.agents import syd_orchestrator
 from src.adk.session import get_session_service
@@ -23,8 +23,15 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 
+from src.utils.stream_protocol import (
+    stream_text, 
+    stream_data, 
+    stream_error,
+    stream_status
+)
+
 def _sse(data: dict) -> str:
-    """Format a dict as an SSE data line (UI Message Stream protocol)."""
+    """DEPRECATED. Use stream_protocol helpers instead."""
     return f"data: {json.dumps(data)}\n\n"
 
 class ADKOrchestrator(BaseOrchestrator):
@@ -141,29 +148,38 @@ class ADKOrchestrator(BaseOrchestrator):
                 )
                 logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
 
-            # UI Message Stream SSE protocol (AI SDK v6)
-            msg_id = f"msg-{uuid.uuid4().hex[:12]}"
-            text_part_id = f"txt-{uuid.uuid4().hex[:12]}"
-            yield _sse({"type": "start", "messageId": msg_id})
-            yield _sse({"type": "text-start", "id": text_part_id})
-
             async for event in self.runner.run_async(
                 session_id=session_id,
                 user_id=user_id,
                 new_message=types.Content(parts=content_parts),
+                run_config=RunConfig(streaming_mode=StreamingMode.SSE)
             ):
-                if event.content and event.content.parts:
-                    for part in event.content.parts:
-                        if part.text:
-                            filtered = await filter_agent_output(part.text)
-                            yield _sse({"type": "text-delta", "id": text_part_id, "delta": filtered})
+                # ── Handle Interrupts (HITL) ──
+                if hasattr(event, "event_type") and event.event_type == "interrupt":
+                    payload = {
+                        "type": "interrupt",
+                        "payload": getattr(event, "payload", {})
+                    }
+                    async for chunk in stream_data(payload):
+                        yield chunk
+                    continue
 
-            yield _sse({"type": "text-end", "id": text_part_id})
-            yield _sse({"type": "finish", "messageId": msg_id, "finishReason": "stop"})
+                # ── Handle Content (Text chunks) ──
+                if getattr(event, 'partial', False) and event.content and event.content.parts:
+                    has_text = any(hasattr(p, 'text') and p.text for p in event.content.parts)
+                    has_fc = any(hasattr(p, 'function_call') and p.function_call for p in event.content.parts)
+
+                    if has_text and not has_fc:
+                        for part in event.content.parts:
+                            if hasattr(part, 'text') and part.text:
+                                filtered = await filter_agent_output(part.text)
+                                async for chunk in stream_text(filtered):
+                                    yield chunk
+                                
         except Exception as e:
             logger.exception("Error in ADKOrchestrator execution.")
-            # P1 FIX: Mask internal error details
-            yield _sse({"type": "error", "error": "An internal error occurred while processing your request."})
+            async for chunk in stream_error("An internal error occurred while processing your request."):
+                yield chunk
 
     async def resume_interrupt(
         self,
@@ -185,31 +201,36 @@ class ADKOrchestrator(BaseOrchestrator):
 
         # Verify cryptographically secure token first
         if not provided_token or not await verify_resumption_token(project_id, provided_token):
-            yield _sse({"type": "error", "error": "Invalid or expired resumption token"})
+            async for chunk in stream_error("Invalid or expired resumption token"):
+                yield chunk
             return
 
         try:
-            msg_id = f"msg-{uuid.uuid4().hex[:12]}"
-            text_part_id = f"txt-{uuid.uuid4().hex[:12]}"
-            yield _sse({"type": "start", "messageId": msg_id})
-            yield _sse({"type": "text-start", "id": text_part_id})
-
             async for event in self.runner.run_async(
                 session_id=session_id,
                 user_id=admin_uid,
                 interrupt_response=response,
             ):
+                # Handle Interrupts nested in resumption
+                if hasattr(event, "event_type") and event.event_type == "interrupt":
+                    payload = {
+                        "type": "interrupt",
+                        "payload": getattr(event, "payload", {})
+                    }
+                    async for chunk in stream_data(payload):
+                        yield chunk
+                    continue
+
                 if event.content and event.content.parts:
                     for part in event.content.parts:
                         if part.text:
                             filtered = await filter_agent_output(part.text)
-                            yield _sse({"type": "text-delta", "id": text_part_id, "delta": filtered})
-
-            yield _sse({"type": "text-end", "id": text_part_id})
-            yield _sse({"type": "finish", "messageId": msg_id, "finishReason": "stop"})
+                            async for chunk in stream_text(filtered):
+                                yield chunk
         except Exception as e:
             logger.exception("Error during ADK resume_interrupt.")
-            yield _sse({"type": "error", "error": "An internal error occurred while resuming the session."})
+            async for chunk in stream_error("An internal error occurred while resuming the session."):
+                yield chunk
 
     async def health_check(self) -> bool:
         """Verifies if the Vertex AI ADK backend is accessible by listing sessions."""

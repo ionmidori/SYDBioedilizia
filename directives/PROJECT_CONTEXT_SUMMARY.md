@@ -1,8 +1,18 @@
-- **Last Updated**: 2026-03-03T22:40:00Z
-- **Current Version**: `v4.0.0` (ADK Hardening & Security Audit — Complete)
-- **Last Major Sync**: 2026-03-03
-- **Status**: `Production-Ready — Security Multi-Agent Audit Passed`
+- **Last Updated**: 2026-03-04T22:30:00Z
+- **Current Version**: `v4.0.2` (ADK SSE Streaming & AI SDK v6 Interop)
+- **Last Major Sync**: 2026-03-04
+- **Status**: `Production-Ready — Streaming Optimized`
 - **Next High Priority**: 1) Unify Dashboard Loaders (SydLoader) | 2) Dynamic Robot Mascot | 3) ADK Session cleanup cron (GDPR retention)
+
+- **Phase 51 (Mar 04, 2026):** **ADK SSE Streaming & Protocol Alignment (v4.0.2)**:
+    - **Streaming Optimization**: Enabled `StreamingMode.SSE` in ADK orchestrator to prevent monolithic 15s TTFB delays, sending chunks progressively.
+    - **Protocol Alignment**: Fixed AI SDK v6 compatibility by setting `x-vercel-ai-data-stream: v1` headers across proxy and backend, ensuring Vercel Data Stream Protocol is parsed correctly.
+    - **Network Buffering**: Disabled Next.js fetch caching (`cache: 'no-store'`) and set `X-Accel-Buffering: no` on the Python backend to ensure true real-time streaming to the client.
+
+- **Phase 50 (Mar 04, 2026):** **Frontend Code Quality & ESLint Hardening (v4.0.1)**:
+    - **TypeScript & React Hooks**: Eliminated all explicit `any` types, resolved all React Hook exhaustive-deps warnings, and fixed synchronous state updates in effects.
+    - **Linting Milestone**: Achieved 100% clean lint state (0 errors, 0 warnings) across the entire Next.js frontend application.
+    - **Code Cleanup**: Removed unused imports and variables, standardized icon imports (e.g., `ImageIcon` from `lucide-react`), and properly configured Radix UI primitives.
 
 - **Phase 49 (Mar 03, 2026):** **Audit Plan D — Security & ADK Hardening (v4.0.0)**:
     - **Security & SSRF**: Fixed critical SSRF (H2, H3), Hardened n8n webhooks (H4), and enforced `verify_token` on all streaming paths (C2).
@@ -17,18 +27,18 @@
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v4.0.0
-**Last Updated:** 2026-03-03T22:40:00Z
-**Project Phase:** Phase 49 - Audit Plan D (Security & ADK Hardening)
+**Current Version:** v4.0.2
+**Last Updated:** 2026-03-04T22:30:00Z
+**Project Phase:** Phase 51 - ADK SSE Streaming & AI SDK v6 Interop
 
 ---
 
-## RECENT FIXES & UPDATES (v3.8.24)
-1. **Audit Plan D Completion**: Implemented all security, architectural, and frontend fixes from `docs/PLANS/audit_plan_d_vertex_adk.md`.
-2. **SSRF & Webhook Hardening**: Strictly validated all inbound media and outbound webhooks in ADK.
-3. **Prompt Injection Sanitizer**: Multi-language (IT/EN) sanitizer implemented in `src/utils/data_sanitizer.py`.
-4. **Information Leakage Prevention**: Masked error stacks and internal paths in SSE and Proxy responses.
-5. **ADK Testing Milestone**: Zero test coverage addressed with 31 new passing unit tests for core ADK logic.
+## RECENT FIXES & UPDATES (v4.0.2)
+1. **ADK SSE Streaming**: Activated progressive streaming mode in ADK (`StreamingMode.SSE`) instead of the default monolithic response, significantly reducing perceived latency.
+2. **AI SDK v6 Protocol**: Aligned backend response headers to `x-vercel-ai-data-stream: v1` so the Next.js `useChat` hook properly processes chunked text over the Vercel Data Stream Protocol.
+3. **Network Buffering Disabled**: Enforced `X-Accel-Buffering: no` (backend) and `cache: 'no-store'` (Next.js proxy) to bypass infrastructural buffering layers.
+4. **Proxy Overhaul**: Refactored `api/chat/route.ts` proxy to correctly process generic Server-Sent Events from the backend to the frontend.
+5. **Frontend ESLint Zero Warnings**: Achieved a 100% clean lint state (0 errors, 0 warnings) for the Next.js frontend.
 
 ---
 
