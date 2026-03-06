@@ -1,0 +1,25 @@
+# Task: M3 Expressive Redesign per Interfaccia Chat (Tier 2)
+
+Questo piano mira ad aggiornare sistematicamente i componenti chiave della UI della chat per allinearli ai principi "M3 Expressive" (forme asimmetriche, spring motion, micro-interazioni).
+
+## Fase 1: Aggiornamento Messaggi Chat (`MessageItem.tsx`)
+- [ ] Applicare forme asimmetriche (border-radius differenziati) per distinguere visivamente i messaggi User da quelli AI.
+- [ ] Implementare animazioni `spring` di ingresso per i nuovi messaggi.
+- [ ] Raffinare il Glassmorphism per i messaggi AI (`bg-luxury-teal/10` o simili).
+
+## Fase 2: Aggiornamento Pulsante Toggle (`ChatToggleButton.tsx`)
+- [ ] Migliorare l'animazione di hover e ingresso (spring motion).
+- [ ] Assicurarsi che l'icona e l'ombra rispondano in modo "bouncy" al clic.
+
+## Fase 3: Aggiornamento Finestra Chat (`ChatWidget.tsx` / `ChatMessages.tsx`)
+- [ ] Arrotondare i bordi principali della finestra chat a `32px` secondo le specifiche M3.
+- [ ] Migliorare le ombre (`shadow-2xl` con offset e blur ampi) per elevare visivamente il pannello.
+- [ ] Implementare un indicatore di "typing" (ThinkingIndicator) più organico.
+
+## Fase 4: Input Utente (`ChatInput.tsx` o simili)
+- [ ] Trasformare il campo di input in una forma "Pill" (`rounded-full` o `rounded-[28px]`).
+- [ ] Aggiungere transizioni di stato fluide (focus, disabled, ecc.).
+
+## Fase 5: Type Checking & Cleanup
+- [ ] Eseguire `npm run type-check` nel frontend per validare tutte le modifiche.
+- [ ] Verificare la responsività mobile delle nuove forme.

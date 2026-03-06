@@ -1,0 +1,37 @@
+# Task: SYD Dynamic Interactive Mascot (Rive Integration)
+
+## Fase 1: Setup e Dipendenze
+- [x] Installare la dipendenza `@rive-app/react-canvas` nel progetto `web_client`.
+- [ ] Verificare che non ci siano errori di build o type-checking dopo l'installazione.
+
+## Fase 2: Preparazione dell'Asset Rive (Task Esterno/Design)
+- [ ] Importare l'immagine attuale `syd_final_v9.png` nel Rive Editor.
+- [ ] Applicare la 2D Mesh Deformation sull'immagine, separando logicamente il braccio dal corpo.
+- [ ] Creare il rigging con le ossa (bones) per permettere l'animazione.
+- [ ] Creare la Timeline "Drawing" (loop continuo in cui il braccio si muove).
+- [ ] Creare la Timeline "Wave" (singolo saluto con la mano).
+- [ ] Configurare la State Machine (nome: `SydScrollStateMachine`):
+  - Input booleano: `isScrolling`
+  - Trigger: `onScrollStop`
+  - Transizioni: se `isScrolling` è true -> "Drawing". Se scatta `onScrollStop` -> "Wave", poi torna automatico a "Drawing".
+- [ ] Esportare il file come `syd_scroll_mascot.riv` e posizionarlo in `web_client/public/assets/`.
+
+## Fase 3: Modifica del Frontend (ChatToggleButton)
+- [ ] Aprire `web_client/components/chat/ChatToggleButton.tsx`.
+- [ ] Importare `useRive` e `useStateMachineInput` da `@rive-app/react-canvas`.
+- [ ] Importare `useScroll` da `framer-motion` e definire un timeout ref per il debounce dello scroll.
+- [ ] Implementare il render condizionale: mostrare `<RiveComponent />` quando disponibile, mantenendo l'attuale tag `<Image />` come fallback di caricamento o se WebGL non è supportato.
+- [ ] Implementare la logica di sincronizzazione dello scroll:
+  - [ ] Agganciare un listener a `scrollY.onChange`.
+  - [ ] Impostare `isScrolling.value = true` non appena inizia lo scroll.
+  - [ ] Resettare un timeout (es. 150ms) ad ogni evento di scroll.
+  - [ ] Nel callback del timeout, impostare `isScrolling.value = false` e lanciare `onScrollStop.fire()`.
+- [ ] Verificare che il componente mantenga l'esistente comportamento di trascinamento (drag) del floating action button senza conflitti.
+
+## Fase 4: Testing e Validazione
+- [ ] Avviare il server di sviluppo frontend (`npm run dev:web`).
+- [ ] Testare le performance dello scroll (non ci devono essere cali di frame sotto i 60fps).
+- [ ] Testare l'animazione di transizione tra "Drawing" e "Wave" assicurandosi che sia fluida.
+- [ ] Testare l'esperienza utente su mobile (scroll touch).
+- [ ] Eseguire `npm run type-check` e assicurarsi che ci siano 0 errori.
+- [ ] Eseguire linting ed eventuali unit test legati al componente.
