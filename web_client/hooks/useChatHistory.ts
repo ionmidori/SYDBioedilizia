@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { auth } from '@/lib/firebase';
 import type { Message } from '@/types/chat';
 
 interface UseChatHistoryOptions {
@@ -12,6 +13,7 @@ interface UseChatHistoryOptions {
 interface UseChatHistoryReturn {
     historyLoaded: boolean;
     historyMessages: Message[];
+    loadedForSessionId: string | undefined;
     isLoading: boolean;
     error: Error | undefined;
     mutate: () => void;
@@ -51,6 +53,10 @@ export function useChatHistory(
     const [historyMessages, setHistoryMessages] = useState<Message[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<Error | undefined>(undefined);
+    // Tracks WHICH sessionId the current historyMessages were loaded for.
+    // Remains at the previous value while the new session is loading,
+    // allowing the ChatProvider history sync to detect stale data and skip.
+    const [loadedForSessionId, setLoadedForSessionId] = useState<string | undefined>(undefined);
 
     useEffect(() => {
         let isMounted = true;
@@ -66,6 +72,9 @@ export function useChatHistory(
 
             if (isMounted) {
                 setIsLoading(true);
+                // Clear stale messages immediately so history sync doesn't see old data
+                // between the session change and the new Firestore snapshot arriving.
+                setHistoryMessages([]);
                 setError(undefined);
             }
 
@@ -83,7 +92,7 @@ export function useChatHistory(
                     firestoreLimit(limit)
                 );
 
-                unsubscribe = firestoreOnSnapshot(q, (snapshot) => {
+                unsubscribe = firestoreOnSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
                     // Docs are Newest -> Oldest (DESC)
                     // We map them, then reverse to get Oldest -> Newest for UI
                     const rawMessages = snapshot.docs.map(doc => {
@@ -92,7 +101,7 @@ export function useChatHistory(
                         // Parse tool_calls
                         let toolInvocations = undefined;
                         if (data.tool_calls && Array.isArray(data.tool_calls)) {
-                            toolInvocations = data.tool_calls.map((tc: any) => ({
+                            toolInvocations = data.tool_calls.map((tc: { id?: string; tool_call_id?: string; name?: string; function?: { name?: string; arguments?: string | Record<string, unknown> }; args?: string | Record<string, unknown> }) => ({
                                 toolCallId: tc.id || tc.tool_call_id,
                                 toolName: tc.function?.name || tc.name,
                                 args: typeof tc.function?.arguments === 'string'
@@ -150,7 +159,7 @@ export function useChatHistory(
                                                 (toolResultMsg.content.startsWith('{') || toolResultMsg.content.startsWith('['))) {
                                                 parsedResult = JSON.parse(toolResultMsg.content);
                                             }
-                                        } catch (_e) { /* ignore */ }
+                                        } catch { /* ignore */ }
 
                                         return {
                                             ...tool,
@@ -166,8 +175,17 @@ export function useChatHistory(
                     });
 
                     setHistoryMessages(linkedMessages as Message[]);
+                    setLoadedForSessionId(sessionId as string);
                     setIsLoading(false);
                 }, (err) => {
+                    // During logout, there is a brief window where auth.currentUser is null
+                    // but the existing Firestore listener hasn't been cleaned up yet.
+                    // Firestore fires 'permission-denied' during this window.
+                    // We suppress it here — the listener will be unsubscribed on the next
+                    // React render when shouldFetch becomes false.
+                    if (err.code === 'permission-denied' && !auth.currentUser) {
+                        return;
+                    }
                     console.error('[useChatHistory] Snapshot Error:', err);
                     setError(err);
                     setIsLoading(false);
@@ -192,6 +210,7 @@ export function useChatHistory(
 
     return {
         historyLoaded,
+        loadedForSessionId,
         historyMessages,
         isLoading,
         error,

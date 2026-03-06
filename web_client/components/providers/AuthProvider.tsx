@@ -226,11 +226,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             //    on shared/kiosk devices where multiple users share the same tab.
             queryClient.clear();
 
-            // 3. Clear Server Session
+            // 3. Clear chat session — ensures fresh anonymous session after logout (privacy)
+            try {
+                window.localStorage.removeItem('chatSessionId');
+            } catch {
+                // localStorage may be unavailable (private browsing)
+            }
+
+            // 4. Clear Server Session
             await removeAuthCookie();
 
-            // 4. Clear Firebase Auth
+            // 5. Clear Firebase Auth
             await signOut(auth);
+
+            // 6. Automatic transition back to Anonymous mode
+            // This ensures Firestore listeners and background API calls don't fail for lack of UID.
+            // NOTE: We call firebaseSignInAnonymously directly instead of the wrapper
+            // because setUser(null) above is batched by React — the wrapper's `if (user)`
+            // guard would still see the stale user and return early.
+            console.log('[AuthProvider] Signing in anonymously after logout...');
+            await firebaseSignInAnonymously(auth);
+            console.log('[AuthProvider] ✅ Anonymous sign-in after logout successful');
         } catch (error) {
             console.error('[AuthProvider] Logout error:', error);
             // Even if error, force local state clear
