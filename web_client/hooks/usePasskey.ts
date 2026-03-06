@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 /**
  * WebAuthn Passkeys Hook
@@ -21,6 +23,7 @@ export function usePasskey() {
     const { user, idToken } = useAuth();
     const [isRegistering, setIsRegistering] = useState(false);
     const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [hasPasskeys, setHasPasskeys] = useState<boolean | null>(null);
 
     /**
      * Check if Passkeys are supported on this device.
@@ -37,6 +40,27 @@ export function usePasskey() {
             isPlatformAuthenticator: isPlatform
         };
     }, []);
+
+    /**
+     * Check if the user has any registered passkeys in Firestore.
+     */
+    const checkHasPasskeys = useCallback(async () => {
+        if (!user) {
+            setHasPasskeys(false);
+            return false;
+        }
+        try {
+            const passkeysRef = collection(db, 'users', user.uid, 'passkeys');
+            const snapshot = await getDocs(passkeysRef);
+            const active = !snapshot.empty;
+            setHasPasskeys(active);
+            return active;
+        } catch (error) {
+            console.error('[usePasskey] Failed to check passkeys:', error);
+            setHasPasskeys(false);
+            return false;
+        }
+    }, [user]);
 
     /**
      * Register a new passkey for the current user.
@@ -115,9 +139,15 @@ export function usePasskey() {
                 throw new Error('Failed to verify credential');
             }
 
-            return await verifyRes.json();
+            const result = await verifyRes.json();
+            
+            // Re-check passkeys status after successful registration
+            await checkHasPasskeys();
+            
+            return result;
 
-        } catch (error: any) {
+        } catch (err: unknown) {
+            const error = err as Error;
             console.error('[usePasskey] Registration failed:', error);
 
             // User cancelled
@@ -129,7 +159,7 @@ export function usePasskey() {
         } finally {
             setIsRegistering(false);
         }
-    }, [user, idToken]);
+    }, [user, idToken, checkHasPasskeys]);
 
     /**
      * Authenticate using an existing passkey.
@@ -168,7 +198,7 @@ export function usePasskey() {
                 challenge: base64urlToBuffer(options.challenge),
                 // ✅ allowCredentials may be empty for Resident Keys
                 allowCredentials: options.allowCredentials?.length > 0
-                    ? options.allowCredentials.map((cred: any) => ({
+                    ? options.allowCredentials.map((cred: { id: string; [key: string]: unknown }) => ({
                         ...cred,
                         id: base64urlToBuffer(cred.id)
                     }))
@@ -224,7 +254,8 @@ export function usePasskey() {
 
             return result;
 
-        } catch (error: any) {
+        } catch (err: unknown) {
+            const error = err as Error;
             console.error('[usePasskey] Authentication failed:', error);
 
             if (error.name === 'NotAllowedError') {
@@ -239,6 +270,8 @@ export function usePasskey() {
 
     return {
         checkSupport,
+        checkHasPasskeys,
+        hasPasskeys,
         registerPasskey,
         authenticateWithPasskey,
         isRegistering,

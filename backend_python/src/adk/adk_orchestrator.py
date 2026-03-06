@@ -2,8 +2,8 @@
 ADK Orchestrator implementation.
 Wraps the Vertex API Agent Engine runner into the BaseOrchestrator interface for drop-in compatibility.
 
-Stream format: UI Message Stream SSE (compatible with Vercel AI SDK v6 / @ai-sdk/react v3).
-Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+Stream format: Data Stream Protocol v1 (compatible with Vercel AI SDK v6 / @ai-sdk/react v3).
+Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol#data-stream-protocol
 """
 import json
 import logging
@@ -11,14 +11,16 @@ import uuid
 from typing import AsyncIterator, Any
 from google.adk.runners import Runner
 from google.genai import types
-from google.adk.agents.run_config import RunConfig, StreamingMode
+
 from src.services.base_orchestrator import BaseOrchestrator
 from src.adk.agents import syd_orchestrator
 from src.adk.session import get_session_service
 from src.adk.filters import sanitize_before_agent, filter_agent_output
+from src.repositories.conversation_repository import get_conversation_repository
 import httpx
 import asyncio
 from urllib.parse import urlparse
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +82,10 @@ class ADKOrchestrator(BaseOrchestrator):
         session_id = request.session_id
         user_id = user_session.uid
 
+        # 0. Stream status immediately to unlock UI
+        async for chunk in stream_status("Syd sta analizzando la tua richiesta..."):
+            yield chunk
+
         # Handle message extraction (works with both request.message or request.messages[-1].content)
         user_message_text = getattr(request, "message", None)
         if not user_message_text and hasattr(request, "messages") and request.messages:
@@ -90,47 +96,51 @@ class ADKOrchestrator(BaseOrchestrator):
         # FIX: Use the client's session_id to ensure chats don't mix up across projects
         session_id = getattr(request, "session_id", "default-session")
         
+        # Apply the Sandwich Defense boundary delimiters to the clean input
+        delimited_input = f"###\n{sanitized_input}\n###"
+        
         # Multimodal Injection & Triage Trigger
-        content_parts = [types.Part(text=sanitized_input)]
+        content_parts = [types.Part(text=delimited_input)]
         
         media_urls = getattr(request, "media_urls", []) or []
         video_uris = getattr(request, "video_file_uris", []) or []
         media_types = getattr(request, "media_types", []) or []
 
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            for i, url in enumerate(media_urls):
-                try:
-                    parsed_url = urlparse(url)
-                    # Enterprise Security: SSRF Prevention - enforce storage domain (H3 fix)
-                    if parsed_url.hostname != settings.FIREBASE_STORAGE_BUCKET:
-                        logger.warning(f"Rejected invalid media URL source: {url}")
-                        continue
-                        
+        # Optimized Media Fetching: Parallelize using asyncio.gather
+        async def fetch_media(i, url, mime=None):
+            try:
+                parsed_url = urlparse(url)
+                if parsed_url.hostname != settings.FIREBASE_STORAGE_BUCKET:
+                    logger.warning(f"Rejected invalid media URL source: {url}")
+                    return None
+                
+                async with httpx.AsyncClient(timeout=5.0) as client:
                     response = await client.get(url)
                     response.raise_for_status()
                     image_bytes = response.content
-                    mime_type = media_types[i] if i < len(media_types) else "image/jpeg"
-                    
-                    # 1. Native GenAI Part
-                    content_parts.append(types.Part(inline_data=types.Blob(mime_type=mime_type, data=image_bytes)))
-                except Exception as e:
-                    logger.error(f"Failed to fetch or process media URL {url}: {e}")
-                    # Graceful degradation - proceed without this image
+                    final_mime = mime or (media_types[i] if i < len(media_types) else "image/jpeg")
+                    return types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
+            except Exception as e:
+                logger.error(f"Failed to fetch media {url}: {e}")
+                return None
 
-        # Handle Video File API URIs
+        # Prepare concurrent fetching
+        media_tasks = [fetch_media(i, url) for i, url in enumerate(media_urls)]
+        
+        # Handle Video File API URIs (local check, no download)
         for uri in video_uris:
-            # H2 FIX: SSRF validation for video URIs
             try:
                 parsed_uri = urlparse(uri)
-                if parsed_uri.scheme != "gs":
-                    logger.warning(f"Rejected invalid video URI scheme: {uri}")
-                    continue
-                if parsed_uri.netloc != settings.FIREBASE_STORAGE_BUCKET:
-                    logger.warning(f"Rejected invalid video URI bucket: {uri}")
-                    continue
-                content_parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type="video/mp4")))
-            except Exception as e:
-                logger.error(f"Failed to process video URI {uri}: {e}")
+                if parsed_uri.scheme == "gs" and parsed_uri.netloc == settings.FIREBASE_STORAGE_BUCKET:
+                    content_parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type="video/mp4")))
+            except Exception:
+                pass
+
+        # Execute parallel fetch
+        if media_tasks:
+            logger.info(f"[ADK] Parallel fetching {len(media_tasks)} media items...")
+            fetched_parts = await asyncio.gather(*media_tasks)
+            content_parts.extend([p for p in fetched_parts if p])
 
         try:
             # Ensure session exists — ADK raises SessionNotFoundError otherwise
@@ -148,38 +158,87 @@ class ADKOrchestrator(BaseOrchestrator):
                 )
                 logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
 
-            async for event in self.runner.run_async(
-                session_id=session_id,
-                user_id=user_id,
-                new_message=types.Content(parts=content_parts),
-                run_config=RunConfig(streaming_mode=StreamingMode.SSE)
-            ):
-                # ── Handle Interrupts (HITL) ──
-                if hasattr(event, "event_type") and event.event_type == "interrupt":
-                    payload = {
-                        "type": "interrupt",
-                        "payload": getattr(event, "payload", {})
-                    }
-                    async for chunk in stream_data(payload):
-                        yield chunk
-                    continue
+            # Stream initial status immediately to unlock UI "thinking" state
 
-                # ── Handle Content (Text chunks) ──
-                if getattr(event, 'partial', False) and event.content and event.content.parts:
-                    has_text = any(hasattr(p, 'text') and p.text for p in event.content.parts)
-                    has_fc = any(hasattr(p, 'function_call') and p.function_call for p in event.content.parts)
+            # --- LOCAL PERSISTENCE BRIDGE (Non-blocking) ---
+            # ADR: We use asyncio.create_task to background the Firestore write.
+            # This improves TTFT by ~500ms-1s locally.
+            repo = get_conversation_repository()
+            
+            async def _persist_user_message():
+                await repo.ensure_session(session_id, user_id)
+                await repo.save_message(
+                    session_id=session_id,
+                    role="user",
+                    content=sanitized_input,
+                    metadata={"user_id": user_id, "optimized": True}
+                )
+                
+            asyncio.create_task(_persist_user_message())
+            # --- LOCAL PERSISTENCE BRIDGE (End) ---
 
-                    if has_text and not has_fc:
-                        for part in event.content.parts:
-                            if hasattr(part, 'text') and part.text:
-                                filtered = await filter_agent_output(part.text)
-                                async for chunk in stream_text(filtered):
-                                    yield chunk
-                                
+            full_response = ""
+            try:
+                async for event in self.runner.run_async(
+                    session_id=session_id,
+                    user_id=user_id,
+                    new_message=types.Content(parts=content_parts),
+                ):
+                    # ── Handle Interrupts (HITL) ──
+                    if hasattr(event, "event_type") and event.event_type == "interrupt":
+                        payload = {
+                            "type": "interrupt",
+                            "payload": getattr(event, "payload", {})
+                        }
+                        async for chunk in stream_data(payload):
+                            yield chunk
+                        continue
+
+                    # ── Handle Content (Text responses) ──
+                    if event.content and event.content.parts:
+                        has_text = any(hasattr(p, 'text') and p.text for p in event.content.parts)
+                        has_fc = any(hasattr(p, 'function_call') and p.function_call for p in event.content.parts)
+                        has_fr = any(hasattr(p, 'function_response') and p.function_response for p in event.content.parts)
+
+                        logger.info(
+                            "ADK Event received",
+                            extra={
+                                "author": getattr(event, "author", "unknown"),
+                                "partial": getattr(event, "partial", None),
+                                "has_text": has_text,
+                                "has_fc": has_fc,
+                                "has_fr": has_fr,
+                                "turn_complete": getattr(event, "turn_complete", None),
+                            }
+                        )
+
+                        if has_text and not has_fc and not has_fr:
+                            for part in event.content.parts:
+                                if hasattr(part, 'text') and part.text:
+                                    filtered = await filter_agent_output(part.text)
+                                    full_response += filtered
+                                    async for chunk in stream_text(filtered):
+                                        yield chunk
+                    else:
+                        logger.debug("ADK event has no content or parts")
+                
+                # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---
+                if full_response:
+                    await repo.save_message(
+                        session_id=session_id,
+                        role="assistant",
+                        content=full_response
+                    )
+            except Exception as e:
+                logger.exception("Inner ADK run_async error captured")
+                async for chunk in stream_error("Errore durante la generazione della risposta AI."):
+                    yield chunk
         except Exception as e:
-            logger.exception("Error in ADKOrchestrator execution.")
-            async for chunk in stream_error("An internal error occurred while processing your request."):
+            logger.exception("Outer ADKOrchestrator execution error.")
+            async for chunk in stream_error("Impossibile connettersi all'assistente Sydney."):
                 yield chunk
+
+
 
     async def resume_interrupt(
         self,

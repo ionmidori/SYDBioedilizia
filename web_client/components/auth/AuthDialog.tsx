@@ -23,7 +23,7 @@ import { PasskeyButton } from './PasskeyButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { useClaimProject } from '@/hooks/use-claim-project';
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AuthDialogProps {
@@ -33,7 +33,7 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthDialogProps) {
-    const { loginWithGoogle, loginWithApple, logout, user } = useAuth();
+    const { loginWithGoogle, loginWithApple, user } = useAuth();
     const router = useRouter();
 
     // Modern State Management
@@ -46,7 +46,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
         if (open) {
             userWasAnonymousRef.current = user?.isAnonymous ?? true;
         }
-    }, [open]);
+    }, [open, user?.isAnonymous]);
 
     useEffect(() => {
         if (open) {
@@ -145,7 +145,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
                     Benvenuto in SYD
                 </p>
                 <p className="text-slate-400 font-sans text-sm tracking-wide">
-                    Accedi all'ecosistema premium
+                    Accedi all&apos;ecosistema premium
                 </p>
             </div>
 
@@ -206,7 +206,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
                                     <div className="space-y-4">
                                         {/* Luxury Biometric Button */}
                                         <div className="relative group">
-                                            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#C9A84C] via-[#E6C97F] to-[#C9A84C] rounded-xl opacity-75 blur group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-tilt" />
+                                            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#C9A84C] via-[#E6C97F] to-[#C9A84C] rounded-xl opacity-40 blur-md group-hover:opacity-60 transition duration-1000 group-hover:duration-200 animate-tilt" />
                                             <div className="relative">
                                                 <PasskeyButton mode="login" onSuccess={handleLoginSuccess} />
                                             </div>
@@ -307,7 +307,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
                 )}>
                     {shellDecorations}
                     <DialogTitle className="sr-only">Benvenuto in SYD</DialogTitle>
-                    <DialogDescription className="sr-only">Effettua l'accesso per salvare i tuoi progetti</DialogDescription>
+                    <DialogDescription className="sr-only">Effettua l&apos;accesso per salvare i tuoi progetti</DialogDescription>
                     {content}
                 </DialogContent>
             </Dialog>
@@ -324,7 +324,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
             )}>
                 {shellDecorations}
                 <DrawerTitle className="sr-only">Benvenuto in SYD</DrawerTitle>
-                <DrawerDescription className="sr-only">Effettua l'accesso per salvare i tuoi progetti</DrawerDescription>
+                <DrawerDescription className="sr-only">Effettua l&apos;accesso per salvare i tuoi progetti</DrawerDescription>
                 <div className="overflow-y-auto max-h-[90svh] pb-safe">
                     {content}
                 </div>

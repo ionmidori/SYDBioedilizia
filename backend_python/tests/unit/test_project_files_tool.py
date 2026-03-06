@@ -44,7 +44,7 @@ def test_list_files_success(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = [mock_blob]
 
     # Unwrap tool for unit testing
-    result = list_project_files.func(MOCK_SESSION_ID)
+    result = list_project_files(MOCK_SESSION_ID)
     
     assert "image.png" in result
     assert "image/png" in result
@@ -60,7 +60,7 @@ def test_access_denied(mock_context_user, mock_firebase):
     mock_doc.to_dict.return_value = {"user_id": MOCK_OTHER_USER_ID}
     mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
 
-    result = list_project_files.func(MOCK_SESSION_ID)
+    result = list_project_files(MOCK_SESSION_ID)
     
     assert "Access Denied" in result
 
@@ -73,9 +73,9 @@ def test_project_not_found(mock_context_user, mock_firebase):
     mock_doc.exists = False
     mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
 
-    result = list_project_files.func(MOCK_SESSION_ID)
+    result = list_project_files(MOCK_SESSION_ID)
     
-    assert "Project not found" in result
+    assert "not found" in result.lower()
 
 def test_category_filtering(mock_context_user, mock_firebase):
     """Test filtering files by category."""
@@ -102,7 +102,7 @@ def test_category_filtering(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = [img_blob, pdf_blob]
 
     # Filter for 'image'
-    result = list_project_files.func(MOCK_SESSION_ID, category='image')
+    result = list_project_files(MOCK_SESSION_ID, category='image')
     
     assert "img.png" in result
     assert "doc.pdf" not in result

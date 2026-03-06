@@ -159,7 +159,7 @@ export function Navbar() {
                     </div>
 
                     {/* Desktop Nav - Central Group */}
-                    <div className="hidden xl:flex flex-1 justify-center items-center gap-2 xl:gap-4 z-10 px-4 min-w-0">
+                    <div className="hidden xl:flex flex-1 justify-end items-center gap-2 xl:gap-4 z-10 px-4 xl:px-8 min-w-0">
                         {navLinks.map((link) => (
                             <motion.div
                                 key={link.name}

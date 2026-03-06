@@ -84,15 +84,15 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                     className={cn(
                         "relative w-full h-14 flex items-center justify-center gap-3 font-bold rounded-[16px] overflow-hidden group",
                         "bg-gradient-to-r from-luxury-gold via-[#F3E5AB] to-luxury-gold bg-[length:200%_auto] text-luxury-bg",
-                        "border border-white/30 shadow-[0_8px_20px_-6px_rgba(212,175,55,0.5),inset_0_1px_1px_rgba(255,255,255,0.6)]",
-                        "hover:bg-[100%_center] hover:shadow-[0_8px_25px_-6px_rgba(212,175,55,0.7)] hover:scale-[1.02]",
+                        "border border-white/20 shadow-[0_4px_15px_-6px_rgba(212,175,55,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]",
+                        "hover:bg-[100%_center] hover:shadow-[0_4px_20px_-6px_rgba(212,175,55,0.5)] hover:scale-[1.02]",
                         "transition-all duration-500 ease-out",
                         "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
                         className
                     )}
                 >
                     {/* Shimmer effect overlay */}
-                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent group-hover:animate-shimmer" />
+                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-shimmer" />
 
                     {isLoading ? (
                         <>

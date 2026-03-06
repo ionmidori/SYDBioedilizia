@@ -56,8 +56,7 @@ def test_gallery_success_basic(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = [blob1, blob2]
     
     # Execute
-    result = show_project_gallery.func(MOCK_SESSION_ID)
-    
+    result = show_project_gallery(MOCK_SESSION_ID)    
     # Validate JSON structure
     data = json.loads(result)
     assert data["type"] == "gallery"
@@ -90,7 +89,7 @@ def test_gallery_room_filtering(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = blobs
     
     # Filter for kitchen
-    result = show_project_gallery.func(MOCK_SESSION_ID, room="cucina")
+    result = show_project_gallery(MOCK_SESSION_ID, room="cucina")
     
     data = json.loads(result)
     assert len(data["items"]) == 2
@@ -116,7 +115,7 @@ def test_gallery_status_filtering(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = blobs
     
     # Filter for approved only
-    result = show_project_gallery.func(MOCK_SESSION_ID, status="approvato")
+    result = show_project_gallery(MOCK_SESSION_ID, status="approvato")
     
     data = json.loads(result)
     assert len(data["items"]) == 1
@@ -133,7 +132,7 @@ def test_gallery_access_denied(mock_context_user, mock_firebase):
     mock_doc.to_dict.return_value = {"user_id": MOCK_OTHER_USER_ID}
     mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
     
-    result = show_project_gallery.func(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID)
     
     assert "Access Denied" in result
 
@@ -147,7 +146,7 @@ def test_gallery_project_not_found(mock_context_user, mock_firebase):
     mock_doc.exists = False
     mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
     
-    result = show_project_gallery.func(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID)
     
     assert "Project not found" in result
 
@@ -165,7 +164,7 @@ def test_gallery_no_images_found(mock_context_user, mock_firebase):
     # Return no blobs
     mock_bucket.return_value.list_blobs.return_value = []
     
-    result = show_project_gallery.func(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID)
     
     assert "No images found" in result
 
@@ -188,7 +187,7 @@ def test_gallery_ignores_non_images(mock_context_user, mock_firebase):
     ]
     mock_bucket.return_value.list_blobs.return_value = blobs
     
-    result = show_project_gallery.func(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID)
     
     data = json.loads(result)
     assert len(data["items"]) == 1
@@ -209,7 +208,7 @@ def test_gallery_max_limit(mock_context_user, mock_firebase):
     blobs = [create_mock_blob(f"photo_{i}.jpg", "image/jpeg") for i in range(20)]
     mock_bucket.return_value.list_blobs.return_value = blobs
     
-    result = show_project_gallery.func(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID)
     
     data = json.loads(result)
     assert len(data["items"]) == 12  # Should cap at 12
@@ -219,5 +218,5 @@ def test_gallery_unauthenticated_user(mock_firebase):
     """Test error when user is not authenticated."""
     # Mock: No authenticated user
     with patch("src.tools.gallery.get_current_user_id", return_value=None):
-        result = show_project_gallery.func(MOCK_SESSION_ID)
+        result = show_project_gallery(MOCK_SESSION_ID)
         assert "not authenticated" in result

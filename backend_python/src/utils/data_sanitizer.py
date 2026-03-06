@@ -6,6 +6,7 @@ Security layers:
 2. Unicode normalization (prevents lookalike bypass: "ᵢɢɴᵒʀᴇ" → "ignore")
 3. Injection pattern detection (IT + EN + synonyms)
 4. Control character stripping
+5. Boundary spoofing defense (neutralize `###`)
 
 NOTE — Sandwich Defense:
     Delimiters must be applied in the SYSTEM PROMPT of each agent (agents.py), NOT here.
@@ -52,7 +53,7 @@ _INJECTION_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE | re.UNICOD
     # Structural / meta attacks
     r"<\|system\|>",           # ChatML injection
     r"\[INST\]",               # Mistral/Llama instruction injection
-    r"###\s*(SYSTEM|HUMAN|USER|ASSISTANT)\s*###",  # sandwich boundary spoofing
+    r"---(?:\s)*(SYSTEM|HUMAN|USER|ASSISTANT|END)(?:\s)*---",  # sandwich boundary spoofing (after ### neutralization)
     r"```\s*system",           # code block system prompt
 ]]
 
@@ -64,6 +65,7 @@ def sanitize_input(raw_input: str) -> str:
     Removes or redacts known prompt injection patterns in English and Italian.
     Normalizes unicode to prevent lookalike-character bypasses.
     Enforces a maximum input length.
+    Neutralizes the `###` boundary marker used by the Sandwich Defense.
 
     Args:
         raw_input: The raw user-provided text string.
@@ -85,8 +87,11 @@ def sanitize_input(raw_input: str) -> str:
     # 3. Strip control characters (except newline / tab — preserve readability)
     raw_input = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw_input)
 
-    # 4. Injection pattern redaction
-    sanitized = raw_input
+    # 4. Neutralize the Sandwich Defense delimiter to prevent boundary spoofing
+    # This MUST happen before Injection pattern redaction to ensure the regex catches the neutralized boundaries
+    sanitized = raw_input.replace("###", "---")
+
+    # 5. Injection pattern redaction
     for pattern in _INJECTION_PATTERNS:
         sanitized = pattern.sub("[REDACTED]", sanitized)
 

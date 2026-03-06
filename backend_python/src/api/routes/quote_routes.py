@@ -31,6 +31,7 @@ from src.auth.jwt_handler import verify_token
 from src.core.exceptions import (
     QuoteAlreadyApprovedError,
     QuoteNotFoundError,
+    CheckpointError,
 )
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
@@ -61,6 +62,8 @@ class StartQuoteResponse(BaseModel):
 
 
 class AdminDecisionBody(BaseModel):
+    model_config = {"extra": "forbid"}
+
     decision: Literal["approve", "reject", "edit"] = Field(
         ...,
         description="Admin decision: 'approve' triggers PDF+delivery, 'reject' ends the flow.",
@@ -79,6 +82,8 @@ class ApproveQuoteResponse(BaseModel):
 
 
 class QuoteUpdateBody(BaseModel):
+    model_config = {"extra": "forbid"}
+
     items: Optional[list[QuoteItem]] = None
     admin_notes: Optional[str] = Field(None, max_length=2000)
 
@@ -180,6 +185,12 @@ async def start_quote_flow(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Quote for project '{project_id}' is already approved.",
         )
+    except CheckpointError as e:
+        logger.error(f"Checkpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
+        )
     except Exception:
         logger.exception("Unexpected error in start_quote_flow.", extra={"project_id": project_id})
         raise HTTPException(
@@ -232,6 +243,12 @@ async def approve_quote(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No pending quote found for project '{project_id}'. Run /start first.",
+        )
+    except CheckpointError as e:
+        logger.error(f"Checkpoint error during approve: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e),
         )
     except Exception:
         logger.exception("Unexpected error in approve_quote.", extra={"project_id": project_id})

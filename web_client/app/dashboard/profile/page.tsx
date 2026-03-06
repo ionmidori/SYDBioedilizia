@@ -1,17 +1,20 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
-import { User, Mail, Lock, Bell, Camera, Save, AlertTriangle } from "lucide-react";
+import { User, Mail, Lock, Bell, Camera, Save, AlertTriangle, Fingerprint, CheckCircle2 } from "lucide-react";
 import NextImage from "next/image";
 import { updateUserProfile, uploadUserAvatar } from "@/app/actions/profile";
 import { PasskeyButton } from "@/components/auth/PasskeyButton";
 import { SydLoader } from "@/components/ui/SydLoader";
+import { usePasskey } from "@/hooks/usePasskey";
 
 export default function ProfilePage() {
     const { user } = useAuth();
     const { preferences, updatePreferences } = useUserPreferences();
+    const { checkHasPasskeys, hasPasskeys } = usePasskey();
     const [isLoading, setIsLoading] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -19,6 +22,12 @@ export default function ProfilePage() {
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+    useEffect(() => {
+        if (user) {
+            checkHasPasskeys();
+        }
+    }, [user, checkHasPasskeys]);
 
     const initials = user?.displayName
         ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase()
@@ -70,12 +79,28 @@ export default function ProfilePage() {
         }
     };
 
+    const toggleQuoteNotifications = async () => {
+        if (!preferences) return;
+        
+        try {
+            await updatePreferences({
+                notifications: {
+                    ...preferences.notifications,
+                    quoteReady: !preferences.notifications?.quoteReady
+                }
+            });
+        } catch (error) {
+            console.error("Failed to update preferences:", error);
+            // Revert will be handled by the hook itself on failure if optimistic update fails
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto space-y-10 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl md:text-4xl font-bold text-luxury-text font-serif">Il Tuo <span className="text-luxury-gold italic">Profilo</span></h1>
-                <p className="text-luxury-text/50">Gestisci le tue informazioni personali e le preferenze dell'account.</p>
+                <p className="text-luxury-text/50">Gestisci le tue informazioni personali e le preferenze dell&apos;account.</p>
             </div>
 
             {/* Profile Section */}
@@ -141,15 +166,29 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="p-6 glass-premium border border-white/5 rounded-2xl space-y-4">
-                    <div className="flex items-center gap-3 text-luxury-gold">
-                        <Lock className="w-5 h-5" />
-                        <h3 className="font-bold uppercase tracking-widest text-xs">Sicurezza Biometrica</h3>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 text-luxury-gold">
+                            <Lock className="w-5 h-5" />
+                            <h3 className="font-bold uppercase tracking-widest text-xs">Sicurezza Biometrica</h3>
+                        </div>
+                        {hasPasskeys && (
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-wide">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                ATTIVA
+                            </span>
+                        )}
                     </div>
                     <div className="space-y-4">
                         <p className="text-sm text-luxury-text/60 leading-relaxed">
-                            Accedi istantaneamente senza password usando FaceID o TouchID sul tuo dispositivo.
+                            {hasPasskeys 
+                                ? "Hai configurato l'accesso biometrico per questo account. Puoi usare FaceID o TouchID per accedere rapidamente."
+                                : "Accedi istantaneamente senza password usando FaceID o TouchID sul tuo dispositivo."
+                            }
                         </p>
-                        <PasskeyButton mode="register" />
+                        
+                        <div className="pt-2">
+                            <PasskeyButton mode="register" />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -165,6 +204,21 @@ export default function ProfilePage() {
                         <div className="space-y-0.5">
                             <p className="text-luxury-text font-medium group-hover:text-luxury-gold transition-colors">Aggiornamenti Preventivi</p>
                             <p className="text-sm text-luxury-text/50">Ricevi notifiche quando i preventivi sono pronti</p>
+                        </div>
+                        <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-luxury-gold focus:ring-offset-2 focus:ring-offset-luxury-bg"
+                            style={{ backgroundColor: preferences?.notifications?.quoteReady ? '#D4AF37' : '#334155' }}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                toggleQuoteNotifications();
+                            }}
+                            role="switch"
+                            aria-checked={preferences?.notifications?.quoteReady}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                    preferences?.notifications?.quoteReady ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                            />
                         </div>
                     </label>
                 </div>
