@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { M3Spring, M3Transition, createStaggerVariants } from '@/lib/m3-motion';
-import { Menu, Mail, LayoutDashboard } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Menu, Mail } from 'lucide-react';
 import { SignInButton } from '@/components/auth/SignInButton';
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
@@ -34,7 +33,6 @@ export function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [contactMenuOpen, setContactMenuOpen] = useState(false);
-    const [hoveredNavIndex, setHoveredNavIndex] = useState<number | null>(null);
     const contactMenuRef = useRef<HTMLDivElement>(null);
     const { user, isAnonymous } = useAuth();
     const router = useRouter();
@@ -251,7 +249,7 @@ export function Navbar() {
                         </div>
 
                         {/* Hamburger Menu Trigger using Sheet */}
-                        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} modal={false}>
                             <SheetTrigger asChild>
                                 <button
                                     className="p-2 rounded-full text-luxury-text hover:text-luxury-gold transition-colors"
@@ -260,12 +258,14 @@ export function Navbar() {
                                         setContactMenuOpen(false);
                                     }}
                                     aria-label="Menu"
+                                    suppressHydrationWarning
                                 >
                                     <Menu className="w-5 h-5 md:w-6 md:h-6" />
                                 </button>
                             </SheetTrigger>
                             <SheetContent
                                 side="right"
+                                hideOverlay={true}
                                 className="w-[45vw] sm:w-[33vw] min-w-[180px] max-w-[260px] bg-luxury-bg/10 backdrop-blur-xl border-l border-luxury-gold/10 p-4 flex flex-col"
                             >
                                 <SheetHeader className="mt-6 mb-6 text-center space-y-0">

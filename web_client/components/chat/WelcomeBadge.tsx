@@ -14,7 +14,7 @@ interface WelcomeBadgeProps {
 export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
     const [showWelcomeBadge, setShowWelcomeBadge] = useState(false);
     const [typewriterText, setTypewriterText] = useState('');
-    const fullMessage = "Ciao, sono SYD! Posso aiutarti con il tuo progetto?";
+    const fullMessage = "Ciao, sono qui per aiutarti a ristrutturare la tua casa!";
 
     // Show badge after delay
     useEffect(() => {
