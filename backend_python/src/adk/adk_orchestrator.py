@@ -26,10 +26,12 @@ logger = logging.getLogger(__name__)
 
 
 from src.utils.stream_protocol import (
-    stream_text, 
-    stream_data, 
+    stream_text,
+    stream_data,
     stream_error,
-    stream_status
+    stream_status,
+    stream_tool_call,
+    stream_tool_result,
 )
 
 def _sse(data: dict) -> str:
@@ -149,11 +151,12 @@ class ADKOrchestrator(BaseOrchestrator):
             except Exception:
                 pass
 
-        # Execute parallel fetch
+        # Execute parallel fetch using TaskGroup (Python 3.12+): auto-cancels on exception
         if media_tasks:
-            logger.info(f"[ADK] Parallel fetching {len(media_tasks)} media items...")
-            fetched_parts = await asyncio.gather(*media_tasks)
-            content_parts.extend([p for p in fetched_parts if p])
+            logger.info(f"[ADK] Parallel fetching {len(media_urls)} media items...")
+            async with asyncio.TaskGroup() as tg:
+                task_objs = [tg.create_task(fetch_media(i, url)) for i, url in enumerate(media_urls)]
+            content_parts.extend(p for t in task_objs if (p := t.result()) is not None)
 
         try:
             # Ensure session exists — ADK raises SessionNotFoundError otherwise
@@ -171,25 +174,14 @@ class ADKOrchestrator(BaseOrchestrator):
                 )
                 logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
 
-            # Stream initial status immediately to unlock UI "thinking" state
-
-            # --- AGENT MEMORY INJECTION ---
-            # ADK explicitly needs the message to be added to its own session memory
-            logger.info(f"Adding user message to ADK session {session_id}")
-            # Use original parts (including media) for ADK memory
-            from google.genai.types import Message, Content
-            await session_service.add_message(
-                app_name="syd_orchestrator",
-                user_id=user_id,
-                session_id=session_id,
-                message=Message(content=Content(role="user", parts=content_parts)),
-            )
-
             full_response = ""
             try:
+                # Pass user message directly via new_message parameter (ADK 1.x API)
+                user_content = types.Content(role="user", parts=content_parts)
                 async for event in self.runner.run_async(
                     session_id=session_id,
                     user_id=user_id,
+                    new_message=user_content,
                 ):
                     # ── Handle Interrupts (HITL) ──
                     if hasattr(event, "event_type") and event.event_type == "interrupt":

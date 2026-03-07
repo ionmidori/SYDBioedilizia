@@ -34,7 +34,18 @@ async def lifespan(_app: FastAPI):
     # NOTE: Firebase validation and Agent Graph initialization happen lazily on first request
     # This ensures the container binds to port 8080 immediately for Cloud Run health checks
     yield
-    logger.info("SYD Brain API shutting down.")
+    # ── Graceful Shutdown ──────────────────────────────────────────────────────
+    # Cloud Run sends SIGTERM and waits up to 40s (--timeout-graceful-shutdown).
+    # uvicorn drains active SSE connections; we clean up owned gRPC resources here.
+    logger.warning("SYD Brain API shutdown initiated — draining connections...")
+    try:
+        from src.db.firebase_client import _async_db_client
+        if _async_db_client is not None:
+            await _async_db_client.close()
+            logger.info("Async Firestore gRPC channel closed.")
+    except Exception as _e:
+        logger.warning(f"Non-fatal error during shutdown cleanup: {_e}")
+    logger.info("SYD Brain API shutdown complete.")
 
 app = FastAPI(title="SYD Brain", version="2.9.21", lifespan=lifespan)
 app.state.limiter = limiter
@@ -239,7 +250,7 @@ class AppCheckMiddleware:
     Uses raw ASGI __call__ instead of @app.middleware("http") / BaseHTTPMiddleware
     to avoid buffering StreamingResponse bodies (which breaks /chat/stream).
     """
-    _PUBLIC_PATHS = frozenset({"/health", "/favicon.ico"})
+    _PUBLIC_PATHS = frozenset({"/health", "/ready", "/favicon.ico"})
     _DEV_PATHS = frozenset({"/docs", "/openapi.json"})
 
     def __init__(self, app: ASGIApp):
@@ -416,8 +427,47 @@ class ChatRequest(BaseModel):
 
 @app.get("/health")
 def health_check():
-    """Health check endpoint for Cloud Run."""
+    """Liveness probe — lightweight, no I/O. Cloud Run uses this to restart stuck containers."""
     return {"status": "ok", "service": "syd-brain"}
+
+
+@app.get("/ready")
+async def readiness_check():
+    """
+    Readiness probe for Cloud Run.
+    Verifies Firestore connectivity with a 5-second timeout.
+    Returns 200 OK when ready to serve traffic, 503 Service Unavailable otherwise.
+    """
+    import asyncio as _asyncio
+
+    checks: dict[str, str] = {}
+
+    def _ping_firestore():
+        from src.db.firebase_client import get_firestore_client
+        db = get_firestore_client()
+        # Lightweight ping: fetch at most 1 doc from a sentinel collection
+        list(db.collection("_health_probe").limit(1).stream())
+
+    try:
+        loop = _asyncio.get_event_loop()
+        await _asyncio.wait_for(
+            loop.run_in_executor(None, _ping_firestore),
+            timeout=5.0,
+        )
+        checks["firestore"] = "ok"
+    except _asyncio.TimeoutError:
+        logger.warning("[/ready] Firestore ping timed out (>5s)")
+        checks["firestore"] = "timeout"
+    except Exception as _e:
+        logger.warning(f"[/ready] Firestore check failed: {type(_e).__name__}")
+        checks["firestore"] = "error"
+
+    all_ok = all(v == "ok" for v in checks.values())
+    return JSONResponse(
+        status_code=200 if all_ok else 503,
+        content={"status": "ready" if all_ok else "not_ready", "checks": checks},
+    )
+
 
 async def chat_stream_generator(
     request: ChatRequest,

@@ -42,6 +42,8 @@ def _make_function_call_event(name: str = "my_tool"):
     """Create a mock ADK Event with a function call."""
     fc = MagicMock()
     fc.name = name
+    fc.args = {"param": "value"}   # Must be JSON-serializable
+    fc.call_id = "call-test-123"   # Must be JSON-serializable
 
     part = MagicMock()
     part.text = None
@@ -63,7 +65,8 @@ def _make_function_call_event(name: str = "my_tool"):
 def _make_function_response_event():
     """Create a mock ADK Event with a function response."""
     fr = MagicMock()
-    fr.response = {"result": "ok"}
+    fr.response = {"result": "ok"}    # Must be JSON-serializable
+    fr.call_id = "fr-call-test-456"   # Must be JSON-serializable
 
     part = MagicMock()
     part.text = None
@@ -178,10 +181,10 @@ class TestADKOrchestratorStreamChat:
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
     @patch("src.adk.adk_orchestrator.get_session_service")
-    async def test_function_call_event_not_yielded(
+    async def test_function_call_event_yields_tool_status_and_data(
         self, mock_get_session, mock_get_repo, mock_settings
     ):
-        """Function call events must NOT be forwarded to the client (except initial status)."""
+        """Function call events must yield a tool-status chunk plus a tool-call data chunk."""
         _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
 
         orch = _make_orchestrator_with_events([_make_function_call_event("pricing_engine")])
@@ -189,17 +192,19 @@ class TestADKOrchestratorStreamChat:
 
         chunks = await _collect_chunks(orch.stream_chat(req, user))
 
-        # Expected: [Status Chunk] only
-        assert len(chunks) == 1, f"Expected only status chunk, got {len(chunks)}: {chunks}"
-        assert chunks[0].startswith("2:")
+        # Expected: [initial status, tool status, tool call data]
+        assert len(chunks) == 3, f"Expected 3 chunks, got {len(chunks)}: {chunks}"
+        assert chunks[0].startswith("2:")  # initial status
+        assert chunks[1].startswith("2:")  # tool status
+        assert chunks[2].startswith("9:")  # tool call data chunk
 
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
     @patch("src.adk.adk_orchestrator.get_session_service")
-    async def test_function_response_event_not_yielded(
+    async def test_function_response_event_yields_tool_result(
         self, mock_get_session, mock_get_repo, mock_settings
     ):
-        """Function response events must NOT be forwarded to the client (except initial status)."""
+        """Function response events must yield a tool-result data chunk."""
         _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
 
         orch = _make_orchestrator_with_events([_make_function_response_event()])
@@ -207,17 +212,18 @@ class TestADKOrchestratorStreamChat:
 
         chunks = await _collect_chunks(orch.stream_chat(req, user))
 
-        # Expected: [Status Chunk] only
-        assert len(chunks) == 1, f"Expected only status chunk, got {len(chunks)}: {chunks}"
-        assert chunks[0].startswith("2:")
+        # Expected: [initial status, tool result data]
+        assert len(chunks) == 2, f"Expected 2 chunks, got {len(chunks)}: {chunks}"
+        assert chunks[0].startswith("2:")  # initial status
+        assert chunks[1].startswith("a:")  # tool result chunk
 
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
     @patch("src.adk.adk_orchestrator.get_session_service")
-    async def test_mixed_events_only_yield_text(
+    async def test_mixed_events_yield_tool_data_then_text(
         self, mock_get_session, mock_get_repo, mock_settings
     ):
-        """In a sequence of FC → FR → Text, only the text event should yield chunks (after status)."""
+        """FC → FR → Text sequence: all tool chunks + final text chunk are emitted."""
         _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
 
         events = [
@@ -230,10 +236,12 @@ class TestADKOrchestratorStreamChat:
 
         chunks = await _collect_chunks(orch.stream_chat(req, user))
 
-        # Expected: [Status Chunk, Text Chunk]
-        assert len(chunks) == 2, f"Expected 2 chunks (status + text), got {len(chunks)}"
+        # Expected: initial_status + tool_status + tool_call + tool_result + text = 5
+        assert len(chunks) == 5, f"Expected 5 chunks, got {len(chunks)}: {chunks}"
         assert "analizzando" in chunks[0]
-        assert "preventivo" in chunks[1]
+        # Last chunk must be the text
+        assert chunks[-1].startswith("0:")
+        assert "preventivo" in chunks[-1]
 
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")

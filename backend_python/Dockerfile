@@ -38,4 +38,4 @@ EXPOSE 8080
 
 # Run the application using uvicorn directly (via the venv)
 # Run diagnostics and then start app
-CMD ["/bin/bash", "-c", "echo '🔍 [Startup] Checking environment...' && echo '🚀 [Startup] Starting Uvicorn...' && exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080} --log-level info --timeout-keep-alive 600"]
+CMD ["/bin/bash", "-c", "echo '🔍 [Startup] Checking environment...' && echo '🚀 [Startup] Starting Uvicorn...' && exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080} --log-level info --timeout-keep-alive 600 --timeout-graceful-shutdown 40"]

@@ -47,7 +47,10 @@ jobs:
         run: 'uv sync --all-extras'
 
       - name: 'Dependency audit (supply chain security)'
-        run: uv run pip-audit --strict --desc
+        # CVE-2026-28277: langgraph msgpack deserialization (transitive via google-adk).
+        # Post-exploitation only — requires checkpoint-store write access. No fix available yet.
+        # We do not use LangGraph checkpointing; ADK uses InMemorySessionService.
+        run: uv run pip-audit --strict --desc --ignore-vuln CVE-2026-28277
 
       - name: 'Run tests'
         env:
