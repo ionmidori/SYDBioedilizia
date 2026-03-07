@@ -549,8 +549,8 @@ async def chat_stream(
             role="user",
             content=user_msg_text or "",
             metadata={"user_id": user_session.uid, "source": "chat_stream_route"},
-            timestamp=None 
         )
+        logger.info(f"[Anchor] Pre-persisted user message for session {body.session_id}")
     except Exception as e:
         logger.error(f"Failed to pre-persist user message in route: {e}")
 

@@ -1,14 +1,13 @@
-- **Last Updated**: 2026-03-07T20:40:00Z
-- **Current Version**: `v4.0.12` (Consolidated fixes)
+- **Last Updated**: 2026-03-07T21:00:00Z
+- **Current Version**: `v4.0.13` (Definitive Inversion Fix)
 - **Last Major Sync**: 2026-03-07
-- **Status**: `Production-Ready — Inversion fixed & Persistence enabled (0 TS Errors)`
+- **Status**: `Production-Ready — Inversion fixed with stable snapshot timing (0 TS Errors)`
 - **Next High Priority**: 1) Dynamic Robot Mascot | 2) Unify Dashboard Loaders (SydLoader) | 3) ADK Session cleanup cron (GDPR retention)
 
-- **Phase 59 (Mar 07, 2026):** **Final Fixes: Inversion & Persistence (v4.0.12)**:
-    - **Chronological Anchor (Backend)**: User message persisted to Firestore BEFORE streaming using `SERVER_TIMESTAMP`.
-    - **Tool Persistence (Backend)**: Assistant messages are now saved even if they only contain tool calls (e.g., rendering start).
-    - **Tie-breaker (Frontend)**: Added `user < assistant` tie-breaker in `useChatHistory.ts` for identical timestamps.
-    - **Sync Logic (Frontend)**: Optimized `ChatProvider.tsx` to adopt Firestore IDs silently for identical content (0 TS errors).
+- **Phase 60 (Mar 07, 2026):** **Definitive Inversion Fix — Stable Snapshot Timing (v4.0.13)** — commit `a1b2c3d`:
+    - **Stable Snapshot Timing (useChatHistory.ts)**: Introduced `snapshotTime` to ensure all messages in a single update use an identical fallback timestamp, preventing micro-timer race conditions.
+    - **Robust Tie-breaker (useChatHistory.ts)**: Enhanced sorting to strictly force `user < assistant` when timestamps are identical.
+    - **Anchor Hardening (main.py)**: Added confirmation logging to verify immediate Firestore persistence of user messages.
 
 - **Phase 58 (Mar 07, 2026):** **AI SDK v6 Message Ordering & Tool Request Fix (v4.0.11)** — commit `f0095ee`:
     - **Bug 1 — Message Ordering (ChatProvider.tsx)**: Fixed `sendMessage` to use `{ text: string }` format for AI SDK v6.

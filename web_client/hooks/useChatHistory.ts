@@ -95,31 +95,33 @@ export function useChatHistory(
                 unsubscribe = firestoreOnSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
                     // Docs are Newest -> Oldest (DESC)
                     // We map them, then reverse to get Oldest -> Newest for UI
+
+                    // 🕒 Stable snapshot time for all pending messages in THIS pass.
+                    // This prevents micro-timestamp differences from breaking the tie-breaker.
+                    const snapshotTime = new Date();
+
                     const rawMessages = snapshot.docs.map(doc => {
                         const data = doc.data();
 
                         // Parse tool_calls
                         let toolInvocations = undefined;
                         if (data.tool_calls && Array.isArray(data.tool_calls)) {
-                            toolInvocations = data.tool_calls.map((tc: { id?: string; tool_call_id?: string; name?: string; function?: { name?: string; arguments?: string | Record<string, unknown> }; args?: string | Record<string, unknown> }) => ({
+                            toolInvocations = data.tool_calls.map((tc: any) => ({
                                 toolCallId: tc.id || tc.tool_call_id,
                                 toolName: tc.function?.name || tc.name,
                                 args: typeof tc.function?.arguments === 'string'
                                     ? JSON.parse(tc.function.arguments)
                                     : (tc.function?.arguments || tc.args),
-                                state: 'result', // Stored messages are always results
-                                result: 'See tool output' // We link results below
+                                state: 'result',
+                                result: 'See tool output'
                             }));
                         }
 
-                        // Parse attachments from backend format
-                        let attachments = undefined;
-                        if (data.attachments) {
-                            attachments = data.attachments;
-                        }
+                        // Attachments...
+                        const attachments = data.attachments || undefined;
 
                         // Clean content
-                        let content = (data.content || '') as string; // Ensure content is a string
+                        let content = (data.content || '') as string;
                         if (content && (attachments?.images?.length || attachments?.videos?.length)) {
                             content = content
                                 .replace(/\[(Immagine|Video) allegata:.*?\]/g, '')
@@ -127,14 +129,15 @@ export function useChatHistory(
                                 .trim();
                         }
 
-                        const createdAt = data.timestamp?.toDate();
+                        // Parse timestamp
+                        const createdAt = data.timestamp?.toDate() || snapshotTime;
 
                         return {
                             id: doc.id,
-                            role: data.role as 'user' | 'assistant' | 'system' | 'tool',
+                            role: (data.role || 'user').toLowerCase() as 'user' | 'assistant' | 'system' | 'tool',
                             content,
-                            createdAt: data.timestamp?.toDate() || new Date(),
-                            timestamp: data.timestamp?.toDate()?.toISOString(),
+                            createdAt,
+                            timestamp: createdAt.toISOString(),
                             toolInvocations,
                             tool_call_id: data.tool_call_id,
                             attachments
@@ -142,19 +145,19 @@ export function useChatHistory(
                     });
 
                     // Sort chronologically (Oldest -> Newest)
-                    // Tie-breaker: If timestamps are identical, User comes BEFORE Assistant.
                     const messages = rawMessages.sort((a, b) => {
-                        const timeA = a.createdAt?.getTime() || 0;
-                        const timeB = b.createdAt?.getTime() || 0;
+                        const timeA = (a.createdAt as Date).getTime();
+                        const timeB = (b.createdAt as Date).getTime();
 
                         if (timeA !== timeB) {
                             return timeA - timeB;
                         }
 
-                        // Same timestamp (common with server-side batching)
-                        const rolePriority = { user: 1, assistant: 2, system: 0, tool: 3 };
-                        const priorityA = rolePriority[a.role as keyof typeof rolePriority] ?? 5;
-                        const priorityB = rolePriority[b.role as keyof typeof rolePriority] ?? 5;
+                        // 🛡️ Robust Tie-breaker (User < Assistant)
+                        // This handles messages sent in the same millisecond or pending messages.
+                        const rolePriority: Record<string, number> = { system: 0, user: 1, assistant: 2, tool: 3 };
+                        const priorityA = rolePriority[a.role] ?? 5;
+                        const priorityB = rolePriority[b.role] ?? 5;
                         return priorityA - priorityB;
                     });
 
