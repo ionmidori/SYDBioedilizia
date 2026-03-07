@@ -6,8 +6,8 @@ interface ToolInvocation {
     toolCallId: string;
     toolName: string;
     state: 'call' | 'result';
-    args?: any;
-    result?: any;
+    args?: unknown;
+    result?: unknown;
 }
 
 interface ToolStatusProps {
@@ -77,7 +77,7 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
 
     // Completed state: Tool finished with result
     if (tool.state === 'result') {
-        const result = tool.result || (tool as any).output;
+        const result = tool.result || (tool as { output?: unknown }).output;
 
 
         // Gallery: Project images
@@ -101,12 +101,13 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
         }
 
         // Success: Image generated
-        if (result?.imageUrl) {
+        const typedResult = result as any;
+        if (typedResult?.imageUrl) {
             return (
                 <div className="mt-3">
                     <ImagePreview
-                        src={result.imageUrl}
-                        alt={result.description || 'Rendering generato'}
+                        src={typedResult.imageUrl}
+                        alt={typedResult.description || 'Rendering generato'}
                         onClick={onImageClick}
                         className="w-full"
                     />
@@ -115,18 +116,18 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
         }
 
         // Error: Tool failed
-        if (result?.error || result?.status === 'error') {
+        if (typedResult?.error || typedResult?.status === 'error') {
             return (
                 <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
                     <p className="font-medium">Errore generazione immagine:</p>
-                    <p>{result?.error || 'Si è verificato un errore sconosciuto.'}</p>
+                    <p>{typedResult?.error || 'Si è verificato un errore sconosciuto.'}</p>
                 </div>
             );
         }
 
     }
 
-
-
     return null;
 });
+
+ToolStatus.displayName = 'ToolStatus';

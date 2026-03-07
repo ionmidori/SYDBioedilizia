@@ -10,6 +10,7 @@ class ReasoningStep(BaseModel):
     - If the analysis is too long, it raises ValidationError.
     - If security risks are detected in `target_data`, it halts execution.
     """
+    model_config = {"extra": "forbid"}
     
     analysis: str = Field(
         ..., 

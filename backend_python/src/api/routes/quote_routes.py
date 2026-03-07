@@ -56,6 +56,7 @@ _PROJECT_ID = Path(
 # ─── Schemas ─────────────────────────────────────────────────────────────────
 
 class StartQuoteResponse(BaseModel):
+    model_config = {"extra": "ignore"}
     status: str = "awaiting_admin_review"
     project_id: str
     message: str
@@ -76,6 +77,7 @@ class AdminDecisionBody(BaseModel):
 
 
 class ApproveQuoteResponse(BaseModel):
+    model_config = {"extra": "ignore"}
     status: str
     project_id: str
     decision: str
@@ -89,6 +91,7 @@ class QuoteUpdateBody(BaseModel):
 
 
 class QuoteListItemResponse(BaseModel):
+    model_config = {"extra": "ignore"}
     project_id: str
     status: str
     grand_total: float
@@ -97,6 +100,7 @@ class QuoteListItemResponse(BaseModel):
 
 
 class QuotePdfUrlResponse(BaseModel):
+    model_config = {"extra": "ignore"}
     pdf_url: str
     expires_in_seconds: int = 900
 

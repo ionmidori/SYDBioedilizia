@@ -11,6 +11,7 @@ from src.utils.datetime_utils import utc_now
 QuoteStatusType = Literal["draft", "pending_review", "approved", "sent", "rejected"]
 
 class QuoteItem(BaseModel):
+    model_config = {"extra": "forbid"}
     sku: str = Field(..., description="Unique Identifier from Master Price Book")
     description: str = Field(..., description="Item description")
     unit: str = Field(..., description="Measurement unit (mq, cad, m, etc.)")
@@ -22,6 +23,7 @@ class QuoteItem(BaseModel):
     manual_override: bool = Field(False, description="Whether the item was manually edited by admin")
 
 class QuoteFinancials(BaseModel):
+    model_config = {"extra": "forbid"}
     subtotal: float = Field(0.0)
     vat_rate: float = Field(0.22)
     vat_amount: float = Field(0.0)
@@ -39,4 +41,4 @@ class QuoteSchema(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
     version: int = 1
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True)

@@ -14,6 +14,7 @@ class ArchitectOutput(BaseModel):
     Structured output from the Architect for narrative prompt generation.
     Uses the "Skeleton & Skin" methodology: neutral geometry + material overlay + furnishing.
     """
+    model_config = {"extra": "ignore"}
     structural_skeleton: str
     """Neutral description of fixed geometry (walls, ceiling, windows, doors, stairs)."""
 

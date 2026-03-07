@@ -12,9 +12,9 @@ import { leadSchema, type LeadValues } from '@/lib/validation/project-actions-sc
 import { triggerHaptic } from '@/utils/haptics';
 
 interface LeadFormProps {
-    onSubmit: (data: any) => void;
+    onSubmit: (data: Record<string, unknown>) => void;
     description?: string;
-    initialData?: any;
+    initialData?: Record<string, unknown>;
 }
 
 export const LeadCaptureForm: React.FC<LeadFormProps> = ({
@@ -31,10 +31,10 @@ export const LeadCaptureForm: React.FC<LeadFormProps> = ({
     } = useForm<LeadValues>({
         resolver: zodResolver(leadSchema),
         defaultValues: {
-            name: initialData.name || '',
-            email: initialData.email || '',
-            contact: initialData.phone || '',
-            scope: initialData.project_details || '',
+            name: (initialData.name as string) || '',
+            email: (initialData.email as string) || '',
+            contact: (initialData.phone as string) || '',
+            scope: (initialData.project_details as string) || '',
             website: '' // Honeypot field
         }
     });

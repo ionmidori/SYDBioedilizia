@@ -10,6 +10,7 @@ from src.core.config import settings
 logger = logging.getLogger(__name__)
 
 class WebComponent(BaseModel):
+    model_config = {"extra": "forbid"}
     name: str = Field(..., description="Shadcn/UI component name (e.g., Button, Card, DataTable)")
     purpose: str = Field(..., description="What this component does in the UI")
     styling_suggestions: List[str] = Field(default_factory=list, description="Tailwind CSS classes or glassmorphism tips")
@@ -18,6 +19,7 @@ class WebMockupAnalysis(BaseModel):
     """
     Structured analysis of a web mockup for Antigravity Creative Studio.
     """
+    model_config = {"extra": "forbid"}
     layout_type: str = Field(..., description="Bento Grid, Sidebar + Content, Multi-column, etc.")
     color_palette: List[str] = Field(..., description="Primary hex codes and semantic roles")
     typography_suggested: str = Field(..., description="Font pairings (Serif/Sans pairings)")

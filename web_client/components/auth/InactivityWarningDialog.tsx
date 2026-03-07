@@ -1,6 +1,5 @@
 'use client';
 
-import { useInactivityLogout } from '@/hooks/useInactivityLogout';
 import {
     Dialog,
     DialogContent,
@@ -62,7 +61,7 @@ export function InactivityWarningDialog({
                 </div>
 
                 <p className="text-sm text-muted-foreground text-center">
-                    Clicca "Rimani connesso" per continuare a lavorare al tuo progetto.
+                    Clicca &quot;Rimani connesso&quot; per continuare a lavorare al tuo progetto.
                 </p>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2">

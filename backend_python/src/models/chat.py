@@ -6,6 +6,7 @@ class MediaAttachment(BaseModel):
     Structured representation of a media file attached to a message.
     Used to decouple media metadata from message text content.
     """
+    model_config = {"extra": "forbid"}
     url: str
     media_type: Literal['image', 'video', 'document'] = 'image'
     mime_type: str = "image/jpeg"

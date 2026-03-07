@@ -5,6 +5,7 @@ from src.utils.datetime_utils import utc_now
 
 class LeadData(BaseModel):
     """Customer lead data model."""
+    model_config = {"extra": "forbid"}
     name: str = Field(..., max_length=100, description="Customer name")
     email: EmailStr = Field(..., description="Customer email address")
     phone: Optional[str] = Field(None, max_length=20, description="Customer phone number")

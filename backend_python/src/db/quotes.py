@@ -23,18 +23,21 @@ from src.utils.serialization import parse_firestore_datetime
 # Pydantic Models for Quote Data Structure (LEGACY v1 — see schemas/quote.py for v2)
 
 class LogisticsData(BaseModel):
+    model_config = {"extra": "forbid"}
     floor: Optional[str] = None
     elevator: Optional[bool] = None
     yearOfConstruction: Optional[str] = None
     ceilingHeight: Optional[str] = None
 
 class ScopeOfWorkData(BaseModel):
+    model_config = {"extra": "forbid"}
     demolitions: Optional[bool] = None
     electrical: Optional[str] = None
     plumbing: Optional[str] = None
     fixtures: Optional[str] = None
 
 class QuantitiesData(BaseModel):
+    model_config = {"extra": "forbid"}
     sqm: Optional[int] = None
     points: Optional[int] = None
 
@@ -42,6 +45,7 @@ class QuoteDraftData(BaseModel):
     """
     Data structure for a quote draft (mirroring legacy schema.ts/quotes.ts)
     """
+    model_config = {"extra": "forbid"}
     # Technical Data (The Convergence Protocol)
     logistics: Optional[LogisticsData] = None
     scopeOfWork: Optional[ScopeOfWorkData] = None

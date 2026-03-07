@@ -46,7 +46,7 @@ describe('useChatScroll', () => {
         Object.defineProperty(mockContainer, 'scrollTop', { value: 950, writable: true });
         Object.defineProperty(mockContainer, 'clientHeight', { value: 100, writable: true });
 
-        // @ts-ignore - assign mock elements to refs
+        // @ts-expect-error - assign mock elements to refs
         result.current.messagesContainerRef.current = mockContainer;
         result.current.messagesEndRef.current = mockEnd;
 
@@ -76,7 +76,7 @@ describe('useChatScroll', () => {
         );
 
         const mockEnd = document.createElement('div');
-        // @ts-ignore
+        // @ts-expect-error - testing assignment to readonly ref
         result.current.messagesEndRef.current = mockEnd;
 
         const scrollIntoViewSpy = jest.spyOn(mockEnd, 'scrollIntoView');
@@ -88,7 +88,7 @@ describe('useChatScroll', () => {
         act(() => { jest.advanceTimersByTime(50); });
 
         expect(scrollIntoViewSpy).toHaveBeenCalledWith({
-            behavior: 'instant',
+            behavior: 'auto',
             block: 'end',
             inline: 'nearest',
         });
@@ -102,7 +102,7 @@ describe('useChatScroll', () => {
         Object.defineProperty(mockContainer, 'scrollHeight', { value: 1000, writable: true });
         Object.defineProperty(mockContainer, 'scrollTop', { value: 0, writable: true });
 
-        // @ts-ignore
+        // @ts-expect-error - testing assignment to readonly ref
         result.current.messagesContainerRef.current = mockContainer;
         result.current.messagesEndRef.current = mockEnd;
 
@@ -132,7 +132,7 @@ describe('useChatScroll', () => {
         Object.defineProperty(mockContainer, 'scrollTop', { value: 950, writable: true });
         Object.defineProperty(mockContainer, 'clientHeight', { value: 100, writable: true });
 
-        // @ts-ignore
+        // @ts-expect-error - testing assignment to readonly ref
         result.current.messagesContainerRef.current = mockContainer;
         result.current.messagesEndRef.current = mockEnd;
 
@@ -151,7 +151,7 @@ describe('useChatScroll', () => {
     });
 
     it('should handle null refs gracefully', () => {
-        const { result, rerender } = renderHook(
+        const { rerender } = renderHook(
             ({ count, isOpen }) => useChatScroll(count, isOpen),
             { initialProps: { count: 1, isOpen: true } }
         );

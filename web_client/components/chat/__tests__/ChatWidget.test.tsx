@@ -50,7 +50,7 @@ jest.mock('@ai-sdk/react', () => ({
 
 // Exposed Mock for ChatHeader to verify props
 const MockChatHeader = jest.fn(() => <div data-testid="chat-header">Header</div>);
-jest.mock('../ChatHeader', () => ({ ChatHeader: (props: any) => MockChatHeader(props) }));
+jest.mock('../ChatHeader', () => ({ ChatHeader: (props: Record<string, unknown>) => MockChatHeader(props) }));
 
 // Other Mocks
 jest.mock('../ChatMessages', () => ({ ChatMessages: () => <div /> }));

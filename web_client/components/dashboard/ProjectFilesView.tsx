@@ -7,7 +7,7 @@ import { extractMediaFromMessages, groupAssetsByType, MediaAsset } from '@/lib/m
 import { FileImage, Upload, X, AlertCircle } from 'lucide-react';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useAuth } from '@/hooks/useAuth';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, QuerySnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { cn } from '@/lib/utils'; // Assuming cn utility exists
 import { SydLoader } from '@/components/ui/SydLoader';
@@ -60,10 +60,10 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
             orderBy('uploadedAt', 'desc')
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot: any) => {
+        const unsubscribe = onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
             // Guardrail: For collection listeners, snapshot itself is never null, 
             // but we check if it contains docs. empty is the collection equivalent of !exists()
-            const uploadedFiles = snapshot.docs.map((doc: any) => {
+            const uploadedFiles = snapshot.docs.map((doc) => {
                 const data = doc.data();
                 return {
                     id: doc.id,
@@ -84,9 +84,9 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
             setAssets(prev => {
                 const uniqueAssets = [...prev];
                 const filtered = uniqueAssets.filter(a => !uploadedFiles.some((u: MediaAsset) => u.id === a.id));
-                return [...uploadedFiles, ...filtered].sort((a: any, b: any) => {
-                    const timeA = a.createdAt?.getTime ? a.createdAt.getTime() : new Date(a.timestamp).getTime();
-                    const timeB = b.createdAt?.getTime ? b.createdAt.getTime() : new Date(b.timestamp).getTime();
+                return [...uploadedFiles, ...filtered].sort((a: MediaAsset, b: MediaAsset) => {
+                    const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt || 0).getTime();
+                    const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt || 0).getTime();
                     return timeB - timeA;
                 });
             });

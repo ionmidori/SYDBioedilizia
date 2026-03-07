@@ -22,6 +22,7 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 class MessageResponse(BaseModel):
     """Individual message in chat history."""
+    model_config = {"extra": "ignore"}
     id: str
     role: str
     content: str
@@ -32,6 +33,7 @@ class MessageResponse(BaseModel):
 
 class ChatHistoryResponse(BaseModel):
     """Response model for chat history."""
+    model_config = {"extra": "ignore"}
     messages: List[MessageResponse]
     has_more: bool
     next_cursor: Optional[str] = None

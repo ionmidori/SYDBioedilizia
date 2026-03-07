@@ -1,6 +1,7 @@
-import { fetchWithAuth } from '@/lib/api-client';
-import { ProjectListItem, Project, ProjectCreate, ProjectUpdate } from '@/types/projects';
-import { projectListResponseSchema } from '@/lib/validation/project-list-schema';
+import { fetchWithAuth, fetchValidated } from '@/lib/api-client';
+import { ProjectListItem, ProjectDetails, ProjectCreate, ProjectUpdate } from '@/types/projects';
+import { projectListResponseSchema, projectSchema } from '@/lib/validation/project-list-schema';
+import { z } from 'zod';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py'; // Use proxy or direct URL
 
@@ -9,45 +10,30 @@ export const projectsApi = {
      * Lists all projects for the authenticated user.
      */
     listProjects: async (): Promise<ProjectListItem[]> => {
-        const response = await fetchWithAuth(`${API_ROOT}/projects`);
-
-        if (!response.ok) {
-            const errorBody = await response.text();
-            console.error(`[ProjectsApi] listProjects failed: ${response.status} ${response.statusText}`, errorBody);
-            throw new Error('Impossibile caricare i progetti');
-        }
-
-        const data = await response.json();
-
-        // 🛡️ Validate response shape against our Zod schema.
-        // Uses safeParse for graceful degradation: a schema mismatch warns but does not crash.
-        const parsed = projectListResponseSchema.safeParse(data);
-        if (!parsed.success) {
-            console.warn('[ProjectsApi] ⚠️ Schema drift detected in listProjects response:');
-            console.error('Validation Errors:', parsed.error.format());
-            console.log('Received Data:', data);
-            return data as ProjectListItem[]; // Graceful degradation: trust the data, alert the developer
-        }
-
-        return parsed.data;
+        return fetchValidated(
+            `${API_ROOT}/projects`,
+            projectListResponseSchema
+        );
     },
 
     /**
      * Get details of a single project.
      * Returns null if the project is not found (404).
      */
-    getProject: async (sessionId: string): Promise<Project | null> => {
-        const response = await fetchWithAuth(`${API_ROOT}/projects/${sessionId}`);
-
-        if (!response.ok) {
-            if (response.status === 404) {
+    getProject: async (sessionId: string): Promise<z.infer<typeof projectSchema> | null> => {
+        try {
+            return await fetchValidated(
+                `${API_ROOT}/projects/${sessionId}`,
+                projectSchema
+            );
+        } catch (error: any) {
+            // Check if it's a network 404 vs validation error
+            if (error?.status === 404) {
                 console.log('[ProjectsApi] Project not found (404), returning null');
                 return null;
             }
-            throw new Error('Errore nel recupero del progetto');
+            throw new Error(error?.message || 'Errore nel recupero del progetto');
         }
-
-        return response.json();
     },
 
     /**

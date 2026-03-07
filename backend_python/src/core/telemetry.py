@@ -4,6 +4,7 @@ import logging
 import asyncio
 from typing import Callable, Any
 from .context import get_request_id
+from .logger import _redact
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,8 @@ def trace_span(name: str = None, log_args: bool = False):
                     "duration_ms": round(duration, 2)
                 }
                 if log_args:
-                    log_data["args"] = str(args)[:500] # Truncate check
-                    log_data["kwargs"] = str(kwargs)[:500]
+                    log_data["span_args"] = _redact(str(args)[:500])
+                    log_data["span_kwargs"] = _redact(str(kwargs)[:500])
 
                 logger.info(f"Span End: {span_name} ({round(duration, 2)}ms)", extra=log_data)
 

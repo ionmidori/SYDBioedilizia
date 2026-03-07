@@ -93,11 +93,14 @@ def _resolve_rp_id(request: Request) -> str:
 
 class PasskeyRegistrationRequest(BaseModel):
     """Request to initiate passkey registration."""
+    model_config = {"extra": "forbid"}
+
     user_id: str = Field(..., description="Firebase User ID")
 
 
 class PasskeyRegistrationOptions(BaseModel):
     """WebAuthn credential creation options."""
+    model_config = {"extra": "forbid"}
     challenge: str
     rp: dict
     user: dict
@@ -108,6 +111,8 @@ class PasskeyRegistrationOptions(BaseModel):
 
 class PasskeyCredential(BaseModel):
     """WebAuthn credential after registration."""
+    model_config = {"extra": "forbid"}
+
     id: str = Field(..., description="Credential ID")
     rawId: str
     response: dict = Field(..., description="Attestation response")
@@ -116,11 +121,14 @@ class PasskeyCredential(BaseModel):
 
 class PasskeyAuthenticationRequest(BaseModel):
     """Request to initiate passkey authentication."""
+    model_config = {"extra": "forbid"}
+
     user_id: Optional[str] = None
 
 
 class PasskeyAuthenticationOptions(BaseModel):
     """WebAuthn authentication options."""
+    model_config = {"extra": "forbid"}
     challenge: str
     rpId: str
     allowCredentials: list
@@ -129,6 +137,8 @@ class PasskeyAuthenticationOptions(BaseModel):
 
 class PasskeyAssertion(BaseModel):
     """WebAuthn assertion after authentication."""
+    model_config = {"extra": "forbid"}
+
     id: str
     rawId: str
     response: dict = Field(..., description="Assertion response")

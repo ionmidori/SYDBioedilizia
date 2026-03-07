@@ -5,7 +5,7 @@ import { WelcomeBadge } from '../WelcomeBadge';
 jest.mock('framer-motion', () => ({
     AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     motion: {
-        div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+        div: ({ children, ...props }: React.PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>) => <div {...props}>{children}</div>,
     },
 }));
 
@@ -32,15 +32,15 @@ describe('WelcomeBadge', () => {
         expect(badge).not.toBeInTheDocument();
     });
 
-    it('should show after 3 second delay when isOpen is false', async () => {
+    it('should show after delay when isOpen is false', async () => {
         render(<WelcomeBadge {...defaultProps} />);
 
         // Initially hidden (no typewriter text yet)
         expect(screen.queryByText(/Ciao/i)).not.toBeInTheDocument();
 
-        // Fast-forward past the 3s display delay + enough for typewriter to start
-        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
-        act(() => { jest.advanceTimersByTime(200); });  // a few typewriter chars
+        // Fast-forward past the 2.5s display delay + enough for typewriter to start
+        act(() => { jest.advanceTimersByTime(2600); }); // badge appears (2500ms delay)
+        act(() => { jest.advanceTimersByTime(100); });  // a few typewriter chars (35ms each)
 
         await waitFor(() => {
             // Something should appear (partial typewriter text starts with "C")
@@ -51,8 +51,8 @@ describe('WelcomeBadge', () => {
     it('should call onOpenChat when badge is clicked', async () => {
         render(<WelcomeBadge {...defaultProps} />);
 
-        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
-        act(() => { jest.advanceTimersByTime(200); });  // partial typewriter
+        act(() => { jest.advanceTimersByTime(2600); }); // badge appears
+        act(() => { jest.advanceTimersByTime(100); });  // partial typewriter
 
         await waitFor(() => {
             const badge = screen.getByText(/^C/).closest('div[class*="backdrop-blur"]');
@@ -67,20 +67,20 @@ describe('WelcomeBadge', () => {
     it('should display typewriter text progressively', async () => {
         render(<WelcomeBadge {...defaultProps} />);
 
-        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
-        // Advance enough for full message: 52 chars × 50ms = 2600ms
-        act(() => { jest.advanceTimersByTime(2700); });
+        act(() => { jest.advanceTimersByTime(2600); }); // badge appears
+        // Full message: 57 chars × 35ms = 1995ms — advance enough for all chars
+        act(() => { jest.advanceTimersByTime(2100); });
 
         await waitFor(() => {
-            expect(screen.getByText('Ciao, sono SYD! Posso aiutarti con il tuo progetto?')).toBeInTheDocument();
+            expect(screen.getByText('Ciao, sono qui per aiutarti a ristrutturare la tua casa!')).toBeInTheDocument();
         });
     });
 
     it('should auto-dismiss after typewriter completes + 9s', async () => {
         render(<WelcomeBadge {...defaultProps} />);
 
-        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
-        act(() => { jest.advanceTimersByTime(2700); }); // typewriter completes (~52 chars × 50ms)
+        act(() => { jest.advanceTimersByTime(2600); }); // badge appears
+        act(() => { jest.advanceTimersByTime(2100); }); // typewriter completes (57 chars × 35ms)
         act(() => { jest.advanceTimersByTime(9100); }); // auto-dismiss timer
 
         await waitFor(() => {
@@ -91,8 +91,8 @@ describe('WelcomeBadge', () => {
     it('should hide when isOpen changes to true', async () => {
         const { rerender } = render(<WelcomeBadge {...defaultProps} />);
 
-        act(() => { jest.advanceTimersByTime(3100); }); // badge appears
-        act(() => { jest.advanceTimersByTime(200); });
+        act(() => { jest.advanceTimersByTime(2600); }); // badge appears
+        act(() => { jest.advanceTimersByTime(100); });
 
         // Verify badge is shown
         await waitFor(() => {

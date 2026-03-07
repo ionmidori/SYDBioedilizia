@@ -66,6 +66,7 @@ class ADKOrchestrator(BaseOrchestrator):
         self,
         request: Any,       # ChatRequest
         user_session: Any,  # UserSession
+        background_tasks: Any = None, # FastAPI BackgroundTasks
     ) -> AsyncIterator[str]:
         """
         Main streaming chat method for Vertex AI Agent Builder.
@@ -96,8 +97,20 @@ class ADKOrchestrator(BaseOrchestrator):
         # FIX: Use the client's session_id to ensure chats don't mix up across projects
         session_id = getattr(request, "session_id", "default-session")
         
+        # ────────── SYSTEM CONTEXT INJECTION (Auth State) ──────────
+        # Since ADK agents have static instructions, we must inject dynamic state 
+        # (like authentication status) into the user's message payload.
+        is_guest = user_session.is_anonymous or not user_session.is_authenticated
+        auth_status_msg = (
+            "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO. Se richiede salvataggi di progetti, preventivi definitivi o azioni che richiedono un account, DEVI usare il tool request_login_adk."
+            if is_guest else
+            "STATO AUTENTICAZIONE: L'utente è GIA' LOGGATO con un account verificato. NON DEVI MAI USARE il tool request_login_adk per nessun motivo."
+        )
+        logger.info(f"[ADK] Auth injection: is_guest={is_guest}, uid={user_id}")
+        system_context = f"[SYSTEM_MESSAGE]\n{auth_status_msg}\n[END_SYSTEM_MESSAGE]\n\n"
+        
         # Apply the Sandwich Defense boundary delimiters to the clean input
-        delimited_input = f"###\n{sanitized_input}\n###"
+        delimited_input = f"{system_context}###\n{sanitized_input}\n###"
         
         # Multimodal Injection & Triage Trigger
         content_parts = [types.Part(text=delimited_input)]
@@ -160,29 +173,23 @@ class ADKOrchestrator(BaseOrchestrator):
 
             # Stream initial status immediately to unlock UI "thinking" state
 
-            # --- LOCAL PERSISTENCE BRIDGE (Non-blocking) ---
-            # ADR: We use asyncio.create_task to background the Firestore write.
-            # This improves TTFT by ~500ms-1s locally.
-            repo = get_conversation_repository()
-            
-            async def _persist_user_message():
-                await repo.ensure_session(session_id, user_id)
-                await repo.save_message(
-                    session_id=session_id,
-                    role="user",
-                    content=sanitized_input,
-                    metadata={"user_id": user_id, "optimized": True}
-                )
-                
-            asyncio.create_task(_persist_user_message())
-            # --- LOCAL PERSISTENCE BRIDGE (End) ---
+            # --- AGENT MEMORY INJECTION ---
+            # ADK explicitly needs the message to be added to its own session memory
+            logger.info(f"Adding user message to ADK session {session_id}")
+            # Use original parts (including media) for ADK memory
+            from google.genai.types import Message, Content
+            await session_service.add_message(
+                app_name="syd_orchestrator",
+                user_id=user_id,
+                session_id=session_id,
+                message=Message(content=Content(role="user", parts=content_parts)),
+            )
 
             full_response = ""
             try:
                 async for event in self.runner.run_async(
                     session_id=session_id,
                     user_id=user_id,
-                    new_message=types.Content(parts=content_parts),
                 ):
                     # ── Handle Interrupts (HITL) ──
                     if hasattr(event, "event_type") and event.event_type == "interrupt":
@@ -194,25 +201,54 @@ class ADKOrchestrator(BaseOrchestrator):
                             yield chunk
                         continue
 
-                    # ── Handle Content (Text responses) ──
+                    # ── Handle Content (Text & Tools) ──
                     if event.content and event.content.parts:
                         has_text = any(hasattr(p, 'text') and p.text for p in event.content.parts)
                         has_fc = any(hasattr(p, 'function_call') and p.function_call for p in event.content.parts)
                         has_fr = any(hasattr(p, 'function_response') and p.function_response for p in event.content.parts)
 
+                        # ── Tool Calls (Send to frontend for visual feedback) ──
+                        if has_fc:
+                            for part in event.content.parts:
+                                if hasattr(part, 'function_call') and part.function_call:
+                                    fc = part.function_call
+                                    # ADK 1.26 uses 'name' and 'args'. 'id' might be absent or in 'call_id'
+                                    call_id = getattr(fc, 'call_id', str(uuid.uuid4()))
+                                    
+                                    # UI STATUS: Specific feedback for prominent tools
+                                    status_msg = f"Syd sta usando {fc.name}..."
+                                    if fc.name == "generate_render":
+                                        status_msg = "Syd sta generando il tuo rendering (potrebbe volerci un momento)..."
+                                    elif fc.name == "pricing_engine_tool":
+                                        status_msg = "Syd sta calcolando i costi..."
+                                    
+                                    async for chunk in stream_status(status_msg):
+                                        yield chunk
+                                    
+                                    async for chunk in stream_tool_call(call_id, fc.name, fc.args or {}):
+                                        yield chunk
+
+                        # ── Tool Results (Direct UI update, e.g. showing the image) ──
+                        if has_fr:
+                            for part in event.content.parts:
+                                if hasattr(part, 'function_response') and part.function_response:
+                                    fr = part.function_response
+                                    call_id = getattr(fr, 'call_id', 'unknown')
+                                    async for chunk in stream_tool_result(call_id, fr.response):
+                                        yield chunk
+
                         logger.info(
                             "ADK Event received",
                             extra={
                                 "author": getattr(event, "author", "unknown"),
-                                "partial": getattr(event, "partial", None),
                                 "has_text": has_text,
                                 "has_fc": has_fc,
                                 "has_fr": has_fr,
-                                "turn_complete": getattr(event, "turn_complete", None),
                             }
                         )
 
-                        if has_text and not has_fc and not has_fr:
+                        # ── Text Responses ──
+                        if has_text:
                             for part in event.content.parts:
                                 if hasattr(part, 'text') and part.text:
                                     filtered = await filter_agent_output(part.text)
@@ -224,11 +260,16 @@ class ADKOrchestrator(BaseOrchestrator):
                 
                 # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---
                 if full_response:
-                    await repo.save_message(
-                        session_id=session_id,
-                        role="assistant",
-                        content=full_response
-                    )
+                    try:
+                        from datetime import datetime, timezone
+                        await repo.save_message(
+                            session_id=session_id,
+                            role="assistant",
+                            content=full_response,
+                            timestamp=datetime.now(timezone.utc)
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to persist assistant message: {e}")
             except Exception as e:
                 logger.exception("Inner ADK run_async error captured")
                 async for chunk in stream_error("Errore durante la generazione della risposta AI."):

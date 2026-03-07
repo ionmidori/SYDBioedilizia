@@ -126,7 +126,7 @@ export function Testimonials() {
                                 </div>
 
                                 <p className="text-luxury-text/80 leading-relaxed italic font-light">
-                                    "{t.text}"
+                                    &quot;{t.text}&quot;
                                 </p>
                             </div>
                         </motion.div>

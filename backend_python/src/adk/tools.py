@@ -202,6 +202,17 @@ async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict
 
 
 
+# ─── Auth / Login ────────────────────────────────────────────────────────────
+
+async def request_login() -> str:
+    """Triggers the login/authentication card in the user interface.
+    
+    Call this when a guest user (unauthenticated) requests a premium feature 
+    (renders, quotes, CAD) or when their identity is required.
+    """
+    return "LOGIN_REQUIRED_TRIGGERED"
+
+
 # ─── FunctionTool wrappers (ADK 1.26: pass func directly) ────────────────────
 
 pricing_engine_tool_adk = FunctionTool(pricing_engine_tool)
@@ -213,3 +224,4 @@ show_project_gallery_adk = FunctionTool(show_project_gallery)
 list_project_files_adk = FunctionTool(list_project_files)
 suggest_quote_items_adk = FunctionTool(suggest_quote_items)
 trigger_n8n_webhook_adk = FunctionTool(trigger_n8n_webhook)
+request_login_adk = FunctionTool(request_login)

@@ -70,7 +70,7 @@ service firebase.storage {
     // ==========================================
     
     match /renders/{allPaths=**} {
-      allow read: if true;
+      allow read: if isAuthenticated();
       allow write: if false;
     }
     

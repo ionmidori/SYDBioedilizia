@@ -3,6 +3,7 @@ from src.api.perplexity import fetch_market_prices
 
 class MarketPricesInput(BaseModel):
     """Input schema for get_market_prices tool."""
+    model_config = {"extra": "forbid"}
     query: str = Field(
         ..., 
         description="Search query for market prices (e.g., 'average cost per square meter for bathroom tiles in Rome')"

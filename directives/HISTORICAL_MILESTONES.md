@@ -339,4 +339,34 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **Test Coverage**: Created the first comprehensive unit test suite for ADK (31 tests, 100% pass).
 - **Release 4.0.0**: Synchronized root, frontend, and backend to the new major version.
 
-_Documento aggiornato: Marzo 03, 2026_
+## 🧹 Phase 50: Frontend Code Quality & ESLint Hardening (Mar-04-2026)
+- **Zero Warnings Milestone**: Raggiunto lo stato di build pulita al 100% (0 errori, 0 warning) su ESLint per il frontend Next.js.
+- **Type Safety Enforcement**: Eliminati tutti i cast espliciti ad `any`, rimpiazzati con typing corretti (`unknown`, `Record<string, unknown>`) o `@ts-expect-error` dove appropriato.
+- **React Hooks Compliance**: Risolti tutti i warning legati a `exhaustive-deps` e aggiornamenti di stato sincroni all'interno degli `useEffect`.
+- **Code Hygiene**: Pulizia profonda di decine di importazioni e variabili inutilizzate, standardizzazione componenti icona (es. `ImageIcon` da lucide-react per evitare conflitti).
+- **Versioning**: Rilascio `v4.0.1`.
+
+## 🔧 Phase 52: Streaming Fix — BaseHTTPMiddleware Elimination (Mar-05-2026)
+- **Root Cause**: App Check middleware was the only one still using `@app.middleware("http")` (BaseHTTPMiddleware), which buffers the entire `StreamingResponse` before forwarding — making the chatbot appear unresponsive.
+- **Fix 1 (P0)**: Converted `app_check_middleware` to raw ASGI class `AppCheckMiddleware` with `__call__(scope, receive, send)`, matching all other 4 middlewares in `main.py`.
+- **Fix 2 (P1)**: Changed backend `StreamingResponse` Content-Type from `text/event-stream` to `text/plain` — body uses Data Stream Protocol v1 (`0:"text"\n`), not SSE.
+- **Fix 3 (P2)**: Corrected `adk_orchestrator.py` docstring from "UI Message Stream SSE" to "Data Stream Protocol v1".
+- **Rule Established**: ALL middlewares in `main.py` MUST be raw ASGI classes. NEVER use `@app.middleware("http")` or `BaseHTTPMiddleware`.
+- **Versioning**: `v4.0.3`.
+
+## 🔧 Phase 53: Local Persistence & Latency Optimization (Mar-06-2026)
+- **Local Dev Persistence**: Resolved the "disappearing messages" bug in local dev by integrating `ConversationRepository` for manual Firestore persistence when using `InMemorySessionService`.
+- **Sync Guard**: Implemented a state guard in `ChatProvider.tsx` history synchronization to prevent race conditions during history loading.
+- **Latency Optimization (P0)**: Reduced TTFT by moving Firestore writes to background `asyncio` tasks and parallelizing media fetching with `asyncio.gather`.
+- **Immediate Streaming**: Added a pre-generation status chunk (`0:"Syd sta analizzando..."`) to trigger the typing indicator instantly.
+- **Verification**: Updated backend unit tests to verify the new asynchronous stream protocol. All tests PASS.
+- **Versioning**: `v4.0.4`.
+
+## 🔧 Phase 57: Chronological Anchor & Tool Streaming (Mar-07-2026)
+- **Message Inversion Fix**: Implemented a "Chronological Anchor" by moved Firestore user message persistence to the FastAPI route layer (`main.py`) BEFORE returning the `StreamingResponse`. This guarantees strictly sequential timestamps.
+- **Tool Streaming**: Updated `ADKOrchestrator` to stream `function_call` and `function_response` (as `tool_call`/`tool_result` protocol chunks). This fixed the bot "stalling" during long-running tasks like rendering.
+- **Visual Feedback**: Added `stream_status` updates during tool execution (e.g., "Syd sta generando il rendering...").
+- **Backend Reliability**: Fixed a `NameError` in `main.py` that was preventing server reloads.
+- **Golden Sync**: Maintained 1:1 parity for tool response schemas between Pydantic and TypeScript.
+
+_Documento aggiornato: Marzo 07, 2026_

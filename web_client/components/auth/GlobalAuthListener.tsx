@@ -15,13 +15,15 @@ export function GlobalAuthListener() {
     const [redirectOnLogin, setRedirectOnLogin] = useState(true);
 
     useEffect(() => {
-        const handleOpen = (e: any) => {
+        const handleOpen = (e: Event) => {
             console.log('[GlobalAuthListener] 🟢 Event received: OPEN_LOGIN_MODAL');
+            
+            const customEvent = e as CustomEvent;
 
             // Extract options from event detail if provided
-            if (e.detail) {
-                if (typeof e.detail.redirectOnLogin === 'boolean') {
-                    setRedirectOnLogin(e.detail.redirectOnLogin);
+            if (customEvent.detail) {
+                if (typeof customEvent.detail.redirectOnLogin === 'boolean') {
+                    setRedirectOnLogin(customEvent.detail.redirectOnLogin);
                 }
             } else {
                 // Default fallback

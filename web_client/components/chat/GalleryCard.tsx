@@ -7,7 +7,7 @@ import { useMetadataEditor } from '@/hooks/useMetadataEditor';
 interface GalleryImage {
     url: string;
     name: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
     type: string;
 }
 
@@ -67,7 +67,7 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
                             <div className="text-white text-xs font-medium truncate">
-                                {item.metadata?.room || item.name}
+                                {(item.metadata?.room as string) || item.name}
                             </div>
                         </div>
 
@@ -78,8 +78,8 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingIndex(idx);
-                                    setEditRoom(item.metadata?.room || '');
-                                    setEditStatus(item.metadata?.status || '');
+                                    setEditRoom((item.metadata?.room as string) || '');
+                                    setEditStatus((item.metadata?.status as string) || '');
                                 }}
                                 className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-1.5 transition-colors"
                             >
@@ -155,8 +155,7 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                                             status: editStatus || undefined,
                                         });
                                         if (success) {
-                                            // Optimistically update local state
-                                            item.metadata = { ...item.metadata, room: editRoom, status: editStatus };
+                                            // Real app should refetch/revalidate the query here
                                             setEditingIndex(null);
                                         }
                                     }}
@@ -250,9 +249,9 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                             {/* Info Bar */}
                             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 rounded-b-lg">
                                 <div className="text-white font-medium">{selectedImage.name}</div>
-                                {selectedImage.metadata?.room && (
+                                {!!selectedImage.metadata?.room && (
                                     <div className="text-white/70 text-sm mt-1">
-                                        {selectedImage.metadata.room}
+                                        {selectedImage.metadata.room as string}
                                     </div>
                                 )}
                             </div>

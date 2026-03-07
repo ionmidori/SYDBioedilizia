@@ -104,6 +104,7 @@ def _make_headers(body: str) -> dict:
 
 class NotifyAdminInput(BaseModel):
     """Schema for notifying admin of a new quote draft awaiting review."""
+    model_config = {"extra": "forbid"}
     project_id: str = Field(..., description="ID of the project with the draft quote")
     estimated_value: float = Field(..., ge=0, description="Estimated grand total in EUR (VAT included)")
     client_name: Optional[str] = Field(None, description="Name of the client for the notification")
@@ -186,6 +187,7 @@ notify_admin = notify_admin_wrapper
 
 class DeliverQuoteInput(BaseModel):
     """Schema for delivering an approved quote to the client."""
+    model_config = {"extra": "forbid"}
     project_id: str = Field(..., description="ID of the project with the approved quote")
     client_email: str = Field(..., description="Client's email address to send the PDF to")
     pdf_url: str = Field(..., description="Signed Firebase Storage URL of the generated PDF")

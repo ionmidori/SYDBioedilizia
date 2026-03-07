@@ -1,22 +1,16 @@
 'use client';
 
-import { SidebarProvider, useSidebar } from "@/components/dashboard/SidebarProvider"
+import { SidebarProvider } from "@/components/dashboard/SidebarProvider"
 import { AppSidebar } from "@/components/dashboard/AppSidebar"
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader"
 import { useAuth } from "@/hooks/useAuth"
 import { useInactivityLogout } from "@/hooks/useInactivityLogout"
 import { InactivityWarningDialog } from "@/components/auth/InactivityWarningDialog"
 import { useRouter } from "next/navigation"
-import { usePathname } from "next/navigation"
 import { useEffect, useMemo } from "react"
 import { MobileSwipeLayout } from "@/components/mobile/MobileSwipeLayout"
 import { OnboardingTour } from "@/components/dashboard/OnboardingTour"
 import { ScallopedPageTransition } from "@/components/ui/ScallopedPageTransition"
-
-// Sidebar dimensions
-const SIDEBAR_WIDTH_EXPANDED = '18rem'
-const SIDEBAR_WIDTH_COLLAPSED = '5rem'
-const SIDEBAR_MOBILE_WIDTH = '0'
 
 export function DashboardClientLayout({
     children,
@@ -82,7 +76,6 @@ function DashboardContent({
     extendSession: () => void
     logout: () => Promise<void>
 }) {
-    const { isMobile } = useSidebar()
 
     // Calculate margin based on sidebar state
     // Desktop: Expanded vs Collapsed

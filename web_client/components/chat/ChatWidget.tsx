@@ -58,7 +58,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         messages,
         input,
         setInput,
-        handleInputChange,
         sendMessage,
         isLoading,
         error,
@@ -133,8 +132,11 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
         const latest = data[data.length - 1];
         // Protocol: 2:[{"type": "status", "message": "..."}]
-        if (latest && typeof latest === 'object' && (latest as any).type === 'status' && (latest as any).message) {
-            addStatus((latest as any).message);
+        if (latest && typeof latest === 'object') {
+            const typedLatest = latest as { type?: string; message?: string; data?: unknown };
+            if (typedLatest.type === 'status' && typedLatest.message) {
+                addStatus(typedLatest.message);
+            }
         }
     }, [data, addStatus]);
 
@@ -179,9 +181,10 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     }, [addFiles]);
 
     // Lead Form Handler
-    const handleFormSubmit = useCallback((formData: any) => {
+    const handleFormSubmit = useCallback((formData: unknown) => {
+        const data = formData as Record<string, unknown>;
         // Send hidden message to AI to act as tool output/user confirmation
-        const msg = `[LEAD_DATA_SUBMISSION] Name: ${formData.name}, Email: ${formData.email}, Phone: ${formData.contact}, Scope: ${formData.scope}`;
+        const msg = `[LEAD_DATA_SUBMISSION] Name: ${data.name}, Email: ${data.email}, Phone: ${data.contact}, Scope: ${data.scope}`;
         sendMessage(msg);
     }, [sendMessage]);
 
@@ -203,7 +206,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             .map(u => (u.serverData as { file_uri: string }).file_uri);
 
         // Metadata
-        const mediaMetadata: Record<string, any> = {};
+        const mediaMetadata: Record<string, unknown> = {};
         completedUploads.forEach(u => {
             if (u.serverData) {
                 mediaMetadata[u.serverData.url] = {
@@ -243,20 +246,30 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                 mediaUrls, // This is 'any'[] in signature
                 dataBody
             );
-        } catch (err: any) {
-            setErrorMessage(err.message || "Invio fallito.");
+        } catch (err: unknown) {
+            const error = err as Error;
+            setErrorMessage(error.message || "Invio fallito.");
         }
     };
 
     // Typing Indicator
     const typingMessage = useTypingIndicator(isLoading);
 
-    // Error Handling
+    // Error Handling — map backend error codes to user-friendly Italian messages
     useEffect(() => {
         if (error) {
-            // Wrap in timeout to avoid sync setState warning
             const timerId = setTimeout(() => {
-                setErrorMessage(error.message);
+                const msg = error.message || '';
+                // Detect quota/rate-limit errors and show friendly message
+                if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('rate limit')) {
+                    setErrorMessage('Hai raggiunto il limite di richieste. Riprova tra qualche minuto.');
+                } else if (msg.includes('401') || msg.toLowerCase().includes('auth')) {
+                    setErrorMessage('Sessione scaduta. Ricarica la pagina per continuare.');
+                } else if (msg.includes('503') || msg.includes('502')) {
+                    setErrorMessage('Il servizio è temporaneamente non disponibile. Riprova tra poco.');
+                } else {
+                    setErrorMessage(msg || 'Si è verificato un errore. Riprova.');
+                }
             }, 0);
             return () => clearTimeout(timerId);
         }

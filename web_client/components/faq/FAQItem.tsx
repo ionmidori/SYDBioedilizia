@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Plus, Minus } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { FAQItem } from "@/lib/faq-data";
 import { M3Transition } from "@/lib/m3-motion";
 import { cn } from "@/lib/utils";

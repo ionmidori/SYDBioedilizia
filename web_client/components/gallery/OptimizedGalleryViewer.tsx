@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useState, useCallback, useMemo } from 'react';
@@ -14,7 +15,7 @@ export interface GalleryImage {
     title?: string;
     description?: string;
     type: 'image' | 'render' | 'video' | 'quote';
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 interface OptimizedGalleryViewerProps {
@@ -125,7 +126,7 @@ export function OptimizedGalleryViewer({
                         <VirtualizedGalleryGrid
                             items={galleryImages}
                             onItemClick={handleImageClick}
-                            onDeleteClick={onDeleteClick as any}
+                            onDeleteClick={onDeleteClick as unknown as (item: { id: string; url: string; thumbnail?: string; title?: string; type: 'image' | 'render' | 'video' | 'quote' }) => void}
                             gap={16}
                         />
                     ) : (

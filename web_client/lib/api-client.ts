@@ -83,3 +83,81 @@ export async function fetchWithAuth(url: string, options: FetchOptions = {}): Pr
 
     return response;
 }
+
+import { z } from 'zod';
+
+/**
+ * Validated API Client
+ * 
+ * Wraps fetchWithAuth and validates the JSON response using a Zod schema.
+ * Throws a structured error if validation fails.
+ */
+export async function fetchValidated<T>(
+    url: string, 
+    schema: z.ZodType<T>, 
+    options: FetchOptions = {}
+): Promise<T> {
+    const response = await fetchWithAuth(url, options);
+    
+    if (!response.ok) {
+        let errorData;
+        try {
+            errorData = await response.json();
+        } catch {
+            errorData = { message: 'Network response was not ok', status: response.status };
+        }
+        throw errorData; // Typically APIErrorResponse format from backend
+    }
+    
+    const data = await response.json();
+    
+    try {
+        return schema.parse(data);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            console.error('[ApiClient] Validation Error on URL:', url);
+            console.error(error.format());
+            // Throw a structured error that UI can handle
+            throw {
+                error_code: 'VALIDATION_ERROR',
+                message: 'Invalid data received from server',
+                details: error.format()
+            };
+        }
+        throw error;
+    }
+}
+
+/**
+ * Safe Action Wrapper for Server Actions
+ * 
+ * Validates inputs using Zod before executing the action.
+ * Returns a standardized result object.
+ */
+export async function withValidation<T, R>(
+    schema: z.ZodType<T>,
+    data: unknown,
+    action: (validatedData: T) => Promise<R>
+): Promise<{ success: boolean; data?: R; errors?: Partial<Record<string, string[]>>; message?: string }> {
+    const validationResult = schema.safeParse(data);
+    
+    if (!validationResult.success) {
+        return {
+            success: false,
+            errors: validationResult.error.flatten().fieldErrors,
+            message: 'Validation failed'
+        };
+    }
+    
+    try {
+        const result = await action(validationResult.data);
+        return { success: true, data: result };
+    } catch (error: any) {
+        console.error('[ServerAction] Error:', error);
+        return {
+            success: false,
+            message: error.message || 'Internal server error'
+        };
+    }
+}
+

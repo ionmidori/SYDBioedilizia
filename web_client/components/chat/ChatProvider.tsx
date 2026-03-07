@@ -36,7 +36,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
-    const [streamData, setStreamData] = useState<StreamData[]>([]); // M8: Populated when backend sends message-metadata SSE events
     const welcomeInjectedRef = useRef(false);
     const isFirstSyncRef = useRef(true);
     const prevUserRef = useRef(user);
@@ -74,12 +73,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         welcomeInjectedRef.current = false;
         isFirstSyncRef.current = true;
-        // Delaying state update to avoid cascading renders
-        const timerId = setTimeout(() => {
-            setStreamData([]);
-        }, 0);
-        return () => clearTimeout(timerId);
-    }, [sessionId, setStreamData]);
+    }, [sessionId]);
 
     // -- HISTORY SYNC --
     const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId);
@@ -138,28 +132,24 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 is_authenticated: !!user && !user.isAnonymous,
                 sessionId,
             };
+
+            const lastMsg = body.messages?.[body.messages?.length - 1];
+            const lastMsgContent = lastMsg ? (typeof (lastMsg as any).content === 'string' ? (lastMsg as any).content : (lastMsg as any).parts?.[0]?.text || '') : '';
+
             console.log('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
                 sessionId: body.sessionId,
                 messagesCount: body.messages?.length,
                 projectId: body.projectId,
                 is_authenticated: body.is_authenticated,
-                lastMessageRole: body.messages?.[body.messages?.length - 1]?.role,
-                lastMessageContent: String(body.messages?.[body.messages?.length - 1]?.content || '').substring(0, 50),
+                lastMessageRole: lastMsg?.role,
+                lastMessageContent: String(lastMsgContent).substring(0, 50),
             }));
             return { body };
         },
     }), [resolveHeaders, currentProjectId, user, sessionId]);
 
 
-    const {
-        messages,
-        status,
-        sendMessage: sdkSendMessage,
-        regenerate,
-        stop,
-        setMessages,
-        error: sdkError,
-    } = useChat({
+    const chatHelpers = useChat({
         id: sessionId,
         transport,
         onFinish(message) {
@@ -170,6 +160,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         },
     });
 
+    const {
+        messages,
+        status,
+        sendMessage: sdkSendMessage,
+        regenerate,
+        stop,
+        setMessages,
+        error: sdkError,
+    } = chatHelpers;
+
+    // React AI SDK 3.0.5 doesn't fully type the 'data' property on useChat. 
+    // However, the internal implementation does expose it when streaming custom data chunks.
+    const useChatData = (chatHelpers as any).data;
     useEffect(() => {
         console.log('[ChatProvider Debug] SDK messages updated:', messages.length, messages.map(m => m.id));
     }, [messages]);
@@ -262,7 +265,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 if (messages.length === historyMessages.length) {
                     const lastSdk = messages[messages.length - 1];
                     const lastHistory = historyMessages[historyMessages.length - 1];
-                    const sdkContent = typeof lastSdk.content === 'string' ? lastSdk.content : (lastSdk as any).parts?.[0]?.text || '';
+                    const sdkContent = typeof (lastSdk as any).content === 'string' ? (lastSdk as any).content : (lastSdk as any).parts?.[0]?.text || '';
                     const historyContent = lastHistory.content || '';
 
                     if (sdkContent === historyContent) {
@@ -287,8 +290,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     // -- ADK HITL INTERRUPT HANDLER --
     useEffect(() => {
-        if (streamData.length > 0) {
-            const latestData = streamData[streamData.length - 1];
+        const currentData = (useChatData as StreamData[]) || [];
+        if (currentData.length > 0) {
+            const latestData = currentData[currentData.length - 1];
             if (latestData && latestData.type === 'interrupt') {
                 console.log('[ChatProvider] ADK Interrupt Received:', latestData);
                 if (typeof window !== 'undefined') {
@@ -296,7 +300,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 }
             }
         }
-    }, [streamData]);
+    }, [useChatData]);
 
     // -- PERSISTENCE: Save/Restore Last Project --
     useEffect(() => {
@@ -370,7 +374,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             };
 
             await sdkSendMessage(
-                { role: 'user', content: trimmed },
+                { role: 'user', content: trimmed } as any,
                 { body: requestBody }
             );
         } catch (err) {
@@ -412,7 +416,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setInput,
         refreshHistory,
-        data: streamData,
+        data: (useChatData as StreamData[]) || [],
     }), [
         currentProjectId,
         isRestoringHistory,
@@ -427,7 +431,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setInput,
         refreshHistory,
-        streamData,
+        useChatData,
     ]);
 
     return (

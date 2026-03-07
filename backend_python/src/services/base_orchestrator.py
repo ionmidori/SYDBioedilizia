@@ -30,6 +30,7 @@ class BaseOrchestrator(ABC):
         self,
         request: Any,        # ChatRequest (typed in concrete implementations)
         user_session: Any,   # UserSession (typed in concrete implementations)
+        background_tasks: Any = None, # FastAPI BackgroundTasks
     ) -> AsyncIterator[str]:
         """
         Main streaming chat method — yields Vercel AI protocol chunks.

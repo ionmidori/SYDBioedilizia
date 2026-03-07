@@ -2,12 +2,11 @@ from dotenv import load_dotenv
 load_dotenv(".env")  # Load .env into os.environ before any other imports (required by google-adk, google-genai)
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, Request, Security
+from fastapi import FastAPI, Depends, Request, Security, BackgroundTasks
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, field_validator, model_validator
-from starlette.middleware.base import BaseHTTPMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from src.core.rate_limit import limiter
@@ -64,53 +63,86 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Firebase-AppCheck", "X-Request-ID"],
 )
 
-# 🆔 Request ID Middleware (Tracing)
-@app.middleware("http")
-async def request_id_middleware(request: Request, call_next):
-    """
-    Generates a unique Request ID for every call.
-    Injects it into contextvars for logging and into headers for the client.
-    """
-    request_id = str(uuid.uuid4())
-    set_request_id(request_id)
-    
-    try:
-        response = await call_next(request)
-    except Exception as exc:
-        logger.error(f"[RequestID Middleware] Unhandled exception: {exc}", exc_info=True)
-        raise
-    
-    response.headers["X-Request-ID"] = request_id
-    return response
+# 🆔 Request ID Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
+# ⚠️  Uses raw ASGI protocol to avoid buffering StreamingResponse for /chat/stream
+from starlette.types import ASGIApp as _ASGIApp, Receive as _Receive, Scope as _Scope, Send as _Send
 
-# 📊 Metrics Middleware (Performance Monitoring)
-from src.middleware.metrics import metrics_middleware
-app.middleware("http")(metrics_middleware)
+class RequestIDMiddleware:
+    """
+    Raw ASGI middleware that generates a unique Request ID for every HTTP request.
+    Injects it into contextvars for structured logging and into response headers.
+    """
+    def __init__(self, app: _ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: _Scope, receive: _Receive, send: _Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        request_id = str(uuid.uuid4())
+        set_request_id(request_id)
+
+        async def send_with_request_id(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.append((b"x-request-id", request_id.encode()))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_with_request_id)
+
+app.add_middleware(RequestIDMiddleware)
+
+# 📊 Metrics Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
+from src.middleware.metrics import MetricsMiddleware
+app.add_middleware(MetricsMiddleware)
+
 
 # 🛡️ Global Exception Handlers
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException):
     """Handles known application errors."""
     logger.error(f"AppException: {exc.message} ({exc.error_code})")
+    headers = {}
+    # RFC 6585: Include Retry-After header on 429 responses
+    if exc.status_code == 429 and exc.detail and exc.detail.get("reset_at"):
+        from datetime import datetime
+        try:
+            reset_at = datetime.fromisoformat(exc.detail["reset_at"])
+            delta = (reset_at - datetime.now(reset_at.tzinfo)).total_seconds()
+            headers["Retry-After"] = str(max(1, int(delta)))
+        except (ValueError, TypeError):
+            headers["Retry-After"] = "60"
     return JSONResponse(
         status_code=exc.status_code,
         content=APIErrorResponse(
             error_code=exc.error_code,
             message=exc.message,
             detail=exc.detail
-        ).model_dump()
+        ).model_dump(),
+        headers=headers or None,
     )
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handles Pydantic 422 validation errors, normalizing them to our APIErrorResponse format."""
-    logger.warning(f"[Validation] Request validation failed: {exc.errors()[:3]}")
+    """Handles Pydantic 422 validation errors, normalizing them to our APIErrorResponse format.
+
+    PII Protection: Strip user-submitted input values from error details.
+    Only expose field location (loc), error type, and message — never the raw input.
+    """
+    # Sanitize: remove 'input' and 'ctx' fields that may contain user PII
+    sanitized_errors = [
+        {"loc": e.get("loc"), "type": e.get("type"), "msg": e.get("msg")}
+        for e in exc.errors()[:5]  # Cap at 5 errors to prevent payload inflation
+    ]
+    logger.warning(f"[Validation] Request validation failed: {sanitized_errors}")
     return JSONResponse(
         status_code=422,
         content=APIErrorResponse(
             error_code="VALIDATION_ERROR",
             message="Request validation failed.",
-            detail={"errors": exc.errors()},
+            detail={"errors": sanitized_errors},
         ).model_dump()
     )
 
@@ -136,71 +168,129 @@ app.add_middleware(SecurityHeadersMiddleware)
 # middleware executes FIRST in the request chain.
 # This gives us a true try/except around the ENTIRE application, catching
 # exceptions that even escape @app.exception_handler (i.e., from other middlewares).
-class GlobalErrorCatcherMiddleware(BaseHTTPMiddleware):
+#
+# ⚠️  CRITICAL: Uses raw ASGI protocol, NOT BaseHTTPMiddleware.
+# BaseHTTPMiddleware buffers streaming response bodies into memory before
+# forwarding, which breaks StreamingResponse for /chat/stream.
+# See: https://www.starlette.io/middleware/#limitations
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+class GlobalErrorCatcherMiddleware:
     """
-    Outermost safety net for the entire application.
-    
+    Outermost safety net for the entire application (raw ASGI).
+
     Catches any unhandled exception from ALL layers (middlewares, routes, etc.)
     and returns a standardized APIErrorResponse JSON, preventing Starlette's
     generic plain-text '500 Internal Server Error' from ever reaching the client.
-    
+
+    Uses raw ASGI __call__ instead of BaseHTTPMiddleware.dispatch() to avoid
+    buffering StreamingResponse bodies (which would break /chat/stream SSE).
+
     CRITICAL: Must be added via app.add_middleware() AFTER all others.
     """
-    async def dispatch(self, request: Request, call_next):
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
         try:
-            return await call_next(request)
+            await self.app(scope, receive, send)
         except Exception as exc:
             logger.error(
                 f"🚨 [GlobalErrorCatcher] Unhandled exception escaped middleware stack: "
                 f"{type(exc).__name__}: {exc}",
                 exc_info=True
             )
-            from fastapi.responses import JSONResponse
-            return JSONResponse(
-                status_code=500,
-                content=APIErrorResponse(
+            # Build a minimal JSON error response via raw ASGI
+            import json as _json
+            error_body = _json.dumps(
+                APIErrorResponse(
                     error_code="INTERNAL_SERVER_ERROR",
                     message="An unexpected internal error occurred. Our team has been alerted.",
                 ).model_dump()
-            )
+            ).encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": 500,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(error_body)).encode()],
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": error_body,
+            })
 
 app.add_middleware(GlobalErrorCatcherMiddleware)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 🔒 App Check Middleware
+# 🔒 App Check Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
+# ⚠️  Uses raw ASGI protocol to avoid buffering StreamingResponse for /chat/stream
 from src.middleware.app_check import validate_app_check_token
-from fastapi.responses import JSONResponse
+from src.core.exceptions import AppCheckError
 
-@app.middleware("http")
-async def app_check_middleware(request: Request, call_next):
+class AppCheckMiddleware:
     """
-    Global middleware to enforce Firebase App Check.
+    Raw ASGI middleware: Firebase App Check validation.
+
+    Uses raw ASGI __call__ instead of @app.middleware("http") / BaseHTTPMiddleware
+    to avoid buffering StreamingResponse bodies (which breaks /chat/stream).
     """
-    # Allow CORS preflight always
-    if request.method == "OPTIONS":
-        return await call_next(request)
-        
-    # Public endpoints whitelist (docs only in development)
-    public_paths = ["/health", "/favicon.ico"]
-    if settings.ENV == "development":
-        public_paths.extend(["/docs", "/openapi.json"])
-    if request.url.path in public_paths:
-        return await call_next(request)
+    _PUBLIC_PATHS = frozenset({"/health", "/favicon.ico"})
+    _DEV_PATHS = frozenset({"/docs", "/openapi.json"})
 
-    try:
-        # Validate token (if enforcement enabled)
-        await validate_app_check_token(request)
-    except AppException as e:
-        return JSONResponse(
-            status_code=e.status_code,
-            content=APIErrorResponse(
-                error_code=e.error_code,
-                message=e.message,
-                detail=e.detail
-            ).model_dump()
-        )
+    def __init__(self, app: ASGIApp):
+        self.app = app
 
-    return await call_next(request)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        # Allow CORS preflight always
+        if scope.get("method") == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+
+        # Public endpoints whitelist
+        path = scope.get("path", "")
+        allowed = self._PUBLIC_PATHS | (self._DEV_PATHS if settings.ENV == "development" else frozenset())
+        if path in allowed:
+            await self.app(scope, receive, send)
+            return
+
+        try:
+            request = Request(scope, receive)
+            await validate_app_check_token(request)
+        except (AppCheckError, AppException) as e:
+            import json as _json
+            error_body = _json.dumps(
+                APIErrorResponse(
+                    error_code=e.error_code,
+                    message=e.message,
+                    detail=e.detail,
+                ).model_dump()
+            ).encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": e.status_code,
+                "headers": [
+                    [b"content-type", b"application/json"],
+                    [b"content-length", str(len(error_body)).encode()],
+                ],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": error_body,
+            })
+            return
+
+        await self.app(scope, receive, send)
+
+app.add_middleware(AppCheckMiddleware)
 
 # Register Routers
 from src.api.upload import router as upload_router
@@ -342,11 +432,14 @@ async def chat_stream_generator(
     async for chunk in orchestrator.stream_chat(request, user_session):
         yield chunk
 
+
+
 @app.post("/chat/stream")
 @limiter.limit("30/minute")
 async def chat_stream(
     request: Request,
     body: ChatRequest,
+    background_tasks: BackgroundTasks,
     user_session: UserSession = Depends(verify_token),
     orchestrator: BaseOrchestrator = Depends(get_orchestrator)
 ):
@@ -367,23 +460,61 @@ async def chat_stream(
         # We manually consume extra tokens for this specific limit
         try:
             # Il decorator ha già consumato 1 token. Consumiamone altri 4.
-            for limit in limiter._route_limits[request.url.path]:
+            # Fix: Avoid KeyError if the route is not correctly registered in _route_limits
+            # SlowAPI might use different keys depending on how the route was defined.
+            route_limits = getattr(limiter, "_route_limits", {}).get(request.url.path, [])
+            for limit in route_limits:
                 if not limiter._limiter.hit(limit.limit, get_remote_address(request), cost=4):
                     raise RateLimitExceeded(limit)
         except RateLimitExceeded as e:
             logger.warning(f"Rate limit exceeded due to multimodal penalty for {get_remote_address(request)}")
             raise e
+        except Exception as e:
+            logger.warning(f"Failed to apply multimodal rate limit penalty: {e}")
+            # Non-blocking: we continue even if penalty fails to avoid crashing the whole stream
 
     logger.info(
-        "Chat stream request received.",
+        "Chat stream request received. Starting StreamingResponse.",
         extra={"message_count": len(body.messages), "session_id": body.session_id, "has_media": has_media},
     )
 
+    # --- CHRONOLOGICAL ANCHOR: SAVE USER MESSAGE BEFORE GENERATOR ---
+    # We must ensure the user message is written to Firestore BEFORE the generator starts.
+    # This prevents race conditions where the AI response (saved later) might get an earlier timestamp.
+    from src.repositories.conversation_repository import get_conversation_repository
+    from datetime import datetime, timezone
+    
+    repo = get_conversation_repository()
+    # Extract last user message
+    user_msg_text = body.message
+    if not user_msg_text and body.messages:
+        user_msg_text = body.messages[-1].content
+    
+    try:
+        await repo.ensure_session(body.session_id, user_session.uid)
+        await repo.save_message(
+            session_id=body.session_id,
+            role="user",
+            content=user_msg_text or "",
+            metadata={"user_id": user_session.uid, "source": "chat_stream_route"},
+            timestamp=datetime.now(timezone.utc)
+        )
+    except Exception as e:
+        logger.error(f"Failed to pre-persist user message in route: {e}")
+
+    # Directly pass the async iterator to StreamingResponse
     return StreamingResponse(
-        chat_stream_generator(body, user_session, orchestrator),
-        media_type="text/event-stream; charset=utf-8",
-        headers={"Connection": "close", "x-vercel-ai-data-stream": "v1", "X-Accel-Buffering": "no"}
+        orchestrator.stream_chat(body, user_session, background_tasks),
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Connection": "close", 
+            "x-vercel-ai-data-stream": "v1", 
+            "X-Accel-Buffering": "no",
+            "Cache-Control": "no-cache"
+        },
+        background=background_tasks
     )
+
 
 if __name__ == "__main__":
     import uvicorn

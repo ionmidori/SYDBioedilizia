@@ -1,56 +1,30 @@
-export type ProjectStatus = 'draft' | 'analyzing' | 'quoted' | 'rendering' | 'completed';
+import { z } from 'zod';
+import { projectDetailsSchema, addressSchema } from '../lib/validation/project-details-schema';
+import { projectListItemSchema, projectSchema } from '../lib/validation/project-list-schema';
 
-/**
- * Property type classification for construction projects.
- */
-export type PropertyType = 'apartment' | 'villa' | 'commercial';
+export const projectStatusSchema = z.enum(['draft', 'analyzing', 'quoted', 'rendering', 'completed']);
+export type ProjectStatus = z.infer<typeof projectStatusSchema>;
 
-/**
- * Address structure for construction site location.
- */
-export interface Address {
-    street: string;
-    city: string;
-    zip: string;
-}
+export const propertyTypeSchema = z.enum(['apartment', 'villa', 'commercial']);
+export type PropertyType = z.infer<typeof propertyTypeSchema>;
 
-/**
- * Comprehensive construction site details.
- * This serves as the Single Source of Truth for AI context.
- */
-export interface ProjectDetails {
-    id: string; // session_id reference
-    footage_sqm: number;
-    property_type: PropertyType;
-    address: Address;
-    budget_cap: number;
-    technical_notes?: string;
-    renovation_constraints: string[];
-}
+export type Address = z.infer<typeof addressSchema>;
 
-export interface ProjectListItem {
-    session_id: string;
-    title: string;
-    status: ProjectStatus;
-    thumbnail_url?: string;
-    original_image_url?: string;
-    updated_at: string; // ISO 8601
-    message_count: number;
-}
+export type ProjectDetails = z.infer<typeof projectDetailsSchema>;
 
-export interface ProjectCreate {
-    title?: string;
-}
+export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 
-export interface ProjectUpdate {
-    title?: string;
-    status?: ProjectStatus;
-    thumbnail_url?: string;
-    original_image_url?: string;
-}
+export type Project = z.infer<typeof projectSchema>;
 
-export interface Project extends ProjectListItem {
-    user_id: string;
-    created_at: string;
-    construction_details?: ProjectDetails | null;
-}
+export const projectCreateSchema = z.object({
+    title: z.string().optional(),
+});
+export type ProjectCreate = z.infer<typeof projectCreateSchema>;
+
+export const projectUpdateSchema = z.object({
+    title: z.string().optional(),
+    status: projectStatusSchema.optional(),
+    thumbnail_url: z.string().optional(),
+    original_image_url: z.string().optional(),
+});
+export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;

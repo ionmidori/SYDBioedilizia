@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ReasoningStep } from '@/types/reasoning';
 import { cn } from '@/lib/utils';
@@ -13,15 +13,15 @@ interface ThinkingIndicatorProps {
 
 export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: ThinkingIndicatorProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [prevReasoningData, setPrevReasoningData] = useState<ReasoningStep | null | undefined>(reasoningData);
 
-    // Auto-expand if risk is high or confidence is low
-    useEffect(() => {
-        if (reasoningData) {
-            if (reasoningData.risk_score > 0.7 || reasoningData.confidence_score < 0.6) {
-                setIsExpanded(true);
-            }
+    // Adjust state when props change (Professional React Pattern instead of useEffect)
+    if (reasoningData !== prevReasoningData) {
+        setPrevReasoningData(reasoningData);
+        if (reasoningData && (reasoningData.risk_score > 0.7 || reasoningData.confidence_score < 0.6)) {
+            setIsExpanded(true);
         }
-    }, [reasoningData]);
+    }
 
     const getRiskColor = (score: number) => {
         if (score < 0.3) return "text-green-400 bg-green-900/20 border-green-800";
@@ -131,7 +131,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
                                     <div className="flex items-center gap-1 mb-1 text-red-400 text-[10px] uppercase not-italic font-bold">
                                         <AlertTriangle size={10} /> Self-Correction
                                     </div>
-                                    "{reasoningData.criticism}"
+                                    &quot;{reasoningData.criticism}&quot;
                                 </div>
                             )}
 

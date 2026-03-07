@@ -8,8 +8,7 @@ import { useProjects } from "@/hooks/use-projects";
 import { ScallopedInlineLoader } from "@/components/ui/ScallopedPageTransition";
 
 export default function GlobalSettingsPage() {
-    const { data: projects = [], isLoading, isError, error: queryError } = useProjects();
-    const error = isError ? (queryError as Error)?.message ?? 'Errore caricamento' : null;
+    const { data: projects = [], isLoading } = useProjects();
 
     return (
         <div className="max-w-4xl mx-auto py-12 px-6 space-y-12">
@@ -33,7 +32,7 @@ export default function GlobalSettingsPage() {
                     <Info className="w-5 h-5 text-luxury-teal" />
                 </div>
                 <p className="leading-relaxed relative z-10">
-                    Le impostazioni sono <span className="text-luxury-gold font-bold">specifiche per ogni progetto</span>. Seleziona un progetto qui sotto per configurare i dettagli del cantiere, il budget e i vincoli tecnici necessari per l'assistente AI.
+                    Le impostazioni sono <span className="text-luxury-gold font-bold">specifiche per ogni progetto</span>. Seleziona un progetto qui sotto per configurare i dettagli del cantiere, il budget e i vincoli tecnici necessari per l&apos;assistente AI.
                 </p>
             </div>
 

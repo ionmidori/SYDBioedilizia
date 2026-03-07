@@ -10,16 +10,16 @@ jest.mock('@/hooks/useAuth', () => ({
 }));
 
 // Mock firebase/firestore onSnapshot to allow us to control when callbacks fire
-let mockOnSnapshotCallback: ((snapshot: any) => void) | null = null;
-let mockOnSnapshotError: ((error: any) => void) | null = null;
+let mockOnSnapshotCallback: ((snapshot: unknown) => void) | null = null;
+let mockOnSnapshotError: ((error: Error) => void) | null = null;
 const mockUnsubscribe = jest.fn();
 
 jest.mock('firebase/firestore', () => ({
     collection: jest.fn(() => ({})),
-    query: jest.fn((...args: any[]) => args[0]),
+    query: jest.fn((...args: unknown[]) => args[0]),
     orderBy: jest.fn(),
     limit: jest.fn(),
-    onSnapshot: jest.fn((q: any, successCb: any, errorCb: any) => {
+    onSnapshot: jest.fn((_q: unknown, _opts: unknown, successCb: (snapshot: unknown) => void, errorCb: (error: Error) => void) => {
         mockOnSnapshotCallback = successCb;
         mockOnSnapshotError = errorCb;
         return mockUnsubscribe;
@@ -47,7 +47,7 @@ jest.mock('@/lib/firebase', () => ({
 }));
 
 // Helper: create a mock Firestore snapshot
-function makeSnapshot(docs: any[]) {
+function makeSnapshot(docs: Record<string, unknown>[]) {
     return {
         docs: docs.map(data => ({
             id: data.id,
@@ -57,7 +57,7 @@ function makeSnapshot(docs: any[]) {
 }
 
 // Helper: wait for onSnapshot to be registered, then fire with data
-async function waitAndFire(data: any[]) {
+async function waitAndFire(data: Record<string, unknown>[]) {
     await waitFor(() => {
         expect(mockOnSnapshotCallback).not.toBeNull();
     });
@@ -115,6 +115,7 @@ describe('useChatHistory', () => {
         });
 
         // onSnapshot should not have been called
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { onSnapshot } = require('firebase/firestore');
         expect(onSnapshot).not.toHaveBeenCalled();
     });
@@ -196,7 +197,7 @@ describe('useChatHistory', () => {
 
         const msg = result.current.historyMessages[0];
         expect(msg.content).toBe('Analyze this');
-        expect((msg.attachments as any)?.images).toContain('https://storage.example.com/room.jpg');
+        expect((msg.attachments as { images?: string[] })?.images).toContain('https://storage.example.com/room.jpg');
     });
 
     it('should expose mutate function', () => {

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MutableRefObject } from 'react';
 import { ChatMessages } from '../ChatMessages';
 
@@ -58,7 +58,7 @@ describe('ChatMessages', () => {
 
     it('should render user message', () => {
         const messages = [
-            { id: '1', role: 'user', content: 'Hello, assistant!' },
+            { id: '1', role: 'user' as const, content: 'Hello, assistant!' },
         ];
 
         render(<ChatMessages {...defaultProps} messages={messages} />);
@@ -68,7 +68,7 @@ describe('ChatMessages', () => {
 
     it('should render assistant message', () => {
         const messages = [
-            { id: '1', role: 'assistant', content: 'Hi there!' },
+            { id: '1', role: 'assistant' as const, content: 'Hi there!' },
         ];
 
         render(<ChatMessages {...defaultProps} messages={messages} />);
@@ -85,7 +85,7 @@ describe('ChatMessages', () => {
 
     it('should render markdown content correctly', () => {
         const messages = [
-            { id: '1', role: 'assistant', content: '**Bold text**' },
+            { id: '1', role: 'assistant' as const, content: '**Bold text**' },
         ];
 
         render(<ChatMessages {...defaultProps} messages={messages} />);
@@ -98,10 +98,10 @@ describe('ChatMessages', () => {
 
     it('should call onImageClick when image is clicked', () => {
         const messages = [
-            { id: '1', role: 'assistant', content: '![image](https://example.com/image.jpg)' },
+            { id: '1', role: 'assistant' as const, content: '![image](https://example.com/image.jpg)' },
         ];
 
-        const { container } = render(<ChatMessages {...defaultProps} messages={messages} />);
+        render(<ChatMessages {...defaultProps} messages={messages} />);
 
         // In the actual implementation, images would be clickable
         // This test validates the callback is passed down
@@ -110,9 +110,9 @@ describe('ChatMessages', () => {
 
     it('should render multiple messages', () => {
         const messages = [
-            { id: '1', role: 'user', content: 'First message' },
-            { id: '2', role: 'assistant', content: 'Second message' },
-            { id: '3', role: 'user', content: 'Third message' },
+            { id: '1', role: 'user' as const, content: 'First message' },
+            { id: '2', role: 'assistant' as const, content: 'Second message' },
+            { id: '3', role: 'user' as const, content: 'Third message' },
         ];
 
         render(<ChatMessages {...defaultProps} messages={messages} />);
@@ -130,7 +130,7 @@ describe('ChatMessages', () => {
 
     it('should handle message with special characters', () => {
         const messages = [
-            { id: '1', role: 'user', content: '<script>alert("test")</script>' },
+            { id: '1', role: 'user' as const, content: '<script>alert("test")</script>' },
         ];
 
         render(<ChatMessages {...defaultProps} messages={messages} />);

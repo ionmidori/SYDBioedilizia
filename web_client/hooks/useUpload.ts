@@ -22,7 +22,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getToken } from 'firebase/app-check';
-import { auth, appCheck } from '@/lib/firebase';
+import { appCheck } from '@/lib/firebase';
 import { useAuth } from './useAuth';
 import type { UploadItem, UploadStatus, MediaAsset } from '@/types/media';
 import {
@@ -257,7 +257,7 @@ export function useUpload(options: UseUploadOptions = {}) {
                 }
             }
         },
-        [refreshToken, sessionId, updateItem, requestWakeLock, releaseWakeLock]
+        [refreshToken, sessionId, updateItem, requestWakeLock, releaseWakeLock, signInAnonymously, user]
     );
 
     // ==========================================================================

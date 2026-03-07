@@ -42,18 +42,20 @@ describe('useMobileViewport', () => {
     });
 
     it('should detect mobile viewport', () => {
-        Object.defineProperty(window, 'innerWidth', { value: 375 });
+        jest.useFakeTimers();
+        Object.defineProperty(window, 'innerWidth', { value: 375, configurable: true });
 
         const mockRef: RefObject<HTMLDivElement | null> = { current: null };
 
-        // Remove manual dispatch if not needed, or keep it to ensure listener is active
-        act(() => {
-            window.dispatchEvent(new Event('resize'));
-        });
-
         const { result } = renderHook(() => useMobileViewport(false, mockRef));
 
+        // The hook uses setTimeout(handleResize, 0) — flush it
+        act(() => {
+            jest.advanceTimersByTime(0);
+        });
+
         expect(result.current.isMobile).toBe(true);
+        jest.useRealTimers();
     });
 
     it('should update isMobile on window resize', () => {
@@ -77,10 +79,11 @@ describe('useMobileViewport', () => {
 
         renderHook(() => useMobileViewport(true, mockRef));
 
+        // Implementation sets overflow + overscrollBehavior (no position/height)
         expect(document.body.style.overflow).toBe('hidden');
-        expect(document.body.style.height).toBe('100%');
-        expect(document.body.style.position).toBe('fixed');
+        expect(document.body.style.overscrollBehavior).toBe('none');
         expect(document.documentElement.style.overflow).toBe('hidden');
+        expect(document.documentElement.style.overscrollBehavior).toBe('none');
     });
 
     it('should remove body lock when isOpen is false', () => {

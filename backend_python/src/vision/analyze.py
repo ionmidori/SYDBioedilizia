@@ -11,16 +11,19 @@ from src.core.config import settings
 logger = logging.getLogger(__name__)
 
 class RoomWindow(BaseModel):
+    model_config = {"extra": "forbid"}
     position: str
     size: str
 
 class RoomDoor(BaseModel):
+    model_config = {"extra": "forbid"}
     position: str
 
 class RoomAnalysis(BaseModel):
     """
     Room structure analysis result from Gemini Vision.
     """
+    model_config = {"extra": "forbid"}
     room_type: str = Field(..., description="living_room, bedroom, kitchen, etc.")
     approximate_size_sqm: int = Field(..., description="Estimated room size in square meters")
     architectural_features: List[str] = Field(..., description="List of visible fixed features")

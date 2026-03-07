@@ -1,11 +1,13 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState, useCallback, useRef } from 'react';
-import { Upload, X, FileText, Image, Video, CheckCircle2, AlertCircle, FolderKanban } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon, Video, FolderKanban } from 'lucide-react';
 import { validateFileForUpload } from '@/lib/validation/file-upload-schema';
 import { validateVideo } from '@/lib/media-utils';
 import { cn } from '@/lib/utils';
-import { useFileUpload, UploadProgress } from '@/hooks/useFileUpload';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SydLoader } from '@/components/ui/SydLoader';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -36,7 +38,7 @@ export function GlobalFileUploader({ projects, onUploadComplete, maxFiles = 10 }
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [isDragging, setIsDragging] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { uploadFile, uploadProgress } = useFileUpload();
+    const { uploadFile } = useFileUpload();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // Filter out uploaded files from file list update
@@ -133,7 +135,7 @@ export function GlobalFileUploader({ projects, onUploadComplete, maxFiles = 10 }
     }, [addFiles]);
 
     const getFileIcon = (file: File) => {
-        if (file.type.startsWith('image/')) return <Image className="w-5 h-5" />;
+        if (file.type.startsWith('image/')) return <ImageIcon className="w-5 h-5" />;
         if (file.type.startsWith('video/')) return <Video className="w-5 h-5" />;
         return <FileText className="w-5 h-5" />;
     };

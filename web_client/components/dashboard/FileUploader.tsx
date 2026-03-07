@@ -1,7 +1,9 @@
 'use client';
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Camera, Trash2 } from 'lucide-react';
+import { Upload, X, FileText, Image as ImageIcon, Video, CheckCircle2, AlertCircle, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -13,7 +15,6 @@ import {
 } from '@/components/ui/dialog';
 import { validateFileForUpload } from '@/lib/validation/file-upload-schema';
 import { validateVideo } from '@/lib/media-utils';
-import { cn } from '@/lib/utils';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
@@ -47,8 +48,8 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
 
     // 🔧 Cleanup previews on unmount to prevent memory leaks (mobile-camera-capture skill)
     useEffect(() => {
+        const urls = previewUrlsRef.current;
         return () => {
-            const urls = previewUrlsRef.current;
             urls.forEach(url => URL.revokeObjectURL(url));
             urls.clear();
         };

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hand, X, ChevronRight } from 'lucide-react';
+import { Hand, ChevronRight } from 'lucide-react';
 
 export function OnboardingTour() {
     const [isVisible, setIsVisible] = useState(false);

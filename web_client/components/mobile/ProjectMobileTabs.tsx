@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { MessageSquare, FileText, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ProjectFilesView } from '@/components/dashboard/ProjectFilesView';
@@ -9,7 +8,6 @@ import { ProjectSettingsView } from '@/components/dashboard/ProjectSettingsView'
 import ChatWidget from '@/components/chat/ChatWidget';
 import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { SwipeHints } from '@/components/mobile/MobileSwipeLayout';
-import type { LucideIcon } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

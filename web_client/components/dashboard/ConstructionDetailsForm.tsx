@@ -3,12 +3,11 @@
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import {
     updateProjectDetails,
 } from "@/app/actions/project-details";
 import { projectDetailsSchema, type ProjectDetailsFormData } from "@/lib/validation/project-details-schema";
-import type { ProjectDetails, PropertyType } from "@/types/projects";
+import type { ProjectDetails } from "@/types/projects";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { SydLoader } from "@/components/ui/SydLoader";
 
@@ -91,7 +90,7 @@ export default function ConstructionDetailsForm({
                         text: result.message,
                     });
                 }
-            } catch (error) {
+            } catch {
                 setSubmitMessage({
                     type: "error",
                     text: "Si è verificato un errore imprevisto.",

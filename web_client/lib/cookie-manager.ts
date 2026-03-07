@@ -89,7 +89,7 @@ export const CookieManager = {
         if (!consent) return null;
         try {
             return JSON.parse(consent);
-        } catch (e) {
+        } catch {
             return null;
         }
     },

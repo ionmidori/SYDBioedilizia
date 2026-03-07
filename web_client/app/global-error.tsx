@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 /**
@@ -39,7 +40,7 @@ export default function GlobalError({
 
                         {/* Description */}
                         <p className="text-gray-400 leading-relaxed">
-                            L'applicazione ha riscontrato un problema inaspettato.
+                            L&apos;applicazione ha riscontrato un problema inaspettato.
                             Ti consigliamo di ricaricare la pagina o tornare alla home.
                         </p>
 
@@ -59,13 +60,13 @@ export default function GlobalError({
                                 <RefreshCw className="w-5 h-5" />
                                 Riprova
                             </button>
-                            <a
+                            <Link
                                 href="/"
                                 className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
                             >
                                 <Home className="w-5 h-5" />
                                 Torna alla Home
-                            </a>
+                            </Link>
                         </div>
                     </div>
                 </div>

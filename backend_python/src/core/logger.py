@@ -5,7 +5,7 @@ import os
 import json
 from logging.handlers import RotatingFileHandler
 from src.core.config import settings
-from src.core.context import get_request_id, get_session_id
+from src.core.context import get_request_id, get_session_id, get_user_id
 
 # PII redaction patterns
 _EMAIL_RE = re.compile(r'[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}')
@@ -26,6 +26,14 @@ class JsonFormatter(logging.Formatter):
     Essential for centralized logging systems (ELK, Datadog, etc).
     PII (emails, phones, tokens) is redacted before writing.
     """
+    # Fields injected by stdlib logging — never merge into the JSON body
+    _STDLIB_ATTRS = frozenset({
+        "name", "msg", "args", "created", "relativeCreated", "exc_info",
+        "exc_text", "stack_info", "lineno", "funcName", "levelno", "levelname",
+        "pathname", "filename", "module", "thread", "threadName", "process",
+        "processName", "msecs", "message", "taskName",
+    })
+
     def format(self, record):
         message = _redact(record.getMessage())
         log_record = {
@@ -34,20 +42,20 @@ class JsonFormatter(logging.Formatter):
             "logger": record.name,
             "message": message,
             "request_id": get_request_id(),
-            "session_id": get_session_id() or "system"
+            "session_id": get_session_id() or "system",
+            "user_id": get_user_id() or "anonymous",
         }
 
-        # Merge extra fields (like duration_ms from trace_span)
-        if hasattr(record, "duration_ms"):
-             log_record["duration_ms"] = record.duration_ms
-        if hasattr(record, "span"):
-             log_record["span"] = record.span
+        # Merge ALL extra fields (method, path, status_code, duration_ms, span, etc.)
+        for key, value in record.__dict__.items():
+            if key not in self._STDLIB_ATTRS and key not in log_record:
+                log_record[key] = value
 
         # Handle Exception info (redact tracebacks too)
         if record.exc_info:
             log_record["exception"] = _redact(self.formatException(record.exc_info))
 
-        return json.dumps(log_record)
+        return json.dumps(log_record, default=str)
 
 def setup_logging():
     """

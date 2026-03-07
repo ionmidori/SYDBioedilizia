@@ -4,10 +4,23 @@ class AppException(Exception):
     """Base class for all application exceptions."""
     status_code: int = 500
     error_code: str = "INTERNAL_ERROR"
+    message: str = "An unexpected error occurred."
     
-    def __init__(self, message: str, detail: Optional[Dict[str, Any]] = None):
-        super().__init__(message)
-        self.message = message
+    def __init__(
+        self, 
+        message: Optional[str] = None, 
+        error_code: Optional[str] = None, 
+        status_code: Optional[int] = None,
+        detail: Optional[Dict[str, Any]] = None
+    ):
+        if message:
+            self.message = message
+        if error_code:
+            self.error_code = error_code
+        if status_code:
+            self.status_code = status_code
+            
+        super().__init__(self.message)
         self.detail = detail or {}
 
 class ResourceNotFound(AppException):

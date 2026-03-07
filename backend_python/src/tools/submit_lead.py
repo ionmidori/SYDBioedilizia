@@ -5,6 +5,7 @@ from src.models.lead import LeadData
 
 class SubmitLeadInput(BaseModel):
     """Input schema for submit_lead tool."""
+    model_config = {"extra": "forbid"}
     name: str = Field(..., description="Customer name from the chat context")
     email: str = Field(..., description="Customer email address")
     phone: Optional[str] = Field(None, description="Customer phone number (optional)")

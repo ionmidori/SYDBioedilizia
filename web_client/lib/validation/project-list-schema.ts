@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { projectDetailsSchema } from './project-details-schema';
 
 /**
  * Zod schema for API response validation of ProjectListItem.
@@ -40,3 +41,11 @@ export const projectListItemSchema = z.object({
 export const projectListResponseSchema = z.array(projectListItemSchema);
 
 export type ProjectListItemValidated = z.infer<typeof projectListItemSchema>;
+
+export const projectSchema = projectListItemSchema.extend({
+    user_id: z.string(),
+    created_at: z.string().datetime({ offset: true }),
+    construction_details: projectDetailsSchema.nullish().transform((val) => val ?? undefined),
+});
+
+export type ProjectValidated = z.infer<typeof projectSchema>;

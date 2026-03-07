@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createBundleAnalyzer from '@next/bundle-analyzer';
 
 const nextConfig: NextConfig = {
   // Enable verbose logging in development
@@ -12,6 +13,14 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
+    optimizePackageImports: [
+      'lucide-react',
+      'framer-motion',
+      'date-fns',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-slot',
+      '@tanstack/react-query',
+    ],
   },
 
   images: {
@@ -59,7 +68,7 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  async headers() {
+  async headers(): Promise<any> {
     return [
       {
         source: '/:path*',
@@ -96,10 +105,8 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(self), microphone=(self), geolocation=(), browsing-topics=()'
           },
-          {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://www.gstatic.com https://www.google.com https://www.googletagmanager.com https://www.recaptcha.net https://vercel.live https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://images.unsplash.com https://storage.googleapis.com https://firebasestorage.googleapis.com https://chatbotluca-a8a73.firebasestorage.app http://localhost:9199 http://127.0.0.1:9199 https://lh3.googleusercontent.com https://replicate.delivery https://vercel.com https://assets.vercel.com; font-src 'self' data: https://assets.vercel.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://syd-brain-972229558318.europe-west1.run.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://vercel.live https://*.pusher.com https://va.vercel-scripts.com https://*.vercel-insights.com; frame-src 'self' https://*.firebaseapp.com https://*.google.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://vercel.live; frame-ancestors 'self'; media-src 'self' blob:; upgrade-insecure-requests;"
-          }
+          // NOTE: Content-Security-Policy is now set dynamically by middleware.ts
+          // with a per-request cryptographic nonce (replaces static 'unsafe-inline').
         ]
       }
     ];
@@ -112,13 +119,13 @@ const nextConfig: NextConfig = {
         {
           source: '/api/py/:path*',
           destination: process.env.NODE_ENV === 'development'
-            ? 'http://127.0.0.1:8080/api/:path*' // Local Python Backend
+            ? 'http://127.0.0.1:8081/api/:path*' // Local Python Backend (8081 on Windows)
             : 'https://syd-brain-972229558318.europe-west1.run.app/api/:path*', // Cloud Run (Active)
         },
         {
           source: '/chat/stream',
           destination: process.env.NODE_ENV === 'development'
-            ? 'http://127.0.0.1:8080/chat/stream' // Local Python Backend
+            ? 'http://127.0.0.1:8081/chat/stream' // Local Python Backend (8081 on Windows)
             : 'https://syd-brain-972229558318.europe-west1.run.app/chat/stream', // Cloud Run (Active)
         }
       ],
@@ -129,8 +136,9 @@ const nextConfig: NextConfig = {
 };
 
 
-const withBundleAnalyzer = require('@next/bundle-analyzer')({
+const withBundleAnalyzer = createBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-export default withBundleAnalyzer(nextConfig);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default withBundleAnalyzer(nextConfig as any);

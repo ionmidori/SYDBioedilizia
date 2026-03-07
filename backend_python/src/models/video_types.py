@@ -10,6 +10,7 @@ from typing import Optional
 
 class VideoMetadata(BaseModel):
     """Metadata extracted from video file."""
+    model_config = {"extra": "forbid"}
     duration_seconds: float = Field(..., description="Video duration in seconds")
     format: str = Field(..., description="Video format (e.g., mp4, webm)")
     size_bytes: int = Field(..., description="File size in bytes")
@@ -23,6 +24,7 @@ class VideoTriageResult(BaseModel):
     Extends the standard image triage result with video-specific metadata
     and audio transcription notes.
     """
+    model_config = {"extra": "forbid"}
     success: bool = Field(..., description="Whether analysis was successful")
     roomType: str = Field(..., description="Detected room type")
     currentStyle: str = Field(..., description="Current interior design style")

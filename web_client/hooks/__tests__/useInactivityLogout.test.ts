@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useInactivityLogout } from '../useInactivityLogout';
 
 // Mock timers

@@ -30,6 +30,7 @@ router = APIRouter(prefix="/api/upload", tags=["upload"])
 
 class VideoUploadResponse(BaseModel):
     """Response model for video upload."""
+    model_config = {"extra": "ignore"}
     file_uri: str
     mime_type: str
     display_name: str
@@ -39,6 +40,7 @@ class VideoUploadResponse(BaseModel):
 
 class ImageUploadResponse(BaseModel):
     """Response model for image upload."""
+    model_config = {"extra": "ignore"}
     public_url: str
     signed_url: str
     file_path: str
@@ -81,13 +83,13 @@ async def upload_image(
 
         # 🛡️ RATE LIMITING CHECK
         from src.tools.quota import check_quota, increment_quota
+        from src.core.exceptions import QuotaExceeded
         allowed, remaining, reset_at = await check_quota(user_id, "upload_image")
-        
+
         if not allowed:
-            reset_time = reset_at.strftime("%H:%M")
-            raise HTTPException(
-                status_code=429,
-                detail=f"⏳ Upload limit reached (10 images/day). Resets at {reset_time}."
+            raise QuotaExceeded(
+                message="Limite upload immagini raggiunto. Riprova domani.",
+                detail={"tool_name": "upload_image", "reset_at": reset_at.isoformat()},
             )
         
         # 🛡️ SECURITY: Magic Bytes Validation (Prevents .exe -> .jpg attacks)
@@ -228,13 +230,13 @@ async def upload_video(
 
         # 🛡️ RATE LIMITING CHECK
         from src.tools.quota import check_quota, increment_quota
+        from src.core.exceptions import QuotaExceeded
         allowed, remaining, reset_at = await check_quota(user_id, "upload_video")
-        
+
         if not allowed:
-            reset_time = reset_at.strftime("%H:%M")
-            raise HTTPException(
-                status_code=429,
-                detail=f"⏳ Upload limit reached (1 video/day). Resets at {reset_time}."
+            raise QuotaExceeded(
+                message="Limite upload video raggiunto. Riprova domani.",
+                detail={"tool_name": "upload_video", "reset_at": reset_at.isoformat()},
             )
         
         try:

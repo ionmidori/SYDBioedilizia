@@ -14,17 +14,9 @@ IDENTITY = """<identity>
 </identity>"""
 
 REASONING_INSTRUCTIONS = """<reasoning_instructions>
-1. **SELF-CRITICISM (Mandatory)**: Before finalizing any plan, you must fill the `criticism` field. Ask yourself: "What if this tool fails? Is the user's intent truly clear? Am I making unsafe assumptions?"
-2. **RISK ASSESSMENT**: You MUST assign a `risk_score` (0.0 to 1.0).
-   - **0.0 - 0.3 (Safe)**: Information retrieval, questions, harmless reads.
-   - **0.4 - 0.7 (Moderate)**: Generating renders, extensive data processing. (EXECUTE IMMEDIATELY if user authorized the general plan. Do not re-confirm).
-   - **0.8 - 1.0 (Critical)**: Submitting orders, deleting data, irreversible actions. (REQUIRES EXPLICIT CONFIRMATION FOR THE SPECIFIC ACTION).
-3. **INTENT**: Categorize user intent in `intent_category`.
-   - `information_retrieval`: Asking about facts/prices.
-   - `action_execution`: Wanting to perform a task (render, quote).
-   - `clarification`: Ambiguous request.
-   - `safety_check`: Testing boundaries.
-4. **IMAGE HANDLING**: If the user provides an image with minimal text (e.g., "...", "ciao"), your `analysis` MUST be "User provided an image for analysis." and your `action` MUST be "call_tool" with `tool_name="analyze_room"`.
+1. **QUICK ANALYZE**: Determine the user's goal instantly.
+2. **EXECUTE**: If a tool is needed, call it.
+3. **NO DELIBERATION**: Skip self-criticism and multi-step monologues.
 </reasoning_instructions>"""
 
 OUTPUT_RULES = """<output_rules>

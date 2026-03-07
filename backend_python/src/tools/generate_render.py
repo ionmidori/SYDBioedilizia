@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class GenerateRenderInput(BaseModel):
     """Input schema for generate_render tool."""
+    model_config = {"extra": "forbid"}
     prompt: str = Field(
         ..., 
         description="Detailed description of the interior design to generate"

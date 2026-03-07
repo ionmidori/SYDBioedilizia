@@ -28,7 +28,7 @@ export function Footer() {
         }
     });
 
-    const onSubscribe = async (data: ResetPasswordValues) => {
+    const onSubscribe = async () => {
         if (status === 'loading') return;
         
         setStatus('loading');

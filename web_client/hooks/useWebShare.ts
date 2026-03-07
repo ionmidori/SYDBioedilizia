@@ -39,7 +39,8 @@ export function useWebShare() {
             await navigator.share(data);
             console.log('[WebShare] Share successful');
             return true;
-        } catch (err: any) {
+        } catch (error: unknown) {
+            const err = error as Error;
             //  User cancelled share (not an error)
             if (err.name === 'AbortError') {
                 console.log('[WebShare] User cancelled');

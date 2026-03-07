@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 console.log('--- JEST SETUP EXECUTING ---');
 // Polyfill TextEncoder/TextDecoder (MUST BE AT TOP)
 const { TextEncoder, TextDecoder } = require('node:util');
@@ -43,12 +44,16 @@ jest.mock('firebase/auth', () => ({
 
 jest.mock('firebase/firestore', () => ({
     getFirestore: jest.fn(() => ({})),
+    initializeFirestore: jest.fn(() => ({})),
+    persistentLocalCache: jest.fn(() => ({})),
+    persistentMultipleTabManager: jest.fn(() => ({})),
     collection: jest.fn(),
     doc: jest.fn(),
     getDoc: jest.fn(),
     setDoc: jest.fn(),
     updateDoc: jest.fn(),
     deleteDoc: jest.fn(),
+    addDoc: jest.fn(),
     query: jest.fn(),
     where: jest.fn(),
     orderBy: jest.fn(),

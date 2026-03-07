@@ -49,7 +49,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                         onClick={e => e.stopPropagation()}
                     >
                         {/* 🔍 Pinch to Zoom Wrapper */}
-                        {/* @ts-ignore */}
+                        
                         <TransformWrapper
                             initialScale={1}
                             minScale={1}
@@ -57,7 +57,6 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                             centerOnInit
                             limitToBounds={true}
                         >
-                            {/* @ts-ignore */}
                             <TransformComponent
                                 wrapperStyle={{ width: "100%", height: "100%", position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
                                 contentStyle={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}

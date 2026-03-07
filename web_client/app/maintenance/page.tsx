@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 export default function MaintenancePage() {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 p-4 text-center">

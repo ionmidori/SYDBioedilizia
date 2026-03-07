@@ -31,7 +31,6 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
         register,
         handleSubmit,
         reset,
-        trigger,
         formState: { errors }
     } = useForm<AuthValues>({
         resolver: zodResolver(authSchema),
@@ -215,7 +214,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                         onClick={() => setMode('signin')}
                         className="text-blue-400 hover:text-blue-300 transition-colors"
                     >
-                        ← Torna all'accesso
+                        &larr; Torna all&apos;accesso
                     </button>
                 )}
             </div>

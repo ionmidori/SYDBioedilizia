@@ -15,6 +15,7 @@ _MAX_QTY = 10_000  # Hard cap — anything above is almost certainly an AI hallu
 
 
 class SuggestQuoteItemsInput(BaseModel):
+    model_config = {"extra": "forbid"}
     session_id: str = Field(..., description="The ID of the current chat session")
     project_id: Optional[str] = Field(None, description="Optional: ID of the project associated with the session")
     user_id: Optional[str] = Field(None, description="Optional: UID of the user")

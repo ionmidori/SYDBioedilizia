@@ -18,7 +18,7 @@ interface MobileSwipeLayoutProps {
 export const PANES = ['dashboard', 'gallery', 'projects'] as const;
 export const PANE_ROUTES = ['/dashboard', '/dashboard/gallery', '/dashboard/projects'] as const;
 
-const PROJECT_SUBPAGES = ['chat', 'files', 'settings'] as const;
+export const PROJECT_SUBPAGES = ['chat', 'files', 'settings'] as const;
 export type ProjectSubpage = (typeof PROJECT_SUBPAGES)[number];
 
 // ─── Helpers (exported for DashboardHeader) ─────────────────────────────────

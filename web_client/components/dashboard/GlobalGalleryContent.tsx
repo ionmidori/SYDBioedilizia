@@ -1,342 +1,162 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { OptimizedGalleryViewer, type GalleryImage } from '@/components/gallery/OptimizedGalleryViewer';
-import { GalleryAsset } from '@/types/gallery';
-import { Loader2, LayoutGrid, Calendar, FolderKanban, ChevronDown, Search, X, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
-import { GlobalFileUploader } from '@/components/dashboard/GlobalFileUploader';
+import { AssetGallery } from '@/components/dashboard/AssetGallery';
+import { groupAssetsByType, MediaAsset } from '@/lib/media-utils';
+import { 
+    LayoutGrid, 
+    Image as ImageIcon, 
+    Video, 
+    FileText, 
+    Sparkles, 
+    Filter,
+    ChevronDown,
+    Search
+} from 'lucide-react';
 import { useProjects } from '@/hooks/use-projects';
-import { useGalleryAssets } from '@/hooks/use-gallery';
+import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
+import { GalleryAsset } from '@/types/gallery';
 import { SydLoader } from '@/components/ui/SydLoader';
-import { DeleteAssetDialog } from './DeleteAssetDialog';
-import { useQueryClient } from '@tanstack/react-query';
 
-type GroupingMode = 'project' | 'type' | 'date';
+type SortOption = 'newest' | 'oldest' | 'name';
+type FilterType = 'all' | 'image' | 'render' | 'video' | 'quote';
 
-const ITEMS_PER_PAGE = 50;
-
-/**
- * Reusable Global Gallery Content
- * Can be used in standalone page or SwipeLayout
- */
 export function GlobalGalleryContent() {
-    const { user } = useAuth();
-    const queryClient = useQueryClient();
-
-    // Modern State Management: Use TanStack Query
-    const { data: rawProjects = [], isLoading: projectsLoading } = useProjects();
-    const projects = useMemo(() => rawProjects.map(p => ({
-        id: p.session_id,
-        name: p.title || 'Progetto Senza Nome'
-    })), [rawProjects]);
-
-    const [groupingMode, setGroupingMode] = useState<GroupingMode>('project');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const { user: _user } = useAuth();
+    const { data: projects = [], isLoading: projectsLoading } = useProjects();
+    const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
+    const [sortBy, setSortBy] = useState<SortOption>('newest');
     const [searchQuery, setSearchQuery] = useState('');
-    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-    const [assetToDelete, setAssetToDelete] = useState<GalleryImage | null>(null);
+    const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
-    // Fetch files with pagination using TanStack Query
-    const {
-        data: galleryData,
-        fetchNextPage,
-        hasNextPage,
-        isFetchingNextPage,
-        isLoading: isGalleryLoading,
-        refetch
-    } = useGalleryAssets(ITEMS_PER_PAGE, !!user?.uid);
+    // Aggregate assets across all projects
+    const [allAssets, _setAllAssets] = useState<MediaAsset[]>([]);
+    const [assetsLoading, setAssetsLoading] = useState(false);
 
-    const assets = useMemo(() => {
-        if (!galleryData) return [];
-        return galleryData.pages.flatMap((page) => page.assets);
-    }, [galleryData]);
-
-    const loading = isGalleryLoading;
-    const hasMore = hasNextPage;
-    const isLoadingMore = isFetchingNextPage;
-
-    const fetchFiles = (isInitial = true) => {
-        if (!isInitial) {
-            fetchNextPage();
-        } else {
-            refetch();
-        }
-    };
-
-    const handleDeleteConfirm = async () => {
-        if (!assetToDelete) return;
-        try {
-            const token = await user?.getIdToken();
-            const res = await fetch('/api/assets/delete', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    assetId: assetToDelete.id,
-                    projectId: assetToDelete.metadata?.projectId,
-                    url: assetToDelete.url
-                })
-            });
-
-            if (res.ok) {
-                // Invalidate query to refresh gallery
-                queryClient.invalidateQueries({ queryKey: ['galleryAssets'] });
-            } else {
-                console.error('Failed to delete asset');
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setAssetToDelete(null);
-        }
-    };
-
-    // Grouping logic (with Filter)
+    // Grouping & Filtering
     const groupedAssets = useMemo(() => {
-        const groups: Record<string, GalleryAsset[]> = {};
+        // Filter by type
+        let filtered = allAssets;
+        if (selectedFilter !== 'all') {
+            filtered = allAssets.filter(a => a.type === selectedFilter);
+        }
 
-        // Filter assets first
-        const filteredAssets = assets.filter(asset => {
-            if (!searchQuery) return true;
-            const query = searchQuery.toLowerCase();
-            return (
-                asset.title?.toLowerCase().includes(query) ||
-                asset.metadata?.projectName?.toLowerCase().includes(query) ||
-                asset.type.toLowerCase().includes(query)
+        // Filter by search
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter(a => 
+                (a.title || '').toLowerCase().includes(q) || 
+                (a.metadata?.projectId as string || '').toLowerCase().includes(q)
             );
+        }
+
+        // Sort
+        filtered = [...filtered].sort((a, b) => {
+            const timeA = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt || 0).getTime();
+            const timeB = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt || 0).getTime();
+            
+            if (sortBy === 'newest') return timeB - timeA;
+            if (sortBy === 'oldest') return timeA - timeB;
+            return (a.title || '').localeCompare(b.title || '');
         });
 
-        filteredAssets.forEach(asset => {
-            let groupKey = '';
+        return groupAssetsByType(filtered);
+    }, [allAssets, selectedFilter, sortBy, searchQuery]);
 
-            switch (groupingMode) {
-                case 'project':
-                    groupKey = asset.metadata?.projectName || 'Senza Progetto';
-                    break;
-                case 'type':
-                    groupKey = asset.type === 'image' ? 'Immagini Caricate' :
-                        asset.type === 'render' ? 'Render Generati' :
-                            asset.type === 'quote' ? 'Preventivi PDF' : 'Altri';
-                    break;
-                case 'date':
-                    const now = new Date();
-                    const assetDate = new Date(asset.timestamp);
-
-                    // Normalize to midnight for accurate calendar day difference
-                    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    const target = new Date(assetDate.getFullYear(), assetDate.getMonth(), assetDate.getDate());
-
-                    const diffTime = today.getTime() - target.getTime();
-                    const daysDiff = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-                    if (daysDiff === 0) groupKey = 'Oggi';
-                    else if (daysDiff === 1) groupKey = 'Ieri';
-                    else if (daysDiff <= 7) groupKey = 'Questa Settimana';
-                    else if (daysDiff <= 30) groupKey = 'Questo Mese';
-                    else groupKey = 'Più Vecchi';
-                    break;
-            }
-
-            if (!groups[groupKey]) {
-                groups[groupKey] = [];
-            }
-            groups[groupKey].push(asset);
-        });
-
-        return groups;
-    }, [assets, groupingMode, searchQuery]);
-
-    const groupingOptions = [
-        { value: 'project' as GroupingMode, label: 'Per Progetto', icon: FolderKanban },
-        { value: 'type' as GroupingMode, label: 'Per Tipo', icon: LayoutGrid },
-        { value: 'date' as GroupingMode, label: 'Per Data', icon: Calendar },
+    const filterOptions = [
+        { value: 'all', label: 'Tutti i File', icon: LayoutGrid },
+        { value: 'image', label: 'Foto Caricate', icon: ImageIcon },
+        { value: 'render', label: 'AI Renders', icon: Sparkles },
+        { value: 'video', label: 'Video', icon: Video },
+        { value: 'quote', label: 'Preventivi', icon: FileText },
     ];
 
-    if (loading) {
+    if (projectsLoading || assetsLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-700">
-                <SydLoader size="xl" />
-                <p className="mt-8 text-luxury-gold font-bold tracking-[0.2em] uppercase text-xs animate-pulse">
-                    Caricamento Galleria Globale...
+            <div className="flex flex-col items-center justify-center min-h-[60vh]">
+                <SydLoader size="lg" />
+                <p className="text-luxury-text/40 text-sm mt-4 animate-pulse font-serif italic">
+                    Catalogazione archivio in corso...
                 </p>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col w-full mx-auto space-y-6 md:space-y-10 py-4 md:py-6 px-4 md:px-8">
-            {/* Header */}
-            <div className="relative border-b border-luxury-gold/10 pb-6 md:pb-8 shrink-0">
-                <div className="absolute -top-10 -left-10 w-32 h-32 bg-luxury-teal/5 rounded-full blur-[80px] pointer-events-none" />
-
-                <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div className="flex flex-col w-full h-full">
+            {/* Header / Stats */}
+            <div className="mb-10">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-luxury-text font-serif leading-tight flex items-center gap-3 md:gap-4">
-                            <div className="p-2 md:p-3 bg-luxury-gold/10 rounded-xl md:rounded-2xl border border-luxury-gold/20 shadow-lg shadow-luxury-gold/5">
-                                <LayoutGrid className="w-6 h-6 md:w-8 md:h-8 text-luxury-gold" />
-                            </div>
-                            Galleria <span className="text-luxury-gold italic">Globale</span>
+                        <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-luxury-text font-serif leading-tight">
+                            Archivio <span className="text-luxury-gold italic">Media</span>
                         </h1>
-                        <p className="text-luxury-text/50 mt-2 md:mt-3 max-w-2xl font-medium text-sm md:text-base leading-relaxed">
-                            Tutti i contenuti da tutti i tuoi progetti, organizzati come preferisci.
+                        <p className="text-luxury-text/60 mt-3 text-lg font-light max-w-xl">
+                            Tutti i documenti, i render e le acquisizioni vision aggregate dai tuoi progetti.
                         </p>
                     </div>
 
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setIsUploadModalOpen(true)}
-                        className="group relative flex items-center gap-3 px-6 py-3 bg-luxury-gold/10 border border-luxury-gold/30 hover:border-luxury-gold/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/5"
-                    >
-                        {/* Internal Glow Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/0 to-luxury-gold/0 group-hover:via-luxury-gold/10 transition-all duration-500 rounded-xl" />
-
-                        <div className="relative z-10 flex items-center gap-3">
-                            <div className="p-1.5 bg-luxury-gold/20 rounded-lg text-luxury-gold">
-                                <Upload className="w-5 h-5" />
-                            </div>
-                            <span className="text-luxury-gold font-bold text-sm md:text-base whitespace-nowrap">
-                                Carica File
-                            </span>
+                    <div className="flex items-center gap-3">
+                        <div className="px-4 py-2 bg-luxury-gold/10 border border-luxury-gold/20 rounded-2xl">
+                            <span className="text-luxury-gold font-bold text-xl">{allAssets.length}</span>
+                            <span className="text-luxury-text/40 text-xs ml-2 uppercase tracking-widest font-bold">Elementi</span>
                         </div>
-                    </motion.button>
+                    </div>
                 </div>
             </div>
 
-            {/* Upload Modal */}
-            <AnimatePresence>
-                {isUploadModalOpen && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-                            onClick={() => setIsUploadModalOpen(false)}
-                        />
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                            className="relative w-full max-w-lg bg-luxury-bg border border-luxury-gold/20 rounded-3xl p-6 shadow-2xl overflow-hidden"
-                        >
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold text-luxury-text font-serif">Carica File</h3>
-                                <button
-                                    onClick={() => setIsUploadModalOpen(false)}
-                                    className="p-2 hover:bg-white/5 rounded-full text-luxury-text/50 hover:text-luxury-text transition-colors"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-
-                            <GlobalFileUploader
-                                projects={projects}
-                                onUploadComplete={() => {
-                                    refetch();
-                                    setTimeout(() => setIsUploadModalOpen(false), 1000);
-                                }}
-                            />
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-
-            {/* Search and Filter Bar */}
-            <div className="flex flex-col md:flex-row gap-4 shrink-0">
-                {/* Search Input */}
-                <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Search className="h-5 w-5 text-luxury-gold/50" />
-                    </div>
-                    <input
+            {/* Premium Toolbar */}
+            <div className="flex flex-col md:flex-row gap-4 mb-12 sticky top-0 z-20 py-4 bg-dashboard-bg/80 backdrop-blur-md -mx-4 px-4 md:mx-0 md:px-0">
+                {/* Search */}
+                <div className="relative flex-1 group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-luxury-text/30 group-focus-within:text-luxury-gold transition-colors" />
+                    <input 
                         type="text"
-                        placeholder="Cerca file, progetti o tipi..."
+                        placeholder="Cerca per nome o progetto..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="block w-full pl-10 pr-3 py-3 md:py-4 border border-luxury-gold/20 rounded-2xl leading-5 bg-luxury-bg/50 glass-premium text-luxury-text placeholder-luxury-text/30 focus:outline-none focus:ring-1 focus:ring-luxury-gold/50 focus:border-luxury-gold/50 sm:text-sm transition-all duration-300 shadow-sm hover:shadow-md"
+                        className="w-full bg-luxury-bg/40 border border-luxury-gold/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-luxury-text placeholder:text-luxury-text/30 focus:outline-none focus:border-luxury-gold/40 focus:bg-luxury-bg/60 transition-all"
                     />
-                    {searchQuery && (
-                        <button
-                            onClick={() => setSearchQuery('')}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                        >
-                            <X className="h-5 w-5 text-luxury-text/30 hover:text-luxury-gold cursor-pointer transition-colors" />
-                        </button>
-                    )}
                 </div>
 
-                {/* Grouping Selector - Mobile Optimized Dropdown */}
-                <div className="relative md:w-64">
-                    <button
-                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className={cn(
-                            "w-full flex items-center justify-between gap-3 px-4 md:px-6 py-3 md:py-4",
-                            "bg-luxury-bg/50 backdrop-blur-xl border rounded-2xl transition-all duration-300",
-                            "text-luxury-text font-bold text-sm md:text-base",
-                            "active:scale-[0.98] touch-manipulation",
-                            isDropdownOpen
-                                ? "border-luxury-gold shadow-lg shadow-luxury-gold/20"
-                                : "border-luxury-gold/20 hover:border-luxury-gold/40 shadow-md"
-                        )}
+                {/* Filter Selector */}
+                <div className="relative">
+                    <button 
+                        onClick={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
+                        className="flex items-center gap-3 bg-luxury-bg/40 border border-luxury-gold/10 rounded-2xl px-5 py-3 text-sm font-bold text-luxury-text hover:border-luxury-gold/30 transition-all"
                     >
-                        <div className="flex items-center gap-3">
-                            {groupingOptions.find(o => o.value === groupingMode)?.icon && (
-                                <div className="p-2 bg-luxury-gold/10 rounded-lg">
-                                    {(() => {
-                                        const Icon = groupingOptions.find(o => o.value === groupingMode)!.icon;
-                                        return <Icon className="w-4 h-4 md:w-5 md:h-5 text-luxury-gold" />;
-                                    })()}
-                                </div>
-                            )}
-                            <span>
-                                {groupingOptions.find(o => o.value === groupingMode)?.label}
-                            </span>
-                        </div>
-                        <ChevronDown className={cn(
-                            "w-5 h-5 text-luxury-gold transition-transform duration-300",
-                            isDropdownOpen && "rotate-180"
-                        )} />
+                        <Filter className="w-4 h-4 text-luxury-gold" />
+                        {filterOptions.find(o => o.value === selectedFilter)?.label}
+                        <ChevronDown className={cn("w-4 h-4 text-luxury-text/30 transition-transform", isFilterMenuOpen && "rotate-180")} />
                     </button>
 
-                    {/* Dropdown Menu */}
                     <AnimatePresence>
-                        {isDropdownOpen && (
-                            <motion.div
-                                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        {isFilterMenuOpen && (
+                            <motion.div 
+                                initial={{ opacity: 0, y: 10, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                                transition={{ duration: 0.2 }}
-                                className="absolute top-full left-0 right-0 mt-2 z-50 bg-luxury-bg/80 backdrop-blur-2xl border border-luxury-gold/20 rounded-2xl overflow-hidden shadow-2xl"
+                                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                className="absolute right-0 mt-2 w-64 bg-luxury-bg/95 border border-luxury-gold/20 rounded-2xl shadow-2xl backdrop-blur-xl p-2 overflow-hidden"
                             >
-                                {groupingOptions.map((option) => {
+                                {filterOptions.map((option) => {
                                     const Icon = option.icon;
                                     return (
                                         <button
                                             key={option.value}
                                             onClick={() => {
-                                                setGroupingMode(option.value);
-                                                setIsDropdownOpen(false);
+                                                setSelectedFilter(option.value as FilterType);
+                                                setIsFilterMenuOpen(false);
                                             }}
                                             className={cn(
-                                                "w-full flex items-center gap-3 px-4 py-3 transition-all touch-manipulation",
-                                                "active:scale-[0.98]",
-                                                groupingMode === option.value
-                                                    ? "bg-luxury-gold/20 text-luxury-gold border-l-4 border-luxury-gold"
-                                                    : "text-luxury-text/70 hover:text-luxury-text hover:bg-white/5 border-l-4 border-transparent"
+                                                "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left",
+                                                selectedFilter === option.value 
+                                                    ? "bg-luxury-gold text-luxury-bg" 
+                                                    : "text-luxury-text/70 hover:bg-white/5 hover:text-luxury-text"
                                             )}
                                         >
-                                            <div className={cn(
-                                                "p-2 rounded-lg",
-                                                groupingMode === option.value
-                                                    ? "bg-luxury-gold/20"
-                                                    : "bg-white/5"
-                                            )}>
+                                            <div className={cn("p-1.5 rounded-lg", selectedFilter === option.value ? "bg-black/10" : "bg-luxury-gold/10")}>
                                                 <Icon className="w-5 h-5" />
                                             </div>
                                             <span className="font-bold text-sm">{option.label}</span>
@@ -352,94 +172,44 @@ export function GlobalGalleryContent() {
             {/* Optimized Gallery Sections */}
             <div className="space-y-12 md:space-y-16 pb-20">
                 {Object.entries(groupedAssets).map(([groupName, groupAssets]) => {
-                    const galleryImages: GalleryImage[] = groupAssets.map(asset => ({
-                        id: asset.id,
-                        url: asset.url,
-                        thumbnail: asset.thumbnail,
-                        title: asset.title,
-                        description: '',
-                        type: asset.type as 'image' | 'render' | 'video' | 'quote',
-                        metadata: asset.metadata,
-                    }));
-
                     return (
                         <motion.section
                             key={groupName}
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.4 }}
-                            className="space-y-4 md:space-y-6"
                         >
-                            {/* Section Header */}
-                            <div className="flex items-center gap-3 md:gap-4 pb-3 border-b border-luxury-gold/10">
-                                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-luxury-gold/20 to-transparent" />
-                                <h2 className="text-lg md:text-2xl font-bold text-luxury-text font-serif tracking-tight">
-                                    {groupName}
+                            <div className="flex items-center gap-4 mb-8">
+                                <h2 className="text-2xl font-bold text-luxury-text/90 font-serif capitalize">
+                                    {groupName === 'image' ? 'Fotografie' : 
+                                     groupName === 'render' ? 'Progetti 3D' : 
+                                     groupName === 'video' ? 'Video Ispezioni' : 'Documentazione'}
                                 </h2>
-                                <span className="px-3 py-1 bg-luxury-gold/10 border border-luxury-gold/20 rounded-full text-luxury-gold text-xs md:text-sm font-bold">
-                                    {groupAssets.length}
+                                <div className="h-px flex-1 bg-gradient-to-r from-luxury-gold/30 to-transparent" />
+                                <span className="text-luxury-text/30 text-sm font-mono tracking-tighter">
+                                    {groupAssets.length} files
                                 </span>
-                                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-luxury-gold/20 to-transparent" />
                             </div>
 
-                            {/* Optimized Gallery */}
-                            <div className={groupAssets.length > 50 ? "h-[500px] md:h-[600px]" : "w-full"}>
-                                <OptimizedGalleryViewer
-                                    images={galleryImages}
-                                    enableVirtualization={groupAssets.length > 50}
-                                    onDeleteClick={(image) => setAssetToDelete(image)}
-                                />
-                            </div>
+                            <AssetGallery 
+                                assets={groupAssets}
+                            />
                         </motion.section>
                     );
                 })}
 
-                {/* Load More Button */}
-                {hasMore && !loading && assets.length > 0 && !searchQuery && (
-                    <div className="flex justify-center pt-8">
-                        <button
-                            onClick={() => fetchFiles(false)}
-                            disabled={isLoadingMore}
-                            className="group flex items-center gap-3 px-8 py-4 bg-white/5 hover:bg-white/10 border border-luxury-gold/20 hover:border-luxury-gold/40 rounded-2xl transition-all duration-300 backdrop-blur-md"
-                        >
-                            {isLoadingMore ? (
-                                <SydLoader size="md" />
-                            ) : (
-                                <div className="p-1 rounded-full bg-luxury-gold/10 group-hover:bg-luxury-gold/20 transition-colors">
-                                    <ChevronDown className="w-4 h-4 text-luxury-gold" />
-                                </div>
-                            )}
-                            <span className="text-luxury-text font-bold text-sm tracking-widest uppercase">
-                                {isLoadingMore ? 'Caricamento...' : 'Carica Altri File'}
-                            </span>
-                        </button>
-                    </div>
-                )}
-
-                {/* Empty State */}
-                {Object.keys(groupedAssets).length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-16 md:py-24 text-center">
-                        <div className="p-4 md:p-6 bg-luxury-gold/5 rounded-3xl border border-luxury-gold/10 mb-6">
-                            <LayoutGrid className="w-12 h-12 md:w-16 md:h-16 text-luxury-gold/40" />
+                {allAssets.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-32 text-center">
+                        <div className="w-24 h-24 rounded-full bg-luxury-gold/5 border border-luxury-gold/10 flex items-center justify-center mb-6">
+                            <ImageIcon className="w-10 h-10 text-luxury-gold/20" />
                         </div>
-                        <h3 className="text-xl md:text-2xl font-bold text-luxury-text/60 mb-2">
-                            Nessun File Trovato
-                        </h3>
-                        <p className="text-luxury-text/40 text-sm md:text-base max-w-md">
-                            Carica file nei tuoi progetti per vederli apparire qui.
+                        <h3 className="text-xl font-bold text-luxury-text mb-2">Galleria Vuota</h3>
+                        <p className="text-luxury-text/40 max-w-xs mx-auto">
+                            Inizia una conversazione con Syd per generare render o caricare foto dei tuoi ambienti.
                         </p>
                     </div>
                 )}
             </div>
-
-            {/* Delete Asset Dialog */}
-            <DeleteAssetDialog
-                open={!!assetToDelete}
-                onOpenChange={(open) => !open && setAssetToDelete(null)}
-                assetTitle={assetToDelete?.title || 'questo file'}
-                onDelete={handleDeleteConfirm}
-            />
         </div>
     );
 }
-

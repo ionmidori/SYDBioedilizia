@@ -19,6 +19,7 @@ from typing import Tuple, Optional
 from google.cloud.firestore_v1 import Increment
 from src.db.firebase_client import get_async_firestore_client
 from src.core.config import settings
+from src.core.exceptions import QuotaExceeded as _AppQuotaExceeded
 
 logger = logging.getLogger(__name__)
 
@@ -66,15 +67,24 @@ def _is_authenticated_user(user_id: str) -> bool:
     return bool(_FIREBASE_UID_RE.match(user_id))
 
 
-class QuotaExceededError(Exception):
-    """Raised when a user exceeds their quota for a specific tool."""
-    
+class QuotaExceededError(_AppQuotaExceeded):
+    """Raised when a user exceeds their quota for a specific tool.
+
+    Extends AppException (status 429) so the global exception handler
+    returns a proper APIErrorResponse instead of a raw 500.
+    """
+
     def __init__(self, tool_name: str, reset_at: datetime, period: str = "giornaliero"):
         self.tool_name = tool_name
         self.reset_at = reset_at
         self.period = period
         super().__init__(
-            f"Quota {period} exceeded for {tool_name}. Resets at {reset_at.isoformat()}"
+            message=f"Quota {period} esaurita per {tool_name}. Si rinnova alle {reset_at.strftime('%H:%M')} UTC.",
+            detail={
+                "tool_name": tool_name,
+                "reset_at": reset_at.isoformat(),
+                "period": period,
+            },
         )
 
 

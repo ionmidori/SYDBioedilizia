@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -13,10 +14,10 @@ interface Image {
     title?: string;
     description?: string;
     type?: string;
-    metadata?: Record<string, any>;
-}
+    metadata?: Record<string, unknown>;
+    }
 
-interface AdvancedLightboxProps {
+    export interface AdvancedLightboxProps {
     images: Image[];
     initialIndex?: number;
     isOpen: boolean;

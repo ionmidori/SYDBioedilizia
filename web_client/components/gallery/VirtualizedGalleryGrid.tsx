@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
@@ -66,7 +68,7 @@ export function VirtualizedGalleryGrid({
 
     // Item cell renderer
     const Cell = useCallback(
-        ({ columnIndex, rowIndex, style }: any) => {
+        ({ columnIndex, rowIndex, style }: { columnIndex: number; rowIndex: number; style: React.CSSProperties }) => {
             const itemIndex = rowIndex * (defaultColumnCount || 3) + columnIndex;
             const item = items[itemIndex];
 

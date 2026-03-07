@@ -52,7 +52,7 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
         if (req.method !== 'GET' && req.method !== 'HEAD') {
             try {
                 body = JSON.stringify(await req.json());
-            } catch (e) {
+            } catch {
                 console.warn('[Passkey Proxy] No JSON body found or parsing failed');
             }
         }
@@ -85,10 +85,10 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[Passkey Proxy] Internal Error:', error);
         return NextResponse.json(
-            { error: 'Proxy Error', details: error.message },
+            { error: 'Proxy Error', details: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 }
         );
     }

@@ -21,9 +21,9 @@ import { Message, ReasoningStep } from '@/types/chat';
 interface MessageItemProps {
     message: Message;
     typingMessage?: string;
-    sessionId: string;
+    sessionId?: string; // made optional
     onImageClick: (imageUrl: string) => void;
-    onFormSubmit?: (data: any) => void;
+    onFormSubmit?: (data: unknown) => void;
 }
 
 /**
@@ -31,15 +31,17 @@ interface MessageItemProps {
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, sessionId, onImageClick, onFormSubmit }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, onImageClick, onFormSubmit }) => {
     const { user } = useAuth();
 
     // Helper: Extract text from both old (content) and new (parts[]) formats
     const getMessageText = (msg: Message): string => {
         if (msg.parts && Array.isArray(msg.parts)) {
             return msg.parts
-                .filter((part) => part.type === 'text')
-                .map((part) => part.text)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .filter((part: any) => part.type === 'text')
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((part: any) => part.text)
                 .join('');
         }
         if (typeof msg.content === 'string') return msg.content;
@@ -54,9 +56,10 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
         }
         if (msg.parts && Array.isArray(msg.parts)) {
             return msg.parts
-                .filter((part) => part.type === 'tool-invocation')
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .map((part) => (part as any).toolInvocation);
+                .filter((part: any) => part.type === 'tool-invocation')
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((part: any) => part.toolInvocation);
         }
         return [];
     };

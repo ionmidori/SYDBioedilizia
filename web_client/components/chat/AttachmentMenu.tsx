@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Video, Image, X } from 'lucide-react';
+import { Camera, Video, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface AttachmentMenuProps {
@@ -149,7 +149,7 @@ export function AttachmentMenu({
                         role="menuitem"
                     >
                         <div className="p-2 bg-luxury-gold/10 rounded-full text-luxury-gold group-hover:bg-luxury-gold group-hover:text-luxury-bg transition-colors">
-                            <Image className="w-4 h-4" />
+                            <ImageIcon className="w-4 h-4" />
                         </div>
                         <div className="flex flex-col">
                             <span className="text-sm font-medium text-luxury-text">Galleria</span>

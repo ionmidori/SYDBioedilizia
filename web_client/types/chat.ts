@@ -8,8 +8,8 @@ export interface ToolInvocation {
     toolCallId: string;
     toolName: string;
     state: 'call' | 'result';
-    args: any;
-    result?: any;
+    args: unknown;
+    result?: unknown;
 }
 
 export interface Attachment {
@@ -47,7 +47,7 @@ export interface Message {
     /**
      * Vercel AI SDK Data Protocol Parts (Text/Image/Tool/Reasoning)
      */
-    parts?: any[];
+    parts?: unknown[];
     attachments?: {
         images?: string[];
         videos?: string[];
@@ -75,5 +75,5 @@ export interface UseDraggableButtonReturn {
     constraints: DragConstraints;
     isDragging: boolean;
     handleDragStart: () => void;
-    handleDragEnd: (event: any, info: any) => void;
+    handleDragEnd: (event: unknown, info: unknown) => void;
 }

@@ -72,3 +72,18 @@ def test_terminate_action():
         confidence_score=1.0
     )
     assert step.action == "terminate"
+
+def test_extra_fields_forbidden():
+    """Test that extra fields in input models are forbidden (Parameter Pollution)."""
+    from src.api.update_metadata import UpdateMetadataRequest
+    
+    # This should raise a validation error because we injected an extra 'malicious_field'
+    with pytest.raises(ValidationError) as excinfo:
+        UpdateMetadataRequest(
+            project_id="test-123",
+            file_path="renders/test.jpg",
+            malicious_field="DROP TABLE users;"
+        )
+    
+    # Check that the error explicitly mentions extra fields
+    assert "Extra inputs are not permitted" in str(excinfo.value) or "extra" in str(excinfo.value).lower()

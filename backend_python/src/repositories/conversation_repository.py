@@ -29,7 +29,8 @@ class ConversationRepository:
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
         tool_call_id: Optional[str] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None
+        attachments: Optional[List[Dict[str, Any]]] = None,
+        timestamp: Optional[datetime] = None
     ) -> None:
         """Save a message to Firestore with tool support and media attachments."""
         try:
@@ -45,7 +46,7 @@ class ConversationRepository:
             message_data = {
                 'role': role,
                 'content': content,
-                'timestamp': firestore.SERVER_TIMESTAMP,
+                'timestamp': timestamp if timestamp else firestore.SERVER_TIMESTAMP,
             }
             
             if metadata:
@@ -61,11 +62,11 @@ class ConversationRepository:
                 message_data['attachments'] = attachments
             
             # Add to messages subcollection
-            db.collection('sessions').document(session_id).collection('messages').add(message_data)
+            await db.collection('sessions').document(session_id).collection('messages').add(message_data)
             
             # Update session metadata
             session_ref = db.collection('sessions').document(session_id)
-            session_doc = session_ref.get()
+            session_doc = await session_ref.get()
             
             session_update = {
                 'updatedAt': firestore.SERVER_TIMESTAMP,
@@ -76,7 +77,7 @@ class ConversationRepository:
             if not session_doc.exists:
                 session_update['createdAt'] = firestore.SERVER_TIMESTAMP
                 
-            session_ref.set(session_update, merge=True)
+            await session_ref.set(session_update, merge=True)
             
             logger.info(f"[Repo] Saved {role} message to session {session_id}")
             
@@ -157,8 +158,9 @@ class ConversationRepository:
                 
                 # Sync to Projects collection
                 project_ref = db.collection('projects').document(session_id)
-                if not project_ref.get().exists:
-                    project_ref.set({
+                project_snap = await project_ref.get()
+                if not project_snap.exists:
+                    await project_ref.set({
                         'id': session_id,
                         'name': 'Nuovo Progetto', 
                         'userId': owner_id,
@@ -172,18 +174,20 @@ class ConversationRepository:
                 session_data = doc.to_dict()
                 current_owner = session_data.get('userId', '')
                 if user_id and current_owner.startswith('guest_'):
-                    session_ref.update({'userId': user_id, 'updatedAt': firestore.SERVER_TIMESTAMP})
+                    await session_ref.update({'userId': user_id, 'updatedAt': firestore.SERVER_TIMESTAMP})
                     # Also update project
                     project_ref = db.collection('projects').document(session_id)
-                    if project_ref.get().exists:
-                        project_ref.update({'userId': user_id, 'updatedAt': firestore.SERVER_TIMESTAMP})
+                    project_snap = await project_ref.get()
+                    if project_snap.exists:
+                        await project_ref.update({'userId': user_id, 'updatedAt': firestore.SERVER_TIMESTAMP})
                     logger.info(f"[Repo] 🔄 CLAIM: Session {session_id} migrated from {current_owner} to {user_id}")
                 
                 # Backfill check
                 project_ref = db.collection('projects').document(session_id)
-                if not project_ref.get().exists:
+                project_snap = await project_ref.get()
+                if not project_snap.exists:
                      session_data = doc.to_dict()
-                     project_ref.set({
+                     await project_ref.set({
                         'id': session_id,
                         'name': session_data.get('title', 'Progetto Recuperato'), 
                         'userId': session_data.get('userId', user_id or 'unknown'),
@@ -210,7 +214,7 @@ class ConversationRepository:
             files_ref = db.collection('projects').document(project_id).collection('files')
             
             # Check for existing
-            existing_docs = files_ref.where('url', '==', file_data['url']).limit(1).get()
+            existing_docs = await files_ref.where('url', '==', file_data['url']).limit(1).get()
             if len(existing_docs) > 0:
                 logger.debug(f"[Repo] File already exists: {file_data.get('name')}")
                 return
@@ -227,7 +231,7 @@ class ConversationRepository:
                 'thumbnailUrl': file_data.get('thumbnailUrl')
             }
             
-            files_ref.add(doc_data)
+            await files_ref.add(doc_data)
             logger.info(f"[Repo] 🖼️ Saved file metadata: {doc_data['name']}")
             
             # Trigger sync (Coupled for now)

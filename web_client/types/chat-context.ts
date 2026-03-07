@@ -1,5 +1,6 @@
 import { UIMessage as Message } from 'ai'; // Vercel AI SDK Type
 import { FormEvent, ChangeEvent } from 'react';
+import type { Attachment } from '@/types/chat';
 
 /**
  * Global Chat Context Interface
@@ -66,7 +67,7 @@ export interface ChatContextType {
      * Send a message with optional attachments and metadata.
      * Flexible alternative to submitMessage.
      */
-    sendMessage: (content: string, attachments?: any[], data?: any) => Promise<void>;
+    sendMessage: (content: string, attachments?: any[], data?: Record<string, unknown>) => Promise<void>;
 
     /**
      * Reload the last message (retry).
@@ -92,6 +93,5 @@ export interface ChatContextType {
     /**
      * Data stream from the AI (used for status updates, protocol v2).
      */
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data?: any[];
+    data?: unknown[];
 }

@@ -14,28 +14,33 @@ logger = logging.getLogger(__name__)
 # --- 1. MODELLI DATI (Struttura Vettoriale) ---
 
 class CadPoint(BaseModel):
+    model_config = {"extra": "forbid"}
     x: int
     y: int
 
 class CadWall(BaseModel):
+    model_config = {"extra": "forbid"}
     id: str
     start: CadPoint
     end: CadPoint
     thickness_pixels: int = 10
 
 class CadOpening(BaseModel):
+    model_config = {"extra": "forbid"}
     type: str = Field(..., description="'door' or 'window'")
     wall_id: str
     position_pixels: CadPoint
     width_pixels: int
 
 class ScaleReference(BaseModel):
+    model_config = {"extra": "forbid"}
     description: str
     pixel_width: float
     real_width_cm: float
 
 class CadVectorData(BaseModel):
     """Output strutturato dall'analisi AI della planimetria"""
+    model_config = {"extra": "forbid"}
     scale_reference: Optional[ScaleReference] = None
     walls: List[CadWall]
     openings: List[CadOpening]

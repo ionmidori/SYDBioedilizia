@@ -6,6 +6,7 @@ class UserSession(BaseModel):
     Strict typing for authenticated user sessions.
     Replaces loose dicts from jwt_handler.
     """
+    model_config = {"extra": "forbid"}
     uid: str
     email: str | None = None
     is_authenticated: bool = False

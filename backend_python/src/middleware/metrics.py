@@ -1,62 +1,80 @@
 """
-Metrics Middleware for Performance Monitoring
+Metrics Middleware for Performance Monitoring (Raw ASGI)
 
 Tracks request metrics and logs them in JSON format for observability.
 Integrates with the existing Request ID system for request correlation.
+
+⚠️  CRITICAL: Uses raw ASGI protocol, NOT @app.middleware("http").
+The function-based middleware internally uses BaseHTTPMiddleware which
+buffers streaming response bodies into memory before returning, breaking
+StreamingResponse for /chat/stream.
+See: https://www.starlette.io/middleware/#limitations
 """
 
 import time
 import logging
-from fastapi import Request
+from starlette.types import ASGIApp, Receive, Scope, Send
 from src.core.context import get_request_id
 from src.core.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-async def metrics_middleware(request: Request, call_next):
+class MetricsMiddleware:
     """
-    Middleware to track request metrics and log performance data.
-    
-    Args:
-        request: FastAPI Request object
-        call_next: Next middleware/handler in the chain
-        
-    Returns:
-        Response object with added metrics
+    Raw ASGI middleware that tracks request duration and logs metrics.
+
+    Unlike the previous function-based middleware (@app.middleware("http")),
+    this does NOT buffer the response body. Duration is measured from request
+    start to the first response body chunk being sent (time-to-first-byte),
+    which is more meaningful for streaming endpoints anyway.
     """
-    start_time = time.time()
-    
-    # Process request
-    response = await call_next(request)
-    
-    # Calculate duration
-    duration_ms = (time.time() - start_time) * 1000
-    
-    # Extract upload-specific metrics if present
-    extra_metrics = {}
-    if "/upload/" in request.url.path:
-        # These will be set by upload handlers via response headers
-        if "X-Upload-File-Size" in response.headers:
-            extra_metrics["file_size_bytes"] = int(response.headers["X-Upload-File-Size"])
-        if "X-Upload-Mime-Type" in response.headers:
-            extra_metrics["mime_type"] = response.headers["X-Upload-Mime-Type"]
-    
-    # Log metrics with structured data
-    logger.info(
-        "request_completed",
-        extra={
-            "method": request.method,
-            "path": request.url.path,
-            "status_code": response.status_code,
-            "duration_ms": round(duration_ms, 2),
-            "request_id": get_request_id(),
-            "client_host": request.client.host if request.client else "unknown",
-            **extra_metrics
-        }
-    )
-    
-    # Add duration header for client debugging
-    response.headers["X-Response-Time"] = f"{round(duration_ms, 2)}ms"
-    
-    return response
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        start_time = time.time()
+        status_code = 200
+        first_body_sent = False
+
+        async def send_with_metrics(message):
+            nonlocal status_code, first_body_sent
+
+            if message["type"] == "http.response.start":
+                status_code = message.get("status", 200)
+                # Inject X-Response-Time header
+                duration_ms = round((time.time() - start_time) * 1000, 2)
+                headers = list(message.get("headers", []))
+                headers.append(
+                    (b"x-response-time", f"{duration_ms}ms".encode())
+                )
+                message = {**message, "headers": headers}
+
+            if message["type"] == "http.response.body" and not first_body_sent:
+                first_body_sent = True
+                duration_ms = round((time.time() - start_time) * 1000, 2)
+                path = scope.get("path", "")
+                method = scope.get("method", "")
+                client = scope.get("client")
+                client_host = client[0] if client else "unknown"
+
+                logger.info(
+                    "request_completed",
+                    extra={
+                        "method": method,
+                        "path": path,
+                        "status_code": status_code,
+                        "duration_ms": duration_ms,
+                        "request_id": get_request_id(),
+                        "client_host": client_host,
+                    }
+                )
+
+            await send(message)
+
+        await self.app(scope, receive, send_with_metrics)
+

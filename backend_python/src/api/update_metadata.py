@@ -20,6 +20,8 @@ _ALLOWED_PATH_PREFIXES = ("renders/", "user-uploads/", "projects/")
 
 class UpdateMetadataRequest(BaseModel):
     """Request body for metadata update."""
+    model_config = {"extra": "forbid"}
+
     project_id: str = Field(..., min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     file_path: str = Field(..., min_length=1, max_length=512)
     room: Optional[str] = Field(None, max_length=100)

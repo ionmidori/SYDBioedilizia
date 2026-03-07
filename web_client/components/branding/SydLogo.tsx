@@ -1,6 +1,6 @@
 'use client';
 
-export function SydLogo({ className = "", showSubtitle = true }: { className?: string, showSubtitle?: boolean }) {
+export function SydLogo({ className = "" }: { className?: string, showSubtitle?: boolean }) {
     return (
         <div className={`flex items-center gap-3 ${className}`}>
             {/* Metallic Bars with clean look */}

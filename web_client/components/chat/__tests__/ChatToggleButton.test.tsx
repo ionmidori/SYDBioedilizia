@@ -12,7 +12,7 @@ describe('ChatToggleButton', () => {
     });
 
     it('should show avatar when isOpen is false', () => {
-        const { container } = render(<ChatToggleButton {...defaultProps} />);
+        render(<ChatToggleButton {...defaultProps} />);
 
         // Avatar image should be visible
         const avatar = screen.getByAltText(/chat/i);

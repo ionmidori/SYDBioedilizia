@@ -4,6 +4,8 @@ import React from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+import Link from 'next/link';
+
 /**
  * Root Error Boundary
  * 
@@ -70,10 +72,10 @@ export default function Error({
                         variant="outline"
                         className="px-8 py-6 border-luxury-gold/30 hover:bg-luxury-gold/10 text-luxury-text font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
-                        <a href="/">
+                        <Link href="/">
                             <Home className="w-5 h-5" />
                             Torna alla Home
-                        </a>
+                        </Link>
                     </Button>
                 </div>
             </div>

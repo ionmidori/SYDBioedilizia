@@ -1,8 +1,21 @@
-- **Last Updated**: 2026-03-06T14:30:00Z
-- **Current Version**: `v4.0.5` (Security Audit & Prompt Injection Defense)
-- **Last Major Sync**: 2026-03-06
-- **Status**: `Production-Ready — Secure & Fast`
+- **Last Updated**: 2026-03-07T10:30:00Z
+- **Current Version**: `v4.0.10` (Chronological Anchor & Tool Streaming)
+- **Last Major Sync**: 2026-03-07
+- **Status**: `Production-Ready — Inversion Fixed & Streaming Validated`
 - **Next High Priority**: 1) Dynamic Robot Mascot | 2) Unify Dashboard Loaders (SydLoader) | 3) ADK Session cleanup cron (GDPR retention)
+
+- **Phase 57 (Mar 07, 2026):** **Chronological Anchor & Tool Streaming (v4.0.10)**:
+    - **Message Inversion Fix**: Implemented the "Chronological Anchor" by moving Firestore user message persistence to the FastAPI route handler (`main.py`) BEFORE initiating the `StreamingResponse`. This guarantees strictly sequential timestamps (User < Assistant).
+    - **Tool Streaming**: Updated `ADKOrchestrator` to stop filtering tool events. It now properly streams `tool_call` and `tool_result` protocol chunks, fixing the issue where the bot appeared to stall during rendering.
+    - **Visual Feedback**: Integrated `stream_status` triggers for prominent tools (e.g., "Syd sta generando il rendering...") to provide real-time UI feedback.
+    - **Backend Stability**: Fixed a `NameError` in `main.py` related to `BackgroundTasks` that was blocking server reloads.
+    - **ADK Hardening**: Improved `VertexAiSessionService` logging to track "Auth injection" visibility per request.
+
+- **Phase 55 (Mar 06, 2026):** **Golden Sync & Data Validation (v4.0.6)**:
+    - **Backend Strict Mode**: Injected `model_config = {"extra": "forbid"}` (or `"ignore"`) across all 64 Pydantic `BaseModel` classes to prevent Parameter Pollution. Added validation tests to `test_pydantic_guards.py` verifying HTTP 422 rejections.
+    - **Frontend Zod Inference**: Replaced manual TypeScript interface definitions in `web_client/types/projects.ts` with `z.infer<typeof ...>` to guarantee 1:1 schema parity with the backend.
+    - **API Hardening**: Implemented `fetchValidated` and `withValidation` wrappers in `lib/api-client.ts` to ensure runtime parsing of all API responses and Server Actions using Zod.
+
 - **Phase 54 (Mar 06, 2026):** **Security Audit & Sandwich Defense Bypass Fix (v4.0.5)**:
     - **Prompt Injection Defense**: Fixed an architectural vulnerability in the "Sandwich Defense" implementation. Sanitizer now actively neutralizes `###` boundary markers in user input, and `ADKOrchestrator` explicitly wraps input in boundaries before passing to the model.
     - **Test Suite Modernization**: Migrated `test_gallery_tool.py`, `test_project_files_tool.py`, and `test_quote_routes.py` away from legacy LangGraph assertions towards the new ADK Architecture, fixing 15 failing tests. Now 178/178 backend tests pass.
@@ -45,21 +58,19 @@
 
 # PROJECT_CONTEXT_SUMMARY.md
 
-**Current Version:** v4.0.5
-**Last Updated:** 2026-03-06T14:30:00Z
-**Project Phase:** Phase 54 - Security Audit & Prompt Injection Defense
+**Current Version:** v4.0.10
+**Last Updated:** 2026-03-07T10:30:00Z
+**Project Phase:** Phase 57 - Chronological Anchor & Tool Streaming
 
 ---
 
-## RECENT FIXES & UPDATES (v4.0.5)
-1. **Prompt Injection Defense**: Implemented robust Sandwich Defense by catching delimiter spoofing and wrapping requests centrally.
-2. **Unit Tests Restored**: Fixed 15 remaining broken integration tests caused by the LangGraph to ADK phase 4 migration. Backend coverage is 100% passing.
-3. **UI Polish**: Reduced biometric button shimmer intensity and adjusted Navbar alignment on Desktop.
-4. **Latency Optimized**: User message persistence is now a non-blocking background task.
-5. **Parallel Fetching**: Media URLs are fetched concurrently via `asyncio.gather`.
-6. **Local Persistence**: `ConversationRepository` integrated into ADK Orchestrator for local dev stability.
-7. **Streaming Protocol**: Backend uses Data Stream Protocol v1 (text/plain).
-8. **CRITICAL RULE**: ALL middlewares in `main.py` MUST be raw ASGI classes. NEVER use BaseHTTPMiddleware.
+### RECENT FIXES & UPDATES (v4.0.10)
+1. **Chronological Anchor**: Moved user message saving to `main.py` BEFORE streaming, guaranteeing correct UI message order.
+2. **Tool Streaming**: ADK results for rendering and pricing are now streamed in real-time, preventing bot silence.
+3. **Visual Feedback**: Added "Syd sta generando..." status indicators for long-running AI tools.
+4. **Reload Fix**: Fixed `NameError` in `main.py` to allow the backend to update correctly on code changes.
+5. **Prompt Injection Defense**: (v4.0.5) Implemented robust Sandwich Defense by catching delimiter spoofing.
+6. **Unit Tests Restored**: (v4.0.5) All 178/178 backend tests passing.
 
 ### Streaming Protocol (confirmed v4.0.3)
 | Layer | Header | Format |

@@ -12,11 +12,11 @@ describe('useSessionId', () => {
 
         expect(result.current).toBeDefined();
         expect(typeof result.current).toBe('string');
-        expect(result.current).toMatch(/^session-\d+-[a-z0-9]+$/);
+        expect(result.current).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it('should restore session ID from localStorage', () => {
-        const existingSessionId = 'session-12345-abc';
+        const existingSessionId = 'abcd1234-abcd-abcd-abcd-abcdef123456';
         localStorage.setItem('chatSessionId', existingSessionId);
 
         const { result } = renderHook(() => useSessionId());

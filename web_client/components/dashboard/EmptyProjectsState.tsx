@@ -19,7 +19,7 @@ export function EmptyProjectsState({ onCreate }: EmptyProjectsStateProps) {
                 Nessun progetto attivo
             </h3>
             <p className="text-luxury-text/60 max-w-sm mb-6">
-                Inizia la tua ristrutturazione creando il tuo primo progetto. L'IA ti guiderà passo dopo passo.
+                Inizia la tua ristrutturazione creando il tuo primo progetto. L&apos;IA ti guiderà passo dopo passo.
             </p>
             <button
                 onClick={onCreate}

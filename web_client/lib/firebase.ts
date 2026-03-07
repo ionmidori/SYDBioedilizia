@@ -70,13 +70,19 @@ if (typeof window !== 'undefined') {
             console.error('[Firebase] ❌ App Check initialization FAILED: NEXT_PUBLIC_RECAPTCHA_SITE_KEY is missing!');
         } else {
             try {
-                // @ts-ignore - Check if already initialized via global flag
+                // @ts-expect-error - Check if already initialized via global flag
                 if (!window._firebaseAppCheckInitialized) {
+                    // Enable Dev Debug Token
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+                        console.log('[Firebase] 🔧 App Check Debug mode enabled for localhost');
+                    }
+
                     appCheck = initializeAppCheck(app, {
                         provider: new ReCaptchaV3Provider(siteKey),
                         isTokenAutoRefreshEnabled: true
                     });
-                    // @ts-ignore - Mark as initialized
+                    // @ts-expect-error - Mark as initialized
                     window._firebaseAppCheckInitialized = true;
                     console.log('[Firebase] ✅ App Check initialized');
                 }

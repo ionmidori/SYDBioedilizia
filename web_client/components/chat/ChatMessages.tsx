@@ -2,12 +2,9 @@ import React, { RefObject } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { MessageItem } from '@/components/chat/MessageItem';
-import { ReasoningStepView } from '@/components/chat/ReasoningStepView';
-import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
-// import { ThinkingSurface } from '@/components/chat/ThinkingSurface'; // Deferred
-import { ToolStatus } from '@/components/chat/ToolStatus';
 import { Message } from '@/types/chat'; // ✅ Message interface compatible with AI SDK
 import { ReasoningStep } from '@/types/reasoning'; // 🔥 CoT Types
+import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
 
 interface ChatMessagesProps {
     messages: Message[];
@@ -20,11 +17,11 @@ interface ChatMessagesProps {
     statusMessage?: string | null;
 
     // 🔥 NEW: CoT Data Stream
-    data?: any[];
+    data?: unknown[];
 
     messagesContainerRef: RefObject<HTMLDivElement>;
     messagesEndRef: RefObject<HTMLDivElement>;
-    onFormSubmit?: (data: any) => void;
+    onFormSubmit?: (data: unknown) => void;
 }
 
 const scrollStyle = { WebkitOverflowScrolling: 'touch' as const };
@@ -47,13 +44,14 @@ const ChatMessagesComponent = ({
         if (!data || data.length === 0) return null;
         // Search backwards for the last "reasoning" event
         for (let i = data.length - 1; i >= 0; i--) {
-            const item = data[i] as any;
+            const item = data[i] as { type?: string; data?: unknown };
             if (item && item.type === 'reasoning') {
                 return item.data as ReasoningStep;
             }
         }
         return null;
     }, [data]);
+
 
     return (
         <div

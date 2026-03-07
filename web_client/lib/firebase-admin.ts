@@ -1,6 +1,8 @@
 import { initializeApp, cert, getApps, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage, Storage } from 'firebase-admin/storage';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
  * Firebase Admin SDK initialization for server-side operations
@@ -110,9 +112,6 @@ export function initializeFirebase(): App {
             }
 
             // Fallback to JSON file (local development)
-            const fs = require('fs');
-            const path = require('path');
-
             const serviceAccountPath = path.join(process.cwd(), 'firebase-service-account.json');
 
             console.log('[Firebase] Loading credentials from:', serviceAccountPath);

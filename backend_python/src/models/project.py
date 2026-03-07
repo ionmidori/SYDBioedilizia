@@ -40,7 +40,7 @@ class Address(BaseModel):
     city: str = Field(..., min_length=1, max_length=100, description="City name")
     zip: str = Field(..., min_length=1, max_length=20, description="Postal code")
 
-    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True, use_enum_values=True)
 
 
 class ProjectDetails(BaseModel):
@@ -61,11 +61,12 @@ class ProjectDetails(BaseModel):
         """Serialize enum to its string value for JSON."""
         return value.value
 
-    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True, use_enum_values=True)
 
 
 class ProjectBase(BaseModel):
     """Base fields editable by user."""
+    model_config = {"extra": "forbid"}
     title: str = Field(default="Nuovo Progetto", max_length=100, description="Project display name")
 
 
@@ -76,6 +77,7 @@ class ProjectCreate(ProjectBase):
 
 class ProjectUpdate(BaseModel):
     """Request body for updating project metadata."""
+    model_config = {"extra": "forbid"}
     title: Optional[str] = Field(None, max_length=100)
     status: Optional[ProjectStatus] = None
     thumbnail_url: Optional[str] = None
@@ -135,11 +137,12 @@ class ProjectListItem(BaseModel):
             dt = dt.replace(tzinfo=timezone.utc)
         return dt.isoformat().replace("+00:00", "Z")
 
-    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+    model_config = ConfigDict(extra="forbid", from_attributes=True, use_enum_values=True)
 
 
 class ProjectFileMetadata(BaseModel):
     """Metadata for an uploaded project file."""
+    model_config = {"extra": "forbid"}
     file_id: str = Field(..., description="Unique file ID (used as document ID)")
     url: str = Field(..., description="Download URL")
     name: str = Field(..., description="Original file name")

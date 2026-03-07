@@ -24,7 +24,7 @@ export async function POST(req: Request) {
         let decodedToken;
         try {
             decodedToken = await auth().verifyIdToken(authHeader.split('Bearer ')[1]);
-        } catch (_e) {
+        } catch {
             return NextResponse.json({ error: 'Invalid Token' }, { status: 401 });
         }
 

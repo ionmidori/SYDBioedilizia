@@ -13,7 +13,6 @@ import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { createStaggerVariants, M3Spring } from '@/lib/m3-motion';
-import { DebugLayout } from "@/components/DebugLayout";
 
 export default function DashboardPage() {
     const { user } = useAuth();
@@ -87,7 +86,7 @@ export default function DashboardPage() {
                 </h1>
                 <p className="text-luxury-text/50 font-sans text-xs md:text-sm max-w-2xl leading-relaxed">
                     Benvenuto nella tua centrale di controllo SYD. Da qui puoi monitorare lo stato dei tuoi cantieri,
-                    caricare nuovi documenti tecnici, generare render fotorealistici con l'IA e accedere
+                    caricare nuovi documenti tecnici, generare render fotorealistici con l&apos;IA e accedere
                     rapidamente ai tuoi progetti recenti dal carosello in basso.
                 </p>
             </motion.header>

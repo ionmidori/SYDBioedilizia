@@ -38,10 +38,10 @@ global.URL.revokeObjectURL = jest.fn();
 class MockXHR {
     static instances: MockXHR[] = [];
 
-    upload = { onprogress: null as any };
-    onload: any = null;
-    onerror: any = null;
-    onabort: any = null;
+    upload = { onprogress: null as ((ev: { lengthComputable: boolean; loaded: number; total: number }) => void) | null };
+    onload: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    onabort: (() => void) | null = null;
     status = 200;
     statusText = 'OK';
     responseText = '';
@@ -76,7 +76,7 @@ class MockXHR {
     }
 }
 
-(global as any).XMLHttpRequest = MockXHR;
+(global as unknown as { XMLHttpRequest: typeof MockXHR }).XMLHttpRequest = MockXHR;
 
 // =============================================================================
 // TESTS

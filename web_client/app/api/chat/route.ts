@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     try {
         // Extract request body
         const body = await req.json();
-        const { messages, images, imageUrls, mediaUrls, mediaTypes, mediaMetadata, sessionId } = body;
+        const { messages, images, imageUrls, mediaUrls, mediaTypes, mediaMetadata, sessionId, projectId, is_authenticated } = body;
 
         console.log('[Proxy] Request details:', {
             messagesCount: messages?.length || 0,
@@ -43,7 +43,9 @@ export async function POST(req: Request) {
             mediaUrlsCount: mediaUrls?.length || 0,
             mediaTypesCount: mediaTypes?.length || 0,
             hasMediaMetadata: !!mediaMetadata,
-            sessionId
+            sessionId,
+            projectId,
+            is_authenticated
         });
 
         // Validate sessionId
@@ -90,6 +92,8 @@ export async function POST(req: Request) {
         const pythonPayload = {
             messages: normalizedMessages,
             sessionId: sessionId,
+            projectId: projectId,
+            is_authenticated: is_authenticated || false,
             imageUrls: imageUrls || [],
             mediaUrls: mediaUrls || [],
             mediaTypes: mediaTypes || [],
@@ -137,49 +141,66 @@ export async function POST(req: Request) {
             const errorText = await pythonResponse.text();
             console.error('[Proxy] Python backend error:', pythonResponse.status, errorText);
 
+            // Parse structured error from backend (APIErrorResponse format)
+            let errorCode = 'BACKEND_ERROR';
+            let userMessage = 'Si è verificato un errore. Riprova tra poco.';
+
+            try {
+                const parsed = JSON.parse(errorText);
+                errorCode = parsed.error_code || errorCode;
+                // Only forward safe, structured messages — never raw stack traces
+                if (parsed.message) userMessage = parsed.message;
+            } catch {
+                // errorText is not JSON — don't expose raw backend output
+            }
+
+            const responseHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+
+            // Forward Retry-After header for 429 responses
+            const retryAfter = pythonResponse.headers.get('Retry-After');
+            if (pythonResponse.status === 429 && retryAfter) {
+                responseHeaders['Retry-After'] = retryAfter;
+            }
+
             return new Response(JSON.stringify({
-                error: 'Backend Error',
-                details: errorText,
-                status: pythonResponse.status
+                error_code: errorCode,
+                message: userMessage,
             }), {
                 status: pythonResponse.status,
-                headers: { 'Content-Type': 'application/json' }
+                headers: responseHeaders,
             });
         }
 
         console.log('[Proxy] ✅ Streaming response from Python backend');
 
-        // 🛠️ MANUAL STREAM BRIDGE
-        // We manually read the stream to ensure the controller closes immediately
-        // when the upstream reader is done, preventing socket timeout delays.
-        const reader = pythonResponse.body?.getReader();
-        if (!reader) {
-            throw new Error("Failed to get reader from Python response");
-        }
+        // Tee the stream: log chunks AND forward to client
+        // This helps diagnose if data is flowing through the proxy correctly
+        const { readable: clientStream, writable } = new TransformStream();
+        const writer = writable.getWriter();
 
-        const stream = new ReadableStream({
-            async start(controller) {
-                try {
-                    while (true) {
-                        const { done, value } = await reader.read();
-                        if (done) {
-                            controller.close();
-                            break;
-                        }
-                        controller.enqueue(value);
+        (async () => {
+            try {
+                const reader = pythonResponse.body!.getReader();
+                let totalChunks = 0;
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        console.log(`[Proxy] Stream complete (${totalChunks} chunks sent to client)`);
+                        await writer.close();
+                        break;
                     }
-                } catch (err) {
-                    console.error("[Proxy] Stream Error:", err);
-                    controller.error(err);
+                    totalChunks++;
+                    const text = new TextDecoder().decode(value);
+                    console.log(`[Proxy] Chunk ${totalChunks}: ${JSON.stringify(text)}`);
+                    await writer.write(value);
                 }
+            } catch (err) {
+                console.error('[Proxy] Stream error:', err);
+                await writer.abort(err);
             }
-        });
+        })();
 
-        // Return the manual stream
-        // AI SDK v6 / @ai-sdk/react v3 uses Data Stream Protocol:
-        // header: x-vercel-ai-data-stream: v1 (NOT ui-message-stream)
-        // body format: 0:"text chunk"\n (as produced by our backend stream_protocol.py)
-        return new Response(stream, {
+        return new Response(clientStream, {
             status: 200,
             headers: {
                 'Content-Type': 'text/plain; charset=utf-8',
@@ -189,6 +210,7 @@ export async function POST(req: Request) {
                 'Connection': 'keep-alive',
             },
         });
+
 
     } catch (error: unknown) {
         console.error('[Proxy] Error:', error);

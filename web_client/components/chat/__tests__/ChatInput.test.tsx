@@ -26,10 +26,10 @@ jest.mock('lucide-react', () => ({
 // Mock framer-motion
 jest.mock('framer-motion', () => ({
     motion: {
-        button: ({ children, ...props }: any) => <button {...props}>{children}</button>,
-        div: ({ children, ...props }: any) => <div {...props}>{children}</div>,
+        button: ({ children, ...props }: React.PropsWithChildren<React.ButtonHTMLAttributes<HTMLButtonElement>>) => <button {...props}>{children}</button>,
+        div: ({ children, ...props }: React.PropsWithChildren<React.HTMLAttributes<HTMLDivElement>>) => <div {...props}>{children}</div>,
     },
-    AnimatePresence: ({ children }: any) => <>{children}</>,
+    AnimatePresence: ({ children }: React.PropsWithChildren<unknown>) => <>{children}</>,
 }));
 
 // Mock haptics

@@ -20,12 +20,13 @@ from src.adk.tools import (
     suggest_quote_items_adk,
     trigger_n8n_webhook_adk,
     request_quote_approval_adk,
+    request_login_adk,
 )
 
 # ── Prompt Components ─────────────────────────────────────────────────────────
 # Import the battle-tested SYD prompt system (src/prompts/).
 # Each component was used on LangGraph production and is now preserved 1:1.
-from src.prompts.components.security import SECURITY_GUARDRAILS
+from src.prompts.components.security import SECURITY_GUARDRAILS, SECURITY_GUARDRAILS_TAIL
 from src.prompts.components.identity import (
     IDENTITY,
     CRITICAL_PROTOCOLS,
@@ -72,12 +73,13 @@ Sei SYD, consulente ristrutturazioni. Punto.
 """
 
 SYD_ORCHESTRATOR_INSTRUCTION = "\n\n".join([
-    SECURITY_GUARDRAILS,   # 🛡️ FIRST — LLM Sandwich Defense
+    SECURITY_GUARDRAILS,        # 🛡️ FIRST — LLM Sandwich Defense (top)
     IDENTITY,
     OUTPUT_RULES,
     CRITICAL_PROTOCOLS,
     _ORCHESTRATOR_ROUTING,
     PROTOCOL,
+    SECURITY_GUARDRAILS_TAIL,   # 🛡️ LAST — LLM Sandwich Defense (bottom)
 ])
 
 
@@ -114,11 +116,12 @@ Se l'utente non ha caricato un'immagine ma ne parla, chiedi SOLO: "Puoi caricare
 """
 
 TRIAGE_AGENT_INSTRUCTION = "\n\n".join([
-    SECURITY_GUARDRAILS,       # 🛡️ LLM Sandwich Defense
+    SECURITY_GUARDRAILS,        # 🛡️ LLM Sandwich Defense (top)
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
-    VIDEO_ANALYSIS_PROTOCOL,   # 🎬 Analisi video temporale
+    VIDEO_ANALYSIS_PROTOCOL,    # 🎬 Analisi video temporale
     _TRIAGE_SPECIFIC,
+    SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 
 
@@ -126,10 +129,11 @@ TRIAGE_AGENT_INSTRUCTION = "\n\n".join([
 # Responsibility: Full Mode A Designer workflow (render I2I + T2I, 5 phases).
 
 DESIGN_AGENT_INSTRUCTION = "\n\n".join([
-    SECURITY_GUARDRAILS,   # 🛡️ LLM Sandwich Defense
+    SECURITY_GUARDRAILS,        # 🛡️ LLM Sandwich Defense (top)
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
-    MODE_A_DESIGNER,       # Flusso completo 5 fasi render
+    MODE_A_DESIGNER,            # Flusso completo 5 fasi render
+    SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 
 
@@ -137,10 +141,11 @@ DESIGN_AGENT_INSTRUCTION = "\n\n".join([
 # Responsibility: Full Mode B Surveyor workflow (4 pillars, cross-sell, HITL).
 
 QUOTE_AGENT_INSTRUCTION = "\n\n".join([
-    SECURITY_GUARDRAILS,   # 🛡️ LLM Sandwich Defense
+    SECURITY_GUARDRAILS,        # 🛡️ LLM Sandwich Defense (top)
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
-    MODE_B_SURVEYOR,       # Flusso completo 4 pilastri preventivo
+    MODE_B_SURVEYOR,            # Flusso completo 4 pilastri preventivo
+    SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 
 
@@ -156,7 +161,7 @@ triage_agent = Agent(
 design_agent = Agent(
     name="design",
     model="gemini-2.5-flash",
-    tools=[generate_render_adk, list_project_files_adk, market_prices_adk],
+    tools=[generate_render_adk, list_project_files_adk, market_prices_adk, request_login_adk],
     instruction=DESIGN_AGENT_INSTRUCTION,
 )
 
@@ -169,6 +174,7 @@ quote_agent = Agent(
         suggest_quote_items_adk,
         trigger_n8n_webhook_adk,
         request_quote_approval_adk,
+        request_login_adk,
     ],
     instruction=QUOTE_AGENT_INSTRUCTION,
 )
@@ -177,5 +183,6 @@ syd_orchestrator = Agent(
     name="syd_orchestrator",
     model="gemini-2.5-flash",
     sub_agents=[triage_agent, design_agent, quote_agent],
+    tools=[request_login_adk],
     instruction=SYD_ORCHESTRATOR_INSTRUCTION,
 )

@@ -33,12 +33,12 @@ describe('useTypingIndicator', () => {
         act(() => {
             jest.advanceTimersByTime(3000);
         });
-        expect(result.current).toBe("Spostando pixel pesanti...");
+        expect(result.current).toBe("Spostando mobili immaginari...");
 
         act(() => {
             jest.advanceTimersByTime(3000);
         });
-        expect(result.current).toBe("Riscaldando i neuroni...");
+        expect(result.current).toBe("Litigando con l'idraulico virtuale...");
     });
 
     it('should stop cycling when loading ends', () => {

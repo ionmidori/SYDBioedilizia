@@ -26,7 +26,7 @@ export const statsApi = {
         const data = await response.json();
         return {
             ...data,
-            recentActivity: data.recentActivity.map((item: any) => ({
+            recentActivity: data.recentActivity.map((item: Omit<ActivityItem, 'timestamp'> & { timestamp: string | number | Date }) => ({
                 ...item,
                 timestamp: new Date(item.timestamp)
             }))

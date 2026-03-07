@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
-import { app } from '@/lib/firebase';
 
 /**
  * Global App Check Provider

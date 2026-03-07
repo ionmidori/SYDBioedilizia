@@ -10,11 +10,13 @@ from src.services.pricing_service import PricingService
 logger = logging.getLogger(__name__)
 
 class SKUItemSuggestion(BaseModel):
+    model_config = {"extra": "forbid"}
     sku: str = Field(..., description="The SKU from the Master Price Book")
     qty: float = Field(..., description="Estimated quantity")
     ai_reasoning: str = Field(..., description="Why this item is necessary based on the chat/images")
 
 class InsightAnalysis(BaseModel):
+    model_config = {"extra": "forbid"}
     suggestions: List[SKUItemSuggestion]
     summary: str = Field(..., description="A brief summary of the project requirements identified")
 

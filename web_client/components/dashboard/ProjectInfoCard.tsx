@@ -1,4 +1,4 @@
-import { Project, ProjectDetails } from "@/types/projects";
+import { Project } from "@/types/projects";
 import { Button } from "@/components/ui/button";
 import {
     MapPin,
