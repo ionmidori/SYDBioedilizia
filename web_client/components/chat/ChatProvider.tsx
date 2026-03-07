@@ -370,11 +370,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             // request-level options here override/extend them.
             const requestBody = {
                 ...data,
-                experimental_attachments: attachments,
             };
 
             await sdkSendMessage(
-                { role: 'user', content: trimmed } as any,
+                { text: trimmed },
                 { body: requestBody }
             );
         } catch (err) {

@@ -535,10 +535,11 @@ async def chat_stream(
     from datetime import datetime, timezone
     
     repo = get_conversation_repository()
-    # Extract last user message
-    user_msg_text = body.message
-    if not user_msg_text and body.messages:
-        user_msg_text = body.messages[-1].content
+    # Extract last user message from the messages array
+    user_msg_text = ""
+    if body.messages:
+        last_content = body.messages[-1].content
+        user_msg_text = last_content if isinstance(last_content, str) else str(last_content)
     
     try:
         await repo.ensure_session(body.session_id, user_session.uid)

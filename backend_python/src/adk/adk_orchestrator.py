@@ -89,9 +89,9 @@ class ADKOrchestrator(BaseOrchestrator):
         async for chunk in stream_status("Syd sta analizzando la tua richiesta..."):
             yield chunk
 
-        # Handle message extraction (works with both request.message or request.messages[-1].content)
-        user_message_text = getattr(request, "message", None)
-        if not user_message_text and hasattr(request, "messages") and request.messages:
+        # Extract user message from the messages array
+        user_message_text = ""
+        if hasattr(request, "messages") and request.messages:
             last_msg_content = request.messages[-1].content
             user_message_text = last_msg_content if isinstance(last_msg_content, str) else str(last_msg_content)
             
@@ -139,9 +139,6 @@ class ADKOrchestrator(BaseOrchestrator):
                 logger.error(f"Failed to fetch media {url}: {e}")
                 return None
 
-        # Prepare concurrent fetching
-        media_tasks = [fetch_media(i, url) for i, url in enumerate(media_urls)]
-        
         # Handle Video File API URIs (local check, no download)
         for uri in video_uris:
             try:
@@ -152,7 +149,7 @@ class ADKOrchestrator(BaseOrchestrator):
                 pass
 
         # Execute parallel fetch using TaskGroup (Python 3.12+): auto-cancels on exception
-        if media_tasks:
+        if media_urls:
             logger.info(f"[ADK] Parallel fetching {len(media_urls)} media items...")
             async with asyncio.TaskGroup() as tg:
                 task_objs = [tg.create_task(fetch_media(i, url)) for i, url in enumerate(media_urls)]
@@ -254,6 +251,7 @@ class ADKOrchestrator(BaseOrchestrator):
                 if full_response:
                     try:
                         from datetime import datetime, timezone
+                        repo = get_conversation_repository()
                         await repo.save_message(
                             session_id=session_id,
                             role="assistant",
