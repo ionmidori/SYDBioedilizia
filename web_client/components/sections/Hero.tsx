@@ -123,7 +123,7 @@ export function Hero() {
                     </h1>
 
                     <p className="text-lg md:text-xl text-luxury-text/80 mb-10 max-w-xl leading-relaxed font-light">
-                        Ristruttura il tuo appartamento in maniera tradizionale o in bioedilizia. Dall&apos;idea alla realtà in pochi click. Ottieni preventivi istantanei, visualizzazioni 3D fotorealistiche e un team di esperti pronto a realizzare il tuo progetto.
+                        Ristruttura il tuo appartamento in maniera tradizionale o in bioedilizia. Dall&apos;idea alla realtà in pochi click. Ottieni preventivi veloci, visualizzazioni 3D fotorealistiche e un team di esperti pronto a realizzare il tuo progetto.
                     </p>
 
                     {/* Mobile Video - Between Text and Buttons */}

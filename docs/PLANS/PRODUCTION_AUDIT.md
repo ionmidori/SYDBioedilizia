@@ -16,12 +16,12 @@ Questo documento rappresenta l'audit definitivo e la checklist professionale pri
 
 ### Tier 2: Frontend UI (Next.js 16)
 - [x] **RSC by Default:** Verificato (2026-03-07). `"use client"` presente solo su 4 pagine `app/` genuinamente interattive (auth/verify, cookie-policy, privacy, terms) + 23 componenti foglia in `components/`. Le pagine dashboard, home, maintenance sono Server Components per default. Pattern corretto.
-- [ ] **Bundle Size:** Assicurarsi che le librerie pesanti di animazione (Framer Motion) siano lazy-loaded o ottimizzate (`m3-motion.ts`).
-- [ ] **UI Non-Bloccante:** Nessuna operazione di I/O o fetch sincrona nei client components. Usa `useSWR` in combinazione con un caching esplicito `{ cache: 'force-cache' }` per dati immutabili.
-- [ ] **Image Optimization:** Confermare l'uso di `NextImage` con `priority` per gli asset LCP (Largest Contentful Paint) e conversioni in WebP/AVIF.
+- [x] **Bundle Size:** Verificato (2026-03-07). `next.config.ts` ha `optimizePackageImports` per framer-motion, lucide-react, date-fns, Radix UI, TanStack Query. Bundle analyzer configurato via `ANALYZE=true`. Punto 5 conferma: <150KB gzip per chunk.
+- [x] **UI Non-Bloccante:** Verificato (2026-03-07). Nessuna fetch sincrona in render path. TanStack Query (`useQuery`/`useMutation`) per server state. `fetch()` solo in event handlers asincroni. Nessun `await` diretto in component body.
+- [x] **Image Optimization:** Verificato (2026-03-07). `next/image` usato in tutti i componenti con immagini. `priority` settato su: `ArchitectAvatar`, `GalleryCard` (primi 3), `MessageItem` avatar. `remotePatterns` configurati per Firebase Storage, Unsplash, Google.
 
 ### Tier 3: Backend Execution (FastAPI)
-- [ ] **Screaming Architecture:** Confermare l'organizzazione delle route per Dominio in `src/api/routes`.
+- [x] **Screaming Architecture:** Verificato (2026-03-07). Route organizzate per dominio: `users_router`, `projects_router`, `passkey`, `upload`, `chat_history`, `reports`, `update_metadata`, `quote_routes`. Il prefisso `src/api/routes/` esiste per feature complesse (quote HITL). Pattern adeguato.
 - [x] **Async Hygiene:** Ogni operazione I/O è `async def`. Le persistente su Firestore sono state spostate in `BackgroundTasks` per non bloccare il TTFT dello stream.
 - [x] **Concorrenza Sicura:** Migrato (2026-03-07). `adk_orchestrator.py` media fetching ora usa `asyncio.TaskGroup` (Python 3.12+) invece di `asyncio.gather`. Auto-cancellazione in cascata in caso di eccezione. Nessun `asyncio.create_task` standalone trovato nel codebase.
 
@@ -87,9 +87,9 @@ Questo documento rappresenta l'audit definitivo e la checklist professionale pri
 - [x] **Multimodal Caps:** Tetto massimo di **5 immagini e 2 video** per singola richiesta chat per prevenire Denial of Wallet.
 
 ### GDPR & Data Retention
-- [ ] **"Elimina il mio Account":** Implementare un endpoint `/api/users/{uid}/delete` che rimuova tutti i PII associati (Firestore, Storage, Auth) in cascata. Requisito GDPR Art. 17 "Right to Erasure".
-- [ ] **Retention Policy Automatica:** Implementare un Cloud Function o cron job per eliminare sessioni chat e `usage_quotas` più vecchie di 30 giorni (GDPR data minimization).
-- [ ] **Cookie Consent Banner:** Per utenti EU, verificare la presenza di un banner GDPR compliant prima di inizializzare Firebase Analytics o altri tracker.
+- [x] **"Elimina il mio Account":** Implementato `DELETE /api/users/me` (2026-03-07). Rimuove in cascata: sessioni + messaggi (`sessions`), progetti + files (`projects`), leads, profilo utente (`users/{uid}`), account Firebase Auth. Errori Auth non-fatali (warning log). `src/db/users.py::delete_user_data()` + `src/api/users_router.py`.
+- [ ] **Retention Policy Automatica:** Da implementare come Cloud Function (Firestore TTL o cron). Elimina `sessions` e `usage_quotas` > 30gg. Fuori scope per CI/CD code — richiede setup Cloud Console.
+- [ ] **Cookie Consent Banner:** Assente (2026-03-07). Nessun banner GDPR trovato. La piattaforma non usa Firebase Analytics/Tracking al momento, ma va implementato prima del lancio EU.
 
 ### Health Checks Avanzati
 - [x] **Readiness Probe:** Implementato endpoint `/ready` (2026-03-07). Verifica connettività Firestore con timeout 5s via `run_in_executor`. Ritorna `{"status":"ready","checks":{"firestore":"ok"}}` o 503. Aggiunto a `AppCheckMiddleware._PUBLIC_PATHS`.
@@ -105,6 +105,32 @@ Questo documento rappresenta l'audit definitivo e la checklist professionale pri
 - [x] **Firebase Debug Token:** Verificato (2026-03-07). `firebase.ts` linea 76-79: il debug token è già correttamente guardato da `window.location.hostname === 'localhost' || '127.0.0.1'`. Non viene mai impostato in produzione.
 
 ### Observability Avanzata
-- [ ] **OpenTelemetry Sampling:** Integrare OpenTelemetry con sampling al 10% per distributed tracing cross-service (Next.js → FastAPI → Vertex AI).
-- [ ] **Error Budget Alerting:** Configurare alerting su Cloud Monitoring quando il tasso di errori 5xx supera l'1% su finestra di 5 minuti.
-- [ ] **Log-based Metrics:** Creare metriche derivate dai log JSON (es. `quota_exceeded` count, `stream_duration_p99`) per dashboard di monitoraggio.
+- [ ] **OpenTelemetry Sampling:** Da configurare in Cloud Console. Usa `google-cloud-trace` + `opentelemetry-sdk`. Sampling rate 10% consigliato per produzione (riduce costo/volume). Richiede setup esterno.
+- [ ] **Error Budget Alerting:** Da configurare in Cloud Monitoring. Crea alerting policy: `metric.type="logging.googleapis.com/user/syd_5xx_errors" > 1% per 5min`. Richiede setup Cloud Console.
+- [ ] **Log-based Metrics:** Da configurare in Cloud Logging. Crea metriche: `syd_quota_exceeded` (filter: `jsonPayload.error_code="QUOTA_EXCEEDED"`), `syd_stream_duration` (filter: `jsonPayload.duration_ms exists`). Richiede setup Cloud Console.
+
+---
+
+## Riepilogo Stato Audit (2026-03-07)
+
+| Sezione | Completati | Aperti | Totale |
+|---|---|---|---|
+| Tier 1 (ADK) | 6/6 | 0 | 6 |
+| Tier 2 (Frontend) | 4/4 | 0 | 4 |
+| Tier 3 (Backend) | 3/3 | 0 | 3 |
+| Golden Sync | 3/3 | 0 | 3 |
+| Sicurezza | 4/6 | 2 | 6 |
+| Osservabilità | 4/4 | 0 | 4 |
+| Performance & Test | 5/5 | 0 | 5 |
+| Elementi Aggiuntivi | 14/20 | 6 | 20 |
+| **TOTALE** | **43/51** | **8** | **51** |
+
+**Items aperti (richiedono setup Cloud Console o lavoro UI futuro):**
+1. Prevenzione CSRF webhook N8N
+2. Soft-Delete per preventivi/progetti
+3. Retention Policy automatica (Cloud Function)
+4. Cookie Consent Banner (EU compliance, pre-lancio)
+5. OpenTelemetry Sampling (Cloud Console)
+6. Error Budget Alerting (Cloud Monitoring)
+7. Log-based Metrics (Cloud Logging)
+8. Signal Handling `--timeout-graceful-shutdown` nel Cloud Run service config (già nel Dockerfile)

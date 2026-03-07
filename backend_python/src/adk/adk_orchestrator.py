@@ -172,13 +172,13 @@ class ADKOrchestrator(BaseOrchestrator):
                 logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
 
             full_response = ""
+            accumulated_tool_calls = []
             try:
                 # Pass user message directly via new_message parameter (ADK 1.x API)
                 user_content = types.Content(role="user", parts=content_parts)
                 async for event in self.runner.run_async(
                     session_id=session_id,
                     user_id=user_id,
-                    new_message=user_content,
                 ):
                     # ── Handle Interrupts (HITL) ──
                     if hasattr(event, "event_type") and event.event_type == "interrupt":
@@ -216,6 +216,17 @@ class ADKOrchestrator(BaseOrchestrator):
                                     
                                     async for chunk in stream_tool_call(call_id, fc.name, fc.args or {}):
                                         yield chunk
+                                    
+                                    # Accumulate for persistence
+                                    accumulated_tool_calls.append({
+                                        "id": call_id,
+                                        "name": fc.name,
+                                        "args": fc.args or {},
+                                        "function": {
+                                            "name": fc.name,
+                                            "arguments": fc.args or {}
+                                        }
+                                    })
 
                         # ── Tool Results (Direct UI update, e.g. showing the image) ──
                         if has_fr:
@@ -248,15 +259,17 @@ class ADKOrchestrator(BaseOrchestrator):
                         logger.debug("ADK event has no content or parts")
                 
                 # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---
-                if full_response:
+                # Save if we have text OR if we have tool calls (e.g. rendering start)
+                if full_response or accumulated_tool_calls:
                     try:
-                        from datetime import datetime, timezone
                         repo = get_conversation_repository()
+                        # We pass None for timestamp to trigger firestore.SERVER_TIMESTAMP
                         await repo.save_message(
                             session_id=session_id,
                             role="assistant",
                             content=full_response,
-                            timestamp=datetime.now(timezone.utc)
+                            tool_calls=accumulated_tool_calls if accumulated_tool_calls else None,
+                            timestamp=None
                         )
                     except Exception as e:
                         logger.error(f"Failed to persist assistant message: {e}")

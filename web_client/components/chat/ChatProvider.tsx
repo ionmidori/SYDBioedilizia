@@ -236,49 +236,41 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             }
 
             // 2. Synchronization Logic
-            if (messages.length !== historyMessages.length || (messages.length > 0 && historyMessages.length === messages.length && messages[messages.length - 1].id !== historyMessages[historyMessages.length - 1].id)) {
+            const sdkLen = messages.length;
+            const histLen = historyMessages.length;
+            const needsSync = sdkLen !== histLen || (sdkLen > 0 && histLen > 0 && messages[sdkLen - 1].id !== historyMessages[histLen - 1].id);
 
+            if (needsSync) {
                 if (isFirstSyncRef.current) {
-                    // Always trust history on first load of a session
-                    console.log(`[ChatProvider] Initial history sync (${historyMessages.length} messages)`);
+                    console.log(`[ChatProvider] Initial history sync (${histLen} messages)`);
                     timerId = setTimeout(() => setMessages(historyMessages as unknown as Message[]), 0);
                     isFirstSyncRef.current = false;
                     return () => clearTimeout(timerId);
                 }
 
-                // RACE CONDITION GUARD: Prevent stale history from overwriting local live messages.
-                // If the status is 'ready', it means we just finished a stream. 
-                // We should WAIT for history to catch up (become equal or longer) before syncing.
-                if (isRecentlyFinished && historyMessages.length < messages.length) {
-                    console.log('[ChatProvider] Sync Guard: Waiting for history to catch up to live messages...');
-                    return;
-                }
+                // Optimization: If lengths are equal and the last message content is identical,
+                // just adopt the Firestore IDs without a full state rebuild.
+                if (sdkLen === histLen && sdkLen > 0) {
+                    const lastSdk = messages[sdkLen - 1] as any;
+                    const lastHist = historyMessages[histLen - 1];
+                    const sdkContent = typeof lastSdk.content === 'string' ? lastSdk.content : lastSdk.parts?.[0]?.text || '';
+                    const histContent = lastHist.content || '';
 
-                // If local is longer and NOT recently finished, something is wrong (maybe history sync failed?)
-                // But we still don't want to lose local messages unless history specifically has them.
-                if (historyMessages.length < messages.length) {
-                    return;
-                }
-
-                // If lengths are equal but IDs differ, check if content is actually the same
-                // (Optimistic IDs from useChat might differ from Firestore IDs)
-                if (messages.length === historyMessages.length) {
-                    const lastSdk = messages[messages.length - 1];
-                    const lastHistory = historyMessages[historyMessages.length - 1];
-                    const sdkContent = typeof (lastSdk as any).content === 'string' ? (lastSdk as any).content : (lastSdk as any).parts?.[0]?.text || '';
-                    const historyContent = lastHistory.content || '';
-
-                    if (sdkContent === historyContent) {
-                        // Content matches, just different IDs. Don't trigger a jarring state reset.
-                        // We update the messages anyway to adopt the definitive Firestore IDs.
-                        console.log('[ChatProvider] Adopting Firestore IDs for identical content.');
+                    if (sdkContent === histContent) {
+                        console.log('[ChatProvider] Adopting Firestore IDs (ID update only).');
                         timerId = setTimeout(() => setMessages(historyMessages as unknown as Message[]), 0);
                         return () => clearTimeout(timerId);
                     }
                 }
 
-                // If history is longer, another device/tab added a message, or backend injected something.
-                console.log(`[ChatProvider] Syncing history (mismatch: SDK ${messages.length} vs Hist ${historyMessages.length})`);
+                // RACE CONDITION GUARD: Wait for history to catch up if we just finished streaming.
+                if (isRecentlyFinished && histLen < sdkLen) {
+                    console.log('[ChatProvider] Sync Guard: Waiting for history snapshot...');
+                    return;
+                }
+
+                // If history is longer, it's definitive (another device or backend update)
+                console.log(`[ChatProvider] History Sync (Mismatch: SDK ${sdkLen} vs Hist ${histLen})`);
                 timerId = setTimeout(() => {
                     setMessages(historyMessages as unknown as Message[]);
                 }, 0);

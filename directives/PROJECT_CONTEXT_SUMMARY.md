@@ -1,15 +1,20 @@
-- **Last Updated**: 2026-03-07T10:30:00Z
-- **Current Version**: `v4.0.10` (Chronological Anchor & Tool Streaming)
+- **Last Updated**: 2026-03-07T20:40:00Z
+- **Current Version**: `v4.0.12` (Consolidated fixes)
 - **Last Major Sync**: 2026-03-07
-- **Status**: `Production-Ready — Inversion Fixed & Streaming Validated`
+- **Status**: `Production-Ready — Inversion fixed & Persistence enabled (0 TS Errors)`
 - **Next High Priority**: 1) Dynamic Robot Mascot | 2) Unify Dashboard Loaders (SydLoader) | 3) ADK Session cleanup cron (GDPR retention)
 
-- **Phase 57 (Mar 07, 2026):** **Chronological Anchor & Tool Streaming (v4.0.10)**:
-    - **Message Inversion Fix**: Implemented the "Chronological Anchor" by moving Firestore user message persistence to the FastAPI route handler (`main.py`) BEFORE initiating the `StreamingResponse`. This guarantees strictly sequential timestamps (User < Assistant).
-    - **Tool Streaming**: Updated `ADKOrchestrator` to stop filtering tool events. It now properly streams `tool_call` and `tool_result` protocol chunks, fixing the issue where the bot appeared to stall during rendering.
-    - **Visual Feedback**: Integrated `stream_status` triggers for prominent tools (e.g., "Syd sta generando il rendering...") to provide real-time UI feedback.
-    - **Backend Stability**: Fixed a `NameError` in `main.py` related to `BackgroundTasks` that was blocking server reloads.
-    - **ADK Hardening**: Improved `VertexAiSessionService` logging to track "Auth injection" visibility per request.
+- **Phase 59 (Mar 07, 2026):** **Final Fixes: Inversion & Persistence (v4.0.12)**:
+    - **Chronological Anchor (Backend)**: User message persisted to Firestore BEFORE streaming using `SERVER_TIMESTAMP`.
+    - **Tool Persistence (Backend)**: Assistant messages are now saved even if they only contain tool calls (e.g., rendering start).
+    - **Tie-breaker (Frontend)**: Added `user < assistant` tie-breaker in `useChatHistory.ts` for identical timestamps.
+    - **Sync Logic (Frontend)**: Optimized `ChatProvider.tsx` to adopt Firestore IDs silently for identical content (0 TS errors).
+
+- **Phase 58 (Mar 07, 2026):** **AI SDK v6 Message Ordering & Tool Request Fix (v4.0.11)** — commit `f0095ee`:
+    - **Bug 1 — Message Ordering (ChatProvider.tsx)**: Fixed `sendMessage` to use `{ text: string }` format for AI SDK v6.
+    - **Bug 2a — Endpoint Crash (main.py)**: Fixed `body.message` → `body.messages[-1].content`.
+    - **Bug 2b — Assistant Messages Not Saved (adk_orchestrator.py)**: Added missing `repo = get_conversation_repository()`.
+    - **Bug 2c — Duplicate Media Fetch (adk_orchestrator.py)**: Removed abandoned coroutine list.
 
 - **Phase 55 (Mar 06, 2026):** **Golden Sync & Data Validation (v4.0.6)**:
     - **Backend Strict Mode**: Injected `model_config = {"extra": "forbid"}` (or `"ignore"`) across all 64 Pydantic `BaseModel` classes to prevent Parameter Pollution. Added validation tests to `test_pydantic_guards.py` verifying HTTP 422 rejections.
@@ -59,18 +64,19 @@
 # PROJECT_CONTEXT_SUMMARY.md
 
 **Current Version:** v4.0.10
-**Last Updated:** 2026-03-07T10:30:00Z
-**Project Phase:** Phase 57 - Chronological Anchor & Tool Streaming
+**Last Updated:** 2026-03-07T20:35:00Z
+**Project Phase:** Phase 57 - Chronological Anchor & Tool Streaming (Verified) & Tool Request Fix
 
 ---
 
-### RECENT FIXES & UPDATES (v4.0.10)
-1. **Chronological Anchor**: Moved user message saving to `main.py` BEFORE streaming, guaranteeing correct UI message order.
-2. **Tool Streaming**: ADK results for rendering and pricing are now streamed in real-time, preventing bot silence.
-3. **Visual Feedback**: Added "Syd sta generando..." status indicators for long-running AI tools.
-4. **Reload Fix**: Fixed `NameError` in `main.py` to allow the backend to update correctly on code changes.
-5. **Prompt Injection Defense**: (v4.0.5) Implemented robust Sandwich Defense by catching delimiter spoofing.
-6. **Unit Tests Restored**: (v4.0.5) All 178/178 backend tests passing.
+### RECENT FIXES & UPDATES (v4.0.12)
+1. **Chronological Anchor** (v4.0.12): User message persisted to Firestore BEFORE streaming using `SERVER_TIMESTAMP`.
+2. **Tool Persistence** (v4.0.12): Assistant messages now saved even if they only contain tool calls (e.g. rendering).
+3. **Sorting Tie-breaker** (v4.0.12): Added `user < assistant` tie-breaker in `useChatHistory.ts` for identical timestamps.
+4. **AI SDK v6 sendMessage Format** (`v4.0.11`): Fixed `{ role, content }` → `{ text: string }` format.
+5. **Endpoint AttributeError** (`v4.0.11`): Fixed `body.message` crash in `main.py`.
+6. **Prompt Injection Defense** (v4.0.5): Robust Sandwich Defense implementation.
+miter spoofing protection.
 
 ### Streaming Protocol (confirmed v4.0.3)
 | Layer | Header | Format |
@@ -143,12 +149,12 @@ FastAPI /chat/stream
 | P1: Output/Traceback Filtering (M2) | ✅ Fixed (v4.0.0) |
 | P1: HITL Audit Trail (M4) | ✅ Fixed (v4.0.0) |
 | P1: Error Masking in SSE/Proxy (M1, M10) | ✅ Fixed (v4.0.0) |
-| P2: ADK Test Coverage | ✅ 178 Units Passing |
+| P2: ADK Test Coverage | ✅ 373 Backend + 114 Frontend Passing |
 | P2: GDPR EU region | ✅ ADK_LOCATION=europe-west1 |
 
 ## Test & Deployment Status
 
-- **178/178 unit test passing**
+- **373/373 backend unit tests passing + 114/114 frontend tests passing**
 - **Vercel builds**: ✅ Production-ready
   - Frontend type-check: 0 errors (npm run type-check)
   - npm audit: 0 vulnerabilities
@@ -174,5 +180,5 @@ FastAPI /chat/stream
 - `docs/PLANS/PRODUCTION_AUDIT.md` — Definitive Pre-Flight Security Audit
 - `docs/PLANS/unify_dashboard_loaders.txt` — Piano UI/UX prossimo task
 
-_Documento aggiornato: Marzo 06, 2026 (Security Audit & Sandbox Defense Fix)_
+_Documento aggiornato: Marzo 07, 2026 (Phase 58 — AI SDK v6 Message Ordering & Tool Request Fix)_
 

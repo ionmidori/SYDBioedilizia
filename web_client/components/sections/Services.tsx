@@ -34,8 +34,8 @@ const services = [
     },
     {
         icon: Calculator,
-        title: 'Preventivi Istantanei',
-        description: 'Niente più attese di settimane. Ottieni una stima dettagliata dei costi in tempo reale, basata sui prezzi di mercato attuali.',
+        title: 'Preventivi Veloci',
+        description: 'Niente più attese di settimane. Ottieni una stima dettagliata dei costi revisionata dal nostro team tecnico in tempi record.',
         gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },

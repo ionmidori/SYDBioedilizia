@@ -13,8 +13,7 @@ SYD BIOEDILIZIA rivoluziona il settore delle ristrutturazioni in Italia integran
 - **Sito Ufficiale**: https://sybioedilizia.vercel.app - Home page e presentazione dei servizi.
 - **Blog Tecnico**: https://sybioedilizia.vercel.app/blog - Guide su normative, materiali e innovazione tecnologica nell'edilizia.
 - **Chi Siamo**: https://sybioedilizia.vercel.app/chi-siamo - Informazioni sulla nostra visione e il team di SYD.
-- **Contatti (Chatbot)**: https://sybioedilizia.vercel.app - Interazione diretta con il nostro assistente virtuale per preventivi istantanei.
-
+- **Contatti (Chatbot)**: https://sybioedilizia.vercel.app - Interazione diretta con il nostro assistente virtuale per preventivi veloci.
 ## FAQ
 - **Q**: Cos'è la ristrutturazione guidata dall'IA?
   **A**: È un processo che utilizza algoritmi avanzati per creare modelli 3D realistici partendo da semplici foto o planimetrie, permettendo di visualizzare il risultato finale prima ancora di iniziare i lavori e di calcolare preventivi accurati al centesimo.

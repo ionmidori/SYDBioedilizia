@@ -119,13 +119,15 @@ export function useChatHistory(
                         }
 
                         // Clean content
-                        let content = data.content || '';
+                        let content = (data.content || '') as string; // Ensure content is a string
                         if (content && (attachments?.images?.length || attachments?.videos?.length)) {
                             content = content
                                 .replace(/\[(Immagine|Video) allegata:.*?\]/g, '')
                                 .replace(/\[https?:\/\/.*?\]/g, '')
                                 .trim();
                         }
+
+                        const createdAt = data.timestamp?.toDate();
 
                         return {
                             id: doc.id,
@@ -139,8 +141,22 @@ export function useChatHistory(
                         } as Message;
                     });
 
-                    // Reverse to restore chronological order (Oldest -> Newest)
-                    const messages = rawMessages.reverse();
+                    // Sort chronologically (Oldest -> Newest)
+                    // Tie-breaker: If timestamps are identical, User comes BEFORE Assistant.
+                    const messages = rawMessages.sort((a, b) => {
+                        const timeA = a.createdAt?.getTime() || 0;
+                        const timeB = b.createdAt?.getTime() || 0;
+
+                        if (timeA !== timeB) {
+                            return timeA - timeB;
+                        }
+
+                        // Same timestamp (common with server-side batching)
+                        const rolePriority = { user: 1, assistant: 2, system: 0, tool: 3 };
+                        const priorityA = rolePriority[a.role as keyof typeof rolePriority] ?? 5;
+                        const priorityB = rolePriority[b.role as keyof typeof rolePriority] ?? 5;
+                        return priorityA - priorityB;
+                    });
 
                     // Link Tool Results (Smart Merge)
                     const linkedMessages = messages.map(msg => {

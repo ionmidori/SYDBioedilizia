@@ -543,12 +543,13 @@ async def chat_stream(
     
     try:
         await repo.ensure_session(body.session_id, user_session.uid)
+        # We pass None for timestamp to trigger firestore.SERVER_TIMESTAMP in the repository
         await repo.save_message(
             session_id=body.session_id,
             role="user",
             content=user_msg_text or "",
             metadata={"user_id": user_session.uid, "source": "chat_stream_route"},
-            timestamp=datetime.now(timezone.utc)
+            timestamp=None 
         )
     except Exception as e:
         logger.error(f"Failed to pre-persist user message in route: {e}")
