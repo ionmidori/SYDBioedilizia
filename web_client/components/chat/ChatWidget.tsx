@@ -18,7 +18,7 @@ import { useMobileViewport } from '@/hooks/useMobileViewport';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
 
 /**
@@ -69,6 +69,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     const [isOpen, setIsOpen] = useState(isInline);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+    const dragControls = useDragControls();
 
     // We use a local ID for useUpload to keep file uploads separated by logic "session"
     // But realistically, the session is determined by the context.
@@ -316,6 +318,16 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         };
     }, [setInput]);
 
+    // Drag-to-close handler
+    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+        const swipeThreshold = 100; // pixels to swipe before closing
+        const velocityThreshold = 500; // pixels per second
+
+        if (info.offset.y > swipeThreshold || info.velocity.y > velocityThreshold) {
+            setIsOpen(false);
+        }
+    };
+
     // 9. Render Helpers
     if (typeof window !== 'undefined' && !sessionId) return null; // Safe guard
 
@@ -438,6 +450,12 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         ) : (
                             <motion.div
                                 key="chat-window"
+                                drag="y"
+                                dragControls={dragControls}
+                                dragListener={false} // Only drag via controls attached to header
+                                dragConstraints={{ top: 0, bottom: 0 }}
+                                dragElastic={0.4}
+                                onDragEnd={handleDragEnd}
                                 initial={{ opacity: 0, y: "100%", scale: 1 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
                                 exit={{ opacity: 0, y: "100%", scale: 0.95 }}
@@ -462,6 +480,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                                     projectId={contextProjectId ?? undefined}
                                     showSelector={!!user && !user.isAnonymous}
                                     onProjectSelect={handleProjectSwitch}
+                                    onPointerDown={(e) => dragControls.start(e)}
                                 />
                                 {renderChatContent()}
                             </motion.div>

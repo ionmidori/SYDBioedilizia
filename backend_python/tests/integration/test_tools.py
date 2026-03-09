@@ -24,7 +24,7 @@ class TestRenderGeneration:
         """
         # Arrange
         with patch('src.tools.generate_render.generate_image_t2i', new_callable=AsyncMock) as mock_t2i:
-            with patch('src.tools.generate_render.upload_base64_image') as mock_upload:
+            with patch('src.tools.generate_render._upload_base64_image_sync') as mock_upload:
                 mock_t2i.return_value = mock_gemini_imagen_response
                 mock_upload.return_value = "https://storage.googleapis.com/test/renders/image.jpg"
                 
@@ -66,7 +66,7 @@ class TestRenderGeneration:
             
             with patch('src.vision.architect.generate_architectural_prompt', new_callable=AsyncMock) as mock_architect:
                 with patch('src.tools.generate_render.generate_image_i2i', new_callable=AsyncMock) as mock_i2i:
-                     with patch('src.tools.generate_render.upload_base64_image') as mock_upload:
+                     with patch('src.tools.generate_render._upload_base64_image_sync') as mock_upload:
                         # Configure mocks
                         from src.vision.architect import ArchitectOutput
                         mock_architect.return_value = ArchitectOutput(
@@ -153,7 +153,7 @@ class TestRenderGeneration:
             
             with patch('src.vision.architect.generate_architectural_prompt', new_callable=AsyncMock) as mock_architect:
                 with patch('src.tools.generate_render.generate_image_i2i', new_callable=AsyncMock) as mock_i2i:
-                     with patch('src.tools.generate_render.upload_base64_image') as mock_upload:
+                     with patch('src.tools.generate_render._upload_base64_image_sync') as mock_upload:
                         # Make Architect fail
                         mock_architect.side_effect = Exception("Vision API error")
                         mock_i2i.return_value = mock_gemini_imagen_response
