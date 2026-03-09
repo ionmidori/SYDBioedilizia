@@ -166,7 +166,7 @@ export function VirtualizedGalleryGrid({
     }
 
     if (dimensions.width === 0) {
-        return <div ref={containerRef} className="w-full" style={{ minHeight: 400 }} />;
+        return <div ref={containerRef} className="w-full" style={{ minHeight: 200 }} />;
     }
 
     // Auto-calculate columns based on width
@@ -175,16 +175,16 @@ export function VirtualizedGalleryGrid({
     const itemSize = (dimensions.width - gap * (columnCount + 1)) / columnCount;
     const rowCount = Math.ceil(items.length / columnCount);
 
-    // Effective height: always at least 400px to prevent height=0 blocking pointer events
-    const effectiveHeight = Math.max(dimensions.height, 400);
+    // Calculate exact height needed for all rows
+    const exactHeight = rowCount * (itemSize + gap);
 
     return (
-        <div ref={containerRef} className="w-full" style={{ minHeight: 400 }} data-no-swipe>
+        <div ref={containerRef} className="w-full" style={{ height: exactHeight }} data-no-swipe>
             {dimensions.width > 0 && (
                 <Grid
                     columnCount={columnCount}
                     columnWidth={itemSize + gap}
-                    height={effectiveHeight}
+                    height={exactHeight}
                     rowCount={rowCount}
                     rowHeight={itemSize + gap}
                     width={dimensions.width}

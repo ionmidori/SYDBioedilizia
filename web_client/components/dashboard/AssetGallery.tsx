@@ -75,7 +75,7 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
     }
 
     return (
-        <div className="flex-1 min-h-[400px] w-full relative">
+        <div className="flex-1 w-full relative">
             <OptimizedGalleryViewer
                 images={galleryImages}
                 title="File Progetto"

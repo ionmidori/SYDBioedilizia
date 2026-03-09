@@ -121,7 +121,7 @@ export function OptimizedGalleryViewer({
                 )}
 
                 {/* Virtualized Grid */}
-                <div className={`flex-1 w-full ${enableVirtualization ? 'min-h-[500px]' : 'h-auto'}`}>
+                <div className="flex-1 w-full relative">
                     {enableVirtualization ? (
                         <VirtualizedGalleryGrid
                             items={galleryImages}

@@ -126,7 +126,7 @@ export function ProjectFilesView({ projectId }: ProjectFilesViewProps) {
     }
 
     return (
-        <div className="flex flex-col w-full h-full overflow-y-auto px-4 py-6 md:px-0">
+        <div className="flex flex-col w-full h-full overflow-y-auto max-w-7xl mx-auto py-6 px-4 md:px-8">
             {/* Header */}
             <div className="relative pb-6 mb-6">
                 <div className="flex items-start justify-between">

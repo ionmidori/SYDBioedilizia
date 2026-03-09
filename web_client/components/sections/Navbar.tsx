@@ -33,7 +33,9 @@ export function Navbar() {
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [contactMenuOpen, setContactMenuOpen] = useState(false);
+    const [contactMenuOpenDesktop, setContactMenuOpenDesktop] = useState(false);
     const contactMenuRef = useRef<HTMLDivElement>(null);
+    const contactMenuRefDesktop = useRef<HTMLDivElement>(null);
     const { user, isAnonymous } = useAuth();
     const router = useRouter();
 
@@ -45,9 +47,12 @@ export function Navbar() {
             if (contactMenuOpen && contactMenuRef.current && !contactMenuRef.current.contains(event.target as Node)) {
                 setContactMenuOpen(false);
             }
+            if (contactMenuOpenDesktop && contactMenuRefDesktop.current && !contactMenuRefDesktop.current.contains(event.target as Node)) {
+                setContactMenuOpenDesktop(false);
+            }
         };
 
-        if (contactMenuOpen) {
+        if (contactMenuOpen || contactMenuOpenDesktop) {
             document.addEventListener('mousedown', handleClickOutside);
             document.addEventListener('touchstart', handleClickOutside);
         }
@@ -56,7 +61,7 @@ export function Navbar() {
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('touchstart', handleClickOutside);
         };
-    }, [contactMenuOpen]);
+    }, [contactMenuOpen, contactMenuOpenDesktop]);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -137,24 +142,68 @@ export function Navbar() {
                         <Link href="/" onClick={() => triggerHaptic()} className="group shrink-0">
                             <SydLogo className="group-hover:opacity-90 transition-opacity" />
                         </Link>
-                        {/* Desktop Contact Icons - Moved here, closer to logo */}
-                        <div className="hidden xl:flex items-center gap-2">
-                            {contactLinks.map(({ Icon, label, href }, i) => (
-                                <a
-                                    key={i}
-                                    href={href}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={() => triggerHaptic()}
+                        {/* Desktop Contact Dropdown - M3 Expressive */}
+                        <div className="hidden xl:flex items-center gap-2 relative" ref={contactMenuRefDesktop}>
+                            <motion.div
+                                whileTap={{ scale: 0.95 }}
+                                transition={M3Transition.buttonPress}
+                            >
+                                <button
                                     className={cn(
-                                        "w-9 h-9 xl:w-10 xl:h-10 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 hover:bg-luxury-teal hover:text-white transition-all shadow-sm shadow-luxury-teal/10",
-                                        i === 0 && "group"
+                                        "relative flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(42,157,143,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(42,157,143,0.25)] whitespace-nowrap backdrop-blur-md border",
+                                        contactMenuOpenDesktop
+                                            ? "bg-luxury-teal/15 border-luxury-teal/40 text-luxury-teal"
+                                            : "bg-luxury-teal/5 hover:bg-luxury-teal/15 border-luxury-teal/20 hover:border-luxury-teal/40 text-luxury-teal/80 hover:text-luxury-teal"
                                     )}
-                                    aria-label={label}
+                                    onClick={() => {
+                                        triggerHaptic();
+                                        setContactMenuOpenDesktop(!contactMenuOpenDesktop);
+                                    }}
+                                    aria-expanded={contactMenuOpenDesktop}
+                                    aria-haspopup="true"
                                 >
-                                    <Icon className="w-4 h-4 xl:w-5 xl:h-5" />
-                                </a>
-                            ))}
+                                    <span className="font-bold tracking-[0.05em] text-[11px] xl:text-[12px] uppercase">Contatti</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("w-4 h-4 transition-transform duration-300", contactMenuOpenDesktop && "rotate-180")}>
+                                        <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                </button>
+                            </motion.div>
+                            
+                            <AnimatePresence>
+                                {contactMenuOpenDesktop && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                        transition={M3Spring.bouncy}
+                                        className="absolute top-14 left-0 bg-luxury-bg/80 backdrop-blur-xl border border-luxury-teal/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
+                                    >
+                                        <div className="absolute -top-2 left-6 w-4 h-4 bg-luxury-bg/80 border-t border-l border-luxury-teal/20 rotate-45 transform" />
+
+                                        {contactLinks.map(({ Icon, label, href }, i) => (
+                                            <motion.a
+                                                key={i}
+                                                href={href}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-3 p-3 rounded-[16px] hover:bg-luxury-teal/10 text-luxury-text hover:text-luxury-teal transition-colors group relative z-10"
+                                                onClick={() => {
+                                                    triggerHaptic();
+                                                    setContactMenuOpenDesktop(false);
+                                                }}
+                                                whileHover={{ x: 4 }}
+                                                whileTap={{ scale: 0.98 }}
+                                                transition={M3Spring.gentle}
+                                            >
+                                                <span className="w-8 h-8 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 group-hover:bg-luxury-teal group-hover:text-white transition-all shadow-sm">
+                                                    <Icon className="w-4 h-4" />
+                                                </span>
+                                                <span className="font-medium text-sm tracking-wide">{label}</span>
+                                            </motion.a>
+                                        ))}
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                     </div>
 
@@ -172,7 +221,7 @@ export function Navbar() {
                                     onClick={() => triggerHaptic()}
                                     className={cn(
                                         "relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)] whitespace-nowrap backdrop-blur-md border",
-                                        pathname === link.href || (pathname === '/' && link.href.includes('#'))
+                                        pathname === link.href
                                             ? "bg-luxury-gold/15 border-luxury-gold/40 text-luxury-gold"
                                             : "bg-luxury-gold/5 hover:bg-luxury-gold/15 border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold/80 hover:text-luxury-gold"
                                     )}
@@ -213,35 +262,38 @@ export function Navbar() {
                                 </svg>
                             </button>
 
-                            {/* Contact Menù Dropdown */}
+                            {/* Contact Menù Dropdown - M3 Expressive */}
                             <AnimatePresence>
                                 {contactMenuOpen && (
                                     <motion.div
-                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        transition={M3Spring.standard}
-                                        className="absolute top-12 right-0 bg-luxury-bg/70 backdrop-blur-xl border border-luxury-gold/10 shadow-xl shadow-black/20 rounded-2xl p-4 flex flex-col gap-2 min-w-[200px]"
+                                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                        transition={M3Spring.bouncy}
+                                        className="absolute top-12 right-0 bg-luxury-bg/80 backdrop-blur-xl border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[200px] rounded-[24px_4px_24px_24px] origin-top-right z-50"
                                     >
-                                        <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/70 border-t border-l border-luxury-gold/10 rotate-45 transform" />
+                                        <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/80 border-t border-l border-luxury-gold/20 rotate-45 transform" />
 
                                         {contactLinks.map(({ Icon, label, href }, i) => (
-                                            <a
+                                            <motion.a
                                                 key={i}
                                                 href={href}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-3 p-3 rounded-xl hover:bg-luxury-gold/5 text-luxury-text hover:text-luxury-gold transition-all group relative z-10"
+                                                className="flex items-center gap-3 p-3 rounded-[16px] hover:bg-luxury-gold/10 text-luxury-text hover:text-luxury-gold transition-colors group relative z-10"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setContactMenuOpen(false);
                                                 }}
+                                                whileHover={{ x: -4 }}
+                                                whileTap={{ scale: 0.98 }}
+                                                transition={M3Spring.gentle}
                                             >
-                                                <span className="w-8 h-8 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 group-hover:bg-luxury-teal group-hover:text-white transition-all">
+                                                <span className="w-8 h-8 rounded-full bg-luxury-gold/10 flex items-center justify-center text-luxury-gold border border-luxury-gold/20 group-hover:bg-luxury-gold group-hover:text-luxury-bg transition-all shadow-sm">
                                                     <Icon className="w-4 h-4" />
                                                 </span>
-                                                <span className="font-medium text-sm">{label}</span>
-                                            </a>
+                                                <span className="font-medium text-sm tracking-wide">{label}</span>
+                                            </motion.a>
                                         ))}
                                     </motion.div>
                                 )}
