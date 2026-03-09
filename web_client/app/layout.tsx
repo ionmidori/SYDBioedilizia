@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     template: "%s | SYD BIOEDILIZIA",
     default: "SYD BIOEDILIZIA - Ristrutturazioni Tradizionali e Bioedilizia a Roma",
   },
-  description: "Leader a Roma e Provincia: uniamo l'eccellenza artigiana tradizionale all'innovazione della bioedilizia. Ristrutturazioni su misura a Fiumicino, Pomezia, Tivoli, Castelli Romani e litorale.",
+  description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
   keywords: [
     "ristrutturazioni roma",
     "bioedilizia roma",
@@ -61,14 +61,14 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   openGraph: {
     title: "SYD BIOEDILIZIA - Ristrutturazioni e Bioedilizia a Roma",
-    description: "Dalla tradizione alla bioedilizia: realizziamo la casa dei tuoi sogni a Roma, Castelli Romani e litorale. Servizi su misura per ogni esigenza.",
+    description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
     url: "https://sydbioedilizia.vercel.app",
     siteName: "SYD BIOEDILIZIA",
     locale: "it_IT",
     type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: "/og-image.jpg",
         width: 1200,
         height: 630,
         alt: "SYD BIOEDILIZIA - Ristrutturazioni Roma e Provincia",
@@ -77,9 +77,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "SYD BIOEDILIZIA - Ristrutturazioni Roma",
+    title: "SYD BIOEDILIZIA - Ristrutturazioni e Bioedilizia a Roma",
     description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
-    images: ["/og-image.png"],
+    images: ["/og-image.jpg"],
   },
   robots: {
     index: true,
