@@ -39,9 +39,10 @@ async def lifespan(_app: FastAPI):
     # uvicorn drains active SSE connections; we clean up owned gRPC resources here.
     logger.warning("SYD Brain API shutdown initiated — draining connections...")
     try:
-        from src.db.firebase_client import _async_db_client
-        if _async_db_client is not None:
-            await _async_db_client.close()
+        import src.db.firebase_client as _fb
+        client = _fb._async_db_client
+        if client is not None:
+            await client.close()
             logger.info("Async Firestore gRPC channel closed.")
     except Exception as _e:
         logger.warning(f"Non-fatal error during shutdown cleanup: {_e}")
@@ -530,27 +531,28 @@ async def chat_stream(
 
     # --- CHRONOLOGICAL ANCHOR: SAVE USER MESSAGE BEFORE GENERATOR ---
     # We must ensure the user message is written to Firestore BEFORE the generator starts.
-    # This prevents race conditions where the AI response (saved later) might get an earlier timestamp.
-    from src.repositories.conversation_repository import get_conversation_repository
-    from datetime import datetime, timezone
-    
-    repo = get_conversation_repository()
-    # Extract last user message from the messages array
+    # 🔥 FIXED: Use explicit Python timestamp (minus 100ms) to guarantee it's physically 
+    # earlier than the assistant's response in the same request flow.
     user_msg_text = ""
     if body.messages:
         last_content = body.messages[-1].content
         user_msg_text = last_content if isinstance(last_content, str) else str(last_content)
-    
+
+    from datetime import datetime, timezone, timedelta
+    from src.repositories.conversation_repository import get_conversation_repository
+    # Anchor timestamp: 100ms in the past guarantees user message sorts before assistant
+    anchor_timestamp = datetime.now(timezone.utc) - timedelta(milliseconds=100)
     try:
+        repo = get_conversation_repository()
         await repo.ensure_session(body.session_id, user_session.uid)
-        # We pass None for timestamp to trigger firestore.SERVER_TIMESTAMP in the repository
         await repo.save_message(
             session_id=body.session_id,
             role="user",
             content=user_msg_text or "",
             metadata={"user_id": user_session.uid, "source": "chat_stream_route"},
+            timestamp=anchor_timestamp,
         )
-        logger.info(f"[Anchor] Pre-persisted user message for session {body.session_id}")
+        logger.info(f"[Anchor] User message persisted for session {body.session_id}")
     except Exception as e:
         logger.error(f"Failed to pre-persist user message in route: {e}")
 

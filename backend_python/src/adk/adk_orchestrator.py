@@ -20,7 +20,6 @@ from src.repositories.conversation_repository import get_conversation_repository
 import httpx
 import asyncio
 from urllib.parse import urlparse
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +67,7 @@ class ADKOrchestrator(BaseOrchestrator):
         self,
         request: Any,       # ChatRequest
         user_session: Any,  # UserSession
-        background_tasks: Any = None, # FastAPI BackgroundTasks
+        background_tasks: Any = None,  # FastAPI BackgroundTasks (unused here, required by BaseOrchestrator)
     ) -> AsyncIterator[str]:
         """
         Main streaming chat method for Vertex AI Agent Builder.
@@ -125,15 +124,23 @@ class ADKOrchestrator(BaseOrchestrator):
         async def fetch_media(i, url, mime=None):
             try:
                 parsed_url = urlparse(url)
-                if parsed_url.hostname != settings.FIREBASE_STORAGE_BUCKET:
+                bucket = settings.FIREBASE_STORAGE_BUCKET or ""
+                # Firebase Storage URLs can be either:
+                # - https://storage.googleapis.com/{bucket}/{path}  (bucket in path)
+                # - https://{bucket}.firebasestorage.app/{path}     (bucket in hostname)
+                # Both must reference our configured bucket for security.
+                hostname_ok = parsed_url.hostname == bucket
+                path_ok = bucket and parsed_url.hostname == "storage.googleapis.com" and parsed_url.path.startswith(f"/{bucket}/")
+                if not (hostname_ok or path_ok):
                     logger.warning(f"Rejected invalid media URL source: {url}")
                     return None
                 
-                async with httpx.AsyncClient(timeout=5.0) as client:
+                async with httpx.AsyncClient(timeout=15.0) as client:
                     response = await client.get(url)
                     response.raise_for_status()
                     image_bytes = response.content
                     final_mime = mime or (media_types[i] if i < len(media_types) else "image/jpeg")
+                    logger.info(f"[ADK] Fetched media {i}: {len(image_bytes)} bytes ({final_mime})")
                     return types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
             except Exception as e:
                 logger.error(f"Failed to fetch media {url}: {e}")
@@ -175,102 +182,130 @@ class ADKOrchestrator(BaseOrchestrator):
             accumulated_tool_calls = []
             try:
                 # Pass user message directly via new_message parameter (ADK 1.x API)
-                user_content = types.Content(role="user", parts=content_parts)
-                async for event in self.runner.run_async(
-                    session_id=session_id,
-                    user_id=user_id,
-                ):
-                    # ── Handle Interrupts (HITL) ──
-                    if hasattr(event, "event_type") and event.event_type == "interrupt":
-                        payload = {
-                            "type": "interrupt",
-                            "payload": getattr(event, "payload", {})
-                        }
-                        async for chunk in stream_data(payload):
-                            yield chunk
-                        continue
+                actual_message = types.Content(role="user", parts=content_parts)
+                logger.info(f"[ADK] Starting run_async. Session: {session_id}, Parts: {len(content_parts)}")
 
-                    # ── Handle Content (Text & Tools) ──
-                    if event.content and event.content.parts:
-                        has_text = any(hasattr(p, 'text') and p.text for p in event.content.parts)
-                        has_fc = any(hasattr(p, 'function_call') and p.function_call for p in event.content.parts)
-                        has_fr = any(hasattr(p, 'function_response') and p.function_response for p in event.content.parts)
+                try:
+                    # 55s hard timeout — proxy allows 60s before HeadersTimeoutError.
+                    # This ensures a clean error message reaches the client in time.
+                    async with asyncio.timeout(55):
+                        async for event in self.runner.run_async(
+                            session_id=session_id,
+                            user_id=user_id,
+                            new_message=actual_message
+                        ):
+                            logger.debug(f"[ADK] Event: {getattr(event, 'event_type', 'content')}")
+                            # ── Handle Interrupts (HITL) ──
+                            if hasattr(event, "event_type") and event.event_type == "interrupt":
+                                payload = {
+                                    "type": "interrupt",
+                                    "payload": getattr(event, "payload", {})
+                                }
+                                async for chunk in stream_data(payload):
+                                    yield chunk
+                                continue
 
-                        # ── Tool Calls (Send to frontend for visual feedback) ──
-                        if has_fc:
-                            for part in event.content.parts:
-                                if hasattr(part, 'function_call') and part.function_call:
-                                    fc = part.function_call
-                                    # ADK 1.26 uses 'name' and 'args'. 'id' might be absent or in 'call_id'
-                                    call_id = getattr(fc, 'call_id', str(uuid.uuid4()))
-                                    
-                                    # UI STATUS: Specific feedback for prominent tools
-                                    status_msg = f"Syd sta usando {fc.name}..."
-                                    if fc.name == "generate_render":
-                                        status_msg = "Syd sta generando il tuo rendering (potrebbe volerci un momento)..."
-                                    elif fc.name == "pricing_engine_tool":
-                                        status_msg = "Syd sta calcolando i costi..."
-                                    
-                                    async for chunk in stream_status(status_msg):
-                                        yield chunk
-                                    
-                                    async for chunk in stream_tool_call(call_id, fc.name, fc.args or {}):
-                                        yield chunk
-                                    
-                                    # Accumulate for persistence
-                                    accumulated_tool_calls.append({
-                                        "id": call_id,
-                                        "name": fc.name,
-                                        "args": fc.args or {},
-                                        "function": {
-                                            "name": fc.name,
-                                            "arguments": fc.args or {}
-                                        }
-                                    })
+                            # ── Handle Content (Text & Tools) ──
+                            if event.content and event.content.parts:
+                                has_text = any(hasattr(p, 'text') and p.text for p in event.content.parts)
+                                has_fc = any(hasattr(p, 'function_call') and p.function_call for p in event.content.parts)
+                                has_fr = any(hasattr(p, 'function_response') and p.function_response for p in event.content.parts)
 
-                        # ── Tool Results (Direct UI update, e.g. showing the image) ──
-                        if has_fr:
-                            for part in event.content.parts:
-                                if hasattr(part, 'function_response') and part.function_response:
-                                    fr = part.function_response
-                                    call_id = getattr(fr, 'call_id', 'unknown')
-                                    async for chunk in stream_tool_result(call_id, fr.response):
-                                        yield chunk
+                                # ── Tool Calls ──
+                                # Internal ADK routing tools (transfer_to_agent) must NOT be
+                                # streamed to the AI SDK client — they have no matching result
+                                # call_id, which corrupts the SDK's internal tool-call state
+                                # and causes the UI to hang waiting for a result that never comes.
+                                INTERNAL_ADK_TOOLS = {"transfer_to_agent"}
 
-                        logger.info(
-                            "ADK Event received",
-                            extra={
-                                "author": getattr(event, "author", "unknown"),
-                                "has_text": has_text,
-                                "has_fc": has_fc,
-                                "has_fr": has_fr,
-                            }
-                        )
+                                if has_fc:
+                                    for part in event.content.parts:
+                                        if hasattr(part, 'function_call') and part.function_call:
+                                            fc = part.function_call
 
-                        # ── Text Responses ──
-                        if has_text:
-                            for part in event.content.parts:
-                                if hasattr(part, 'text') and part.text:
-                                    filtered = await filter_agent_output(part.text)
-                                    full_response += filtered
-                                    async for chunk in stream_text(filtered):
-                                        yield chunk
-                    else:
-                        logger.debug("ADK event has no content or parts")
-                
+                                            # Skip internal ADK tools entirely
+                                            if fc.name in INTERNAL_ADK_TOOLS:
+                                                logger.debug(f"[ADK] Suppressing internal tool call: {fc.name}")
+                                                continue
+
+                                            call_id = getattr(fc, 'call_id', str(uuid.uuid4()))
+
+                                            status_msg = f"Syd sta usando {fc.name}..."
+                                            if fc.name == "generate_render":
+                                                status_msg = "Syd sta generando il tuo rendering (potrebbe volerci un momento)..."
+                                            elif fc.name == "pricing_engine_tool":
+                                                status_msg = "Syd sta calcolando i costi..."
+
+                                            async for chunk in stream_status(status_msg):
+                                                yield chunk
+                                            async for chunk in stream_tool_call(call_id, fc.name, fc.args or {}):
+                                                yield chunk
+
+                                            accumulated_tool_calls.append({
+                                                "id": call_id,
+                                                "name": fc.name,
+                                                "args": fc.args or {},
+                                                "function": {
+                                                    "name": fc.name,
+                                                    "arguments": fc.args or {}
+                                                }
+                                            })
+
+                                # ── Tool Results ──
+                                if has_fr:
+                                    for part in event.content.parts:
+                                        if hasattr(part, 'function_response') and part.function_response:
+                                            fr = part.function_response
+
+                                            # Skip internal ADK tool results (no client-side call to match)
+                                            if getattr(fr, 'name', None) in INTERNAL_ADK_TOOLS:
+                                                logger.debug(f"[ADK] Suppressing internal tool result: {fr.name}")
+                                                continue
+
+                                            call_id = getattr(fr, 'call_id', 'unknown')
+                                            async for chunk in stream_tool_result(call_id, fr.response):
+                                                yield chunk
+
+                                logger.info(
+                                    "ADK Event received",
+                                    extra={
+                                        "author": getattr(event, "author", "unknown"),
+                                        "has_text": has_text,
+                                        "has_fc": has_fc,
+                                        "has_fr": has_fr,
+                                    }
+                                )
+
+                                # ── Text Responses ──
+                                if has_text:
+                                    for part in event.content.parts:
+                                        if hasattr(part, 'text') and part.text:
+                                            filtered = await filter_agent_output(part.text)
+                                            full_response += filtered
+                                            async for chunk in stream_text(filtered):
+                                                yield chunk
+                            else:
+                                logger.debug("ADK event has no content or parts")
+
+                except asyncio.TimeoutError:
+                    logger.error(f"[ADK] run_async timed out after 55s for session {session_id}")
+                    async for chunk in stream_error("Syd ha impiegato troppo tempo a rispondere. Riprova tra poco."):
+                        yield chunk
+
                 # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---
-                # Save if we have text OR if we have tool calls (e.g. rendering start)
                 if full_response or accumulated_tool_calls:
                     try:
+                        from datetime import datetime, timezone
                         repo = get_conversation_repository()
-                        # We pass None for timestamp to trigger firestore.SERVER_TIMESTAMP
+                        assistant_timestamp = datetime.now(timezone.utc)
                         await repo.save_message(
                             session_id=session_id,
                             role="assistant",
                             content=full_response,
                             tool_calls=accumulated_tool_calls if accumulated_tool_calls else None,
-                            timestamp=None
+                            timestamp=assistant_timestamp
                         )
+                        logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:
                         logger.error(f"Failed to persist assistant message: {e}")
             except Exception as e:

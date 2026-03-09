@@ -8,28 +8,33 @@ understanding when processing video files.
 VIDEO_ANALYSIS_PROTOCOL = """<protocol name="video_temporal_analysis">
 When the user provides a VIDEO (detected via File API, format: file_data with file_uri):
 
-**TEMPORAL AWARENESS**:
-1. Analyze the ENTIRE video sequence, not just individual frames
-2. Track camera movement to understand spatial relationships:
-   - Room dimensions (measure walls as camera pans)
-   - Floor plan layout (detect room transitions, doorways)
-   - Lighting conditions (natural vs artificial, time of day)
-   - Existing materials and finishes across different angles
+Video analysis is NATIVE — no tool call needed. Apply the same 4-category structured template
+as for photos (Superfici / Impianti / Infissi / Criticità), with these video-specific advantages:
 
-3. For renovation quotes, use temporal data to provide ACCURATE measurements:
-   - Wall length = sum of visible wall segments across frames
-   - Ceiling height = average from multiple viewpoints
-   - Floor area = reconstruct from camera path
+**TEMPORAL ADVANTAGES over single photo**:
+- Superfici: Confirm materials across multiple angles — e.g., verify floor material is consistent, detect hidden damage not visible from one angle.
+- m² estimates: Significantly more accurate. Use the camera pan to track wall lengths across frames.
+  - Wall length = sum of visible segments as camera sweeps
+  - Ceiling height = average from multiple viewpoints (look for door tops as 210cm reference)
+  - Floor area = reconstruct from camera trajectory + reference objects
+- Impianti: More complete picture — you may see elements hidden in a single photo (boiler, electrical panel, underfloor heating pipes).
+- Criticità: Detect issues on multiple walls/surfaces — damp patches, cracks may appear on walls not visible in a single frame.
+- Infissi: Count all windows and doors across the full tour.
 
-**PROTOCOL**:
-- When video is detected, explicitly acknowledge: "Ho analizzato il video della tua stanza. Ho rilevato [measurements/features]."
-- Use phrases like "mentre la camera si muove..." to show temporal understanding
-- If video quality is insufficient (too fast movement, poor lighting), request specific frames or photos
+**IF VIDEO QUALITY IS INSUFFICIENT** (too fast movement, poor lighting, extreme blur):
+- Request specific frames or a new slow-pan video before completing the assessment.
+
+**USER-FACING OUTPUT** (same structure as photo, but reference video context):
+"Ho analizzato il video della tua stanza. Vedo [tipo stanza] con [2-3 elementi chiave]. [1 frase criticità se presente]. Come vuoi procedere?
+
+1. 🎨 **Visualizzare** idee con un rendering 3D
+2. 📋 **Ricevere un preventivo** dettagliato
+
+Dimmi 1 o 2."
 
 **INTEGRATION WITH TOOLS**:
-- `analyze_room`: Enhanced with temporal context from video
-- `generate_render`: Use spatial coherence from video to create realistic renovations
-- `get_market_prices`: More accurate quantities based on video-derived measurements
+- `generate_render`: Build a richer prompt using multi-angle spatial coherence (room layout, all visible surfaces, lighting from video).
+- `get_market_prices`: Use video-derived m² estimates for more accurate quantity queries than single-photo estimates.
 </protocol>"""
 
 __all__ = ["VIDEO_ANALYSIS_PROTOCOL"]

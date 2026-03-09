@@ -172,8 +172,12 @@ async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict
     - Exponential backoff retry (tenacity)
     - Idempotency key in payload
 
+    Each workflow_id maps to a dedicated n8n webhook URL (separate workflows):
+    - "lead_submission"  → N8N_WEBHOOK_NOTIFY_ADMIN  (new lead/quote ready for admin review)
+    - "quote_delivery"   → N8N_WEBHOOK_DELIVER_QUOTE (send approved quote PDF to client)
+
     Args:
-        workflow_id: The n8n workflow ID to trigger (appended to the base webhook URL).
+        workflow_id: Logical workflow identifier. Maps to a specific webhook URL in settings.
         payload: JSON payload to send to the workflow.
     """
     from src.core.config import settings
@@ -182,15 +186,21 @@ async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict
 
     _logger = logging.getLogger(__name__)
 
-    webhook_url = settings.N8N_WEBHOOK_NOTIFY_ADMIN
-    if not webhook_url:
-        return {"status": "error", "message": "N8N_WEBHOOK_NOTIFY_ADMIN is not configured."}
+    # Each workflow has its own dedicated n8n webhook URL (not a suffix)
+    _WORKFLOW_URL_MAP = {
+        "lead_submission": settings.N8N_WEBHOOK_NOTIFY_ADMIN,
+        "quote_delivery": settings.N8N_WEBHOOK_DELIVER_QUOTE,
+    }
 
-    target_url = f"{webhook_url}/{workflow_id}"
+    webhook_url = _WORKFLOW_URL_MAP.get(workflow_id)
+    if not webhook_url:
+        if workflow_id not in _WORKFLOW_URL_MAP:
+            return {"status": "error", "message": f"Unknown workflow_id '{workflow_id}'. Valid values: {list(_WORKFLOW_URL_MAP.keys())}."}
+        return {"status": "error", "message": f"Webhook URL for '{workflow_id}' is not configured in environment."}
 
     try:
-        _validate_webhook_url(target_url)  # SSRF guard — raises ValueError if invalid host
-        result = await _call_n8n_webhook(target_url, payload)
+        _validate_webhook_url(webhook_url)  # SSRF guard — raises ValueError if invalid host
+        result = await _call_n8n_webhook(webhook_url, {"workflow_id": workflow_id, **payload})
         _logger.info("[ADK Tool] n8n webhook triggered.", extra={"workflow_id": workflow_id})
         return {"status": "success", "result": result}
     except ValueError as e:
