@@ -1,8 +1,9 @@
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-from firebase_admin import firestore
-from src.db.firebase_client import get_firestore_client
+from firebase_admin import firestore as sync_firestore
+from google.cloud import firestore as async_firestore
+from src.db.firebase_client import get_firestore_client, get_async_firestore_client
 from src.db.projects import sync_project_cover
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,14 @@ class ConversationRepository:
         pass
 
     def _get_db(self):
+        """Returns the sync Firestore client (firebase-admin)."""
+        from firebase_admin import firestore as sync_firestore
         return get_firestore_client()
+
+    def _get_async_db(self):
+        """Returns the async Firestore client (google-cloud-firestore)."""
+        from src.db.firebase_client import get_async_firestore_client
+        return get_async_firestore_client()
 
     async def save_message(
         self,
@@ -34,7 +42,10 @@ class ConversationRepository:
     ) -> None:
         """Save a message to Firestore with tool support and media attachments."""
         try:
-            db = self._get_db()
+            if role == "user":
+                logger.info(f"[Repo] Saving user message to session {session_id} with timestamp {timestamp}")
+            
+            db = self._get_async_db()
             
             # 🛡️ Defense: Ensure Pydantic models are dumped
             if tool_calls:
@@ -43,10 +54,13 @@ class ConversationRepository:
             if attachments:
                 attachments = [att.model_dump() if hasattr(att, 'model_dump') else att for att in attachments]
 
+            # 🚀 Use correct sentinel for Async Client
+            from google.cloud import firestore as async_firestore
+            
             message_data = {
                 'role': role,
                 'content': content,
-                'timestamp': timestamp if timestamp else firestore.SERVER_TIMESTAMP,
+                'timestamp': timestamp if timestamp else async_firestore.SERVER_TIMESTAMP,
             }
             
             if metadata:
@@ -69,13 +83,13 @@ class ConversationRepository:
             session_doc = await session_ref.get()
             
             session_update = {
-                'updatedAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': async_firestore.SERVER_TIMESTAMP,
                 'sessionId': session_id,
-                'messageCount': firestore.Increment(1)
+                'messageCount': async_firestore.Increment(1)
             }
             
             if not session_doc.exists:
-                session_update['createdAt'] = firestore.SERVER_TIMESTAMP
+                session_update['createdAt'] = async_firestore.SERVER_TIMESTAMP
                 
             await session_ref.set(session_update, merge=True)
             
@@ -91,20 +105,19 @@ class ConversationRepository:
     ) -> List[Dict[str, Any]]:
         """Retrieve conversation history including tool data and attachments."""
         try:
-            db = self._get_db()
+            db = self._get_async_db()
             
             messages_ref = (
                 db.collection('sessions')
                 .document(session_id)
                 .collection('messages')
-                .order_by('timestamp', direction=firestore.Query.DESCENDING)
+                .order_by('timestamp', direction=async_firestore.Query.DESCENDING)
                 .limit(limit)
             )
             
-            docs = messages_ref.stream()
-            
+            # 🚀 Async iteration
             messages_reversed = []
-            for doc in docs:
+            async for doc in messages_ref.stream():
                 data = doc.to_dict()
                 msg = {
                     'role': data.get('role', 'user'),
@@ -135,23 +148,23 @@ class ConversationRepository:
         If user_id is provided and the session doesn't exist, it's created with that owner.
         """
         try:
-            db = self._get_db()
+            db = self._get_async_db()
             
             session_ref = db.collection('sessions').document(session_id)
-            doc = session_ref.get()
+            doc = await session_ref.get()
             
             if not doc.exists:
                 # Determine owner
                 owner_id = user_id if user_id else f"guest_{session_id[:8]}"
                 
-                session_ref.set({
+                await session_ref.set({
                     'sessionId': session_id,
                     'userId': owner_id,
                     'title': 'Nuovo Progetto',
                     'status': 'draft',
                     'thumbnailUrl': None,
-                    'createdAt': firestore.SERVER_TIMESTAMP,
-                    'updatedAt': firestore.SERVER_TIMESTAMP,
+                    'createdAt': async_firestore.SERVER_TIMESTAMP,
+                    'updatedAt': async_firestore.SERVER_TIMESTAMP,
                     'messageCount': 0
                 })
                 logger.info(f"[Repo] Created new session {session_id} for user {owner_id}")
@@ -164,8 +177,8 @@ class ConversationRepository:
                         'id': session_id,
                         'name': 'Nuovo Progetto', 
                         'userId': owner_id,
-                        'createdAt': firestore.SERVER_TIMESTAMP,
-                        'updatedAt': firestore.SERVER_TIMESTAMP,
+                        'createdAt': async_firestore.SERVER_TIMESTAMP,
+                        'updatedAt': async_firestore.SERVER_TIMESTAMP,
                         'status': 'active'
                     })
                     logger.info(f"[Repo] 🚀 Sync: Created project {session_id} from session")
@@ -174,12 +187,12 @@ class ConversationRepository:
                 session_data = doc.to_dict()
                 current_owner = session_data.get('userId', '')
                 if user_id and current_owner.startswith('guest_'):
-                    await session_ref.update({'userId': user_id, 'updatedAt': firestore.SERVER_TIMESTAMP})
+                    await session_ref.update({'userId': user_id, 'updatedAt': async_firestore.SERVER_TIMESTAMP})
                     # Also update project
                     project_ref = db.collection('projects').document(session_id)
                     project_snap = await project_ref.get()
                     if project_snap.exists:
-                        await project_ref.update({'userId': user_id, 'updatedAt': firestore.SERVER_TIMESTAMP})
+                        await project_ref.update({'userId': user_id, 'updatedAt': async_firestore.SERVER_TIMESTAMP})
                     logger.info(f"[Repo] 🔄 CLAIM: Session {session_id} migrated from {current_owner} to {user_id}")
                 
                 # Backfill check
@@ -191,8 +204,8 @@ class ConversationRepository:
                         'id': session_id,
                         'name': session_data.get('title', 'Progetto Recuperato'), 
                         'userId': session_data.get('userId', user_id or 'unknown'),
-                        'createdAt': session_data.get('createdAt', firestore.SERVER_TIMESTAMP),
-                        'updatedAt': firestore.SERVER_TIMESTAMP,
+                        'createdAt': session_data.get('createdAt', async_firestore.SERVER_TIMESTAMP),
+                        'updatedAt': async_firestore.SERVER_TIMESTAMP,
                         'status': 'active'
                     })
                      logger.info(f"[Repo] 🚀 Sync: Backfilled missing project {session_id}")
@@ -209,7 +222,7 @@ class ConversationRepository:
         Save file metadata to the project's 'files' subcollection.
         """
         try:
-            db = self._get_db()
+            db = self._get_async_db()
             
             files_ref = db.collection('projects').document(project_id).collection('files')
             
@@ -225,7 +238,7 @@ class ConversationRepository:
                 'name': file_data.get('name', f"File {datetime.now().isoformat()}"),
                 'size': file_data.get('size', 0),
                 'uploadedBy': file_data.get('uploadedBy', 'system'),
-                'uploadedAt': firestore.SERVER_TIMESTAMP,
+                'uploadedAt': async_firestore.SERVER_TIMESTAMP,
                 'mimeType': file_data.get('mimeType', 'application/octet-stream'),
                 'metadata': file_data.get('metadata', {}),
                 'thumbnailUrl': file_data.get('thumbnailUrl')
