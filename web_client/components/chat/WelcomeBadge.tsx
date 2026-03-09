@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 
 interface WelcomeBadgeProps {
     isOpen: boolean;
@@ -13,14 +13,15 @@ interface WelcomeBadgeProps {
  */
 export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
     const [showWelcomeBadge, setShowWelcomeBadge] = useState(false);
+    const [isDismissed, setIsDismissed] = useState(false);
     const [typewriterText, setTypewriterText] = useState('');
     const fullMessage = "Ciao, sono qui per aiutarti a ristrutturare la tua casa!";
 
     // Show badge after delay
     useEffect(() => {
-        const t = setTimeout(() => !isOpen && setShowWelcomeBadge(true), 2500);
+        const t = setTimeout(() => !isOpen && !isDismissed && setShowWelcomeBadge(true), 2500);
         return () => clearTimeout(t);
-    }, [isOpen]);
+    }, [isOpen, isDismissed]);
 
     // Hide when chat opens
     useEffect(() => {
@@ -69,7 +70,19 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                         boxShadow: '0 8px 32px -8px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.1)'
                     }}
                 >
-                    <div className="flex items-center gap-2 mb-1">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsDismissed(true);
+                            setShowWelcomeBadge(false);
+                        }}
+                        className="absolute top-2 right-2 p-1 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/10 z-10"
+                        aria-label="Chiudi messaggio di benvenuto"
+                    >
+                        <X className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="flex items-center gap-2 mb-1 pr-4">
                         <Sparkles className="w-4 h-4 text-luxury-gold animate-pulse" />
                         <span className="text-[10px] font-bold uppercase tracking-wider text-luxury-gold/80">
                             Architetto SYD
@@ -84,13 +97,17 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                     </p>
 
                     {/* The pointer triangle (tail) for the chat bubble */}
-                    <div
-                        className="absolute -right-2 bottom-0 w-4 h-4 bg-luxury-teal/90 backdrop-blur-xl border-b border-r border-luxury-gold/20"
-                        style={{
-                            clipPath: 'polygon(100% 100%, 0 0, 0 100%)',
-                            boxShadow: 'inset -1px -1px 1px rgba(233, 196, 106, 0.2)'
-                        }}
-                    ></div>
+                    <svg 
+                        className="absolute -right-[10px] bottom-[-1px] w-[11px] h-[15px]"
+                        viewBox="0 0 11 15"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        {/* Solid fill to hide the parent border underneath and prevent translucent double-overlap */}
+                        <path d="M0 0 L11 15 H0 V0Z" className="fill-luxury-teal" />
+                        {/* Stroke to match the parent's border on the outer edge */}
+                        <path d="M0 0 L11 15" className="stroke-luxury-gold/20" strokeWidth="1" />
+                    </svg>
                 </motion.div>
             )}
         </AnimatePresence>
