@@ -123,26 +123,35 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const transport = useMemo(() => new DefaultChatTransport({
         api: '/api/chat',
         headers: resolveHeaders,
-        prepareSendMessagesRequest: ({ id, messages, requestMetadata }) => {
-            const body = {
+        prepareSendMessagesRequest: ({ id, messages, body: sdkBody }) => {
+            // sdkBody = { ...transport.body (static), ...options.body (per-request) }
+            // options.body carries mediaUrls, mediaMetadata, videoFileUris from ChatWidget.
+            const extra = (sdkBody ?? {}) as Record<string, unknown>;
+            const body: Record<string, unknown> = {
                 id,
                 messages,
-                ...((requestMetadata as Record<string, unknown>) ?? {}),
+                ...extra,
                 projectId: currentProjectId,
                 is_authenticated: !!user && !user.isAnonymous,
                 sessionId,
             };
 
-            const lastMsg = body.messages?.[body.messages?.length - 1];
-            const lastMsgContent = lastMsg ? (typeof (lastMsg as any).content === 'string' ? (lastMsg as any).content : (lastMsg as any).parts?.[0]?.text || '') : '';
+            const msgs = body.messages as typeof messages;
+            const lastMsg = msgs?.[msgs.length - 1];
+            const lastMsgContent = lastMsg
+                ? (typeof (lastMsg as any).content === 'string'
+                    ? (lastMsg as any).content
+                    : (lastMsg as any).parts?.[0]?.text || '')
+                : '';
 
             console.log('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
                 sessionId: body.sessionId,
-                messagesCount: body.messages?.length,
+                messagesCount: msgs?.length,
                 projectId: body.projectId,
                 is_authenticated: body.is_authenticated,
                 lastMessageRole: lastMsg?.role,
                 lastMessageContent: String(lastMsgContent).substring(0, 50),
+                mediaUrlsCount: Array.isArray(body.mediaUrls) ? (body.mediaUrls as unknown[]).length : 0,
             }));
             return { body };
         },

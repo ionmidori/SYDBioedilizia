@@ -132,10 +132,10 @@ describe('useChatHistory', () => {
             expect(result.current.historyMessages).toHaveLength(2);
         });
 
-        // Docs come in DESC order (newest first), reversed to chronological
+        // Sorted chronologically (oldest first): user (Jan 1) before assistant (Jan 2)
         const msgs = result.current.historyMessages;
-        expect(msgs[0]).toMatchObject({ id: 'msg-2', role: 'assistant', content: 'Hi there!' });
-        expect(msgs[1]).toMatchObject({ id: 'msg-1', role: 'user', content: 'Hello' });
+        expect(msgs[0]).toMatchObject({ id: 'msg-1', role: 'user', content: 'Hello' });
+        expect(msgs[1]).toMatchObject({ id: 'msg-2', role: 'assistant', content: 'Hi there!' });
     });
 
     it('should handle snapshot errors gracefully', async () => {

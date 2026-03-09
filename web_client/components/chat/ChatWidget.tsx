@@ -197,6 +197,13 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         // Prepare Media
         const completedUploads = successfulUploads;
 
+        console.log('[ChatWidget] Submit: completedUploads:', completedUploads.map(u => ({
+            id: u.id,
+            status: u.status,
+            assetType: u.serverData?.asset_type,
+            url: u.serverData?.url?.substring(0, 60),
+        })));
+
         const mediaUrls = completedUploads
             .filter(u => u.serverData?.asset_type === 'image')
             .map(u => u.serverData!.url);

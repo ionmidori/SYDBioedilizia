@@ -144,21 +144,36 @@ export function useChatHistory(
                         } as Message;
                     });
 
-                    // Sort chronologically (Oldest -> Newest)
+                    // 3. Consistent Sorting Logic
+                    // Sort by timestamp ASCENDING (Oldest first).
+                    // Tie-breaker: role priority (user < assistant) for messages within 500ms.
+                    // The backend saves user at t-100ms and assistant at t+Nms, so 500ms
+                    // covers any realistic same-turn gap while preserving cross-turn order.
+                    const rolePriority: Record<string, number> = {
+                        system: 0,
+                        user: 1,
+                        assistant: 2,
+                        tool: 3
+                    };
                     const messages = rawMessages.sort((a, b) => {
                         const timeA = (a.createdAt as Date).getTime();
                         const timeB = (b.createdAt as Date).getTime();
+                        const diff = timeA - timeB;
 
-                        if (timeA !== timeB) {
-                            return timeA - timeB;
+                        // If messages differ by more than 500ms, use chronological order
+                        if (Math.abs(diff) > 500) {
+                            return diff;
                         }
 
-                        // 🛡️ Robust Tie-breaker (User < Assistant)
-                        // This handles messages sent in the same millisecond or pending messages.
-                        const rolePriority: Record<string, number> = { system: 0, user: 1, assistant: 2, tool: 3 };
+                        // Within 500ms: apply role priority (user always before assistant)
                         const priorityA = rolePriority[a.role] ?? 5;
                         const priorityB = rolePriority[b.role] ?? 5;
-                        return priorityA - priorityB;
+                        if (priorityA !== priorityB) {
+                            return priorityA - priorityB;
+                        }
+
+                        // Same role and timestamp: stable sort by document ID
+                        return (a.id || '').localeCompare(b.id || '');
                     });
 
                     // Link Tool Results (Smart Merge)

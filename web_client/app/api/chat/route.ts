@@ -130,12 +130,23 @@ export async function POST(req: Request) {
             proxyHeaders['X-Firebase-AppCheck'] = appCheckToken;
         }
 
-        const pythonResponse = await fetch(`${PYTHON_BACKEND_URL}/chat/stream`, {
-            method: 'POST',
-            cache: 'no-store', // ⚡ CRITICAL: Disable Next.js buffering
-            headers: proxyHeaders,
-            body: JSON.stringify(pythonPayload)
-        });
+        // 60s timeout for headers (backend must start streaming within 60s).
+        // The stream itself is unlimited (AbortController is only for initial connect).
+        const connectAbort = new AbortController();
+        const connectTimeout = setTimeout(() => connectAbort.abort(), 60_000);
+
+        let pythonResponse: Response;
+        try {
+            pythonResponse = await fetch(`${PYTHON_BACKEND_URL}/chat/stream`, {
+                method: 'POST',
+                cache: 'no-store', // ⚡ CRITICAL: Disable Next.js buffering
+                headers: proxyHeaders,
+                body: JSON.stringify(pythonPayload),
+                signal: connectAbort.signal,
+            });
+        } finally {
+            clearTimeout(connectTimeout);
+        }
 
         if (!pythonResponse.ok) {
             const errorText = await pythonResponse.text();
@@ -214,11 +225,14 @@ export async function POST(req: Request) {
 
     } catch (error: unknown) {
         console.error('[Proxy] Error:', error);
+        const isTimeout = error instanceof Error && error.name === 'AbortError';
         return new Response(JSON.stringify({
-            error: 'Proxy Error',
-            details: 'An internal error occurred while processing the request.',
+            error_code: isTimeout ? 'BACKEND_TIMEOUT' : 'PROXY_ERROR',
+            message: isTimeout
+                ? 'Il backend non ha risposto entro 60 secondi. Riprova tra poco.'
+                : 'Si è verificato un errore interno. Riprova tra poco.',
         }), {
-            status: 500,
+            status: isTimeout ? 504 : 500,
             headers: { 'Content-Type': 'application/json' }
         });
     }
