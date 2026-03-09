@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/og-image.png",
         width: 1200,
         height: 630,
         alt: "SYD BIOEDILIZIA - Ristrutturazioni Roma e Provincia",
@@ -79,7 +79,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SYD BIOEDILIZIA - Ristrutturazioni Roma",
     description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
-    images: ["/og-image.jpg"],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
