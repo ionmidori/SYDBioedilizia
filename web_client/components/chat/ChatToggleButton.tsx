@@ -80,7 +80,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                 cursor: 'grab'
             }}
         >
-            <div className="pointer-events-auto -mr-10 md:-mr-16 -translate-y-20 md:-translate-y-24 z-10">
+            <div className="pointer-events-auto -mr-12 md:-mr-22 -translate-y-20 md:-translate-y-24 z-10">
                 <WelcomeBadge isOpen={isOpen} onOpenChat={onClick} />
             </div>
             <Button

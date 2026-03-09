@@ -42,13 +42,25 @@ export function SydLoader({ size = 'md', className }: SydLoaderProps) {
                         "40% 60% 70% 30% / 40% 70% 30% 60%", 
                         "50% 50% 50% 50%"
                     ],
-                    rotate: [0, 180, 360],
+                    rotate: [0, 360],
                     scale: [1, 1.15, 1]
                 }}
                 transition={{
-                    duration: 2.5,
-                    ease: "easeInOut",
-                    repeat: Infinity,
+                    rotate: {
+                        duration: 3,
+                        ease: "linear",
+                        repeat: Infinity,
+                    },
+                    borderRadius: {
+                        duration: 4,
+                        ease: "easeInOut",
+                        repeat: Infinity,
+                    },
+                    scale: {
+                        duration: 2.5,
+                        ease: "easeInOut",
+                        repeat: Infinity,
+                    }
                 }}
                 className={cn(
                     "absolute border-luxury-gold",
@@ -65,13 +77,25 @@ export function SydLoader({ size = 'md', className }: SydLoaderProps) {
                         "70% 30% 30% 70% / 70% 70% 30% 30%", 
                         "50% 50% 50% 50%"
                     ],
-                    rotate: [360, 180, 0],
+                    rotate: [360, 0],
                     scale: [0.5, 0.7, 0.5]
                 }}
                 transition={{
-                    duration: 2.5,
-                    ease: "easeInOut",
-                    repeat: Infinity,
+                    rotate: {
+                        duration: 3,
+                        ease: "linear",
+                        repeat: Infinity,
+                    },
+                    borderRadius: {
+                        duration: 4,
+                        ease: "easeInOut",
+                        repeat: Infinity,
+                    },
+                    scale: {
+                        duration: 2.5,
+                        ease: "easeInOut",
+                        repeat: Infinity,
+                    }
                 }}
                 className={cn(
                     "absolute border-luxury-gold border-t-transparent border-l-transparent",

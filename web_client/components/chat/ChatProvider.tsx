@@ -8,9 +8,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { auth, appCheck } from '@/lib/firebase';
 import { getToken } from 'firebase/app-check';
-import type { Attachment } from '@/types/chat';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
+
+const WELCOME_MESSAGE = {
+    id: 'welcome-msg',
+    role: 'assistant',
+    parts: [{ type: 'text', text: "✨ **Ciao! Sono Syd**, il tuo assistente per la ristrutturazione. ✨\n\nEcco cosa posso fare per aiutarti a realizzare il tuo progetto:\n\n\n📋 **1. Creare preventivo veloce:**\n_Ottieni subito una stima dei costi._\n\n\n🎨 **2. Creare un rendering gratuito:**\n_Visualizza in anteprima le tue idee._\n\n\n💡 **3. Fornire informazioni dettagliate:**\n_Chiedi consigli su materiali e design._\n\n\n👇 **Come posso aiutarti oggi?**" }],
+    createdAt: new Date()
+} as unknown as Message;
 
 interface StreamData {
     type: string;
@@ -223,18 +229,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const isRecentlyFinished = status === 'ready' && messages.length > 0;
 
         if (historyLoaded && status !== 'streaming' && status !== 'submitted') {
+            // ALWAYS prepend the welcome message to the history so it persists
+            const fullHistory = [WELCOME_MESSAGE, ...(historyMessages as unknown as Message[])];
+
             // 1. Cold Start (Welcome Message)
             if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
                 console.log('[ChatProvider] Cold start: Injecting welcome message.');
                 welcomeInjectedRef.current = true;
 
                 timerId = setTimeout(() => {
-                    setMessages([{
-                        id: 'welcome-msg',
-                        role: 'assistant',
-                        parts: [{ type: 'text', text: "Ciao! Sono Syd, il tuo assistente per la ristrutturazione. Ecco cosa posso fare per te:\n\n1. **Creare preventivo veloce**\n2. **Creare un rendering gratuito**\n3. **Fornire informazioni dettagliate**\n\nCome posso aiutarti oggi?" }],
-                        createdAt: new Date()
-                    } as unknown as Message]);
+                    setMessages(fullHistory);
                 }, 0);
                 return () => clearTimeout(timerId);
             }
@@ -246,13 +250,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
             // 2. Synchronization Logic
             const sdkLen = messages.length;
-            const histLen = historyMessages.length;
-            const needsSync = sdkLen !== histLen || (sdkLen > 0 && histLen > 0 && messages[sdkLen - 1].id !== historyMessages[histLen - 1].id);
+            const histLen = fullHistory.length;
+            const needsSync = sdkLen !== histLen || (sdkLen > 0 && histLen > 0 && messages[sdkLen - 1].id !== fullHistory[histLen - 1].id);
 
             if (needsSync) {
                 if (isFirstSyncRef.current) {
                     console.log(`[ChatProvider] Initial history sync (${histLen} messages)`);
-                    timerId = setTimeout(() => setMessages(historyMessages as unknown as Message[]), 0);
+                    timerId = setTimeout(() => setMessages(fullHistory), 0);
                     isFirstSyncRef.current = false;
                     return () => clearTimeout(timerId);
                 }
@@ -261,13 +265,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 // just adopt the Firestore IDs without a full state rebuild.
                 if (sdkLen === histLen && sdkLen > 0) {
                     const lastSdk = messages[sdkLen - 1] as any;
-                    const lastHist = historyMessages[histLen - 1];
+                    const lastHist = fullHistory[histLen - 1] as any;
                     const sdkContent = typeof lastSdk.content === 'string' ? lastSdk.content : lastSdk.parts?.[0]?.text || '';
-                    const histContent = lastHist.content || '';
+                    const histContent = typeof lastHist.content === 'string' ? lastHist.content : lastHist.parts?.[0]?.text || '';
 
                     if (sdkContent === histContent) {
                         console.log('[ChatProvider] Adopting Firestore IDs (ID update only).');
-                        timerId = setTimeout(() => setMessages(historyMessages as unknown as Message[]), 0);
+                        timerId = setTimeout(() => setMessages(fullHistory), 0);
                         return () => clearTimeout(timerId);
                     }
                 }
@@ -281,7 +285,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 // If history is longer, it's definitive (another device or backend update)
                 console.log(`[ChatProvider] History Sync (Mismatch: SDK ${sdkLen} vs Hist ${histLen})`);
                 timerId = setTimeout(() => {
-                    setMessages(historyMessages as unknown as Message[]);
+                    setMessages(fullHistory);
                 }, 0);
                 return () => clearTimeout(timerId);
             }
@@ -332,7 +336,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     // -- FACADE: Flexible Send Message --
-    const sendMessage = useCallback(async (content: string, attachments?: Attachment[], data?: Record<string, unknown>) => {
+    // attachments: array of Firebase Storage URLs (strings) for images
+    const sendMessage = useCallback(async (content: string, attachments?: string[], data?: Record<string, unknown>) => {
         const trimmed = content.trim();
         const hasAttachments = attachments && attachments.length > 0;
 
@@ -366,7 +371,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             // Optimistic UI: Clear input immediately
             setInput('');
 
-            // AI SDK v6: sendMessage({ text }, { body, headers })
+            // Build FileUIPart[] for AI SDK v6 — these populate message.parts with type:'file'
+            // which MessageItem reads to render image thumbnails in the user bubble.
+            const files = hasAttachments
+                ? attachments!.map(url => ({
+                    type: 'file' as const,
+                    mediaType: 'image/jpeg',
+                    url,
+                }))
+                : undefined;
+
+            // AI SDK v6: sendMessage({ text, files }, { body, headers })
             // Transport-level headers/body are resolved automatically,
             // request-level options here override/extend them.
             const requestBody = {
@@ -374,7 +389,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             };
 
             await sdkSendMessage(
-                { text: trimmed },
+                { text: trimmed, files },
                 { body: requestBody }
             );
         } catch (err) {

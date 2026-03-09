@@ -68,6 +68,10 @@ export function ChatInput({
     const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
     const cameraInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
+    const galleryPhotoRef = useRef<HTMLInputElement>(null); // Photo Library: image/* only, no capture
+    const documentInputRef = useRef<HTMLInputElement>(null); // PDF only
+    // Cloud (Google Drive / iCloud Drive): nessun capture → il picker di sistema mostra Drive/iCloud come sorgenti
+    const cloudInputRef = useRef<HTMLInputElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
     // Derived state
@@ -209,31 +213,52 @@ export function ChatInput({
                     <AttachmentMenu
                         isOpen={isAttachMenuOpen}
                         onClose={() => setIsAttachMenuOpen(false)}
+                        onGalleryPhotoClick={() => {
+                            setTimeout(() => galleryPhotoRef.current?.click(), 100);
+                        }}
                         onCameraClick={() => {
                             setTimeout(() => cameraInputRef.current?.click(), 100);
                         }}
                         onVideoClick={() => {
                             setTimeout(() => videoInputRef.current?.click(), 100);
                         }}
-                        onGalleryClick={() => {
-                            setTimeout(() => fileInputRef.current?.click(), 100);
+                        onDocumentClick={() => {
+                            setTimeout(() => documentInputRef.current?.click(), 100);
+                        }}
+                        onCloudClick={() => {
+                            setTimeout(() => cloudInputRef.current?.click(), 100);
                         }}
                     />
                 </div>
 
-                {/* Hidden File Input - Galleria/Documenti (no capture → mostra galleria + file system) */}
+                {/*
+                 * Hidden File Inputs — uno per tipo, con accept stretto per privacy e UX mobile.
+                 *
+                 * PERCHÉ INPUT SEPARATI:
+                 * - accept="image/*,video/mp4,..." → Android/iOS apre dialog generico (Files, Drive, ...)
+                 * - accept="image/*" senza capture → iOS apre Photo Library, Android apre galleria foto
+                 * - capture="environment" → salta la galleria e apre la fotocamera direttamente
+                 *
+                 * PRIVACY:
+                 * - Nessun input ha accesso a più tipi di dati del necessario
+                 * - Il PDF input non può mai ricevere immagini/video (e viceversa)
+                 * - Tutti sono aria-hidden + tabIndex=-1 (non navigabili da tastiera/screen reader)
+                 * - e.target.value = '' in handleFileChange azzera subito il riferimento al file
+                 */}
+
+                {/* 1. Galleria Foto — image/* senza capture: iOS → Photo Library, Android → Galleria */}
                 <input
                     type="file"
-                    ref={fileInputRef as React.RefObject<HTMLInputElement>}
+                    ref={galleryPhotoRef}
                     className="hidden"
-                    accept="image/*,video/mp4,video/webm,video/quicktime,video/x-m4v,application/pdf"
+                    accept="image/*"
                     onChange={handleFileChange}
                     multiple
                     aria-hidden="true"
                     tabIndex={-1}
                 />
 
-                {/* Hidden Camera Input - Scatta Foto (capture="environment" → apre fotocamera direttamente) */}
+                {/* 2. Fotocamera — capture="environment": apre direttamente la camera posteriore */}
                 <input
                     type="file"
                     ref={cameraInputRef}
@@ -245,7 +270,7 @@ export function ChatInput({
                     tabIndex={-1}
                 />
 
-                {/* Hidden Video Input - Registra Video (capture="environment" + accept video → registra video) */}
+                {/* 3. Video — capture="environment" + video: apre la camera in modalità video */}
                 <input
                     type="file"
                     ref={videoInputRef}
@@ -253,6 +278,53 @@ export function ChatInput({
                     accept="video/mp4,video/quicktime,video/x-msvideo"
                     capture="environment"
                     onChange={handleFileChange}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                />
+
+                {/* 4. Documento PDF — application/pdf: apre file manager, non la galleria */}
+                <input
+                    type="file"
+                    ref={documentInputRef}
+                    className="hidden"
+                    accept="application/pdf"
+                    onChange={handleFileChange}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                />
+
+                {/*
+                 * 5. Google Drive / iCloud Drive — nessun capture, tutti i tipi supportati.
+                 *
+                 * COMPORTAMENTO:
+                 * - iOS: il picker mostra "Foto", "iCloud Drive", "Google Drive" (se installato), "Files"
+                 * - Android: mostra Google Foto, Google Drive, File Manager e qualsiasi provider installato
+                 *
+                 * PERCHÉ accept multi-tipo QUI (e non per la galleria):
+                 * - L'utente vuole scegliere esplicitamente da un cloud → ci si aspetta una scelta multi-fonte
+                 * - La galleria foto deve rimanere strettamente "image/*" per aprire la Photo Library
+                 *
+                 * PRIVACY: nessun capture → il browser non accede mai direttamente a camera/microfono
+                 */}
+                <input
+                    type="file"
+                    ref={cloudInputRef}
+                    className="hidden"
+                    accept="image/*,video/mp4,video/quicktime,application/pdf"
+                    onChange={handleFileChange}
+                    multiple
+                    aria-hidden="true"
+                    tabIndex={-1}
+                />
+
+                {/* Fallback ref esterno (usato da ChatWidget per programmatic click se necessario) */}
+                <input
+                    type="file"
+                    ref={fileInputRef as React.RefObject<HTMLInputElement>}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    multiple
                     aria-hidden="true"
                     tabIndex={-1}
                 />

@@ -242,17 +242,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         if (isOpen) scrollToBottom();
 
         try {
-            await sendMessage(input,
-                // Attachments (Standard Vercel SDK format for "experimental_attachments" or our custom logic)
-                // Our sendMessage facade takes (content, attachments?, data?)
-                // We pass images as attachments? Or just use our custom data body?
-                // The ChatProvider facade maps 'attachments' to 'experimental_attachments'.
-                // If we want to support image previews in user bubble via standard UI, we should pass them as attachments.
-                // Current MessageItem checks 'message.attachments?.images'.
-                // So we should pass generic attachments.
-                mediaUrls, // This is 'any'[] in signature
-                dataBody
-            );
+            await sendMessage(input, mediaUrls, dataBody);
         } catch (err: unknown) {
             const error = err as Error;
             setErrorMessage(error.message || "Invio fallito.");
@@ -419,7 +409,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="fixed inset-0 z-[90] bg-[#0f172a]/80 touch-none md:bg-black/40 backdrop-blur-md"
+                                className="fixed inset-0 z-[90] bg-[#0f172a]/80 backdrop-blur-md touch-none md:bg-transparent md:backdrop-blur-none"
                                 onClick={() => setIsOpen(false)}
                             />
                         )}

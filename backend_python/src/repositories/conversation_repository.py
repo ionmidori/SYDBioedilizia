@@ -21,12 +21,10 @@ class ConversationRepository:
 
     def _get_db(self):
         """Returns the sync Firestore client (firebase-admin)."""
-        from firebase_admin import firestore as sync_firestore
         return get_firestore_client()
 
     def _get_async_db(self):
         """Returns the async Firestore client (google-cloud-firestore)."""
-        from src.db.firebase_client import get_async_firestore_client
         return get_async_firestore_client()
 
     async def save_message(
@@ -55,7 +53,6 @@ class ConversationRepository:
                 attachments = [att.model_dump() if hasattr(att, 'model_dump') else att for att in attachments]
 
             # 🚀 Use correct sentinel for Async Client
-            from google.cloud import firestore as async_firestore
             
             message_data = {
                 'role': role,
@@ -264,7 +261,7 @@ class ConversationRepository:
                 db.collection('sessions')
                 .document(session_id)
                 .collection('messages')
-                .order_by('timestamp', direction=firestore.Query.DESCENDING)
+                .order_by('timestamp', direction=sync_firestore.Query.DESCENDING)
                 .limit(limit)
             )
             

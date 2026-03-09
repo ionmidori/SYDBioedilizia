@@ -207,20 +207,32 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                 )}
 
                 {/* 1. User Images Bubble (Visual Only) */}
-                {message.role === 'user' && message.attachments?.images && message.attachments.images.length > 0 && (
-                    <div className="flex flex-wrap gap-2 justify-end">
-                        {message.attachments.images.map((imageUrl, imgIdx) => (
-                            <div key={imgIdx} className="overflow-hidden rounded-2xl shadow-sm border border-luxury-text/10 max-w-[200px]">
-                                <ImagePreview
-                                    src={imageUrl}
-                                    alt="Uploaded image"
-                                    onClick={onImageClick}
-                                    className="w-full h-auto object-cover hover:scale-105 transition-transform duration-500"
-                                />
-                            </div>
-                        ))}
-                    </div>
-                )}
+                {message.role === 'user' && (() => {
+                    // AI SDK v6: images live in message.parts as FileUIPart (type: 'file')
+                    // Fallback: legacy message.attachments.images (Firestore history)
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const filePartUrls = (message.parts as any[] | undefined)
+                        ?.filter((p: any) => p.type === 'file' && typeof p.url === 'string' && p.mediaType?.startsWith('image/'))
+                        .map((p: any) => p.url as string) ?? [];
+                    const imageUrls = filePartUrls.length > 0
+                        ? filePartUrls
+                        : (message.attachments?.images ?? []);
+                    if (imageUrls.length === 0) return null;
+                    return (
+                        <div className="flex flex-wrap gap-2 justify-end">
+                            {imageUrls.map((imageUrl, imgIdx) => (
+                                <div key={imgIdx} className="overflow-hidden rounded-2xl shadow-sm border border-luxury-text/10 max-w-[200px]">
+                                    <ImagePreview
+                                        src={imageUrl}
+                                        alt="Uploaded image"
+                                        onClick={onImageClick}
+                                        className="w-full h-auto object-cover hover:scale-105 transition-transform duration-500"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    );
+                })()}
 
                 {/* 2. Main Text Bubble */}
                 {shouldShow && (

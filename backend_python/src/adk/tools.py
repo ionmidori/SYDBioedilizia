@@ -104,23 +104,42 @@ async def get_market_prices(query: str) -> str:
 
 # ─── Render Generation ───────────────────────────────────────────────────────
 
-async def generate_render(prompt: str, style: str = "photorealistic") -> str:
+async def generate_render(
+    prompt: str,
+    session_id: str,
+    style: str = "photorealistic",
+    room_type: str = "interior",
+    mode: str = "creation",
+    source_image_url: str = "",
+) -> dict:
     """Generates a photorealistic 3D render of a room using Gemini + Imagen 3.
 
     Args:
         prompt: Detailed description of the interior design to render.
-        style: Design style (e.g. 'modern', 'industrial', 'photorealistic').
+        session_id: The current project/session identifier (required for saving the render).
+        style: Design style (e.g. 'modern', 'industrial', 'minimalist', 'rustic').
+        room_type: Type of room (e.g. 'living room', 'kitchen', 'bathroom').
+        mode: 'creation' for text-to-image, 'modification' to transform an uploaded photo.
+        source_image_url: Firebase Storage URL of the room photo (required if mode='modification').
     """
+    import logging as _logging
+    _logger = _logging.getLogger(__name__)
+
     from src.tools.generate_render import generate_render_wrapper
     try:
-        return await generate_render_wrapper(
+        result = await generate_render_wrapper(
             prompt=prompt,
-            room_type="unknown",
+            room_type=room_type or "interior",
             style=style,
-            mode="text_to_image",
+            session_id=session_id,
+            mode=mode if mode in ("creation", "modification") else "creation",
+            source_image_url=source_image_url or None,
         )
+        _logger.info(f"[ADK Tool] generate_render completed. Status: {result.get('status')}, session: {session_id}")
+        return result
     except Exception as e:
-        return f"Render generation failed: {e}"
+        _logger.error(f"[ADK Tool] generate_render FAILED for session {session_id}: {e}", exc_info=True)
+        return {"status": "error", "error": str(e)}
 
 
 # ─── Project Gallery ─────────────────────────────────────────────────────────

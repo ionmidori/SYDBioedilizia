@@ -10,11 +10,12 @@ MIME type spoofing attacks (e.g., .exe files renamed to .jpg).
 """
 import io
 import uuid
-import time
-from datetime import datetime, timedelta
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request, Response
+from datetime import timedelta
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
-from typing import Optional
+from typing import Tuple
+from firebase_admin import storage as fb_storage
 from src.db.firebase_client import get_storage_client
 from src.auth.jwt_handler import verify_token
 from src.schemas.internal import UserSession
@@ -22,6 +23,8 @@ from src.services.media_processor import MediaProcessor, get_media_processor, Vi
 from src.core.logger import get_logger
 from src.models.media import ImageMediaAsset, VideoMediaAsset
 from src.utils.security import validate_image_magic_bytes, validate_video_magic_bytes, sanitize_filename
+from src.tools.quota import check_quota, increment_quota
+from src.core.exceptions import QuotaExceeded
 
 logger = get_logger(__name__)
 
@@ -50,7 +53,70 @@ class ImageUploadResponse(BaseModel):
 
 MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10MB
 MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
+CHUNK_SIZE = 1024 * 1024            # 1MB read chunks
 
+
+# ── Shared Dependencies (DRY) ──────────────────────────────────────────────
+
+async def _enforce_quota(user_id: str, tool_name: str) -> int:
+    """Check quota and raise QuotaExceeded if limit reached. Returns remaining count."""
+    allowed, remaining, reset_at = await check_quota(user_id, tool_name)
+    if not allowed:
+        raise QuotaExceeded(
+            message=f"Limite {tool_name} raggiunto. Riprova domani.",
+            detail={"tool_name": tool_name, "reset_at": reset_at.isoformat()},
+        )
+    return remaining
+
+
+# ── Chunked File Reading (Memory Safety) ───────────────────────────────────
+
+async def _safe_read_file(file: UploadFile, max_size: int) -> bytes:
+    """Read file in chunks, rejecting payloads that exceed max_size.
+
+    Prevents memory exhaustion from spoofed Content-Length headers
+    by enforcing the limit during read, not just after.
+    """
+    buf = bytearray()
+    while chunk := await file.read(CHUNK_SIZE):
+        buf.extend(chunk)
+        if len(buf) > max_size:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Maximum size is {max_size / 1024 / 1024:.0f}MB.",
+            )
+    return bytes(buf)
+
+
+# ── Sync Firebase Operations (Thread Pool) ─────────────────────────────────
+
+def _firebase_upload(
+    file_path: str,
+    content: bytes,
+    content_type: str,
+    safe_filename: str,
+) -> Tuple[str, str]:
+    """Synchronous Firebase Storage upload — runs in threadpool to avoid blocking the event loop."""
+    bucket = fb_storage.bucket()
+    blob = bucket.blob(file_path)
+
+    blob.upload_from_string(content, content_type=content_type)
+
+    blob.cache_control = "public, max-age=31536000, immutable"
+    blob.content_disposition = f'inline; filename="{safe_filename}"'
+    blob.patch()
+
+    signed_url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(hours=1),
+        method="GET",
+    )
+
+    blob.make_public()
+    return blob.public_url, signed_url
+
+
+# ── Endpoints ──────────────────────────────────────────────────────────────
 
 @router.post("/image", response_model=ImageMediaAsset)
 async def upload_image(
@@ -61,124 +127,75 @@ async def upload_image(
 ) -> ImageMediaAsset:
     """
     Upload an image to Firebase Storage.
-    
+
     Args:
         file: Image file (jpeg, png, webp, gif)
         session_id: Chat session ID for organizing uploads
         user_session: JWT verified user session
-        
+
     Returns:
-        ImageUploadResponse with public URL and metadata
-        
+        ImageMediaAsset with public URL and metadata
+
     Raises:
         HTTPException: If upload fails or file type is invalid
     """
     try:
-        # 🛡️ EARLY REJECTION: Check Content-Length header before reading body
+        # 1. Early rejection via Content-Length header (fast fail, advisory only)
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > MAX_IMAGE_SIZE * 2:
             raise HTTPException(status_code=413, detail="Request body too large.")
 
         user_id = user_session.uid
 
-        # 🛡️ RATE LIMITING CHECK
-        from src.tools.quota import check_quota, increment_quota
-        from src.core.exceptions import QuotaExceeded
-        allowed, remaining, reset_at = await check_quota(user_id, "upload_image")
+        # 2. Quota enforcement (DRY)
+        remaining = await _enforce_quota(user_id, "upload_image")
 
-        if not allowed:
-            raise QuotaExceeded(
-                message="Limite upload immagini raggiunto. Riprova domani.",
-                detail={"tool_name": "upload_image", "reset_at": reset_at.isoformat()},
-            )
-        
-        # 🛡️ SECURITY: Magic Bytes Validation (Prevents .exe -> .jpg attacks)
+        # 3. Magic Bytes Validation (before reading full body)
         validated_mime = await validate_image_magic_bytes(file)
-        logger.info(f"🛡️ Image Magic Bytes check passed: {validated_mime}")
-        
-        # Sanitize filename
+        logger.info(f"Image Magic Bytes check passed: {validated_mime}")
+
         safe_filename = await sanitize_filename(file.filename or "upload.jpg")
-        
-        # Read file content
-        content = await file.read()
+
+        # 4. Chunked read with enforced size limit (memory safety)
+        content = await _safe_read_file(file, MAX_IMAGE_SIZE)
         file_size = len(content)
-        
-        # 📊 LOG: Upload Started
+
         logger.info(
             "image_upload_started",
             extra={
                 "session_id": session_id,
                 "file_size_bytes": file_size,
-                "mime_type": file.content_type,
+                "mime_type": validated_mime,
                 "user_id": user_id,
-                "quota_remaining": remaining
+                "quota_remaining": remaining,
             }
         )
-        
-        if file_size > MAX_IMAGE_SIZE:
-            logger.warning(
-                "image_upload_rejected_size",
-                extra={
-                    "file_size_bytes": file_size,
-                    "max_size_bytes": MAX_IMAGE_SIZE,
-                    "user_id": user_id
-                }
-            )
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large: {file_size / 1024 / 1024:.2f}MB. Maximum size is 10MB."
-            )
-        
-        # Generate unique filename with asset ID
+
+        # 5. Generate unique storage path
         asset_id = uuid.uuid4().hex
         ext = safe_filename.split('.')[-1] if '.' in safe_filename else 'jpg'
-        unique_filename = f"{asset_id}.{ext}"
-        file_path = f"user-uploads/{session_id}/{unique_filename}"
-        
-        # Upload to Firebase Storage
-        from firebase_admin import storage
-        bucket = storage.bucket()
-        blob = bucket.blob(file_path)
-        
-        blob.upload_from_string(
-            content,
-            content_type=validated_mime  # Use validated MIME, not declared
+        file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
+
+        # 6. Firebase upload in threadpool (non-blocking)
+        public_url, signed_url = await run_in_threadpool(
+            _firebase_upload, file_path, content, validated_mime, safe_filename
         )
 
-        # 🛡️ SECURITY: Set Metadata
-        # - Cache-Control: Immutable (1 year) since we use UUIDs
-        # - Content-Disposition: Inline but with correct filename
-        blob.cache_control = "public, max-age=31536000, immutable"
-        blob.content_disposition = f'inline; filename="{safe_filename}"'
-        blob.patch()
-        
-        # Generate signed URL (1 hour validity - minimizes exposure window)
-        signed_url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(hours=1),
-            method="GET"
-        )
-        
-        # Make public URL
-        blob.make_public()
-        public_url = blob.public_url
-        
-        # ✅ INCREMENT QUOTA
+        # 7. Increment quota
         await increment_quota(user_id, "upload_image")
-        
-        # 📊 LOG: Upload Completed
+
         logger.info(
             "image_upload_completed",
             extra={
                 "session_id": session_id,
                 "file_path": file_path,
                 "file_size_bytes": file_size,
-                "mime_type": file.content_type,
+                "mime_type": validated_mime,
                 "user_id": user_id,
-                "storage_url": public_url
+                "storage_url": public_url,
             }
         )
-        
+
         return ImageMediaAsset(
             id=asset_id,
             url=public_url,
@@ -186,13 +203,13 @@ async def upload_image(
             mime_type=validated_mime,
             size_bytes=file_size,
             file_path=file_path,
-            signed_url=signed_url
+            signed_url=signed_url,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Image upload failed: {str(e)}")
+        logger.error(f"Image upload failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="Upload failed. Please try again."
@@ -204,99 +221,85 @@ async def upload_video(
     request: Request,
     file: UploadFile = File(...),
     user_session: UserSession = Depends(verify_token),
-    processor: MediaProcessor = Depends(get_media_processor)
+    processor: MediaProcessor = Depends(get_media_processor),
 ) -> VideoMediaAsset:
     """
     Upload a video file to Google AI File API for native processing.
-    
+
     Args:
         file: Video file (mp4, webm, mov, avi)
         user_session: JWT verified user session
         processor: Injected MediaProcessor service
-        
+
     Returns:
-        VideoUploadResponse with file URI and metadata
-        
+        VideoMediaAsset with file URI and metadata
+
     Raises:
         HTTPException: If upload fails or file type is invalid
     """
     try:
-        # 🛡️ EARLY REJECTION: Check Content-Length header before reading body
+        # 1. Early rejection via Content-Length header (fast fail, advisory only)
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > MAX_VIDEO_SIZE * 2:
             raise HTTPException(status_code=413, detail="Request body too large.")
 
         user_id = user_session.uid
 
-        # 🛡️ RATE LIMITING CHECK
-        from src.tools.quota import check_quota, increment_quota
-        from src.core.exceptions import QuotaExceeded
-        allowed, remaining, reset_at = await check_quota(user_id, "upload_video")
+        # 2. Quota enforcement (DRY)
+        await _enforce_quota(user_id, "upload_video")
 
-        if not allowed:
-            raise QuotaExceeded(
-                message="Limite upload video raggiunto. Riprova domani.",
-                detail={"tool_name": "upload_video", "reset_at": reset_at.isoformat()},
-            )
-        
         try:
-            # 🛡️ SECURITY: Magic Bytes Validation (already imported at top)
+            # 3. Magic Bytes Validation
             detected_mime = await validate_video_magic_bytes(file)
-            logger.info(f"🛡️ Magic Bytes check passed: {detected_mime}")            
+            logger.info(f"Video Magic Bytes check passed: {detected_mime}")
+
             safe_filename = await sanitize_filename(file.filename or "upload.mp4")
-            logger.info(f"📹 User {user_id} uploading video: {safe_filename} ({file.content_type})")
-            
-            content = await file.read()
+            logger.info(f"User {user_id} uploading video: {safe_filename} ({detected_mime})")
+
+            # 4. Chunked read with enforced size limit (memory safety)
+            content = await _safe_read_file(file, MAX_VIDEO_SIZE)
             file_size = len(content)
-            
-            if file_size > MAX_VIDEO_SIZE:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"File too large: {file_size / 1024 / 1024:.2f}MB. Maximum size is 100MB."
-                )
-            
-            # Prepare stream for service
+
+            # 5. Prepare stream for Google File API
             file_stream = io.BytesIO(content)
-            
-            # 🚀 DELEGATE TO SERVICE (use validated MIME, not client-declared)
+
+            # 6. Delegate to service (async — already non-blocking)
             uploaded_file = await processor.upload_video_for_analysis(
                 file_stream=file_stream,
                 mime_type=detected_mime,
-                display_name=safe_filename
+                display_name=safe_filename,
             )
-            
-            # Wait for processing (Polling)
+
+            # 7. Wait for processing (async polling)
             active_file = await processor.wait_for_processing(uploaded_file.name)
-            
-            # ✅ INCREMENT QUOTA (Only on success)
+
+            # 8. Increment quota (only on success)
             await increment_quota(user_id, "upload_video")
-            
-            # Generate asset ID
+
             asset_id = uuid.uuid4().hex
-            
+
             return VideoMediaAsset(
                 id=asset_id,
-                url=active_file.uri,  # File API URI is the URL for videos
+                url=active_file.uri,
                 filename=safe_filename,
                 mime_type=active_file.mime_type,
                 size_bytes=file_size,
                 file_uri=active_file.uri,
-                state=active_file.state.name
+                state=active_file.state.name,
             )
-            
+
         except VideoProcessingError as e:
             logger.error(f"Video processing error: {str(e)}")
             raise HTTPException(
                 status_code=502,
-                detail="Video processing failed. Please try a different format or smaller file."
+                detail="Video processing failed. Please try a different format or smaller file.",
             )
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Video upload handler failed: {str(e)}")
+        logger.error(f"Video upload handler failed: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail="Upload failed. Please try again."
         )
-

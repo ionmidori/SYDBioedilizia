@@ -19,7 +19,9 @@ from src.adk.filters import sanitize_before_agent, filter_agent_output
 from src.repositories.conversation_repository import get_conversation_repository
 import httpx
 import asyncio
+import time
 from urllib.parse import urlparse
+from google.adk.events import Event, EventActions
 
 logger = logging.getLogger(__name__)
 
@@ -171,12 +173,44 @@ class ADKOrchestrator(BaseOrchestrator):
                 session_id=session_id,
             )
             if session is None:
-                await session_service.create_session(
+                session = await session_service.create_session(
                     app_name="syd_orchestrator",
                     user_id=user_id,
                     session_id=session_id,
                 )
                 logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
+
+                # ── HISTORY INJECTION (Restart Recovery) ──
+                # On server restart, InMemorySessionService loses all context.
+                # Re-inject the last 30 Firestore messages as ADK Events so the
+                # agent can continue mid-conversation (e.g., knows the room analysis
+                # for generate_render) without asking the user to repeat themselves.
+                try:
+                    repo = get_conversation_repository()
+                    history = await repo.get_context(session_id, limit=30)
+                    if history:
+                        for msg in history:
+                            role = msg.get("role", "user")
+                            text = msg.get("content", "").strip()
+                            if not text:
+                                continue
+                            hist_event = Event(
+                                invocation_id=f"history_restore_{int(time.time() * 1000)}",
+                                author=role,
+                                content=types.Content(
+                                    role=role,
+                                    parts=[types.Part(text=text)],
+                                ),
+                                actions=EventActions(),
+                            )
+                            await session_service.append_event(session, hist_event)
+                        logger.info(
+                            f"[ADK] Injected {len(history)} history events into restored session",
+                            extra={"session_id": session_id},
+                        )
+                except Exception as hist_err:
+                    # Non-fatal: agent starts fresh if history injection fails
+                    logger.warning(f"[ADK] History injection failed (session starts fresh): {hist_err}")
 
             full_response = ""
             accumulated_tool_calls = []

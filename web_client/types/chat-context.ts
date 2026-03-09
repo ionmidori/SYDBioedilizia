@@ -67,7 +67,7 @@ export interface ChatContextType {
      * Send a message with optional attachments and metadata.
      * Flexible alternative to submitMessage.
      */
-    sendMessage: (content: string, attachments?: any[], data?: Record<string, unknown>) => Promise<void>;
+    sendMessage: (content: string, attachments?: string[], data?: Record<string, unknown>) => Promise<void>;
 
     /**
      * Reload the last message (retry).

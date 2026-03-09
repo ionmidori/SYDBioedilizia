@@ -1,9 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from src.api.gemini_imagen import generate_image_t2i, generate_image_i2i
-from src.storage.upload import upload_base64_image
+from src.storage.upload import upload_base64_image as _upload_base64_image_sync
 from src.vision.triage import analyze_image_triage
 from src.utils.download import download_image_smart
+import asyncio
 import logging
 
 
@@ -128,11 +129,12 @@ async def generate_render_wrapper(
         if not result["success"]:
             return "Failed to generate image. Please try again."
         
-        # Upload to Firebase Storage
-        image_url = upload_base64_image(
+        # Upload to Firebase Storage (sync SDK — offload to thread to avoid blocking event loop)
+        image_url = await asyncio.to_thread(
+            _upload_base64_image_sync,
             base64_data=f"data:{result['mime_type']};base64,{result['image_base64']}",
             session_id=session_id,
-            prefix="renders"
+            prefix="renders",
         )
         
         mode_label = "transformed" if mode == "modification" else "generated"
@@ -171,6 +173,7 @@ async def generate_render_wrapper(
         }
         
     except Exception as e:
+        logger.error(f"[Render] ❌ generate_render_wrapper EXCEPTION: {e}", exc_info=True)
         return {
             "error": str(e),
             "status": "error"

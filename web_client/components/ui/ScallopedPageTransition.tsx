@@ -59,12 +59,12 @@ export function ScallopedPageTransition({ isNavigating }: ScallopedPageTransitio
                     >
                         {/* Pulse ring */}
                         <motion.div
-                            className="absolute inset-0 rounded-full bg-luxury-gold/10"
-                            animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
+                            className="absolute inset-0 rounded-full bg-luxury-gold/20"
+                            animate={{ scale: [1, 2], opacity: [0.5, 0] }}
                             transition={{
-                                duration: 1.8,
+                                duration: 2,
                                 repeat: Infinity,
-                                ease: 'easeInOut',
+                                ease: "easeOut",
                             }}
                         />
 
