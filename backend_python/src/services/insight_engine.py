@@ -1,118 +1,356 @@
-import logging
+"""
+InsightEngine: AI-powered project analysis for quote generation.
+
+Uses Gemini structured output (response_schema) to extract SKU suggestions
+from conversation history and media. Pattern: fastapi-enterprise-patterns (Service Layer).
+
+Features:
+  - WBS Assembly Intelligence: expands user intents into structured BOQ phases
+  - Guided Questions: returns completeness_score + missing_info for C-option logic
+  - Chain-of-Thought reasoning: Phase → Sub-work → SKU mapping
+"""
 import json
-from typing import List, Dict, Any
+import logging
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+
 from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
+
 from src.core.config import settings
 from src.services.pricing_service import PricingService
 
 logger = logging.getLogger(__name__)
 
+
+# ── Domain Models ─────────────────────────────────────────────────────────────
+
 class SKUItemSuggestion(BaseModel):
+    """A single line-item suggested by the AI Quantity Surveyor."""
     model_config = {"extra": "forbid"}
-    sku: str = Field(..., description="The SKU from the Master Price Book")
-    qty: float = Field(..., description="Estimated quantity")
-    ai_reasoning: str = Field(..., description="Why this item is necessary based on the chat/images")
+    sku: str = Field(..., description="The SKU from the Master Price Book. Must be an exact match.")
+    qty: float = Field(..., gt=0, description="Estimated quantity (must be > 0)")
+    ai_reasoning: str = Field(..., description="Why this item is necessary based on chat/images")
+    phase: str = Field(
+        "Lavori",
+        description="WBS phase: Demolizioni | Impianti | Opere Murarie | Strutture | Finiture | Smaltimento"
+    )
+
 
 class InsightAnalysis(BaseModel):
+    """Structured output produced by InsightEngine.analyze_project_for_quote()."""
     model_config = {"extra": "forbid"}
-    suggestions: List[SKUItemSuggestion]
-    summary: str = Field(..., description="A brief summary of the project requirements identified")
+    suggestions: List[SKUItemSuggestion] = Field(
+        default_factory=list,
+        description="List of suggested SKU items derived from the conversation."
+    )
+    summary: str = Field(..., description="Brief summary of the identified project requirements.")
+    completeness_score: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "0.0-1.0 score indicating how much information is available for an accurate quote. "
+            "< 0.7 means the chatbot should ask more questions before finalizing."
+        ),
+    )
+    missing_info: List[str] = Field(
+        default_factory=list,
+        description=(
+            "Naturale Italian questions the chatbot must ask the user before finalizing the quote. "
+            "Empty if completeness_score >= 0.7."
+        ),
+    )
+
+
+# ── Domain Exception ───────────────────────────────────────────────────────────
+
+class InsightEngineError(Exception):
+    """
+    Raised when InsightEngine cannot produce a result.
+    Callers should catch this and return a graceful user-facing message.
+    Per error-handling-patterns skill: custom exception hierarchy, never swallow.
+    """
+    error_code: str = "INSIGHT_ENGINE_FAILURE"
+
+
+# ── InsightEngine Service ──────────────────────────────────────────────────────
 
 class InsightEngine:
-    def __init__(self, model_name: str | None = None):
+    """
+    Analyzes project conversation history and images to produce structured
+    SKU suggestions using Gemini structured output (Pydantic response_schema).
+
+    Follows the Service Layer pattern: no HTTP logic, pure domain behavior.
+    Per fastapi-enterprise-patterns skill: services contain business rules only.
+    """
+
+    _ASSEMBLIES_PATH = Path(__file__).parent.parent / "data" / "renovation_assemblies.json"
+
+    def __init__(self, model_name: Optional[str] = None) -> None:
         self.model_name = model_name or settings.CHAT_MODEL_VERSION
         self.client = genai.Client(api_key=settings.api_key)
+        self._assemblies: Optional[Dict[str, Any]] = None
 
-    def _get_price_book_summary(self) -> str:
+    def _build_price_book_prompt(self) -> str:
+        """
+        Builds a category-grouped price book context for the LLM.
+        Categorization significantly improves Gemini SKU selection accuracy
+        over a flat list (grouping reduces hallucination of unknown SKUs).
+        """
         price_book = PricingService.load_price_book()
-        summary = "Available SKUs in Master Price Book:\n"
+
+        if not price_book:
+            logger.error("[InsightEngine] Master price book is empty.")
+            return "## Master Price Book\n\n⚠️ Listino non disponibile. Contattare l'amministratore.\n"
+
+        # Group by category
+        by_category: dict[str, list[dict]] = {}
         for item in price_book:
-            summary += f"- SKU: {item['sku']}, Description: {item['description']}, Unit: {item['unit']}, Category: {item['category']}\n"
-        return summary
+            cat = item.get("category", "Altro")
+            by_category.setdefault(cat, []).append(item)
 
-    async def analyze_project_for_quote(self, chat_history: List[Dict[str, Any]], media_urls: List[str] = []) -> InsightAnalysis:
+        lines: list[str] = [
+            "## Master Price Book — SKU Disponibili",
+            "",
+            "⚠️ REGOLA ASSOLUTA: Usa ESCLUSIVAMENTE i codici SKU presenti in questo elenco.",
+            "Non inventare mai codici SKU. Se un lavoro non è mappabile, ometti la voce.",
+            "",
+        ]
+        for category, items in sorted(by_category.items()):
+            lines.append(f"### {category}")
+            for it in items:
+                tags = ", ".join(it.get("tags", []))
+                line = (
+                    f"- `{it['sku']}` | {it['description']} "
+                    f"| Unità: {it['unit']} | €{it['unit_price']:.2f}/u"
+                )
+                if tags:
+                    line += f" | Tags: {tags}"
+                lines.append(line)
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def _load_assemblies(self) -> Dict[str, Any]:
+        """Loads renovation_assemblies.json (cached after first load)."""
+        if self._assemblies is None:
+            try:
+                with open(self._ASSEMBLIES_PATH, encoding="utf-8") as f:
+                    self._assemblies = json.load(f)
+            except Exception as exc:
+                logger.error("[InsightEngine] Failed to load assemblies.", extra={"error": str(exc)})
+                self._assemblies = {"assemblies": [], "dependency_rules": []}
+        return self._assemblies
+
+    def _build_assembly_prompt(self) -> str:
         """
-        Analyzes chat and media to suggest SKUs and quantities.
+        Builds a WBS Assembly context section for the LLM.
+
+        Teaches the AI how to expand user desires (e.g. 'bagno nuovo') into
+        complete BOQ phases following the industry 'Assembly Intelligence' pattern.
+        Each assembly shows the required WBS phases and dependency rules.
         """
-        price_book_summary = self._get_price_book_summary()
+        data = self._load_assemblies()
+        assemblies = data.get("assemblies", [])
+        dep_rules = data.get("dependency_rules", [])
 
-        system_prompt = f"""You are a 'Quantity Surveyor' AI assistant for SYD Bioedilizia.
-Your task is to analyze the conversation between the user and the AI, and any provided images, to identify necessary renovation works.
-Map these works to the specific SKUs provided in the Master Price Book below.
+        if not assemblies:
+            return ""
 
-{price_book_summary}
+        lines: list[str] = [
+            "## Libreria Assembly (WBS — Work Breakdown Structure)",
+            "",
+            "Quando l'utente esprime un desiderio macro (es. 'bagno nuovo', 'pareti bianche'),",
+            "DEVI espanderlo nelle sotto-lavorazioni tecniche complete seguendo questa libreria.",
+            "Non limitarti alla voce superficiale — includi SEMPRE le voci prerequisito.",
+            "",
+        ]
+        for asm in assemblies:
+            lines.append(f"### 🔧 {asm['name']} (`{asm['id']}`"+ ")")
+            lines.append(f"*Trigger*: {', '.join(asm.get('triggers', [])[:4])}...")
+            lines.append(f"*Domande richieste*: {', '.join(asm.get('questions_required', []))}")
+            lines.append("*Fasi WBS*:")
+            for ph in asm.get("phases", []):
+                sku_list = ", ".join(s["sku"] for s in ph.get("skus", []))
+                cond = f" *(condizionale: {ph['conditional']})*" if ph.get("conditional") else ""
+                lines.append(f"  - **{ph['phase']}**{cond}: {sku_list}")
+            lines.append("")
 
-RULES:
-1. ONLY use SKUs from the provided list.
-2. Estimate quantities based on the context (e.g., if the user mentions a 20mq room, use that for flooring).
-3. Provide a clear reasoning for each item.
-4. If the information is missing, make a reasonable conservative estimate or omit the item.
-5. Focus on: Demolitions, Electrical, Plumbing, Structural works, and Flooring. Ignore furniture.
+        if dep_rules:
+            lines.append("## Regole di Dipendenza")
+            for rule in dep_rules:
+                lines.append(f"- {rule['rule']}")
+            lines.append("")
 
-Output your analysis as a valid JSON object with this structure:
-{{
-  "suggestions": [
-    {{"sku": "...", "qty": 0.0, "ai_reasoning": "..."}}
-  ],
-  "summary": "..."
-}}
+        return "\n".join(lines)
+
+    def _build_system_prompt(self, price_book_section: str, assembly_section: str) -> str:
+        """Constructs the full system prompt for the Quantity Surveyor role with WBS reasoning."""
+        return f"""Sei un 'Geometra / Quantity Surveyor' AI per SYD Bioedilizia.
+SYD Bioedilizia esegue ESCLUSIVAMENTE ristrutturazioni edili residenziali.
+NON includere mai: arredamento, mobili volanti, elettrodomestici, progettazione professionale esterna.
+
+Il tuo compito è analizzare la conversazione e le immagini per identificare i lavori di
+ristrutturazione necessari, mapparli ai codici SKU del Listino, e valutare se hai abbastanza
+informazioni per un preventivo completo.
+
+{assembly_section}
+{price_book_section}
+
+## Protocollo di Ragionamento (Chain-of-Thought WBS)
+
+Per ogni richiesta, ragiona in QUESTO ORDINE:
+
+**FASE 1 — IDENTIFICA LE MACRO-CATEGORIE**
+Cosa vuole l'utente? (es. bagno nuovo, pareti bianche, pavimento diverso)
+Mappa subito a un Assembly ID dalla libreria sopra.
+
+**FASE 2 — ESPANDI LE SOTTO-LAVORAZIONI**
+Per ogni assembly individuato, includi TUTTE le fasi WBS:
+- Verifica: ci sono demolizioni prerequisito? (es. pareti bianche → rivestimento esistente?)
+- Verifica: ci sono impianti da riffare? (elettrico, idraulico, gas)
+- Includi sempre smaltimento macerie se ci sono demolizioni.
+
+**FASE 3 — STIMA LE QUANTITÀ**
+Se le dimensioni non sono fornite, usa medie italiane:
+- Bagno: 5-8 mq | Cucina: 10-15 mq | Camera: 12-16 mq | Soggiorno: 20-30 mq
+- Pareti: mq_piano × 2.7 (altezza media) − aperture
+- Sempre +5% sulle superfici per scarti e tagli.
+
+**FASE 4 — VALUTA COMPLETEZZA**
+Assegna `completeness_score` (0.0-1.0):
+- 1.0 = tutte le informazioni tecniche sono note (dimensioni, materiali, impianti)
+- 0.7 = informazioni sufficienti per un preventivo indicativo
+- < 0.7 = mancano dati critici → lista le domande mancanti in `missing_info`
+
+**Esempi di completeness_score basso (< 0.7):**
+- Non si sa se le pareti sono intonacate o rivestite a piastrelle → chiedi
+- Non si sa se la parete da abbattere è portante → OBBLIGATORIO chiedere e segnalare admin
+- Non si conosce la metratura del locale → chiedi dimensioni approssimative
+
+## Regole Operative
+
+1. **Solo SKU del listino**: MAI inventare codici. Se un lavoro non è mappabile, ometti.
+2. **Fase WBS obbligatoria**: Ogni SKU deve avere il campo `phase` compilato.
+3. **Quantità plausibili**: es. 10-14 punti luce per 70mq; non 100 prese per 10mq.
+4. **Arredi ESCLUSI**: Niente mobili, cucine componibili, elettrodomestici, tende.
+5. **IVA**: Non applicarla — gestita dal backend automaticamente.
+6. **Parete portante**: Se sospettata, segnalarlo in `ai_reasoning` e abbassare score.
+
+Analizza la conversazione e produci la risposta strutturata.
 """
 
-        history_text = "Chat History:\n"
+    async def analyze_project_for_quote(
+        self,
+        chat_history: List[Dict[str, Any]],
+        media_urls: Optional[List[str]] = None,
+    ) -> InsightAnalysis:
+        """
+        Analyzes chat history and optional media to suggest renovation SKUs.
+
+        Uses Gemini native structured output (response_schema=InsightAnalysis)
+        instead of fragile JSON string parsing. This guarantees type-safe output
+        that matches the Pydantic schema without any manual text manipulation.
+
+        Args:
+            chat_history: List of {role, content} dicts from conversation.
+            media_urls: Optional Firebase Storage URLs for images/videos.
+
+        Returns:
+            InsightAnalysis with validated suggestions and summary.
+
+        Raises:
+            InsightEngineError: On Gemini failure or empty response.
+        """
+        price_book_section = self._build_price_book_prompt()
+        assembly_section = self._build_assembly_prompt()
+        system_prompt = self._build_system_prompt(price_book_section, assembly_section)
+
+        # Build structured conversation text
+        history_lines = ["## Conversazione"]
         for msg in chat_history:
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")
-            history_text += f"{role}: {content}\n"
+            role = msg.get("role", "unknown").upper()
+            content = str(msg.get("content", ""))
+            history_lines.append(f"**{role}**: {content}")
 
         parts: list[genai_types.Part] = [
             genai_types.Part(text=system_prompt),
-            genai_types.Part(text=history_text),
+            genai_types.Part(text="\n".join(history_lines)),
         ]
-        
+
+        # Attach media (SSRF-protected to Firebase Storage domain only)
         if media_urls:
             import httpx
-            import asyncio
             from urllib.parse import urlparse
-            async with httpx.AsyncClient(timeout=10.0) as client:
+
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
                 for url in media_urls:
                     try:
-                        parsed_url = urlparse(url)
-                        if settings.FIREBASE_STORAGE_BUCKET not in parsed_url.netloc:
-                            logger.warning(f"[InsightEngine] Skipping unauthorized URL: {url}")
+                        parsed = urlparse(url)
+                        if settings.FIREBASE_STORAGE_BUCKET not in parsed.netloc:
+                            logger.warning(
+                                "[InsightEngine] Unauthorized media URL blocked.",
+                                extra={"host": parsed.netloc},
+                            )
                             continue
-                            
-                        response = await client.get(url)
-                        response.raise_for_status()
-                        mime_type = "image/jpeg" # Default assumption
-                        if "video" in url:
-                            mime_type = "video/mp4"
-                        parts.append(genai_types.Part(
-                            inline_data=genai_types.Blob(mime_type=mime_type, data=response.content)
-                        ))
-                    except Exception as e:
-                        logger.error(f"[InsightEngine] Failed to fetch image {url}: {e}")
-                        parts.append(genai_types.Part(text=f"[Image: {url} - Unfetchable]"))
 
+                        resp = await http_client.get(url)
+                        resp.raise_for_status()
+                        mime = "video/mp4" if "video" in url.lower() else "image/jpeg"
+                        parts.append(
+                            genai_types.Part(
+                                inline_data=genai_types.Blob(mime_type=mime, data=resp.content)
+                            )
+                        )
+                        logger.debug("[InsightEngine] Media attached.", extra={"url": url})
+                    except Exception as exc:
+                        # Graceful degradation: skip broken media, continue analysis
+                        logger.error(
+                            "[InsightEngine] Failed to fetch media.",
+                            extra={"url": url, "error": str(exc)},
+                        )
+                        parts.append(genai_types.Part(text=f"[Immagine non accessibile: {url}]"))
+
+        # ── Gemini call with native structured output ──────────────────────────
         try:
-            logger.info("[InsightEngine] Analyzing project for quote...")
+            logger.info("[InsightEngine] Starting AI project analysis.")
             response = await self.client.aio.models.generate_content(
                 model=self.model_name,
                 contents=[genai_types.Content(parts=parts)],
-                config=genai_types.GenerateContentConfig(temperature=0.1),
+                config=genai_types.GenerateContentConfig(
+                    temperature=0.1,
+                    response_mime_type="application/json",
+                    response_schema=InsightAnalysis,  # Pydantic-native, no manual parsing
+                ),
             )
-            raw_output = (response.text or "").replace("```json", "").replace("```", "").strip()
-            parsed = json.loads(raw_output)
-            return InsightAnalysis(**parsed)
-        except Exception as e:
-            logger.error(f"[InsightEngine] Error during analysis: {e}")
-            raise Exception(f"Failed to analyze project: {str(e)}")
+
+            if not response.text:
+                logger.error("[InsightEngine] Empty response from Gemini.")
+                raise InsightEngineError("Gemini returned an empty response.")
+
+            result = InsightAnalysis.model_validate_json(response.text)
+            logger.info(
+                "[InsightEngine] Analysis complete.",
+                extra={"suggestions": len(result.suggestions)},
+            )
+            return result
+
+        except InsightEngineError:
+            raise  # Re-raise domain errors untouched
+        except Exception as exc:
+            logger.error("[InsightEngine] Gemini call failed.", extra={"error": str(exc)}, exc_info=True)
+            raise InsightEngineError(f"Project analysis failed: {exc}") from exc
 
 
-_insight_engine: InsightEngine | None = None
+# ── Singleton Factory ──────────────────────────────────────────────────────────
+
+_insight_engine: Optional[InsightEngine] = None
+
 
 def get_insight_engine() -> InsightEngine:
+    """Returns the singleton InsightEngine instance."""
     global _insight_engine
     if _insight_engine is None:
         _insight_engine = InsightEngine()

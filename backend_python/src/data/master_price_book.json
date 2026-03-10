@@ -1,0 +1,1101 @@
+{
+  "version": "2.1.0",
+  "last_updated": "2026-03-10",
+  "currency": "EUR",
+  "vat_standard": 0.22,
+  "vat_agevolata": 0.1,
+  "notes": "Prezzi unitari medi di mercato italiano (manodopera inclusa). Materiali NON inclusi salvo diversa indicazione. Escluse categorie: Arredamento, Progettazione (SYD fa solo ristrutturazioni edili).",
+  "items": [
+    {
+      "sku": "DEM-001",
+      "description": "Demolizione tramezzi interni in laterizio (max 12 cm)",
+      "unit": "mq",
+      "unit_price": 25.0,
+      "category": "Demolizioni",
+      "subcategory": "Strutture verticali",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 500.0,
+      "tags": [
+        "demolizione",
+        "tramezzi",
+        "muratura"
+      ]
+    },
+    {
+      "sku": "DEM-002",
+      "description": "Rimozione pavimento esistente e massetto (spessore max 10 cm)",
+      "unit": "mq",
+      "unit_price": 18.5,
+      "category": "Demolizioni",
+      "subcategory": "Pavimenti",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 1000.0,
+      "tags": [
+        "demolizione",
+        "pavimento",
+        "massetto"
+      ]
+    },
+    {
+      "sku": "DEM-003",
+      "description": "Rimozione rivestimento ceramico/piastrelle pareti",
+      "unit": "mq",
+      "unit_price": 22.0,
+      "category": "Demolizioni",
+      "subcategory": "Rivestimenti",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 500.0,
+      "tags": [
+        "demolizione",
+        "piastrelle",
+        "rivestimento",
+        "pareti"
+      ]
+    },
+    {
+      "sku": "DEM-004",
+      "description": "Rimozione infisso (finestra o porta esterna con controtelaio)",
+      "unit": "cad",
+      "unit_price": 80.0,
+      "category": "Demolizioni",
+      "subcategory": "Infissi",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 50.0,
+      "tags": [
+        "demolizione",
+        "infisso",
+        "finestra",
+        "porta"
+      ]
+    },
+    {
+      "sku": "DEM-005",
+      "description": "Rimozione porta interna con telaio e stipiti",
+      "unit": "cad",
+      "unit_price": 45.0,
+      "category": "Demolizioni",
+      "subcategory": "Porte interne",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 30.0,
+      "tags": [
+        "demolizione",
+        "porta",
+        "telaio"
+      ]
+    },
+    {
+      "sku": "DEM-006",
+      "description": "Rimozione sanitari completi (WC + bidet + lavabo)",
+      "unit": "ps",
+      "unit_price": 120.0,
+      "category": "Demolizioni",
+      "subcategory": "Sanitari",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 10.0,
+      "tags": [
+        "demolizione",
+        "sanitari",
+        "bagno",
+        "wc"
+      ]
+    },
+    {
+      "sku": "DEM-007",
+      "description": "Rimozione vasca da bagno / box doccia",
+      "unit": "cad",
+      "unit_price": 90.0,
+      "category": "Demolizioni",
+      "subcategory": "Sanitari",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "demolizione",
+        "vasca",
+        "doccia"
+      ]
+    },
+    {
+      "sku": "DEM-008",
+      "description": "Rimozione cucina componibile (smontaggio, accatastamento e smaltimento)",
+      "unit": "cad",
+      "unit_price": 200.0,
+      "category": "Demolizioni",
+      "subcategory": "Cucina",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 3.0,
+      "tags": [
+        "demolizione",
+        "cucina"
+      ]
+    },
+    {
+      "sku": "MUR-001",
+      "description": "Costruzione tramezzi in cartongesso (lastra singola, senza isolamento)",
+      "unit": "mq",
+      "unit_price": 45.0,
+      "category": "Opere Murarie",
+      "subcategory": "Partizioni",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 500.0,
+      "tags": [
+        "muratura",
+        "cartongesso",
+        "tramezzi"
+      ]
+    },
+    {
+      "sku": "MUR-002",
+      "description": "Costruzione tramezzi in cartongesso con isolamento acustico (lana minerale 50mm)",
+      "unit": "mq",
+      "unit_price": 65.0,
+      "category": "Opere Murarie",
+      "subcategory": "Partizioni",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 500.0,
+      "tags": [
+        "muratura",
+        "cartongesso",
+        "isolamento",
+        "acustico"
+      ]
+    },
+    {
+      "sku": "MUR-003",
+      "description": "Realizzazione apertura in parete portante con cerchiatura metallica (luce max 120cm)",
+      "unit": "cad",
+      "unit_price": 850.0,
+      "category": "Opere Murarie",
+      "subcategory": "Strutturale",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 10.0,
+      "tags": [
+        "muratura",
+        "portante",
+        "apertura",
+        "strutturale"
+      ]
+    },
+    {
+      "sku": "MUR-004",
+      "description": "Intonaco civile su pareti (stesura + lisciatura)",
+      "unit": "mq",
+      "unit_price": 20.0,
+      "category": "Opere Murarie",
+      "subcategory": "Intonaci",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 2000.0,
+      "tags": [
+        "intonaco",
+        "muratura",
+        "pareti"
+      ]
+    },
+    {
+      "sku": "MUR-005",
+      "description": "Rasatura fine pareti con gesso o stucco (finitura pittura)",
+      "unit": "mq",
+      "unit_price": 14.0,
+      "category": "Opere Murarie",
+      "subcategory": "Intonaci",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 2000.0,
+      "tags": [
+        "rasatura",
+        "stucco",
+        "pareti",
+        "finitura"
+      ]
+    },
+    {
+      "sku": "IMP-EL-001",
+      "description": "Punto luce completo (scatola, tubi corrugati, cavi, frutti di design)",
+      "unit": "cad",
+      "unit_price": 55.0,
+      "category": "Impianto Elettrico",
+      "subcategory": "Punti luce",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 200.0,
+      "tags": [
+        "elettrico",
+        "punto luce",
+        "impianto"
+      ]
+    },
+    {
+      "sku": "IMP-EL-002",
+      "description": "Quadro elettrico generale 12 moduli con interruttori differenziali",
+      "unit": "cad",
+      "unit_price": 350.0,
+      "category": "Impianto Elettrico",
+      "subcategory": "Quadri",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 3.0,
+      "tags": [
+        "elettrico",
+        "quadro",
+        "interruttori"
+      ]
+    },
+    {
+      "sku": "IMP-EL-003",
+      "description": "Punto presa forza (16A) completo — per lavatrice, lavastoviglie, forno",
+      "unit": "cad",
+      "unit_price": 70.0,
+      "category": "Impianto Elettrico",
+      "subcategory": "Linee dedicate",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 20.0,
+      "tags": [
+        "elettrico",
+        "presa forza",
+        "elettrodomestici"
+      ]
+    },
+    {
+      "sku": "IMP-EL-004",
+      "description": "Linea dedicata caldaia/scaldabagno (cavo + interruttore + presa)",
+      "unit": "cad",
+      "unit_price": 95.0,
+      "category": "Impianto Elettrico",
+      "subcategory": "Linee dedicate",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "elettrico",
+        "caldaia",
+        "linea dedicata"
+      ]
+    },
+    {
+      "sku": "IMP-EL-005",
+      "description": "Impianto citofonico/videocitofonico (unità interna + cablaggio)",
+      "unit": "cad",
+      "unit_price": 280.0,
+      "category": "Impianto Elettrico",
+      "subcategory": "Citofonia",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "citofono",
+        "videocitofono",
+        "elettrico"
+      ]
+    },
+    {
+      "sku": "IMP-EL-006",
+      "description": "Punto antenna TV / rete dati (CAT6)",
+      "unit": "cad",
+      "unit_price": 45.0,
+      "category": "Impianto Elettrico",
+      "subcategory": "Dati e segnale",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 30.0,
+      "tags": [
+        "antenna",
+        "rete",
+        "cat6",
+        "ethernet"
+      ]
+    },
+    {
+      "sku": "IMP-ID-001",
+      "description": "Punto acqua completo (carico e scarico) — ex. per lavatrice",
+      "unit": "cad",
+      "unit_price": 180.0,
+      "category": "Impianto Idraulico",
+      "subcategory": "Punti acqua",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 20.0,
+      "tags": [
+        "idraulico",
+        "acqua",
+        "scarico"
+      ]
+    },
+    {
+      "sku": "IMP-ID-002",
+      "description": "Fornitura e posa piatto doccia con scarico a pavimento e piletta",
+      "unit": "cad",
+      "unit_price": 320.0,
+      "category": "Impianto Idraulico",
+      "subcategory": "Doccia",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "idraulico",
+        "doccia",
+        "piatto"
+      ]
+    },
+    {
+      "sku": "IMP-ID-003",
+      "description": "Colonna di scarico bagno — riposizionamento (max 1,5 m)",
+      "unit": "cad",
+      "unit_price": 450.0,
+      "category": "Impianto Idraulico",
+      "subcategory": "Scarichi",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "idraulico",
+        "scarico",
+        "bagno",
+        "colonna"
+      ]
+    },
+    {
+      "sku": "IMP-ID-004",
+      "description": "Sostituzione gruppo miscelatore (rubinetteria) lavabo/bidet/doccia",
+      "unit": "cad",
+      "unit_price": 160.0,
+      "category": "Impianto Idraulico",
+      "subcategory": "Rubinetteria",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 15.0,
+      "tags": [
+        "idraulico",
+        "rubinetto",
+        "miscelatore"
+      ]
+    },
+    {
+      "sku": "IMP-ID-005",
+      "description": "Sostituzione boiler/scaldabagno elettrico accumulo 80L (solo posa)",
+      "unit": "cad",
+      "unit_price": 250.0,
+      "category": "Impianto Idraulico",
+      "subcategory": "Produzione ACS",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 3.0,
+      "tags": [
+        "idraulico",
+        "boiler",
+        "scaldabagno",
+        "acs"
+      ]
+    },
+    {
+      "sku": "BAG-SAN-001",
+      "description": "Fornitura e posa sanitari completi (WC, bidet, lavabo con colonna)",
+      "unit": "ps",
+      "unit_price": 550.0,
+      "category": "Bagno",
+      "subcategory": "Sanitari",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 10.0,
+      "tags": [
+        "bagno",
+        "sanitari",
+        "wc",
+        "bidet",
+        "lavabo"
+      ]
+    },
+    {
+      "sku": "BAG-SAN-002",
+      "description": "Sostituzione solo WC sospeso con cassetta incasso",
+      "unit": "cad",
+      "unit_price": 380.0,
+      "category": "Bagno",
+      "subcategory": "Sanitari",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "bagno",
+        "wc",
+        "sospeso"
+      ]
+    },
+    {
+      "sku": "BAG-BOX-001",
+      "description": "Fornitura e posa box doccia in vetro temperato (80x80 o su misura)",
+      "unit": "cad",
+      "unit_price": 650.0,
+      "category": "Bagno",
+      "subcategory": "Doccia",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "bagno",
+        "doccia",
+        "box",
+        "vetro"
+      ]
+    },
+    {
+      "sku": "BAG-RIV-001",
+      "description": "Posa rivestimento ceramico pareti bagno (fino a h 210 cm, inclusa spessoratrice)",
+      "unit": "mq",
+      "unit_price": 38.0,
+      "category": "Bagno",
+      "subcategory": "Rivestimenti",
+      "vat_agevolata": true,
+      "min_qty": 2.0,
+      "max_qty": 200.0,
+      "tags": [
+        "bagno",
+        "rivestimento",
+        "piastrelle",
+        "pareti"
+      ]
+    },
+    {
+      "sku": "BAG-IMP-001",
+      "description": "Impermeabilizzazione piano doccia/vasca con guaina liquida e tessuto non tessuto",
+      "unit": "mq",
+      "unit_price": 55.0,
+      "category": "Bagno",
+      "subcategory": "Impermeabilizzazione",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 30.0,
+      "tags": [
+        "bagno",
+        "impermeabilizzazione",
+        "guaina",
+        "doccia"
+      ]
+    },
+    {
+      "sku": "BAG-MOB-001",
+      "description": "Fornitura e posa mobile da bagno completo (base + top + specchio + illuminazione)",
+      "unit": "cad",
+      "unit_price": 750.0,
+      "category": "Bagno",
+      "subcategory": "Arredamento",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "bagno",
+        "mobile",
+        "arredo"
+      ]
+    },
+    {
+      "sku": "CUC-TOP-001",
+      "description": "Posa piano di lavoro in laminato (ml lineare, inclusi tagli e profili)",
+      "unit": "ml",
+      "unit_price": 85.0,
+      "category": "Cucina",
+      "subcategory": "Piano lavoro",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 30.0,
+      "tags": [
+        "cucina",
+        "piano lavoro",
+        "top"
+      ]
+    },
+    {
+      "sku": "CUC-TOP-002",
+      "description": "Posa piano di lavoro in pietra naturale/quarzo (ml lineare, trasporto incluso)",
+      "unit": "ml",
+      "unit_price": 280.0,
+      "category": "Cucina",
+      "subcategory": "Piano lavoro",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 20.0,
+      "tags": [
+        "cucina",
+        "piano lavoro",
+        "quarzo",
+        "marmo",
+        "pietra"
+      ]
+    },
+    {
+      "sku": "CUC-EL-001",
+      "description": "Punto presa forza 3kW per piano cottura elettrico/induzione",
+      "unit": "cad",
+      "unit_price": 110.0,
+      "category": "Cucina",
+      "subcategory": "Impianto elettrico",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 3.0,
+      "tags": [
+        "cucina",
+        "piano cottura",
+        "forza",
+        "elettrico"
+      ]
+    },
+    {
+      "sku": "CUC-EL-002",
+      "description": "Cappa aspirante — posa e collegamento elettrico (predisposizione tubo scarico)",
+      "unit": "cad",
+      "unit_price": 130.0,
+      "category": "Cucina",
+      "subcategory": "Impianti",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 3.0,
+      "tags": [
+        "cucina",
+        "cappa",
+        "aspirazione",
+        "ventilazione"
+      ]
+    },
+    {
+      "sku": "CUC-GAS-001",
+      "description": "Allacciamento gas per piano cottura (raccordo flessibile certificato)",
+      "unit": "cad",
+      "unit_price": 90.0,
+      "category": "Cucina",
+      "subcategory": "Impianto gas",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 3.0,
+      "tags": [
+        "cucina",
+        "gas",
+        "piano cottura"
+      ]
+    },
+    {
+      "sku": "PAV-001",
+      "description": "Posa in opera pavimento ceramica/gres porcellanato (format max 60x60)",
+      "unit": "mq",
+      "unit_price": 30.0,
+      "category": "Pavimentazioni",
+      "subcategory": "Ceramica",
+      "vat_agevolata": true,
+      "min_qty": 2.0,
+      "max_qty": 2000.0,
+      "tags": [
+        "pavimento",
+        "ceramica",
+        "gres"
+      ]
+    },
+    {
+      "sku": "PAV-002",
+      "description": "Posa in opera parquet prefinito (colla o flottante, include battiscopa)",
+      "unit": "mq",
+      "unit_price": 35.0,
+      "category": "Pavimentazioni",
+      "subcategory": "Legno",
+      "vat_agevolata": true,
+      "min_qty": 2.0,
+      "max_qty": 1000.0,
+      "tags": [
+        "pavimento",
+        "parquet",
+        "legno"
+      ]
+    },
+    {
+      "sku": "PAV-003",
+      "description": "Posa in opera grandi formati (lastra 120x120 o simili) — richiede supporti regolabili",
+      "unit": "mq",
+      "unit_price": 55.0,
+      "category": "Pavimentazioni",
+      "subcategory": "Grandi formati",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 1000.0,
+      "tags": [
+        "pavimento",
+        "grandi formati",
+        "lastra"
+      ]
+    },
+    {
+      "sku": "PAV-004",
+      "description": "Massetto di livellamento per posa pavimento (spessore 5 cm)",
+      "unit": "mq",
+      "unit_price": 22.0,
+      "category": "Pavimentazioni",
+      "subcategory": "Massetti",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 2000.0,
+      "tags": [
+        "massetto",
+        "pavimento",
+        "livellamento"
+      ]
+    },
+    {
+      "sku": "PAV-005",
+      "description": "Posa resina epossidica/microcemento (2 mani, copertura completa)",
+      "unit": "mq",
+      "unit_price": 65.0,
+      "category": "Pavimentazioni",
+      "subcategory": "Resina",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 500.0,
+      "tags": [
+        "pavimento",
+        "resina",
+        "microcemento",
+        "epossidica"
+      ]
+    },
+    {
+      "sku": "PIT-001",
+      "description": "Tinteggiatura pareti e soffitti con pittura lavabile bianca (2 mani)",
+      "unit": "mq",
+      "unit_price": 12.0,
+      "category": "Tinteggiature",
+      "subcategory": "Pittura standard",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 5000.0,
+      "tags": [
+        "pittura",
+        "tinteggiatura",
+        "pareti",
+        "soffitto"
+      ]
+    },
+    {
+      "sku": "PIT-002",
+      "description": "Pittura traspirante agli ioni di argento (antimuffe, certificata per interni)",
+      "unit": "mq",
+      "unit_price": 18.0,
+      "category": "Tinteggiature",
+      "subcategory": "Pittura specialistica",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 2000.0,
+      "tags": [
+        "pittura",
+        "traspirante",
+        "antimuffe",
+        "bioedilizia"
+      ]
+    },
+    {
+      "sku": "PIT-003",
+      "description": "Pittura a calce naturale (2 mani, adatta a pareti in cotto/pietrame/intonaco storico)",
+      "unit": "mq",
+      "unit_price": 22.0,
+      "category": "Tinteggiature",
+      "subcategory": "Bioedilizia",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 1000.0,
+      "tags": [
+        "pittura",
+        "calce",
+        "naturale",
+        "bioedilizia"
+      ]
+    },
+    {
+      "sku": "PIT-004",
+      "description": "Verniciatura infissi interni in legno (carteggiatura + 2 mani vernice)",
+      "unit": "mq",
+      "unit_price": 28.0,
+      "category": "Tinteggiature",
+      "subcategory": "Verniciatura legno",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 200.0,
+      "tags": [
+        "verniciatura",
+        "legno",
+        "infissi"
+      ]
+    },
+    {
+      "sku": "INF-FIN-001",
+      "description": "Fornitura e posa finestra PVC doppio vetro basso-emissivo (60x120 cm)",
+      "unit": "cad",
+      "unit_price": 420.0,
+      "category": "Infissi",
+      "subcategory": "Finestre",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 30.0,
+      "tags": [
+        "infisso",
+        "finestra",
+        "PVC",
+        "doppio vetro"
+      ]
+    },
+    {
+      "sku": "INF-FIN-002",
+      "description": "Fornitura e posa finestra alluminio taglio termico triplo vetro (60x120 cm)",
+      "unit": "cad",
+      "unit_price": 680.0,
+      "category": "Infissi",
+      "subcategory": "Finestre",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 30.0,
+      "tags": [
+        "infisso",
+        "finestra",
+        "alluminio",
+        "triplo vetro"
+      ]
+    },
+    {
+      "sku": "INF-POR-001",
+      "description": "Fornitura e posa porta interna battente con telaio e maniglia (80x210)",
+      "unit": "cad",
+      "unit_price": 380.0,
+      "category": "Infissi",
+      "subcategory": "Porte interne",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 20.0,
+      "tags": [
+        "infisso",
+        "porta",
+        "battente",
+        "interna"
+      ]
+    },
+    {
+      "sku": "INF-POR-002",
+      "description": "Fornitura e posa porta scorrevole a scomparsa con controtelaio (80x210)",
+      "unit": "cad",
+      "unit_price": 620.0,
+      "category": "Infissi",
+      "subcategory": "Porte interne",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 10.0,
+      "tags": [
+        "infisso",
+        "porta",
+        "scorrevole",
+        "scomparsa"
+      ]
+    },
+    {
+      "sku": "INF-POR-003",
+      "description": "Porta blindata di ingresso classe 3 (compreso muratura e controtelaio)",
+      "unit": "cad",
+      "unit_price": 1400.0,
+      "category": "Infissi",
+      "subcategory": "Porte blindate",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 3.0,
+      "tags": [
+        "porta",
+        "blindata",
+        "sicurezza",
+        "ingresso"
+      ]
+    },
+    {
+      "sku": "TERM-RAD-001",
+      "description": "Sostituzione radiatore in alluminio (compreso smaltimento vecchio)",
+      "unit": "cad",
+      "unit_price": 220.0,
+      "category": "Riscaldamento",
+      "subcategory": "Radiatori",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 20.0,
+      "tags": [
+        "riscaldamento",
+        "radiatore",
+        "termosifone"
+      ]
+    },
+    {
+      "sku": "TERM-PAV-001",
+      "description": "Impianto riscaldamento a pavimento radiante idronico (collettore, tubi, massetto)",
+      "unit": "mq",
+      "unit_price": 75.0,
+      "category": "Riscaldamento",
+      "subcategory": "Pavimento radiante",
+      "vat_agevolata": true,
+      "min_qty": 10.0,
+      "max_qty": 500.0,
+      "tags": [
+        "riscaldamento",
+        "pavimento radiante",
+        "idronico"
+      ]
+    },
+    {
+      "sku": "TERM-CAL-001",
+      "description": "Sostituzione caldaia a condensazione (posa, collaudo, fumi max 5 ml)",
+      "unit": "cad",
+      "unit_price": 1200.0,
+      "category": "Riscaldamento",
+      "subcategory": "Caldaie",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 3.0,
+      "tags": [
+        "riscaldamento",
+        "caldaia",
+        "condensazione"
+      ]
+    },
+    {
+      "sku": "TERM-FANCOIL-001",
+      "description": "Fan coil canalizzato o a cassetta (posa e collegamento — senza macchina esterna)",
+      "unit": "cad",
+      "unit_price": 480.0,
+      "category": "Riscaldamento",
+      "subcategory": "Fan coil",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 10.0,
+      "tags": [
+        "riscaldamento",
+        "raffrescamento",
+        "fan coil",
+        "climatizzazione"
+      ]
+    },
+    {
+      "sku": "CLIM-001",
+      "description": "Climatizzatore split inverter 12000 BTU (macchina esterna + interna + posa)",
+      "unit": "cad",
+      "unit_price": 950.0,
+      "category": "Climatizzazione",
+      "subcategory": "Split",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 10.0,
+      "tags": [
+        "climatizzazione",
+        "split",
+        "inverter",
+        "aria condizionata"
+      ]
+    },
+    {
+      "sku": "CLIM-002",
+      "description": "Climatizzatore multisplit (unità esterna per 3 interni — solo manodopera)",
+      "unit": "cad",
+      "unit_price": 700.0,
+      "category": "Climatizzazione",
+      "subcategory": "Multisplit",
+      "vat_agevolata": true,
+      "min_qty": 1.0,
+      "max_qty": 5.0,
+      "tags": [
+        "climatizzazione",
+        "multisplit",
+        "aria condizionata"
+      ]
+    },
+    {
+      "sku": "CS-001",
+      "description": "Controsoffitto in cartongesso liscio (monostrato, con struttura metallica)",
+      "unit": "mq",
+      "unit_price": 42.0,
+      "category": "Controsoffitti",
+      "subcategory": "Cartongesso",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 500.0,
+      "tags": [
+        "controsoffitto",
+        "cartongesso"
+      ]
+    },
+    {
+      "sku": "CS-002",
+      "description": "Controsoffitto con doppia lastra e isolamento termoacustico (lana minerale 50mm)",
+      "unit": "mq",
+      "unit_price": 58.0,
+      "category": "Controsoffitti",
+      "subcategory": "Isolato",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 500.0,
+      "tags": [
+        "controsoffitto",
+        "cartongesso",
+        "isolamento",
+        "acustico",
+        "termico"
+      ]
+    },
+    {
+      "sku": "CS-003",
+      "description": "Cartongesso a parete (contro-parete su profili, inclusa rasatura)",
+      "unit": "mq",
+      "unit_price": 38.0,
+      "category": "Controsoffitti",
+      "subcategory": "Contropareti",
+      "vat_agevolata": true,
+      "min_qty": 2.0,
+      "max_qty": 500.0,
+      "tags": [
+        "cartongesso",
+        "controparete",
+        "isolamento"
+      ]
+    },
+    {
+      "sku": "ISO-TERM-001",
+      "description": "Cappotto termico esterno (pannelli EPS 10cm + rasatura + rete + finitura)",
+      "unit": "mq",
+      "unit_price": 95.0,
+      "category": "Isolamento",
+      "subcategory": "Cappotto",
+      "vat_agevolata": true,
+      "min_qty": 10.0,
+      "max_qty": 2000.0,
+      "tags": [
+        "isolamento",
+        "cappotto",
+        "termico",
+        "EPS",
+        "superbonus"
+      ]
+    },
+    {
+      "sku": "ISO-TERM-002",
+      "description": "Isolamento interno con pannelli in fibra di legno (40mm) + intonaco finito",
+      "unit": "mq",
+      "unit_price": 72.0,
+      "category": "Isolamento",
+      "subcategory": "Isolamento interno",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 1000.0,
+      "tags": [
+        "isolamento",
+        "fibra legno",
+        "bioedilizia",
+        "naturale"
+      ]
+    },
+    {
+      "sku": "IDR-IMP-001",
+      "description": "Impermeabilizzazione terrazzo/lastrico con membrana liquida armata",
+      "unit": "mq",
+      "unit_price": 65.0,
+      "category": "Impermeabilizzazione",
+      "subcategory": "Terrazze",
+      "vat_agevolata": true,
+      "min_qty": 5.0,
+      "max_qty": 500.0,
+      "tags": [
+        "impermeabilizzazione",
+        "terrazzo",
+        "guaina"
+      ]
+    },
+    {
+      "sku": "IDR-IMP-002",
+      "description": "Trattamento antiriduzione umidità ascendente a iniezione (ml lineari)",
+      "unit": "ml",
+      "unit_price": 45.0,
+      "category": "Impermeabilizzazione",
+      "subcategory": "Umidità",
+      "vat_agevolata": true,
+      "min_qty": 2.0,
+      "max_qty": 200.0,
+      "tags": [
+        "umidità",
+        "impermeabilizzazione",
+        "iniezione",
+        "risalita"
+      ]
+    },
+    {
+      "sku": "SMAL-001",
+      "description": "Smaltimento macerie (nolo container 7mc + trasporto a discarica autorizzata)",
+      "unit": "cad",
+      "unit_price": 380.0,
+      "category": "Smaltimento",
+      "subcategory": "Macerie",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 20.0,
+      "tags": [
+        "smaltimento",
+        "macerie",
+        "rifiuti",
+        "discarica"
+      ]
+    },
+    {
+      "sku": "SMAL-002",
+      "description": "Smaltimento rifiuti speciali RAEE (elettrodomestici, pannelli, …) — quota fissa",
+      "unit": "ps",
+      "unit_price": 90.0,
+      "category": "Smaltimento",
+      "subcategory": "RAEE",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 10.0,
+      "tags": [
+        "smaltimento",
+        "RAEE",
+        "elettrodomestici",
+        "rifiuti speciali"
+      ]
+    },
+    {
+      "sku": "SC-001",
+      "description": "Ponteggio fisso o trabattello per lavori in altezza (forfait fino a 50mq)",
+      "unit": "ps",
+      "unit_price": 350.0,
+      "category": "Sicurezza Cantiere",
+      "subcategory": "Ponteggi",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 20.0,
+      "tags": [
+        "ponteggio",
+        "cantiere",
+        "sicurezza",
+        "trabattello"
+      ]
+    },
+    {
+      "sku": "SC-002",
+      "description": "Protezione pareti/pavimenti esistenti durante i lavori (fogli protettivi + dima)",
+      "unit": "ps",
+      "unit_price": 120.0,
+      "category": "Sicurezza Cantiere",
+      "subcategory": "Protezioni",
+      "vat_agevolata": false,
+      "min_qty": 1.0,
+      "max_qty": 10.0,
+      "tags": [
+        "protezione",
+        "cantiere"
+      ]
+    }
+  ]
+}

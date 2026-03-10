@@ -1,0 +1,814 @@
+{
+    "version": "1.0.0",
+    "description": "Renovation Assembly Library for SYD Bioedilizia. Maps user desires (natural language intents) to structured Work Breakdown Structure (WBS) phases, each composed of required SKUs from the master_price_book. Used by InsightEngine to expand implicit user requests into complete technical BOQ.",
+    "assemblies": [
+        {
+            "id": "ASM-BAGNO-FULL",
+            "name": "Ristrutturazione Bagno Completa",
+            "description": "Rifacimento completo bagno: demolizioni, impianti, sanitari, finiture",
+            "triggers": [
+                "bagno nuovo",
+                "rifacimento bagno",
+                "ristrutturare bagno",
+                "bagno moderno",
+                "bagno completo",
+                "doccia nuova",
+                "vasca nuova"
+            ],
+            "questions_required": [
+                "dimensioni_mq",
+                "tipo_box",
+                "riscaldamento_pavimento",
+                "sanitari_tipologia"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "note": "Rimozione di tutti gli elementi esistenti",
+                    "skus": [
+                        {
+                            "sku": "DEM-006",
+                            "qty_formula": "1",
+                            "note": "Set sanitari completo"
+                        },
+                        {
+                            "sku": "DEM-003",
+                            "qty_formula": "mq * 2.2",
+                            "note": "Piastrelle pareti (h media 2.2m)"
+                        },
+                        {
+                            "sku": "DEM-002",
+                            "qty_formula": "mq",
+                            "note": "Pavimento + massetto"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Impianti",
+                    "note": "Rifacimento impianto idraulico e scarichi",
+                    "skus": [
+                        {
+                            "sku": "IMP-002",
+                            "qty_formula": "1",
+                            "note": "Scarichi e distribuzione idrica bagno"
+                        },
+                        {
+                            "sku": "IMP-003",
+                            "qty_formula": "mq * 1.5",
+                            "note": "Impianto elettrico bagno (punti luce + prese)"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Opere Murarie",
+                    "note": "Preparazione pareti e pavimento",
+                    "skus": [
+                        {
+                            "sku": "MUR-003",
+                            "qty_formula": "mq * 2.2",
+                            "note": "Intonaco pareti"
+                        },
+                        {
+                            "sku": "MUR-004",
+                            "qty_formula": "mq",
+                            "note": "Massetto pavimento"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "note": "Posa rivestimenti e sanitari",
+                    "skus": [
+                        {
+                            "sku": "PAV-001",
+                            "qty_formula": "mq * 1.05",
+                            "note": "Gres pavimento (+5% scarti)"
+                        },
+                        {
+                            "sku": "PAV-002",
+                            "qty_formula": "mq * 2.2 * 1.05",
+                            "note": "Rivestimento pareti (+5% scarti)"
+                        },
+                        {
+                            "sku": "BAG-001",
+                            "qty_formula": "1",
+                            "note": "Set sanitari (WC+bidet o WC+lavabo)"
+                        },
+                        {
+                            "sku": "BAG-002",
+                            "qty_formula": "1",
+                            "note": "Rubinetteria completa"
+                        },
+                        {
+                            "sku": "BAG-003",
+                            "qty_formula": "1",
+                            "note": "Box doccia o piatto doccia filo-pavimento"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Smaltimento",
+                    "note": "Trasporto e smaltimento macerie",
+                    "skus": [
+                        {
+                            "sku": "SME-001",
+                            "qty_formula": "mq * 0.8",
+                            "note": "Stima macerie bagno"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-BAGNO-LIGHT",
+            "name": "Rinnovo Bagno Parziale",
+            "description": "Solo sostituzione sanitari e rubinetteria, senza rifacimento rivestimenti",
+            "triggers": [
+                "cambia sanitari",
+                "solo sanitari",
+                "sostituire wc",
+                "nuovo lavabo",
+                "cambio rubinetteria"
+            ],
+            "questions_required": [
+                "sanitari_tipologia"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "skus": [
+                        {
+                            "sku": "DEM-006",
+                            "qty_formula": "1",
+                            "note": "Rimozione vecchi sanitari"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Impianti",
+                    "skus": [
+                        {
+                            "sku": "IMP-002",
+                            "qty_formula": "1",
+                            "note": "Adeguamento scarichi/allacci"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "skus": [
+                        {
+                            "sku": "BAG-001",
+                            "qty_formula": "1",
+                            "note": "Nuovi sanitari"
+                        },
+                        {
+                            "sku": "BAG-002",
+                            "qty_formula": "1",
+                            "note": "Rubinetteria"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-CUCINA-FULL",
+            "name": "Ristrutturazione Cucina Completa",
+            "description": "Rifacimento cucina: demolizioni, impianto gas/idraulico, elettrico, pavimento, rivestimento",
+            "triggers": [
+                "cucina nuova",
+                "ristrutturare cucina",
+                "rifacimento cucina",
+                "cucina moderna",
+                "cucina open space"
+            ],
+            "questions_required": [
+                "dimensioni_mq",
+                "cambio_layout",
+                "tipo_cottura",
+                "metri_lineari_pensili"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "skus": [
+                        {
+                            "sku": "DEM-002",
+                            "qty_formula": "mq",
+                            "note": "Rimozione pavimento"
+                        },
+                        {
+                            "sku": "DEM-003",
+                            "qty_formula": "ml_pensili * 0.6",
+                            "note": "Rimozione rivestimento backsplash"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Impianti",
+                    "skus": [
+                        {
+                            "sku": "IMP-002",
+                            "qty_formula": "1",
+                            "note": "Impianto idraulico cucina (allacci lavello)"
+                        },
+                        {
+                            "sku": "IMP-001",
+                            "qty_formula": "1",
+                            "note": "Impianto elettrico cucina (prese + punti luce)"
+                        },
+                        {
+                            "sku": "IMP-004",
+                            "qty_formula": "1",
+                            "note": "Impianto gas (se cottura a gas)"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Opere Murarie",
+                    "skus": [
+                        {
+                            "sku": "MUR-004",
+                            "qty_formula": "mq",
+                            "note": "Massetto livellamento"
+                        },
+                        {
+                            "sku": "MUR-003",
+                            "qty_formula": "mq * 0.4",
+                            "note": "Rasatura pareti (quota parte)"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "skus": [
+                        {
+                            "sku": "PAV-001",
+                            "qty_formula": "mq * 1.05",
+                            "note": "Pavimento cucina"
+                        },
+                        {
+                            "sku": "PAV-002",
+                            "qty_formula": "ml_pensili * 0.6 * 1.05",
+                            "note": "Rivestimento backsplash"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Smaltimento",
+                    "skus": [
+                        {
+                            "sku": "SME-001",
+                            "qty_formula": "mq * 0.6",
+                            "note": "Stima macerie cucina"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-PARETI-BIANCHE",
+            "name": "Tinteggiatura e preparazione pareti",
+            "description": "Dalle pareti bianche al ciclo completo: demolizione vecchio rivestimento (se ceramica), intonaco, rasatura, pittura",
+            "triggers": [
+                "pareti bianche",
+                "tinteggiatura",
+                "pittura",
+                "verniciare",
+                "ridipingere",
+                "nuovo colore pareti",
+                "pareti nuove"
+            ],
+            "questions_required": [
+                "tipo_finitura_attuale",
+                "dimensioni_mq"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "note": "Solo se pareti rivestite a piastrelle — chiedere all'utente",
+                    "conditional": "if_piastrelle",
+                    "skus": [
+                        {
+                            "sku": "DEM-003",
+                            "qty_formula": "mq_pareti",
+                            "note": "Rimozione piastrelle pareti (solo se presenti)"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Opere Murarie",
+                    "skus": [
+                        {
+                            "sku": "MUR-003",
+                            "qty_formula": "mq_pareti",
+                            "note": "Intonaco pareti (se necessario)"
+                        },
+                        {
+                            "sku": "MUR-002",
+                            "qty_formula": "mq_pareti",
+                            "note": "Rasatura pareti (lisciatura per verniciatura)"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "skus": [
+                        {
+                            "sku": "PIT-001",
+                            "qty_formula": "mq_pareti",
+                            "note": "Verniciatura (2 mani primer + finitura)"
+                        },
+                        {
+                            "sku": "PIT-002",
+                            "qty_formula": "ml_perimetro * 0.15",
+                            "note": "Stuccatura / ripristino angoli e cornici"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-SOFFITTO",
+            "name": "Rifacimento Soffitto / Tinteggiatura Soffitto",
+            "description": "Rasatura e tinteggiatura soffitto con eventuale controsoffitto",
+            "triggers": [
+                "soffitto nuovo",
+                "tinteggiare soffitto",
+                "controsoffitto",
+                "isolamento soffitto",
+                "soffitto in cartongesso"
+            ],
+            "questions_required": [
+                "tipo_soffitto",
+                "dimensioni_mq"
+            ],
+            "phases": [
+                {
+                    "phase": "Opere Murarie",
+                    "skus": [
+                        {
+                            "sku": "MUR-002",
+                            "qty_formula": "mq",
+                            "note": "Rasatura soffitto"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "note": "Se controsoffitto cartongesso richiesto",
+                    "skus": [
+                        {
+                            "sku": "CTN-001",
+                            "qty_formula": "mq",
+                            "note": "Controsoffitto in cartongesso (se richiesto)"
+                        },
+                        {
+                            "sku": "PIT-001",
+                            "qty_formula": "mq",
+                            "note": "Tinteggiatura soffitto"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-PAVIMENTO",
+            "name": "Sostituzione Pavimento",
+            "description": "Rimozione pavimento esistente e posa nuovo: gres, parquet, resina",
+            "triggers": [
+                "pavimento nuovo",
+                "sostituire pavimento",
+                "pavimento diverso",
+                "parquet",
+                "gres",
+                "resina",
+                "piastrelle pavimento"
+            ],
+            "questions_required": [
+                "dimensioni_mq",
+                "tipo_materiale_desiderato"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "skus": [
+                        {
+                            "sku": "DEM-002",
+                            "qty_formula": "mq",
+                            "note": "Rimozione pavimento + massetto esistente"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Opere Murarie",
+                    "skus": [
+                        {
+                            "sku": "MUR-004",
+                            "qty_formula": "mq",
+                            "note": "Massetto di livellamento"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "skus": [
+                        {
+                            "sku": "PAV-001",
+                            "qty_formula": "mq * 1.05",
+                            "note": "Posa gres/ceramica (+5% scarti)"
+                        },
+                        {
+                            "sku": "PAV-003",
+                            "qty_formula": "ml_perimetro",
+                            "note": "Battiscopa"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Smaltimento",
+                    "skus": [
+                        {
+                            "sku": "SME-001",
+                            "qty_formula": "mq * 0.4",
+                            "note": "Macerie pavimento"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-INFISSI",
+            "name": "Sostituzione Finestre / Serramenti",
+            "description": "Rimozione vecchi infissi e posa nuovi in PVC, alluminio o legno",
+            "triggers": [
+                "finestre nuove",
+                "sostituire finestre",
+                "serramenti nuovi",
+                "infissi nuovi",
+                "finestre moderne",
+                "porta finestra"
+            ],
+            "questions_required": [
+                "n_finestre",
+                "tipo_materiale",
+                "doppio_vetro"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "skus": [
+                        {
+                            "sku": "DEM-004",
+                            "qty_formula": "n_finestre",
+                            "note": "Rimozione infissi esistenti con controtelaio"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Opere Murarie",
+                    "skus": [
+                        {
+                            "sku": "MUR-001",
+                            "qty_formula": "n_finestre * 0.5",
+                            "note": "Ripristino muratura attorno vano infisso"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "skus": [
+                        {
+                            "sku": "INF-001",
+                            "qty_formula": "n_finestre",
+                            "note": "Fornitura e posa infissi (PVC/alluminio)"
+                        },
+                        {
+                            "sku": "INF-002",
+                            "qty_formula": "n_finestre",
+                            "note": "Davanzale e controtelaio"
+                        },
+                        {
+                            "sku": "PIT-002",
+                            "qty_formula": "n_finestre * 1.5",
+                            "note": "Ritocco intonaco e verniciatura contorno"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-PORTE-INTERNE",
+            "name": "Sostituzione Porte Interne",
+            "description": "Rimozione vecchie porte interne e fornitura/posa nuove",
+            "triggers": [
+                "porte nuove",
+                "porte interne",
+                "sostituire porte",
+                "porta nuova"
+            ],
+            "questions_required": [
+                "n_porte",
+                "tipo_apertura"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "skus": [
+                        {
+                            "sku": "DEM-005",
+                            "qty_formula": "n_porte",
+                            "note": "Rimozione porte interne + telai"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "skus": [
+                        {
+                            "sku": "INF-003",
+                            "qty_formula": "n_porte",
+                            "note": "Fornitura e posa porte interne"
+                        },
+                        {
+                            "sku": "PIT-002",
+                            "qty_formula": "n_porte * 2",
+                            "note": "Ritocco stipiti e intonaco"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-IMPIANTO-ELETTRICO",
+            "name": "Rifacimento Impianto Elettrico",
+            "description": "Rifacimento completo o parziale impianto elettrico",
+            "triggers": [
+                "impianto elettrico nuovo",
+                "rifacimento elettrico",
+                "cablaggio",
+                "punti luce",
+                "prese nuove",
+                "quadro elettrico"
+            ],
+            "questions_required": [
+                "dimensioni_mq",
+                "n_vani",
+                "certificazione"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "note": "Demolizione tracce per nuovo cablaggio",
+                    "skus": [
+                        {
+                            "sku": "DEM-007",
+                            "qty_formula": "mq * 0.3",
+                            "note": "Tracce per cavi (ml lineari)"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Impianti",
+                    "skus": [
+                        {
+                            "sku": "IMP-001",
+                            "qty_formula": "mq",
+                            "note": "Impianto elettrico (€/mq comprensivo di cavi, frutti, quadro)"
+                        },
+                        {
+                            "sku": "IMP-005",
+                            "qty_formula": "mq * 0.15",
+                            "note": "Punti luce aggiuntivi / faretti LED"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Opere Murarie",
+                    "skus": [
+                        {
+                            "sku": "MUR-002",
+                            "qty_formula": "mq * 0.3",
+                            "note": "Chiusura tracce elettriche"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-RISCALDAMENTO",
+            "name": "Rifacimento Impianto di Riscaldamento",
+            "description": "Caldaia nuova, radiatori o riscaldamento a pavimento",
+            "triggers": [
+                "caldaia nuova",
+                "riscaldamento nuovo",
+                "termosifoni",
+                "riscaldamento a pavimento",
+                "underfloor heating",
+                "impianto termico"
+            ],
+            "questions_required": [
+                "tipo_riscaldamento",
+                "dimensioni_mq",
+                "zona_climatica"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "skus": [
+                        {
+                            "sku": "DEM-008",
+                            "qty_formula": "1",
+                            "note": "Rimozione vecchio impianto/caldaia"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Impianti",
+                    "skus": [
+                        {
+                            "sku": "RIS-001",
+                            "qty_formula": "1",
+                            "note": "Fornitura e installazione caldaia (kW in base a mq)"
+                        },
+                        {
+                            "sku": "RIS-002",
+                            "qty_formula": "mq",
+                            "note": "Riscaldamento a pavimento (se richiesto)"
+                        },
+                        {
+                            "sku": "RIS-003",
+                            "qty_formula": "n_radiatori",
+                            "note": "Radiatori / termoconvettori (alternativa)"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-ABBATTIMENTO-PARETI",
+            "name": "Abbattimento/Spostamento Tramezzi",
+            "description": "Demolizione pareti interne per open space o cambio layout",
+            "triggers": [
+                "abbattere pareti",
+                "open space",
+                "togliere parete",
+                "spostare parete",
+                "parete divisoria",
+                "ristrutturare layout",
+                "pianta aperta"
+            ],
+            "questions_required": [
+                "mq_parete",
+                "parete_portante"
+            ],
+            "phases": [
+                {
+                    "phase": "Demolizioni",
+                    "skus": [
+                        {
+                            "sku": "DEM-001",
+                            "qty_formula": "mq_parete",
+                            "note": "Demolizione tramezzi interni"
+                        },
+                        {
+                            "sku": "DEM-009",
+                            "qty_formula": "mq_parete * 0.1",
+                            "note": "Pulizia tracce elettriche/idrauliche nella parete"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Strutture",
+                    "note": "Se parete portante: obbligatoria trave o architrave",
+                    "skus": [
+                        {
+                            "sku": "STR-001",
+                            "qty_formula": "ml_parete",
+                            "note": "Trave/architrave (solo se parete portante — VERIFICA STRUTTURALE OBBLIGATORIA)"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Opere Murarie",
+                    "skus": [
+                        {
+                            "sku": "MUR-002",
+                            "qty_formula": "mq_parete * 2",
+                            "note": "Rasatura e intonaco pareti adiacenti post-demolizione"
+                        },
+                        {
+                            "sku": "MUR-004",
+                            "qty_formula": "mq_parete * 0.1",
+                            "note": "Livellamento pavimento nella zona demolita"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "skus": [
+                        {
+                            "sku": "PIT-001",
+                            "qty_formula": "mq_parete * 2",
+                            "note": "Tinteggiatura pareti adiacenti"
+                        },
+                        {
+                            "sku": "PAV-001",
+                            "qty_formula": "mq_parete * 0.5",
+                            "note": "Integrazione pavimento (se non si rimuove tutto)"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Smaltimento",
+                    "skus": [
+                        {
+                            "sku": "SME-001",
+                            "qty_formula": "mq_parete * 0.3",
+                            "note": "Macerie tramezzi"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "ASM-ISOLAMENTO-TERMICO",
+            "name": "Isolamento Termico (Cappotto)",
+            "description": "Isolamento pareti esterne o interne per efficienza energetica",
+            "triggers": [
+                "cappotto termico",
+                "isolamento termico",
+                "isolamento pareti",
+                "coibentazione",
+                "freddo in casa",
+                "umidità pareti"
+            ],
+            "questions_required": [
+                "tipo_isolamento",
+                "mq_pareti"
+            ],
+            "phases": [
+                {
+                    "phase": "Opere Murarie",
+                    "skus": [
+                        {
+                            "sku": "ISO-001",
+                            "qty_formula": "mq_pareti",
+                            "note": "Pannelli isolanti EPS/lana di roccia"
+                        },
+                        {
+                            "sku": "MUR-003",
+                            "qty_formula": "mq_pareti",
+                            "note": "Intonaco di finitura su cappotto"
+                        }
+                    ]
+                },
+                {
+                    "phase": "Finiture",
+                    "skus": [
+                        {
+                            "sku": "PIT-001",
+                            "qty_formula": "mq_pareti",
+                            "note": "Tinteggiatura esterna (tinta al silicone)"
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "dependency_rules": [
+        {
+            "rule": "Se si rimuove un pavimento, includere sempre smaltimento macerie",
+            "triggers_sku": [
+                "DEM-002"
+            ],
+            "requires_sku": [
+                "SME-001"
+            ]
+        },
+        {
+            "rule": "Se si installa riscaldamento a pavimento, includere sempre massetto sopra",
+            "triggers_sku": [
+                "RIS-002"
+            ],
+            "requires_sku": [
+                "MUR-004"
+            ]
+        },
+        {
+            "rule": "Se pareti bianche ma parete ha piastrelle — chiedere prima di escludere DEM-003",
+            "triggers_sku": [
+                "PIT-001"
+            ],
+            "question_before_exclude": "Le pareti che vuoi dipingere sono intonacate o rivestite a piastrelle/ceramica?"
+        },
+        {
+            "rule": "Parete portante richiede verifica strutturale — NON quotare senza accertamento",
+            "triggers_sku": [
+                "STR-001"
+            ],
+            "requires_admin_flag": true,
+            "admin_note": "ATTENZIONE: Segnalare all'admin per verifica strutturale obbligatoria prima dell'approvazione."
+        }
+    ]
+}

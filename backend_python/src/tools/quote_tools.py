@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import logging
-from src.services.insight_engine import get_insight_engine
+from src.services.insight_engine import get_insight_engine, InsightEngineError
 from src.services.pricing_service import PricingService
 from src.repositories.conversation_repository import ConversationRepository
 from src.db.firebase_client import get_async_firestore_client
@@ -90,42 +90,81 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
         # Optimization: Build Chat Summary instead of raw history
         chat_summary = build_chat_summary(history)
         
-        # 3. Analyze with Insight Engine
+        # 3. Analyze with Insight Engine (uses Gemini response_schema structured output)
         engine = get_insight_engine()
-        # We pass the summary wrapped in a dict list to match existing signature or refactor engine.
-        # Ideally, engine should accept summary. But engine expects list of dicts.
-        # Let's mock the list of dicts with one system/user message containing summary.
-        # Wait, existing engine loops over list.
-        # Let's pass the raw history for now, but I should refactor engine to use summary if I strictly follow pattern.
-        # The pattern says: "Input Preprocessing: Chat Summary".
-        # I will update InsightEngine to accept a summary string or list of messages?
-        # For now, let's keep passing history but relying on engine's internal logic.
-        # Actually, let's pass the summary as a single "user" message to the engine.
-        
-        summary_message = [{"role": "user", "content": f"Here is the chat summary:\n{chat_summary}"}]
-        analysis = await engine.analyze_project_for_quote(summary_message, media_urls)
+        # Pass the chat summary as a single distilled message to reduce token overhead
+        summary_message = [{"role": "user", "content": f"Riepilogo conversazione progetto:\n{chat_summary}"}]
+        try:
+            analysis = await engine.analyze_project_for_quote(summary_message, media_urls)
+        except InsightEngineError as exc:
+            logger.error("[QuoteTool] InsightEngine failed.", extra={"error": str(exc)})
+            return (
+                "Non è stato possibile analizzare automaticamente il progetto in questo momento. "
+                "Ti chiedo di descrivermi le lavorazioni previste e ti fornirò un preventivo manuale."
+            )
         
         if not analysis.suggestions:
-            return f"""I couldn't identify specific renovation items to quote at this time. Could you provide more details about the room size or specific works you're interested in?
-
-Summary: {analysis.summary}"""
+            if analysis.missing_info:
+                questions = " ".join(analysis.missing_info[:2])
+                return (
+                    f"Ho capito il progetto: {analysis.summary}\n\n"
+                    f"Prima di prepararti un preventivo accurato, ho bisogno di qualche informazione. "
+                    f"{questions}"
+                )
+            return (
+                f"Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
+                f"Puoi dirmi le dimensioni approssimative dell'ambiente "
+                f"e quali lavori hai in mente? ({analysis.summary})"
+            )
 
         # Validation Pattern: SKU existence check
         unknown_skus = validate_sku_suggestions(analysis.suggestions)
         valid_suggestions = [s for s in analysis.suggestions if s.sku not in unknown_skus]
 
         if not valid_suggestions:
-            return f"I identified potential works ({', '.join(unknown_skus)}) but they don't match our current price book. Please contact a human agent."
+            logger.warning(
+                "[QuoteTool] All AI suggestions had unknown SKUs.",
+                extra={"unknown_skus": unknown_skus},
+            )
+            return (
+                f"Ho identificato alcune lavorazioni potenziali ({', '.join(unknown_skus)}) "
+                "ma non corrispondono al listino prezzi attuale. "
+                "Un nostro consulente ti contatterà per un preventivo personalizzato."
+            )
 
         # Validation Pattern: quantity bounds check (pricing injection prevention)
         valid_suggestions, qty_warnings = _validate_qty_bounds(valid_suggestions)
         if qty_warnings:
             logger.warning(f"[QuoteTool] Filtered {len(qty_warnings)} suggestion(s) with out-of-bounds qty")
         if not valid_suggestions:
-            return "Quote generation failed: all suggested quantities were outside acceptable bounds. Please describe the project scope in more detail."
+            return "La generazione del preventivo non è riuscita: le quantità suggerite erano fuori dai limiti accettabili. Descrivi il progetto in modo più dettagliato."
+
+        # ── Completeness Gate (Opzione C) ─────────────────────────────────────────
+        # If the InsightEngine signals that data is insufficient (score < 0.7),
+        # return the missing questions instead of an incomplete quote.
+        COMPLETENESS_THRESHOLD = 0.70
+        if analysis.completeness_score < COMPLETENESS_THRESHOLD and analysis.missing_info:
+            logger.info(
+                "[QuoteTool] Completeness gate triggered.",
+                extra={"score": analysis.completeness_score, "missing": analysis.missing_info},
+            )
+            formatted_questions = " ".join(analysis.missing_info[:2])  # max 2 questions per turn
+            return (
+                f"Ho identificato le lavorazioni principali ({analysis.summary}), "
+                f"ma ho bisogno di qualche dettaglio in più per un preventivo preciso.\n\n"
+                f"{formatted_questions}"
+            )
 
         # 4. Generate Pricing
-        sku_list = [{"sku": s.sku, "qty": s.qty, "ai_reasoning": s.ai_reasoning} for s in valid_suggestions]
+        sku_list = [
+            {
+                "sku": s.sku,
+                "qty": s.qty,
+                "ai_reasoning": s.ai_reasoning,
+                "phase": getattr(s, "phase", "Lavori"),
+            }
+            for s in valid_suggestions
+        ]
         # We need a user_id. If not provided, we try to get it from context or use session_id
         final_user_id = user_id or "guest_" + session_id
         
@@ -146,19 +185,43 @@ Summary: {analysis.summary}"""
         quote_ref = db.collection('projects').document(target_project_id).collection('private_data').document('quote')
         await quote_ref.set(quote.model_dump(exclude_none=True))
         
-        # 6. Return human-readable summary
-        response = f"**{analysis.summary}**\n\nI've generated a preliminary quote draft based on our conversation:\n\n"
+        # 6. Return human-readable Italian summary, grouped by WBS phase
+        response = f"**{analysis.summary}**\n\nHo preparato una bozza di preventivo sulla base della nostra conversazione:\n\n"
+
+        # Group items by WBS phase for readability
+        from collections import defaultdict
+        by_phase: dict[str, list] = defaultdict(list)
         for item in quote.items:
-            response += f"- {item.sku}: {item.description} ({item.qty} {item.unit}) - EUR {item.total:.2f}\n"
-        
-        response += f"\n**Estimated Subtotal: EUR {quote.financials.subtotal:.2f}**\n"
-        response += f"**Estimated Grand Total (incl. VAT): EUR {quote.financials.grand_total:.2f}**\n\n"
-        response += "You can review and edit this draft in your dashboard under 'Quote Review'."
-        
+            phase = item.category or "Lavori"
+            by_phase[phase].append(item)
+
+        for phase, items in by_phase.items():
+            response += f"**{phase}**\n"
+            for item in items:
+                response += f"  • {item.description} ({item.qty} {item.unit}) — €{item.total:.2f}\n"
+            response += "\n"
+
+        response += f"**Subtotale: €{quote.financials.subtotal:.2f}**\n"
+        response += f"**Totale (IVA inclusa): €{quote.financials.grand_total:.2f}**\n\n"
+
+        # Add completeness note if score is moderate
+        if 0.70 <= analysis.completeness_score < 0.85:
+            response += (
+                "_Nota: questo preventivo è basato su stime indicative. "
+                "Il nostro geometra lo affinerà durante la revisione._ \n\n"
+            )
+
+        response += "Puoi revisionare e modificare questa bozza nella tua dashboard sotto 'Preventivo'."
+
         return response
 
-    except Exception as e:
-        logger.error(f"[QuoteTool] Error: {e}", exc_info=True)
-        return f"Sorry, I encountered an error while generating the quote: {str(e)}"
+    except InsightEngineError:
+        raise  # Already handled above — should not reach here
+    except Exception as exc:
+        logger.error("[QuoteTool] Unexpected error during quote generation.", exc_info=True)
+        return (
+            "Si è verificato un errore imprevisto durante la generazione del preventivo. "
+            "Il nostro team è stato notificato. Riprova tra qualche minuto."
+        )
 
 suggest_quote_items = suggest_quote_items_wrapper

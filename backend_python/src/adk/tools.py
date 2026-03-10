@@ -168,16 +168,28 @@ async def list_project_files(session_id: str) -> str:
 
 # ─── Quote Item Suggestions ──────────────────────────────────────────────────
 
-async def suggest_quote_items(session_id: str) -> str:
+async def suggest_quote_items(
+    session_id: str,
+    project_id: str = "",
+    user_id: str = "",
+) -> str:
     """Suggests renovation line items for a quote based on conversation history.
 
-    Analyzes the chat and proposes relevant SKUs (e.g. drywall, flooring, painting).
+    Analyzes the chat and proposes relevant SKUs (e.g. demolitions, flooring, painting).
+    Validates all suggested SKUs against the Master Price Book before returning.
+    Saves a draft QuoteSchema to Firestore under projects/{project_id}/private_data/quote.
 
     Args:
-        session_id: The project/session identifier.
+        session_id: The project/session identifier (required).
+        project_id: Optional. Project ID if different from session_id.
+        user_id: Optional. UID of the authenticated user (improves quote ownership tracking).
     """
     from src.tools.quote_tools import suggest_quote_items_wrapper
-    return await suggest_quote_items_wrapper(session_id=session_id)
+    return await suggest_quote_items_wrapper(
+        session_id=session_id,
+        project_id=project_id or None,
+        user_id=user_id or None,
+    )
 
 
 # ─── n8n Webhook ─────────────────────────────────────────────────────────────
