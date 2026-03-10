@@ -214,6 +214,9 @@ class ADKOrchestrator(BaseOrchestrator):
 
             full_response = ""
             accumulated_tool_calls = []
+            # Map tool_name → call_id so we can correlate function_response
+            # with the correct call_id (ADK may not preserve call_id on responses)
+            pending_tool_calls: dict[str, str] = {}
             try:
                 # Pass user message directly via new_message parameter (ADK 1.x API)
                 actual_message = types.Content(role="user", parts=content_parts)
@@ -262,7 +265,10 @@ class ADKOrchestrator(BaseOrchestrator):
                                                 logger.debug(f"[ADK] Suppressing internal tool call: {fc.name}")
                                                 continue
 
-                                            call_id = getattr(fc, 'call_id', str(uuid.uuid4()))
+                                            call_id = getattr(fc, 'call_id', None) or getattr(fc, 'id', None) or str(uuid.uuid4())
+
+                                            # Track call_id so tool results can be correlated
+                                            pending_tool_calls[fc.name] = call_id
 
                                             status_msg = f"Syd sta usando {fc.name}..."
                                             if fc.name == "generate_render":
@@ -296,8 +302,23 @@ class ADKOrchestrator(BaseOrchestrator):
                                                 logger.debug(f"[ADK] Suppressing internal tool result: {fr.name}")
                                                 continue
 
-                                            call_id = getattr(fr, 'call_id', 'unknown')
-                                            async for chunk in stream_tool_result(call_id, fr.response):
+                                            # Resolve call_id: try ADK attribute first, then our tracked mapping
+                                            call_id = (
+                                                getattr(fr, 'call_id', None)
+                                                or getattr(fr, 'id', None)
+                                                or pending_tool_calls.pop(getattr(fr, 'name', ''), None)
+                                                or 'unknown'
+                                            )
+                                            # Ensure response is JSON-serializable (ADK may return protobuf MapComposite)
+                                            raw_response = fr.response
+                                            if hasattr(raw_response, '__iter__') and not isinstance(raw_response, (dict, list, str)):
+                                                raw_response = dict(raw_response)
+
+                                            logger.info(
+                                                f"[ADK] Tool result: name={getattr(fr, 'name', '?')}, "
+                                                f"call_id={call_id}, response_type={type(raw_response).__name__}"
+                                            )
+                                            async for chunk in stream_tool_result(call_id, raw_response):
                                                 yield chunk
 
                                 logger.info(

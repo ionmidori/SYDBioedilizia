@@ -1,13 +1,20 @@
-# PROJECT CONTEXT SUMMARY (v4.0.16)
-**Ultimo aggiornamento:** 10 Marzo 2026 (Phase 63)
-**Status:** Production-Ready — Backend Performance Hardening & ADK Session Restart Recovery (375/375 Tests Passing)
+# PROJECT CONTEXT SUMMARY (v4.0.17)
+**Ultimo aggiornamento:** 10 Marzo 2026 (Phase 64)
+**Status:** Production-Ready — Render Display Fix & Dependency Security (375/375 Backend, 114/114 Frontend Tests Passing)
 
-## 🎯 Obiettivi Correnti (Phase 63)
-1.  **Backend Performance Audit**: Implementate fix critiche per event loop blocking, memory exhaustion, e DRY violations nel modulo upload.
-2.  **ADK Session Restart Recovery**: Injected Firestore conversation history into ADK session on restart, consentendo all'agent di continuare mid-conversation senza perdere contesto.
-3.  **Quota Management Refactoring**: Estratto quota check logic in helper condiviso e rimossi inline imports.
+## 🎯 Obiettivi Correnti (Phase 64)
+1.  **Render Display Fix**: Risolto mismatch `call_id` tra tool-call e tool-result nel protocollo SSE che impediva ai render generati di apparire nella chat.
+2.  **Dependency Security**: Aggiornato Jest 29→30 per risolvere vulnerabilità `@tootallnate/once`; aggiornato firebase-admin a 13.7.0.
+3.  **GEMINI.md Audit**: Corretti 8 errori/obsolescenze nel file di regole globali (VertexAi, structlog, Zustand, Redis, Shadcn, LangGraph rollback).
 
 ---
+
+- **Phase 64 (Mar 10, 2026):** **Render Display Fix, Dependency Security & Config Audit (v4.0.17)**:
+    - **SSE call_id Mismatch Fix (adk_orchestrator.py)**: ADK `function_response` non preserva `call_id` → il frontend AI SDK non correlava tool-result con tool-call. Introdotto `pending_tool_calls` mapping (name→id) + catena di fallback robusta (`fr.call_id` → `fr.id` → mapping → 'unknown').
+    - **Protobuf Safety Cast (adk_orchestrator.py)**: Aggiunto cast `MapComposite → dict` per garantire serializzazione JSON del tool result.
+    - **Jest 29→30 Upgrade (web_client)**: Risolve vulnerabilità `@tootallnate/once` (GHSA-vpq2-c234-7xj6). Aggiornati mock `crypto.randomUUID` (jest.spyOn), test ChatInput (input separati + Cloud icon), e `@types/jest`.
+    - **GEMINI.md Audit**: Corretti 8 punti: VertexAiSessionService→InMemory+Firestore, structlog→logging, Zustand rimosso, Shadcn→Radix primitives, quota Firestore-based, LangGraph rollback rimosso, sezione duplicata eliminata, chat model documentato.
+    - **Path-scoped Claude Rules**: Creati `.claude/rules/backend.md` e `.claude/rules/frontend.md` per regole contestuali.
 
 - **Phase 63 (Mar 10, 2026):** **Backend Performance Hardening & ADK Session Persistence (v4.0.16)**:
     - **Event Loop Fix (upload.py)**: Wrapped sync Firebase SDK calls (`upload_from_string`, `patch`, `generate_signed_url`, `make_public`) in `run_in_threadpool()` to prevent event loop blocking during image uploads.
@@ -33,5 +40,5 @@
 
 ---
 
-- **Current Version**: `v4.0.16`
-- **Next High Priority**: 1) ADK Session cleanup cron for GDPR retention | 2) Dynamic Robot Mascot | 3) M3 Chat feedback integration
+- **Current Version**: `v4.0.17`
+- **Next High Priority**: 1) ADK Session cleanup cron for GDPR retention | 2) Dynamic Robot Mascot | 3) M3 Chat feedback integration | 4) Remaining 8 low-severity transitive vulns (firebase-admin→google-cloud chain, awaiting upstream fix)
