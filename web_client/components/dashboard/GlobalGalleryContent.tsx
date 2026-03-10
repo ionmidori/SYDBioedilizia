@@ -40,7 +40,7 @@ export function GlobalGalleryContent() {
     } = useGalleryAssets(50, isAuthenticated);
 
     const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
-    const [sortBy, setSortBy] = useState<SortOption>('newest');
+    const [sortBy] = useState<SortOption>('newest');
     const [searchQuery, setSearchQuery] = useState('');
     const [groupBy, setGroupBy] = useState<GroupByOption>('type');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);

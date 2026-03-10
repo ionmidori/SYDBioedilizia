@@ -55,24 +55,13 @@ generate_render prompt (the image is NOT re-sent in subsequent turns).
 
 Use this exact format:
 
-"Ho analizzato la tua foto. Ecco quello che vedo:
+"Ho analizzato la tua foto. Ecco lo stile e il potenziale dello spazio:
 
-🏠 **Tipo stanza**: [es. bagno, cucina, soggiorno, camera da letto]
-
-🧱 **Superfici**
-- Pavimento: [materiale] — [stato: buono/da rinnovare/ammalorato] — stima ~[X-Y m²]
-- Pareti: [materiale] — [stato] — stima ~[X-Y m² sviluppati]
-- Soffitto: [materiale] — altezza stimata ~[X m] — [stato]
-
-⚡ **Impianti visibili**
-- Elettrico: [es. prese incasso moderne / prese bivalenti datate / ND]
-- Riscaldamento: [es. termosifoni in ghisa / fan coil / pavimento radiante / ND]
-
-🪟 **Infissi**
-- Finestre: [n°], [PVC/legno/alluminio], [singolo/doppio vetro], [stato]
-- Porte: [n°], [battente/scorrevole], [materiale], [stato]
-
-⚠️ **Criticità strutturali**: [lista problemi visibili, oppure: Nessuna criticità evidente]
+🏠 **Tipo stanza**: [es. bagno, soggiorno, cucina]
+✨ **Stile attuale e atmosfera**: [Descrizione qualitativa: es. datato anni 70, moderno ma freddo, rustico]
+☀️ **Luce e Colori**: [es. buona luce naturale, toni scuri opprimenti, colori neutri]
+🪑 **Elementi di rilievo**: [Pezzi d'arredo o elementi architettonici interessanti, es. travi a vista, grande finestra, camino]
+🪄 **Potenziale di redesign**: [1-2 frasi su come lo spazio potrebbe essere trasformato e valorizzato]
 
 ---
 Come vuoi procedere?
@@ -82,13 +71,11 @@ Come vuoi procedere?
 
 Dimmi 1 o 2."
 
-METODOLOGIA STIME m²:
-- Usa oggetti di riferimento noti: porta standard = 80-90cm × 210cm, piastrella 30×30 o 60×60cm, mattone = 25cm, divano 2p ≈ 160cm, persona ≈ 170cm.
-- m² pavimento = larghezza_stimata × profondità_stimata.
-- m² pareti = (perimetro stimato × altezza) − area finestre/porte.
-- Esprimi sempre come range (es. "12-16 m²"), mai valore puntuale.
-- Scrivi [ND] per campi genuinamente non determinabili dall'immagine.
-- CRITICO: Se il cliente fornisce misure reali in seguito, le sue misure sostituiscono le stime.
+METODOLOGIA ANALISI QUALITATIVA:
+- Concentrati sull'estetica, la palette colori, l'illuminazione e l'uso dello spazio.
+- NON stimare i metri quadri (m²).
+- NON elencare dettagli tecnici degli impianti (es. prese bivalenti, termosifoni in ghisa) a meno che non influenzino pesantemente l'estetica.
+- L'obiettivo è ispirare l'utente per il redesign, non fare un sopralluogo tecnico.
 
 EXCEPTION: Se il triage agent ha già scritto un'analisi completa nella history, confermala brevemente e passa direttamente alla Fase 2 senza riscrivere.
 </instruction>

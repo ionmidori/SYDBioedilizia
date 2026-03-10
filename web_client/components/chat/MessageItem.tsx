@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import Image from 'next/image';
 
-import { Message, ReasoningStep } from '@/types/chat';
+import { Message, ReasoningStep, ToolInvocation } from '@/types/chat';
 
 interface MessageItemProps {
     message: Message;
@@ -37,11 +37,9 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     // Helper: Extract text from both old (content) and new (parts[]) formats
     const getMessageText = (msg: Message): string => {
         if (msg.parts && Array.isArray(msg.parts)) {
-            return msg.parts
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .filter((part: any) => part.type === 'text')
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .map((part: any) => part.text)
+            return (msg.parts as { type: string; text?: string }[])
+                .filter((part) => part.type === 'text' && typeof part.text === 'string')
+                .map((part) => part.text as string)
                 .join('');
         }
         if (typeof msg.content === 'string') return msg.content;
@@ -49,24 +47,20 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     };
 
     // Helper: Extract tool invocations from both formats
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const getToolInvocations = (msg: Message): any[] => {
+    const getToolInvocations = (msg: Message): ToolInvocation[] => {
         if (msg.toolInvocations && msg.toolInvocations.length > 0) {
             return msg.toolInvocations;
         }
         if (msg.parts && Array.isArray(msg.parts)) {
-            return msg.parts
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .filter((part: any) => part.type === 'tool-invocation')
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                .map((part: any) => part.toolInvocation);
+            return (msg.parts as { type: string; toolInvocation?: ToolInvocation }[])
+                .filter((part) => part.type === 'tool-invocation' && part.toolInvocation)
+                .map((part) => part.toolInvocation as ToolInvocation);
         }
         return [];
     };
 
     // Fix for React 18/19 type mismatch
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Markdown = ReactMarkdown as any;
+    const Markdown = ReactMarkdown as React.ComponentType<React.ComponentProps<typeof ReactMarkdown>>;
 
     const text = getMessageText(message);
     const toolInvocations = getToolInvocations(message);
@@ -135,8 +129,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
 
         if (tool.state === 'call') return true; // Loading of other tools is always visible
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = (tool.result || (tool as any).output) as any;
+        const result = (tool.result || (tool as { output?: unknown }).output) as { imageUrl?: string; error?: string; status?: string } | string | null | undefined;
 
         // 🔥 GLOBAL AUTH INTERCEPT:
         // If ANY tool returns the specific Auth Signal or is the explicit 'request_login' tool, 
@@ -147,7 +140,20 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
         // Only results with images/gallery or errors are visible in ToolStatus
         // Text results (like pricing) return null in ToolStatus, so we hide the bubble to avoid empty padding.
         if (tool.toolName === 'show_project_gallery') return true;
-        return !!result?.imageUrl || !!result?.error || result?.status === 'error';
+        
+        let parsedResult: any = result;
+        if (typeof result === 'string') {
+            try {
+                parsedResult = JSON.parse(result);
+            } catch (e) {
+                // Ignore parse errors, treat as string
+            }
+        }
+
+        if (parsedResult && typeof parsedResult === 'object') {
+            return !!parsedResult.imageUrl || !!parsedResult.error || parsedResult.status === 'error';
+        }
+        return false;
     }) ?? false;
 
     // Determine if the bubble (AND the entire row) should be visible
@@ -162,8 +168,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     return (
         <motion.div
             layout
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            variants={variants as any}
+            variants={variants}
             initial="hidden"
             animate="visible"
             exit="exit"
@@ -210,10 +215,9 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                 {message.role === 'user' && (() => {
                     // AI SDK v6: images live in message.parts as FileUIPart (type: 'file')
                     // Fallback: legacy message.attachments.images (Firestore history)
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const filePartUrls = (message.parts as any[] | undefined)
-                        ?.filter((p: any) => p.type === 'file' && typeof p.url === 'string' && p.mediaType?.startsWith('image/'))
-                        .map((p: any) => p.url as string) ?? [];
+                    const filePartUrls = (message.parts as { type: string; url?: string; mediaType?: string }[] | undefined)
+                        ?.filter((p) => p.type === 'file' && typeof p.url === 'string' && p.mediaType?.startsWith('image/'))
+                        .map((p) => p.url as string) ?? [];
                     const imageUrls = filePartUrls.length > 0
                         ? filePartUrls
                         : (message.attachments?.images ?? []);
@@ -272,8 +276,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                                     {toolInvocations.map((tool, toolIdx) => {
                                         // 💎 PREMIUM WIDGET: Lead Capture Form
                                         if (tool.toolName === 'display_lead_form') {
-                                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                            const args = tool.args as any;
+                                            const args = tool.args as { quote_summary?: string };
                                             return (
                                                 <div key={toolIdx} className="mt-4">
                                                     <LeadCaptureForm
@@ -289,8 +292,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
 
                                         // 🔒 AUTH WIDGET: Login Request
                                         // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        const result = tool.result || (tool as any).output;
+                                        const result = tool.result || (tool as { output?: unknown }).output;
                                         const isAuthSignal = typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER');
 
                                         if (tool.toolName === 'request_login' || isAuthSignal) {

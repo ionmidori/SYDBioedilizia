@@ -40,14 +40,14 @@ async def stream_tool_call(
     Formats tool call events for Vercel AI SDK.
     Event '9': Tool Call part.
     
-    Format: 9:{"toolCallId":"...","toolName":"...","args":{...}}\n
+    Format: 9:[{"toolCallId":"...","toolName":"...","args":{...}}]\n
     """
     payload = {
         "toolCallId": tool_call_id,
         "toolName": tool_name,
         "args": args
     }
-    yield f'9:{json.dumps(payload)}\n'
+    yield f'9:{json.dumps([payload])}\n'
 
 async def stream_tool_result(
     tool_call_id: str,
@@ -57,13 +57,13 @@ async def stream_tool_result(
     Formats tool result events for Vercel AI SDK.
     Event 'a': Tool Result part.
     
-    Format: a:{"toolCallId":"...","result":...}\n
+    Format: a:[{"toolCallId":"...","result":...}]\n
     """
     payload = {
         "toolCallId": tool_call_id,
         "result": result
     }
-    yield f'a:{json.dumps(payload)}\n'
+    yield f'a:{json.dumps([payload])}\n'
 
 async def stream_status(message: str) -> AsyncGenerator[str, None]:
     """

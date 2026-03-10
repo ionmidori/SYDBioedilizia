@@ -41,9 +41,9 @@ async def test_suggest_quote_items_wrapper_success():
 
                 # Verify
                 assert "Renovation of living room floor" in result
-                assert "DEM-001" in result
-                assert "PAV-001" in result
-                assert "Estimated Subtotal" in result
+                assert "Demolizione tramezzi" in result or "Demolition" in result
+                assert "pavimento ceramica" in result or "tiles" in result
+                assert "Subtotale" in result
                 
                 # Check Firestore call
                 # projects/{projectId}/private_data/quote

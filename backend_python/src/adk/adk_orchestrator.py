@@ -143,7 +143,10 @@ class ADKOrchestrator(BaseOrchestrator):
                     image_bytes = response.content
                     final_mime = mime or (media_types[i] if i < len(media_types) else "image/jpeg")
                     logger.info(f"[ADK] Fetched media {i}: {len(image_bytes)} bytes ({final_mime})")
-                    return types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
+                    # Return both the image data and a text hint so the agent knows the source URL
+                    img_part = types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
+                    hint_part = types.Part(text=f"\n[URL Immagine Caricata per riferimento o tool: {url}]\n")
+                    return [img_part, hint_part]
             except Exception as e:
                 logger.error(f"Failed to fetch media {url}: {e}")
                 return None
@@ -162,16 +165,29 @@ class ADKOrchestrator(BaseOrchestrator):
             logger.info(f"[ADK] Parallel fetching {len(media_urls)} media items...")
             async with asyncio.TaskGroup() as tg:
                 task_objs = [tg.create_task(fetch_media(i, url)) for i, url in enumerate(media_urls)]
-            content_parts.extend(p for t in task_objs if (p := t.result()) is not None)
+            for t in task_objs:
+                p_list = t.result()
+                if p_list is not None:
+                    if isinstance(p_list, list):
+                        content_parts.extend(p_list)
+                    else:
+                        content_parts.append(p_list)
 
         try:
             # Ensure session exists — ADK raises SessionNotFoundError otherwise
             session_service = get_session_service()
-            session = await session_service.get_session(
-                app_name="syd_orchestrator",
-                user_id=user_id,
-                session_id=session_id,
-            )
+            try:
+                session = await session_service.get_session(
+                    app_name="syd_orchestrator",
+                    user_id=user_id,
+                    session_id=session_id,
+                )
+            except Exception as e:
+                if type(e).__name__ == "SessionNotFoundError" or "Session not found" in str(e):
+                    session = None
+                else:
+                    raise e
+            
             if session is None:
                 session = await session_service.create_session(
                     app_name="syd_orchestrator",

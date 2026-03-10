@@ -29,18 +29,6 @@ export function proxy(request: NextRequest) {
 
   // 2. CSP and Nonce Logic
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-  const csp = [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.google.com https://www.googletagmanager.com https://www.recaptcha.net https://vercel.live https://va.vercel-scripts.com`,
-    "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' blob: data: https://images.unsplash.com https://storage.googleapis.com https://firebasestorage.googleapis.com https://chatbotluca-a8a73.firebasestorage.app http://localhost:9199 http://127.0.0.1:9199 https://lh3.googleusercontent.com https://replicate.delivery https://vercel.com https://assets.vercel.com`,
-    "font-src 'self' data: https://assets.vercel.com",
-    "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.app https://syd-brain-972229558318.europe-west1.run.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://vercel.live https://*.pusher.com https://va.vercel-scripts.com https://*.vercel-insights.com",
-    "frame-src 'self' https://*.firebaseapp.com https://*.google.com https://www.google.com https://www.gstatic.com https://www.recaptcha.net https://vercel.live",
-    "frame-ancestors 'self'",
-    "media-src 'self' blob:",
-    "upgrade-insecure-requests",
-  ].join('; ');
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);

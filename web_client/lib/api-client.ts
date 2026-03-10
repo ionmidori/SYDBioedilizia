@@ -152,11 +152,11 @@ export async function withValidation<T, R>(
     try {
         const result = await action(validationResult.data);
         return { success: true, data: result };
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('[ServerAction] Error:', error);
         return {
             success: false,
-            message: error.message || 'Internal server error'
+            message: error instanceof Error ? error.message : 'Internal server error'
         };
     }
 }

@@ -1,20 +1,28 @@
-# PROJECT CONTEXT SUMMARY (v4.0.17)
-**Ultimo aggiornamento:** 10 Marzo 2026 (Phase 64)
-**Status:** Production-Ready — Render Display Fix & Dependency Security (375/375 Backend, 114/114 Frontend Tests Passing)
+# PROJECT CONTEXT SUMMARY (v4.0.18)
+**Ultimo aggiornamento:** 10 Marzo 2026 (Phase 65)
+**Status:** Production-Ready — Quote Flow Fix & WBS Engine (400/400 Backend Tests Passing with 25 new Unit Tests)
 
-## 🎯 Obiettivi Correnti (Phase 64)
-1.  **Render Display Fix**: Risolto mismatch `call_id` tra tool-call e tool-result nel protocollo SSE che impediva ai render generati di apparire nella chat.
-2.  **Dependency Security**: Aggiornato Jest 29→30 per risolvere vulnerabilità `@tootallnate/once`; aggiornato firebase-admin a 13.7.0.
-3.  **GEMINI.md Audit**: Corretti 8 errori/obsolescenze nel file di regole globali (VertexAi, structlog, Zustand, Redis, Shadcn, LangGraph rollback).
+## 🎯 Obiettivi Correnti (Phase 65)
+1.  **WBS Assembly Engine (Opzione A)**: Implementata espansione automatica dei preventivi tramite 12 macro-lavori. L'AI ora inferisce le fasi WBS (Demolizioni, Impianti, ecc.) da prompt vaghi.
+2.  **Guided Question Engine (Opzione C)**: Introdotto il `completeness_score`. Il chatbot blocca preventivi incompleti (< 0.70) e pone domande tecniche mirate in italiano.
+3.  **Price Book Cleanup**: Rimossi SKU Arredamento/Progettazione per focus esclusivo su SYD Bioedilizia (Ristrutturazioni).
+4.  **Gemini CLI Workflow**: Stabilito pattern di "CLI Delegation" per task pesanti su singoli file tramite `/gemini-cli-delegation` workflow.
 
 ---
 
+- **Phase 65 (Mar 10, 2026):** **Quote Flow Optimization (v4.0.18)**:
+    - **WBS Engine (insight_engine.py)**: Aggiunta libreria `renovation_assemblies.json`. L'Engine usa un Chain-of-Thought in 4 fasi per espandere i lavori e taggare gli SKU con la fase WBS corretta.
+    - **Completeness Gate (quote_tools.py)**: Se l'analisi dell'Engine ha uno score < 0.70, lo strumento restituisce `missing_info` (domande tecniche in italiano) invece di generare un preventivo inaccurato.
+    - **Adaptive Questions (modes.py)**: Espansa la sezione `<adaptive_questions>` con checklist tecniche per 8 tipologie di stanze (Bagno, Cucina, ecc.).
+    - **Golden Sync (quote.ts)**: Sincronizzate le interfacce TypeScript e Zod con i nuovi campi `phase`, `completeness_score` e `missing_info`.
+    - **Price Book v2.1.0**: Rimossa categoria Arredamento (5 SKU). SYD Bioedilizia non si occupa di mobili.
+    - **Test Coverage**: 25 test unitari (`test_insight_engine.py` e `test_pricing_engine.py`) tutti passanti.
+
 - **Phase 64 (Mar 10, 2026):** **Render Display Fix, Dependency Security & Config Audit (v4.0.17)**:
-    - **SSE call_id Mismatch Fix (adk_orchestrator.py)**: ADK `function_response` non preserva `call_id` → il frontend AI SDK non correlava tool-result con tool-call. Introdotto `pending_tool_calls` mapping (name→id) + catena di fallback robusta (`fr.call_id` → `fr.id` → mapping → 'unknown').
-    - **Protobuf Safety Cast (adk_orchestrator.py)**: Aggiunto cast `MapComposite → dict` per garantire serializzazione JSON del tool result.
-    - **Jest 29→30 Upgrade (web_client)**: Risolve vulnerabilità `@tootallnate/once` (GHSA-vpq2-c234-7xj6). Aggiornati mock `crypto.randomUUID` (jest.spyOn), test ChatInput (input separati + Cloud icon), e `@types/jest`.
-    - **GEMINI.md Audit**: Corretti 8 punti: VertexAiSessionService→InMemory+Firestore, structlog→logging, Zustand rimosso, Shadcn→Radix primitives, quota Firestore-based, LangGraph rollback rimosso, sezione duplicata eliminata, chat model documentato.
-    - **Path-scoped Claude Rules**: Creati `.claude/rules/backend.md` e `.claude/rules/frontend.md` per regole contestuali.
+    - **SSE call_id Mismatch Fix (adk_orchestrator.py)**: Risolto mismatch `call_id` tra tool-call e tool-result. Introdotto `pending_tool_calls` mapping.
+    - **Protobuf Safety Cast (adk_orchestrator.py)**: Cast `MapComposite → dict` per serializzazione JSON.
+    - **Jest 29→30 Upgrade (web_client)**: Risolve vulnerabilità `@tootallnate/once`.
+    - **GEMINI.md Audit**: Corrette discrepanze tra regole e implementazione (Zustand/LangGraph/Quota).
 
 - **Phase 63 (Mar 10, 2026):** **Backend Performance Hardening & ADK Session Persistence (v4.0.16)**:
     - **Event Loop Fix (upload.py)**: Wrapped sync Firebase SDK calls (`upload_from_string`, `patch`, `generate_signed_url`, `make_public`) in `run_in_threadpool()` to prevent event loop blocking during image uploads.

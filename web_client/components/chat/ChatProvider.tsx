@@ -142,12 +142,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 sessionId,
             };
 
-            const msgs = body.messages as typeof messages;
+            const msgs = body.messages as Message[];
             const lastMsg = msgs?.[msgs.length - 1];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const lastMsgAny = lastMsg as any;
             const lastMsgContent = lastMsg
-                ? (typeof (lastMsg as any).content === 'string'
-                    ? (lastMsg as any).content
-                    : (lastMsg as any).parts?.[0]?.text || '')
+                ? (typeof lastMsgAny.content === 'string'
+                    ? lastMsgAny.content
+                    : lastMsgAny.parts?.[0]?.text || '')
                 : '';
 
             console.log('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
@@ -187,7 +189,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     // React AI SDK 3.0.5 doesn't fully type the 'data' property on useChat. 
     // However, the internal implementation does expose it when streaming custom data chunks.
-    const useChatData = (chatHelpers as any).data;
+    const useChatData = (chatHelpers as { data?: StreamData[] }).data;
     useEffect(() => {
         console.log('[ChatProvider Debug] SDK messages updated:', messages.length, messages.map(m => m.id));
     }, [messages]);
@@ -202,9 +204,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const wasAuthenticated = prevUserRef.current && !prevUserRef.current.isAnonymous;
         const isNowLoggedOut = !user || user.isAnonymous;
         if (wasAuthenticated && isNowLoggedOut) {
-            setMessages([]);
-            setCurrentProjectId(null);    // prevent backend receiving stale projectId
-            setStableGuestId(crypto.randomUUID());
+            // Use setTimeout to avoid cascading renders during effect cleanup/transition
+            setTimeout(() => {
+                setMessages([]);
+                setCurrentProjectId(null);    // prevent backend receiving stale projectId
+                setStableGuestId(crypto.randomUUID());
+            }, 0);
         }
         prevUserRef.current = user;
     }, [user, setMessages]);
@@ -264,10 +269,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 // Optimization: If lengths are equal and the last message content is identical,
                 // just adopt the Firestore IDs without a full state rebuild.
                 if (sdkLen === histLen && sdkLen > 0) {
-                    const lastSdk = messages[sdkLen - 1] as any;
-                    const lastHist = fullHistory[histLen - 1] as any;
-                    const sdkContent = typeof lastSdk.content === 'string' ? lastSdk.content : lastSdk.parts?.[0]?.text || '';
-                    const histContent = typeof lastHist.content === 'string' ? lastHist.content : lastHist.parts?.[0]?.text || '';
+                    const lastSdk = messages[sdkLen - 1];
+                    const lastHist = fullHistory[histLen - 1];
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const sdkMsg = lastSdk as any;
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const histMsg = lastHist as any;
+                    const sdkContent = typeof sdkMsg.content === 'string' ? sdkMsg.content : sdkMsg.parts?.[0]?.text || '';
+                    const histContent = typeof histMsg.content === 'string' ? histMsg.content : histMsg.parts?.[0]?.text || '';
 
                     if (sdkContent === histContent) {
                         console.log('[ChatProvider] Adopting Firestore IDs (ID update only).');

@@ -330,7 +330,18 @@ Analizza la conversazione e produci la risposta strutturata.
                 logger.error("[InsightEngine] Empty response from Gemini.")
                 raise InsightEngineError("Gemini returned an empty response.")
 
-            result = InsightAnalysis.model_validate_json(response.text)
+            raw_text = response.text.strip()
+            if raw_text.startswith("```"):
+                # Se è racchiuso in markdown, estraggo solo il contenuto JSON
+                # Rimuovo sia ```json che ``` alla fine
+                lines = raw_text.splitlines()
+                if lines[0].startswith("```"):
+                    lines = lines[1:]
+                if lines and lines[-1].startswith("```"):
+                    lines = lines[:-1]
+                raw_text = "\n".join(lines).strip()
+
+            result = InsightAnalysis.model_validate_json(raw_text)
             logger.info(
                 "[InsightEngine] Analysis complete.",
                 extra={"suggestions": len(result.suggestions)},

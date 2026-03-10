@@ -74,7 +74,7 @@ if (typeof window !== 'undefined') {
                 if (!window._firebaseAppCheckInitialized) {
                     // Enable Dev Debug Token
                     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                        (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+                        (window as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN: boolean | string }).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
                         console.log('[Firebase] 🔧 App Check Debug mode enabled for localhost');
                     }
 

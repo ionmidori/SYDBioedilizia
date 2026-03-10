@@ -1,11 +1,6 @@
-"""
-Quick coverage boost for utility modules just below the 70% threshold.
-Focuses on easy-to-test pure functions and mocked I/O paths.
-"""
 import pytest
 import json
 from unittest.mock import MagicMock, AsyncMock, patch
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # src.utils.context — contextvars getters/setters
@@ -93,6 +88,7 @@ class TestInsightEngine:
             engine = InsightEngine.__new__(InsightEngine)
             engine.model_name = "gemini-2.0-flash"
             engine.client = MockClient.return_value
+            engine._assemblies = None
             return engine
 
     def test_init_sets_model_name_from_settings(self):
@@ -115,12 +111,12 @@ class TestInsightEngine:
     def test_get_price_book_summary_includes_skus(self):
         engine = self._make_engine()
         price_book = [
-            {"sku": "LAM-001", "description": "Laminate floor", "unit": "mq", "category": "flooring"},
-            {"sku": "ELE-001", "description": "Electrical panel", "unit": "pz", "category": "electrical"},
+            {"sku": "LAM-001", "description": "Laminate floor", "unit": "mq", "category": "flooring", "unit_price": 25.0},
+            {"sku": "ELE-001", "description": "Electrical panel", "unit": "pz", "category": "electrical", "unit_price": 150.0},
         ]
         with patch("src.services.insight_engine.PricingService.load_price_book", return_value=price_book):
-            summary = engine._get_price_book_summary()
-
+            summary = engine._build_price_book_prompt()  # Changed from _get_price_book_summary (private method name check)
+        
         assert "LAM-001" in summary
         assert "ELE-001" in summary
         assert "Laminate floor" in summary
@@ -128,7 +124,7 @@ class TestInsightEngine:
     @pytest.mark.asyncio
     async def test_analyze_project_basic(self):
         engine = self._make_engine()
-        price_book = [{"sku": "LAM-001", "description": "Floor", "unit": "mq", "category": "floor"}]
+        price_book = [{"sku": "LAM-001", "description": "Floor", "unit": "mq", "category": "floor", "unit_price": 50.0}]
 
         analysis_result = {
             "suggestions": [{"sku": "LAM-001", "qty": 20.0, "ai_reasoning": "User has 20mq room"}],
@@ -142,7 +138,7 @@ class TestInsightEngine:
         with patch("src.services.insight_engine.PricingService.load_price_book", return_value=price_book), \
              patch("src.core.config.settings") as mock_settings:
             mock_settings.FIREBASE_STORAGE_BUCKET = "test.appspot.com"
-            from src.services.insight_engine import InsightEngine
+            from src.services.insight_engine import InsightEngine, InsightAnalysis
             result = await engine.analyze_project_for_quote(
                 chat_history=[{"role": "user", "content": "I have a 20mq room"}],
                 media_urls=[]
@@ -155,13 +151,14 @@ class TestInsightEngine:
     @pytest.mark.asyncio
     async def test_analyze_project_api_error_raises(self):
         engine = self._make_engine()
-        price_book = [{"sku": "LAM-001", "description": "Floor", "unit": "mq", "category": "floor"}]
+        price_book = [{"sku": "LAM-001", "description": "Floor", "unit": "mq", "category": "floor", "unit_price": 50.0}]
         engine.client.aio.models.generate_content = AsyncMock(side_effect=Exception("API quota exceeded"))
 
         with patch("src.services.insight_engine.PricingService.load_price_book", return_value=price_book), \
              patch("src.core.config.settings") as mock_settings:
             mock_settings.FIREBASE_STORAGE_BUCKET = "test.appspot.com"
-            with pytest.raises(Exception, match="Failed to analyze project"):
+            from src.services.insight_engine import InsightEngineError
+            with pytest.raises(InsightEngineError, match="Project analysis failed"):
                 await engine.analyze_project_for_quote(
                     chat_history=[{"role": "user", "content": "Help"}],
                     media_urls=[]
@@ -171,7 +168,7 @@ class TestInsightEngine:
     async def test_analyze_project_with_markdown_json(self):
         """Response wrapped in ```json should be stripped before parsing."""
         engine = self._make_engine()
-        price_book = [{"sku": "LAM-001", "description": "Floor", "unit": "mq", "category": "floor"}]
+        price_book = [{"sku": "LAM-001", "description": "Floor", "unit": "mq", "category": "floor", "unit_price": 50.0}]
 
         raw = '```json\n{"suggestions": [{"sku": "LAM-001", "qty": 5.0, "ai_reasoning": "test"}], "summary": "ok"}\n```'
         mock_response = MagicMock()
@@ -235,7 +232,11 @@ class TestUpload:
         if orig is not None:
             _fsmod.get_storage_client = orig
         elif "get_storage_client" in _fsmod.__dict__:
-            del _fsmod.__dict__["get_storage_client"]
+            # Check if it's there before deleting to avoid KeyError
+            try:
+                del _fsmod.__dict__["get_storage_client"]
+            except KeyError:
+                pass
 
     def test_upload_base64_no_bucket_raises(self):
         with patch(_UPLOAD_SETTINGS) as mock_settings:

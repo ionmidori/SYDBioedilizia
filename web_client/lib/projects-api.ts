@@ -1,5 +1,5 @@
 import { fetchWithAuth, fetchValidated } from '@/lib/api-client';
-import { ProjectListItem, ProjectDetails, ProjectCreate, ProjectUpdate } from '@/types/projects';
+import { ProjectListItem, ProjectCreate, ProjectUpdate } from '@/types/projects';
 import { projectListResponseSchema, projectSchema } from '@/lib/validation/project-list-schema';
 import { z } from 'zod';
 
@@ -26,13 +26,14 @@ export const projectsApi = {
                 `${API_ROOT}/projects/${sessionId}`,
                 projectSchema
             );
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Check if it's a network 404 vs validation error
-            if (error?.status === 404) {
+            const typedError = error as { status?: number; message?: string };
+            if (typedError?.status === 404) {
                 console.log('[ProjectsApi] Project not found (404), returning null');
                 return null;
             }
-            throw new Error(error?.message || 'Errore nel recupero del progetto');
+            throw new Error(typedError?.message || 'Errore nel recupero del progetto');
         }
     },
 

@@ -101,7 +101,16 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
         }
 
         // Success: Image generated
-        const typedResult = result as any;
+        let parsedResult: any = result;
+        if (typeof result === 'string') {
+            try {
+                parsedResult = JSON.parse(result);
+            } catch (e) {
+                // Ignore
+            }
+        }
+        
+        const typedResult = parsedResult as { imageUrl?: string; description?: string; error?: string; status?: string };
         if (typedResult?.imageUrl) {
             return (
                 <div className="mt-3">

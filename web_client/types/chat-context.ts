@@ -1,6 +1,5 @@
 import { UIMessage as Message } from 'ai'; // Vercel AI SDK Type
 import { FormEvent, ChangeEvent } from 'react';
-import type { Attachment } from '@/types/chat';
 
 /**
  * Global Chat Context Interface

@@ -106,13 +106,13 @@ export function useChatHistory(
                         // Parse tool_calls
                         let toolInvocations = undefined;
                         if (data.tool_calls && Array.isArray(data.tool_calls)) {
-                            toolInvocations = data.tool_calls.map((tc: any) => ({
-                                toolCallId: tc.id || tc.tool_call_id,
-                                toolName: tc.function?.name || tc.name,
+                            toolInvocations = (data.tool_calls as { id?: string; tool_call_id?: string; name?: string; function?: { name?: string; arguments?: string | Record<string, unknown> }; args?: Record<string, unknown> }[]).map((tc) => ({
+                                toolCallId: tc.id || tc.tool_call_id || '',
+                                toolName: tc.function?.name || tc.name || 'unknown',
                                 args: typeof tc.function?.arguments === 'string'
                                     ? JSON.parse(tc.function.arguments)
-                                    : (tc.function?.arguments || tc.args),
-                                state: 'result',
+                                    : (tc.function?.arguments || tc.args || {}),
+                                state: 'result' as const,
                                 result: 'See tool output'
                             }));
                         }
@@ -181,7 +181,7 @@ export function useChatHistory(
                         if (msg.role === 'assistant' && msg.toolInvocations) {
                             return {
                                 ...msg,
-                                toolInvocations: msg.toolInvocations.map((tool: any) => {
+                                toolInvocations: msg.toolInvocations.map((tool) => {
                                     const toolResultMsg = messages.find(m =>
                                         m.role === 'tool' && m.tool_call_id === tool.toolCallId
                                     );

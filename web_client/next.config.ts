@@ -68,7 +68,7 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  async headers(): Promise<any> {
+  async headers() {
     return [
       {
         source: '/:path*',
@@ -119,13 +119,13 @@ const nextConfig: NextConfig = {
         {
           source: '/api/py/:path*',
           destination: process.env.NODE_ENV === 'development'
-            ? 'http://127.0.0.1:8081/api/:path*' // Local Python Backend (8081 on Windows)
+            ? 'http://127.0.0.1:8080/api/:path*' // Local Python Backend (8080 on Windows)
             : 'https://syd-brain-972229558318.europe-west1.run.app/api/:path*', // Cloud Run (Active)
         },
         {
           source: '/chat/stream',
           destination: process.env.NODE_ENV === 'development'
-            ? 'http://127.0.0.1:8081/chat/stream' // Local Python Backend (8081 on Windows)
+            ? 'http://127.0.0.1:8080/chat/stream' // Local Python Backend (8080 on Windows)
             : 'https://syd-brain-972229558318.europe-west1.run.app/chat/stream', // Cloud Run (Active)
         }
       ],
