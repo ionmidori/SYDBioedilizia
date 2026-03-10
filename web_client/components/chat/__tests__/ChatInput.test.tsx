@@ -21,6 +21,7 @@ jest.mock('lucide-react', () => ({
     ChevronDown: () => <div data-testid="icon-chevron-down" />,
     Plus: () => <div data-testid="icon-plus" />,
     Sparkles: () => <div data-testid="icon-sparkles" />,
+    Cloud: () => <div data-testid="icon-cloud" />,
 }));
 
 // Mock framer-motion
@@ -151,12 +152,15 @@ describe('ChatInput', () => {
         expect(defaultProps.onSubmit).toHaveBeenCalled();
     });
 
-    it('should have file input for attachments', () => {
+    it('should have file inputs for attachments (separate by type)', () => {
         const { container } = render(<ChatInput {...defaultProps} />);
 
-        const fileInput = container.querySelector('input[type="file"]');
-        expect(fileInput).toBeInTheDocument();
-        expect(fileInput).toHaveAttribute('accept', 'image/*,video/mp4,video/webm,video/quicktime,video/x-m4v,application/pdf');
+        const fileInputs = container.querySelectorAll('input[type="file"]');
+        expect(fileInputs.length).toBeGreaterThanOrEqual(4);
+        // Verify distinct accept types exist across the inputs
+        const accepts = Array.from(fileInputs).map(el => el.getAttribute('accept'));
+        expect(accepts).toContain('image/*');
+        expect(accepts).toContain('application/pdf');
     });
 
     it('should open attach dialog when paperclip button clicked', () => {

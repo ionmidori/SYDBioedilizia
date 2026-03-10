@@ -99,14 +99,21 @@ Object.defineProperty(window, 'localStorage', {
     value: localStorageMock,
 });
 
-// Mock crypto.randomUUID (not available in JSDOM < Node 19)
-if (typeof globalThis.crypto === 'undefined' || typeof globalThis.crypto.randomUUID === 'undefined') {
+// Mock crypto.randomUUID — use jest.spyOn so tests can override via mockImplementation
+if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
+    jest.spyOn(globalThis.crypto, 'randomUUID').mockImplementation(() =>
+        'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        })
+    );
+} else {
     Object.defineProperty(globalThis, 'crypto', {
         value: {
-            randomUUID: () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            randomUUID: jest.fn(() => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
                 const r = Math.random() * 16 | 0;
                 return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-            }),
+            })),
             getRandomValues: (arr) => { for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256); return arr; },
         },
         writable: true,
