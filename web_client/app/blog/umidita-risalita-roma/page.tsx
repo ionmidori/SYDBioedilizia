@@ -105,7 +105,7 @@ export default function BlogPostUmidita() {
   return (
     <>
     <Navbar />
-    <main className="min-h-screen bg-background text-foreground py-12 px-4 md:px-8">
+    <main className="min-h-screen bg-luxury-bg text-luxury-text py-12 px-4 md:px-8">
       {/* 3. Iniezione JSON-LD sicura */}
       <script
         type="application/ld+json"
@@ -115,7 +115,7 @@ export default function BlogPostUmidita() {
       <div className="max-w-4xl mx-auto">
         <BlogBackButton />
 
-        <article className="prose prose-stone lg:prose-lg dark:prose-invert max-w-none">
+        <article className="prose prose-invert lg:prose-lg max-w-none">
           {/* Header */}
           <header className="mb-10 not-prose">
             <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-primary mb-4 leading-tight">

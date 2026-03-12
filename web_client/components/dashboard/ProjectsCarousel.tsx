@@ -3,6 +3,12 @@ import { motion } from 'framer-motion';
 import { Calendar, ArrowRight, FolderKanban, Plus } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { DeleteProjectDialog } from './DeleteProjectDialog';
+import { RenameProjectDialog } from './RenameProjectDialog';
+import { useDeleteProject } from '@/hooks/use-delete-project';
+import { Edit2, Trash2 } from 'lucide-react';
+import { SydLoader } from '@/components/ui/SydLoader';
 
 interface ProjectsCarouselProps {
     projects: ProjectListItem[];
@@ -29,7 +35,7 @@ export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsC
                     <div className="p-2 rounded-xl bg-luxury-gold/10 border border-luxury-gold/20">
                         <FolderKanban className="w-4 h-4 text-luxury-gold" />
                     </div>
-                    <h2 className="text-lg md:text-xl font-serif font-bold text-luxury-text">I Miei Progetti</h2>
+                    <h2 className="text-lg md:text-xl font-serif font-bold text-luxury-text">Progetti recenti</h2>
                 </div>
                 <button
                     onClick={() => router.push('/dashboard/projects')}
@@ -85,11 +91,30 @@ export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsC
 
 function ProjectCard({ project, index }: { project: ProjectListItem, index: number }) {
     const router = useRouter();
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+    const deleteProjectMutation = useDeleteProject();
 
     // Formatting date safely
     const date = project.updated_at
         ? new Date(project.updated_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
         : 'Nuovo';
+
+    const handleDeleteClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDeleteDialogOpen(true);
+    };
+
+    const handleRenameClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setRenameDialogOpen(true);
+    };
+
+    const handleDelete = async (sessionId: string) => {
+        await deleteProjectMutation.mutateAsync(sessionId);
+    };
 
     return (
         <motion.div
@@ -97,7 +122,9 @@ function ProjectCard({ project, index }: { project: ProjectListItem, index: numb
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
             onClick={() => router.push(`/dashboard/${project.session_id}`)}
-            className="snap-start shrink-0 w-[220px] flex flex-col gap-3 group cursor-pointer"
+            className={`snap-start shrink-0 w-[220px] flex flex-col gap-3 group cursor-pointer ${
+                deleteProjectMutation.isPending ? "opacity-50 pointer-events-none" : ""
+            }`}
         >
             {/* Image Container */}
             <div className="relative aspect-[3/2] w-full rounded-[20px] overflow-hidden bg-luxury-bg/50 border border-luxury-text/5 group-hover:border-luxury-gold/30 transition-all">
@@ -116,14 +143,58 @@ function ProjectCard({ project, index }: { project: ProjectListItem, index: numb
             </div>
 
             {/* Info */}
-            <div className="px-1">
-                <h3 className="text-sm font-serif font-bold text-luxury-text truncate group-hover:text-luxury-gold transition-colors">
-                    {project.title}
-                </h3>
-                <div className="flex items-center gap-2 mt-1">
-                    <Calendar className="w-3 h-3 text-luxury-text/40" />
-                    <span className="text-xs text-luxury-text/40 font-sans">{date}</span>
+            <div className="px-1 flex justify-between items-start gap-2">
+                <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-serif font-bold text-luxury-text truncate group-hover:text-luxury-gold transition-colors">
+                        {project.title}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-1">
+                        <Calendar className="w-3 h-3 text-luxury-text/40" />
+                        <span className="text-xs text-luxury-text/40 font-sans">{date}</span>
+                    </div>
                 </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1 shrink-0">
+                    <button
+                        onClick={handleRenameClick}
+                        className="w-7 h-7 rounded-full bg-luxury-gold/5 hover:bg-luxury-gold/20 border border-luxury-gold/10 hover:border-luxury-gold/30 flex items-center justify-center text-luxury-gold transition-all duration-300 hover:scale-110 active:scale-90 shadow-sm"
+                        title="Rinomina progetto"
+                    >
+                        <Edit2 className="w-3 h-3" />
+                    </button>
+
+                    <button
+                        onClick={handleDeleteClick}
+                        disabled={deleteProjectMutation.isPending}
+                        className="w-7 h-7 rounded-full bg-red-500/5 hover:bg-red-500/20 border border-red-500/10 hover:border-red-500/30 flex items-center justify-center text-red-400 transition-all duration-300 hover:scale-110 active:scale-90 shadow-sm disabled:opacity-50"
+                        title="Elimina progetto"
+                    >
+                        {deleteProjectMutation.isPending ? (
+                            <SydLoader size="sm" />
+                        ) : (
+                            <Trash2 className="w-3 h-3" />
+                        )}
+                    </button>
+                </div>
+            </div>
+
+            {/* Dialogs */}
+            <div onClick={(e) => e.stopPropagation()}>
+                <DeleteProjectDialog
+                    open={deleteDialogOpen}
+                    onOpenChange={setDeleteDialogOpen}
+                    projectTitle={project.title}
+                    sessionId={project.session_id}
+                    onDelete={handleDelete}
+                />
+
+                <RenameProjectDialog
+                    open={renameDialogOpen}
+                    onOpenChange={setRenameDialogOpen}
+                    currentTitle={project.title}
+                    sessionId={project.session_id}
+                />
             </div>
         </motion.div>
     );

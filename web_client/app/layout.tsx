@@ -121,7 +121,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it" className="scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="it" className="dark scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
         className={`${outfit.variable} ${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
         suppressHydrationWarning

@@ -10,6 +10,7 @@ export type BlogPost = {
   description: string;
   author: string;
   datePublished: string;
+  image?: string;
   content: string;
 };
 
@@ -34,6 +35,7 @@ export function getBlogPostBySlug(slug: string): BlogPost | null {
       description: data.description || '',
       author: data.author || 'Team Ristrutturazioni',
       datePublished: data.datePublished || new Date().toISOString().split('T')[0],
+      image: data.image,
       content,
     };
   } catch (error) {

@@ -41,11 +41,13 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
     };
 
     const handleDeleteClick = (e: React.MouseEvent) => {
+        e.preventDefault();
         e.stopPropagation();
         setDeleteDialogOpen(true);
     };
 
     const handleRenameClick = (e: React.MouseEvent) => {
+        e.preventDefault();
         e.stopPropagation();
         setRenameDialogOpen(true);
     };
@@ -85,38 +87,15 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
             <div className="absolute inset-0 bg-gradient-to-tr from-luxury-teal/0 via-luxury-teal/5 to-luxury-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
 
             {/* Status Badge */}
-            <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+            <div className="absolute top-7 right-7 z-20 flex items-center gap-2 pointer-events-none">
                 <span className={cn(
-                    "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-luxury-gold/20 backdrop-blur-xl shadow-sm",
+                    "px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border border-luxury-gold/20 backdrop-blur-xl shadow-lg",
                     status.color,
-                    "bg-luxury-bg/60"
+                    "bg-luxury-bg/80"
                 )}
                 >
                     {status.label}
                 </span>
-
-                {/* Edit Button */}
-                <button
-                    onClick={handleRenameClick}
-                    className="opacity-70 hover:opacity-100 transition-all duration-300 w-8 h-8 rounded-full bg-white/10 hover:bg-luxury-gold/20 border border-white/10 hover:border-luxury-gold/40 flex items-center justify-center text-white hover:text-luxury-gold hover:scale-110 active:scale-90"
-                    title="Rinomina progetto"
-                >
-                    <Edit2 className="w-3.5 h-3.5" />
-                </button>
-
-                {/* Delete Button */}
-                <button
-                    onClick={handleDeleteClick}
-                    disabled={deleteProjectMutation.isPending}
-                    className="opacity-70 hover:opacity-100 transition-all duration-300 w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 flex items-center justify-center text-red-400 hover:text-red-300 hover:scale-110 active:scale-90"
-                    title="Elimina progetto"
-                >
-                    {deleteProjectMutation.isPending ? (
-                        <SydLoader size="sm" />
-                    ) : (
-                        <Trash2 className="w-3.5 h-3.5" />
-                    )}
-                </button>
             </div>
 
             {/* Thumbnail */}
@@ -151,10 +130,38 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
             </div>
 
             {/* Content */}
-            <div className="flex flex-col gap-2 relative">
-                <h3 className="text-lg font-bold text-luxury-text group-hover:text-luxury-gold transition-colors truncate font-serif">
-                    {project.title}
-                </h3>
+            <div className="flex flex-col gap-3 relative mt-1">
+                <div className="flex justify-between items-start gap-3">
+                    <h3 className="text-xl font-bold text-luxury-text group-hover:text-luxury-gold transition-colors truncate font-serif leading-tight">
+                        {project.title}
+                    </h3>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-1.5 shrink-0 relative z-30">
+                        {/* Edit Button */}
+                        <button
+                            onClick={handleRenameClick}
+                            className="w-8 h-8 rounded-full bg-luxury-gold/10 hover:bg-luxury-gold/20 border border-luxury-gold/20 hover:border-luxury-gold/40 flex items-center justify-center text-luxury-gold transition-all duration-300 hover:scale-110 active:scale-90 shadow-sm"
+                            title="Rinomina progetto"
+                        >
+                            <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                            onClick={handleDeleteClick}
+                            disabled={deleteProjectMutation.isPending}
+                            className="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 flex items-center justify-center text-red-400 transition-all duration-300 hover:scale-110 active:scale-90 shadow-sm disabled:opacity-50"
+                            title="Elimina progetto"
+                        >
+                            {deleteProjectMutation.isPending ? (
+                                <SydLoader size="sm" />
+                            ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                        </button>
+                    </div>
+                </div>
 
                 <div className="flex items-center justify-between text-[11px] text-luxury-text/50 font-medium tracking-tight">
                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white/5 border border-white/5">

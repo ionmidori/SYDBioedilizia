@@ -361,7 +361,8 @@
     "hero"
     "stats"
     "actions"
-    "projects";
+    "projects"
+    "media";
 }
 
 @media (min-width: 768px) {
@@ -370,7 +371,8 @@
     grid-template-areas:
       "hero hero"
       "stats actions"
-      "projects projects";
+      "projects projects"
+      "media media";
   }
 }
 
@@ -380,7 +382,8 @@
     grid-template-areas:
       "hero hero stats"
       "actions actions stats"
-      "projects projects projects";
+      "projects projects projects"
+      "media media media";
   }
 }
 

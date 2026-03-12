@@ -8,7 +8,8 @@ import { QuickActionsRow } from '@/components/dashboard/QuickActionsRow';
 import { ProjectsCarousel } from '@/components/dashboard/ProjectsCarousel';
 import { EmptyProjectsState } from '@/components/dashboard/EmptyProjectsState';
 import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
-import { FolderKanban, FileText, Image, Plus, Upload, Receipt, Ruler, Calculator, Wand2 } from 'lucide-react';
+import { MediaCarousel } from '@/components/dashboard/MediaCarousel';
+import { FolderKanban, FileText, Image as ImageIcon, Plus, Upload, Receipt, Ruler, Calculator, Wand2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
@@ -108,7 +109,7 @@ export default function DashboardPage() {
                     stats={[
                         { label: 'Progetti', value: stats.activeProjects, icon: FolderKanban },
                         { label: 'Files', value: stats.totalFiles, icon: FileText },
-                        { label: 'Renders', value: stats.totalRenders, icon: Image },
+                        { label: 'Renders', value: stats.totalRenders, icon: ImageIcon },
                         { label: 'Preventivi', value: 0, icon: Receipt },
                     ]}
                 />
@@ -187,6 +188,11 @@ export default function DashboardPage() {
                         onCreateNew={handleCreateProject}
                     />
                 )}
+            </motion.section>
+
+            {/* 4. Recent Media (Carousel) */}
+            <motion.section variants={sectionItem} style={{ gridArea: 'media' }} className="min-w-0 overflow-hidden">
+                <MediaCarousel />
             </motion.section>
 
             <CreateProjectDialog

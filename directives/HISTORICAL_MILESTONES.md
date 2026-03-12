@@ -369,4 +369,7 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **Backend Reliability**: Fixed a `NameError` in `main.py` that was preventing server reloads.
 - **Golden Sync**: Maintained 1:1 parity for tool response schemas between Pydantic and TypeScript.
 
-_Documento aggiornato: Marzo 07, 2026_
+## 🔧 Phase 60: Stable Snapshot Timing (Mar 07, 2026)
+- **Snapshot Protocol**: Introduced `snapshotTime` in `ChatProvider.tsx` to ensure all messages in a single update use an identical fallback timestamp, preventing re-ordering during Firestore batch updates.
+
+_Documento aggiornato: Marzo 12, 2026_

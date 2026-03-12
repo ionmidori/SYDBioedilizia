@@ -94,7 +94,7 @@ export default function BlogPostIsolamento() {
   return (
     <>
     <Navbar />
-    <main className="min-h-screen bg-background text-foreground py-12 px-4 md:px-8">
+    <main className="min-h-screen bg-luxury-bg text-luxury-text py-12 px-4 md:px-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -103,7 +103,7 @@ export default function BlogPostIsolamento() {
       <div className="max-w-4xl mx-auto">
         <BlogBackButton />
 
-        <article className="prose prose-stone lg:prose-lg dark:prose-invert max-w-none">
+        <article className="prose prose-invert lg:prose-lg max-w-none">
           <header className="mb-10 not-prose">
             <div className="inline-block bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
               Comfort & Efficienza

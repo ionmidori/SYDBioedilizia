@@ -1,14 +1,20 @@
-# PROJECT CONTEXT SUMMARY (v4.0.18)
-**Ultimo aggiornamento:** 10 Marzo 2026 (Phase 65)
-**Status:** Production-Ready — Quote Flow Fix & WBS Engine (400/400 Backend Tests Passing with 25 new Unit Tests)
+# PROJECT CONTEXT SUMMARY (v4.0.19)
+**Ultimo aggiornamento:** 12 Marzo 2026 (Phase 66)
+**Status:** Production-Ready — Dashboard Media Section & Project Controls (UI/UX Hardening)
 
-## 🎯 Obiettivi Correnti (Phase 65)
-1.  **WBS Assembly Engine (Opzione A)**: Implementata espansione automatica dei preventivi tramite 12 macro-lavori. L'AI ora inferisce le fasi WBS (Demolizioni, Impianti, ecc.) da prompt vaghi.
-2.  **Guided Question Engine (Opzione C)**: Introdotto il `completeness_score`. Il chatbot blocca preventivi incompleti (< 0.70) e pone domande tecniche mirate in italiano.
-3.  **Price Book Cleanup**: Rimossi SKU Arredamento/Progettazione per focus esclusivo su SYD Bioedilizia (Ristrutturazioni).
-4.  **Gemini CLI Workflow**: Stabilito pattern di "CLI Delegation" per task pesanti su singoli file tramite `/gemini-cli-delegation` workflow.
+## 🎯 Obiettivi Correnti (Phase 66)
+1.  **Dashboard Media Section**: Aggiunta sezione "Media Recenti" con supporto multimodale (immagini, video, render, preventivi).
+2.  **Project UX Hardening**: Risolti conflitti di clic sui bottoni Edit/Delete nella bacheca e migliorata visibilità delle icone.
+3.  **WBS Assembly Engine**: Ottimizzato l'engine di espansione per preventivi automatici.
+4.  **Backend Tests**: Mantenimento della coverage al 100% per il nucleo ADK e Pricing.
 
 ---
+
+- **Phase 66 (Mar 12, 2026):** **Dashboard UX & Recent Media (v4.0.19)**:
+    - **Recent Media Carousel (MediaCarousel.tsx)**: Implementata sezione "Media Recenti" stilizzata M3/Bento. Recupera in tempo reale gli asset tramite `useGalleryAssets`.
+    - **Project Controls Fix (ProjectCard.tsx)**: Spostati pulsanti Rinomina/Elimina per evitare sovrapposizioni. Implementato `stopPropagation` per fixare il routing collision negli eventi clic.
+    - **Bento Grid Extension (globals.css)**: Espanso il layout della griglia bento per accogliere la nuova area media su tutte le viewport.
+    - **Dependencies**: Installata `date-fns` per la localizzazione italiana avanzata delle date nel frontend.
 
 - **Phase 65 (Mar 10, 2026):** **Quote Flow Optimization (v4.0.18)**:
     - **WBS Engine (insight_engine.py)**: Aggiunta libreria `renovation_assemblies.json`. L'Engine usa un Chain-of-Thought in 4 fasi per espandere i lavori e taggare gli SKU con la fase WBS corretta.
@@ -43,10 +49,7 @@
     - **Assistant Save (adk_orchestrator.py)**: Switched from `None` (SERVER_TIMESTAMP) to explicit `datetime.now(timezone.utc)`.
     - **Frontend Tie-breaker (useChatHistory.ts)**: Refined sorting to include `Math.abs < 0.1ms` handling and a strict `user < assistant` priority record.
 
-- **Phase 60 (Mar 07, 2026):** **Stable Snapshot Timing (v4.0.13)**:
-    - Introduced `snapshotTime` to ensure all messages in a single update use an identical fallback timestamp.
-
 ---
 
-- **Current Version**: `v4.0.17`
+- **Current Version**: `v4.0.19`
 - **Next High Priority**: 1) ADK Session cleanup cron for GDPR retention | 2) Dynamic Robot Mascot | 3) M3 Chat feedback integration | 4) Remaining 8 low-severity transitive vulns (firebase-admin→google-cloud chain, awaiting upstream fix)

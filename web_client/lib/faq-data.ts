@@ -1,9 +1,16 @@
 export interface FAQItem {
   question: string;
-  answer: string; // Supports basic HTML/Markdown
+  answer: string;
   category: "Costi & Tempi" | "Permessi & Normative" | "Design & AI" | "Servizi SYD";
   slug: string;
 }
+
+export const CATEGORY_ICONS = {
+  "Costi & Tempi": "Coins",
+  "Permessi & Normative": "FileText",
+  "Design & AI": "Sparkles",
+  "Servizi SYD": "Wrench",
+} as const;
 
 export const FAQ_DATA: FAQItem[] = [
   // --- Costi & Tempi ---
@@ -37,6 +44,22 @@ export const FAQ_DATA: FAQItem[] = [
     `,
     category: "Costi & Tempi",
     slug: "tempi-ristrutturazione-100mq"
+  },
+  {
+    question: "Come funzionano i pagamenti?",
+    answer: `
+      <p class="font-medium text-lg mb-2">I pagamenti seguono un piano a <strong>SAL (Stato Avanzamento Lavori)</strong>, suddiviso in milestones concordate.</p>
+      <p>Una struttura tipica prevede:</p>
+      <ul class="list-disc pl-5 space-y-1 mt-2">
+        <li><strong>20% alla firma del contratto:</strong> Avvio pratica e acquisto materiali.</li>
+        <li><strong>30% a fine demolizioni e impianti:</strong> Completamento fase strutturale.</li>
+        <li><strong>30% a fine finiture:</strong> Pavimenti, rivestimenti, tinteggiatura.</li>
+        <li><strong>20% a collaudo finale:</strong> Saldo alla consegna con verbale di fine lavori.</li>
+      </ul>
+      <p class="mt-2">Tutti i pagamenti devono avvenire tramite <strong>bonifico parlante</strong> per accedere alle detrazioni fiscali.</p>
+    `,
+    category: "Costi & Tempi",
+    slug: "pagamenti-sal"
   },
 
   // --- Permessi & Normative ---
@@ -89,5 +112,81 @@ export const FAQ_DATA: FAQItem[] = [
     `,
     category: "Design & AI",
     slug: "funzionamento-render-ai"
+  },
+  {
+    question: "I render AI sono vincolanti per il progetto finale?",
+    answer: `
+      <p class="font-medium text-lg mb-2">No, i render AI sono uno <strong>strumento di esplorazione</strong>, non un impegno contrattuale.</p>
+      <p>Servono a:</p>
+      <ul class="list-disc pl-5 space-y-1 mt-2">
+        <li><strong>Visualizzare le possibilità:</strong> Testare stili, colori e materiali prima di decidere.</li>
+        <li><strong>Comunicare con il team:</strong> Fornire un riferimento visivo chiaro per artigiani e fornitori.</li>
+        <li><strong>Stimare i costi:</strong> I materiali nel render vengono usati per calcolare un preventivo realistico.</li>
+      </ul>
+      <p class="mt-2">Il progetto definitivo viene perfezionato insieme al nostro team tecnico sulla base delle tue preferenze emerse dai render.</p>
+    `,
+    category: "Design & AI",
+    slug: "render-ai-vincolanti"
+  },
+
+  // --- Servizi SYD ---
+  {
+    question: "Cos'è lo Smart Remodel di SYD?",
+    answer: `
+      <p class="font-medium text-lg mb-2">Lo Smart Remodel è la nostra tecnica di ristrutturazione <strong>senza demolizioni</strong>, che riduce costi fino al 40% e tempi di cantiere a settimane.</p>
+      <p>Utilizziamo materiali sovrapponibili di ultima generazione:</p>
+      <ul class="list-disc pl-5 space-y-1 mt-2">
+        <li><strong>Pavimenti SPC/LVT:</strong> Si posano sopra le piastrelle esistenti (spessore 4-6mm).</li>
+        <li><strong>Microcemento e resine:</strong> Coprono pavimenti e pareti senza rimuovere il sottostante.</li>
+        <li><strong>Wrapping mobili:</strong> Rinnovo cucina e bagno senza sostituzione dei mobili.</li>
+      </ul>
+      <p class="mt-2">Ideale per chi vuole rinnovare casa in tempi rapidi, senza polvere e con un budget contenuto.</p>
+    `,
+    category: "Servizi SYD",
+    slug: "smart-remodel"
+  },
+  {
+    question: "Come funziona il sopralluogo gratuito?",
+    answer: `
+      <p class="font-medium text-lg mb-2">Il sopralluogo è <strong>gratuito e senza impegno</strong>. Un nostro tecnico visita il tuo immobile per valutare lo stato attuale e le possibilità di intervento.</p>
+      <p>Durante il sopralluogo:</p>
+      <ol class="list-decimal pl-5 space-y-1 mt-2">
+        <li>Rileviamo misure e fotografiamo gli ambienti.</li>
+        <li>Discutiamo le tue esigenze e preferenze di stile.</li>
+        <li>Identifichiamo eventuali criticità strutturali o impiantistiche.</li>
+        <li>Entro 48 ore ricevi un preventivo dettagliato con render AI incluso.</li>
+      </ol>
+      <p class="mt-2">Per prenotare basta contattarci tramite il chatbot del sito o chiamare direttamente.</p>
+    `,
+    category: "Servizi SYD",
+    slug: "sopralluogo-gratuito"
+  },
+  {
+    question: "In quali zone operate?",
+    answer: `
+      <p class="font-medium text-lg mb-2">Operiamo in <strong>tutta Roma e Provincia</strong>, con copertura capillare nelle seguenti aree:</p>
+      <ul class="list-disc pl-5 space-y-1 mt-2">
+        <li><strong>Roma Centro e quartieri:</strong> Trastevere, Prati, EUR, Monteverde, Tuscolano, Appio.</li>
+        <li><strong>Litorale:</strong> Fiumicino, Ostia, Ladispoli, Cerveteri.</li>
+        <li><strong>Castelli Romani:</strong> Frascati, Albano Laziale, Ciampino, Marino.</li>
+        <li><strong>Hinterland:</strong> Tivoli, Guidonia, Pomezia, Acilia, Bracciano.</li>
+      </ul>
+      <p class="mt-2">Per progetti premium gestiamo cantieri in tutta Italia tramite il nostro network di partner certificati.</p>
+    `,
+    category: "Servizi SYD",
+    slug: "zone-operative"
+  },
+  {
+    question: "Offrite servizi di ristrutturazione d'interni e arredamento?",
+    answer: `
+      <p class="font-medium text-lg mb-2">Sì, la <strong>ristrutturazione degli interni è la nostra attività principale (core business)</strong> e la nostra massima specializzazione.</p>
+      <p>Ci occupiamo di trasformare integralmente i tuoi spazi. Per quanto riguarda la fase successiva di arredamento, lasciamo al cliente totale flessibilità:</p>
+      <ul class="list-disc pl-5 space-y-1 mt-2">
+        <li><strong>In autonomia:</strong> Puoi occuparti personalmente della scelta e dell'acquisto dei mobili per i tuoi nuovi spazi.</li>
+        <li><strong>Tramite studi associati:</strong> Se desideri un servizio "chiavi in mano", SYD Bioedilizia collabora con <strong>studi di progettazione e arredamento partner</strong> che sapranno valorizzare al meglio la ristrutturazione.</li>
+      </ul>
+    `,
+    category: "Servizi SYD",
+    slug: "ristrutturazione-interni-arredi"
   }
 ];

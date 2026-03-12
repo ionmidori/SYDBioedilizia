@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { getBlogPostBySlug, getBlogSlugs } from '@/lib/blog';
+import { BlogBackButton } from '@/components/blog/BlogBackButton';
 
 type Params = {
   slug: string;
@@ -74,12 +75,15 @@ export default async function BlogPostPage({
   };
 
   return (
-    <article className="container mx-auto px-4 py-12 max-w-3xl">
+    <main className="min-h-screen bg-luxury-bg text-luxury-text py-12 px-4 md:px-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <header className="mb-10 text-center">
+      <div className="max-w-4xl mx-auto">
+        <BlogBackButton />
+      <article className="prose prose-invert lg:prose-lg max-w-none">
+      <header className="mb-10 not-prose text-center">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-foreground mb-6 leading-tight">
           {post.title}
         </h1>
@@ -90,9 +94,11 @@ export default async function BlogPostPage({
         </div>
       </header>
 
-      <div className="prose prose-lg dark:prose-invert max-w-none">
+      <div className="mt-8">
         <ReactMarkdown>{post.content}</ReactMarkdown>
       </div>
-    </article>
+      </article>
+      </div>
+    </main>
   );
 }

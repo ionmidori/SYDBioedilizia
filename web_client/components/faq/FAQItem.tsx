@@ -15,27 +15,37 @@ export function FAQItemCard({ item }: FAQItemProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div 
-      id={item.slug} 
+    <div
+      id={item.slug}
       className={cn(
-        "group border border-border/40 bg-card/50 backdrop-blur-sm rounded-xl overflow-hidden transition-all duration-300",
-        isOpen ? "bg-card/80 border-primary/20 shadow-lg" : "hover:bg-card/60"
+        "group border backdrop-blur-sm rounded-2xl overflow-hidden transition-all duration-300",
+        isOpen
+          ? "bg-white/10 border-luxury-gold/30 shadow-lg shadow-luxury-gold/5"
+          : "bg-white/5 border-luxury-gold/10 hover:bg-white/[0.07] hover:border-luxury-gold/20"
       )}
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-6 text-left focus:outline-none focus:ring-2 focus:ring-primary/20 rounded-xl"
+        className="w-full flex items-center justify-between p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-luxury-teal/40 rounded-2xl"
         aria-expanded={isOpen}
         aria-controls={`faq-content-${item.slug}`}
       >
-        <span className="text-lg font-medium pr-4 leading-snug text-foreground/90 group-hover:text-primary transition-colors">
+        <span
+          className={cn(
+            "text-lg font-medium pr-4 leading-snug transition-colors duration-200",
+            isOpen ? "text-luxury-gold" : "text-luxury-text/90 group-hover:text-luxury-gold"
+          )}
+        >
           {item.question}
         </span>
-        <div className={cn(
-          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200",
-          isOpen ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground group-hover:bg-primary/5"
-        )}>
-          {/* Animated icon swap or rotation */}
+        <div
+          className={cn(
+            "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200",
+            isOpen
+              ? "bg-luxury-teal/15 text-luxury-teal"
+              : "bg-white/5 text-luxury-text/50 group-hover:bg-luxury-teal/10 group-hover:text-luxury-teal"
+          )}
+        >
           <motion.div
             initial={false}
             animate={{ rotate: isOpen ? 180 : 0 }}
@@ -56,11 +66,11 @@ export function FAQItemCard({ item }: FAQItemProps) {
             exit="collapsed"
             variants={{
               open: { opacity: 1, height: "auto", marginBottom: 24 },
-              collapsed: { opacity: 0, height: 0, marginBottom: 0 }
+              collapsed: { opacity: 0, height: 0, marginBottom: 0 },
             }}
             transition={M3Transition.containerTransform}
           >
-            <div className="px-6 prose prose-neutral dark:prose-invert max-w-none text-muted-foreground leading-relaxed">
+            <div className="px-6 prose prose-invert max-w-none text-luxury-text/80 leading-relaxed prose-strong:text-luxury-text prose-li:text-luxury-text/80">
               <div dangerouslySetInnerHTML={{ __html: item.answer }} />
             </div>
           </motion.div>

@@ -8,18 +8,33 @@ SYD BIOEDILIZIA rivoluziona il settore delle ristrutturazioni in Italia integran
 - **Design Premium**: Approccio estetico di alto livello adattato a interni di pregio, con attenzione ai dettagli e all'eleganza contemporanea.
 - **Gestione Progetto (Dashboard)**: Portale cliente per monitorare lo stato della ristrutturazione, caricare documenti e comunicare in tempo reale con l'IA e il team tecnico.
 - **Bonus Ristrutturazioni**: Supporto esperto per l'accesso agli incentivi fiscali italiani (Bonus Casa, Sismabonus, Ecobonus).
+- **Smart Remodel**: Tecnica di ristrutturazione senza demolizioni che riduce i costi fino al 40% e i tempi di cantiere.
+- **Bioedilizia**: Utilizzo di materiali naturali (calce NHL, fibra di canapa, sughero) per edifici sani, traspiranti e sostenibili.
 
 ## Key Resources
-- **Sito Ufficiale**: https://sybioedilizia.vercel.app - Home page e presentazione dei servizi.
-- **Blog Tecnico**: https://sybioedilizia.vercel.app/blog - Guide su normative, materiali e innovazione tecnologica nell'edilizia.
-- **Chi Siamo**: https://sybioedilizia.vercel.app/chi-siamo - Informazioni sulla nostra visione e il team di SYD.
-- **Contatti (Chatbot)**: https://sybioedilizia.vercel.app - Interazione diretta con il nostro assistente virtuale per preventivi veloci.
+- **Sito Ufficiale**: https://sydbioedilizia.vercel.app - Home page e presentazione dei servizi.
+- **Blog Tecnico**: https://sydbioedilizia.vercel.app/blog - Guide su normative, materiali e innovazione tecnologica nell'edilizia.
+- **Chi Siamo**: https://sydbioedilizia.vercel.app/chi-siamo - Informazioni sulla nostra visione e il team di SYD.
+- **Contatti (Chatbot)**: https://sydbioedilizia.vercel.app - Interazione diretta con il nostro assistente virtuale per preventivi veloci.
+
+## Blog Articles
+- **Bonus Ristrutturazioni 2026**: https://sydbioedilizia.vercel.app/blog/bonus-ristrutturazioni-2025-2026 - Guida completa alle detrazioni fiscali 50%, CILA e bonifici parlanti.
+- **Umidità di Risalita Roma**: https://sydbioedilizia.vercel.app/blog/umidita-risalita-roma - Protocollo bioedile per palazzi storici romani con calce NHL.
+- **Tendenze Bagno 2026**: https://sydbioedilizia.vercel.app/blog/tendenze-bagno-2026 - Materiali ecologici, microcemento e illuminazione integrata.
+- **Isolamento Acustico Naturale**: https://sydbioedilizia.vercel.app/blog/isolamento-acustico-interni - Pannelli in fibra di legno e canapa per pareti e soffitti.
+- **Pavimenti in Resina**: https://sydbioedilizia.vercel.app/blog/pavimenti-resina-vantaggi - Microcemento sopra le piastrelle esistenti, no demolizioni.
+- **Costi Ristrutturazione 2026**: https://sydbioedilizia.vercel.app/blog/costi-ristrutturazione-casa-2026 - Prezzi al mq e ROI per cucina, bagno e impianti.
+- **Tendenze Layout 2026**: https://sydbioedilizia.vercel.app/blog/tendenze-layout-interni-2026 - Addio open space: spazi flessibili e color drenching.
+- **Smart Remodel**: https://sydbioedilizia.vercel.app/blog/smart-remodel-ristrutturazione-senza-demolire - Ristrutturare senza demolire: SPC, resine e wrapping.
+
 ## FAQ
 - **Q**: Cos'è la ristrutturazione guidata dall'IA?
   **A**: È un processo che utilizza algoritmi avanzati per creare modelli 3D realistici partendo da semplici foto o planimetrie, permettendo di visualizzare il risultato finale prima ancora di iniziare i lavori e di calcolare preventivi accurati al centesimo.
-- **Q**: Operiamo in tutta Italia?
+- **Q**: Operate in tutta Italia?
   **A**: Attualmente il focus primario è Roma e Milano, con capacità di gestione progetti premium in tutta la penisola tramite il nostro network di partner certificati.
+- **Q**: Cos'è lo Smart Remodel?
+  **A**: Una tecnica di ristrutturazione che lavora nella planimetria esistente senza demolizioni, usando materiali sovrapponibili (microcemento, resine, SPC) che riducono i costi fino al 40% e il tempo di cantiere a settimane invece di mesi.
 
 ## Citations
 To cite SYD BIOEDILIZIA, please use:
-SYD BIOEDILIZIA (2026). https://sybioedilizia.vercel.app
+SYD BIOEDILIZIA (2026). https://sydbioedilizia.vercel.app

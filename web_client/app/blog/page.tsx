@@ -1,86 +1,173 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Metadata } from 'next';
-import { getAllBlogPosts } from '@/lib/blog';
+import Image from 'next/image';
+import { ArrowRight } from 'lucide-react';
+import { Navbar } from '@/components/sections/Navbar';
+import { Footer } from '@/components/sections/Footer';
 
 export const metadata: Metadata = {
-  title: 'Blog - Tendenze e Consigli per la Ristrutturazione | Renovation Next',
-  description: 'Scopri le ultime tendenze, i costi e i consigli per la ristrutturazione della tua casa. Articoli aggiornati sulle best practice del 2026.',
-  alternates: {
-    canonical: '/blog',
-  },
+    title: "Blog Ristrutturazioni Roma | SYD Bioedilizia",
+    description: "Approfondimenti, guide e consigli sulle ristrutturazioni d'interni, bioedilizia e riqualificazione energetica.",
+    alternates: {
+        canonical: "/blog",
+    },
 };
 
+const BLOG_POSTS = [
+    {
+        id: 'costi-ristrutturazione-casa-2026',
+        title: "Quanto Costa Ristrutturare Casa nel 2026? Prezzi e ROI",
+        excerpt: "Dai 600€ ai 1.200€/mq: analisi completa dei costi per cucina, bagno e impianti. Quali interventi aumentano davvero il valore dell'immobile.",
+        image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?q=80&w=800&auto=format&fit=crop",
+        category: "Costi & Investimento",
+        date: "10 Mar 2026"
+    },
+    {
+        id: 'smart-remodel-ristrutturazione-senza-demolire',
+        title: "Smart Remodel: Ristrutturare Senza Demolire",
+        excerpt: "Ristrutturazione senza demolizioni: pavimenti SPC, resine sovrapponibili e wrapping. Costi ridotti fino al 40% e cantiere in settimane.",
+        image: "https://images.unsplash.com/photo-1581858726788-75bc0f6a952d?q=80&w=800&auto=format&fit=crop",
+        category: "Innovazione",
+        date: "10 Mar 2026"
+    },
+    {
+        id: 'tendenze-layout-interni-2026',
+        title: "Tendenze Layout Interni 2026: Addio Open Space",
+        excerpt: "Spazi flessibili, color drenching e il ritorno delle pareti divisorie intelligenti. Le nuove regole del design d'interni.",
+        image: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?q=80&w=800&auto=format&fit=crop",
+        category: "Interior Design",
+        date: "10 Mar 2026"
+    },
+    {
+        id: 'bonus-ristrutturazioni-2025-2026',
+        title: "Bonus Ristrutturazioni 2026: La Guida Completa senza sorprese",
+        excerpt: "Aliquote 50%, massimali e la checklist dei documenti obbligatori (CILA, Bonifici, ENEA) per non perdere le detrazioni fiscali.",
+        image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=800&auto=format&fit=crop",
+        category: "Fisco & Normative",
+        date: "21 Feb 2026"
+    },
+    {
+        id: 'umidita-risalita-roma',
+        title: "Come eliminare definitivamente l'umidità di risalita nei palazzi storici romani",
+        excerpt: "Una guida pratica per proprietari di immobili storici: diagnosi, costi e soluzioni definitive con la bioedilizia certificata.",
+        image: "https://images.unsplash.com/photo-1464146072230-91cabc968266?q=80&w=800&auto=format&fit=crop",
+        category: "Bioedilizia Storica",
+        date: "20 Feb 2026"
+    },
+    {
+        id: 'tendenze-bagno-2026',
+        title: "Tendenze 2026 per il Bagno: Materiali Ecologici e Design Minimalista",
+        excerpt: "Scopri come trasformare il tuo bagno in un'oasi di benessere utilizzando resine ecocompatibili e illuminazione integrata.",
+        image: "https://images.unsplash.com/photo-1620626011761-996317b8d101?q=80&w=800&auto=format&fit=crop",
+        category: "Interior Design",
+        date: "15 Feb 2026"
+    },
+    {
+        id: 'isolamento-acustico-interni',
+        title: "Isolamento Acustico Naturale: Stop ai Rumori del Vicinato",
+        excerpt: "Sistemi a secco e pannelli in fibra di legno o canapa per insonorizzare pareti divisorie e solette senza perdere troppo spazio.",
+        image: "https://images.unsplash.com/photo-1513694203232-719a280e022f?q=80&w=800&auto=format&fit=crop",
+        category: "Comfort Efficienza",
+        date: "10 Feb 2026"
+    },
+    {
+        id: 'pavimenti-resina-vantaggi',
+        title: "Pavimenti in Resina e Microcemento: Vantaggi e Applicazioni",
+        excerpt: "Superfici continue e facili da pulire ideali per ristrutturazioni rapide: si possono posare direttamente sul pavimento esistente.",
+        image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800&auto=format&fit=crop",
+        category: "Materiali",
+        date: "05 Feb 2026"
+    }
+];
+
 export default function BlogIndexPage() {
-  const posts = getAllBlogPosts();
+    const jsonLd = {
+        "@context": "https://schema.org",
+        "@type": "Blog",
+        "name": "Blog Ristrutturazioni Roma | SYD Bioedilizia",
+        "description": "Approfondimenti, guide e consigli sulle ristrutturazioni d'interni, bioedilizia e riqualificazione energetica.",
+        "url": "https://sydbioedilizia.vercel.app/blog",
+        "publisher": {
+            "@type": "Organization",
+            "name": "SYD Bioedilizia",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://sydbioedilizia.vercel.app/images/logo.png"
+            }
+        },
+        "blogPost": BLOG_POSTS.map(post => ({
+            "@type": "BlogPosting",
+            "headline": post.title,
+            "description": post.excerpt,
+            "image": post.image,
+            "url": `https://sydbioedilizia.vercel.app/blog/${post.id}`
+        }))
+    };
 
-  // JSON-LD for the Blog Index (CollectionPage or Blog)
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Blog',
-    name: 'Blog di Renovation Next',
-    url: 'https://www.renovation-next.com/blog',
-    description: 'Tendenze e consigli per ristrutturare casa.',
-    blogPost: posts.map((post) => ({
-      '@type': 'BlogPosting',
-      headline: post.title,
-      description: post.description,
-      author: {
-        '@type': 'Organization',
-        name: post.author,
-      },
-      datePublished: post.datePublished,
-      url: `https://www.renovation-next.com/blog/${post.slug}`,
-    })),
-  };
+    return (
+        <>
+            <Navbar />
+            <main className="min-h-screen bg-luxury-bg text-luxury-text py-20 px-4 md:px-8">
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                />
+                <div className="max-w-7xl mx-auto">
 
-  return (
-    <main className="container mx-auto px-4 py-12 max-w-4xl">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <header className="mb-12">
-        <h1 className="text-4xl font-extrabold tracking-tight text-foreground mb-4">
-          Il nostro Blog
-        </h1>
-        <p className="text-xl text-muted-foreground">
-          Consigli, tendenze e guide pratiche per la ristrutturazione della tua casa nel 2026.
-        </p>
-      </header>
+                    <header className="mb-16 text-center max-w-3xl mx-auto">
+                        <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-primary mb-6">
+                            Il Blog della Ristrutturazione
+                        </h1>
+                        <p className="text-xl text-muted-foreground">
+                            Idee, approfondimenti tecnici e soluzioni pratiche per trasformare la tua casa con consapevolezza e stile.
+                        </p>
+                    </header>
 
-      <div className="grid gap-8">
-        {posts.map((post) => (
-          <article
-            key={post.slug}
-            className="group relative flex flex-col items-start justify-between rounded-2xl border border-border p-6 shadow-sm transition-colors hover:bg-muted/50"
-          >
-            <div className="flex items-center gap-x-4 text-xs mb-4">
-              <time dateTime={post.datePublished} className="text-muted-foreground">
-                {post.datePublished}
-              </time>
-            </div>
-            <div className="group relative">
-              <h2 className="mt-3 text-2xl font-semibold leading-6 text-foreground group-hover:text-primary">
-                <Link href={`/blog/${post.slug}`}>
-                  <span className="absolute inset-0" />
-                  {post.title}
-                </Link>
-              </h2>
-              <p className="mt-5 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                {post.description}
-              </p>
-            </div>
-            <div className="relative mt-8 flex items-center gap-x-4">
-              <div className="text-sm leading-6">
-                <p className="font-semibold text-foreground">
-                  <span className="absolute inset-0" />
-                  {post.author}
-                </p>
-              </div>
-            </div>
-          </article>
-        ))}
-      </div>
-    </main>
-  );
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                        {BLOG_POSTS.map((post) => (
+                            <Link
+                                key={post.id}
+                                href={`/blog/${post.id}`}
+                                className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border hover:shadow-xl hover:border-primary/30 transition-all duration-300"
+                            >
+                                <div className="relative h-64 w-full overflow-hidden bg-muted">
+                                    <Image
+                                        src={post.image}
+                                        alt={post.title}
+                                        fill
+                                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 50vw"
+                                    />
+                                    <div className="absolute top-4 left-4">
+                                        <span className="bg-background/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-primary">
+                                            {post.category}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="p-8 flex flex-col flex-grow">
+                                    <div className="text-sm text-muted-foreground mb-3 font-medium">
+                                        {post.date}
+                                    </div>
+                                    <h2 className="text-2xl font-bold mb-4 text-card-foreground group-hover:text-primary transition-colors line-clamp-2">
+                                        {post.title}
+                                    </h2>
+                                    <p className="text-muted-foreground mb-8 flex-grow line-clamp-3 leading-relaxed">
+                                        {post.excerpt}
+                                    </p>
+
+                                    <div className="mt-auto flex items-center text-primary font-semibold text-sm">
+                                        Leggi l&apos;articolo
+                                        <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+
+                </div>
+            </main>
+            <Footer />
+        </>
+    );
 }

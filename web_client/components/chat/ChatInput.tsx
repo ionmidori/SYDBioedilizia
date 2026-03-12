@@ -22,6 +22,7 @@ import { triggerHaptic } from '@/lib/haptics';
 import { validateFileForUpload } from "@/lib/validation/file-upload-schema";
 import { validateVideo } from "@/lib/media-utils";
 import { AttachmentMenu } from '@/components/chat/AttachmentMenu';
+import { VideoTrimmer } from '@/components/chat/VideoTrimmer';
 
 interface ChatInputProps {
     /** Current text input value */
@@ -104,6 +105,9 @@ export function ChatInput({
         };
     }, [isAttachMenuOpen]);
 
+    const [videoToTrim, setVideoToTrim] = useState<File | null>(null);
+    const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+
     // Handle file selection from input (max 5 files per selection to prevent browser overload)
     const MAX_FILES_PER_SELECTION = 3;
 
@@ -114,6 +118,8 @@ export function ChatInput({
                 alert(`Puoi selezionare al massimo ${MAX_FILES_PER_SELECTION} file alla volta.`);
             }
             const filesToUpload: File[] = [];
+            let foundVideoToTrim: File | null = null;
+            
             for (const file of selected.slice(0, MAX_FILES_PER_SELECTION)) {
                 if (file.type.startsWith('video/')) {
                     const videoValidation = await validateVideo(file);
@@ -121,21 +127,47 @@ export function ChatInput({
                         alert(videoValidation.error);
                         continue;
                     }
+                    // Select the first valid video for trimming
+                    if (!foundVideoToTrim) {
+                        foundVideoToTrim = file;
+                    } else {
+                        filesToUpload.push(file);
+                    }
+                } else {
+                    const validation = validateFileForUpload(file);
+                    if (!validation.valid) {
+                        alert(validation.error);
+                        continue;
+                    }
+                    filesToUpload.push(file);
                 }
-
-                const validation = validateFileForUpload(file);
-                if (!validation.valid) {
-                    alert(validation.error);
-                    continue;
-                }
-                filesToUpload.push(file);
             }
 
-            if (filesToUpload.length > 0) {
+            if (foundVideoToTrim) {
+                setVideoToTrim(foundVideoToTrim);
+                setPendingFiles(filesToUpload);
+            } else if (filesToUpload.length > 0) {
                 onFileSelect(filesToUpload);
             }
             e.target.value = '';
         }
+    };
+
+    const handleTrimConfirm = (file: File, start: number, end: number) => {
+        console.log(`[ChatInput] Video trimmed from ${start.toFixed(2)}s to ${end.toFixed(2)}s`);
+        // We append the (pseudo) trimmed video to the rest of the files and upload
+        onFileSelect([file, ...pendingFiles]);
+        setVideoToTrim(null);
+        setPendingFiles([]);
+    };
+
+    const handleTrimCancel = () => {
+        // If the user aborts trimming, we don't upload the video, but we upload the other files.
+        if (pendingFiles.length > 0) {
+            onFileSelect(pendingFiles);
+        }
+        setVideoToTrim(null);
+        setPendingFiles([]);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -405,6 +437,13 @@ export function ChatInput({
                     </motion.button>
                 </Button>
             </div>
+
+            <VideoTrimmer
+                file={videoToTrim}
+                isOpen={!!videoToTrim}
+                onConfirm={handleTrimConfirm}
+                onCancel={handleTrimCancel}
+            />
         </div>
     );
 }
