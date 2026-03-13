@@ -128,36 +128,5 @@ export async function fetchValidated<T>(
     }
 }
 
-/**
- * Safe Action Wrapper for Server Actions
- * 
- * Validates inputs using Zod before executing the action.
- * Returns a standardized result object.
- */
-export async function withValidation<T, R>(
-    schema: z.ZodType<T>,
-    data: unknown,
-    action: (validatedData: T) => Promise<R>
-): Promise<{ success: boolean; data?: R; errors?: Partial<Record<string, string[]>>; message?: string }> {
-    const validationResult = schema.safeParse(data);
-    
-    if (!validationResult.success) {
-        return {
-            success: false,
-            errors: validationResult.error.flatten().fieldErrors,
-            message: 'Validation failed'
-        };
-    }
-    
-    try {
-        const result = await action(validationResult.data);
-        return { success: true, data: result };
-    } catch (error: unknown) {
-        console.error('[ServerAction] Error:', error);
-        return {
-            success: false,
-            message: error instanceof Error ? error.message : 'Internal server error'
-        };
-    }
-}
+
 

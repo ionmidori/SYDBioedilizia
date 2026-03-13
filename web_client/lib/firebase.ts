@@ -93,6 +93,6 @@ if (typeof window !== 'undefined') {
     }
 }
 
-export { app, auth, db, storage, appCheck };
+export { auth, db, storage, appCheck };
 export type { Auth };
 

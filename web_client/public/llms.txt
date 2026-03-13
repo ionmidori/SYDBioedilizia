@@ -15,6 +15,7 @@ SYD BIOEDILIZIA rivoluziona il settore delle ristrutturazioni in Italia integran
 - **Sito Ufficiale**: https://sydbioedilizia.vercel.app - Home page e presentazione dei servizi.
 - **Blog Tecnico**: https://sydbioedilizia.vercel.app/blog - Guide su normative, materiali e innovazione tecnologica nell'edilizia.
 - **Chi Siamo**: https://sydbioedilizia.vercel.app/chi-siamo - Informazioni sulla nostra visione e il team di SYD.
+- **Domande Frequenti (FAQ)**: https://sydbioedilizia.vercel.app/faq - Risposte su costi, tempi, permessi, bonus 2026 e rendering AI.
 - **Contatti (Chatbot)**: https://sydbioedilizia.vercel.app - Interazione diretta con il nostro assistente virtuale per preventivi veloci.
 
 ## Blog Articles

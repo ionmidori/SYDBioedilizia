@@ -85,26 +85,7 @@ export interface DocumentMediaAsset extends MediaAssetBase {
  */
 export type MediaAsset = ImageMediaAsset | VideoMediaAsset | DocumentMediaAsset;
 
-/**
- * Type guard for ImageMediaAsset
- */
-export function isImageAsset(asset: MediaAsset): asset is ImageMediaAsset {
-    return asset.asset_type === 'image';
-}
 
-/**
- * Type guard for VideoMediaAsset
- */
-export function isVideoAsset(asset: MediaAsset): asset is VideoMediaAsset {
-    return asset.asset_type === 'video';
-}
-
-/**
- * Type guard for DocumentMediaAsset
- */
-export function isDocumentAsset(asset: MediaAsset): asset is DocumentMediaAsset {
-    return asset.asset_type === 'document';
-}
 
 // =============================================================================
 // UPLOAD ITEM STATE (Frontend-only, used by useUpload hook)

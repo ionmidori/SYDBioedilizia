@@ -1,14 +1,20 @@
-# PROJECT CONTEXT SUMMARY (v4.0.19)
-**Ultimo aggiornamento:** 12 Marzo 2026 (Phase 66)
-**Status:** Production-Ready — Dashboard Media Section & Project Controls (UI/UX Hardening)
+# PROJECT CONTEXT SUMMARY (v4.0.20)
+**Ultimo aggiornamento:** 13 Marzo 2026 (Phase 67)
+**Status:** Production-Ready — Frontend Dead Code Cleanup & Build Hardening
 
-## 🎯 Obiettivi Correnti (Phase 66)
-1.  **Dashboard Media Section**: Aggiunta sezione "Media Recenti" con supporto multimodale (immagini, video, render, preventivi).
-2.  **Project UX Hardening**: Risolti conflitti di clic sui bottoni Edit/Delete nella bacheca e migliorata visibilità delle icone.
-3.  **WBS Assembly Engine**: Ottimizzato l'engine di espansione per preventivi automatici.
-4.  **Backend Tests**: Mantenimento della coverage al 100% per il nucleo ADK e Pricing.
+## 🎯 Obiettivi Correnti (Phase 67)
+1.  **Frontend Code Hygiene**: Rimozione codice morto orfano identificato tramite analisi `knip`.
+2.  **Dead Exports Elimination**: Pulizia esportazioni non utilizzate nelle utility interne del frontend (es. `formatFileSize`, `isSafeUrl`, ecc.).
+3.  **Build Hardening**: Risoluzione errori di importazione mancanti da `firebase-admin` e validazione della Next.js build.
+4.  **GDPR Compliance Prep**: Preparazione per il cron job di pulizia ADK Session.
 
 ---
+
+- **Phase 67 (Mar 13, 2026):** **Frontend Dead Code Cleanup & Build Hardening (v4.0.20)**:
+    - **Dead Code Elimination**: Eliminati file orfani individuati da `knip` (es. `GlobalFileUploader.tsx`, vecchi tipi `lead.ts`).
+    - **Dead Export Cleanup**: Rimosse utility interne esportate ma mai consumate in `compression-utils.ts`, `api-client.ts`, `security.ts` e `profile.ts`.
+    - **Firebase Admin SDK Sync**: Ripristinato export `getFirebaseAuth` e `getFirestoreDb` in `firebase-admin.ts` per supportare la generazione lato server.
+    - **Build Check**: Completata con successo una build di produzione (Turbopack) pulita, confermando assenza di errori di type-checking ed ESLint warning bloccanti.
 
 - **Phase 66 (Mar 12, 2026):** **Dashboard UX & Recent Media (v4.0.19)**:
     - **Recent Media Carousel (MediaCarousel.tsx)**: Implementata sezione "Media Recenti" stilizzata M3/Bento. Recupera in tempo reale gli asset tramite `useGalleryAssets`.
@@ -38,18 +44,7 @@
     - **Storage Upload Threadpool (generate_render.py)**: Wrapped `upload_base64_image()` (sync Firebase SDK) in `asyncio.to_thread()` to prevent event loop blocking during render uploads.
     - **Test Compliance**: Updated mock names in `test_tools.py` to reflect renamed imports; all 375 backend tests passing.
 
-- **Phase 62 (Mar 09, 2026):** **UI Polish & Animation Fidelity (v4.0.15)**:
-    - **Chat Provider**: Sostituito testo statico con layout a liste numerate e simboli per una UX premium. Ancorato staticamente alla history per persistenza.
-    - **Framer Motion**: Separazione easing in framer motion. Rotazione lineare continua + morphing `easeInOut` per il SydLoader, allineamento allo standard Android 16 Google M3 Expressive.
-    - **ChatWidget Responsive Overlay**: Aggiunte regole responsive per l'overlay (sostituito backdrop-blur generico con varianti mobile-only via `md:bg-transparent md:backdrop-blur-none`).
-    - **ChatWidget Drag-to-Close**: Implementata chiusura fluida tramite swipe down dall'header (`useDragControls` di framer-motion), rispettando lo scorrimento indipendente dei messaggi e lo standard M3 Expressive.
-
-- **Phase 61 (Mar 07, 2026):** **Definitive Inversion Fix — Explicit Python Timestamps (v4.0.14)**:
-    - **Backend Anchor (main.py)**: Backdated User message by 100ms using `datetime.now(timezone.utc)` to ensure it exists "before" the assistant response starts generating.
-    - **Assistant Save (adk_orchestrator.py)**: Switched from `None` (SERVER_TIMESTAMP) to explicit `datetime.now(timezone.utc)`.
-    - **Frontend Tie-breaker (useChatHistory.ts)**: Refined sorting to include `Math.abs < 0.1ms` handling and a strict `user < assistant` priority record.
-
 ---
 
-- **Current Version**: `v4.0.19`
-- **Next High Priority**: 1) ADK Session cleanup cron for GDPR retention | 2) Dynamic Robot Mascot | 3) M3 Chat feedback integration | 4) Remaining 8 low-severity transitive vulns (firebase-admin→google-cloud chain, awaiting upstream fix)
+- **Current Version**: `v4.0.20`
+- **Next High Priority**: 1) ADK Session cleanup cron for GDPR retention | 2) Replace remaining `Loader2` imports with `SydLoader` | 3) Automate Golden Sync | 4) Granular token-based rate limiting

@@ -191,48 +191,4 @@ export async function uploadUserAvatar(
     }
 }
 
-/**
- * Server Action to update user password
- * Sends password reset email via Firebase Auth
- * 
- * @returns ActionResult with success status
- */
-export async function requestPasswordReset(): Promise<ActionResult> {
-    try {
-        // Get authentication token from cookies
-        const cookieStore = await cookies();
-        const token = cookieStore.get("auth-token")?.value;
 
-        if (!token) {
-            return {
-                success: false,
-                message: "Autenticazione richiesta. Effettua il login.",
-            };
-        }
-
-        // Verify token and get user
-        const decodedToken = await getFirebaseAuth().verifyIdToken(token);
-        const userRecord = await getFirebaseAuth().getUser(decodedToken.uid);
-
-        if (!userRecord.email) {
-            return {
-                success: false,
-                message: "Nessuna email associata a questo account.",
-            };
-        }
-
-        // Generate password reset link (client-side will call Firebase Auth directly)
-        // This is just to validate the user is authenticated
-
-        return {
-            success: true,
-            message: `Email di reset password inviata a ${userRecord.email}`,
-        };
-    } catch (error) {
-        console.error("[Server Action] Error requesting password reset:", error);
-        return {
-            success: false,
-            message: "Errore durante la richiesta di reset password. Riprova.",
-        };
-    }
-}

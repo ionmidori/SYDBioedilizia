@@ -23,14 +23,4 @@ export function sanitizeMessage(message: string): string {
         .replace(/'/g, "&#039;");
 }
 
-/**
- * Validates if a string is a safe URL.
- */
-export function isSafeUrl(url: string): boolean {
-    try {
-        const parsed = new URL(url);
-        return ["http:", "https:"].includes(parsed.protocol);
-    } catch {
-        return false;
-    }
-}
+

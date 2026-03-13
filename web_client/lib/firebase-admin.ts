@@ -77,7 +77,7 @@ function validateServiceAccount(clientEmail: string, projectId: string): void {
  * Initialize Firebase Admin SDK
  * Loads from environment variables (Vercel-compatible) or falls back to JSON file
  */
-export function initializeFirebase(): App {
+function initializeFirebase(): App {
     if (getApps().length === 0) {
         console.log('[Firebase] Initializing Firebase Admin SDK...');
 
@@ -193,5 +193,4 @@ export function getFirebaseAuth(): Auth {
 
 // Export convenient aliases
 export const db = getFirestoreDb;
-export const storage = getFirebaseStorage;
 export const auth = getFirebaseAuth;

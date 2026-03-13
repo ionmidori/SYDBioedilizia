@@ -50,7 +50,7 @@ export function shouldCompress(mimeType: string): boolean {
 /**
  * Calculates optimal compression settings based on file size.
  */
-export function getCompressionConfig(
+function getCompressionConfig(
     fileSize: number,
     targetMaxSizeMB: number = 10
 ): CompressionConfig {
@@ -171,11 +171,4 @@ export function isAllowedType(file: File, allowedTypes: string[]): boolean {
     return false;
 }
 
-/**
- * Formats file size for display.
- */
-export function formatFileSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-}
+
