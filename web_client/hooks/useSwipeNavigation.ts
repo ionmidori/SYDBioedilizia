@@ -83,11 +83,16 @@ function isNoSwipeTarget(target: EventTarget | null): boolean {
     let el = target as HTMLElement | null;
     while (el && el !== document.body) {
         if (el.hasAttribute('data-no-swipe')) return true;
+        const style = getComputedStyle(el);
         // Auto-detect native horizontal scroll containers
         if (el.scrollWidth > el.clientWidth) {
-            const style = getComputedStyle(el);
             const overflowX = style.overflowX;
             if (overflowX === 'auto' || overflowX === 'scroll') return true;
+        }
+        // Auto-detect native vertical scroll containers
+        if (el.scrollHeight > el.clientHeight) {
+            const overflowY = style.overflowY;
+            if (overflowY === 'auto' || overflowY === 'scroll') return true;
         }
         el = el.parentElement;
     }
