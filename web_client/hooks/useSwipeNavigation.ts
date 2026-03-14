@@ -67,7 +67,7 @@ export interface SwipeResult {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** Dead zone in px before direction lock is determined */
-const DEAD_ZONE = 8;
+const DEAD_ZONE = 12;
 
 /** Haptic vibration duration in ms */
 const HAPTIC_DURATION_MS = 10;
@@ -181,10 +181,10 @@ export function useSwipeNavigation(config: SwipeConfig): SwipeResult {
                 // Still within dead zone — wait for more data
                 if (absDx < DEAD_ZONE && absDy < DEAD_ZONE) return;
 
-                if (absDx > absDy) {
+                if (absDx > absDy * 1.5) {
                     directionLockedRef.current = 'horizontal';
                     setIsSwiping(true);
-                } else {
+                } else if (absDy > absDx * 0.8) {
                     // Vertical scroll intent — bail out permanently for this gesture
                     directionLockedRef.current = 'vertical';
                     isActiveRef.current = false;
