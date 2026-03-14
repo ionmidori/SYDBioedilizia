@@ -13,6 +13,7 @@ import { LoginRequest } from '@/components/chat/tools/LoginRequest';
 import { ReasoningStepView } from '@/components/chat/ReasoningStepView';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { MessageFeedback } from '@/components/chat/MessageFeedback';
 import Link from 'next/link';
 import Image from 'next/image';
 
@@ -31,7 +32,7 @@ interface MessageItemProps {
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, onImageClick, onFormSubmit }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, sessionId, onImageClick, onFormSubmit }) => {
     const { user } = useAuth();
 
     // Helper: Extract text from both old (content) and new (parts[]) formats
@@ -173,7 +174,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
             animate="visible"
             exit="exit"
             className={cn(
-                "flex gap-3 max-w-[90%]",
+                "flex gap-3 max-w-[90%] group/msg",
                 message.role === 'user' ? "ml-auto flex-row-reverse" : "items-start"
             )}
         >
@@ -315,6 +316,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                             )}
                         </div>
                     </div>
+                )}
+
+                {/* Feedback: thumbs up/down on assistant messages (self-correction loop) */}
+                {message.role === 'assistant' && !isThinking && text && sessionId && (
+                    <MessageFeedback messageId={message.id} sessionId={sessionId} />
                 )}
             </div>
         </motion.div>

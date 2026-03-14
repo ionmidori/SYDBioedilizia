@@ -1,0 +1,10 @@
+{
+    "name": "evaluating-adk-agents",
+    "version": "1.0.0",
+    "description": "Evaluate Google ADK multi-agent systems with native AgentEvaluator, LlmAsJudge, and RubricBasedEvaluator. Implements self-correction loop for SYD Bioedilizia.",
+    "author": {
+        "name": "Senior Principal Architect",
+        "email": "architect@website-renovation.com"
+    },
+    "license": "MIT"
+}

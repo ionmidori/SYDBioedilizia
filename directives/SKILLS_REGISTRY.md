@@ -33,6 +33,8 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.agents/skills/firebase-hosting-basics/SKILL.md)
 
 ## 🤖 AI & Agentic Engineering
+- **Evaluating ADK Agents**: Evaluate Google ADK multi-agent systems with native AgentEvaluator, LlmAsJudge, and RubricBasedEvaluator. Self-correction loop: eval failure → diagnose rubric → patch prompt. SYD-specific rubrics (no furniture, Italian-only, mq present).
+  - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/evaluating-adk-agents/SKILL.md)
 - **LangGraph HITL Patterns**: Implements Human-in-the-Loop (HITL) patterns for LangGraph stateful graphs.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/langgraph-hitl-patterns/SKILL.md)
 - **Implementing RAG**: Build Retrieval-Augmented Generation (RAG) systems.

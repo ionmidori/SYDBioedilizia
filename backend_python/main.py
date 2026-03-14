@@ -31,8 +31,16 @@ logger = get_logger(__name__)
 async def lifespan(_app: FastAPI):
     """Application lifespan: startup and shutdown logic."""
     logger.info("SYD Brain API starting on port 8080...")
-    # NOTE: Firebase validation and Agent Graph initialization happen lazily on first request
-    # This ensures the container binds to port 8080 immediately for Cloud Run health checks
+    # Eager-init: warm up ADKOrchestrator (Vertex AI + Runner) during startup
+    # so the first /chat/stream request doesn't pay the ~1-2s cold-start penalty.
+    # Runs in threadpool to avoid blocking the event loop during startup.
+    from src.services.orchestrator_factory import warm_up_orchestrator
+    try:
+        from starlette.concurrency import run_in_threadpool
+        await run_in_threadpool(warm_up_orchestrator)
+        logger.info("ADKOrchestrator warm-up complete.")
+    except Exception as e:
+        logger.warning(f"ADKOrchestrator warm-up failed (will retry lazily): {e}")
     yield
     # ── Graceful Shutdown ──────────────────────────────────────────────────────
     # Cloud Run sends SIGTERM and waits up to 40s (--timeout-graceful-shutdown).
@@ -336,6 +344,10 @@ app.include_router(quote_router)
 from src.api.users_router import router as users_router
 app.include_router(users_router)
 
+# Register feedback router (self-correction loop — evaluating-adk-agents skill)
+from src.api.feedback import feedback_router
+app.include_router(feedback_router)
+
 # 🧪 TEST AUTOMATION ROUTER (Only in development)
 if settings.ENV == "development":
     from src.api.test_router import router as test_router
@@ -386,7 +398,7 @@ async def submit_lead_endpoint(
     return {"status": "success", "message": result}
 
 class ChatMessage(BaseModel):
-    role: str = Field(..., pattern=r'^(user|assistant|system)$')
+    role: str = Field(..., pattern=r'^(user|assistant|system|tool)$')
     content: str | list = Field(...)
 
     @field_validator('content')
@@ -542,19 +554,36 @@ async def chat_stream(
     from src.repositories.conversation_repository import get_conversation_repository
     # Anchor timestamp: 100ms in the past guarantees user message sorts before assistant
     anchor_timestamp = datetime.now(timezone.utc) - timedelta(milliseconds=100)
-    try:
-        repo = get_conversation_repository()
-        await repo.ensure_session(body.session_id, user_session.uid)
-        await repo.save_message(
-            session_id=body.session_id,
-            role="user",
-            content=user_msg_text or "",
-            metadata={"user_id": user_session.uid, "source": "chat_stream_route"},
-            timestamp=anchor_timestamp,
-        )
-        logger.info(f"[Anchor] User message persisted for session {body.session_id}")
-    except Exception as e:
-        logger.error(f"Failed to pre-persist user message in route: {e}")
+    
+    # Extract attachments for persistence
+    attachments = None
+    media_urls = getattr(body, "media_urls", None)
+    video_file_uris = getattr(body, "video_file_uris", None)
+
+    if media_urls or video_file_uris:
+        attachments = {
+            "images": media_urls if media_urls else [],
+            "videos": video_file_uris if video_file_uris else []
+        }
+            
+    async def _persist_user_message():
+        """Background: persist user message to Firestore without blocking the stream."""
+        try:
+            repo = get_conversation_repository()
+            await repo.ensure_session(body.session_id, user_session.uid)
+            await repo.save_message(
+                session_id=body.session_id,
+                role="user",
+                content=user_msg_text or "",
+                metadata={"user_id": user_session.uid, "source": "chat_stream_route"},
+                attachments=attachments,
+                timestamp=anchor_timestamp,
+            )
+            logger.info(f"[Anchor] User message persisted for session {body.session_id}")
+        except Exception as e:
+            logger.error(f"Failed to pre-persist user message in route: {e}")
+
+    background_tasks.add_task(_persist_user_message)
 
     # Directly pass the async iterator to StreamingResponse
     return StreamingResponse(

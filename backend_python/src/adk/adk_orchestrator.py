@@ -205,13 +205,14 @@ class ADKOrchestrator(BaseOrchestrator):
                     repo = get_conversation_repository()
                     history = await repo.get_context(session_id, limit=30)
                     if history:
-                        for msg in history:
+                        events_to_inject = []
+                        for idx, msg in enumerate(history):
                             role = msg.get("role", "user")
                             text = msg.get("content", "").strip()
                             if not text:
                                 continue
                             hist_event = Event(
-                                invocation_id=f"history_restore_{int(time.time() * 1000)}",
+                                invocation_id=f"history_restore_{int(time.time() * 1000)}_{idx}",
                                 author=role,
                                 content=types.Content(
                                     role=role,
@@ -219,9 +220,15 @@ class ADKOrchestrator(BaseOrchestrator):
                                 ),
                                 actions=EventActions(),
                             )
-                            await session_service.append_event(session, hist_event)
+                            events_to_inject.append(hist_event)
+                        # Parallel injection: ~10x faster than sequential await loop
+                        if events_to_inject:
+                            await asyncio.gather(*(
+                                session_service.append_event(session, evt)
+                                for evt in events_to_inject
+                            ))
                         logger.info(
-                            f"[ADK] Injected {len(history)} history events into restored session",
+                            f"[ADK] Injected {len(events_to_inject)} history events into restored session",
                             extra={"session_id": session_id},
                         )
                 except Exception as hist_err:
@@ -235,13 +242,20 @@ class ADKOrchestrator(BaseOrchestrator):
             pending_tool_calls: dict[str, str] = {}
             try:
                 # Pass user message directly via new_message parameter (ADK 1.x API)
+                if not content_parts:
+                    # ADK requires at least one part for a new_message to be valid
+                    content_parts = [types.Part(text="[No content]")]
+                    
                 actual_message = types.Content(role="user", parts=content_parts)
                 logger.info(f"[ADK] Starting run_async. Session: {session_id}, Parts: {len(content_parts)}")
 
                 try:
-                    # 55s hard timeout — proxy allows 60s before HeadersTimeoutError.
-                    # This ensures a clean error message reaches the client in time.
-                    async with asyncio.timeout(55):
+                    # 180s hard timeout (3 minutes) — image generation and agent logic can be slow.
+                    # This ensures a clean error message reaches the client if it truly hangs.
+                    async with asyncio.timeout(180):
+                        logger.info(f"[ADK] Calling run_async with new_message: {actual_message is not None}, Parts: {len(actual_message.parts) if actual_message else 0}")
+                        
+                        # Guard: If for some reason actual_message is STILL invalid, ADK will fail here correctly.
                         async for event in self.runner.run_async(
                             session_id=session_id,
                             user_id=user_id,
@@ -336,6 +350,23 @@ class ADKOrchestrator(BaseOrchestrator):
                                             )
                                             async for chunk in stream_tool_result(call_id, raw_response):
                                                 yield chunk
+                                                
+                                            # ── Persist Tool Result to Firestore ──
+                                            try:
+                                                import json
+                                                from datetime import datetime, timezone
+                                                repo = get_conversation_repository()
+                                                content_str = json.dumps(raw_response) if isinstance(raw_response, dict) else str(raw_response)
+                                                await repo.save_message(
+                                                    session_id=session_id,
+                                                    role="tool",
+                                                    content=content_str,
+                                                    tool_call_id=call_id,
+                                                    timestamp=datetime.now(timezone.utc)
+                                                )
+                                                logger.info(f"[Repo] Saved tool result for call_id {call_id}")
+                                            except Exception as e:
+                                                logger.error(f"Failed to persist tool result: {e}")
 
                                 logger.info(
                                     "ADK Event received",
@@ -379,11 +410,11 @@ class ADKOrchestrator(BaseOrchestrator):
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:
                         logger.error(f"Failed to persist assistant message: {e}")
-            except Exception as e:
+            except Exception:
                 logger.exception("Inner ADK run_async error captured")
                 async for chunk in stream_error("Errore durante la generazione della risposta AI."):
                     yield chunk
-        except Exception as e:
+        except Exception:
             logger.exception("Outer ADKOrchestrator execution error.")
             async for chunk in stream_error("Impossibile connettersi all'assistente Sydney."):
                 yield chunk
@@ -436,7 +467,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             filtered = await filter_agent_output(part.text)
                             async for chunk in stream_text(filtered):
                                 yield chunk
-        except Exception as e:
+        except Exception:
             logger.exception("Error during ADK resume_interrupt.")
             async for chunk in stream_error("An internal error occurred while resuming the session."):
                 yield chunk

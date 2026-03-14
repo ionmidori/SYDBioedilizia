@@ -63,7 +63,12 @@ export async function POST(req: Request) {
         // 🔄 NORMALIZE: Vercel AI SDK v3+ → Backend Contract
         // SDK sends {role, parts: [{type, text}]}, Backend expects {role, content: string}
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        const normalizedMessages = (messages as SDKMessage[] || []).map((msg) => {
+        // Filter out tool messages — they're already merged into assistant toolInvocations
+        // by useChatHistory and are not needed by the backend for processing.
+        const nonToolMessages = (messages as SDKMessage[] || []).filter(
+            (msg) => msg.role !== 'tool'
+        );
+        const normalizedMessages = nonToolMessages.map((msg) => {
             // If message already has 'content' as string, pass through
             if (typeof msg.content === 'string') {
                 return { role: msg.role, content: msg.content };

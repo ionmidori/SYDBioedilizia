@@ -1,11 +1,14 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import logging
+import httpx
+from urllib.parse import urlparse
 from src.services.insight_engine import get_insight_engine, InsightEngineError
 from src.services.pricing_service import PricingService
 from src.repositories.conversation_repository import ConversationRepository
 from src.db.firebase_client import get_async_firestore_client
-from src.schemas.quote import QuoteSchema
+from src.vision.measure_room import measure_room_from_photo, format_measurements_for_insight
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -69,31 +72,147 @@ def _validate_qty_bounds(suggestions: List[Any]) -> tuple[List[Any], List[str]]:
             valid.append(s)
     return valid, warnings
 
+def _extract_media_urls(history: List[Dict[str, Any]]) -> List[str]:
+    """
+    Extracts all media URLs from chat history attachments.
+
+    Handles both storage formats:
+    - Structured: {"images": [...], "videos": [...]}  ← current format
+    - Legacy list: [{"url": "...", "type": "image"}, ...]
+    """
+    urls: List[str] = []
+    for msg in history:
+        raw = msg.get("attachments")
+        if not raw:
+            continue
+        if isinstance(raw, dict):
+            # Current format: {"images": [...], "videos": [...]}
+            for url in raw.get("images") or []:
+                if url:
+                    urls.append(url)
+            for url in raw.get("videos") or []:
+                if url:
+                    urls.append(url)
+        elif isinstance(raw, list):
+            # Legacy format: [{"url": "...", "type": "..."}]
+            for att in raw:
+                if isinstance(att, dict) and att.get("url"):
+                    urls.append(att["url"])
+    return urls
+
+
+def _extract_vision_context(history: List[Dict[str, Any]]) -> str:
+    """
+    Extracts the structured vision analysis of the original room photo from chat history.
+
+    The Designer agent (MODE_A_DESIGNER Phase 1) writes a structured Italian analysis
+    with fields "Tipo stanza", "Stile attuale", "Elementi di rilievo", etc.
+    We surface this as a dedicated context block so InsightEngine can use it to
+    determine the current state of the room (materials, condition, existing systems).
+    """
+    vision_block_lines: List[str] = []
+    for msg in history:
+        if msg.get("role") != "assistant":
+            continue
+        content = str(msg.get("content", ""))
+        # Detect the structured analysis written by MODE_A_DESIGNER Phase 1
+        if "Ho analizzato la tua foto" in content or "Tipo stanza" in content:
+            # Take the first 1200 chars to avoid token bloat while preserving key fields
+            vision_block_lines.append(content[:1200])
+            break  # Only the first vision analysis matters (original photo)
+    if vision_block_lines:
+        return (
+            "\n\n## Analisi Visiva Stanza Originale (Agentic Vision)\n"
+            "L'assistente ha analizzato la foto originale del cliente con questo risultato:\n\n"
+            + "\n".join(vision_block_lines)
+            + "\n\nUsa questi dati per determinare lo STATO ATTUALE della stanza "
+            "e identificare le demolizioni e preparazioni necessarie."
+        )
+    return ""
+
+
+async def _run_measurement_vision(media_urls: List[str]) -> str:
+    """
+    Downloads the first accessible image and runs the RoomMeasurementAgent on it.
+
+    Returns a formatted measurements block for injection into InsightEngine context,
+    or an empty string on failure (non-fatal — InsightEngine falls back to defaults).
+
+    SSRF protection: Only fetches URLs from the configured Firebase Storage bucket.
+    """
+    bucket = settings.FIREBASE_STORAGE_BUCKET or ""
+    for url in media_urls:
+        parsed = urlparse(url)
+        hostname_ok = parsed.hostname == bucket
+        path_ok = (
+            bucket
+            and parsed.hostname == "storage.googleapis.com"
+            and parsed.path.startswith(f"/{bucket}/")
+        )
+        if not (hostname_ok or path_ok):
+            logger.warning("[MeasureRoom] Skipping unauthorized URL: %s", parsed.hostname)
+            continue
+
+        # Skip renders (they're the target, not the source photo)
+        if "/renders/" in url:
+            continue
+
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                resp = await http_client.get(url)
+                resp.raise_for_status()
+
+            mime_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+            if not mime_type.startswith("image/"):
+                continue
+
+            measurements = await measure_room_from_photo(resp.content, mime_type)
+            return format_measurements_for_insight(measurements)
+
+        except Exception as exc:
+            logger.warning("[MeasureRoom] Measurement failed for %s: %s", url, exc)
+            continue
+
+    return ""  # No accessible image found — InsightEngine uses defaults
+
+
 async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str] = None, user_id: Optional[str] = None) -> str:
     """
     Analyzes the current chat session and suggests a list of quote items based on the Master Price Book.
     Use this when the user asks for a preliminary quote, cost estimation, or 'what needs to be done'.
     """
     try:
-        # 1. Load context
+        # 1. Load context (increased limit to capture original photo analysis)
         repo = ConversationRepository()
-        history = await repo.get_context(session_id, limit=20)
-        
-        # 2. Extract media URLs
-        media_urls = []
-        for msg in history:
-            attachments = msg.get("attachments", [])
-            for att in attachments:
-                if att.get("url"):
-                    media_urls.append(att["url"])
-        
-        # Optimization: Build Chat Summary instead of raw history
+        history = await repo.get_context(session_id, limit=40)
+
+        # 2. Extract media URLs (handles dict and legacy list format)
+        media_urls = _extract_media_urls(history)
+
+        # 3. Agentic Vision: measure room surfaces from original photo
+        # Runs Gemini 2.5 Flash + Python code execution to get real mq values.
+        # Non-fatal: if no photo or analysis fails, InsightEngine uses Italian averages.
+        measurement_context = await _run_measurement_vision(media_urls)
+        if measurement_context:
+            logger.info("[QuoteTool] Room measurements injected from agentic vision.")
+        else:
+            logger.info("[QuoteTool] No measurement data — InsightEngine will use defaults.")
+
+        # 4. Extract qualitative vision analysis from chat history (Phase 1 Designer output)
+        vision_context = _extract_vision_context(history)
+
+        # 5. Build enriched chat summary: measurements + vision analysis + conversation
         chat_summary = build_chat_summary(history)
-        
-        # 3. Analyze with Insight Engine (uses Gemini response_schema structured output)
+        enriched_summary = (
+            measurement_context
+            + vision_context
+            + "\n\n## Conversazione Progetto\n"
+            + chat_summary
+        )
+
+        # 6. Analyze with Insight Engine (uses Gemini response_schema structured output)
         engine = get_insight_engine()
-        # Pass the chat summary as a single distilled message to reduce token overhead
-        summary_message = [{"role": "user", "content": f"Riepilogo conversazione progetto:\n{chat_summary}"}]
+        summary_message = [{"role": "user", "content": enriched_summary}]
         try:
             analysis = await engine.analyze_project_for_quote(summary_message, media_urls)
         except InsightEngineError as exc:
@@ -217,7 +336,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
 
     except InsightEngineError:
         raise  # Already handled above — should not reach here
-    except Exception as exc:
+    except Exception:
         logger.error("[QuoteTool] Unexpected error during quote generation.", exc_info=True)
         return (
             "Si è verificato un errore imprevisto durante la generazione del preventivo. "
