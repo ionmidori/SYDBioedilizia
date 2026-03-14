@@ -4,7 +4,6 @@ Ensures that only authorized admins can resume paused quote approval flows.
 """
 import secrets
 import logging
-from typing import Optional
 from google.cloud import firestore
 from src.core.exceptions import QuoteAlreadyApprovedError, QuoteNotFoundError
 

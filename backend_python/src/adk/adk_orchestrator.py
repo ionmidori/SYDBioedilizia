@@ -249,18 +249,85 @@ class ADKOrchestrator(BaseOrchestrator):
                 actual_message = types.Content(role="user", parts=content_parts)
                 logger.info(f"[ADK] Starting run_async. Session: {session_id}, Parts: {len(content_parts)}")
 
+                async def _run_with_session_recovery():
+                    """
+                    Yields ADK events, with a one-time session recovery fallback.
+                    If SessionNotFoundError surfaces mid-stream (e.g. race condition after
+                    server restart), we recreate the session, re-inject history from
+                    Firestore and retry run_async exactly once.
+                    """
+                    nonlocal session
+                    for attempt in range(2):
+                        try:
+                            async for event in self.runner.run_async(
+                                session_id=session_id,
+                                user_id=user_id,
+                                new_message=actual_message,
+                            ):
+                                yield event
+                            return  # success — no retry needed
+                        except Exception as run_err:
+                            is_session_err = (
+                                type(run_err).__name__ == "SessionNotFoundError"
+                                or "Session not found" in str(run_err)
+                                or "session" in str(run_err).lower() and "not found" in str(run_err).lower()
+                            )
+                            if is_session_err and attempt == 0:
+                                logger.warning(
+                                    f"[ADK] SessionNotFoundError mid-stream on attempt {attempt+1} "
+                                    f"— recreating session and retrying. session_id={session_id}",
+                                    extra={"session_id": session_id, "restored": True},
+                                )
+                                try:
+                                    session = await session_service.create_session(
+                                        app_name="syd_orchestrator",
+                                        user_id=user_id,
+                                        session_id=session_id,
+                                    )
+                                    _repo = get_conversation_repository()
+                                    _history = await _repo.get_context(session_id, limit=30)
+                                    if _history:
+                                        _events = []
+                                        for _idx, _msg in enumerate(_history):
+                                            _role = _msg.get("role", "user")
+                                            _text = _msg.get("content", "").strip()
+                                            if not _text:
+                                                continue
+                                            _events.append(Event(
+                                                invocation_id=f"recovery_restore_{int(time.time()*1000)}_{_idx}",
+                                                author=_role,
+                                                content=types.Content(
+                                                    role=_role,
+                                                    parts=[types.Part(text=_text)],
+                                                ),
+                                                actions=EventActions(),
+                                            ))
+                                        if _events:
+                                            await asyncio.gather(*(
+                                                session_service.append_event(session, e)
+                                                for e in _events
+                                            ))
+                                        logger.info(
+                                            f"[ADK] Recovery: injected {len(_events)} history events",
+                                            extra={"session_id": session_id},
+                                        )
+                                except Exception as recovery_err:
+                                    logger.error(f"[ADK] Session recovery failed: {recovery_err}")
+                                    raise run_err  # surface original error
+                                # retry loop continues (attempt=1)
+                            else:
+                                raise  # second attempt or non-session error
+
                 try:
                     # 180s hard timeout (3 minutes) — image generation and agent logic can be slow.
                     # This ensures a clean error message reaches the client if it truly hangs.
                     async with asyncio.timeout(180):
-                        logger.info(f"[ADK] Calling run_async with new_message: {actual_message is not None}, Parts: {len(actual_message.parts) if actual_message else 0}")
-                        
-                        # Guard: If for some reason actual_message is STILL invalid, ADK will fail here correctly.
-                        async for event in self.runner.run_async(
-                            session_id=session_id,
-                            user_id=user_id,
-                            new_message=actual_message
-                        ):
+                        logger.info(
+                            f"[ADK] Calling run_async. session_id={session_id}, "
+                            f"parts={len(actual_message.parts)}, restored={session is not None}"
+                        )
+
+                        async for event in _run_with_session_recovery():
                             logger.debug(f"[ADK] Event: {getattr(event, 'event_type', 'content')}")
                             # ── Handle Interrupts (HITL) ──
                             if hasattr(event, "event_type") and event.event_type == "interrupt":

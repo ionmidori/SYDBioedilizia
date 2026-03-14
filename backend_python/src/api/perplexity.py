@@ -1,7 +1,6 @@
-import os
 import logging
 import httpx
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)

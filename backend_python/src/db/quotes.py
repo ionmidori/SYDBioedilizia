@@ -14,7 +14,6 @@ from typing import Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
 import logging
 from src.db.firebase_client import get_async_firestore_client
-from google.cloud import firestore
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,6 @@ import httpx
 import re
 import mimetypes
 from urllib.parse import unquote
-import firebase_admin
 from firebase_admin import storage
 
 logger = logging.getLogger(__name__)
@@ -45,7 +44,7 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
     # STRATEGY 0: Check for Gemini File API / Internal URIs (Pass-through)
     # -------------------------------------------------------------------------
     if url.startswith("https://generativelanguage.googleapis.com") or url.startswith("files/"):
-        logger.info(f"[SmartDownload] ⏩ Identified Gemini File API URI. Skipping download.")
+        logger.info("[SmartDownload] ⏩ Identified Gemini File API URI. Skipping download.")
         # Return the URI as encoded bytes, with special MIME type
         return url.encode("utf-8"), "application/vnd.google-apps.file"
 
@@ -56,7 +55,7 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
         encoded_path = match.group(2)
         blob_path = unquote(encoded_path) # Decode URL-encoded characters (e.g. %2F -> /)
         
-        logger.info(f"[SmartDownload] 🕵️ Detected Firebase Storage URL.")
+        logger.info("[SmartDownload] 🕵️ Detected Firebase Storage URL.")
         logger.info(f"  - Bucket: {bucket_name}")
         logger.info(f"  - Path: {blob_path}")
         

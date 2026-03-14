@@ -123,20 +123,20 @@ export default function BlogIndexPage() {
                         </p>
                     </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {BLOG_POSTS.map((post) => (
                             <Link
                                 key={post.id}
                                 href={`/blog/${post.id}`}
                                 className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border hover:shadow-xl hover:border-primary/30 transition-all duration-300"
                             >
-                                <div className="relative h-64 w-full overflow-hidden bg-muted">
+                                <div className="relative h-56 w-full overflow-hidden bg-muted">
                                     <Image
                                         src={post.image}
                                         alt={post.title}
                                         fill
                                         className="object-cover transition-transform duration-500 group-hover:scale-105"
-                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 50vw"
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                     />
                                     <div className="absolute top-4 left-4">
                                         <span className="bg-background/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-primary">
@@ -145,14 +145,14 @@ export default function BlogIndexPage() {
                                     </div>
                                 </div>
 
-                                <div className="p-8 flex flex-col flex-grow">
-                                    <div className="text-sm text-muted-foreground mb-3 font-medium">
+                                <div className="p-6 flex flex-col flex-grow">
+                                    <div className="text-sm text-muted-foreground mb-2 font-medium">
                                         {post.date}
                                     </div>
-                                    <h2 className="text-2xl font-bold mb-4 text-card-foreground group-hover:text-primary transition-colors line-clamp-2">
+                                    <h2 className="text-xl font-bold mb-3 text-card-foreground group-hover:text-primary transition-colors line-clamp-2">
                                         {post.title}
                                     </h2>
-                                    <p className="text-muted-foreground mb-8 flex-grow line-clamp-3 leading-relaxed">
+                                    <p className="text-muted-foreground mb-6 flex-grow line-clamp-3 leading-relaxed text-sm">
                                         {post.excerpt}
                                     </p>
 

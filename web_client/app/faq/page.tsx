@@ -1,10 +1,13 @@
 import { Metadata } from 'next';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { FAQ_DATA, FAQItem, CATEGORY_ICONS } from '@/lib/faq-data';
 import { FAQItemCard } from '@/components/faq/FAQItem';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
 import { Coins, FileText, Sparkles, Wrench, Phone } from 'lucide-react';
+import { OpenChatButton } from '@/components/ui/open-chat-button';
+import ChatWidget from '@/components/chat/ChatWidget';
 
 const iconMap = {
   Coins,
@@ -159,15 +162,15 @@ export default function FAQPage() {
                 <Phone className="w-4 h-4" />
                 Chiama Ora
               </a>
-              <Link
-                href="/"
-                className="inline-flex items-center justify-center px-6 py-3 rounded-full border border-luxury-gold/30 text-luxury-gold font-medium hover:bg-luxury-gold/10 transition-all duration-200"
-              >
+              <OpenChatButton>
                 Parla con l&apos;AI
-              </Link>
+              </OpenChatButton>
             </div>
           </div>
         </div>
+        <Suspense fallback={<div />}>
+          <ChatWidget />
+        </Suspense>
       </main>
       <Footer />
     </>

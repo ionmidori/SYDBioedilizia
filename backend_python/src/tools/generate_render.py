@@ -9,7 +9,6 @@ import logging
 
 
 from src.db.messages import save_file_metadata
-from src.models.project import ProjectUpdate, ProjectStatus
 
 logger = logging.getLogger(__name__)
 

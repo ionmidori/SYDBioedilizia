@@ -1,7 +1,6 @@
 import json
 from datetime import timedelta
 from typing import Optional
-import firebase_admin
 from firebase_admin import storage, firestore
 from src.utils.context import get_current_user_id
 import logging

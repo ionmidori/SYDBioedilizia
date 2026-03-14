@@ -1,4 +1,3 @@
-import os
 import logging
 import asyncio
 import base64
@@ -51,14 +50,8 @@ async def generate_image_t2i(
     Raises:
         Exception: If API call fails or no API key configured
     """
-    # Create fresh client for this request (avoids Event Loop conflicts in sync wrappers)
-    # Create fresh client for this request (avoids Event Loop conflicts in sync wrappers)
-    try:
-        api_key = settings.api_key
-        client = genai.Client(api_key=api_key)
-    except ValueError as e:
-        raise Exception(f"Configuration Error: {e}")
-    
+    client = _get_client()
+
     try:
         # Build full prompt
         safety_instruction = (
@@ -120,9 +113,6 @@ async def generate_image_t2i(
     except Exception as e:
         logger.error(f"[Gemini] ❌ T2I generation failed: {str(e)}", exc_info=True)
         raise Exception(f"Errore di sistema nella generazione immagine: {str(e)}")
-    finally:
-        # Crucial: Close the client to release resources before loop closes
-        client.close()
 
 
 async def generate_image_i2i(
@@ -149,14 +139,8 @@ async def generate_image_i2i(
     Raises:
         Exception: If API call fails or no API key configured
     """
-    # Create fresh client for this request
-    # Create fresh client for this request
-    try:
-        api_key = settings.api_key
-        client = genai.Client(api_key=api_key)
-    except ValueError as e:
-        raise Exception(f"Configuration Error: {e}")
-    
+    client = _get_client()
+
     try:
         # Build I2I prompt with geometry preservation instructions
         preservation_note = ""
@@ -252,6 +236,3 @@ async def generate_image_i2i(
     except Exception as e:
         logger.error(f"[Gemini] ❌ I2I generation failed: {str(e)}", exc_info=True)
         raise Exception(f"Errore imprevisto durante la generazione: {str(e)}")
-    finally:
-        # Crucial: Close the client to release resources
-        client.close()

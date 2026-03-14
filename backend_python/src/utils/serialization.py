@@ -1,6 +1,6 @@
 from datetime import datetime
 from src.utils.datetime_utils import utc_now
-from typing import Any, Type, Optional, TypeVar
+from typing import Any, Type, TypeVar
 from enum import Enum
 import logging
 from dateutil import parser

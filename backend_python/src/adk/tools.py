@@ -163,7 +163,7 @@ async def list_project_files(session_id: str) -> str:
         session_id: The project identifier.
     """
     from src.tools.project_files import list_project_files as _lp
-    return _lp.func(session_id)
+    return _lp(session_id)
 
 
 # ─── Quote Item Suggestions ──────────────────────────────────────────────────

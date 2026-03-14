@@ -2,7 +2,7 @@ import base64
 import json
 import logging
 import time
-from typing import List, Optional, Dict, Any
+from typing import List
 from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field

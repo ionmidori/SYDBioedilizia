@@ -1,12 +1,15 @@
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from firebase_admin import firestore as sync_firestore
 from google.cloud import firestore as async_firestore
 from src.db.firebase_client import get_firestore_client, get_async_firestore_client
 from src.db.projects import sync_project_cover
 
 logger = logging.getLogger(__name__)
+
+# TTL for sessions and messages in days
+SESSION_TTL_DAYS = 30
 
 class ConversationRepository:
     """
@@ -35,7 +38,7 @@ class ConversationRepository:
         metadata: Optional[Dict[str, Any]] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
         tool_call_id: Optional[str] = None,
-        attachments: Optional[List[Dict[str, Any]]] = None,
+        attachments: Optional[Any] = None,
         timestamp: Optional[datetime] = None
     ) -> None:
         """Save a message to Firestore with tool support and media attachments."""
@@ -49,15 +52,21 @@ class ConversationRepository:
             if tool_calls:
                 tool_calls = [tc.model_dump() if hasattr(tc, 'model_dump') else tc for tc in tool_calls]
             
-            if attachments:
+            if attachments and isinstance(attachments, list):
                 attachments = [att.model_dump() if hasattr(att, 'model_dump') else att for att in attachments]
+            elif attachments and hasattr(attachments, 'model_dump'):
+                attachments = attachments.model_dump()
 
             # 🚀 Use correct sentinel for Async Client
             
+            # Calculate expireAt for TTL (30 days from now)
+            expire_at = datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS)
+
             message_data = {
                 'role': role,
                 'content': content,
                 'timestamp': timestamp if timestamp else async_firestore.SERVER_TIMESTAMP,
+                'expireAt': expire_at
             }
             
             if metadata:
@@ -82,7 +91,8 @@ class ConversationRepository:
             session_update = {
                 'updatedAt': async_firestore.SERVER_TIMESTAMP,
                 'sessionId': session_id,
-                'messageCount': async_firestore.Increment(1)
+                'messageCount': async_firestore.Increment(1),
+                'expireAt': expire_at
             }
             
             if not session_doc.exists:
@@ -150,6 +160,8 @@ class ConversationRepository:
             session_ref = db.collection('sessions').document(session_id)
             doc = await session_ref.get()
             
+            expire_at = datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS)
+
             if not doc.exists:
                 # Determine owner
                 owner_id = user_id if user_id else f"guest_{session_id[:8]}"
@@ -162,6 +174,7 @@ class ConversationRepository:
                     'thumbnailUrl': None,
                     'createdAt': async_firestore.SERVER_TIMESTAMP,
                     'updatedAt': async_firestore.SERVER_TIMESTAMP,
+                    'expireAt': expire_at,
                     'messageCount': 0
                 })
                 logger.info(f"[Repo] Created new session {session_id} for user {owner_id}")
@@ -183,14 +196,21 @@ class ConversationRepository:
                 # 🔄 Session Claiming Logic: If existing session is a guest one, and we have a real user, upgrade it.
                 session_data = doc.to_dict()
                 current_owner = session_data.get('userId', '')
+                
+                update_data = {'expireAt': expire_at}
+                
                 if user_id and current_owner.startswith('guest_'):
-                    await session_ref.update({'userId': user_id, 'updatedAt': async_firestore.SERVER_TIMESTAMP})
+                    update_data['userId'] = user_id
+                    update_data['updatedAt'] = async_firestore.SERVER_TIMESTAMP
+                    
                     # Also update project
                     project_ref = db.collection('projects').document(session_id)
                     project_snap = await project_ref.get()
                     if project_snap.exists:
                         await project_ref.update({'userId': user_id, 'updatedAt': async_firestore.SERVER_TIMESTAMP})
                     logger.info(f"[Repo] 🔄 CLAIM: Session {session_id} migrated from {current_owner} to {user_id}")
+                
+                await session_ref.update(update_data)
                 
                 # Backfill check
                 project_ref = db.collection('projects').document(session_id)

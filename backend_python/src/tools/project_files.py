@@ -1,5 +1,4 @@
-from typing import List, Optional
-import firebase_admin
+from typing import Optional
 from firebase_admin import storage, firestore
 from src.utils.context import get_current_user_id
 import logging

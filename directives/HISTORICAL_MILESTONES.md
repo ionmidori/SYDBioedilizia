@@ -372,4 +372,11 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 ## 🔧 Phase 60: Stable Snapshot Timing (Mar 07, 2026)
 - **Snapshot Protocol**: Introduced `snapshotTime` in `ChatProvider.tsx` to ensure all messages in a single update use an identical fallback timestamp, preventing re-ordering during Firestore batch updates.
 
-_Documento aggiornato: Marzo 12, 2026_
+## 🔧 Phase 63: Backend Performance Hardening & ADK Session Persistence (Mar 10, 2026)
+- **Event Loop Fix (upload.py)**: Wrapped sync Firebase SDK calls in `run_in_threadpool()` to prevent event loop blocking during image uploads.
+- **Memory Safety (upload.py)**: Implemented `_safe_read_file()` with 1MB chunked reading + in-flight size enforcement.
+- **DRY Quota Helper (upload.py)**: Extracted `_enforce_quota()` to eliminate duplication.
+- **ADK Session Restart (adk_orchestrator.py)**: Restored conversation context after server restart by injecting last 30 messages.
+- **Test Compliance**: Updated mock names in `test_tools.py`; all 375 backend tests passing.
+
+_Documento aggiornato: Marzo 13, 2026_

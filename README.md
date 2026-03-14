@@ -15,22 +15,24 @@
 The platform is built on a strict separation of concerns to ensure institutional-grade stability and security.
 
 ### Tier 1: Directives (Strategy & Governance)
-- **Engine**: Google ADK (Vertex AI Agent Builder) Multi-Agent Orchestration.
+- **Engine**: Google ADK (Vertex AI Agent Builder) Multi-Agent Orchestration with active Session Persistence Hardening.
 - **Security**: **Sandwich Defense** implementation with active delimiter neutralization against Prompt Injection (OWASP LLM01).
-- **Logic**: `syd_orchestrator` dynamically routes to specialized sub-agents (`triage`, `design`, `quote`).
+- **Logic**: `syd_orchestrator` dynamically routes to specialized sub-agents (`triage`, `design`, `quote`) with Intent-First processing.
 - **Context**: Dynamic context building via RAG-lite patterns and Vertex AI Session Services.
+- **Evaluation**: Integrated ADK Evaluation Suite with dynamic offline rubrics.
 
 ### Tier 2: Orchestration (UI & Interaction Layer)
-- **Framework**: Next.js 16.2 (App Router) + React 19 compatible.
+- **Framework**: Next.js 16.2 (App Router) + React 19 compatible (Turbopack hardened).
 - **Validation**: Runtime data integrity enforced via **Zod-based `fetchValidated` wrappers**, eliminating unsafe type assertions.
 - **State**: SWR (Server) + Zustand (UI) + URL-driven persistence.
-- **Logic**: Vercel AI SDK integration for resilient, streaming AI responses with 0 TypeScript errors.
+- **Logic**: Vercel AI SDK integration for resilient, streaming AI responses with real-time UI features like the Video Trimmer and interactive media carousels.
 
 ### Tier 3: Execution (Data & Logic Muscle)
-- **API**: FastAPI (Python 3.13+) with high-concurrency **Raw ASGI middleware** stack.
+- **API**: FastAPI (Python 3.13+) with high-concurrency **Raw ASGI middleware** stack and native unstructured payload routing.
 - **Async Hygiene**: Firestore persistence offloaded to **FastAPI `BackgroundTasks`**, ensuring ultra-low TTFT (Time To First Token).
 - **Resource Protection**: Enforced **5MB file limits** and multimodal caps (5 images/2 videos) to prevent OOM and Denial of Wallet.
 - **Engines**: Vision & CAD (ezdxf), Market Intelligence (Perplexity), Visual Assets (Imagen 3).
+- **Feedback Loop**: Negative feedback collection and self-correction architecture.
 
 ---
 
@@ -81,7 +83,7 @@ npm run dev:py         # Backend (Port 8081)
 ```
 
 ### Quality Assurance
-- **Verification**: `npm run type-check` (0 Errors) & `uv run pytest` (Passing **178** unit tests).
+- **Verification**: `npm run type-check` (0 Errors) & `uv run pytest` (Passing **400+** unit and evaluation tests).
 - **Hardening**: Production-ready Docker builds with pre-compressed assets and security headers.
 
 ---

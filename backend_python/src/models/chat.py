@@ -1,5 +1,5 @@
 from typing import Literal, Optional
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel
 
 class MediaAttachment(BaseModel):
     """

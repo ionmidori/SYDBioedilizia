@@ -10,7 +10,6 @@ Implements AdminService.approve_quote() which:
 Driven by test_admin_service.py (TDD approach).
 """
 import logging
-from typing import Any
 
 from src.core.exceptions import PDFGenerationError, DeliveryError
 
@@ -68,7 +67,7 @@ class AdminService:
                 "PDF uploaded to Storage.",
                 extra={"project_id": project_id, "url": pdf_url[:50] + "..."},
             )
-        except Exception as exc:
+        except Exception:
             logger.error("Storage upload failed.", extra={"project_id": project_id})
             raise
 
@@ -85,7 +84,7 @@ class AdminService:
         try:
             await self._update_firestore(project_id, pdf_url, admin_notes)
             logger.info("Firestore updated.", extra={"project_id": project_id})
-        except Exception as exc:
+        except Exception:
             logger.error("Firestore update failed.", extra={"project_id": project_id})
             raise
 
@@ -176,7 +175,6 @@ async def upload_pdf_to_storage(project_id: str, pdf_bytes: bytes) -> str:
     Returns: Signed URL valid for 1 hour
     """
     from firebase_admin import storage
-    import time
 
     bucket = storage.bucket()
     blob = bucket.blob(f"projects/{project_id}/quote.pdf")

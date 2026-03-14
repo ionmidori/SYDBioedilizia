@@ -203,7 +203,7 @@ def optimize_video(input_path: str, max_duration: float = 30.0, trim_start: Opti
         logger.error(f"FFmpeg optimization failed: {e.stderr.decode() if e.stderr else str(e)}")
         os.unlink(output_path)
         raise Exception(f"Video optimization failed: {str(e)}")
-    except Exception as e:
+    except Exception:
         if os.path.exists(output_path):
             os.unlink(output_path)
         raise

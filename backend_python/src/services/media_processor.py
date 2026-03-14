@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import BinaryIO, Optional, IO
+from typing import IO
 from google import genai
 from google.genai import types
 

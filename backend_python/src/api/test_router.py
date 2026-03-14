@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from src.auth.jwt_handler import verify_token
 from src.schemas.internal import UserSession
 from src.core.logger import get_logger
-from src.core.config import settings
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/test", tags=["test-automation"])
@@ -20,7 +19,7 @@ async def test_market_prices(
         logger.error(f"Test Market Prices failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-from fastapi import APIRouter, Depends, HTTPException, File, UploadFile
+from fastapi import APIRouter, Depends, File, UploadFile
 # ...
 @router.post("/tools/analyze-room")
 async def test_analyze_room(

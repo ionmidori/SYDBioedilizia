@@ -117,10 +117,33 @@ export function useChatHistory(
                             }));
                         }
 
-                        // Attachments...
-                        const attachments = data.attachments || undefined;
+                        // 📎 Attachment Transformation Resilience Layer
+                        // Handles:
+                        // 1. Legacy: List of objects [{url: string, type: string}]
+                        // 2. Structured: { images: string[], videos: string[] } (Preferred)
+                        // 3. Fallback: message.parts (AI SDK v6) handled in MessageItem
+                        let attachments = undefined;
+                        const rawAttachments = data.attachments;
+                        
+                        if (rawAttachments) {
+                            if (Array.isArray(rawAttachments)) {
+                                // Convert Legacy Array -> Structured Object
+                                attachments = {
+                                    images: rawAttachments.filter(a => a.type === 'image').map(a => a.url),
+                                    videos: rawAttachments.filter(a => a.type === 'video').map(a => a.url),
+                                    documents: rawAttachments.filter(a => a.type === 'document').map(a => a.url)
+                                };
+                            } else if (typeof rawAttachments === 'object') {
+                                // Use as-is, ensuring arrays exist
+                                attachments = {
+                                    images: Array.isArray(rawAttachments.images) ? rawAttachments.images : [],
+                                    videos: Array.isArray(rawAttachments.videos) ? rawAttachments.videos : [],
+                                    documents: Array.isArray(rawAttachments.documents) ? rawAttachments.documents : []
+                                };
+                            }
+                        }
 
-                        // Clean content
+                        // Clean content (strip internal attachment markers)
                         let content = (data.content || '') as string;
                         if (content && (attachments?.images?.length || attachments?.videos?.length)) {
                             content = content

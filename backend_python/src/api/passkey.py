@@ -10,7 +10,7 @@ Implements FIDO2/WebAuthn protocol for biometric authentication:
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from pydantic import BaseModel, Field
 from firebase_admin import firestore, auth
-from src.auth.jwt_handler import verify_token, get_current_user_id
+from src.auth.jwt_handler import get_current_user_id
 from src.db.firebase_client import get_firestore_client
 from src.core.config import settings
 import secrets
@@ -228,7 +228,7 @@ async def verify_registration(
         client_data_json = base64.urlsafe_b64decode(credential.response["clientDataJSON"] + "==").decode('utf-8')
         client_data = json.loads(client_data_json)
         challenge_b64 = client_data.get("challenge")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid clientDataJSON")
 
     # Verify challenge existence directly
@@ -330,7 +330,7 @@ async def verify_authentication(assertion: PasskeyAssertion):
         client_data_json = base64.urlsafe_b64decode(assertion.response["clientDataJSON"] + "==").decode('utf-8')
         client_data = json.loads(client_data_json)
         challenge_b64 = client_data.get("challenge")
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Invalid clientDataJSON")
 
     # 2. Verify challenge
@@ -347,7 +347,7 @@ async def verify_authentication(assertion: PasskeyAssertion):
         try:
             padding = "==" if len(user_handle_b64) % 4 else ""
             user_id = base64.urlsafe_b64decode(user_handle_b64 + padding).decode('utf-8')
-        except Exception as e:
+        except Exception:
             raise HTTPException(status_code=400, detail="Invalid userHandle")
     else:
         # Legacy flow: Use stored user_id from challenge

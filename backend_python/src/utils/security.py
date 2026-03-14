@@ -106,7 +106,7 @@ async def validate_video_magic_bytes(file: UploadFile, max_header_size: int = 20
                           f"Declared: {declared_type}, Header: {header[:16].hex()}")
             raise HTTPException(
                 status_code=400,
-                detail=f"Security validation failed. File signature not recognized as a valid video format."
+                detail="Security validation failed. File signature not recognized as a valid video format."
             )
         
         # Allow minor MIME type variations (e.g., video/mp4 vs video/x-m4v)

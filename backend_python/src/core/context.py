@@ -1,6 +1,5 @@
 from contextvars import ContextVar
 from typing import Optional
-import uuid
 
 # Global Context Variables
 _request_id_ctx_var: ContextVar[str] = ContextVar("request_id", default="system")

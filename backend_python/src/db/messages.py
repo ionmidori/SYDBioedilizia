@@ -236,7 +236,6 @@ async def save_file_metadata(
             'size': file_data.get('size', 0),
             'uploadedBy': file_data.get('uploadedBy', 'system'),
             'uploadedAt': firestore.SERVER_TIMESTAMP,
-            'uploadedAt': firestore.SERVER_TIMESTAMP,
             'mimeType': file_data.get('mimeType', 'application/octet-stream'),
             'metadata': file_data.get('metadata', {}), # For source_image_id etc.
             'thumbnailUrl': file_data.get('thumbnailUrl') # Video thumbnails

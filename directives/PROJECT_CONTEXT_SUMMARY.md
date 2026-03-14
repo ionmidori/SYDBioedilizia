@@ -1,14 +1,18 @@
-# PROJECT CONTEXT SUMMARY (v4.0.23)
-**Ultimo aggiornamento:** 14 Marzo 2026 (Phase 70)
-**Status:** Production-Ready — Self-Correction Loop & ADK Evaluation Infrastructure
+# PROJECT CONTEXT SUMMARY (v4.0.24)
+**Ultimo aggiornamento:** 14 Marzo 2026 (Phase 71)
+**Status:** Production-Ready — ADK Session Persistence Hardening
 
-## 🎯 Obiettivi Correnti (Phase 70)
-1. **ADK Self-Correction Loop**: Implementato sistema completo di valutazione e auto-correzione basato su ADK `AgentEvaluator` + rubric custom SYD.
-2. **Feedback Collection**: Raccolta rating utente (👍/👎) su messaggi assistant → Firestore → loop di miglioramento prompts.
-3. **Triage Intent-First**: Orchestratore chiede intent prima di analizzare file caricati senza contesto; triage non ripropone domanda di routing se già in flusso preventivo/rendering.
-4. **Eval Infrastructure**: 5 scenari SYD pronti per `AgentEvaluator` live; 13 pytest offline passano al 100%.
+## 🎯 Obiettivi Correnti (Phase 71)
+1. **ADK Session Recovery Hardening**: Fallback mid-stream per `SessionNotFoundError` in `adk_orchestrator.py` — se la sessione sparisce durante `run_async` (race condition post-restart), il sistema ricrea la sessione, re-inietta la history da Firestore e riprova automaticamente una volta.
+2. **Quote Flow Continuity**: Garantita continuità del flusso preventivo anche dopo restart del backend durante una sessione attiva.
 
 ---
+
+- **Phase 71 (Mar 14, 2026):** **ADK Session Persistence Hardening & Dead-code cleanup (v4.0.24)**:
+    - **Dead-code elimination**: Rimozione di file e variabili inutilizzate nel backend con Ruff e Vulture.
+    - **Ripristino file di Feedback**: Ripristinati `src/api/feedback.py`, `src/repositories/feedback_repository.py`, e `src/schemas/feedback.py` precedentemente rimossi per errore dal tool di dead-code elimination (aggiunti recentemente da un altro agente in Phase 70).
+    - **Mid-stream recovery (`adk_orchestrator.py`)**: Aggiunto `_run_with_session_recovery()` async generator — avvolge `runner.run_async()` con retry una volta sola su `SessionNotFoundError`. Al secondo tentativo: ricrea sessione ADK, re-inietta ultimi 30 messaggi Firestore come Events, richiama `run_async`. Copre race condition non coperta dal pre-flight check già esistente.
+    - **Structured logging**: Log `restored=True/False` su ogni invocazione `run_async` per diagnostica restart recovery.
 
 - **Phase 70 (Mar 14, 2026):** **Self-Correction Loop, ADK Evals & Triage Fix (v4.0.23)**:
     - **ADK Evaluation Suite (tests/evals/)**: Infrastruttura completa: `test_config.json`, `syd_rubrics.py` (6 rubric: `no_furniture`, `italian_only`, `has_mq`, `sku_present`, `no_routing_in_quote_flow`, `intent_first_on_upload`), 3 file `.test.json` (quote/design/triage), runner standalone (`run_evals.py`), 13 pytest offline.
@@ -53,5 +57,5 @@
 
 ---
 
-- **Current Version**: `v4.0.23`
+- **Current Version**: `v4.0.24`
 - **Next High Priority**: 1) ADK Session cleanup cron for GDPR | 2) Admin dashboard page per negativi feedback (self-correction loop Fase 2) | 3) Replace remaining `Loader2` imports with `SydLoader` | 4) Automate Golden Sync generation | 5) Eseguire live eval run con `run_evals.py` (richiede GOOGLE_API_KEY + Vertex AI)

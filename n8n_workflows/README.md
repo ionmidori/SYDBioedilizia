@@ -7,30 +7,30 @@ Quattro workflow pronti per l'importazione in n8n, implementati con pattern ente
 
 ## Architettura dei Workflow
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         SYD n8n Automation Suite                            │
 │                                                                             │
-│   ┌─────────────┐   ┌─────────────────────┐   ┌──────────────────────┐     │
-│   │  POLLER     │──▶│  NOTIFY ADMIN        │──▶│   DELIVER QUOTE      │     │
-│   │  (5 min)   │   │  (Webhook POST)       │   │   (Webhook POST)     │     │
-│   └─────────────┘   └─────────────────────┘   └──────────────────────┘     │
+│   ┌─────────────┐   ┌─────────────────────┐   ┌──────────────────────┐      │
+│   │  POLLER     │──▶│  NOTIFY ADMIN       │──▶│   DELIVER QUOTE      │      │
+│   │  (5 min)    │   │  (Webhook POST)     │   │   (Webhook POST)     │      │
+│   └─────────────┘   └─────────────────────┘   └──────────────────────┘      │
 │          │                   │  │                       │  │                │
 │          │                   │  │ ✓ HMAC Validation     │  │ ✓ HMAC + Joi   │
-│          │                   │  │ ✓ Email (urgente/norm) │  │ ✓ Email HTML   │
-│          │                   │  │ ✓ Telegram Alert       │  │ ✓ Twilio WA    │
-│          │                   │  │ ✓ Audit Log Backend    │  │ ✓ Firestore sync│
-│          │                   │  └──────────────┐         │  │ ✓ Audit Log    │
-│          └──────────────────────────────────── │ ──────── │ ─┘              │
-│                                                ▼          ▼                 │
-│                                       ┌─────────────────────┐               │
-│                                       │   ERROR HANDLER      │               │
-│                                       │   (Error Trigger)    │               │
-│                                       │ ✓ Severity classifier │               │
-│                                       │ ✓ Telegram critico    │               │
-│                                       │ ✓ Email con stack     │               │
-│                                       │ ✓ Log → Backend       │               │
-│                                       └─────────────────────┘               │
+│          │                   │  │ ✓ Email (urgente/norm)│  │ ✓ Email HTML   │
+│          │                   │  │ ✓ Telegram Alert      │  │ ✓ Twilio WA    │
+│          │                   │  │ ✓ Audit Log Backend   │  │ ✓ Firestore    │
+│          │                   │  └──────────────┐        │  │ ✓ Audit Log    │
+│          └──────────────────────────────────── │ ────── │ ─┘                │
+│                                                ▼        ▼                   │
+│                                           ┌─────────────────────┐           │
+│                                           │   ERROR HANDLER     │           │
+│                                           │   (Error Trigger)   │           │
+│                                           │ ✓ Severity classif. │           │
+│                                           │ ✓ Telegram critico  │           │
+│                                           │ ✓ Email con stack   │           │
+│                                           │ ✓ Log → Backend     │           │
+│                                           └─────────────────────┘           │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -54,13 +54,13 @@ Quattro workflow pronti per l'importazione in n8n, implementati con pattern ente
 ### Payload di Input
 ```json
 {
-  "project_id": "proj_abc123",
-  "client_name": "Mario Rossi",
-  "estimated_value": 15000.00,
+  "project_id": "proj_abc123",        
+  "client_name": "Mario Rossi",       
+  "estimated_value": 15000.00,        
   "item_count": 12,
   "urgency": "high",
   "ai_summary": "Ristrutturazione bagno + cucina. Voci principali: demolizioni, impianti.",
-  "review_url": "https://admin.sydarchitetto.it/quotes/proj_abc123",
+  "review_url": "https://admin.sydarchitetto.it/quotes/proj_abc123",        
   "notify_channels": ["email", "telegram"]
 }
 ```
@@ -69,7 +69,7 @@ Quattro workflow pronti per l'importazione in n8n, implementati con pattern ente
 
 ## Workflow 2: Deliver Quote (`workflow_deliver_quote.json`) v2
 
-**Evento**: `quote_approved_deliver`
+**Evento**: `quote_approved_deliver`  
 **Trigger**: `POST /webhook/syd-deliver-quote`
 **Pattern**: Signed Webhook → Validate → Build HTML → Route → Send → Firestore Sync → Audit
 
@@ -87,13 +87,13 @@ Quattro workflow pronti per l'importazione in n8n, implementati con pattern ente
 ### Payload di Input
 ```json
 {
-  "project_id": "proj_abc123",
-  "client_name": "Mario Rossi",
+  "project_id": "proj_abc123",        
+  "client_name": "Mario Rossi",       
   "client_email": "mario.rossi@example.com",
-  "client_phone": "+393331234567",
-  "pdf_url": "https://storage.googleapis.com/syd.../quote_abc123.pdf",
+  "client_phone": "+393331234567",    
+  "pdf_url": "https://storage.googleapis.com/syd.../quote_abc123.pdf",      
   "quote_total": 15000.00,
-  "quote_number": "SYD-2026-001",
+  "quote_number": "SYD-2026-001",     
   "delivery_channel": "both",
   "admin_notes": "Prezzo bloccato fino al 30/06/2026.",
   "expiry_date": "2026-06-30T23:59:59Z"
@@ -110,7 +110,7 @@ Quattro workflow pronti per l'importazione in n8n, implementati con pattern ente
 ### Funzionalità Enterprise
 | Feature | Dettaglio |
 |---------|-----------|
-| **Severity Classifier** | `critical` (Deliver Quote, HMAC attack) · `high` (Notify Admin) · `medium` (altri) |
+| **Severity Classifier** | `critical` (Deliver Quote, HMAC attack) · `high` (Notify Admin) · `medium` (altri) |  
 | **Email Critica** | Stack trace HTML, action required se progetto identificato, link execution n8n |
 | **Telegram Critico** | Alert immediato per errori critici con context completo |
 | **Backend Logging** | POST `/api/internal/error-log` per persistenza su Firestore |
@@ -129,18 +129,18 @@ In ogni workflow SYD, nel pannello Settings → Error Workflow: `SYD — Error H
 
 ---
 
-## 🏗️ Architecture & Security Patterns
+## 🏗️ Architecture & Security Patterns 
 
 The SYD Automation Suite handles critical notifications and document delivery. It is integrated with the Python Backend via the **MCP (Model Context Protocol)**.
 
-### 1. HMAC Validation (Zero-Trust)
-Every webhook entry point enforces **HMAC-SHA256 signature verification**.
+### 1. HMAC Validation (Zero-Trust)   
+Every webhook entry point enforces **HMAC-SHA256 signature verification**.  
 - The payload is signed by the Python backend using a shared `SYD_WEBHOOK_SECRET`.
 - n8n validates the `X-Hub-Signature-256` header before execution.
 - Prevents unauthorized triggers and replay attacks.
 
-### 2. Standardized Response Format
-Workflows return a consistent JSON schema for tool-calling integration:
+### 2. Standardized Response Format   
+Workflows return a consistent JSON schema for tool-calling integration:     
 ```json
 { "status": "success", "request_id": "...", "timestamp": "..." }
 ```
@@ -156,23 +156,28 @@ Triggered when high-value events occur (e.g., Lead captured, Error in AI Graph).
 
 ### 📄 `deliver_quote` (Document Dispatch)
 Automated delivery of generated PDFs to clients.
-- **Logics:** Fetches Signed URL from Firebase, attaches to email, and logs final delivery state in Firestore.
+- **Logics:** Fetches Signed URL from Firebase, attaches to email, and logs final delivery state in Firestore.    
 
-### 🧪 `test_webhook` (Diagnostic)
-Used for connectivity and HMAC validation verification during deployment.
+### 🧪 `test_webhook` (Diagnostic)     
+Used for connectivity and HMAC validation verification during deployment.   
 
 ---
 
 ## 🛠️ Configuration
 
-### Required Credentials in n8n
-- **Telegram:** `sy_bot` credentials.
+### Required Credentials in n8n       
+- **Telegram:** `sy_bot` credentials. 
 - **SendGrid:** API Key for document delivery.
-- **Firebase:** Service Account for Firestore updates (Status: Sent).
+- **Firebase:** Service Account for Firestore updates (Status: Sent).       
 - **HMAC Secret:** `SYD_WEBHOOK_SECRET`.
 
 ---
-*Updated: March 1, 2026 — Phase 42*
+
+## Environment Variables
+**Global Variables for n8n**
+```env
+# Sicurezza
+SYD_WEBHOOK_SECRET=<chiave_hmac_condivisa>
 SYD_INTERNAL_TOKEN=<jwt-token-service-account>      # Token per chiamate backend → backend
 
 # URL
@@ -181,19 +186,20 @@ ADMIN_CONSOLE_URL=https://admin.sydarchitetto.it
 N8N_INSTANCE_URL=https://n8n.sydarchitetto.it
 
 # Notifiche
-ADMIN_EMAIL=admin@sydarchitetto.it
+ADMIN_EMAIL=admin@sydarchitetto.it    
 TELEGRAM_ADMIN_CHAT_ID=<chat_id_admin>
 
 # WhatsApp (Twilio)
-TWILIO_WHATSAPP_NUMBER=+14155238886   # Numero sandbox Twilio o numero produzione
+TWILIO_WHATSAPP_NUMBER=+14155238886   
+# Numero sandbox Twilio o numero produzione
 
 # Monitoring
-N8N_INSTANCE_ID=syd-production
+N8N_INSTANCE_ID=syd-production        
 ```
 
 ---
 
-## Configurazione Backend (`.env`)
+## Configurazione Backend (`.env`)    
 
 ```env
 # Webhook Security
@@ -236,7 +242,7 @@ Value: verificato via HMAC-SHA256 nel nodo "Valida Firma HMAC"
 
 ### IP Allowlist (opzionale)
 ```
-Allowed IPs: <IP_EGRESS_CLOUD_RUN>
+Allowed IPs: <IP_EGRESS_CLOUD_RUN>    
 ```
 
 ### Rotazione Secret
@@ -247,7 +253,7 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 # Aggiorna in:
 # 1. backend_python/.env → WEBHOOK_SIGNING_KEY
 # 2. n8n Variables → SYD_WEBHOOK_SECRET
-# 3. Riavvia entrambi i servizi
+# 3. Riavvia entrambi i servizi       
 ```
 
 ---
@@ -260,3 +266,6 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 | **Notify Admin** | Poller / Backend | — | Email + Telegram |
 | **Deliver Quote** | Backend (approve) | status=quote_sent | Email + WhatsApp |
 | **Error Handler** | Automatico (failure) | error-log collection | Email + Telegram |
+
+---
+*Updated: March 14, 2026 — Phase 71*

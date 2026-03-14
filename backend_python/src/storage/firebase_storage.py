@@ -4,7 +4,6 @@ Centralized Firebase Storage client.
 Ensures Storage uses the same credentials as Firestore,
 preventing authentication inconsistencies.
 """
-import os
 import logging
 from google.cloud import storage
 from src.db.firebase_client import init_firebase

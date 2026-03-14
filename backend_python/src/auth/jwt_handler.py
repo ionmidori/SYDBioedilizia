@@ -1,7 +1,6 @@
 import logging
-from typing import Dict, Any
-from fastapi import HTTPException, Security
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Security
+from fastapi.security import HTTPBearer
 from firebase_admin import auth
 from src.db.firebase_client import init_firebase
 
@@ -14,9 +13,7 @@ from src.schemas.internal import UserSession
 
 from src.core.exceptions import AuthError
 
-from src.core.exceptions import AuthError, AppException
 from fastapi import Request
-from datetime import datetime, timezone
 
 async def verify_token(req: Request) -> UserSession:
     """Verifies Firebase JWT and handles rate limiting.

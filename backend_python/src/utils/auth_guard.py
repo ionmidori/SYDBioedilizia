@@ -1,6 +1,6 @@
 import functools
 import logging
-from typing import Any, Callable, Union
+from typing import Any, Callable
 from src.utils.context import get_current_user_id, get_is_anonymous
 
 logger = logging.getLogger(__name__)

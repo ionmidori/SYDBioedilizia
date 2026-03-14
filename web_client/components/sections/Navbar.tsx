@@ -150,10 +150,10 @@ export function Navbar() {
                             >
                                 <button
                                     className={cn(
-                                        "relative flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(42,157,143,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(42,157,143,0.25)] whitespace-nowrap backdrop-blur-md border",
+                                        "relative flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)] whitespace-nowrap backdrop-blur-md border",
                                         contactMenuOpenDesktop
-                                            ? "bg-luxury-teal/15 border-luxury-teal/40 text-luxury-teal"
-                                            : "bg-luxury-teal/5 hover:bg-luxury-teal/15 border-luxury-teal/20 hover:border-luxury-teal/40 text-luxury-teal/80 hover:text-luxury-teal"
+                                            ? "bg-luxury-gold/15 border-luxury-gold/40 text-luxury-gold"
+                                            : "bg-luxury-gold/5 hover:bg-luxury-gold/15 border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold/80 hover:text-luxury-gold"
                                     )}
                                     onClick={() => {
                                         triggerHaptic();
@@ -176,9 +176,9 @@ export function Navbar() {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                         transition={M3Spring.bouncy}
-                                        className="absolute top-14 left-0 bg-luxury-bg/80 backdrop-blur-xl border border-luxury-teal/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
+                                        className="absolute top-14 left-0 bg-luxury-bg/80 backdrop-blur-xl border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
                                     >
-                                        <div className="absolute -top-2 left-6 w-4 h-4 bg-luxury-bg/80 border-t border-l border-luxury-teal/20 rotate-45 transform" />
+                                        <div className="absolute -top-2 left-6 w-4 h-4 bg-luxury-bg/80 border-t border-l border-luxury-gold/20 rotate-45 transform" />
 
                                         {contactLinks.map(({ Icon, label, href }, i) => (
                                             <motion.a
@@ -186,7 +186,7 @@ export function Navbar() {
                                                 href={href}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-3 p-3 rounded-[16px] hover:bg-luxury-teal/10 text-luxury-text hover:text-luxury-teal transition-colors group relative z-10"
+                                                className="flex items-center gap-3 p-3 rounded-[16px] hover:bg-luxury-gold/10 text-luxury-text hover:text-luxury-gold transition-colors group relative z-10"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setContactMenuOpenDesktop(false);
@@ -195,7 +195,7 @@ export function Navbar() {
                                                 whileTap={{ scale: 0.98 }}
                                                 transition={M3Spring.gentle}
                                             >
-                                                <span className="w-8 h-8 rounded-full bg-luxury-teal/10 flex items-center justify-center text-luxury-teal border border-luxury-teal/20 group-hover:bg-luxury-teal group-hover:text-white transition-all shadow-sm">
+                                                <span className="w-8 h-8 rounded-full bg-luxury-gold/10 flex items-center justify-center text-luxury-gold border border-luxury-gold/20 group-hover:bg-luxury-gold group-hover:text-luxury-bg transition-all shadow-sm">
                                                     <Icon className="w-4 h-4" />
                                                 </span>
                                                 <span className="font-medium text-sm tracking-wide">{label}</span>

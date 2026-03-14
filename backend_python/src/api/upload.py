@@ -16,7 +16,6 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from typing import Tuple
 from firebase_admin import storage as fb_storage
-from src.db.firebase_client import get_storage_client
 from src.auth.jwt_handler import verify_token
 from src.schemas.internal import UserSession
 from src.services.media_processor import MediaProcessor, get_media_processor, VideoProcessingError

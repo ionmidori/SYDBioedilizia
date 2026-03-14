@@ -1,6 +1,6 @@
 # 🎨 SYD Bioedilizia (Web Client)
 
-**Status:** Production-Ready (v4.0.0)
+**Status:** Production-Ready (v4.0.24)
 **Vision:** Luxury Tech Renovation Platform
 **Stack:** Next.js 16.2, Tailwind CSS 4, Framer Motion 12, SWR
 
@@ -14,9 +14,9 @@ It combines the solidity of traditional craftsmanship with the fluidity of moder
 ### Key UX Pillars
 *   **Golden Glassmorphism:** A custom design system (M3 Expressive) blending deep "Luxury Black" backgrounds with "Gold" accents (`#E9C46A`).
 *   **Elastic Physics:** All interactions (modals, swipes, buttons) use `framer-motion` springs for a tactile, organic feel.
-*   **Adaptive Navigation**: 
+*   **Adaptive Navigation**:
     - **Radix UI Sheet**: Accessible, focus-trapped side drawer for main navigation.
-    - **Vaul Drawer**: Native-feeling Bottom Sheets for action-oriented dialogs (Creation, Authentication).
+    - **Vaul Drawer**: Native-feeling Bottom Sheets for action-oriented dialogs (Creation, Authentication, Video Trimmer).
 *   **Mobile-First Engine**: A custom-engineered **Swipe Navigation System** (60fps) mimicking native gestures.
 
 ---
@@ -25,7 +25,7 @@ It combines the solidity of traditional craftsmanship with the fluidity of moder
 
 | Component | Technology | Version | Role |
 | :--- | :--- | :--- | :--- |
-| **Framework** | Next.js (App Router) | 16.2 | Server Components, SEO, Managed Routing |
+| **Framework** | Next.js (App Router) | 16.2 | Server Components, SEO, Managed Routing, Turbopack |
 | **Styling** | Tailwind CSS | 4.0 | Enterprise Design System, Modern CSS |
 | **Animation** | Framer Motion | 12.23 | Gesture-driven UI, Fluid Transitions |
 | **Data Fetching** | SWR | 2.x | Efficient Server-State synchronization |
@@ -39,14 +39,19 @@ It combines the solidity of traditional craftsmanship with the fluidity of moder
 
 ### 1. The Reasoning Engine (Chat)
 *   **UI:** `ThinkingIndicator` pulses while the backend plans. `ReasoningStepView` reveals internal logic card-by-card.
+*   **Feedback Loop:** In-line feedback mechanism (👍/👎) directly integrated into assistant message items for ADK offline evaluation.
 *   **Standard:** Full compliance with Vercel AI Data Stream Protocol.
 
-### 2. Hybrid Authentication
+### 2. Rich Media Handling
+*   **Video Trimmer:** Built-in modal logic for trimming videos before upload to save bandwidth and compute time.
+*   **Media Carousel:** Dynamic "Recent Media" Bento grid section showcasing generated floorplans and renders.
+
+### 3. Hybrid Authentication
 *   **Biometric (Passkey):** Native login with FaceID/TouchID (WebAuthn).
 *   **Zero-Trust:** Every request includes a Firebase App Check token (ReCAPTCHA Enterprise).
 *   **Compliance:** All forms migrated to **React Hook Form + Zod** validation.
 
-### 3. The "Golden Sync"
+### 4. The "Golden Sync"
 *   Backend Pydantic Models are mirrored 1:1 in TypeScript Interfaces (`types/`).
 *   **Zero-Drift Policy:** Strict type safety enforced from database to view.
 
@@ -61,7 +66,7 @@ web_client/
 │   ├── auth/             # Biometric & Magic Link Auth
 │   └── dashboard/        # BENTO Grid Hub
 ├── components/
-│   ├── chat/             # AI Interaction Layer
+│   ├── chat/             # AI Interaction Layer & Feedback UI
 │   ├── mobile/           # SwipeGestureEngine (60fps)
 │   ├── ui/               # Primary Primitives (Sheet, Drawer, Form)
 │   └── providers/        # Auth, QueryClient, Chat Contexts
@@ -92,10 +97,11 @@ npm run type-check
 # Run Tests (Jest + RTL)
 npm test
 
-# Build for Production
+# Build for Production (Turbopack)
 npm run build
 ```
 
 ---
 
-_Updated: March 3, 2026 — Phase 49_
+_Updated: March 14, 2026 — Phase 71_
+

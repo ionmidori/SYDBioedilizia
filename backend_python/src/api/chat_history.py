@@ -5,7 +5,6 @@ Provides endpoints for fetching chat message history from sessions.
 """
 import logging
 from typing import Optional, List
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 import json

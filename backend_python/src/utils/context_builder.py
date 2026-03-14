@@ -5,7 +5,6 @@ This module provides helper functions to fetch and format project details
 into natural language context for LLM system prompts.
 """
 import logging
-from typing import Optional
 from src.db import projects as projects_db
 
 logger = logging.getLogger(__name__)

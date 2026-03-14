@@ -180,15 +180,15 @@ class TestStreamToolCall:
         from src.utils.stream_protocol import stream_tool_call
         chunks = [c async for c in stream_tool_call("tc-1", "analyze_room", {"url": "test"})]
         parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed["toolCallId"] == "tc-1"
-        assert parsed["toolName"] == "analyze_room"
-        assert parsed["args"] == {"url": "test"}
+        assert parsed[0]["toolCallId"] == "tc-1"
+        assert parsed[0]["toolName"] == "analyze_room"
+        assert parsed[0]["args"] == {"url": "test"}
 
     async def test_tool_call_empty_args(self):
         from src.utils.stream_protocol import stream_tool_call
         chunks = [c async for c in stream_tool_call("tc-2", "health_check", {})]
         parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed["args"] == {}
+        assert parsed[0]["args"] == {}
 
 
 class TestStreamToolResult:
@@ -196,20 +196,20 @@ class TestStreamToolResult:
         from src.utils.stream_protocol import stream_tool_result
         chunks = [c async for c in stream_tool_result("tc-1", {"status": "ok"})]
         parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed["toolCallId"] == "tc-1"
-        assert parsed["result"] == {"status": "ok"}
+        assert parsed[0]["toolCallId"] == "tc-1"
+        assert parsed[0]["result"] == {"status": "ok"}
 
     async def test_tool_result_string(self):
         from src.utils.stream_protocol import stream_tool_result
         chunks = [c async for c in stream_tool_result("tc-2", "success")]
         parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed["result"] == "success"
+        assert parsed[0]["result"] == "success"
 
     async def test_tool_result_none(self):
         from src.utils.stream_protocol import stream_tool_result
         chunks = [c async for c in stream_tool_result("tc-3", None)]
         parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed["result"] is None
+        assert parsed[0]["result"] is None
 
 
 class TestStreamStatus:

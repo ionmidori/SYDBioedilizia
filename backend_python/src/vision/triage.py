@@ -1,7 +1,4 @@
-import os
 import logging
-import base64
-import json
 from typing import Dict, Any
 from google import genai
 from google.genai import types

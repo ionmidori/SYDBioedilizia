@@ -7,10 +7,8 @@ Projects are stored in the `sessions` collection with extended schema.
 import logging
 import uuid
 from typing import List, Optional
-from datetime import datetime
 from src.utils.datetime_utils import utc_now
 from google.cloud.firestore_v1 import FieldFilter
-from firebase_admin import firestore
 
 from src.db.firebase_client import get_async_firestore_client, get_storage_client
 from starlette.concurrency import run_in_threadpool
@@ -155,7 +153,7 @@ async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument
         
         # Handle datetime conversion
         created_at = parse_firestore_datetime(data.get("createdAt"))
-        updated_at = parse_firestore_datetime(data.get("updatedAt"))
+        parse_firestore_datetime(data.get("updatedAt"))
         
         # Parse construction details if present
         construction_details = None

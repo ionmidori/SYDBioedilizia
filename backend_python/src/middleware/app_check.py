@@ -11,10 +11,9 @@ Security Features:
 - Graceful degradation if Firebase is unreachable
 """
 
-import os
 import logging
 from typing import Optional
-from fastapi import Request, HTTPException
+from fastapi import Request
 from firebase_admin import app_check
 from src.db.firebase_client import init_firebase
 
