@@ -328,6 +328,9 @@ app.include_router(passkey_router)
 from src.api.projects_router import router as projects_router
 app.include_router(projects_router)
 
+# Register reports router (gallery + dashboard stats)
+from src.api.reports import router as reports_router
+app.include_router(reports_router)
 
 # Register metadata update router
 from src.api.update_metadata import router as metadata_router
