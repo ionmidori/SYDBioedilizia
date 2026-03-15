@@ -16,6 +16,7 @@ from src.auth.jwt_handler import verify_token
 from src.schemas.internal import UserSession
 from src.db import projects as projects_db
 from src.db.firebase_client import get_async_firestore_client
+from src.services.audit import emit_audit_event, AuditAction, AuditResourceType
 from src.models.project import (
     ProjectCreate,
     ProjectDocument,
@@ -118,6 +119,7 @@ async def create_project(
 
         session_id = await projects_db.create_project(user_id, data)
         logger.info(f"[API] Created project {session_id} for user {user_id}")
+        emit_audit_event(AuditAction.PROJECT_CREATE, AuditResourceType.PROJECT, session_id, user_id=user_id)
         return {"session_id": session_id}
     
     # S4 FIX: Let HTTPExceptions (e.g. 403 limit) pass through
@@ -187,6 +189,7 @@ async def claim_project(
         )
     
     logger.info(f"[API] User {user_id} claimed project {session_id}")
+    emit_audit_event(AuditAction.PROJECT_CLAIM, AuditResourceType.PROJECT, session_id, user_id=user_id)
     return {"success": True, "message": "Progetto reclamato con successo"}
 
 
@@ -295,6 +298,7 @@ async def delete_project(
         )
 
     logger.info(f"[API] Soft-deleted project {session_id} for user {user_id}")
+    emit_audit_event(AuditAction.PROJECT_SOFT_DELETE, AuditResourceType.PROJECT, session_id, user_id=user_id)
     return {"success": True, "message": "Progetto eliminato con successo"}
 
 
@@ -334,4 +338,8 @@ async def delete_project_file(
 
     await file_ref.delete()
     logger.info(f"[API] Deleted file {file_id} from project {session_id} for user {user_id}")
+    emit_audit_event(
+        AuditAction.FILE_DELETE, AuditResourceType.FILE, file_id,
+        user_id=user_id, metadata={"project_id": session_id},
+    )
     return {"success": True}

@@ -15,6 +15,7 @@ from src.core.exceptions import AppException
 from src.schemas.internal import UserSession
 from src.db import users as users_db
 from src.models.user import UserPreferences, UserPreferencesUpdate
+from src.services.audit import emit_audit_event, AuditAction, AuditResourceType
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +79,11 @@ async def erase_my_account(
     try:
         summary = await users_db.delete_user_data(uid)
         logger.info(f"[GDPR] Erasure complete for uid={uid}: {summary}")
+        emit_audit_event(AuditAction.USER_ERASE, AuditResourceType.USER, uid, user_id=uid, metadata=summary)
         return Response(status_code=204)
     except Exception as e:
         logger.error(f"[GDPR] Erasure failed for uid={uid}: {e}", exc_info=True)
+        emit_audit_event(AuditAction.USER_ERASE, AuditResourceType.USER, uid, status="failure", user_id=uid)
         raise AppException(
             message="Account deletion failed. Please contact support.",
             error_code="GDPR_ERASURE_FAILED",

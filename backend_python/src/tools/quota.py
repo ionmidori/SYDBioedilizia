@@ -284,6 +284,7 @@ async def _increment_counter(
                     "project_id": project_id,
                     "tool_name": tool_name,
                     "last_used": now,
+                    "expireAt": now + timedelta(days=30),
                 })
                 return
             d = snap.to_dict()
@@ -300,6 +301,7 @@ async def _increment_counter(
                     "window_start": now,
                     "last_used": now,
                     "project_id": project_id,
+                    "expireAt": now + timedelta(days=30),
                 })
 
         await _atomic_reset_or_create(db.transaction())

@@ -6,6 +6,7 @@ Projects are stored in the `sessions` collection with extended schema.
 """
 import logging
 import uuid
+from datetime import timedelta
 from typing import List, Optional
 from src.utils.datetime_utils import utc_now
 from google.cloud.firestore_v1 import FieldFilter
@@ -531,10 +532,12 @@ async def soft_delete_project(session_id: str, user_id: str) -> bool:
             return False
 
         now = utc_now()
+        expire_at = now + timedelta(days=30)  # Firestore TTL auto-purges after retention
         await doc_ref.update({
             "is_deleted": True,
             "deleted_at": now,
             "updatedAt": now,
+            "expireAt": expire_at,
         })
 
         # Mirror soft-delete on the frontend 'projects' collection
@@ -544,6 +547,7 @@ async def soft_delete_project(session_id: str, user_id: str) -> bool:
             await frontend_ref.update({
                 "is_deleted": True,
                 "deleted_at": now,
+                "expireAt": expire_at,
             })
 
         logger.info(f"[Projects] Soft-deleted project {session_id} for user {user_id}")

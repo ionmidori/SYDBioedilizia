@@ -185,10 +185,11 @@ class ConversationRepository:
                 if not project_snap.exists:
                     await project_ref.set({
                         'id': session_id,
-                        'name': 'Nuovo Progetto', 
+                        'name': 'Nuovo Progetto',
                         'userId': owner_id,
                         'createdAt': async_firestore.SERVER_TIMESTAMP,
                         'updatedAt': async_firestore.SERVER_TIMESTAMP,
+                        'expireAt': expire_at,
                         'status': 'active'
                     })
                     logger.info(f"[Repo] 🚀 Sync: Created project {session_id} from session")
@@ -219,10 +220,11 @@ class ConversationRepository:
                      session_data = doc.to_dict()
                      await project_ref.set({
                         'id': session_id,
-                        'name': session_data.get('title', 'Progetto Recuperato'), 
+                        'name': session_data.get('title', 'Progetto Recuperato'),
                         'userId': session_data.get('userId', user_id or 'unknown'),
                         'createdAt': session_data.get('createdAt', async_firestore.SERVER_TIMESTAMP),
                         'updatedAt': async_firestore.SERVER_TIMESTAMP,
+                        'expireAt': expire_at,
                         'status': 'active'
                     })
                      logger.info(f"[Repo] 🚀 Sync: Backfilled missing project {session_id}")

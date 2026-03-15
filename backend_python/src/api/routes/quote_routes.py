@@ -39,6 +39,7 @@ from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
 from src.services.pricing_service import PricingService
 from src.utils.datetime_utils import utc_now
+from src.services.audit import emit_audit_event, AuditAction, AuditResourceType
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/quote", tags=["Quote"])
@@ -262,6 +263,11 @@ async def approve_quote(
         )
 
     result_status = "completed" if body.decision == "approve" else "rejected"
+    audit_action = AuditAction.QUOTE_APPROVE if body.decision == "approve" else AuditAction.QUOTE_REJECT
+    emit_audit_event(
+        audit_action, AuditResourceType.QUOTE, project_id,
+        user_id=user_session.uid, metadata={"decision": body.decision},
+    )
     return ApproveQuoteResponse(
         status=result_status,
         project_id=project_id,
