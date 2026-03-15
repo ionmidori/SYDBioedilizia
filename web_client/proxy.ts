@@ -13,32 +13,19 @@ function isTokenExpired(token: string): boolean {
     const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
     if (typeof payload.exp !== 'number') return true;
     return Date.now() / 1000 > payload.exp + 10;
-  } catch { return true; }
+  } catch {
+    return true;
+  }
 }
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Auth Guard and Security Headers
-  if (pathname.startsWith('/dashboard')) {
-    const authToken = request.cookies.get('auth-token');
-    if (!authToken || isTokenExpired(authToken.value)) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-  }
-
-  // 2. CSP and Nonce Logic
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
-
-  // 3. Maintenance Logic (only in prod)
+  // 1. Maintenance Mode logic (only in prod)
   const isMaintenanceMode = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === 'true';
   const isDev = process.env.NODE_ENV === 'development';
 
   if (!isDev && isMaintenanceMode) {
-    // Basic bypass list for maintenance
     if (
       !pathname.startsWith('/_next') &&
       !pathname.startsWith('/static') &&
@@ -50,22 +37,63 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // 2. Auth Guard for Dashboard
+  if (pathname.startsWith('/dashboard')) {
+    const authToken = request.cookies.get('auth-token');
+    if (!authToken || isTokenExpired(authToken.value)) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
+  // 3. CSP and Nonce Logic
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+
+  // CSP for Next.js 16 (App Router)
+  // Phase 1: Report-Only mode — logs violations without blocking anything.
+  const cspHeader = `
+    default-src 'self';
+    script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' blob: data: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com;
+    font-src 'self' data:;
+    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com https://vitals.vercel-insights.com https://*.vercel-insights.com wss://*.firebaseio.com;
+    media-src 'self' blob: https://firebasestorage.googleapis.com https://storage.googleapis.com;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    upgrade-insecure-requests;
+  `.replace(/\s{2,}/g, ' ').trim();
+
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+
   const response = NextResponse.next({
-    request: { headers: requestHeaders },
+    request: {
+      headers: requestHeaders,
+    },
   });
 
-  // Security and CSP headers
-  // response.headers.set('Content-Security-Policy', csp);
+  // Security Headers
+  response.headers.set('Content-Security-Policy-Report-Only', cspHeader);
+  response.headers.set('x-nonce', nonce);
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
 
   return response;
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    {
+      source: '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|robots.txt|sitemap.xml).*)',
+      missing: [
+        { type: 'header', key: 'next-router-prefetch' },
+        { type: 'header', key: 'purpose', value: 'prefetch' },
+      ],
+    },
   ],
 };
