@@ -3,18 +3,20 @@
 **Status:** Production-Ready — ADK Session Persistence Hardening
 
 ## 🎯 Obiettivi Correnti (Phase 72)
-1. **4-Week Enterprise Roadmap Complete**: Tutte le 4 settimane implementate e committed.
+1. **4-Week Enterprise Roadmap + Gallery + Build Fix**: Tutte le 4 settimane implementate, gallery fix pushato, Vercel migration completata.
 2. **Next Priority**: Production audit remaining items (CSRF webhook, OpenTelemetry sampling, error budget, log-based metrics, signal handling).
 
 ---
 
-- **Phase 72 (Mar 15, 2026):** **4-Week Enterprise Roadmap Complete (v4.0.25)**:
+- **Phase 72 (Mar 16, 2026):** **4-Week Enterprise Roadmap + Gallery + Build Fix (v4.0.26)**:
     - **Week 1 (d235e36)**: Security hardening — auth, tier isolation, attachment fix, HMAC verification
     - **Week 2 (7679c9b)**: Resilience — circuit breaker, idempotency, atomic quota reset, race condition prevention
     - **Week 3 (143cca0)**: Observability — OpenTelemetry tracing, tool instrumentation, CSP nonce generation, request ID injection
     - **Week 4 (baeb5d1)**: Data Governance — immutable audit trail service + Firestore TTL policies for GDPR retention
     - **Code Review Integration (30a800b)**: Addressed 12+ findings from Weeks 1-2 (memory exhaustion, event loop blocking, DRY violations, unused imports, socket timeout, cache overflow)
-    - **Status**: 5 commits local, all 379 unit tests passing, 0 syntax errors
+    - **Gallery Fix (b9a6e5b)**: Uploaded photos now persisted to Firestore. Upload endpoint calls `repo.save_file_metadata()` after Cloud Storage upload so photos appear in gallery alongside renders.
+    - **Build Fix (94a2bef)**: Migrated `middleware.ts` → `proxy.ts` for Next.js 16 compatibility. Vercel build now succeeds.
+    - **Status**: 8 commits pushed, all 399 backend tests passing, type-check clean, Vercel building successfully
 
 - **Phase 71 (Mar 14, 2026):** **ADK Session Persistence Hardening & Dead-code cleanup (v4.0.24)**:
     - **Dead-code elimination**: Rimozione di file e variabili inutilizzate nel backend con Ruff e Vulture.
@@ -65,6 +67,6 @@
 
 ---
 
-- **Current Version**: `v4.0.25`
-- **Production Audit Status**: 43/51 items complete. Open items: CSRF webhook N8N (HMAC-SHA256), OpenTelemetry sampling config (Cloud Console), Error budget alerting (Cloud Monitoring), Log-based metrics (Cloud Logging), Signal handling in Cloud Run service config
-- **Next High Priority**: 1) Push 5-commit roadmap to remote | 2) ADK Session cleanup cron for GDPR | 3) Admin dashboard for self-correction loop (Phase 2) | 4) Automate Golden Sync generation | 5) Live eval run with `run_evals.py` (requires GOOGLE_API_KEY + Vertex AI)
+- **Current Version**: `v4.0.26`
+- **Production Audit Status**: 44/51 items complete (gallery persistence + build fix). Open items: CSRF webhook N8N (HMAC-SHA256), OpenTelemetry sampling config (Cloud Console), Error budget alerting (Cloud Monitoring), Log-based metrics (Cloud Logging), Signal handling in Cloud Run service config
+- **Next High Priority**: 1) ADK Session cleanup cron for GDPR | 2) Admin dashboard for self-correction loop (Phase 2) | 3) Automate Golden Sync generation | 4) Live eval run with `run_evals.py` (requires GOOGLE_API_KEY + Vertex AI) | 5) Backfill historical uploaded photos to Firestore (optional)
