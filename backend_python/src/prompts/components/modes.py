@@ -167,7 +167,12 @@ Keeping: [preserved_elements_in_english].
 Changes: [new_materials_surfaces], [new_furniture_style], [lighting_atmosphere].
 Style: [style_keyword]. Photorealistic interior design render."
 
-Poi chiama: generate_render(prompt="...", style="[stile in inglese]")
+CRITICO — SELEZIONE MODALITÀ:
+Cerca nella conversazione un testo del tipo `[URL Immagine Caricata per riferimento o tool: ...]`.
+- SE TROVATO: chiama generate_render con mode="modification" e source_image_url="URL ESTRATTO".
+  generate_render(prompt="...", style="...", mode="modification", source_image_url="https://...")
+- SE NON TROVATO (nessuna foto): chiama generate_render in modalità creazione.
+  generate_render(prompt="...", style="...")
 </action>
 </phase>
 </scenario>
