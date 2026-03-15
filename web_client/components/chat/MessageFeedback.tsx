@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { triggerHaptic } from '@/lib/haptics';
 import type { FeedbackRequest } from '@/types/feedback';
 
 interface MessageFeedbackProps {
@@ -16,6 +17,7 @@ interface MessageFeedbackProps {
  * Thumbs up/down feedback on assistant messages.
  * Sends rating to POST /api/feedback → Python backend → Firestore.
  * Part of the self-correction loop (evaluating-adk-agents skill).
+ * Optimized for Mobile: visible on touch devices, hover-only on desktop.
  */
 export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, sessionId }) => {
     const { idToken } = useAuth();
@@ -26,6 +28,9 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
         // Toggle: clicking same button resets to neutral
         const newRating = rating === value ? 0 : value;
         setRating(newRating);
+        
+        // Haptic feedback for interaction
+        triggerHaptic();
 
         if (newRating === 0) return; // Reset doesn't need API call
 
@@ -53,13 +58,19 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
     }, [rating, messageId, sessionId, idToken]);
 
     return (
-        <div className="flex items-center gap-1 mt-1 opacity-0 group-hover/msg:opacity-100 transition-opacity duration-200">
+        <div className={cn(
+            "flex items-center gap-1 mt-1 transition-opacity duration-300",
+            // Mobile: Always visible (since hover is not available)
+            // Desktop (md+): Visible only on message hover
+            "opacity-100 md:opacity-0 md:group-hover/msg:opacity-100"
+        )}>
             <button
                 onClick={() => submit(1)}
                 disabled={submitting}
                 aria-label="Utile"
                 className={cn(
-                    "p-1 rounded-full transition-all duration-200 hover:bg-luxury-gold/10",
+                    "p-1.5 rounded-full transition-all duration-200 hover:bg-luxury-gold/10",
+                    "min-h-[32px] min-w-[32px] flex items-center justify-center", // Enhanced tap target for mobile
                     rating === 1
                         ? "text-emerald-500 scale-110"
                         : "text-luxury-text/30 hover:text-luxury-text/60"
@@ -72,7 +83,8 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                 disabled={submitting}
                 aria-label="Non utile"
                 className={cn(
-                    "p-1 rounded-full transition-all duration-200 hover:bg-luxury-gold/10",
+                    "p-1.5 rounded-full transition-all duration-200 hover:bg-luxury-gold/10",
+                    "min-h-[32px] min-w-[32px] flex items-center justify-center", // Enhanced tap target for mobile
                     rating === -1
                         ? "text-red-400 scale-110"
                         : "text-luxury-text/30 hover:text-luxury-text/60"

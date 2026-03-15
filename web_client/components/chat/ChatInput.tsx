@@ -326,23 +326,18 @@ export function ChatInput({
                 />
 
                 {/*
-                 * 5. Google Drive / iCloud Drive — nessun capture, tutti i tipi supportati.
+                 * 5. Google Drive / iCloud Drive — OTTIMIZZATO PER ACCESSO DIRETTO.
                  *
-                 * COMPORTAMENTO:
-                 * - iOS: il picker mostra "Foto", "iCloud Drive", "Google Drive" (se installato), "Files"
-                 * - Android: mostra Google Foto, Google Drive, File Manager e qualsiasi provider installato
-                 *
-                 * PERCHÉ accept multi-tipo QUI (e non per la galleria):
-                 * - L'utente vuole scegliere esplicitamente da un cloud → ci si aspetta una scelta multi-fonte
-                 * - La galleria foto deve rimanere strettamente "image/*" per aprire la Photo Library
-                 *
-                 * PRIVACY: nessun capture → il browser non accede mai direttamente a camera/microfono
+                 * PERCHÉ QUESTO CAMBIAMENTO:
+                 * - Usando "image/*" o "video/*", iOS apre il menu "Libreria/Camera/File".
+                 * - Usando tipi "application/*" o estensioni specifiche, iOS apre DIRETTAMENTE l'app File (Drive).
+                 * - Dall'app File l'utente può comunque selezionare foto e video salvati nel cloud.
                  */}
                 <input
                     type="file"
                     ref={cloudInputRef}
                     className="hidden"
-                    accept="image/*,video/mp4,video/quicktime,application/pdf"
+                    accept="application/pdf,application/octet-stream,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png,video/mp4"
                     onChange={handleFileChange}
                     multiple
                     aria-hidden="true"
