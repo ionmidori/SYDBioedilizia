@@ -61,6 +61,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         sendMessage,
         isLoading,
         error,
+        reload,
         data,
         isRestoringHistory
     } = useChatContext();
@@ -69,6 +70,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     const [isOpen, setIsOpen] = useState(isInline);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isRetryableError, setIsRetryableError] = useState(false);
 
     const dragControls = useDragControls();
 
@@ -142,12 +144,12 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         }
     }, [data, addStatus]);
 
-    // Clear queue on project switch
+    // Clear queue and error state on project switch
     useEffect(() => {
         clearQueue();
-        // Wrap in timeout to avoid sync setState warning
         const timerId = setTimeout(() => {
             setErrorMessage(null);
+            setIsRetryableError(false);
         }, 0);
         return () => clearTimeout(timerId);
     }, [contextProjectId, clearQueue]);
@@ -262,12 +264,16 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                 // Detect quota/rate-limit errors and show friendly message
                 if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('rate limit')) {
                     setErrorMessage('Hai raggiunto il limite di richieste. Riprova tra qualche minuto.');
+                    setIsRetryableError(false);
                 } else if (msg.includes('401') || msg.toLowerCase().includes('auth')) {
                     setErrorMessage('Sessione scaduta. Ricarica la pagina per continuare.');
+                    setIsRetryableError(false);
                 } else if (msg.includes('503') || msg.includes('502')) {
                     setErrorMessage('Il servizio è temporaneamente non disponibile. Riprova tra poco.');
+                    setIsRetryableError(true);
                 } else {
                     setErrorMessage(msg || 'Si è verificato un errore. Riprova.');
+                    setIsRetryableError(true);
                 }
             }, 0);
             return () => clearTimeout(timerId);
@@ -367,16 +373,28 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                             animate={{ opacity: 1, y: 0 }}
                             className="mx-4 mt-2 p-3 bg-red-900/50 border border-red-500/30 rounded-lg text-red-200 text-sm flex items-center justify-between gap-2 shadow-lg"
                         >
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
                                 <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                                <span>{errorMessage}</span>
+                                <span className="truncate">{errorMessage}</span>
                             </div>
-                            <button
-                                onClick={() => setErrorMessage(null)}
-                                className="p-1 hover:bg-red-500/20 rounded-full transition-colors"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                                {isRetryableError && (
+                                    <button
+                                        onClick={() => { setErrorMessage(null); setIsRetryableError(false); reload(); }}
+                                        className="px-2 py-1 text-xs font-bold bg-red-500/20 hover:bg-red-500/40 rounded-md transition-colors whitespace-nowrap"
+                                        aria-label="Riprova ultimo messaggio"
+                                    >
+                                        Riprova
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => { setErrorMessage(null); setIsRetryableError(false); }}
+                                    className="p-1 hover:bg-red-500/20 rounded-full transition-colors"
+                                    aria-label="Chiudi errore"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                            </div>
                         </motion.div>
                     )}
                 </div>
