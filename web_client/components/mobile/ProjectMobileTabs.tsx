@@ -1,13 +1,11 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { ProjectFilesView } from '@/components/dashboard/ProjectFilesView';
 import { ProjectSettingsView } from '@/components/dashboard/ProjectSettingsView';
 import ChatWidget from '@/components/chat/ChatWidget';
-import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
-import { SwipeHints } from '@/components/mobile/MobileSwipeLayout';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -18,12 +16,11 @@ interface ProjectMobileTabsProps {
     projectId: string;
 }
 
-
-
 // ─── Component ───────────────────────────────────────────────────────────────
+// Tab navigation is handled by DashboardHeader (PaneIndicator).
+// No swipe gestures — vertical scroll is released to the browser.
 
 export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
-    const router = useRouter();
     const searchParams = useSearchParams();
 
     // ── URL-synced tab state ─────────────────────────────────────────────────
@@ -32,57 +29,8 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
         return TABS.includes(viewParam as TabId) ? (viewParam as TabId) : 'chat';
     }, [searchParams]);
 
-    const activeIndex = TABS.indexOf(activeTab);
-
-
-
-    // ── Tab navigation (updates URL) ─────────────────────────────────────────
-    const handleTabChange = useCallback(
-        (tab: TabId) => {
-            if (tab === activeTab) return;
-            const newUrl = `/dashboard/${projectId}?view=${tab}`;
-            router.replace(newUrl, { scroll: false });
-        },
-        [activeTab, projectId, router],
-    );
-
-    const handleSwipe = useCallback(
-        (newIndex: number) => {
-            const tab = TABS[newIndex];
-            if (tab) handleTabChange(tab);
-        },
-        [handleTabChange],
-    );
-
-    // ── Exit: swipe right past first tab → go to projects list ──────────────
-    const handleSwipePastStart = useCallback(() => {
-        router.push('/dashboard/projects');
-    }, [router]);
-
-    // ── Swipe Navigation ─────────────────────────────────────────────────────
-    const { containerProps, swipeX } = useSwipeNavigation({
-        panes: [...TABS],
-        activeIndex,
-        onSwipe: handleSwipe,
-        onSwipePastStart: handleSwipePastStart,
-        swipeThreshold: 60,
-        enableHaptics: true,
-    });
-
     return (
-        <div
-            className="flex flex-col h-full w-full bg-luxury-bg relative overflow-hidden"
-            style={{ touchAction: 'pan-y' }}
-            {...containerProps}
-        >
-            {/* M3 Expressive Edge Swipe Indicators */}
-            <SwipeHints
-                activeIndex={activeIndex}
-                totalPanes={TABS.length}
-                swipeX={swipeX}
-                hasExitGesture={true}
-            />
-
+        <div className="flex flex-col h-full w-full bg-luxury-bg relative overflow-hidden">
             {/* Tab Content — all tabs stay mounted, only active is visible.
                 This prevents ChatWidget's heavy Firebase teardown/setup from freezing the UI. */}
             <div className="flex-1 relative overflow-hidden min-h-0">

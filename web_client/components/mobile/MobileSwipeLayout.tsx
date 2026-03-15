@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useCallback, useMemo } from 'react';
-import { motion, useTransform, MotionValue } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
+import React from 'react';
+import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/components/dashboard/SidebarProvider';
-import { useSwipeNavigation } from '@/hooks/useSwipeNavigation';
 import { M3Spring } from '@/lib/m3-motion';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -97,114 +94,19 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
 export const MAIN_LABELS = ['Bacheca', 'Galleria', 'Progetti'] as const;
 export const SUBPAGE_LABELS = ['Cantiere AI', 'Galleria', 'Settaggi'] as const;
 
-// ─── Swipe Hint Affordance ───────────────────────────────────────────────────
-
-export function SwipeHints({
-    activeIndex,
-    totalPanes,
-    swipeX,
-    hasExitGesture = false
-}: {
-    activeIndex: number;
-    totalPanes: number;
-    swipeX: MotionValue<number>;
-    hasExitGesture?: boolean;
-}) {
-    const canGoLeft = activeIndex > 0 || hasExitGesture;
-    const canGoRight = activeIndex < totalPanes - 1;
-
-    // Swipe Right (dx > 0) -> Reveal Left Chevron (indicating we are going to a previous pane)
-    const leftOpacity = useTransform(swipeX, [0, 80], [0, 1]);
-    const leftX = useTransform(swipeX, [0, 80], [-20, 10]);
-    const leftScale = useTransform(swipeX, [0, 80], [0.8, 1.2]);
-
-    // Swipe Left (dx < 0) -> Reveal Right Chevron (indicating we are going to a next pane)
-    const rightOpacity = useTransform(swipeX, [0, -80], [0, 1]);
-    const rightX = useTransform(swipeX, [0, -80], [20, -10]);
-    const rightScale = useTransform(swipeX, [0, -80], [0.8, 1.2]);
-
-    return (
-        <div className="absolute inset-y-0 left-0 right-0 pointer-events-none z-[110] overflow-hidden">
-            {canGoLeft && (
-                <motion.div
-                    className="absolute left-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-16 h-24 bg-gradient-to-r from-luxury-bg/90 to-transparent rounded-r-3xl drop-shadow-2xl"
-                    style={{ opacity: leftOpacity, x: leftX, scale: leftScale }}
-                >
-                    <ChevronLeft className="w-8 h-8 text-luxury-gold drop-shadow-lg" />
-                </motion.div>
-            )}
-            {canGoRight && (
-                <motion.div
-                    className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center w-16 h-24 bg-gradient-to-l from-luxury-bg/90 to-transparent rounded-l-3xl drop-shadow-2xl"
-                    style={{ opacity: rightOpacity, x: rightX, scale: rightScale }}
-                >
-                    <ChevronRight className="w-8 h-8 text-luxury-gold drop-shadow-lg" />
-                </motion.div>
-            )}
-        </div>
-    );
-}
-
 // ─── Main Component ──────────────────────────────────────────────────────────
+// Navigation between panes is handled by DashboardHeader dot indicator (PaneIndicator)
+// and sidebar on desktop. No swipe gestures — vertical scroll is released to the browser.
 
 export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
-    const pathname = usePathname();
-    const router = useRouter();
     const { isMobile } = useSidebar();
-
-    // ── Detect if inside a project ──────────────────────────────────────────
-    const isInsideProject = useMemo(() => PROJECT_ID_REGEX.test(pathname), [pathname]);
-
-    // ── Derive active pane from current route ───────────────────────────────
-    const activeIndex = useMemo(() => getActiveIndexFromPathname(pathname), [pathname]);
-
-    const setActivePaneByIndex = useCallback(
-        (newIndex: number) => {
-            const route = PANE_ROUTES[newIndex];
-            if (!route || newIndex === activeIndex) return;
-            router.push(route);
-        },
-        [activeIndex, router],
-    );
-
-    // ── Swipe Navigation Hook (disabled inside projects — ProjectMobileTabs handles it) ──
-    const { containerProps, swipeX } = useSwipeNavigation({
-        panes: [...PANES],
-        activeIndex,
-        onSwipe: setActivePaneByIndex,
-        enableHaptics: true,
-    });
 
     // Desktop: render children only
     if (!isMobile) return <>{children}</>;
 
-    // Inside a project: disable main swipe, let ProjectMobileTabs handle navigation
-    if (isInsideProject) {
-        return (
-            <div className="relative h-[100dvh] w-full bg-luxury-bg overflow-hidden">
-                {children}
-            </div>
-        );
-    }
-
     return (
-        <div
-            className="relative h-[100dvh] w-full bg-luxury-bg overflow-hidden"
-            style={{ touchAction: 'pan-y' }}
-            {...containerProps}
-        >
-            {/* High-fidelity M3 Edge Swipe Indicators */}
-            <SwipeHints activeIndex={activeIndex} totalPanes={PANES.length} swipeX={swipeX} />
-
-            {/* Main Application Container — Fixed structural wrapper.
-                Physical translation via 'style={{ x: swipeX }}' was removed because
-                it generated a new containing block and deformed the fixed AppSidebar layout.
-                Navigation is now handled purely functionally + native AnimatePresence. */}
-            <div className="absolute inset-0 z-0 h-full w-full bg-luxury-bg">
-                <div className="h-full w-full overflow-hidden bg-luxury-bg">
-                    {children}
-                </div>
-            </div>
+        <div className="relative h-[100dvh] w-full bg-luxury-bg overflow-hidden">
+            {children}
         </div>
     );
 }

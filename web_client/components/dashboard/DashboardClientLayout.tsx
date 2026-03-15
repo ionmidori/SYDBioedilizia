@@ -89,7 +89,7 @@ function DashboardContent({
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col min-h-0 relative w-full overflow-hidden">
                     <DashboardHeader />
-                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative pb-[env(safe-area-inset-bottom)]">
+                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative pb-[env(safe-area-inset-bottom)]" style={{ touchAction: 'pan-y' }}>
                         {children}
                     </div>
 
