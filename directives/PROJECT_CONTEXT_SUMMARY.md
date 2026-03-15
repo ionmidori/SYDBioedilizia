@@ -2,11 +2,19 @@
 **Ultimo aggiornamento:** 14 Marzo 2026 (Phase 71)
 **Status:** Production-Ready — ADK Session Persistence Hardening
 
-## 🎯 Obiettivi Correnti (Phase 71)
-1. **ADK Session Recovery Hardening**: Fallback mid-stream per `SessionNotFoundError` in `adk_orchestrator.py` — se la sessione sparisce durante `run_async` (race condition post-restart), il sistema ricrea la sessione, re-inietta la history da Firestore e riprova automaticamente una volta.
-2. **Quote Flow Continuity**: Garantita continuità del flusso preventivo anche dopo restart del backend durante una sessione attiva.
+## 🎯 Obiettivi Correnti (Phase 72)
+1. **4-Week Enterprise Roadmap Complete**: Tutte le 4 settimane implementate e committed.
+2. **Next Priority**: Production audit remaining items (CSRF webhook, OpenTelemetry sampling, error budget, log-based metrics, signal handling).
 
 ---
+
+- **Phase 72 (Mar 15, 2026):** **4-Week Enterprise Roadmap Complete (v4.0.25)**:
+    - **Week 1 (d235e36)**: Security hardening — auth, tier isolation, attachment fix, HMAC verification
+    - **Week 2 (7679c9b)**: Resilience — circuit breaker, idempotency, atomic quota reset, race condition prevention
+    - **Week 3 (143cca0)**: Observability — OpenTelemetry tracing, tool instrumentation, CSP nonce generation, request ID injection
+    - **Week 4 (baeb5d1)**: Data Governance — immutable audit trail service + Firestore TTL policies for GDPR retention
+    - **Code Review Integration (30a800b)**: Addressed 12+ findings from Weeks 1-2 (memory exhaustion, event loop blocking, DRY violations, unused imports, socket timeout, cache overflow)
+    - **Status**: 5 commits local, all 379 unit tests passing, 0 syntax errors
 
 - **Phase 71 (Mar 14, 2026):** **ADK Session Persistence Hardening & Dead-code cleanup (v4.0.24)**:
     - **Dead-code elimination**: Rimozione di file e variabili inutilizzate nel backend con Ruff e Vulture.
@@ -57,5 +65,6 @@
 
 ---
 
-- **Current Version**: `v4.0.24`
-- **Next High Priority**: 1) ADK Session cleanup cron for GDPR | 2) Admin dashboard page per negativi feedback (self-correction loop Fase 2) | 3) Replace remaining `Loader2` imports with `SydLoader` | 4) Automate Golden Sync generation | 5) Eseguire live eval run con `run_evals.py` (richiede GOOGLE_API_KEY + Vertex AI)
+- **Current Version**: `v4.0.25`
+- **Production Audit Status**: 43/51 items complete. Open items: CSRF webhook N8N (HMAC-SHA256), OpenTelemetry sampling config (Cloud Console), Error budget alerting (Cloud Monitoring), Log-based metrics (Cloud Logging), Signal handling in Cloud Run service config
+- **Next High Priority**: 1) Push 5-commit roadmap to remote | 2) ADK Session cleanup cron for GDPR | 3) Admin dashboard for self-correction loop (Phase 2) | 4) Automate Golden Sync generation | 5) Live eval run with `run_evals.py` (requires GOOGLE_API_KEY + Vertex AI)
