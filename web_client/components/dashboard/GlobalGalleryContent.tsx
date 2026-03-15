@@ -142,7 +142,7 @@ export function GlobalGalleryContent() {
             {/* Header / Stats */}
             <div className="mb-3 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-luxury-text font-serif leading-tight">
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-luxury-text font-serif leading-tight">
                         Galleria
                     </h1>
                     <div className="px-4 py-2 bg-luxury-gold/10 border border-luxury-gold/20 rounded-2xl flex items-center shrink-0 gap-3">
@@ -157,7 +157,7 @@ export function GlobalGalleryContent() {
                         </div>
                     </div>
                 </div>
-                <p className="text-luxury-text/60 text-base md:text-lg font-light max-w-xl">
+                <p className="text-luxury-text/60 text-xs md:text-sm font-light max-w-xl">
                     Tutti i documenti, i render e le acquisizioni vision aggregate dai tuoi progetti.
                 </p>
             </div>

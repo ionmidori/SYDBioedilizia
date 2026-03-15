@@ -36,7 +36,7 @@ export function ProjectListClient() {
                 <div className="absolute -top-10 -left-10 w-32 h-32 bg-luxury-teal/5 rounded-full blur-[80px] pointer-events-none" />
 
                 <div className="space-y-3 relative z-10 flex-1">
-                    <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-luxury-text font-serif leading-tight flex items-center gap-4">
+                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-luxury-text font-serif leading-tight flex items-center gap-4">
                         <div className="p-2 md:p-3 bg-luxury-gold/10 rounded-xl md:rounded-2xl border border-luxury-gold/20 shadow-lg shadow-luxury-gold/5 shrink-0">
                             <FolderKanban className="w-6 h-6 md:w-8 md:h-8 text-luxury-gold" />
                         </div>
@@ -44,7 +44,7 @@ export function ProjectListClient() {
                             I Miei <span className="text-luxury-gold italic">Progetti</span>
                         </span>
                     </h1>
-                    <p className="text-luxury-text/50 max-w-xl font-medium text-sm md:text-base leading-relaxed">
+                    <p className="text-luxury-text/50 max-w-xl font-medium text-xs md:text-sm leading-relaxed">
                         Gestisci tutte le tue ristrutturazioni e visualizza i tuoi preventivi intelligenti in un unico posto.
                     </p>
                 </div>

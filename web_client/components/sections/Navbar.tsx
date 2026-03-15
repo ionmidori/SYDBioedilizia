@@ -176,9 +176,9 @@ export function Navbar() {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                         transition={M3Spring.bouncy}
-                                        className="absolute top-14 left-0 bg-luxury-bg/80 backdrop-blur-xl border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
+                                        className="absolute top-14 left-0 bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
                                     >
-                                        <div className="absolute -top-2 left-6 w-4 h-4 bg-luxury-bg/80 border-t border-l border-luxury-gold/20 rotate-45 transform" />
+                                        <div className="absolute -top-2 left-6 w-4 h-4 bg-luxury-bg/95 border-t border-l border-luxury-gold/20 rotate-45 transform" />
 
                                         {contactLinks.map(({ Icon, label, href }, i) => (
                                             <motion.a
@@ -270,9 +270,9 @@ export function Navbar() {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                         transition={M3Spring.bouncy}
-                                        className="absolute top-12 right-0 bg-luxury-bg/80 backdrop-blur-xl border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[200px] rounded-[24px_4px_24px_24px] origin-top-right z-50"
+                                        className="absolute top-12 right-0 bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[200px] rounded-[24px_4px_24px_24px] origin-top-right z-50"
                                     >
-                                        <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/80 border-t border-l border-luxury-gold/20 rotate-45 transform" />
+                                        <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/95 border-t border-l border-luxury-gold/20 rotate-45 transform" />
 
                                         {contactLinks.map(({ Icon, label, href }, i) => (
                                             <motion.a
