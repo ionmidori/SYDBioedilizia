@@ -3,6 +3,9 @@ import { stat, readFile } from 'fs/promises';
 import { join } from 'path';
 
 export async function GET() {
+    if (process.env.NODE_ENV !== 'development') {
+        return NextResponse.json({ error: 'Not Found' }, { status: 404 });
+    }
     try {
         const logsDir = join(process.cwd(), '.next', 'dev', 'logs');
         const logFile = join(logsDir, 'next-development.log');

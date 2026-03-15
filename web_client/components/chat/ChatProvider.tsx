@@ -138,7 +138,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 messages,
                 ...extra,
                 projectId: currentProjectId,
-                is_authenticated: !!user && !user.isAnonymous,
                 sessionId,
             };
 
@@ -156,7 +155,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 sessionId: body.sessionId,
                 messagesCount: msgs?.length,
                 projectId: body.projectId,
-                is_authenticated: body.is_authenticated,
                 lastMessageRole: lastMsg?.role,
                 lastMessageContent: String(lastMsgContent).substring(0, 50),
                 mediaUrlsCount: Array.isArray(body.mediaUrls) ? (body.mediaUrls as unknown[]).length : 0,

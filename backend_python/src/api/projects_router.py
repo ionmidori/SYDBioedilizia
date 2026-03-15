@@ -295,3 +295,44 @@ async def delete_project(
 
     logger.info(f"[API] Soft-deleted project {session_id} for user {user_id}")
     return {"success": True, "message": "Progetto eliminato con successo"}
+
+
+@router.delete("/{session_id}/files/{file_id}", response_model=dict)
+async def delete_project_file(
+    session_id: str,
+    file_id: str,
+    user_session: UserSession = Depends(verify_token),
+) -> dict:
+    """
+    Delete a single file from a project's files subcollection.
+    Enforces ownership via JWT — delegates all auth to verify_token.
+    """
+    from src.db.firebase_client import get_async_firestore_client
+
+    user_id = user_session.uid
+    db = get_async_firestore_client()
+
+    # Ownership check: verify the project belongs to this user
+    project_ref = db.collection("projects").document(session_id)
+    project_doc = await project_ref.get()
+
+    if not project_doc.exists:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Progetto non trovato")
+
+    project_data = project_doc.to_dict()
+    if project_data.get("userId") != user_id and project_data.get("user_id") != user_id:
+        logger.warning(
+            f"[API] User {user_id} attempted to delete file {file_id} in project {session_id} "
+            f"owned by {project_data.get('userId') or project_data.get('user_id')}"
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accesso negato")
+
+    # Verify file exists
+    file_ref = project_ref.collection("files").document(file_id)
+    file_doc = await file_ref.get()
+    if not file_doc.exists:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File non trovato")
+
+    await file_ref.delete()
+    logger.info(f"[API] Deleted file {file_id} from project {session_id} for user {user_id}")
+    return {"success": True}

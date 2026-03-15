@@ -423,7 +423,9 @@ class ChatRequest(BaseModel):
     
     # 🌍 CONTEXT AWARENESS (Renovation-Next)
     project_id: str | None = Field(None, alias="projectId", max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
-    is_authenticated: bool = Field(False) # Matches JSON directly
+    # is_authenticated removed: auth state is derived exclusively from the verified JWT
+    # via Depends(verify_token) → user_session.is_authenticated. Accepting it from the body
+    # was redundant and opened a spoofing vector (client-controlled field bypassing JWT).
     
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
     user_session: UserSession | None = Field(None, exclude=True) # Injected by Depends(verify_token)

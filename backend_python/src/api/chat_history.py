@@ -4,7 +4,7 @@ Chat History API Router.
 Provides endpoints for fetching chat message history from sessions.
 """
 import logging
-from typing import Optional, List
+from typing import Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 import json
@@ -26,7 +26,7 @@ class MessageResponse(BaseModel):
     role: str
     content: str
     timestamp: Optional[str] = None
-    attachments: Optional[list] = None  # Fixed: was dict, should be list to match Firestore data
+    attachments: Optional[Any] = None  # Supports both list (legacy) and dict (structured)
     tool_calls: Optional[list] = None
 
 
@@ -132,19 +132,14 @@ async def get_chat_history(
                 elif hasattr(timestamp_val, 'isoformat'):
                     timestamp_str = timestamp_val.isoformat()
             
-            # Robust extraction of lists (handles legacy dicts or None)
+            # Robust extraction of attachments (handles legacy list AND structured dict)
             attachments_val = data.get('attachments')
-            if attachments_val and not isinstance(attachments_val, list):
-                if isinstance(attachments_val, dict):
-                    # Legacy: convert dict values to list or wrap? 
-                    # Assuming it might be a map of url->meta, we arguably just drop it or try to recover.
-                    # Safest is to treat as None to avoid 500, or empty list.
-                    logger.warning(f"Found non-list attachments for msg {doc.id}: {type(attachments_val)}")
-                    attachments_val = [] 
+            if attachments_val is not None:
+                if isinstance(attachments_val, (list, dict)):
+                    pass  # Preserve as-is: list = legacy [{url, type}], dict = {images:[], videos:[], documents:[]}
                 else:
-                    attachments_val = []
-            elif attachments_val is None:
-                attachments_val = []
+                    logger.warning(f"[ChatHistory] Unexpected attachments type for msg {doc.id}: {type(attachments_val)}")
+                    attachments_val = None
 
             tool_calls_val = data.get('tool_calls')
             if tool_calls_val and not isinstance(tool_calls_val, list):

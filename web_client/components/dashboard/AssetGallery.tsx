@@ -5,7 +5,7 @@ import { MediaAsset } from '@/lib/media-utils';
 import { Image as ImageIcon } from 'lucide-react';
 import { OptimizedGalleryViewer, GalleryImage } from '@/components/gallery/OptimizedGalleryViewer';
 import { DeleteAssetDialog } from './DeleteAssetDialog';
-import { useAuth } from '@/hooks/useAuth';
+import { fetchWithAuth } from '@/lib/api-client';
 
 interface AssetGalleryProps {
     assets: MediaAsset[];
@@ -14,7 +14,6 @@ interface AssetGalleryProps {
 
 export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
     const [assetToDelete, setAssetToDelete] = useState<GalleryImage | null>(null);
-    const { user } = useAuth();
 
     const galleryImages: GalleryImage[] = assets.map(asset => ({
         id: asset.id,
@@ -28,28 +27,25 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
 
     const handleDeleteConfirm = async () => {
         if (!assetToDelete) return;
+        const projectId = assetToDelete.metadata?.projectId;
+        if (!projectId) {
+            console.error('[AssetGallery] Cannot delete: missing projectId in asset metadata');
+            setAssetToDelete(null);
+            return;
+        }
         try {
-            const token = await user?.getIdToken();
-            const res = await fetch('/api/assets/delete', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    assetId: assetToDelete.id,
-                    projectId: assetToDelete.metadata?.projectId,
-                    url: assetToDelete.url
-                })
-            });
-
+            // Delegates to Python backend — auth (JWT + AppCheck) injected by fetchWithAuth
+            const res = await fetchWithAuth(
+                `/api/py/projects/${projectId}/files/${assetToDelete.id}`,
+                { method: 'DELETE' }
+            );
             if (res.ok) {
                 if (onDelete) onDelete(assetToDelete.id);
             } else {
-                console.error('Failed to delete asset');
+                console.error('[AssetGallery] Failed to delete asset:', res.status);
             }
         } catch (e) {
-            console.error(e);
+            console.error('[AssetGallery] Delete error:', e);
         } finally {
             setAssetToDelete(null);
         }
