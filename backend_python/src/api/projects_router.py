@@ -285,13 +285,13 @@ async def delete_project(
     user_id = user_session.uid
     logger.info(f"[API] delete_project request for session_id: {session_id} from user_id: {user_id}")
     
-    success = await projects_db.delete_project(session_id, user_id)
-    
+    success = await projects_db.soft_delete_project(session_id, user_id)
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Progetto non trovato o non autorizzato"
         )
-    
-    logger.info(f"[API] Successfully deleted project {session_id} for user {user_id}")
+
+    logger.info(f"[API] Soft-deleted project {session_id} for user {user_id}")
     return {"success": True, "message": "Progetto eliminato con successo"}

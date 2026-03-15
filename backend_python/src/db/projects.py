@@ -55,7 +55,11 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
         
         async for doc in docs:
             data = doc.to_dict()
-            
+
+            # Skip soft-deleted projects (is_deleted may be absent on legacy docs)
+            if data.get("is_deleted") is True:
+                continue
+
             # Robust Parsing via Utility
             updated_at = parse_firestore_datetime(data.get("updatedAt"))
             
@@ -505,9 +509,55 @@ async def _delete_storage_blobs(bucket, prefix: str) -> int:
     return len(blobs)
 
 
+async def soft_delete_project(session_id: str, user_id: str) -> bool:
+    """
+    Soft-delete a project by setting is_deleted=True and deleted_at timestamp.
+
+    The project is hidden from list queries immediately but the underlying data
+    (messages, files, storage) is preserved for the 30-day GDPR retention window.
+    Hard purge is handled by a scheduled Cloud Function after the retention period.
+    """
+    try:
+        db = get_async_firestore_client()
+        doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
+        doc = await doc_ref.get()
+
+        if not doc.exists:
+            logger.warning(f"[Projects] Cannot soft-delete non-existent project {session_id}")
+            return False
+
+        if doc.to_dict().get("userId") != user_id:
+            logger.warning(f"[Projects] User {user_id} not authorized to delete {session_id}")
+            return False
+
+        now = utc_now()
+        await doc_ref.update({
+            "is_deleted": True,
+            "deleted_at": now,
+            "updatedAt": now,
+        })
+
+        # Mirror soft-delete on the frontend 'projects' collection
+        frontend_ref = db.collection("projects").document(session_id)
+        frontend_doc = await frontend_ref.get()
+        if frontend_doc.exists:
+            await frontend_ref.update({
+                "is_deleted": True,
+                "deleted_at": now,
+            })
+
+        logger.info(f"[Projects] Soft-deleted project {session_id} for user {user_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"[Projects] Error soft-deleting project {session_id}: {e}", exc_info=True)
+        return False
+
+
 async def delete_project(session_id: str, user_id: str) -> bool:
     """
-    Delete a project and all its associated data (messages, files, storage blobs).
+    Hard-delete a project and all its associated data (messages, files, storage blobs).
+    Reserved for admin purge after the GDPR retention window.
     """
     try:
         db = get_async_firestore_client()
