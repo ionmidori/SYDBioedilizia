@@ -453,9 +453,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setInput,
         refreshHistory,
-        useChatData,
+        useChatData
     ]);
-
     return (
         <ChatContext.Provider value={value}>
             {children}

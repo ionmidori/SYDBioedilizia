@@ -101,11 +101,11 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
         }
 
         // Success: Image generated
-        let parsedResult: any = result;
+        let parsedResult: unknown = result;
         if (typeof result === 'string') {
             try {
                 parsedResult = JSON.parse(result);
-            } catch (e) {
+            } catch {
                 // Ignore
             }
         }

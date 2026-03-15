@@ -3,9 +3,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogOverlay } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Play, Pause, Scissors, X } from 'lucide-react';
+import { Play, Scissors, X } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
-import { cn } from '@/lib/utils';
 import { triggerHaptic } from '@/lib/haptics';
 
 interface VideoTrimmerProps {
@@ -21,64 +20,87 @@ interface VideoTrimmerProps {
 
 export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmerProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
-    const [videoUrl, setVideoUrl] = useState<string | null>(null);
-    const [duration, setDuration] = useState(0);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
     
-    // Trim range: [start, end]
-    const [range, setRange] = useState<[number, number]>([0, 100]);
+    // Consolidate state to avoid cascading renders in useEffect
+    const [videoState, setVideoState] = useState<{
+        url: string | null;
+        duration: number;
+        isPlaying: boolean;
+        range: [number, number];
+    }>({
+        url: null,
+        duration: 0,
+        isPlaying: false,
+        range: [0, 100]
+    });
 
     useEffect(() => {
+        let url: string | null = null;
         if (file && isOpen) {
-            const url = URL.createObjectURL(file);
-            setVideoUrl(url);
+            url = URL.createObjectURL(file);
+            const currentUrl = url;
+            const timer = setTimeout(() => {
+                setVideoState(prev => ({
+                    ...prev,
+                    url: currentUrl,
+                    duration: 0,
+                    isPlaying: false,
+                    range: [0, 100]
+                }));
+            }, 0);
             return () => {
-                URL.revokeObjectURL(url);
+                clearTimeout(timer);
+                URL.revokeObjectURL(currentUrl);
             };
         } else {
-            setVideoUrl(null);
-            setDuration(0);
-            setCurrentTime(0);
-            setIsPlaying(false);
-            setRange([0, 100]);
+            const timer = setTimeout(() => {
+                setVideoState({
+                    url: null,
+                    duration: 0,
+                    isPlaying: false,
+                    range: [0, 100]
+                });
+            }, 0);
+            return () => clearTimeout(timer);
         }
     }, [file, isOpen]);
 
     const handleLoadedMetadata = () => {
         if (videoRef.current) {
-            setDuration(videoRef.current.duration);
-            setRange([0, videoRef.current.duration]);
+            const duration = videoRef.current.duration;
+            setVideoState(prev => ({
+                ...prev,
+                duration,
+                range: [0, duration]
+            }));
         }
     };
 
     const handleTimeUpdate = () => {
         if (videoRef.current) {
             const current = videoRef.current.currentTime;
-            setCurrentTime(current);
             
             // Loop back if playing beyond trim end
-            if (isPlaying && current >= range[1]) {
+            if (videoState.isPlaying && current >= videoState.range[1]) {
                 videoRef.current.pause();
-                setIsPlaying(false);
-                videoRef.current.currentTime = range[0];
-                setCurrentTime(range[0]);
+                setVideoState(prev => ({ ...prev, isPlaying: false }));
+                videoRef.current.currentTime = videoState.range[0];
             }
         }
     };
 
     const togglePlay = () => {
         if (videoRef.current) {
-            if (isPlaying) {
+            if (videoState.isPlaying) {
                 videoRef.current.pause();
             } else {
                 // If at the end of the trim, restart
-                if (videoRef.current.currentTime >= range[1]) {
-                    videoRef.current.currentTime = range[0];
+                if (videoRef.current.currentTime >= videoState.range[1]) {
+                    videoRef.current.currentTime = videoState.range[0];
                 }
                 videoRef.current.play();
             }
-            setIsPlaying(!isPlaying);
+            setVideoState(prev => ({ ...prev, isPlaying: !prev.isPlaying }));
             triggerHaptic();
         }
     };
@@ -86,19 +108,18 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
     const handleRangeChange = (value: number[]) => {
         if (value.length === 2 && videoRef.current) {
             const [start, end] = value;
-            setRange([start, end]);
+            setVideoState(prev => ({ ...prev, range: [start, end] }));
             
             // Only seek if paused to let user preview the trim
-            if (!isPlaying) {
+            if (!videoState.isPlaying) {
                  videoRef.current.currentTime = start;
-                 setCurrentTime(start);
             }
         }
     };
 
     const handleConfirm = () => {
         if (file) {
-            onConfirm(file, range[0], range[1]);
+            onConfirm(file, videoState.range[0], videoState.range[1]);
         }
     };
 
@@ -128,14 +149,14 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
 
                 {/* Video Container */}
                 <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
-                    {videoUrl && (
+                    {videoState.url && (
                         <video
                             ref={videoRef}
-                            src={videoUrl}
+                            src={videoState.url}
                             className="w-full h-full object-contain"
                             onLoadedMetadata={handleLoadedMetadata}
                             onTimeUpdate={handleTimeUpdate}
-                            onEnded={() => setIsPlaying(false)}
+                            onEnded={() => setVideoState(prev => ({ ...prev, isPlaying: false }))}
                             playsInline
                             preload="metadata"
                         />
@@ -144,7 +165,7 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
                     {/* Play/Pause Overlay Button */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <AnimatePresence>
-                            {!isPlaying && duration > 0 && (
+                            {!videoState.isPlaying && videoState.duration > 0 && (
                                 <motion.div
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{ opacity: 1, scale: 1 }}
@@ -164,18 +185,18 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
                     
                     {/* Time display */}
                     <div className="flex justify-between text-xs text-luxury-text/60 font-mono">
-                        <span>{formatTime(range[0])}</span>
-                        <span>{formatTime(range[1])}</span>
+                        <span>{formatTime(videoState.range[0])}</span>
+                        <span>{formatTime(videoState.range[1])}</span>
                     </div>
 
                     {/* Range Slider */}
-                    {duration > 0 && (
+                    {videoState.duration > 0 && (
                         <div className="relative flex items-center h-6">
                            <Slider
-                                defaultValue={[0, duration]}
-                                value={range}
+                                defaultValue={[0, videoState.duration]}
+                                value={videoState.range}
                                 min={0}
-                                max={duration}
+                                max={videoState.duration}
                                 step={0.1}
                                 onValueChange={handleRangeChange}
                                 className="z-10"
@@ -186,7 +207,7 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
                     {/* Action Buttons */}
                     <div className="flex justify-between items-center mt-2">
                          <div className="text-sm text-luxury-text/60">
-                            Durata: {formatTime(range[1] - range[0])}
+                            Durata: {formatTime(videoState.range[1] - videoState.range[0])}
                          </div>
                         <div className="flex gap-3">
                             <Button variant="ghost" onClick={onCancel} className="text-luxury-text hover:bg-white/5 rounded-xl">

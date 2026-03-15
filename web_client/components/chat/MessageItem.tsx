@@ -142,17 +142,18 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
         // Text results (like pricing) return null in ToolStatus, so we hide the bubble to avoid empty padding.
         if (tool.toolName === 'show_project_gallery') return true;
         
-        let parsedResult: any = result;
+        let parsedResult: unknown = result;
         if (typeof result === 'string') {
             try {
                 parsedResult = JSON.parse(result);
-            } catch (e) {
+            } catch {
                 // Ignore parse errors, treat as string
             }
         }
 
         if (parsedResult && typeof parsedResult === 'object') {
-            return !!parsedResult.imageUrl || !!parsedResult.error || parsedResult.status === 'error';
+            const typed = parsedResult as Record<string, unknown>;
+            return !!typed.imageUrl || !!typed.error || typed.status === 'error';
         }
         return false;
     }) ?? false;
