@@ -9,10 +9,12 @@ Pydantic validation is enforced via the function's argument types.
 """
 from typing import Dict, Any
 from google.adk.tools import FunctionTool
+from src.core.telemetry import instrumented_tool
 
 
 # ─── Pricing Engine ──────────────────────────────────────────────────────────
 
+@instrumented_tool("pricing_engine")
 async def pricing_engine_tool(sku: str, qty: float) -> Dict[str, Any]:
     """Calculates project line-item price from the master price book.
 
@@ -88,6 +90,7 @@ async def request_quote_approval(
 
 # ─── Market Prices ───────────────────────────────────────────────────────────
 
+@instrumented_tool("market_prices")
 async def get_market_prices(query: str) -> str:
     """Fetches live market prices for renovation materials and services.
 
@@ -104,6 +107,7 @@ async def get_market_prices(query: str) -> str:
 
 # ─── Render Generation ───────────────────────────────────────────────────────
 
+@instrumented_tool("generate_render")
 async def generate_render(
     prompt: str,
     session_id: str,
@@ -168,6 +172,7 @@ async def list_project_files(session_id: str) -> str:
 
 # ─── Quote Item Suggestions ──────────────────────────────────────────────────
 
+@instrumented_tool("suggest_quote_items")
 async def suggest_quote_items(
     session_id: str,
     project_id: str = "",
@@ -194,6 +199,7 @@ async def suggest_quote_items(
 
 # ─── n8n Webhook ─────────────────────────────────────────────────────────────
 
+@instrumented_tool("n8n_webhook")
 async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Triggers an n8n automation workflow via signed HMAC webhook.
 

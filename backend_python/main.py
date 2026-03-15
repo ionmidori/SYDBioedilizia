@@ -31,6 +31,11 @@ logger = get_logger(__name__)
 async def lifespan(_app: FastAPI):
     """Application lifespan: startup and shutdown logic."""
     logger.info("SYD Brain API starting on port 8080...")
+
+    # ── OpenTelemetry Tracing ──────────────────────────────────────────────────
+    from src.core.tracing import init_tracing, shutdown_tracing
+    init_tracing()
+
     # Eager-init: warm up ADKOrchestrator (Vertex AI + Runner) during startup
     # so the first /chat/stream request doesn't pay the ~1-2s cold-start penalty.
     # Runs in threadpool to avoid blocking the event loop during startup.
@@ -46,6 +51,7 @@ async def lifespan(_app: FastAPI):
     # Cloud Run sends SIGTERM and waits up to 40s (--timeout-graceful-shutdown).
     # uvicorn drains active SSE connections; we clean up owned gRPC resources here.
     logger.warning("SYD Brain API shutdown initiated — draining connections...")
+    shutdown_tracing()
     try:
         import src.db.firebase_client as _fb
         client = _fb._async_db_client
