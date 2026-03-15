@@ -24,6 +24,7 @@ from src.models.media import ImageMediaAsset, VideoMediaAsset
 from src.utils.security import validate_image_magic_bytes, validate_video_magic_bytes, sanitize_filename
 from src.tools.quota import check_quota, increment_quota
 from src.core.exceptions import QuotaExceeded
+from src.repositories.conversation_repository import get_conversation_repository
 
 logger = get_logger(__name__)
 
@@ -182,6 +183,18 @@ async def upload_image(
 
         # 7. Increment quota
         await increment_quota(user_id, "upload_image")
+
+        # 8. Persist metadata to Firestore so uploaded photos appear in the gallery
+        repo = get_conversation_repository()
+        await repo.save_file_metadata(session_id, {
+            "url": public_url,
+            "type": "image",
+            "name": safe_filename,
+            "size": file_size,
+            "uploadedBy": user_id,
+            "mimeType": validated_mime,
+            "metadata": {"source": "user_upload", "storage_path": file_path},
+        })
 
         logger.info(
             "image_upload_completed",
