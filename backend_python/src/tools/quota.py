@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from src.utils.datetime_utils import utc_now
 from typing import Tuple, Optional
 
-from google.cloud.firestore_v1 import Increment
+from google.cloud.firestore_v1 import Increment, async_transactional
 from src.db.firebase_client import get_async_firestore_client
 from src.core.config import settings
 from src.core.exceptions import QuotaExceeded as _AppQuotaExceeded
@@ -246,46 +246,61 @@ async def _increment_counter(
     project_id: Optional[str] = None
 ) -> None:
     """
-    Atomic counter increment using Firestore server-side Increment.
+    Atomic counter increment using Firestore server-side Increment + transactions.
 
-    Uses Increment() transform which is atomic at the Firestore server level,
-    eliminating the read-then-write race condition for concurrent requests.
-    Window resets still use read-then-write but this is safe since the
-    worst case is resetting a window slightly late (not a security issue).
+    Two-path strategy:
+    - Active window  → Increment() (server-side atomic, no transaction overhead)
+    - Expired/absent → Firestore transaction to prevent the window-reset race where
+      two concurrent requests both see the window as expired and both reset to count=1,
+      under-counting one request. With a transaction, the second request detects that
+      the first already reset the window and increments instead.
     """
     try:
         now = utc_now()
         snapshot = await doc_ref.get()
 
-        if not snapshot.exists:
-            await doc_ref.set({
-                "count": 1,
-                "window_start": now,
-                "user_id": user_id,
-                "project_id": project_id,
-                "tool_name": tool_name,
-                "last_used": now
-            })
-        else:
+        # Fast path: window is still active — Increment() is inherently atomic
+        if snapshot.exists:
             data = snapshot.to_dict()
             window_start = data.get("window_start")
-
             if hasattr(window_start, 'timestamp'):
                 window_start = datetime.fromtimestamp(window_start.timestamp(), tz=timezone.utc)
+            if window_start and now < window_start + timedelta(hours=window_hours):
+                await doc_ref.update({"count": Increment(1), "last_used": now})
+                return
 
-            if now >= window_start + timedelta(hours=window_hours):
-                # Window expired: reset counter
-                await doc_ref.update({
+        # Slow path: window expired or doc absent — use transaction to prevent
+        # the read-then-write race condition on window reset.
+        @async_transactional
+        async def _atomic_reset_or_create(transaction):
+            snap = await doc_ref.get(transaction=transaction)
+            if not snap.exists:
+                transaction.set(doc_ref, {
+                    "count": 1,
+                    "window_start": now,
+                    "user_id": user_id,
+                    "project_id": project_id,
+                    "tool_name": tool_name,
+                    "last_used": now,
+                })
+                return
+            d = snap.to_dict()
+            ws = d.get("window_start")
+            if hasattr(ws, 'timestamp'):
+                ws = datetime.fromtimestamp(ws.timestamp(), tz=timezone.utc)
+            if ws and now < ws + timedelta(hours=window_hours):
+                # A concurrent request already reset the window — just increment
+                transaction.update(doc_ref, {"count": Increment(1), "last_used": now})
+            else:
+                # Still expired: reset with count=1
+                transaction.update(doc_ref, {
                     "count": 1,
                     "window_start": now,
                     "last_used": now,
                     "project_id": project_id,
                 })
-            else:
-                # Window active: atomic server-side increment
-                await doc_ref.update({
-                    "count": Increment(1),
-                    "last_used": now
-                })
+
+        await _atomic_reset_or_create(db.transaction())
+
     except Exception as e:
         logger.error(f"[Quota] Error incrementing {tool_name} for {user_id}: {e}")

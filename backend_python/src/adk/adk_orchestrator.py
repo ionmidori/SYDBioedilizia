@@ -34,6 +34,7 @@ from src.utils.stream_protocol import (
     stream_tool_call,
     stream_tool_result,
 )
+from src.utils.circuit_breaker import vertex_ai_breaker
 
 def _sse(data: dict) -> str:
     """DEPRECATED. Use stream_protocol helpers instead."""
@@ -318,6 +319,18 @@ class ADKOrchestrator(BaseOrchestrator):
                             else:
                                 raise  # second attempt or non-session error
 
+                # ── Circuit Breaker: Vertex AI ─────────────────────────────────
+                # If Vertex AI has been failing repeatedly, open the circuit and
+                # return a user-friendly degraded response without hammering the
+                # downstream service.
+                if not await vertex_ai_breaker.before_call():
+                    async for chunk in stream_error(
+                        "Il servizio AI è temporaneamente non disponibile. "
+                        "Il nostro team è stato avvisato. Riprova tra qualche minuto."
+                    ):
+                        yield chunk
+                    return
+
                 try:
                     # 180s hard timeout (3 minutes) — image generation and agent logic can be slow.
                     # This ensures a clean error message reaches the client if it truly hangs.
@@ -456,8 +469,14 @@ class ADKOrchestrator(BaseOrchestrator):
                             else:
                                 logger.debug("ADK event has no content or parts")
 
+                    # Generator completed without exception — record success
+                    await vertex_ai_breaker.on_success()
+
                 except asyncio.TimeoutError:
-                    logger.error(f"[ADK] run_async timed out after 55s for session {session_id}")
+                    await vertex_ai_breaker.on_failure(
+                        TimeoutError("run_async timed out after 180s")
+                    )
+                    logger.error(f"[ADK] run_async timed out after 180s for session {session_id}")
                     async for chunk in stream_error("Syd ha impiegato troppo tempo a rispondere. Riprova tra poco."):
                         yield chunk
 
@@ -477,7 +496,8 @@ class ADKOrchestrator(BaseOrchestrator):
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:
                         logger.error(f"Failed to persist assistant message: {e}")
-            except Exception:
+            except Exception as _inner_exc:
+                await vertex_ai_breaker.on_failure(_inner_exc)
                 logger.exception("Inner ADK run_async error captured")
                 async for chunk in stream_error("Errore durante la generazione della risposta AI."):
                     yield chunk

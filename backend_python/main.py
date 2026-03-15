@@ -247,6 +247,13 @@ class GlobalErrorCatcherMiddleware:
 app.add_middleware(GlobalErrorCatcherMiddleware)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# 🔁 Idempotency Middleware (non-streaming POST endpoints only)
+# Replays cached responses for duplicate requests bearing the same Idempotency-Key.
+# Registered AFTER GlobalErrorCatcherMiddleware (LIFO = executes before it)
+# so duplicate replays skip all downstream processing including auth and rate limiting.
+from src.middleware.idempotency import IdempotencyMiddleware
+app.add_middleware(IdempotencyMiddleware)
+
 # 🔒 App Check Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
 # ⚠️  Uses raw ASGI protocol to avoid buffering StreamingResponse for /chat/stream
 from src.middleware.app_check import validate_app_check_token

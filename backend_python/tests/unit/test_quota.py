@@ -31,12 +31,32 @@ def mock_async_firestore():
     
     # Default snapshot state (exists=False)
     mock_snapshot.exists = False
-    
+
     # Async methods
     mock_doc_ref.get = AsyncMock(return_value=mock_snapshot)
     mock_doc_ref.set = AsyncMock()
     mock_doc_ref.update = AsyncMock()
-    
+
+    # Transaction support: db.transaction() must return a proper mock for
+    # google.cloud.firestore_v1.async_transaction._AsyncTransactional which calls:
+    #   transaction._clean_up()      (sync)
+    #   await transaction._begin()   (async)
+    #   await self.to_wrap(txn, ...) (the decorated function)
+    #   await transaction._commit()  (async)
+    # On error: await transaction._rollback() (async)
+    mock_txn = MagicMock()
+    mock_txn._max_attempts = 1
+    mock_txn._read_only = False
+    mock_txn._id = b"mock-txn-id"
+    mock_txn._clean_up = MagicMock()       # synchronous
+    mock_txn._begin = AsyncMock()          # async (begins the transaction)
+    mock_txn._commit = AsyncMock()         # async (commits the transaction)
+    mock_txn._rollback = AsyncMock()       # async (rollback on error)
+    # transaction.set/update are synchronous (queue writes; commit happens separately)
+    mock_txn.set = MagicMock()
+    mock_txn.update = MagicMock()
+    mock_client.transaction.return_value = mock_txn
+
     return mock_client
 
 @pytest.mark.asyncio
@@ -155,15 +175,20 @@ class TestQuotaIncrement:
     async def test_increment_first_use(self, mock_env_production, mock_async_firestore):
         """GIVEN no prior usage
         WHEN increment_quota is called
-        THEN should create set new counters
+        THEN should create new counters via a Firestore transaction
         """
-        # Arrange
+        # Arrange: snapshot does not exist (first use)
         mock_snapshot = MagicMock()
         mock_snapshot.exists = False
-        mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_snapshot
-        
+        mock_async_firestore.collection.return_value.document.return_value.get = AsyncMock(
+            return_value=mock_snapshot
+        )
+
         with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-             await increment_quota("authenticatedUser123", "generate_render")
-        
-        # Assert: .set() called twice (daily + weekly)
-        assert mock_async_firestore.collection.return_value.document.return_value.set.call_count == 2
+            await increment_quota("authenticatedUser123", "generate_render")
+
+        # Assert: transaction.set() called twice (once for daily, once for weekly)
+        # The new implementation uses a Firestore transaction for the window-reset
+        # path, so writes go through transaction.set() rather than doc_ref.set().
+        mock_txn = mock_async_firestore.transaction.return_value
+        assert mock_txn.set.call_count == 2
