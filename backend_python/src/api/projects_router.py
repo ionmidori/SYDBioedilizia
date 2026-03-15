@@ -15,6 +15,7 @@ import logging
 from src.auth.jwt_handler import verify_token
 from src.schemas.internal import UserSession
 from src.db import projects as projects_db
+from src.db.firebase_client import get_async_firestore_client
 from src.models.project import (
     ProjectCreate,
     ProjectDocument,
@@ -307,8 +308,6 @@ async def delete_project_file(
     Delete a single file from a project's files subcollection.
     Enforces ownership via JWT — delegates all auth to verify_token.
     """
-    from src.db.firebase_client import get_async_firestore_client
-
     user_id = user_session.uid
     db = get_async_firestore_client()
 

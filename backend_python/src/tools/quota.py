@@ -209,7 +209,9 @@ async def check_quota(
         return allowed, remaining, reset_at
     
     except Exception as e:
-        logger.error(f"[Quota] Error checking quota: {e}")
+        # CRITICAL: fail-open — Firestore outage allows unlimited operations.
+        # Alerting should trigger on this log level to prevent quota bypass.
+        logger.critical(f"[Quota] Firestore error in check_quota (fail-open): {e}", exc_info=True)
         return True, 0, now + timedelta(hours=QUOTA_WINDOW_HOURS)
 
 

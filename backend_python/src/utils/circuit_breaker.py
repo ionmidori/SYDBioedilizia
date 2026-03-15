@@ -144,9 +144,3 @@ vertex_ai_breaker = CircuitBreaker(
     fail_max=5,          # Open after 5 consecutive Vertex AI failures
     reset_timeout=60.0,  # Allow probe after 60 seconds
 )
-
-firestore_breaker = CircuitBreaker(
-    name="firestore",
-    fail_max=10,         # Firestore is more resilient — tolerate more failures
-    reset_timeout=30.0,  # Shorter probe window
-)

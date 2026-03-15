@@ -4,7 +4,7 @@ Chat History API Router.
 Provides endpoints for fetching chat message history from sessions.
 """
 import logging
-from typing import Optional, List, Any
+from typing import Optional, List, Union
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 import json
@@ -26,7 +26,7 @@ class MessageResponse(BaseModel):
     role: str
     content: str
     timestamp: Optional[str] = None
-    attachments: Optional[Any] = None  # Supports both list (legacy) and dict (structured)
+    attachments: Optional[Union[list, dict]] = None  # Supports both list (legacy) and dict (structured)
     tool_calls: Optional[list] = None
 
 

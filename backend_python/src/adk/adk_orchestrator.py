@@ -8,6 +8,7 @@ Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol#data-stream-protocol
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import AsyncIterator, Any
 from google.adk.runners import Runner
 from google.genai import types
@@ -323,6 +324,9 @@ class ADKOrchestrator(BaseOrchestrator):
                 # If Vertex AI has been failing repeatedly, open the circuit and
                 # return a user-friendly degraded response without hammering the
                 # downstream service.
+                # NOTE: Session creation/history injection above is intentionally
+                # outside the breaker scope — those are Firestore operations, not
+                # Vertex AI calls. Only run_async failures count toward the breaker.
                 if not await vertex_ai_breaker.before_call():
                     async for chunk in stream_error(
                         "Il servizio AI è temporaneamente non disponibile. "
@@ -433,8 +437,6 @@ class ADKOrchestrator(BaseOrchestrator):
                                                 
                                             # ── Persist Tool Result to Firestore ──
                                             try:
-                                                import json
-                                                from datetime import datetime, timezone
                                                 repo = get_conversation_repository()
                                                 content_str = json.dumps(raw_response) if isinstance(raw_response, dict) else str(raw_response)
                                                 await repo.save_message(
@@ -483,7 +485,6 @@ class ADKOrchestrator(BaseOrchestrator):
                 # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---
                 if full_response or accumulated_tool_calls:
                     try:
-                        from datetime import datetime, timezone
                         repo = get_conversation_repository()
                         assistant_timestamp = datetime.now(timezone.utc)
                         await repo.save_message(

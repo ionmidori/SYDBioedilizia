@@ -24,14 +24,13 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Callable
 
-from fastapi import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
 _TTL_SECONDS = 60 * 60 * 24  # 24 hours
+_MAX_CACHE_SIZE = 10_000      # Prevent unbounded memory growth on Cloud Run
 
 
 @dataclass
@@ -66,10 +65,24 @@ class IdempotencyMiddleware:
         self._lock = asyncio.Lock()
 
     def _evict_expired(self) -> None:
-        """Remove expired entries. Called within the lock."""
+        """Remove expired entries and enforce max cache size. Called within the lock."""
         expired = [k for k, v in self._cache.items() if v.is_expired()]
         for k in expired:
             del self._cache[k]
+
+        # LRU-style eviction: if still over capacity, drop oldest entries first
+        if len(self._cache) > _MAX_CACHE_SIZE:
+            overflow = len(self._cache) - _MAX_CACHE_SIZE
+            oldest_keys = sorted(
+                self._cache, key=lambda k: self._cache[k].created_at
+            )[:overflow]
+            for k in oldest_keys:
+                del self._cache[k]
+            logger.warning(
+                "[Idempotency] Cache over capacity — evicted %d oldest entries (size=%d)",
+                overflow,
+                len(self._cache),
+            )
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
