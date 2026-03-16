@@ -1,8 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+import asyncio
 import logging
 import httpx
 from urllib.parse import urlparse
+from google import genai
+from google.genai import types as genai_types
 from src.services.insight_engine import get_insight_engine, InsightEngineError
 from src.services.pricing_service import PricingService
 from src.repositories.conversation_repository import ConversationRepository
@@ -176,6 +179,153 @@ async def _run_measurement_vision(media_urls: List[str]) -> str:
     return ""  # No accessible image found — InsightEngine uses defaults
 
 
+_STRUCTURAL_VISION_PROMPT = (
+    "Sei un geometra esperto in ristrutturazioni edili italiane. "
+    "Ti vengono mostrate DUE immagini:\n"
+    "1. FOTO ORIGINALE: lo stato attuale della stanza del cliente.\n"
+    "2. RENDER OBIETTIVO: la stanza dopo la ristrutturazione immaginata.\n\n"
+    "COMPITO: Confronta le due immagini e identifica SOLTANTO i lavori edili strutturali "
+    "necessari per trasformare lo stato attuale nello stato del render.\n\n"
+    "INCLUDI SOLO:\n"
+    "- Demolizioni (pareti, tramezzi, controsoffitti, pavimenti esistenti)\n"
+    "- Opere murarie (nuovi tramezzi, rivestimenti, rasature, intonaci)\n"
+    "- Pavimenti e rivestimenti (posa pavimento, piastrelle, battiscopa)\n"
+    "- Impianti visibili (tracce idrauliche, elettriche, termoidrauliche)\n"
+    "- Infissi e serramenti (finestre, porte, vetrate)\n"
+    "- Tinteggiature e pitture\n\n"
+    "ESCLUDI TASSATIVAMENTE:\n"
+    "- Mobili, arredi, cucine componibili\n"
+    "- Lampade, lampadari, applique\n"
+    "- Complementi d'arredo, tende, quadri\n"
+    "- Elettrodomestici\n\n"
+    "Rispondi in italiano con un elenco puntato conciso dei lavori strutturali rilevati. "
+    "Se le due immagini sono simili o non ci sono differenze strutturali evidenti, scrivi: "
+    "'Nessuna differenza strutturale rilevata tra foto originale e render.'"
+)
+
+
+async def _run_render_structural_vision(
+    media_urls: List[str],
+    history: List[Dict[str, Any]],
+) -> str:
+    """
+    Visually compares the original room photo with the generated render using Gemini
+    to extract ONLY the structural construction work needed (no furniture).
+
+    Returns a structural delta context block for InsightEngine injection,
+    or an empty string if either image is unavailable or the call fails (non-fatal).
+
+    SSRF protection: Only fetches URLs from the configured Firebase Storage bucket.
+    """
+    bucket = settings.FIREBASE_STORAGE_BUCKET or ""
+
+    def _is_allowed_url(url: str) -> bool:
+        parsed = urlparse(url)
+        return (
+            parsed.hostname == bucket
+            or (
+                bucket
+                and parsed.hostname == "storage.googleapis.com"
+                and parsed.path.startswith(f"/{bucket}/")
+            )
+        )
+
+    # Find render URL from media_urls or from history text hints
+    render_url: Optional[str] = None
+    for url in media_urls:
+        if _is_allowed_url(url) and "/renders/" in url:
+            render_url = url
+            break
+
+    # Fallback: scan history for render URL hint injected by orchestrator
+    if not render_url:
+        for msg in reversed(history):
+            content = str(msg.get("content", ""))
+            if "/renders/" in content:
+                for token in content.split():
+                    if "/renders/" in token and token.startswith("http"):
+                        candidate = token.strip("[]().,")
+                        if _is_allowed_url(candidate):
+                            render_url = candidate
+                            break
+            if render_url:
+                break
+
+    if not render_url:
+        logger.info("[StructuralVision] No render URL found — skipping structural delta.")
+        return ""
+
+    # Find original photo URL (user upload, not a render)
+    photo_url: Optional[str] = None
+    for url in media_urls:
+        if _is_allowed_url(url) and "/renders/" not in url:
+            photo_url = url
+            break
+
+    if not photo_url:
+        logger.info("[StructuralVision] No original photo found — skipping structural delta.")
+        return ""
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            photo_resp, render_resp = await asyncio.gather(
+                http_client.get(photo_url),
+                http_client.get(render_url),
+            )
+            photo_resp.raise_for_status()
+            render_resp.raise_for_status()
+
+        photo_mime = photo_resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+        render_mime = render_resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+
+        if not photo_mime.startswith("image/") or not render_mime.startswith("image/"):
+            logger.warning("[StructuralVision] Non-image content-type, skipping.")
+            return ""
+
+        client = genai.Client(api_key=settings.api_key)
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash-preview-05-20",
+            contents=genai_types.Content(
+                parts=[
+                    genai_types.Part(text=_STRUCTURAL_VISION_PROMPT),
+                    genai_types.Part(
+                        inline_data=genai_types.Blob(
+                            mime_type=photo_mime, data=photo_resp.content
+                        )
+                    ),
+                    genai_types.Part(
+                        inline_data=genai_types.Blob(
+                            mime_type=render_mime, data=render_resp.content
+                        )
+                    ),
+                ]
+            ),
+            config=genai_types.GenerateContentConfig(temperature=0.1),
+        )
+
+        text = ""
+        if response.candidates and response.candidates[0].content.parts:
+            for part in response.candidates[0].content.parts:
+                if part.text:
+                    text += part.text
+
+        if not text.strip():
+            return ""
+
+        logger.info("[StructuralVision] Structural delta extracted from render vs photo comparison.")
+        return (
+            "\n\n## Delta Strutturale: Foto Originale vs Render (Agentic Vision)\n"
+            "Analisi comparativa Gemini — lavori edili necessari per realizzare il render:\n\n"
+            + text.strip()
+            + "\n\nUSO: Usa SOLO questi lavori strutturali per il preventivo. "
+            "NON quotare arredi, mobili o complementi visibili nel render."
+        )
+
+    except Exception as exc:
+        logger.warning("[StructuralVision] Structural delta failed: %s", exc)
+        return ""
+
+
 async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str] = None, user_id: Optional[str] = None) -> str:
     """
     Analyzes the current chat session and suggests a list of quote items based on the Master Price Book.
@@ -198,19 +348,29 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
         else:
             logger.info("[QuoteTool] No measurement data — InsightEngine will use defaults.")
 
-        # 4. Extract qualitative vision analysis from chat history (Phase 1 Designer output)
+        # 4. Agentic Vision: structural delta from render vs original photo comparison
+        # Gemini 2.5 Flash visually compares both images and extracts ONLY structural
+        # construction work needed (furniture/arredi are explicitly excluded).
+        structural_delta = await _run_render_structural_vision(media_urls, history)
+        if structural_delta:
+            logger.info("[QuoteTool] Structural delta from render comparison injected.")
+        else:
+            logger.info("[QuoteTool] No render comparison available — using text context only.")
+
+        # 5. Extract qualitative vision analysis from chat history (Phase 1 Designer output)
         vision_context = _extract_vision_context(history)
 
-        # 5. Build enriched chat summary: measurements + vision analysis + conversation
+        # 6. Build enriched chat summary: structural delta + measurements + vision + conversation
         chat_summary = build_chat_summary(history)
         enriched_summary = (
-            measurement_context
+            structural_delta
+            + measurement_context
             + vision_context
             + "\n\n## Conversazione Progetto\n"
             + chat_summary
         )
 
-        # 6. Analyze with Insight Engine (uses Gemini response_schema structured output)
+        # 7. Analyze with Insight Engine (uses Gemini response_schema structured output)
         engine = get_insight_engine()
         summary_message = [{"role": "user", "content": enriched_summary}]
         try:
@@ -274,7 +434,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
                 f"{formatted_questions}"
             )
 
-        # 4. Generate Pricing
+        # 8. Generate Pricing
         sku_list = [
             {
                 "sku": s.sku,
@@ -297,14 +457,14 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
                 "Verify pricing service and AI output."
             )
 
-        # 5. Save the draft to Firestore (Collection: projects/{projectId}/private_data/quote)
+        # 9. Save the draft to Firestore (Collection: projects/{projectId}/private_data/quote)
         db = get_async_firestore_client()
         target_project_id = project_id or session_id
         
         quote_ref = db.collection('projects').document(target_project_id).collection('private_data').document('quote')
         await quote_ref.set(quote.model_dump(exclude_none=True))
         
-        # 6. Return human-readable Italian summary, grouped by WBS phase
+        # 10. Return human-readable Italian summary, grouped by WBS phase
         response = f"**{analysis.summary}**\n\nHo preparato una bozza di preventivo sulla base della nostra conversazione:\n\n"
 
         # Group items by WBS phase for readability
