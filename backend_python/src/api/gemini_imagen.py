@@ -35,7 +35,8 @@ I2I_MODEL = "gemini-3.1-flash-image-preview"  # Gemini 3.1 Flash Image (Multimod
 async def generate_image_t2i(
     prompt: str,
     negative_prompt: Optional[str] = None,
-    model: str = T2I_MODEL
+    model: str = T2I_MODEL,
+    aspect_ratio: str = "9:16",
 ) -> Dict[str, Any]:
     """
     Generate an interior design image from text using Gemini 2.0 Flash.
@@ -72,6 +73,7 @@ async def generate_image_t2i(
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE", "TEXT"],
                 temperature=0.4,
+                image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
             )
         )
         
@@ -121,7 +123,8 @@ async def generate_image_i2i(
     keep_elements: List[str] = None,
     negative_prompt: Optional[str] = None,
     mime_type: str = "image/jpeg",
-    model: str = I2I_MODEL
+    model: str = I2I_MODEL,
+    aspect_ratio: str = "9:16",
 ) -> Dict[str, Any]:
     """
     Generate an interior design image from an existing image using Gemini (I2I mode).
@@ -181,6 +184,7 @@ async def generate_image_i2i(
                     config=types.GenerateContentConfig(
                         response_modalities=["IMAGE", "TEXT"],
                         temperature=0.4,
+                        image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
                     )
                 ),
                 timeout=90.0  # Generative tasks can be slow, 90s is safe
