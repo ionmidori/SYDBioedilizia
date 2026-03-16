@@ -1,4 +1,5 @@
 import { UIMessage as Message } from 'ai'; // Vercel AI SDK Type
+import { Message as FirestoreMessage } from './chat';
 import { FormEvent, ChangeEvent } from 'react';
 
 /**
@@ -34,6 +35,11 @@ export interface ChatContextType {
      * Current list of messages in the conversation.
      */
     messages: Message[];
+
+    /**
+     * Raw history messages from Firestore (preserves custom fields like rating).
+     */
+    historyMessages: FirestoreMessage[];
 
     /**
      * Current input value in the chat box.

@@ -53,6 +53,7 @@ export interface Message {
         videos?: string[];
         documents?: string[]; // Added document support
     };
+    rating?: -1 | 0 | 1; // User feedback rating
 }
 
 /**

@@ -352,6 +352,10 @@ app.include_router(metadata_router)
 from src.api.routes.quote_routes import router as quote_router
 app.include_router(quote_router)
 
+# Register multi-room routes (room CRUD + analysis + aggregation)
+from src.api.routes.room_routes import router as room_router
+app.include_router(room_router)
+
 # Register users router
 from src.api.users_router import router as users_router
 app.include_router(users_router)
@@ -453,12 +457,14 @@ class ChatRequest(BaseModel):
         return data
 
 @app.get("/health")
+@app.get("/api/health")
 def health_check():
     """Liveness probe — lightweight, no I/O. Cloud Run uses this to restart stuck containers."""
     return {"status": "ok", "service": "syd-brain"}
 
 
 @app.get("/ready")
+@app.get("/api/ready")
 async def readiness_check():
     """
     Readiness probe for Cloud Run.

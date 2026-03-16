@@ -163,7 +163,8 @@ export function useChatHistory(
                             timestamp: createdAt.toISOString(),
                             toolInvocations,
                             tool_call_id: data.tool_call_id,
-                            attachments
+                            attachments,
+                            rating: data.rating
                         } as Message;
                     });
 
