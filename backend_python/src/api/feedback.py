@@ -7,9 +7,8 @@ Used by the self-correction loop (evaluating-adk-agents skill).
 import logging
 
 from fastapi import APIRouter, Depends
-from fastapi.security import HTTPAuthorizationCredentials
 
-from src.auth.jwt_handler import verify_token, security
+from src.auth.jwt_handler import verify_token
 from src.schemas.feedback import FeedbackRequest, FeedbackResponse
 from src.schemas.internal import UserSession
 from src.repositories.feedback_repository import FeedbackRepository
@@ -25,7 +24,7 @@ _feedback_repo = FeedbackRepository()
 @feedback_router.post("", response_model=FeedbackResponse)
 async def submit_feedback(
     body: FeedbackRequest,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user_session: UserSession = Depends(verify_token),
 ) -> FeedbackResponse:
     """
     Save user feedback (thumbs up/down) for a chat message.
@@ -33,8 +32,6 @@ async def submit_feedback(
     Requires authentication (any user — anonymous or authenticated).
     Rate: no rate-limit (low-volume endpoint).
     """
-    user_session: UserSession = await verify_token(credentials)
-
     try:
         feedback_id = await _feedback_repo.save_feedback(
             session_id=body.session_id,

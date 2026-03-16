@@ -1,6 +1,6 @@
-# PROJECT CONTEXT SUMMARY (v4.0.24)
-**Ultimo aggiornamento:** 14 Marzo 2026 (Phase 71)
-**Status:** Production-Ready — ADK Session Persistence Hardening
+# PROJECT CONTEXT SUMMARY (v4.0.25)
+**Ultimo aggiornamento:** 16 Marzo 2026 (Phase 72)
+**Status:** Production-Ready — Feedback Persistence Hardening
 
 ## 🎯 Obiettivi Correnti (Phase 72)
 1. **4-Week Enterprise Roadmap + Gallery + Build Fix**: Tutte le 4 settimane implementate, gallery fix pushato, Vercel migration completata.
@@ -8,7 +8,8 @@
 
 ---
 
-- **Phase 72 (Mar 16, 2026):** **4-Week Enterprise Roadmap + Gallery + Build Fix (v4.0.26)**:
+- **Phase 72 (Mar 16, 2026):** **Feedback Persistence Fix & Enterprise Roadmap (v4.0.26)**:
+    - **Feedback Persistence Fix**: Il componente `MessageFeedback` (thumbs up/down) ora mantiene il suo stato anche dopo il ricaricamento della pagina. Il backend (`FeedbackRepository`) ora salva il campo `rating` direttamente nel documento originale del messaggio su Firestore, oltre che nella sua subcollection dedicata. Il frontend (`useChatHistory`) legge questo campo e ripristina lo stato corretto tramite `initialRating`.
     - **Week 1 (d235e36)**: Security hardening — auth, tier isolation, attachment fix, HMAC verification
     - **Week 2 (7679c9b)**: Resilience — circuit breaker, idempotency, atomic quota reset, race condition prevention
     - **Week 3 (143cca0)**: Observability — OpenTelemetry tracing, tool instrumentation, CSP nonce generation, request ID injection
@@ -16,7 +17,7 @@
     - **Code Review Integration (30a800b)**: Addressed 12+ findings from Weeks 1-2 (memory exhaustion, event loop blocking, DRY violations, unused imports, socket timeout, cache overflow)
     - **Gallery Fix (b9a6e5b)**: Uploaded photos now persisted to Firestore. Upload endpoint calls `repo.save_file_metadata()` after Cloud Storage upload so photos appear in gallery alongside renders.
     - **Build Fix (94a2bef)**: Migrated `middleware.ts` → `proxy.ts` for Next.js 16 compatibility. Vercel build now succeeds.
-    - **Status**: 8 commits pushed, all 399 backend tests passing, type-check clean, Vercel building successfully
+    - **Status**: Backend tests passing, Vercel building successfully.
 
 - **Phase 71 (Mar 14, 2026):** **ADK Session Persistence Hardening & Dead-code cleanup (v4.0.24)**:
     - **Dead-code elimination**: Rimozione di file e variabili inutilizzate nel backend con Ruff e Vulture.

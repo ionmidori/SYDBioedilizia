@@ -65,6 +65,17 @@ class QuoteNotFoundError(ResourceNotFound):
         )
 
 
+class RoomNotFoundError(ResourceNotFound):
+    """Room does not exist within the given project."""
+    error_code = "ROOM_NOT_FOUND"
+
+    def __init__(self, project_id: str, room_id: str) -> None:
+        super().__init__(
+            message=f"Room '{room_id}' not found in project '{project_id}'.",
+            detail={"project_id": project_id, "room_id": room_id},
+        )
+
+
 class QuoteAlreadyApprovedError(AppException):
     """Attempt to approve an already-approved quote (idempotency guard)."""
     status_code = 409

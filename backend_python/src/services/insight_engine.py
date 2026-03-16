@@ -12,7 +12,7 @@ Features:
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Literal, Optional
 
 from google import genai
 from google.genai import types as genai_types
@@ -32,9 +32,13 @@ class SKUItemSuggestion(BaseModel):
     sku: str = Field(..., description="The SKU from the Master Price Book. Must be an exact match.")
     qty: float = Field(..., gt=0, description="Estimated quantity (must be > 0)")
     ai_reasoning: str = Field(..., description="Why this item is necessary based on chat/images")
-    phase: str = Field(
+    phase: Literal[
+        "Demolizioni", "Impianti", "Opere Murarie",
+        "Pavimentazioni", "Rivestimenti", "Tinteggiatura",
+        "Infissi", "Isolamento", "Smaltimento", "Lavori",
+    ] = Field(
         "Lavori",
-        description="WBS phase: Demolizioni | Impianti | Opere Murarie | Strutture | Finiture | Smaltimento"
+        description="WBS phase — must be one of the allowed values"
     )
 
 
@@ -62,6 +66,18 @@ class InsightAnalysis(BaseModel):
             "Empty if completeness_score >= 0.7."
         ),
     )
+    price_range_low: Optional[float] = Field(
+        None,
+        description="Lower bound of estimated total (EUR, excl. VAT). Set when completeness_score < 0.85.",
+    )
+    price_range_high: Optional[float] = Field(
+        None,
+        description="Upper bound of estimated total (EUR, excl. VAT). Set when completeness_score < 0.85.",
+    )
+    # Multi-room metadata (Optional — backward-compatible with single-room flow)
+    room_id: Optional[str] = Field(None, description="UUID of the room being analyzed (multi-room flow)")
+    room_type: Optional[str] = Field(None, description="bagno | cucina | soggiorno | camera | altro")
+    room_label: Optional[str] = Field(None, description="Human-readable room label")
 
 
 # ── Domain Exception ───────────────────────────────────────────────────────────
@@ -398,6 +414,7 @@ Analizza la conversazione e produci la risposta strutturata.
                     temperature=0.1,
                     response_mime_type="application/json",
                     response_schema=InsightAnalysis,  # Pydantic-native, no manual parsing
+                    thinking_config=genai_types.ThinkingConfig(thinkingBudget=2048),
                 ),
             )
 

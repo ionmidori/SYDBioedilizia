@@ -77,7 +77,15 @@ class Settings(BaseSettings):
     # Example: "n8n.sydbioedilizia.com,n8n-staging.sydbioedilizia.com"
     N8N_ALLOWED_WEBHOOK_HOSTS: str | None = Field(None, description="Comma-separated allowlist of n8n webhook hostnames (SSRF guard)")
     ADMIN_DASHBOARD_URL: str = Field(default="http://localhost:8501", description="Base URL of the Streamlit admin console")
-    
+
+    # Native Notification Service (SMTP — active replacement for n8n when n8n is unavailable)
+    SMTP_HOST: str | None = Field(None, description="SMTP server hostname (e.g. smtp.gmail.com)")
+    SMTP_PORT: int = Field(587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
+    SMTP_USER: str | None = Field(None, description="SMTP username/email for authentication")
+    SMTP_PASSWORD: str | None = Field(None, description="SMTP password or app-specific password")
+    SMTP_FROM_EMAIL: str = Field("noreply@sydbioedilizia.com", description="Sender email address for notifications")
+    ADMIN_EMAIL: str | None = Field(None, description="Admin email address for quote review notifications")
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

@@ -13,6 +13,7 @@ import { LoginRequest } from '@/components/chat/tools/LoginRequest';
 import { ReasoningStepView } from '@/components/chat/ReasoningStepView';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useChatContext } from '@/hooks/useChatContext';
 import { MessageFeedback } from '@/components/chat/MessageFeedback';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -34,6 +35,12 @@ interface MessageItemProps {
  */
 export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, sessionId, onImageClick, onFormSubmit }) => {
     const { user } = useAuth();
+    const { historyMessages } = useChatContext();
+
+    // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
+    // To ensure the thumbs up/down state persists across reloads, we look up the raw message from Firestore history.
+    const originalMessage = historyMessages?.find(m => m.id === message.id);
+    const resolvedRating = originalMessage?.rating ?? message.rating ?? 0;
 
     // Helper: Extract text from both old (content) and new (parts[]) formats
     const getMessageText = (msg: Message): string => {
@@ -321,7 +328,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
 
                 {/* Feedback: thumbs up/down on assistant messages (self-correction loop) */}
                 {message.role === 'assistant' && !isThinking && text && sessionId && (
-                    <MessageFeedback messageId={message.id} sessionId={sessionId} />
+                    <MessageFeedback messageId={message.id} sessionId={sessionId} initialRating={resolvedRating} />
                 )}
             </div>
         </motion.div>

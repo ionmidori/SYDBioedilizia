@@ -11,6 +11,7 @@ import type { FeedbackRequest } from '@/types/feedback';
 interface MessageFeedbackProps {
     messageId: string;
     sessionId: string;
+    initialRating?: -1 | 0 | 1;
 }
 
 /**
@@ -19,10 +20,15 @@ interface MessageFeedbackProps {
  * Part of the self-correction loop (evaluating-adk-agents skill).
  * Optimized for Mobile: visible on touch devices, hover-only on desktop.
  */
-export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, sessionId }) => {
-    const { idToken } = useAuth();
-    const [rating, setRating] = useState<-1 | 0 | 1>(0);
+export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, sessionId, initialRating = 0 }) => {
+    const { refreshToken } = useAuth();
+    const [rating, setRating] = useState<-1 | 0 | 1>(initialRating);
     const [submitting, setSubmitting] = useState(false);
+
+    // Sync state if initialRating changes (e.g. via real-time update)
+    React.useEffect(() => {
+        setRating(initialRating);
+    }, [initialRating]);
 
     const submit = useCallback(async (value: -1 | 1) => {
         // Toggle: clicking same button resets to neutral
@@ -36,26 +42,37 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
 
         setSubmitting(true);
         try {
+            // Ensure we have a fresh token (handles race conditions with guest auth)
+            const token = await refreshToken();
+            
             const payload: FeedbackRequest = {
                 session_id: sessionId,
                 message_id: messageId,
                 rating: newRating,
             };
 
-            await fetch('/api/feedback', {
+            const res = await fetch('/api/feedback', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    ...(idToken ? { 'Authorization': `Bearer ${idToken}` } : {}),
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
                 },
                 body: JSON.stringify(payload),
             });
-        } catch {
-            // Non-blocking — feedback is best-effort
+            
+            if (!res.ok) {
+                console.error('[MessageFeedback] Failed to submit feedback:', res.status, await res.text());
+                // Revert UI optimism on failure
+                setRating(rating);
+            }
+        } catch (err) {
+            console.error('[MessageFeedback] Network error:', err);
+            // Revert UI optimism on failure
+            setRating(rating);
         } finally {
             setSubmitting(false);
         }
-    }, [rating, messageId, sessionId, idToken]);
+    }, [rating, messageId, sessionId, refreshToken]);
 
     return (
         <div className={cn(

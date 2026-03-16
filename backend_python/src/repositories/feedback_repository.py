@@ -51,6 +51,18 @@ class FeedbackRepository:
 
         _, doc_ref = await feedback_ref.add(doc_data)
 
+        # Update the original message document with the new rating
+        message_ref = (
+            db.collection("sessions")
+            .document(session_id)
+            .collection("messages")
+            .document(message_id)
+        )
+        try:
+            await message_ref.set({"rating": rating}, merge=True)
+        except Exception as e:
+            logger.warning(f"[Feedback] Failed to update rating on message {message_id}: {e}")
+
         logger.info(
             "[Feedback] Saved.",
             extra={

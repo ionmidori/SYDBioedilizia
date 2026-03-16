@@ -101,7 +101,12 @@ export const quoteSchema = z.object({
   user_id: z.string(),
   status: quoteStatusSchema.default('draft'),
   items: z.array(quoteItemSchema).default([]),
-  financials: quoteFinancialsSchema.default({}),
+  financials: quoteFinancialsSchema.default({
+    subtotal: 0,
+    vat_rate: 0.22,
+    vat_amount: 0,
+    grand_total: 0,
+  }),
   admin_notes: z.string().nullable().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),

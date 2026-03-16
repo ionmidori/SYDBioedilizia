@@ -39,7 +39,8 @@ class ConversationRepository:
         tool_calls: Optional[List[Dict[str, Any]]] = None,
         tool_call_id: Optional[str] = None,
         attachments: Optional[Any] = None,
-        timestamp: Optional[datetime] = None
+        timestamp: Optional[datetime] = None,
+        room_id: Optional[str] = None,
     ) -> None:
         """Save a message to Firestore with tool support and media attachments."""
         try:
@@ -69,6 +70,10 @@ class ConversationRepository:
                 'expireAt': expire_at
             }
             
+            if room_id:
+                metadata = metadata or {}
+                metadata['room_id'] = room_id
+
             if metadata:
                 message_data['metadata'] = metadata
                 
@@ -108,12 +113,21 @@ class ConversationRepository:
     async def get_context(
         self,
         session_id: str,
-        limit: int = 10
+        limit: int = 10,
+        room_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Retrieve conversation history including tool data and attachments."""
+        """Retrieve conversation history including tool data and attachments.
+
+        Args:
+            session_id: Session to fetch messages from.
+            limit: Max messages to return.
+            room_id: If provided, only return messages tagged with this room_id
+                     (via metadata.room_id). Messages without a room_id tag are
+                     always included (they belong to the project-level context).
+        """
         try:
             db = self._get_async_db()
-            
+
             messages_ref = (
                 db.collection('sessions')
                 .document(session_id)
@@ -126,6 +140,15 @@ class ConversationRepository:
             messages_reversed = []
             async for doc in messages_ref.stream():
                 data = doc.to_dict()
+
+                # Room filtering: if room_id is specified, skip messages tagged
+                # with a *different* room_id. Untagged messages (project-level
+                # context) are always included.
+                if room_id:
+                    msg_room = (data.get('metadata') or {}).get('room_id')
+                    if msg_room and msg_room != room_id:
+                        continue
+
                 msg = {
                     'role': data.get('role', 'user'),
                     'content': data.get('content', '')
@@ -136,7 +159,7 @@ class ConversationRepository:
                     msg['tool_call_id'] = data['tool_call_id']
                 if 'attachments' in data:
                     msg['attachments'] = data['attachments']
-                    
+
                 messages_reversed.append(msg)
             
             # Re-order chronologically for the LLM

@@ -38,6 +38,8 @@ from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
 from src.services.pricing_service import PricingService
+from src.services.pdf_service import PdfService
+from src.services.notification_service import NotificationService
 from src.utils.datetime_utils import utc_now
 from src.services.audit import emit_audit_event, AuditAction, AuditResourceType
 
@@ -268,6 +270,47 @@ async def approve_quote(
         audit_action, AuditResourceType.QUOTE, project_id,
         user_id=user_session.uid, metadata={"decision": body.decision},
     )
+
+    # ── Post-approval pipeline: PDF generation + client delivery ──────────
+    if body.decision == "approve":
+        try:
+            quote_ref = _quote_doc_ref(project_id)
+            quote_doc = await quote_ref.get()
+            quote_data = (quote_doc.to_dict() or {}) if quote_doc.exists else {}
+            quote_data["project_id"] = project_id
+            if body.notes:
+                quote_data["admin_notes"] = body.notes
+
+            # 1. Generate PDF (sync ReportLab + Firebase upload → run in thread)
+            pdf_service = PdfService()
+            pdf_url = await pdf_service.async_generate_and_deliver(quote_data)
+
+            # 2. Save PDF URL to quote document
+            await quote_ref.update({"pdf_url": pdf_url})
+            logger.info("PDF generated and saved.", extra={"project_id": project_id, "pdf_url": pdf_url[:80]})
+
+            # 3. Deliver to client (fire-and-forget — don't block the response)
+            client_email = quote_data.get("client_email", "")
+            grand_total = quote_data.get("financials", {}).get("grand_total", 0.0)
+            if client_email:
+                import asyncio
+                notification = NotificationService()
+                asyncio.create_task(
+                    notification.deliver_quote_to_client(
+                        project_id=project_id,
+                        pdf_url=pdf_url,
+                        client_email=client_email,
+                        quote_total=grand_total,
+                    )
+                )
+        except Exception:
+            # PDF/delivery failure must not break the approval response
+            logger.error(
+                "Post-approval pipeline failed (PDF/delivery).",
+                extra={"project_id": project_id},
+                exc_info=True,
+            )
+
     return ApproveQuoteResponse(
         status=result_status,
         project_id=project_id,

@@ -498,6 +498,41 @@ Quando l'InsightEngine restituisce completeness_score < 0.7, usa il campo
 missing_info per sapere esattamente cosa chiedere — formulalo in modo colloquiale.
 </instruction>
 </completeness_gate>
+
+<multi_room_protocol>
+## Protocollo Multi-Stanza
+
+### Rilevamento Automatico
+Quando l'utente menziona più ambienti nella stessa conversazione (segnali: "bagno e cucina",
+"tutta la casa", "3 stanze", "anche il soggiorno", "più stanze"), attiva il protocollo multi-stanza.
+
+### Raccolta Dati Per Stanza
+1. **Conferma**: "Vuoi un preventivo unico per tutti gli ambienti? Così posso ottimizzare i costi."
+2. **Per ogni stanza**, raccogli:
+   - Nome/etichetta (es. "Bagno Principale", "Cucina")
+   - Tipo (bagno, cucina, soggiorno, camera, corridoio, ingresso, terrazzo, altro)
+   - Foto (se disponibile)
+3. **NON chiedere tutti i dettagli di tutte le stanze in un unico messaggio.**
+   Procedi una stanza alla volta, con la stessa naturalezza del flusso single-room.
+
+### Generazione Preventivo Multi-Stanza
+Quando hai raccolto le info essenziali per tutte le stanze:
+- Chiama `suggest_multi_room_quote(session_id=SESSION_ID, project_id=PROJECT_ID, user_id=USER_UID, rooms_json=JSON_ARRAY)`
+- Il `rooms_json` è un array JSON: `[{"room_label": "Bagno", "room_type": "bagno", "media_urls": [...]}]`
+- **NON** chiamare `suggest_quote_items` per ogni stanza separatamente — il tool multi-room gestisce
+  l'analisi parallela e le ottimizzazioni cross-room (deduplicazione, sconti volume, overhead condiviso).
+
+### Presentazione Risultati
+Il tool restituisce un riepilogo con:
+- Breakdown per stanza (subtotale, voci, misure)
+- Ottimizzazioni aggregazione (risparmi cross-room)
+- Totale unificato
+Presenta il risultato così com'è — è già formattato in italiano con dettagli per stanza.
+
+### Fallback Single-Room
+Se l'utente menziona UNA sola stanza, continua con il flusso standard `suggest_quote_items`.
+Il protocollo multi-stanza si attiva SOLO con 2+ ambienti.
+</multi_room_protocol>
 </mode>"""
 
 

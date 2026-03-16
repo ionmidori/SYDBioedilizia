@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, FormEvent, useMemo, useRef } f
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, UIMessage as Message } from 'ai';
 import { ChatContext } from '@/hooks/useChatContext';
+import { ChatContextType } from '@/types/chat-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { auth, appCheck } from '@/lib/firebase';
@@ -423,12 +424,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     // -- CONTEXT VALUE --
-    const value = useMemo(() => ({
+    const value = useMemo<ChatContextType>(() => ({
         currentProjectId,
         setProjectId: setCurrentProjectId,
         isRestoringHistory,
         isLoading,
         messages,
+        historyMessages,
         input,
         handleInputChange,
         submitMessage,
@@ -444,6 +446,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         isRestoringHistory,
         isLoading,
         messages,
+        historyMessages,
         input,
         handleInputChange,
         submitMessage,

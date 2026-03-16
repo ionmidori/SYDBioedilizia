@@ -483,14 +483,24 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
         response += f"**Subtotale: €{quote.financials.subtotal:.2f}**\n"
         response += f"**Totale (IVA inclusa): €{quote.financials.grand_total:.2f}**\n\n"
 
-        # Add completeness note if score is moderate
+        # Add confidence band and completeness note when score is moderate
         if 0.70 <= analysis.completeness_score < 0.85:
+            uncertainty = (1 - analysis.completeness_score) * 0.3
+            low = round(quote.financials.subtotal * (1 - uncertainty), 2)
+            high = round(quote.financials.subtotal * (1 + uncertainty), 2)
             response += (
-                "_Nota: questo preventivo è basato su stime indicative. "
+                f"_Nota: stima indicativa nell'intervallo €{low:,.2f} – €{high:,.2f} (± {uncertainty*100:.0f}%). "
                 "Il nostro geometra lo affinerà durante la revisione._ \n\n"
             )
 
         response += "Puoi revisionare e modificare questa bozza nella tua dashboard sotto 'Preventivo'."
+
+        # 10. Notify admin of new quote draft (fire-and-forget — non-blocking)
+        asyncio.create_task(_notify_admin_background(
+            project_id=target_project_id,
+            grand_total=quote.financials.grand_total,
+            user_id=final_user_id,
+        ))
 
         return response
 
@@ -502,5 +512,20 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
             "Si è verificato un errore imprevisto durante la generazione del preventivo. "
             "Il nostro team è stato notificato. Riprova tra qualche minuto."
         )
+
+async def _notify_admin_background(
+    project_id: str,
+    grand_total: float,
+    user_id: str,
+) -> None:
+    """Fire-and-forget admin notification after a quote draft is saved."""
+    try:
+        from src.services.notification_service import NotificationService
+        svc = NotificationService()
+        result = await svc.notify_admin_quote_ready(project_id, grand_total, user_id)
+        logger.info("[QuoteTool] Admin notification sent: %s", result)
+    except Exception:
+        logger.warning("[QuoteTool] Admin notification failed (non-fatal).", exc_info=True)
+
 
 suggest_quote_items = suggest_quote_items_wrapper
