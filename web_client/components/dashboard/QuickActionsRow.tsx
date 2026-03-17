@@ -17,13 +17,13 @@ export function QuickActionsRow({ actions }: { actions: ActionProps[] }) {
             className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 overflow-x-auto pb-6 pt-2 snap-x snap-mandatory scrollbar-hide px-1"
             ref={(el) => {
                 if (el) {
+                    // Only stop horizontal swipe propagation — vertical scroll must pass through
                     el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-                    el.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
                 }
             }}
             style={{
                 WebkitOverflowScrolling: 'touch',
-                touchAction: 'pan-x',
+                touchAction: 'pan-x pan-y',
                 transform: 'translateZ(0)',
                 willChange: 'transform'
             }}

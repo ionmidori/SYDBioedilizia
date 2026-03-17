@@ -48,7 +48,6 @@ export function MediaCarousel() {
                 ref={(el) => {
                     if (el) {
                         el.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
-                        el.addEventListener('touchmove', (e) => e.stopPropagation(), { passive: true });
                     }
                 }}
                 className="pb-6 px-1 snap-x snap-mandatory scrollbar-hide w-full"
@@ -56,7 +55,7 @@ export function MediaCarousel() {
                     display: 'flex',
                     overflowX: 'auto',
                     gap: '1rem',
-                    touchAction: 'pan-x',
+                    touchAction: 'pan-x pan-y',
                     WebkitOverflowScrolling: 'touch',
                     overscrollBehaviorX: 'contain',
                     transform: 'translateZ(0)',
