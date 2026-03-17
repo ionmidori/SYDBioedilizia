@@ -9,6 +9,8 @@ Prompt Architecture (Security-first, per 'securing-applications' skill):
   - OUTPUT_RULES shared on all agents to enforce Italian + no internal monologue
 """
 import logging
+
+from src.adk.guardrails import model_armor_before_model, model_armor_after_model
 from google.adk.agents import Agent
 
 from src.adk.tools import (
@@ -256,6 +258,9 @@ syd_orchestrator = Agent(
     sub_agents=[triage_agent, design_agent, quote_agent],
     tools=[request_login_adk],
     instruction=SYD_ORCHESTRATOR_INSTRUCTION,
+    # Model Armor guardrails (OWASP LLM01/LLM02)
+    before_model_callback=model_armor_before_model,
+    after_model_callback=model_armor_after_model,
 )
 
 # ADK AgentEvaluator convention: module must expose `root_agent`

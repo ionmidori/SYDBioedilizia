@@ -78,6 +78,20 @@ class Settings(BaseSettings):
     N8N_ALLOWED_WEBHOOK_HOSTS: str | None = Field(None, description="Comma-separated allowlist of n8n webhook hostnames (SSRF guard)")
     ADMIN_DASHBOARD_URL: str = Field(default="http://localhost:8501", description="Base URL of the Streamlit admin console")
 
+    # Model Armor (Runtime Guardrails — OWASP LLM01/LLM02)
+    MODEL_ARMOR_ENABLED: bool = Field(
+        default=False,
+        description="Enable Model Armor API guardrails. Requires template in GCP console.",
+    )
+    MODEL_ARMOR_TEMPLATE_ID: str = Field(
+        default="",
+        description="Model Armor template ID from GCP console (defines active filters).",
+    )
+    MODEL_ARMOR_LOCATION: str = Field(
+        default="us-central1",
+        description="Regional endpoint for Model Armor API.",
+    )
+
     # Native Notification Service (SMTP — active replacement for n8n when n8n is unavailable)
     SMTP_HOST: str | None = Field(None, description="SMTP server hostname (e.g. smtp.gmail.com)")
     SMTP_PORT: int = Field(587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
