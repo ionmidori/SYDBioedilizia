@@ -112,7 +112,6 @@
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
   }
 
   /* Re-enable text selection for content */
@@ -138,7 +137,6 @@
 
   html {
     scroll-behavior: smooth;
-    scroll-snap-type: y proximity;
     scroll-padding-top: 80px;
     /* Prevent sticky header occlusion */
   }
@@ -156,8 +154,8 @@
     font-weight: 600;
   }
 
-  /* Ensure sections snap correctly */
-  section {
+  /* Scroll-snap opt-in: apply .snap-section to sections that need snapping (e.g. landing page) */
+  .snap-section {
     scroll-snap-align: start;
   }
 
@@ -354,8 +352,7 @@
 .bento-grid {
   display: grid;
   gap: 0.75rem;
-  min-height: 100%;
-  align-content: space-between;
+  align-content: start;
   grid-template-columns: 1fr;
   grid-template-areas:
     "hero"
