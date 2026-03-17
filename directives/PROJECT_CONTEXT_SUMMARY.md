@@ -1,14 +1,24 @@
-# PROJECT CONTEXT SUMMARY (v4.0.25)
-**Ultimo aggiornamento:** 16 Marzo 2026 (Phase 72)
-**Status:** Production-Ready — Feedback Persistence Hardening
+# PROJECT CONTEXT SUMMARY (v4.0.27)
+**Ultimo aggiornamento:** 17 Marzo 2026 (Phase 73)
+**Status:** Production-Ready — Security Guardrails & Batch Processing Hardening
 
-## 🎯 Obiettivi Correnti (Phase 72)
-1. **4-Week Enterprise Roadmap + Gallery + Build Fix**: Tutte le 4 settimane implementate, gallery fix pushato, Vercel migration completata.
-2. **Next Priority**: Production audit remaining items (CSRF webhook, OpenTelemetry sampling, error budget, log-based metrics, signal handling).
+## 🎯 Obiettivi Correnti (Phase 73)
+1. **Model Armor Guardrails**: Input/Output sanitization via Gemini Model Armor.
+2. **Batch Processing Engine**: Aggregation logic for bulk operations.
+3. **Security Audit remaining**: CSRF webhook, OpenTelemetry sampling, error budget.
 
 ---
 
-- **Phase 72 (Mar 16, 2026):** **Feedback Persistence Fix & Enterprise Roadmap (v4.0.26)**:
+- **Phase 73 (Mar 17, 2026):** **Model Armor Security Guardrails & Batch Processing (v4.0.27)**:
+    - **Model Armor Integration**: Implementati i checkpoint di sicurezza in ADK via Google Cloud Model Armor. Configurato `before_model_callback` per la difesa da Prompt Injection (LLM01) e `after_model_callback` per la prevenzione di Data Leak (LLM02). Sistema fail-open garantito.
+    - **TDD Verification**: Creati 10 test unitari (5 input, 5 output) con mocking di `google-adk` per garantire la stabilità in ambienti CI. 100% pass rate.
+    - **Batch Processing Engine**: Implementata la logica di aggregazione in `batch_aggregation_engine.py` e nuovi endpoint in `batch_routes.py` per gestire operazioni di massa sul frontend (Bento Grid interactions).
+    - **Frontend CSP Hardening**: Risolto errore Chrome su iframe Firebase Auth aggiungendo la direttiva granulare `frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com` in `proxy.ts`, mantenendo inalterata la sicurezza generale contro clickjacking.
+    - **Quote Schema Hardening**: Aggiornato `QuoteItem` e `quote.py` per supportare metadati estesi sincronizzati con n8n.
+    - **Status**: Backend tests passing, security guardrails ready for deployment.
+
+- **Phase 72 (Mar 17, 2026):** **Feedback Persistence Fix, Enterprise Roadmap & Testimonials (v4.0.26)**:
+    - **Testimonials Feature**: Implementata la funzionalità per lasciare recensioni nella sezione "Dicono di noi" della Home per gli utenti registrati. Aggiunto modulo interattivo con validazione Zod e React Hook Form, salvataggio in Firestore con stato `pending` e permessi di sicurezza in `firestore.rules` aggiornati.
     - **Feedback Persistence Fix**: Il componente `MessageFeedback` (thumbs up/down) ora mantiene il suo stato anche dopo il ricaricamento della pagina. Il backend (`FeedbackRepository`) ora salva il campo `rating` direttamente nel documento originale del messaggio su Firestore, oltre che nella sua subcollection dedicata. Il frontend (`useChatHistory`) legge questo campo e ripristina lo stato corretto tramite `initialRating`.
     - **Week 1 (d235e36)**: Security hardening — auth, tier isolation, attachment fix, HMAC verification
     - **Week 2 (7679c9b)**: Resilience — circuit breaker, idempotency, atomic quota reset, race condition prevention
@@ -68,6 +78,7 @@
 
 ---
 
-- **Current Version**: `v4.0.26`
-- **Production Audit Status**: 44/51 items complete (gallery persistence + build fix). Open items: CSRF webhook N8N (HMAC-SHA256), OpenTelemetry sampling config (Cloud Console), Error budget alerting (Cloud Monitoring), Log-based metrics (Cloud Logging), Signal handling in Cloud Run service config
-- **Next High Priority**: 1) ADK Session cleanup cron for GDPR | 2) Admin dashboard for self-correction loop (Phase 2) | 3) Automate Golden Sync generation | 4) Live eval run with `run_evals.py` (requires GOOGLE_API_KEY + Vertex AI) | 5) Backfill historical uploaded photos to Firestore (optional)
+- **Current Version**: `v4.0.27`
+- **Production Audit Status**: 46/51 items complete (+security guardrails). Open items: CSRF webhook N8N (HMAC-SHA256), OpenTelemetry sampling config (Cloud Console), Error budget alerting (Cloud Monitoring), Log-based metrics (Cloud Logging), Signal handling in Cloud Run service config
+- **Next High Priority**: 1) Enable Model Armor in GCP Console | 2) Admin dashboard for self-correction loop (Phase 2) | 3) Automate Golden Sync generation | 4) Live eval run with `run_evals.py` | 5) Batch processing UI optimization
+

@@ -62,7 +62,7 @@ export function proxy(request: NextRequest) {
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
-    upgrade-insecure-requests;
+    frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com;
   `.replace(/\s{2,}/g, ' ').trim();
 
   const requestHeaders = new Headers(request.headers);

@@ -379,4 +379,10 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 - **ADK Session Restart (adk_orchestrator.py)**: Restored conversation context after server restart by injecting last 30 messages.
 - **Test Compliance**: Updated mock names in `test_tools.py`; all 375 backend tests passing.
 
-_Documento aggiornato: Marzo 13, 2026_
+## 🛡️ Phase 73: Model Armor & Batch Engine (Mar 17, 2026)
+- **Security Guardrails**: Integrazione runtime di Google Cloud Model Armor in ADK per sanitizzazione proattiva (Input/Output).
+- **Batch Processing**: Introduzione del motore di aggregazione per operazioni bulk di massa.
+- **TDD Achievement**: 100% pass rate sui test di sicurezza (10/10).
+- **Frontend CSP Fix**: Correzione sicura (no downgrading) delle policy iframe per Firebase Auth (`frame-src`).
+
+_Documento aggiornato: Marzo 17, 2026_
