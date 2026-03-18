@@ -122,7 +122,7 @@ class TestModelArmorOutputGuardrail:
 
     @patch("src.adk.guardrails.get_model_armor_service")
     def test_pii_leak_blocked(
-        self, mock_get_service, mock_callback_context, mock_llm_request,
+        self, mock_get_service, mock_callback_context,
         make_llm_response, blocked_output_verdict,
     ):
         """RED: If Model Armor detects PII in the response, callback returns
@@ -137,7 +137,7 @@ class TestModelArmorOutputGuardrail:
         )
 
         result = model_armor_after_model(
-            mock_callback_context, mock_llm_request, llm_response,
+            mock_callback_context, llm_response,
         )
 
         # Assert: returns a DIFFERENT LlmResponse → original replaced
@@ -148,7 +148,7 @@ class TestModelArmorOutputGuardrail:
 
     @patch("src.adk.guardrails.get_model_armor_service")
     def test_clean_response_passes(
-        self, mock_get_service, mock_callback_context, mock_llm_request,
+        self, mock_get_service, mock_callback_context,
         make_llm_response, clean_output_verdict,
     ):
         """GREEN: If Model Armor finds no issues, callback returns None
@@ -162,7 +162,7 @@ class TestModelArmorOutputGuardrail:
         )
 
         result = model_armor_after_model(
-            mock_callback_context, mock_llm_request, llm_response,
+            mock_callback_context, llm_response,
         )
 
         assert result is None  # original passes through
@@ -170,7 +170,7 @@ class TestModelArmorOutputGuardrail:
 
     @patch("src.adk.guardrails.get_model_armor_service")
     def test_api_failure_degrades_gracefully(
-        self, mock_get_service, mock_callback_context, mock_llm_request,
+        self, mock_get_service, mock_callback_context,
         make_llm_response,
     ):
         """EDGE: If Model Armor API fails, callback returns None (fail-open)."""
@@ -187,14 +187,14 @@ class TestModelArmorOutputGuardrail:
         llm_response = make_llm_response("Test output")
 
         result = model_armor_after_model(
-            mock_callback_context, mock_llm_request, llm_response,
+            mock_callback_context, llm_response,
         )
 
         assert result is None  # fail-open
 
     @patch("src.adk.guardrails.get_model_armor_service")
     def test_disabled_flag_bypasses(
-        self, mock_get_service, mock_callback_context, mock_llm_request,
+        self, mock_get_service, mock_callback_context,
         make_llm_response,
     ):
         """CONFIG: When service is None (disabled), callback returns None immediately."""
@@ -203,14 +203,14 @@ class TestModelArmorOutputGuardrail:
         llm_response = make_llm_response("Some response with PII")
 
         result = model_armor_after_model(
-            mock_callback_context, mock_llm_request, llm_response,
+            mock_callback_context, llm_response,
         )
 
         assert result is None  # bypass
 
     @patch("src.adk.guardrails.get_model_armor_service")
     def test_empty_response_passes_through(
-        self, mock_get_service, mock_callback_context, mock_llm_request,
+        self, mock_get_service, mock_callback_context,
     ):
         """EDGE: If response has no text parts (e.g., tool call),
         callback returns None without calling Model Armor."""
@@ -224,7 +224,7 @@ class TestModelArmorOutputGuardrail:
         llm_response.content = types.Content(role="model", parts=[])
 
         result = model_armor_after_model(
-            mock_callback_context, mock_llm_request, llm_response,
+            mock_callback_context, llm_response,
         )
 
         assert result is None

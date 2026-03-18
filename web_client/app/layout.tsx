@@ -114,6 +114,7 @@ import { ChatProvider } from "@/components/chat/ChatProvider";
 import { CookieConsent } from "@/components/CookieConsent";
 import { BackendWarmup } from "@/components/BackendWarmup";
 import QueryProvider from "@/components/providers/QueryProvider";
+import { SmoothScrollProvider } from "@/lib/smooth-scroll";
 
 export default async function RootLayout({
   children,
@@ -128,7 +129,7 @@ export default async function RootLayout({
   // Vercel Analytics/SpeedInsights v1.x don't accept nonce props yet.
 
   return (
-    <html lang="it" className="dark scroll-smooth" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="it" className="dark" suppressHydrationWarning>
       <body
         className={`${outfit.variable} ${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
         suppressHydrationWarning
@@ -137,9 +138,11 @@ export default async function RootLayout({
           <AuthProvider>
             <QueryProvider>
               <ChatProvider>
-                {children}
-                <BackendWarmup />
-                <CookieConsent />
+                <SmoothScrollProvider>
+                  {children}
+                  <BackendWarmup />
+                  <CookieConsent />
+                </SmoothScrollProvider>
               </ChatProvider>
             </QueryProvider>
           </AuthProvider>

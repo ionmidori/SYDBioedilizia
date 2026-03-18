@@ -19,7 +19,6 @@ import {
   FormControl,
   FormField,
   FormItem,
-  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 
@@ -149,88 +148,96 @@ export function Testimonials() {
                             >
                                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                                     <DialogTrigger asChild>
-                                        <Button variant="outline" className="rounded-full border-luxury-gold/30 text-luxury-gold hover:bg-luxury-gold/10 hover:text-luxury-gold gap-2">
+                                        <Button variant="outline" className="rounded-full border-white/10 bg-white/5 backdrop-blur-sm text-white hover:bg-white/10 gap-2 px-6 h-12 transition-all duration-300 hover:scale-105">
                                             <Plus className="w-4 h-4" /> Lascia una recensione
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="sm:max-w-md bg-luxury-bg border-luxury-gold/20 text-luxury-text">
-                                        <DialogHeader>
-                                            <DialogTitle className="font-serif text-2xl text-luxury-gold">La tua esperienza con SYD</DialogTitle>
+                                    <DialogContent className="sm:max-w-md rounded-[32px] bg-black/60 backdrop-blur-3xl border border-white/10 text-white p-8 shadow-2xl overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                                        
+                                        <DialogHeader className="relative z-10 mb-2">
+                                            <DialogTitle className="font-serif text-3xl font-light text-center">La tua esperienza</DialogTitle>
                                         </DialogHeader>
                                         
-                                        {submitSuccess ? (
-                                            <div className="py-8 text-center flex flex-col items-center gap-4">
-                                                <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
-                                                    <Star className="w-6 h-6 fill-current" />
-                                                </div>
-                                                <p className="text-lg font-medium">Grazie per la tua recensione!</p>
-                                                <p className="text-sm text-luxury-text/60">Il tuo feedback è prezioso per noi.</p>
-                                            </div>
-                                        ) : (
-                                            <Form {...form}>
-                                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="rating"
-                                                        render={({ field }) => (
-                                                            <FormItem className="space-y-3">
-                                                                <FormLabel className="text-sm font-medium text-luxury-text/80">Valutazione</FormLabel>
-                                                                <FormControl>
-                                                                    <div className="flex gap-2">
-                                                                        {[1, 2, 3, 4, 5].map((star) => (
-                                                                            <button
-                                                                                key={star}
-                                                                                type="button"
-                                                                                onClick={() => field.onChange(star)}
-                                                                                className={cn(
-                                                                                    "p-1 transition-all hover:scale-110",
-                                                                                    star <= field.value ? "text-luxury-gold" : "text-luxury-text/20"
-                                                                                )}
-                                                                            >
-                                                                                <Star className={cn("w-8 h-8", star <= field.value && "fill-current")} />
-                                                                            </button>
-                                                                        ))}
-                                                                    </div>
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="text"
-                                                        render={({ field }) => (
-                                                            <FormItem className="space-y-3">
-                                                                <FormLabel className="text-sm font-medium text-luxury-text/80">Cosa ne pensi?</FormLabel>
-                                                                <FormControl>
-                                                                    <Textarea 
-                                                                        {...field}
-                                                                        placeholder="Racconta la tua esperienza con i nostri servizi..."
-                                                                        className="min-h-[120px] resize-none bg-black/20 border-luxury-gold/10 focus-visible:ring-luxury-gold/30"
-                                                                    />
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
-
-                                                    <div className="pt-2 flex justify-end">
-                                                        <Button 
-                                                            type="submit" 
-                                                            disabled={form.formState.isSubmitting}
-                                                            className="w-full sm:w-auto bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-full"
-                                                        >
-                                                            {form.formState.isSubmitting ? (
-                                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Invio in corso...</>
-                                                            ) : (
-                                                                'Invia Recensione'
-                                                            )}
-                                                        </Button>
+                                        <div className="relative z-10">
+                                            {submitSuccess ? (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, scale: 0.95 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    className="py-12 text-center flex flex-col items-center gap-4"
+                                                >
+                                                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center backdrop-blur-md border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                                                        <Star className="w-8 h-8 fill-current" />
                                                     </div>
-                                                </form>
-                                            </Form>
-                                        )}
+                                                    <p className="text-2xl font-serif mt-2">Grazie!</p>
+                                                    <p className="text-white/60 font-light">Il tuo feedback è prezioso per noi.</p>
+                                                </motion.div>
+                                            ) : (
+                                                <Form {...form}>
+                                                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name="rating"
+                                                            render={({ field }) => (
+                                                                <FormItem className="space-y-4 flex flex-col items-center">
+                                                                    <FormControl>
+                                                                        <div className="flex gap-2">
+                                                                            {[1, 2, 3, 4, 5].map((star) => (
+                                                                                <button
+                                                                                    key={star}
+                                                                                    type="button"
+                                                                                    onClick={() => field.onChange(star)}
+                                                                                    className={cn(
+                                                                                        "p-2 transition-all duration-300 hover:scale-110",
+                                                                                        star <= field.value 
+                                                                                            ? "text-luxury-gold drop-shadow-[0_0_12px_rgba(212,175,55,0.4)]" 
+                                                                                            : "text-white/20 hover:text-white/40"
+                                                                                    )}
+                                                                                >
+                                                                                    <Star className={cn("w-10 h-10", star <= field.value && "fill-current")} strokeWidth={1} />
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    </FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+
+                                                        <FormField
+                                                            control={form.control}
+                                                            name="text"
+                                                            render={({ field }) => (
+                                                                <FormItem className="space-y-2">
+                                                                    <FormControl>
+                                                                        <Textarea 
+                                                                            {...field}
+                                                                            placeholder="Racconta la tua esperienza con noi..."
+                                                                            className="min-h-[140px] resize-none bg-white/5 border-white/10 rounded-2xl focus-visible:ring-white/20 text-base p-5 placeholder:text-white/30 font-light backdrop-blur-md transition-all"
+                                                                        />
+                                                                    </FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+
+                                                        <div className="pt-4 flex justify-center">
+                                                            <Button 
+                                                                type="submit" 
+                                                                disabled={form.formState.isSubmitting}
+                                                                className="w-full sm:w-auto min-w-[200px] h-14 bg-white hover:bg-white/90 text-black rounded-full font-medium text-base transition-all duration-300 hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:hover:scale-100"
+                                                            >
+                                                                {form.formState.isSubmitting ? (
+                                                                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Invio in corso...</>
+                                                                ) : (
+                                                                    'Invia Recensione'
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </form>
+                                                </Form>
+                                            )}
+                                        </div>
                                     </DialogContent>
                                 </Dialog>
                             </motion.div>

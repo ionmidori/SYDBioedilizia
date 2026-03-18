@@ -3,8 +3,6 @@
 This document lists all available **AI Skills** (Enterprise Patterns & Workflows) provided by the Antigravity environment and the new standard agent skills. Consult these artifacts before implementing any feature to ensure "Zero-Refactor" standard.
 
 ## 🏗️ Core Architecture & Backend
-- **Type-safe Backend Patterns**: Implement robust, type-safe backend architectures using Supabase and Drizzle ORM.
-  - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/type-safe-backend-patterns/SKILL.md)
 - **Error Handling Patterns**: Implements robust error handling strategies and patterns for resilient applications.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/error-handling-patterns/SKILL.md)
 - **Implementing Authentication**: Master authentication and authorization patterns including JWT, OAuth2, session management, and RBAC.
@@ -17,6 +15,10 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.agents/skills/python-performance-optimization/SKILL.md)
 - **Python Design Patterns**: Architecture patterns (KISS, Separation of Concerns) for clean Python backends.
   - [SKILL.md](file:///C:/Users/User01/.agents/skills/python-design-patterns/SKILL.md)
+- **Python Production Coding**: SYD-aligned production standards (src/ layout, Pydantic V2, no `Any`, structured logging).
+  - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/python-production-coding/SKILL.md)
+- **FastAPI Enterprise Patterns**: Dependency injection, service layer, Pydantic V2, async patterns for FastAPI.
+  - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/fastapi-enterprise-patterns/SKILL.md)
 
 ## 🔥 Firebase & Cloud Infrastructure
 - **Firebase Basics**: Guide for setting up and using Firebase core services.
@@ -31,17 +33,17 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.agents/skills/firebase-app-hosting-basics/SKILL.md)
 - **Firebase Hosting Basics**: Deploying static sites and SPAs via classic Firebase Hosting.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.agents/skills/firebase-hosting-basics/SKILL.md)
+- **Firestore Data Modeling**: Denormalization, sharding, security rules, and AsyncClient patterns for Firestore.
+  - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/firestore-data-modeling/SKILL.md)
 
 ## 🤖 AI & Agentic Engineering
 - **Evaluating ADK Agents**: Evaluate Google ADK multi-agent systems with native AgentEvaluator, LlmAsJudge, and RubricBasedEvaluator. Self-correction loop: eval failure → diagnose rubric → patch prompt. SYD-specific rubrics (no furniture, Italian-only, mq present).
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/evaluating-adk-agents/SKILL.md)
-- **LangGraph HITL Patterns**: Implements Human-in-the-Loop (HITL) patterns for LangGraph stateful graphs.
-  - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/langgraph-hitl-patterns/SKILL.md)
 - **Implementing RAG**: Build Retrieval-Augmented Generation (RAG) systems.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/implementing-rag/SKILL.md)
 - **Implementing Hybrid Search**: Combine vector and keyword search for improved retrieval.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/implementing-hybrid-search/SKILL.md)
-- **Prompt Engineering**: Master prompt design for Google Gemini models (1.5 Pro, 2.0 Flash).
+- **Prompt Engineering**: Master prompt design for Google Gemini models (2.5 Flash, 2.5 Pro). SYD-specific ADK agent prompt patterns.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/prompt-engineering/SKILL.md)
 - **Evaluating LLMs**: Implement comprehensive evaluation strategies for LLM applications.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/evaluating-llms/SKILL.md)
@@ -59,7 +61,7 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/enterprise-user-dashboard-ux/SKILL.md)
 - **Designing Modern UI**: Design stunning, premium web interfaces using 2026 trends.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/designing-modern-ui/SKILL.md)
-- **Optimizing Next.js Architecture**: Implement elite Next.js App Router patterns, SEO-first.
+- **Optimizing Next.js Architecture**: Implement elite Next.js 16 App Router patterns with Firebase integration, AI SDK v6, SEO-first.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/optimizing-nextjs-architecture/SKILL.md)
 - **Developing Shadcn Components**: Master advanced Shadcn/UI patterns.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/developing-shadcn-components/SKILL.md)
@@ -91,7 +93,7 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/video-creation-remotion/SKILL.md)
 
 ## 📊 Business Logic & Specific Services
-- **Generating PDF Documents**: WeasyPrint + Jinja2 in async FastAPI.
+- **Generating PDF Documents**: ReportLab Platypus + asyncio.to_thread in FastAPI. Branded A4 quotes with multi-room support.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/generating-pdf-documents/SKILL.md)
 - **Building Admin Dashboards**: Streamlit + Firebase + YAML Auth.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/building-admin-dashboards/SKILL.md)
@@ -107,9 +109,11 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/managing-github-enterprise-workflow/SKILL.md)
 - **Git Advanced Workflows**: Rebasing, cherry-picking, bisect, worktrees.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/git-advanced-workflows/SKILL.md)
+- **Git Agentic Workflows**: Atomic intent-based commits and AI-driven git patterns.
+  - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/git-agentic-workflows/SKILL.md)
 - **E2E Testing Patterns**: Playwright and Cypress standards.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/e2e-testing-patterns/SKILL.md)
-- **TestSprite Automated QA**: AI-driven testing with TestSprite MCP.
+- **TestSprite Automated QA**: AI-driven testing with TestSprite MCP, aligned with 3-Tier architecture and Google ADK.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/testsprite-automated-qa/SKILL.md)
 - **Code Reviewer**: Deep code review checks before commits or PRs.
   - [SKILL.md](file:///C:/Users/User01/.agents/skills/code-reviewer/SKILL.md)

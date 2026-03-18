@@ -1,56 +1,66 @@
 ---
 name: implementing-rag
-description: Build Retrieval-Augmented Generation (RAG) systems for LLM applications with vector databases and semantic search. Use when working with knowledge-grounded AI or document Q&A systems.
+description: Builds Retrieval-Augmented Generation systems using Google GenAI embeddings and Pinecone for SYD's knowledge-grounded AI features. Covers chunking, indexing, hybrid search, and evaluation. Use when implementing document Q&A, quote training from historical data, or knowledge retrieval.
 ---
 
-# RAG Implementation
+# RAG Implementation — SYD Stack
 
-Master Retrieval-Augmented Generation (RAG) to build LLM applications that provide accurate, grounded responses using external knowledge sources.
+## Tech Stack
 
-## Core Components
+| Component | SYD Choice |
+|-----------|-----------|
+| Embeddings | `models/text-embedding-004` (Google GenAI) |
+| Vector DB | Pinecone (Serverless) |
+| LLM | Gemini 2.5 Flash/Pro via Google ADK |
+| Framework | Google ADK (NOT LangChain) |
 
-1. **Vector Databases**: Pinecone (Serverless), Chroma (Local), pgvector.
-2. **Embeddings**: `models/text-embedding-004` (Gemini), `voyage-3-large`.
-3. **Retrieval**: Semantic similarity, Hybrid search, and Reranking.
+## Indexing Pipeline
 
-## Advanced Patterns & Optimization
-
-For complex retrieval strategies, see:
-- **[RETRIEVAL_PATTERNS.md](RETRIEVAL_PATTERNS.md)**: Hybrid Search, Multi-Query, HyDE, and Parent Document Retrieval.
-- **[RETRIEVAL_PATTERNS.md#6-retrieval-optimization](RETRIEVAL_PATTERNS.md)**: Metadata filtering, MMR, and Reranking implementation.
-
-## Implementation Guide
-
-### 1. Document Indexing
-Use a production-ready pipeline for chunking and upserting.
-**Refer to [scripts/index_documents.py](scripts/index_documents.py)** for a complete idempotent indexing template.
-
-### 2. Basic RAG Chain (LangGraph)
 ```python
-# Simplified RAG workflow
-from langgraph.graph import StateGraph, START, END
+from google import genai
+from pinecone import Pinecone
 
-async def retrieve(state: RAGState):
-    docs = await retriever.ainvoke(state["question"])
-    return {"context": docs}
+client = genai.Client()
+pc = Pinecone()
+index = pc.Index("syd-knowledge")
 
-async def generate(state: RAGState):
-    # LLM generation with context
-    response = await llm.ainvoke(prompt.format(context=state["context"]))
-    return {"answer": response.content}
+async def index_document(doc_id: str, text: str, metadata: dict):
+    # 1. Embed
+    response = client.models.embed_content(
+        model="models/text-embedding-004",
+        contents=[text],
+    )
+    # 2. Upsert (idempotent via doc_id)
+    index.upsert(vectors=[(doc_id, response.embeddings[0].values, metadata)])
 ```
 
-## Document Chunking
-- **Recursive Splitting**: Preferred for natural language.
-- **Semantic Chunking**: Breaks text at semantic shifts using embedding distance.
-- **Markdown Splitting**: Preserves header structure for technical docs.
+## Chunking Strategies
 
-## Evaluation
-Grounding and retrieval quality should be measured systematically.
-**See the [evaluating-llms](../evaluating-llms/SKILL.md)** skill for metrics (Faithfulness, Relevance).
+- **Recursive splitting**: Default for natural language (500 tokens, 10-15% overlap)
+- **Semantic chunking**: Split at embedding-distance shifts for technical docs
+- **Markdown splitting**: Preserve headers for structured renovation documents
+
+## Retrieval
+
+```python
+# Hybrid search: semantic + keyword (SKU codes, room types)
+results = index.query(
+    vector=query_embedding,
+    top_k=10,
+    filter={"room_type": {"$eq": "bagno"}},
+    include_metadata=True,
+)
+```
+
+## SYD Use Cases
+
+1. **Quote training**: RAG from approved historical quotes → few-shot examples for InsightEngine
+2. **Price book retrieval**: SKU lookup from `master_price_book.json` embeddings
+3. **Renovation knowledge**: Building code references, material specifications
 
 ## Best Practices
-1. **Idempotent Indexing**: Use unique document IDs to avoid duplicate chunks.
-2. **Recursive Overlap**: Use 10-15% overlap to maintain boundary context.
-3. **Hybrid Recall**: Always start with hybrid search if keywords are important (e.g., SKU numbers, names).
-4. **Citability**: Return metadata sources (`source`, `page`) in the final response.
+
+1. **Idempotent indexing**: Use unique document IDs to prevent duplicate chunks
+2. **Hybrid recall**: Always combine semantic + keyword for SKU numbers and technical terms
+3. **Citability**: Return `source` and `page` metadata in responses
+4. **Evaluation**: Use ADK eval rubrics (see [evaluating-adk-agents](../evaluating-adk-agents/SKILL.md)) to measure grounding quality

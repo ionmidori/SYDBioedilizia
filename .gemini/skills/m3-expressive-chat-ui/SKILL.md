@@ -1,40 +1,65 @@
 ---
 name: m3-expressive-chat-ui
-description: Design and implementation of modern chat feedback graphics in Material Design 3 Expressive style. Includes patterns for fluid motion, expressive shapes, and micro-interactions for message states.
+description: Implements Material Design 3 Expressive chat interfaces for SYD with fluid spring animations, asymmetric message bubbles, and micro-interactions. Use when building or enhancing chat components, message feedback, or typing indicators.
 ---
 
-# M3 Expressive Chat UI Skill
+# M3 Expressive Chat UI — SYD
 
-This skill provides expert guidance for building modern, emotionally resonant chat interfaces using Material Design 3 Expressive principles.
+## Implementation Files
 
-## Core Concepts
-- **Expressive Shapes:** Extra-rounded, asymmetric bubbles to indicate direction and personality.
-- **Fluid Motion:** Spring-based, bouncy animations for entry and state changes.
-- **Micro-Interactions:** Subtle feedback for typing, reading, and reactions.
+- [lib/m3-motion.ts](web_client/lib/m3-motion.ts) — Spring presets, duration tokens, easing, variant factories
+- [components/chat/ChatHeader.tsx](web_client/components/chat/ChatHeader.tsx) — Header with status
+- [components/chat/MessageItem.tsx](web_client/components/chat/MessageItem.tsx) — Message rendering with feedback
 
-## How to Apply
+## Motion System
 
-### 1. Shape Design
-Use asymmetric rounding for bubbles to distinguish between sent and received messages.
-- Reference: [shape-specs.md](references/shape-specs.md)
+Use SYD's M3 presets — never ad-hoc spring values:
 
-### 2. Motion Implementation
-Implement spring-based animations for message arrival and interaction.
-- Reference: [motion-patterns.md](references/motion-patterns.md)
-
-### 3. Feedback Micro-interactions
-- **Typing Indicator:** 3 dots with staggered scale-up animations.
-- **Read Receipts:** Double-check animations with slight bounce.
-- **Reactions:** Spring-loaded pop-up for emojis.
-
-## Example (Framer Motion + Tailwind)
 ```tsx
+import { M3Spring, M3Transition, createStaggerVariants } from '@/lib/m3-motion';
+
+// Message entrance
 <motion.div
   initial={{ opacity: 0, scale: 0.9, y: 10 }}
   animate={{ opacity: 1, scale: 1, y: 0 }}
-  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-  className="bg-primary text-on-primary rounded-[24px_24px_4px_24px] px-4 py-2"
->
-  Message content
-</motion.div>
+  transition={M3Spring.standard}
+/>
+
+// Message list stagger
+const { container, item } = createStaggerVariants({ y: 20 });
+```
+
+### Spring Presets
+
+| Preset | Use Case | Stiffness/Damping |
+|--------|----------|-------------------|
+| `M3Spring.expressive` | Page swipes, hero transitions | 380/30 |
+| `M3Spring.standard` | Message entrance, card transforms | 300/26 |
+| `M3Spring.gentle` | Tooltips, fades, subtle reveals | 200/22 |
+| `M3Spring.bouncy` | FAB press, reaction pop, badge | 500/20 |
+
+## Chat Patterns
+
+### Asymmetric Bubbles
+```tsx
+// User (right): rounded top-left, flat bottom-right
+className="rounded-[24px_24px_4px_24px] bg-primary text-on-primary"
+// Assistant (left): rounded top-right, flat bottom-left
+className="rounded-[24px_24px_24px_4px] bg-surface-container-high"
+```
+
+### Feedback Micro-interactions
+- **Thumbs up/down**: `M3Spring.bouncy` scale pop on click
+- **Typing indicator**: 3 dots with staggered `scaleY` animation (0.06s delay each)
+- **Read receipts**: Double-check icon with `M3Spring.gentle` opacity fade
+
+### AnimatePresence for Messages
+```tsx
+<AnimatePresence mode="popLayout">
+  {messages.map(msg => (
+    <motion.div key={msg.id} layout exit={{ opacity: 0, scale: 0.9 }}>
+      <MessageItem message={msg} />
+    </motion.div>
+  ))}
+</AnimatePresence>
 ```

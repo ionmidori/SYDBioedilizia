@@ -1,33 +1,65 @@
 ---
 name: designing-modern-ui
-description: Design stunning, premium web interfaces using 2026 trends like Bento Grids, Glassmorphism, and Material 3 Expressive. Use when creating new layouts, redesigning dashboards, or applying high-end visual styles.
+description: Designs premium web interfaces using Bento Grids, Glassmorphism, and Material Design 3 Expressive for the SYD platform. Covers layout systems, surface layers, typography mixing, and responsive patterns. Use when creating new layouts, redesigning sections, or applying high-end visual styles.
 ---
 
-# Designing Modern UI
+# Designing Modern UI — SYD Design System
 
-Create premium, "WOW" factor interfaces using modern architectural patterns and advanced CSS techniques.
+## Design Stack
 
-## Core Design Principles (2026)
+- **Tailwind 4** + custom CSS variables in [globals.css](web_client/app/globals.css)
+- **M3 Expressive** motion via [lib/m3-motion.ts](web_client/lib/m3-motion.ts)
+- **Typography**: Cinzel (headings), Playfair Display (serif accents), Outfit (body), Lato (sans fallback)
 
-1. **Bento Grid Layouts**: Modular, asymmetric grids that organize diverse content into a cohesive "box" system.
-2. **Glassmorphism**: Layers of translucent surfaces with delicate blurs and vibrant border gradients.
-3. **Dynamic Motion**: Subtle micro-animations that make the interface feel alive and responsive.
-4. **Expressive Typography**: Mixing serif headings (Playfair, Cinzel) with functional sans-serif bodies (Outfit, Lato).
+## Bento Grid Layouts
 
-## Implementation Guides
+Modular, asymmetric grids for dashboards and landing pages:
 
-### 1. Layout Systems
-Master the art of the Bento Grid for dashboards and landing pages.
-- **Refer to [LAYOUTS.md](LAYOUTS.md)** for grid math, spans, and responsive logic.
+```css
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+/* Hero card spans 2 cols */
+.bento-grid > :first-child { grid-column: span 2; grid-row: span 2; }
+/* Responsive: stack on mobile */
+@media (max-width: 768px) { .bento-grid { grid-template-columns: 1fr; } }
+```
 
-### 2. Styling & Aesthetics
-Apply high-end visual effects including glassmorphism and custom gradients.
-- **Refer to [STYLING.md](STYLING.md)** for utility classes and CSS variables.
+## Glassmorphism Layers
 
-## Quick Start Template
-See **[examples/bento-dashboard.tsx](examples/bento-dashboard.tsx)** for a production-ready React component implementing these styles.
+SYD surface hierarchy (defined in globals.css):
 
-## Best Practices
-- **Contrast for Accessibility**: Ensure glass surfaces have sufficient contrast against backgrounds.
-- **Performance**: Use `backdrop-filter: blur()` sparingly on mobile screens to minimize GPU load.
-- **Hierarchy**: Use variable grid spans to emphasize important data points.
+```css
+.surface-container-low {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.surface-container-high {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+```
+
+Layer glass surfaces from low → high to create depth. Cards on `.surface-container-low` backgrounds use `.surface-container-high`.
+
+## SYD Color Palette
+
+```css
+--luxury-bg: #0a0a0a;
+--luxury-text: #f5f5f5;
+--luxury-gold: #C9A84C;       /* Accent, CTAs, HR lines */
+--luxury-dark: #264653;       /* Headers, primary surfaces */
+--luxury-accent: #2A9D8F;     /* Success, active states */
+```
+
+## Rules
+
+1. **Contrast**: Glass surfaces must meet WCAG AA contrast against background
+2. **`backdrop-filter`**: Use sparingly on mobile (GPU-intensive); fallback to solid bg
+3. **Hierarchy**: Variable grid spans emphasize important data
+4. **Motion**: Always use `M3Spring` presets from `lib/m3-motion.ts`, never ad-hoc values
+5. **Mobile-first**: Design for `375px` width first, then `md:` and `lg:` breakpoints

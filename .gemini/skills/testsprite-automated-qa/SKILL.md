@@ -1,39 +1,38 @@
 ---
 name: testsprite-automated-qa
-description: Master automated E2E and API testing using TestSprite MCP. Covers API prefix alignment, LangGraph orchestration testing, and test report analysis.
+description: Generates automated E2E and API test suites using TestSprite MCP, aligned with 3-Tier architecture and Google ADK orchestration. Use when generating tests, validating API contracts, or auditing test coverage.
 ---
 
-# TestSprite Automated QA Skill
+# TestSprite Automated QA
 
-Build robust automated test suites that align with the 3-Tier architecture and LangGraph orchestration.
+## Workflow
 
-## Core Integration Patterns
+```
+Task Progress:
+- [ ] Step 1: Provide PROJECT_CONTEXT_SUMMARY.md to TestSprite
+- [ ] Step 2: Run health check (`/health`)
+- [ ] Step 3: Generate tests (`npx testsprite generate --path ./api`)
+- [ ] Step 4: Fix API prefix alignment (see below)
+- [ ] Step 5: Run tests via MCP `run_tests`
+- [ ] Step 6: Analyze `testsprite-mcp-test-report.md` for drift
+```
 
-### 1. API Prefix Alignment
-TestSprite generators may default to flat REST paths. ALWAYS ensure the `/api/` prefix is included for all backend endpoints.
-- **Fail**: `[GET] /projects`
-- **Pass**: `[GET] /api/projects`
+## Critical: API Prefix Alignment
 
-### 2. Testing the Orchestrator (LangGraph)
-Since most logic is behind the `/chat/stream` endpoint, testing requires a distinct approach:
-- **Streaming Validation**: Use tools to verify that the stream emits the expected `events` (e.g., `on_chat_model_stream`, `on_tool_start`).
-- **State Checkpoints**: Verify that Firestore checkpointers (e.g., `FirestoreSaver`) correctly save state mid-flow using the `project_id`.
+TestSprite defaults to flat paths. ALL backend endpoints require prefix:
+- **Wrong**: `[GET] /projects`
+- **Correct**: `[GET] /api/projects`
 
-### 3. Test Asset Management
-For functional tests requiring media (images, PDFs):
-- Store mock assets in `backend_python/tests/test_resources/`.
-- Ensure TestSprite has access to these paths for multi-modal analysis tests.
+## Testing the ADK Orchestrator
 
-### 4. MCP Workflow
-Use TestSprite MCP tools to:
-- **Generate Tests**: `npx testsprite generate --path ./api`
-- **Run Tests**: Use the MCP tool `run_tests` to execute suites locally.
-- **Analyze Reports**: Check `testsprite-mcp-test-report.md` to identify architectural drifts (e.g., 404s due to path mismatch).
+The `/chat/stream` SSE endpoint requires a distinct approach:
+- **Streaming**: Verify SSE events (tool calls, text chunks)
+- **Session recovery**: Test InMemorySessionService restart (history re-injection)
+- **Tool invocation**: Verify `suggest_quote_items`, `generate_render` parameters
 
-## Best Practices
-- **Health First**: Run a `/health` check before executing full suites.
-- **Pydantic Validation**: Ensure all TestSprite payloads match the Pydantic models in `src/core/schemas.py`.
-- **Role-Based Security**: Explicitly test 401/403 responses by simulating missing or invalid Bearer tokens in headers.
+## Validation Rules
 
-> [!IMPORTANT]
-> TestSprite is an agentic tool. Provide it with the `PROJECT_CONTEXT_SUMMARY.md` to ensure it understands the Screaming Architecture and 3-Tier Law before it starts generating tests.
+- Payloads must match Pydantic V2 models in `src/schemas/`
+- Test 401/403 with missing/invalid Bearer tokens
+- Account for slowapi rate limiters on batch and quote endpoints
+- Store test media assets in `backend_python/tests/test_resources/`

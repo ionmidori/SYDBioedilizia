@@ -1,78 +1,33 @@
 ---
 name: prompt-engineering
-description: Master prompt design for Google Gemini models (1.5 Pro, 2.0 Flash). Includes patterns for Chain-of-Thought, few-shot learning, and long-context handling.
+description: Designs and refines system prompts for Google Gemini models and SYD ADK agents. Covers agent sub-prompt authoring, structured output, Italian-language constraints, and SKU validation rules. Use when writing or debugging ADK agent prompts, triage routing, or Gemini system instructions.
 ---
 
-# Prompt Engineering Patterns (Gemini Edition)
+# Prompt Engineering for SYD ADK Agents
 
-Guide for designing, refining, and debugging complex prompts to maximize performance on Google Gemini models (1.5 Pro, 2.0 Flash, Ultra).
+## SYD Agent Prompt Rules
 
-## When to Use This Skill
-- Designing system instructions for Gemini
-- Optimizing for large context windows (1M+ tokens)
-- Implementing Chain-of-Thought (CoT) reasoning
-- Refining few-shot examples for structured output
-- Debugging inconsistent model behavior
-- Reducing token verbosity while maintaining quality
+SYD uses Google ADK with a triage router + sub-agents. Each sub-agent system prompt must enforce:
 
-## Core Competencies & Patterns
+- **Italian output only** — all responses in Italian
+- **mq required** — always include square meters in room analysis
+- **No furniture** — construction items only (SKUs from `master_price_book.json`)
+- **SKU validation** — every suggested item must exist in the price book
+- **Intent-first on upload** — when user uploads a file without context, ask "Rendering / Preventivo / Solo analisi?" BEFORE delegating
 
-### 1. Chain-of-Thought (CoT) Avanzato
-Per compiti logici complessi, forza il modello a esplicitare il ragionamento prima di rispondere.
-- **Pattern Gemini:** Usa istruzioni come "Think step-by-step" o "Break down the problem".
-- **Ottimizzazione:** Chiedi al modello di identificare premesse, passaggi intermedi e conclusioni in blocchi separati.
+Agent prompts live in: [modes.py](backend_python/src/prompts/components/modes.py)
 
-### 2. Few-Shot Learning con Esempi Strutturati
-Gemini eccelle nell'apprendimento in-context.
-- Fornisci esempi (shots) che coprano casi limite (edge cases).
-- Usa separatori chiari (es. `---` o intestazioni Markdown) invece di pesanti tag XML nidificati se non strettamente necessari, per risparmiare token e migliorare la leggibilità.
-- **Input:** Esempio sporco/complesso -> **Output:** Risposta ideale pulita.
+## Structured Output
 
-### 3. System Instruction Optimization
-Sposta le regole fisse dal prompt utente al System Prompt.
-- Definisci chiaramente: Ruolo, Tono, Formato di Output, Vincoli (Positivi > Negativi).
-- *Consiglio:* Gemini risponde meglio a istruzioni affermative ("Fai X") piuttosto che negative ("Non fare Y"). Trasforma i divieti in azioni alternative.
-
-### 4. Long-Context Handling (Needle in a Haystack)
-Sfrutta la finestra di contesto estesa di Gemini.
-- Invece di RAG complessi, carica interi documenti nel contesto quando possibile.
-- Posiziona le istruzioni critiche sia all'inizio che alla fine del prompt (Primacy & Recency effect).
-
-### 5. Self-Correction & Iterative Refinement
-Implementa loop di auto-critica.
-- Pattern: "Genera una risposta. Poi, critica la tua risposta basandoti su [Criteri]. Infine, riscrivi la risposta migliorata."
-
-## Antigravity Prompt Structure
-
-Quando scrivi un prompt, segui questa struttura standardizzata:
-
-```markdown
-<system_instruction>
-[Ruolo e Contesto Generale]
-</system_instruction>
-
-<task_description>
-[Obiettivo specifico e passi da compiere]
-</task_description>
-
-<constraints>
-[Lista puntata di vincoli di stile e lunghezza]
-</constraints>
-
-<examples>
-[Input]: ...
-[Output]: ...
-</examples>
+Use Gemini's native JSON mode for extraction tasks:
+```python
+generation_config = {"response_mime_type": "application/json"}
 ```
 
-## Interaction Protocol
+## Prompt Refinement Checklist
 
-1. **Analisi:** Identifica il modello target (Flash per velocità, Pro/Ultra per ragionamento), l'input tipico e il formato desiderato.
-2. **Drafting:** Genera una bozza iniziale seguendo la struttura sopra.
-3. **Optimization:** Applica CoT o Few-Shot e spiega la scelta tecnica.
-
-### Prompt Refinement Checklist
-- [ ] Le istruzioni sono espresse in positivo ("Fai X")?
-- [ ] Ci sono separatori chiari tra contesto e istruzioni?
-- [ ] Gli esempi coprono i casi limite (edge cases)?
-- [ ] La verbosità è minima senza perdere chiarezza?
+- [ ] Instructions are affirmative ("Fai X") not negative ("Non fare Y")
+- [ ] Clear separators between context and instructions
+- [ ] Few-shot examples cover edge cases
+- [ ] Critical instructions appear at both start AND end (Primacy & Recency)
+- [ ] Model choice matches task: Flash for real-time chat, Pro for complex reasoning

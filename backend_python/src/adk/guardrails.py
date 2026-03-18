@@ -131,7 +131,6 @@ def model_armor_before_model(
 
 def model_armor_after_model(
     callback_context: CallbackContext,
-    llm_request: LlmRequest,
     llm_response: LlmResponse,
     **kwargs,
 ) -> Optional[LlmResponse]:
@@ -143,7 +142,6 @@ def model_armor_after_model(
 
     Args:
         callback_context: ADK callback context with agent info.
-        llm_request: The original LLM request (for context).
         llm_response: The raw LLM response to inspect.
 
     Returns:

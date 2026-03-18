@@ -1,105 +1,91 @@
 ---
 name: animating-modern-react-websites
-description: Master modern web animation patterns for React and Next.js applications in 2026. Use this skill when implementing smooth scrolling, complex timeline animations, parallax effects, or high-performance interactions using Lenis, Framer Motion, and GSAP.
+description: Implements scroll-driven animations, parallax, and smooth scrolling for SYD landing pages using Lenis, GSAP ScrollTrigger, and Framer Motion. Covers Lenis-GSAP sync, scroll reveal/parallax hooks, and accessibility. Use when building or enhancing landing page sections (Hero, Portfolio, Testimonials, Services).
 ---
 
-# Animating Modern React Websites (2026 Standards)
+# Animation Stack — SYD Landing Pages
 
-This skill provides enterprise-grade patterns for creating fluid, high-performance animated websites using the modern 2026 tech stack: Next.js App Router, Lenis (Smooth Scroll), Framer Motion (Interactions), and GSAP (Complex Timelines/ScrollTrigger).
+Three libraries, three roles:
 
-## 1. Smooth Scrolling with Lenis
+| Library | Role | Scope |
+|---------|------|-------|
+| **Lenis** | Smooth scrolling engine | Global (wraps app) |
+| **GSAP + ScrollTrigger** | Scroll-driven animations (parallax, pin, reveal) | Landing page sections |
+| **Framer Motion** | Component interactions (hover, modal, layout) | Dashboard + UI |
 
-Smooth scrolling is the foundation of a modern animated website. In 2026, `lenis` is the absolute standard.
+## Infrastructure Files
 
-### Global Setup (Next.js App Router)
-Wrap your application in a global provider, usually inside your root layout or a dedicated client component wrapper.
+- [lib/smooth-scroll.tsx](web_client/lib/smooth-scroll.tsx) — `SmoothScrollProvider` (Lenis + GSAP sync)
+- [hooks/use-scroll-animation.ts](web_client/hooks/use-scroll-animation.ts) — 4 hooks: `useScrollReveal`, `useScrollParallax`, `useScrollTimeline`, `useStaggerReveal`
+- [lib/m3-motion.ts](web_client/lib/m3-motion.ts) — M3 Expressive spring presets for Framer Motion
 
-```tsx
-'use client';
-
-import { ReactLenis } from 'lenis/react';
-
-export function SmoothScrollProvider({ children }: { children: React.ReactNode }) {
-  return (
-    <ReactLenis root options={{ lerp: 0.1, duration: 1.5, smoothWheel: true }}>
-      {children}
-    </ReactLenis>
-  );
-}
-```
-
-## 2. UI Interactions & Layout Transitions (Framer Motion)
-
-Use Framer Motion for micro-interactions, layout animations, and component-level presence.
-
-### Spring Configurations
-Avoid default tweens. Use physics-based springs for natural feel.
-
-```typescript
-// lib/motion.ts
-export const premiumSpring = {
-  type: "spring",
-  stiffness: 300,
-  damping: 30,
-  mass: 0.8,
-};
-```
-
-### Page Transitions
-Use `AnimatePresence` with a custom template in Next.js to animate route changes seamlessly.
-
-## 3. High-Performance Scroll Animations (GSAP + ScrollTrigger)
-
-For parallax, pinning, and complex sequences tied to scroll, use GSAP.
-
-### Setup and Cleanup (React 18+)
-Always use GSAP's `useGSAP` hook for automatic cleanup to prevent memory leaks and strict mode double-firing issues.
+## Quick Start — Scroll Reveal
 
 ```tsx
 'use client';
+import { useScrollReveal } from '@/hooks/use-scroll-animation';
 
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useGSAP } from '@gsap/react';
-import { useRef } from 'react';
-
-gsap.registerPlugin(ScrollTrigger);
-
-export function ScrollSection() {
-  const container = useRef<HTMLDivElement>(null);
-
-  useGSAP(() => {
-    // ScrollTrigger instance
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        trigger: container.current,
-        start: "top center",
-        end: "bottom top",
-        scrub: 1, // Tie to scrollbar
-        pin: true,
-      }
-    });
-
-    tl.to(".box", { x: 500, rotation: 360, duration: 2 });
-  }, { scope: container });
-
-  return (
-    <div ref={container} className="h-[200vh]">
-      <div className="box w-32 h-32 bg-primary" />
-    </div>
-  );
+export function Section() {
+  const ref = useScrollReveal<HTMLDivElement>();
+  return <div ref={ref} className="opacity-0">Revealed on scroll</div>;
 }
 ```
 
-## 4. Accessibility & Performance (Security/A11y Mandate)
+## Quick Start — Stagger Children
 
-1. **Prefers Reduced Motion**: Always respect user OS settings.
-   - Framer Motion: Handled automatically by default, or use `useReducedMotion()`.
-   - GSAP: Wrap timelines in `gsap.matchMedia()`.
-2. **Will-Change**: Apply `will-change: transform` strictly to elements animating actively. Remove after animation to free GPU memory.
-3. **Hardware Acceleration**: Always animate `transform` (x, y, scale, rotate) and `opacity`. Never animate layout properties like `width`, `height`, or `margin` to prevent reflows.
+```tsx
+const ref = useStaggerReveal<HTMLDivElement>('.card', { stagger: 0.12 });
+return (
+  <div ref={ref}>
+    {items.map(i => <div className="card opacity-0" key={i.id}>{i.name}</div>)}
+  </div>
+);
+```
 
-## When to use what:
-- **Framer Motion**: Modals, dropdowns, hover states, list staggering, simple entrance animations.
-- **GSAP**: Scroll sequences, SVG morphing, text reveal lines, parallax, pinned sections.
-- **Lenis**: Base smooth scrolling engine (synchronize GSAP's ScrollTrigger with Lenis's RAF).
+## Quick Start — Parallax
+
+```tsx
+const imgRef = useScrollParallax<HTMLImageElement>({ speed: 0.3 });
+return <img ref={imgRef} src="/hero.jpg" alt="" />;
+```
+
+## Quick Start — Pinned Timeline
+
+```tsx
+const { containerRef, timelineRef } = useScrollTimeline<HTMLDivElement>({
+  scrub: 1,
+  pin: true,
+});
+
+useGSAP(() => {
+  timelineRef.current
+    ?.to('.step', { x: 300, stagger: 0.3 })
+    .to('.cta', { scale: 1.2 });
+}, { scope: containerRef });
+```
+
+## When to Use What
+
+- **`useScrollReveal`**: Section titles, cards, text blocks entering viewport
+- **`useStaggerReveal`**: Service grids, portfolio galleries, testimonial cards
+- **`useScrollParallax`**: Background images, decorative elements
+- **`useScrollTimeline`**: Multi-step storytelling, horizontal scroll sections, pinned sequences
+- **Framer Motion (`M3Spring`)**: Modals, dropdowns, hover states, layout animations, AnimatePresence
+
+## Accessibility — Prefers Reduced Motion
+
+```tsx
+// GSAP: wrap in matchMedia
+gsap.matchMedia().add('(prefers-reduced-motion: no-preference)', () => {
+  // animations here — skipped entirely for users who prefer reduced motion
+});
+
+// Framer Motion: automatic via useReducedMotion()
+```
+
+## Critical Rules
+
+1. **Never animate `width`, `height`, `margin`** — use `transform` (x, y, scale, rotate) + `opacity` only
+2. **Always cleanup** — `useGSAP` handles this automatically via `scope` ref
+3. **Lenis owns scrolling** — do NOT use CSS `scroll-smooth` or `scroll-behavior` (removed from `<html>`)
+4. **Dashboard pages**: Use Framer Motion only (Lenis smooth scroll is global but GSAP ScrollTrigger hooks are for landing sections)

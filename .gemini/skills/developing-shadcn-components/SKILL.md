@@ -1,32 +1,60 @@
 ---
 name: developing-shadcn-components
-description: Master advanced Shadcn/UI patterns and technical steering for AI-generated components. Use when building complex dashboards, data tables, command menus, and forms using Next.js and Tailwind CSS.
+description: Builds and customizes Shadcn/UI components on Radix primitives for the SYD platform. Covers composition patterns, theming with Tailwind CSS variables, accessibility, and dark mode. Use when building complex UI components, data tables, command menus, or forms.
 ---
 
-# Developing Shadcn Components
+# Developing Shadcn Components — SYD Patterns
 
-Accelerate your frontend development by mastering the "AI-Ready" components of Shadcn/UI. This skill focuses on advanced patterns and effective "v0.dev-style" technical steering.
+## Component Directory
 
-## Core Concepts
+SYD components live in [web_client/components/ui/](web_client/components/ui/). They are copied (not installed) from Shadcn/UI and customized.
 
-1. **Composition Over Inheritance**: Shadcn components are built on Radix UI primitives and are designed to be copied, not installed as a monolith.
-2. **AI-Ready Architecture**: The clear, modular structure of the code makes it exceptionally easy for AI agents to refactor and extend.
-3. **Theming & Customization**: Leveraging Tailwind CSS variables for global design system control.
+## Core Principles
 
-## Specialized Guides
+1. **Composition over inheritance**: Build on Radix UI primitives, compose with `className` merging via `cn()` utility
+2. **Props-driven**: Pass data as props; business logic stays in hooks or server actions
+3. **Dark mode**: SYD uses `class="dark"` on `<html>`. Theme via CSS variables in `globals.css`
 
-### 1. Advanced Component Patterns
-Master complex components like Data Tables, Interactive Charts, and Multi-step Forms.
-- **Refer to [COMPONENTS.md](COMPONENTS.md)** for best practices on state management and data fetching.
+## Theming
 
-### 2. AI Steering (v0.dev Best Practices)
-Learn how to use "Technical Steering" to get pixel-perfect results from AI UI generators.
-- **Refer to [PROMPTING.md](PROMPTING.md)** for prompt templates and steering tokens.
+Shadcn theme variables are defined in `globals.css`:
 
-## Code Examples
-- **[examples/data-table-pro.tsx](examples/data-table-pro.tsx)**: A high-fidelity data table with filtering, sorting, and row selection.
+```css
+:root {
+  --primary: 201 65% 25%;     /* luxury-dark */
+  --primary-foreground: 0 0% 98%;
+  --accent: 168 58% 39%;      /* luxury-accent */
+  --destructive: 0 84% 60%;
+}
+```
 
-## Best Practices
-- **Keep Components Pure**: Pass data as props; keep business logic in hooks or server actions.
-- **Accessibility (a11y)**: Shadcn handles the heavy lifting, but ensure you manage ARIA labels for dynamic content.
-- **Performance**: Use dynamic imports for heavy components like charts or maps.
+Override per-component with Tailwind utilities: `bg-primary text-primary-foreground`.
+
+## Key Patterns
+
+### Dialog/Modal with AnimatePresence
+```tsx
+<Dialog open={open} onOpenChange={setOpen}>
+  <DialogContent asChild>
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={M3Transition.containerTransform}
+    >
+      {children}
+    </motion.div>
+  </DialogContent>
+</Dialog>
+```
+
+### Data Table
+- Use `@tanstack/react-table` for headless logic
+- Shadcn `Table` components for rendering
+- Server-side pagination via SWR/TanStack Query
+
+## Rules
+
+- **Accessibility**: Radix handles ARIA; always add labels for dynamic content
+- **Dynamic imports**: Use `next/dynamic` for heavy components (charts, maps)
+- **No v0.dev**: SYD uses Claude Code for AI-assisted UI, not Vercel v0
