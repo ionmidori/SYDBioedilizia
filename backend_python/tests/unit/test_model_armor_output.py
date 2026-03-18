@@ -17,34 +17,10 @@ from dataclasses import dataclass
 from unittest.mock import MagicMock, patch
 
 
-# ── Stub classes for google.adk.models ───────────────────────────────────────
-
-@dataclass
-class _StubLlmResponse:
-    """Minimal stub for google.adk.models.LlmResponse."""
-    content: object = None
+# We use unittest.mock to mock google.adk behavior where needed, but we don't 
+# poison sys.modules so we avoid breaking other tests.
 
 
-@dataclass
-class _StubLlmRequest:
-    """Minimal stub for google.adk.models.LlmRequest."""
-    contents: list = None
-    config: object = None
-
-
-# ── Mock google.adk modules before importing guardrails ──────────────────────
-if "google.adk" not in sys.modules:
-    models_mock = MagicMock()
-    models_mock.LlmResponse = _StubLlmResponse
-    models_mock.LlmRequest = _StubLlmRequest
-
-    adk_mock = MagicMock()
-    sys.modules["google.adk"] = adk_mock
-    sys.modules["google.adk.agents"] = adk_mock.agents
-    sys.modules["google.adk.agents.callback_context"] = MagicMock()
-    sys.modules["google.adk.models"] = models_mock
-    sys.modules["google.adk.runners"] = MagicMock()
-    sys.modules["google.adk.sessions"] = MagicMock()
 
 from src.adk.guardrails import (
     model_armor_after_model,

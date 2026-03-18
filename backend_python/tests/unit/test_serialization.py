@@ -11,7 +11,7 @@ class MockDatetimeWithNanoseconds:
     def to_datetime(self):
         return self._dt
 
-class TestEnum(str, Enum):
+class SampleEnum(str, Enum):
     A = "a"
     B = "b"
 
@@ -41,14 +41,14 @@ class TestSerialization(unittest.TestCase):
         self.assertIsInstance(val, datetime)
 
     def test_parse_enum_success(self):
-        self.assertEqual(parse_enum(TestEnum, "a", TestEnum.B), TestEnum.A)
-        self.assertEqual(parse_enum(TestEnum, "b", TestEnum.B), TestEnum.B)
+        self.assertEqual(parse_enum(SampleEnum, "a", SampleEnum.B), SampleEnum.A)
+        self.assertEqual(parse_enum(SampleEnum, "b", SampleEnum.B), SampleEnum.B)
 
     def test_parse_enum_failure_defaults(self):
         # Invalid value
-        self.assertEqual(parse_enum(TestEnum, "z", TestEnum.B), TestEnum.B)
+        self.assertEqual(parse_enum(SampleEnum, "z", SampleEnum.B), SampleEnum.B)
         # None
-        self.assertEqual(parse_enum(TestEnum, None, TestEnum.B), TestEnum.B)
+        self.assertEqual(parse_enum(SampleEnum, None, SampleEnum.B), SampleEnum.B)
 
 if __name__ == '__main__':
     unittest.main()
