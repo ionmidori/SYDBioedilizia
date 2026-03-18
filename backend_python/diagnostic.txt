@@ -1,3 +1,0 @@
-[ADK-DIAG] Event author=syd_orchestrator has_text=True has_fc=False has_fr=False partial=None parts_count=1
-[ADK-DIAG]   part[0] text='Ciao! Come posso aiutarti con il tuo progetto?\n' fc=False fr=False
-[ADK-DIAG] YIELDING chunk: 'Ciao! Come posso aiutarti con il tuo progetto?\n'
