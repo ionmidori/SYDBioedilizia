@@ -1,19 +1,33 @@
 "use client"
 
-import { FolderKanban, Plus } from "lucide-react"
+import { FolderKanban, Plus, ListChecks, X } from "lucide-react"
 import { ScallopedInlineLoader } from "@/components/ui/ScallopedPageTransition"
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useCallback, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { Button } from "@/components/ui/button"
 import { useProjects } from "@/hooks/use-projects"
 import { ProjectCard } from "@/components/dashboard/ProjectCard"
 import { CreateProjectDialog } from "@/components/dashboard/CreateProjectDialog"
+import { FloatingBatchBar } from "@/components/dashboard/FloatingBatchBar"
+import { BatchSubmitModal } from "@/components/dashboard/BatchSubmitModal"
+
+/**
+ * Projects that have status 'quoted' or 'draft' with a quote
+ * are eligible for batch submission. For now we consider 'quoted'
+ * and 'draft' as potentially having quotes — the backend validates.
+ */
+const QUOTE_ELIGIBLE_STATUSES = new Set(['draft', 'quoted', 'analyzing']);
 
 export function ProjectListClient() {
     const { data: projects = [], isLoading, isError, error: queryError, refetch } = useProjects();
     const error = isError ? (queryError as Error)?.message ?? 'Errore caricamento' : null;
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+    // ── Multi-select state ──────────────────────────────────────────────
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [submitModalOpen, setSubmitModalOpen] = useState(false);
 
     const handleCreateProject = () => {
         setCreateDialogOpen(true);
@@ -22,6 +36,53 @@ export function ProjectListClient() {
     const handleDeleteProject = () => {
         refetch();
     };
+
+    const toggleSelectMode = useCallback(() => {
+        setSelectMode((prev) => {
+            if (prev) setSelectedIds(new Set()); // clear on exit
+            return !prev;
+        });
+    }, []);
+
+    const handleToggleSelect = useCallback((sessionId: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(sessionId)) {
+                next.delete(sessionId);
+            } else {
+                next.add(sessionId);
+            }
+            return next;
+        });
+    }, []);
+
+    const handleBatchCancel = useCallback(() => {
+        setSelectedIds(new Set());
+        setSelectMode(false);
+    }, []);
+
+    const handleBatchSubmit = useCallback(() => {
+        setSubmitModalOpen(true);
+    }, []);
+
+    const handleBatchSuccess = useCallback(() => {
+        setSelectedIds(new Set());
+        setSelectMode(false);
+        refetch();
+    }, [refetch]);
+
+    const selectedProjects = useMemo(
+        () => projects.filter((p) => selectedIds.has(p.session_id)),
+        [projects, selectedIds]
+    );
+
+    // Determine which projects have quotes (heuristic: status is quoted or beyond)
+    const quoteEligible = useMemo(
+        () => new Set(projects.filter((p) => QUOTE_ELIGIBLE_STATUSES.has(p.status)).map((p) => p.session_id)),
+        [projects]
+    );
+
+    const hasEligibleProjects = quoteEligible.size > 0;
 
     if (isLoading) {
         return (
@@ -48,25 +109,83 @@ export function ProjectListClient() {
                         Gestisci tutte le tue ristrutturazioni e visualizza i tuoi preventivi intelligenti in un unico posto.
                     </p>
                 </div>
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleCreateProject}
-                    className="group relative flex items-center gap-3 px-6 py-3 bg-luxury-gold/10 border border-luxury-gold/30 hover:border-luxury-gold/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/5"
-                >
-                    {/* Internal Glow Effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/0 to-luxury-gold/0 group-hover:via-luxury-gold/10 transition-all duration-500 rounded-xl" />
 
-                    <div className="relative z-10 flex items-center gap-3">
-                        <div className="p-1.5 bg-luxury-gold/20 rounded-lg text-luxury-gold">
-                            <Plus className="w-5 h-5" />
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3">
+                    {/* Select Mode Toggle */}
+                    {projects.length > 0 && hasEligibleProjects && (
+                        <AnimatePresence mode="wait">
+                            <motion.button
+                                key={selectMode ? 'exit' : 'enter'}
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.9 }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={toggleSelectMode}
+                                className={`group relative flex items-center gap-3 px-5 py-3 border rounded-xl overflow-hidden transition-all duration-300 shadow-lg ${
+                                    selectMode
+                                        ? 'bg-luxury-teal/10 border-luxury-teal/30 hover:border-luxury-teal/50 shadow-luxury-teal/5'
+                                        : 'bg-white/5 border-luxury-text/15 hover:border-luxury-text/30 shadow-white/5'
+                                }`}
+                            >
+                                <div className="relative z-10 flex items-center gap-2.5">
+                                    {selectMode ? (
+                                        <X className="w-4 h-4 text-luxury-teal" />
+                                    ) : (
+                                        <ListChecks className="w-4 h-4 text-luxury-text/70" />
+                                    )}
+                                    <span className={`font-bold text-xs whitespace-nowrap uppercase tracking-widest ${
+                                        selectMode ? 'text-luxury-teal' : 'text-luxury-text/70'
+                                    }`}>
+                                        {selectMode ? 'Annulla' : 'Seleziona'}
+                                    </span>
+                                </div>
+                            </motion.button>
+                        </AnimatePresence>
+                    )}
+
+                    {/* Create Project */}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={handleCreateProject}
+                        className="group relative flex items-center gap-3 px-6 py-3 bg-luxury-gold/10 border border-luxury-gold/30 hover:border-luxury-gold/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/5"
+                    >
+                        {/* Internal Glow Effect */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/0 to-luxury-gold/0 group-hover:via-luxury-gold/10 transition-all duration-500 rounded-xl" />
+
+                        <div className="relative z-10 flex items-center gap-3">
+                            <div className="p-1.5 bg-luxury-gold/20 rounded-lg text-luxury-gold">
+                                <Plus className="w-5 h-5" />
+                            </div>
+                            <span className="text-luxury-gold font-bold text-sm md:text-base whitespace-nowrap uppercase tracking-widest">
+                                Nuovo Progetto
+                            </span>
                         </div>
-                        <span className="text-luxury-gold font-bold text-sm md:text-base whitespace-nowrap uppercase tracking-widest">
-                            Nuovo Progetto
-                        </span>
-                    </div>
-                </motion.button>
+                    </motion.button>
+                </div>
             </div>
+
+            {/* Select Mode Banner */}
+            <AnimatePresence>
+                {selectMode && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                    >
+                        <div className="flex items-center gap-3 px-5 py-3 rounded-xl bg-luxury-teal/5 border border-luxury-teal/15">
+                            <ListChecks className="w-4 h-4 text-luxury-teal shrink-0" />
+                            <p className="text-xs text-luxury-text/60 font-medium">
+                                Seleziona i progetti da inviare al team per il preventivo finale.
+                                Solo i progetti con una bozza di preventivo possono essere selezionati.
+                            </p>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {/* Error Message */}
             {error && (
@@ -106,10 +225,34 @@ export function ProjectListClient() {
             {projects.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {projects.map((project, index) => (
-                        <ProjectCard key={project.session_id} project={project} index={index} onDelete={handleDeleteProject} />
+                        <ProjectCard
+                            key={project.session_id}
+                            project={project}
+                            index={index}
+                            onDelete={handleDeleteProject}
+                            selectable={selectMode}
+                            selected={selectedIds.has(project.session_id)}
+                            onToggleSelect={handleToggleSelect}
+                            hasQuote={quoteEligible.has(project.session_id)}
+                        />
                     ))}
                 </div>
             )}
+
+            {/* Floating Batch Action Bar */}
+            <FloatingBatchBar
+                selectedCount={selectedIds.size}
+                onSubmit={handleBatchSubmit}
+                onCancel={handleBatchCancel}
+            />
+
+            {/* Batch Submit Confirmation Modal */}
+            <BatchSubmitModal
+                open={submitModalOpen}
+                onOpenChange={setSubmitModalOpen}
+                selectedProjects={selectedProjects}
+                onSuccess={handleBatchSuccess}
+            />
 
             <CreateProjectDialog
                 open={createDialogOpen}

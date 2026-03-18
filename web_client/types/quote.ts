@@ -117,3 +117,41 @@ export const quoteSchema = z.object({
   aggregated_subtotal: z.number().nullable().optional(),
 });
 export type Quote = z.infer<typeof quoteSchema>;
+
+// ── Multi-Project Batch Submission ──────────────────────────────────────────
+
+export const batchStatusSchema = z.enum([
+  'draft',
+  'submitted',
+  'partially_approved',
+  'approved',
+  'rejected',
+]);
+export type BatchStatus = z.infer<typeof batchStatusSchema>;
+
+export const batchProjectSchema = z.object({
+  project_id: z.string(),
+  project_name: z.string(),
+  status: quoteStatusSchema.default('draft'),
+  item_count: z.number().min(0).default(0),
+  subtotal: z.number().min(0).default(0),
+  admin_notes: z.string().nullable().optional(),
+});
+export type BatchProject = z.infer<typeof batchProjectSchema>;
+
+export const quoteBatchSchema = z.object({
+  id: z.string().nullable().optional(),
+  user_id: z.string(),
+  status: batchStatusSchema.default('draft'),
+  projects: z.array(batchProjectSchema).default([]),
+  total_projects: z.number().min(0).default(0),
+  batch_subtotal: z.number().min(0).default(0),
+  batch_grand_total: z.number().min(0).default(0),
+  submitted_at: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+  updated_at: z.string().optional(),
+  // Cross-project aggregation preview (advisory, not mutating)
+  potential_savings: z.number().min(0).default(0),
+  aggregation_preview: z.array(aggregationAdjustmentSchema).default([]),
+});
+export type QuoteBatch = z.infer<typeof quoteBatchSchema>;

@@ -35,7 +35,7 @@ async def analyze_web_mockup(
     """
     Analyzes a web design mockup and translates it into Shadcn/UI and Tailwind specifications.
     """
-    model_name = "gemini-2.5-flash"
+    model_name = "gemini-3.1-flash-lite-preview"
     logger.info(f"[WebArchitect] Analyzing mockup with {model_name}...")
 
     system_prompt = f"""

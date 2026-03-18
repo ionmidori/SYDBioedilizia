@@ -39,7 +39,7 @@ async def analyze_room_structure(image_bytes: bytes) -> RoomAnalysis:
     """
     Analyze room structure from uploaded photo using Gemini Vision.
     """
-    model_name = "gemini-2.5-flash"
+    model_name = "gemini-3.1-flash-lite-preview"
 
     logger.info(f"[Vision] Initializing Gemini Vision analysis with {model_name}...")
 

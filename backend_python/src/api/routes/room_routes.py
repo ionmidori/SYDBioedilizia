@@ -24,7 +24,6 @@ from pydantic import BaseModel, Field
 
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import RoomNotFoundError
-from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
 from src.schemas.quote import RoomQuote, RoomType

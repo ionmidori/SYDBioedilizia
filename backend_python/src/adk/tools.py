@@ -382,40 +382,14 @@ async def suggest_multi_room_quote(
     response += f"**Subtotale: €{quote.financials.subtotal:.2f}**\n"
     response += f"**Totale (IVA inclusa): €{quote.financials.grand_total:.2f}**\n\n"
 
-    response += "Puoi revisionare questa bozza nella dashboard sotto 'Preventivo'."
-
-    # 6. Fire-and-forget admin notification
-    import asyncio
-    asyncio.create_task(_notify_admin_multi_room(
-        project_id=target_project_id,
-        grand_total=quote.financials.grand_total,
-        user_id=user_id or f"guest_{session_id}",
-        room_count=len(quote.rooms),
-    ))
+    response += (
+        "Puoi revisionare questa bozza nella dashboard sotto 'Preventivo'.\n\n"
+        "Quando sei pronto, seleziona i progetti dalla dashboard e clicca "
+        "'Richiedi preventivo' per inviarli al nostro team."
+    )
+    # NOTE: Admin notification removed — now triggered explicitly via batch submission
 
     return response
-
-
-async def _notify_admin_multi_room(
-    project_id: str,
-    grand_total: float,
-    user_id: str,
-    room_count: int,
-) -> None:
-    """Fire-and-forget admin notification for multi-room quotes."""
-    try:
-        from src.services.notification_service import NotificationService
-        svc = NotificationService()
-        result = await svc.notify_admin_quote_ready(project_id, grand_total, user_id)
-        import logging as _logging
-        _logging.getLogger(__name__).info(
-            "[MultiRoomTool] Admin notification sent: %s (rooms=%d)", result, room_count,
-        )
-    except Exception:
-        import logging as _logging
-        _logging.getLogger(__name__).warning(
-            "[MultiRoomTool] Admin notification failed (non-fatal).", exc_info=True,
-        )
 
 
 # ─── Auth / Login ────────────────────────────────────────────────────────────

@@ -99,6 +99,17 @@ class CheckpointError(ServiceError):
         )
 
 
+class BatchNotFoundError(ResourceNotFound):
+    """Quote batch does not exist in Firestore."""
+    error_code = "BATCH_NOT_FOUND"
+
+    def __init__(self, batch_id: str) -> None:
+        super().__init__(
+            message=f"Quote batch '{batch_id}' not found.",
+            detail={"batch_id": batch_id},
+        )
+
+
 class PDFGenerationError(ServiceError):
     """WeasyPrint/Jinja2 rendering failed (CPU-bound, run_in_threadpool)."""
     error_code = "PDF_GENERATION_ERROR"

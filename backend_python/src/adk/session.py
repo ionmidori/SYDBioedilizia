@@ -11,8 +11,7 @@ GDPR note: VertexAiSessionService respects the region set in vertexai.init()
 (ADK_LOCATION=europe-west1 in .env), so data stays in EU.
 """
 import logging
-from google.adk.sessions import VertexAiSessionService, InMemorySessionService
-from src.core.config import settings
+from google.adk.sessions import InMemorySessionService
 
 logger = logging.getLogger(__name__)
 

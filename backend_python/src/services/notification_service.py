@@ -6,7 +6,6 @@ Fallback chain: n8n webhook (if configured) → SMTP email → Firestore flag + 
 
 Pattern: Service Layer (no HTTP logic, pure domain behavior).
 """
-import asyncio
 import logging
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -214,4 +213,4 @@ class NotificationService:
                 **(metadata or {}),
             },
         )
-        return f"⚠️ Notifica salvata in coda (nessun canale email configurato). Controlla la dashboard admin."
+        return "⚠️ Notifica salvata in coda (nessun canale email configurato). Controlla la dashboard admin."

@@ -11,13 +11,12 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
-from src.schemas.quote import QuoteItem, RoomQuote, RoomType
-from src.services.aggregation_engine import AggregationEngine, get_aggregation_engine
+from src.schemas.quote import RoomQuote
+from src.services.aggregation_engine import get_aggregation_engine
 from src.services.insight_engine import InsightEngineError, get_insight_engine
 from src.services.pricing_service import PricingService
 from src.tools._quote_helpers import (
     build_chat_summary,
-    extract_media_urls,
     extract_vision_context,
     validate_qty_bounds,
     validate_sku_suggestions,

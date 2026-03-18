@@ -41,7 +41,7 @@ async def generate_architectural_prompt(
     if keep_elements is None:
         keep_elements = []
 
-    model_name = "gemini-2.5-flash"
+    model_name = "gemini-3.1-flash-lite-preview"
     logger.info(f"[Architect] Building narrative plan (Style: {target_style}, Keep: {len(keep_elements)})...")
 
     preservation_list = ", ".join(keep_elements) if keep_elements else "None specified (renovate freely)"

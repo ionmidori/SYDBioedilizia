@@ -356,6 +356,10 @@ app.include_router(quote_router)
 from src.api.routes.room_routes import router as room_router
 app.include_router(room_router)
 
+# Register batch submission routes (multi-project quote batches)
+from src.api.routes.batch_routes import router as batch_router
+app.include_router(batch_router)
+
 # Register users router
 from src.api.users_router import router as users_router
 app.include_router(users_router)

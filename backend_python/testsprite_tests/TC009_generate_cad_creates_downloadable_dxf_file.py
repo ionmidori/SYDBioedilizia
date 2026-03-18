@@ -18,7 +18,7 @@ def test_generate_cad_creates_downloadable_dxf_file():
         "Content-Type": "application/json"
     }
     
-    # Read the sample image file
+    try:
         # Request CAD generation via tool test endpoint
         payload = {"image_url": "https://example.com/test-room.jpg"}
         resp_cad = requests.post(generate_cad_url, json=payload, headers=headers, timeout=TIMEOUT)
@@ -50,7 +50,8 @@ def test_generate_cad_creates_downloadable_dxf_file():
 
     finally:
         # Cleanup uploaded image resource if deletion endpoint exists
-        delete_image_url = f"{BASE_URL}/room-images/{image_id}" if 'image_id' in locals() else None
+        image_id = None # Mock variable since we didn't upload in this mock test
+        delete_image_url = f"{BASE_URL}/room-images/{image_id}" if image_id else None
         if delete_image_url:
             try:
                 requests.delete(delete_image_url, timeout=TIMEOUT)

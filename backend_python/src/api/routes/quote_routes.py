@@ -36,7 +36,7 @@ from src.core.exceptions import (
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
-from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
+from src.schemas.quote import QuoteItem, QuoteSchema
 from src.services.pricing_service import PricingService
 from src.services.pdf_service import PdfService
 from src.services.notification_service import NotificationService

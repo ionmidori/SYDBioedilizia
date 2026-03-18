@@ -1,11 +1,29 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Star, Quote } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Star, Quote, Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-const testimonials = [
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { testimonialFormSchema, type TestimonialFormValues } from "@/schemas/testimonial-form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+const defaultTestimonials = [
     {
         id: 1,
         name: 'Marco Rossi',
@@ -41,15 +59,52 @@ const testimonials = [
 export function Testimonials() {
     const [hoveredTestimonial, setHoveredTestimonial] = useState<number | null>(null);
     const [isMobile, setIsMobile] = useState(false);
+    const { user } = useAuth();
+    
+    // Review Form State
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [submitSuccess, setSubmitSuccess] = useState(false);
+
+    const form = useForm<TestimonialFormValues>({
+        resolver: zodResolver(testimonialFormSchema),
+        defaultValues: {
+            rating: 5,
+            text: "",
+        },
+    });
 
     // Mobile detection
     useEffect(() => {
-        // Run only once on mount to avoid cascading renders
         const handleResize = () => setIsMobile(window.innerWidth < 768);
         handleResize(); // Initial check
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
+
+    const isRegisteredUser = user && !user.isAnonymous;
+
+    async function onSubmit(data: TestimonialFormValues) {
+        if (!user) return;
+        
+        try {
+            await addDoc(collection(db, 'testimonials'), {
+                userId: user.uid,
+                name: user.displayName || 'Utente SYD',
+                text: data.text.trim(),
+                rating: data.rating,
+                createdAt: serverTimestamp(),
+                status: 'pending' // For admin approval
+            });
+            setSubmitSuccess(true);
+            setTimeout(() => {
+                setIsDialogOpen(false);
+                setSubmitSuccess(false);
+                form.reset();
+            }, 2000);
+        } catch (error) {
+            console.error("Error submitting review:", error);
+        }
+    }
 
     return (
         <section id="testimonials" className="py-24 relative bg-luxury-bg overflow-hidden">
@@ -62,7 +117,7 @@ export function Testimonials() {
 
             <div className="container mx-auto px-4 md:px-6 relative z-10">
 
-                <div className="text-center max-w-3xl mx-auto mb-16">
+                <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-16 relative">
                     <motion.div
                         initial={{ opacity: 0, scale: 0.9 }}
                         whileInView={{ opacity: 1, scale: 1 }}
@@ -83,10 +138,108 @@ export function Testimonials() {
                     >
                         Dicono di <span className="text-luxury-gold italic">Noi</span>
                     </motion.h2>
+
+                    {/* Action Button for Registered Users */}
+                    <AnimatePresence>
+                        {isRegisteredUser && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-2"
+                            >
+                                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="rounded-full border-luxury-gold/30 text-luxury-gold hover:bg-luxury-gold/10 hover:text-luxury-gold gap-2">
+                                            <Plus className="w-4 h-4" /> Lascia una recensione
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-md bg-luxury-bg border-luxury-gold/20 text-luxury-text">
+                                        <DialogHeader>
+                                            <DialogTitle className="font-serif text-2xl text-luxury-gold">La tua esperienza con SYD</DialogTitle>
+                                        </DialogHeader>
+                                        
+                                        {submitSuccess ? (
+                                            <div className="py-8 text-center flex flex-col items-center gap-4">
+                                                <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
+                                                    <Star className="w-6 h-6 fill-current" />
+                                                </div>
+                                                <p className="text-lg font-medium">Grazie per la tua recensione!</p>
+                                                <p className="text-sm text-luxury-text/60">Il tuo feedback è prezioso per noi.</p>
+                                            </div>
+                                        ) : (
+                                            <Form {...form}>
+                                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="rating"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-3">
+                                                                <FormLabel className="text-sm font-medium text-luxury-text/80">Valutazione</FormLabel>
+                                                                <FormControl>
+                                                                    <div className="flex gap-2">
+                                                                        {[1, 2, 3, 4, 5].map((star) => (
+                                                                            <button
+                                                                                key={star}
+                                                                                type="button"
+                                                                                onClick={() => field.onChange(star)}
+                                                                                className={cn(
+                                                                                    "p-1 transition-all hover:scale-110",
+                                                                                    star <= field.value ? "text-luxury-gold" : "text-luxury-text/20"
+                                                                                )}
+                                                                            >
+                                                                                <Star className={cn("w-8 h-8", star <= field.value && "fill-current")} />
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="text"
+                                                        render={({ field }) => (
+                                                            <FormItem className="space-y-3">
+                                                                <FormLabel className="text-sm font-medium text-luxury-text/80">Cosa ne pensi?</FormLabel>
+                                                                <FormControl>
+                                                                    <Textarea 
+                                                                        {...field}
+                                                                        placeholder="Racconta la tua esperienza con i nostri servizi..."
+                                                                        className="min-h-[120px] resize-none bg-black/20 border-luxury-gold/10 focus-visible:ring-luxury-gold/30"
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <div className="pt-2 flex justify-end">
+                                                        <Button 
+                                                            type="submit" 
+                                                            disabled={form.formState.isSubmitting}
+                                                            className="w-full sm:w-auto bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-full"
+                                                        >
+                                                            {form.formState.isSubmitting ? (
+                                                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Invio in corso...</>
+                                                            ) : (
+                                                                'Invia Recensione'
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                </form>
+                                            </Form>
+                                        )}
+                                    </DialogContent>
+                                </Dialog>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {testimonials.map((t, idx) => (
+                    {defaultTestimonials.map((t, idx) => (
                         <motion.div
                             key={t.id}
                             initial={{ opacity: 0, y: 30 }}

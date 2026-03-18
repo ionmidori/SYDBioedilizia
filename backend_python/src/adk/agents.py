@@ -225,21 +225,21 @@ QUOTE_AGENT_INSTRUCTION = "\n\n".join([
 
 triage_agent = Agent(
     name="triage",
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite-preview",
     tools=[show_project_gallery_adk],
     instruction=TRIAGE_AGENT_INSTRUCTION,
 )
 
 design_agent = Agent(
     name="design",
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite-preview",
     tools=[generate_render_adk, list_project_files_adk, market_prices_adk, request_login_adk],
     instruction=DESIGN_AGENT_INSTRUCTION,
 )
 
 quote_agent = Agent(
     name="quote",
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite-preview",
     tools=[
         pricing_engine_tool_adk,
         market_prices_adk,
@@ -254,7 +254,7 @@ quote_agent = Agent(
 
 syd_orchestrator = Agent(
     name="syd_orchestrator",
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite-preview",
     sub_agents=[triage_agent, design_agent, quote_agent],
     tools=[request_login_adk],
     instruction=SYD_ORCHESTRATOR_INSTRUCTION,

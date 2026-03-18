@@ -6,13 +6,8 @@ Extracted to avoid duplication while preserving backward compatibility.
 """
 import logging
 from typing import Any, Dict, List
-from urllib.parse import urlparse
 
-import httpx
-from google import genai
-from google.genai import types as genai_types
 
-from src.core.config import settings
 from src.services.pricing_service import PricingService
 
 logger = logging.getLogger(__name__)

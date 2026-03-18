@@ -249,7 +249,7 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
 
         # Generate content using video + prompt
         response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.1-flash-lite-preview",
             contents=[
                 types.Content(
                     parts=[

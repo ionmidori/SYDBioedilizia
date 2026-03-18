@@ -284,7 +284,7 @@ async def _run_render_structural_vision(
 
         client = genai.Client(api_key=settings.api_key)
         response = await client.aio.models.generate_content(
-            model="gemini-2.5-flash-preview-05-20",
+            model="gemini-3.1-flash-lite-preview",
             contents=genai_types.Content(
                 parts=[
                     genai_types.Part(text=_STRUCTURAL_VISION_PROMPT),
@@ -493,14 +493,14 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
                 "Il nostro geometra lo affinerà durante la revisione._ \n\n"
             )
 
-        response += "Puoi revisionare e modificare questa bozza nella tua dashboard sotto 'Preventivo'."
+        response += (
+            "Puoi revisionare e modificare questa bozza nella tua dashboard sotto 'Preventivo'.\n\n"
+            "Quando sei pronto, seleziona i progetti dalla dashboard e clicca "
+            "'Richiedi preventivo' per inviarli al nostro team."
+        )
 
-        # 10. Notify admin of new quote draft (fire-and-forget — non-blocking)
-        asyncio.create_task(_notify_admin_background(
-            project_id=target_project_id,
-            grand_total=quote.financials.grand_total,
-            user_id=final_user_id,
-        ))
+        # NOTE: Admin notification removed — now triggered explicitly via batch submission
+        # (POST /quote/batch). The user selects projects from the dashboard and submits.
 
         return response
 
@@ -512,20 +512,5 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
             "Si è verificato un errore imprevisto durante la generazione del preventivo. "
             "Il nostro team è stato notificato. Riprova tra qualche minuto."
         )
-
-async def _notify_admin_background(
-    project_id: str,
-    grand_total: float,
-    user_id: str,
-) -> None:
-    """Fire-and-forget admin notification after a quote draft is saved."""
-    try:
-        from src.services.notification_service import NotificationService
-        svc = NotificationService()
-        result = await svc.notify_admin_quote_ready(project_id, grand_total, user_id)
-        logger.info("[QuoteTool] Admin notification sent: %s", result)
-    except Exception:
-        logger.warning("[QuoteTool] Admin notification failed (non-fatal).", exc_info=True)
-
 
 suggest_quote_items = suggest_quote_items_wrapper

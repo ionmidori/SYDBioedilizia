@@ -5,6 +5,7 @@ import { ProjectListItem, ProjectStatus } from '@/types/projects';
 import { useRouter } from 'next/navigation';
 import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Check } from 'lucide-react';
 import Image from 'next/image';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { RenameProjectDialog } from './RenameProjectDialog';
@@ -17,6 +18,12 @@ interface ProjectCardProps {
     project: ProjectListItem;
     index?: number;
     onDelete?: (sessionId: string) => void;
+    /** Multi-select mode: show checkbox, clicking toggles selection instead of navigating */
+    selectable?: boolean;
+    selected?: boolean;
+    onToggleSelect?: (sessionId: string) => void;
+    /** Whether this project has a draft quote eligible for batch submission */
+    hasQuote?: boolean;
 }
 
 const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: string }> = {
@@ -27,7 +34,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     completed: { label: 'Completato', color: 'text-emerald-300', bg: 'bg-emerald-500/15' },
 };
 
-export function ProjectCard({ project, index }: ProjectCardProps) {
+export function ProjectCard({ project, index, selectable, selected, onToggleSelect, hasQuote }: ProjectCardProps) {
     const router = useRouter();
     const status = statusConfig[project.status] || statusConfig.draft;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -37,6 +44,10 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
     const deleteProjectMutation = useDeleteProject();
 
     const handleCardClick = () => {
+        if (selectable && hasQuote && onToggleSelect) {
+            onToggleSelect(project.session_id);
+            return;
+        }
         router.push(`/dashboard/${project.session_id}`);
     };
 
@@ -80,11 +91,36 @@ export function ProjectCard({ project, index }: ProjectCardProps) {
             }}
             className={cn(
                 "group relative flex flex-col gap-3 p-5 rounded-[24px] surface-container-low hover:surface-container-high hover:shadow-elevation-high transition-all duration-500 cursor-pointer overflow-hidden",
-                deleteProjectMutation.isPending && "opacity-50 pointer-events-none"
+                deleteProjectMutation.isPending && "opacity-50 pointer-events-none",
+                selectable && selected && "ring-2 ring-luxury-teal ring-offset-2 ring-offset-luxury-bg",
+                selectable && !hasQuote && "opacity-40 cursor-not-allowed"
             )}
         >
             {/* Cinematic Gradient Sweep (on hover) */}
             <div className="absolute inset-0 bg-gradient-to-tr from-luxury-teal/0 via-luxury-teal/5 to-luxury-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+
+            {/* Selection Checkbox (multi-select mode) */}
+            {selectable && hasQuote && (
+                <div className="absolute top-4 left-4 z-30">
+                    <div className={cn(
+                        "w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300",
+                        selected
+                            ? "bg-luxury-teal border-luxury-teal text-white scale-110"
+                            : "border-luxury-text/30 bg-luxury-bg/60 backdrop-blur-sm hover:border-luxury-teal/60"
+                    )}>
+                        {selected && <Check className="w-4 h-4" strokeWidth={3} />}
+                    </div>
+                </div>
+            )}
+
+            {/* No-quote badge in select mode */}
+            {selectable && !hasQuote && (
+                <div className="absolute top-4 left-4 z-30">
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-luxury-text/40 bg-luxury-bg/80 px-2 py-1 rounded-full border border-luxury-text/10 backdrop-blur-sm">
+                        Nessun preventivo
+                    </span>
+                </div>
+            )}
 
             {/* Status Badge */}
             <div className="absolute top-7 right-7 z-20 flex items-center gap-2 pointer-events-none">

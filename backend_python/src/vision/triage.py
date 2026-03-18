@@ -66,7 +66,7 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
 
         try:
             response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.1-flash-lite-preview",
                 contents=[
                     types.Content(
                         parts=[

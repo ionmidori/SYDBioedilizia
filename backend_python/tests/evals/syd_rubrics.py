@@ -18,7 +18,7 @@ from google.adk.evaluation.eval_rubrics import Rubric, RubricContent
 # ── Judge Model Config ────────────────────────────────────────────────────────
 
 SYD_JUDGE_OPTIONS = JudgeModelOptions(
-    judge_model="gemini-2.5-flash",
+    judge_model="gemini-3.1-flash-lite-preview",
     num_samples=3,  # 3 samples for cost efficiency; increase for CI
 )
 

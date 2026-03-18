@@ -35,7 +35,7 @@ from src.services.pricing_service import PricingService
 @pytest.fixture
 def engine() -> InsightEngine:
     """Return an InsightEngine instance with the real price book loaded."""
-    return InsightEngine(model_name="gemini-2.5-flash")
+    return InsightEngine(model_name="gemini-3.1-flash-lite-preview")
 
 
 # ─── _build_price_book_prompt ─────────────────────────────────────────────────

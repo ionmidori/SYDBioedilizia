@@ -25,6 +25,12 @@ async def verify_token(req: Request) -> UserSession:
     In production, always verifies the token via Firebase Admin SDK.
     """
     from src.core.config import settings
+    if req is None:
+        logger.error("[Auth] verify_token called with None Request object (likely from a misconfigured test or dependency)")
+        raise AuthError(
+            message="Internal authentication error: missing request context.",
+            error_code="AUTH_INTERNAL_ERROR"
+        )
     auth_header = req.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise AuthError(

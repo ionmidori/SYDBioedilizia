@@ -16,7 +16,6 @@ from typing import Any, Optional
 
 from src.schemas.quote import (
     AggregationAdjustment,
-    QuoteFinancials,
     QuoteItem,
     QuoteSchema,
     RoomQuote,
@@ -235,7 +234,7 @@ class AggregationEngine:
         single = template.model_copy(update={
             "qty": 1,
             "total": template.unit_price,
-            "ai_reasoning": f"Costo fisso cantiere: una volta per progetto (non per stanza)",
+            "ai_reasoning": "Costo fisso cantiere: una volta per progetto (non per stanza)",
             "room_id": None,
         })
 
@@ -266,7 +265,7 @@ class AggregationEngine:
 
         max_item = max(room_items, key=lambda ri: ri[1].qty)
         single = max_item[1].model_copy(update={
-            "ai_reasoning": f"Singleton progetto: uno per appartamento",
+            "ai_reasoning": "Singleton progetto: uno per appartamento",
             "room_id": None,
         })
 
