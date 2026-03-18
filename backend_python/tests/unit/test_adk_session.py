@@ -9,7 +9,6 @@ Mocking Notes:
 - We test both InMemorySessionService (local) and VertexAiSessionService (prod) paths.
 """
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 class TestGetSessionServiceSingleton:
@@ -20,30 +19,21 @@ class TestGetSessionServiceSingleton:
         import src.adk.session as session_module
         session_module._session_service_instance = None
 
-    @patch("src.adk.session.settings")
-    def test_returns_same_instance_twice(self, mock_settings):
+    def test_returns_same_instance_twice(self):
         """The singleton must return the same object on repeated calls."""
-        mock_settings.ENV = "development"
-
         from src.adk.session import get_session_service
         svc1 = get_session_service()
         svc2 = get_session_service()
         assert svc1 is svc2, "get_session_service() must return a singleton"
 
-    @patch("src.adk.session.settings")
-    def test_local_uses_in_memory(self, mock_settings):
-        """In development mode, InMemorySessionService is used."""
-        mock_settings.ENV = "development"
-
+    def test_local_uses_in_memory(self):
+        """InMemorySessionService is always used (no Reasoning Engine deployment)."""
         from src.adk.session import get_session_service
         svc = get_session_service()
         assert "InMemorySessionService" in type(svc).__name__
 
-    @patch("src.adk.session.settings")
-    def test_singleton_not_none(self, mock_settings):
+    def test_singleton_not_none(self):
         """The singleton must never return None."""
-        mock_settings.ENV = "development"
-
         from src.adk.session import get_session_service
         svc = get_session_service()
         assert svc is not None
