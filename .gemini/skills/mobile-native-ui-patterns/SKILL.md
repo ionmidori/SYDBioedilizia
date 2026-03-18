@@ -1,116 +1,77 @@
 ---
 name: mobile-native-ui-patterns
-description: Implement mobile-native UI patterns for the web using Vaul (Drawers) and advanced touch interactions. Use when building PWA-like experiences, mobile menus, or bottom sheets.
+description: Mobile-native UI patterns for web using Vaul drawers, responsive dialog/drawer switching, touch CSS hardening, and safe area handling. Use when building bottom sheets, mobile menus, or PWA-like touch interactions.
 ---
 
 # Mobile-Native UI Patterns
 
-This skill focuses on creating web interfaces that feel distinguishable from native mobile apps, utilizing **Vaul** for drawers and CSS/Meta techniques for touch optimization.
+Make web interfaces feel native on mobile. SYD uses Vaul for drawers, a responsive dialog/drawer switcher, and CSS touch hardening.
 
-## 1. The Drawer (Vaul)
+## SYD Components
 
-Vaul is the standard for "Sheet" or "Drawer" interactions in React. It replicates the native iOS momentum scrolling and drag physics.
+| Component | File | Purpose |
+|-----------|------|---------|
+| Drawer primitive | `components/ui/drawer.tsx` | Vaul wrapper (Shadcn) |
+| Responsive switcher | `components/ui/responsive-drawer.tsx` | Dialog on desktop, Drawer on mobile |
+| Swipe layout | `components/mobile/MobileSwipeLayout.tsx` | 3-pane swipe navigation (FM drag) |
+| Mobile tabs | `components/mobile/ProjectMobileTabs.tsx` | Tab navigation for project views |
 
-### Basic Implementation
+## Responsive Dialog/Drawer Pattern
+
+Desktop shows a `Dialog`; mobile shows a Vaul `Drawer`. Uses `useMediaQuery` to switch:
 
 ```tsx
-import { Drawer } from "vaul";
+import { ResponsiveDrawer } from '@/components/ui/responsive-drawer';
 
-export function MobileMenu() {
-  return (
-    <Drawer.Root shouldScaleBackground>
-      <Drawer.Trigger asChild>
-        <button>Open Menu</button>
-      </Drawer.Trigger>
-      <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 bg-black/40" />
-        <Drawer.Content className="bg-white flex flex-col rounded-t-[10px] h-[96%] mt-24 fixed bottom-0 left-0 right-0">
-          <div className="p-4 bg-white rounded-t-[10px] flex-1">
-            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-zinc-300 mb-8" />
-            <div className="max-w-md mx-auto">
-              <Drawer.Title className="font-medium mb-4">Title</Drawer.Title>
-              <p>Content goes here...</p>
-            </div>
-          </div>
-        </Drawer.Content>
-      </Drawer.Portal>
-    </Drawer.Root>
-  );
-}
+<ResponsiveDrawer open={open} onOpenChange={setOpen} title="Conferma invio">
+  {/* Same content renders in Dialog (desktop) or Drawer (mobile) */}
+</ResponsiveDrawer>
 ```
 
-### Critical Configuration
--   **`shouldScaleBackground`**: Adds the iOS "scale back" effect to the body content.
--   **`snapPoints`**: Use `snapPoints={[0.5, 1]}` for multi-stage drawers.
--   **`activeSnapPoint`**: Control the snap state programmatically.
+All modals in SYD use this pattern: `BatchSubmitModal`, `AuthDialog`, `DeleteProjectDialog`, etc.
 
-## 2. Touch Optimization (CSS & Meta)
+## Vaul Drawer Configuration
 
-To achieve "Native Feel", you must disable default browser behaviors that reveal it's a website.
-
-### Viewport Meta
-Prevent zooming and bouncing.
-
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+```tsx
+<Drawer.Root shouldScaleBackground>  {/* iOS scale-back effect */}
+  <Drawer.Content>
+    <div className="mx-auto w-12 h-1.5 rounded-full bg-zinc-300 mb-4" /> {/* Drag handle */}
+    {children}
+  </Drawer.Content>
+</Drawer.Root>
 ```
 
-### CSS Hardening
+- `shouldScaleBackground`: Scales body content behind drawer (iOS feel)
+- `snapPoints={[0.5, 1]}`: Multi-stage drawers
+- Always include a visible drag handle (48px wide, centered)
+
+## Touch CSS Hardening
+
+Applied in `globals.css`:
 
 ```css
-/* Globals.css */
 html, body {
-  /* Prevent bounce scroll on iOS (except in specific containers) */
-  overscroll-behavior-y: none; 
-  /* Prevent text selection unless needed */
-  -webkit-user-select: none;
-  user-select: none;
-  /* Remove tap highlight color */
+  overscroll-behavior-y: none;       /* Prevent pull-to-refresh */
   -webkit-tap-highlight-color: transparent;
 }
-
-/* Re-enable selection for text content */
-p, h1, h2, h3, span {
-  -webkit-user-select: text;
-  user-select: text;
-}
 ```
 
-## 3. Haptics (Vibration)
+- `100dvh` instead of `100vh` (handles mobile address bar)
+- `env(safe-area-inset-*)` for notch/home indicator padding
+- `overscroll-behavior: none` on scroll containers to prevent bounce
 
-Provide physical feedback for interactions.
+## Swipe Navigation
 
-```typescript
-// utils/haptics.ts
-export const triggerHaptic = () => {
-  if (typeof navigator !== 'undefined' && navigator.vibrate) {
-    navigator.vibrate(10); // Light tap (10ms)
-  }
-};
+SYD's `MobileSwipeLayout.tsx` uses Framer Motion `drag="x"` with `MotionValue`:
 
-// Usage
-<button onClick={() => { triggerHaptic(); submit(); }}>Click Me</button>
-```
-
-## 4. Safe Area Insets
-
-Respect the Notch and Home Indicator.
-
-```css
-.padding-safe {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.min-h-screen-safe {
-  min-height: 100dvh; /* Dynamic Viewport Height handles address bar */
-}
-```
+- 3-pane layout: Dashboard | Gallery | Chat
+- Notch draggable: 48×48px touch target (WCAG compliant)
+- Spring physics via `M3Spring.expressive` from `lib/m3-motion.ts`
 
 ## Checklist
 
-- [ ] Use **Vaul** for all bottom-sheet interactions (menus, details).
-- [ ] Disable `user-select` globally, enable locally.
-- [ ] Use `100dvh` instead of `100vh`.
-- [ ] Add `triggerHaptic` to primary actions.
-- [ ] Verify `overscroll-behavior` prevents "pull to refresh" if not desired.
+- [ ] Use `ResponsiveDrawer` for all modal interactions (not raw Dialog on mobile)
+- [ ] Drag handle visible on all drawers (accessibility)
+- [ ] Use `100dvh` for full-height layouts
+- [ ] Safe area insets on fixed bottom bars
+- [ ] Test with Chrome DevTools device emulation + real device

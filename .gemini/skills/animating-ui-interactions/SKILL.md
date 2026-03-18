@@ -1,94 +1,103 @@
 ---
 name: animating-ui-interactions
-description: Implement high-fidelity, polished interactions and micro-animations using Framer Motion and Tailwind CSS. Use when adding "wow factor" and premium feel to the user interface.
+description: Component-level micro-animations and interactions using Framer Motion with M3 Expressive tokens. Use when adding hover/tap feedback, shared layout transitions, page transitions, or stagger reveals.
 ---
 
 # Animating UI Interactions
 
-Create "alive" interfaces using motion design principles that guide user attention without being distracting.
+Framer Motion handles component-level animations. For scroll-driven animations, see `animating-modern-react-websites`.
 
-## 1. The "Ease-Out" Principle
-All entrance animations should use a decelerating ease for a professional, premium feel.
+## Motion Token System
+
+All animations MUST use tokens from `lib/m3-motion.ts` — never ad-hoc magic numbers.
+
+| Token | Use Case | Example |
+|-------|----------|---------|
+| `M3Spring.expressive` | Swipe completions, page transitions | `transition={M3Spring.expressive}` |
+| `M3Spring.standard` | Card expand, modal open | Container transforms |
+| `M3Spring.gentle` | Subtle reveals, tooltips | Fade-in elements |
+| `M3Spring.bouncy` | FAB press, toggle, badge pop | Button feedback |
+| `M3Transition.staggerParent` | List reveals | `staggerChildren: 0.06` |
+
+## Stagger List Pattern
+
+Use `createStaggerVariants()` from `lib/m3-motion.ts`:
+
 ```tsx
-<motion.div
-  initial={{ opacity: 0, y: 10 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }} // Custom cubic-bezier for luxury feel
+import { motion } from 'framer-motion';
+import { createStaggerVariants } from '@/lib/m3-motion';
+
+const { container, item } = createStaggerVariants({ y: 20 });
+
+<motion.div variants={container} initial="hidden" animate="visible">
+  {items.map(i => <motion.div key={i.id} variants={item}>{i.name}</motion.div>)}
+</motion.div>
+```
+
+## Micro-Interactions
+
+```tsx
+// Hover + Tap feedback (use M3Spring.bouncy for buttons)
+<motion.button
+  whileHover={{ scale: 1.02 }}
+  whileTap={{ scale: 0.98 }}
+  transition={M3Spring.bouncy}
 />
 ```
 
-## 2. Shared Layout Transitions
-Use `layoutId` to morph elements across different states (e.g., expanding cards).
+## Shared Layout Transitions
+
 ```tsx
-<motion.div layoutId="active-pill" className="bg-indigo-500 rounded-full" />
+// Morph active indicator between tabs/pills
+<motion.div layoutId="active-tab" className="bg-primary rounded-full"
+  transition={M3Spring.standard} />
 ```
 
-## 3. Micro-interactions
-- **Hover**: Subtle scale (1.02) or brightened border.
-- **Tap**: Instant Feedback (0.98 scale).
-- **Loading**: Pulse or shimmering skeleton, avoid jarring spinners.
+## Page Transitions (App Router)
 
-## 4. Scroll-Triggered Presence
-Use `whileInView` with a small `viewport` margin to reveal content as the user explores.
-
-## 5. Next.js App Router Page Transitions (2026 Standard)
-To achieve native-like, professional page transitions (e.g., sliding between dashboard sections) in the Next.js App Router:
-
-1. **Use `template.tsx` instead of `layout.tsx`** for the animated wrapper. Templates mount a new instance on navigation, triggering `AnimatePresence` correctly.
-2. **The `PageTransition` Wrapper Component**:
-   ```tsx
-   'use client';
-   import { motion, AnimatePresence } from 'framer-motion';
-   import { usePathname } from 'next/navigation';
-
-   export function PageTransition({ children }: { children: React.ReactNode }) {
-     const pathname = usePathname();
-     return (
-       <AnimatePresence mode="wait">
-         <motion.div
-           key={pathname}
-           initial={{ opacity: 0, x: 20 }}
-           animate={{ opacity: 1, x: 0 }}
-           exit={{ opacity: 0, x: -20 }}
-           transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-           className="w-full h-full"
-         >
-           {children}
-         </motion.div>
-       </AnimatePresence>
-     );
-   }
-   ```
-
-## 6. Swipe Navigation (Mobile Dashboard UX)
-For swipe-to-navigate functionality on mobile dashboards, leverage Framer Motion's `drag` events combined with Next.js `useRouter`.
+Use `template.tsx` (not `layout.tsx`) — templates remount on navigation, triggering `AnimatePresence`:
 
 ```tsx
 'use client';
-import { motion, PanInfo } from 'framer-motion';
-import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+import { usePathname } from 'next/navigation';
+import { M3Spring } from '@/lib/m3-motion';
 
-export function SwipeablePage({ children, nextRoute, prevRoute }: any) {
-  const router = useRouter();
-
-  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    const swipeThreshold = 50;
-    if (info.offset.x < -swipeThreshold && nextRoute) {
-      router.push(nextRoute); // Swipe Left -> Next
-    } else if (info.offset.x > swipeThreshold && prevRoute) {
-      router.push(prevRoute); // Swipe Right -> Previous
-    }
-  };
-
+export function PageTransition({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   return (
-    <motion.div drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.2} onDragEnd={handleDragEnd}>
-      {children}
-    </motion.div>
+    <AnimatePresence mode="wait">
+      <motion.div key={pathname}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        transition={M3Spring.expressive}>
+        {children}
+      </motion.div>
+    </AnimatePresence>
   );
 }
 ```
 
-## Best Practices
-- **Reduced Motion**: Respect `prefers-reduced-motion` settings.
-- **GPU Optimization**: Use `transform` and `opacity` only. Avoid animating `width`, `height`, or `top/left/bottom/right`.
-- **Orchestration**: Use `Variants` and `staggerChildren` for complex multi-element reveals.
+## AnimatePresence for Conditional Content
+
+```tsx
+<AnimatePresence mode="wait">
+  {step === 'confirm' && (
+    <motion.div key="confirm"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={M3Spring.standard}>
+      {/* Step content */}
+    </motion.div>
+  )}
+</AnimatePresence>
+```
+
+## Rules
+
+- **Reduced motion**: Always respect `prefers-reduced-motion` — wrap in `useReducedMotion()`
+- **GPU only**: Animate `transform` and `opacity` only. Never `width`, `height`, `top/left`
+- **No scroll triggers here**: Use GSAP ScrollTrigger hooks from `hooks/use-scroll-animation.ts` for scroll-driven effects
+- **SYD reference files**: `lib/m3-motion.ts`, `components/mobile/MobileSwipeLayout.tsx`

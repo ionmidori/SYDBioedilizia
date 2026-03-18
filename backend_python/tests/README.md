@@ -48,6 +48,7 @@ start htmlcov/index.html  # Windows
 - **Architect Vision**: JSON parsing, fallback, MIME handling
 - **Render Generation**: T2I, I2I, error handling, fallback
 - **ADK Orchestrator**: Session handling, stream recovery, fallback mechanisms
+- **Batch Processing**: Multi-project aggregation, rules validation, and routing (Phase 74)
 - **Offline Evals**: Built-in evaluation loop for ADK quality (`tests/evals`)
 
 ## Test Structure

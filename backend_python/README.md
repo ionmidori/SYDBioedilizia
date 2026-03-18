@@ -15,7 +15,8 @@ Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google G
 - **Feedback & Evaluation:** Native feedback collection (`/feedback` API) and an integrated offline ADK Evaluation Suite.
 - **n8n Connectivity:** Native tools for Telegram/Email notifications and document delivery.
 - **Vision Integration:** Automated room analysis and CAD extraction (Gemini 1.5 Pro).
-- **Security:** Pydantic-based guardrails, strict App Check enforcement, SSRF protections, and **"Golden Sync"** schema matching.
+- **Batch Processing:** `Batch Aggregation Engine` for multi-project cross-optimization and REST endpoints.
+- **Security:** Model Armor guardrails for prompt injection/data leak defense, Pydantic guardrails, strict App Check enforcement, SSRF protections, and **"Golden Sync"** schema matching.
 - **Observability:** Structured JSON logging via `structlog` and per-request tracing (`X-Request-ID`).
 
 ## 🏛️ Operational Tiers (ADK Flow)
@@ -89,5 +90,5 @@ backend_python/
 - **PII Protection**: Output filtering & Log argument redaction in `structlog`.
 
 ---
-*Updated: March 14, 2026 — Phase 71 (v4.0.24)*
+*Updated: March 18, 2026 — Phase 74 (v4.0.28)*
 

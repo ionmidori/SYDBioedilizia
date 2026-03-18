@@ -1,63 +1,99 @@
 ---
 name: evaluating-llms
-description: Implement comprehensive evaluation strategies for LLM applications using automated metrics, human feedback, and benchmarking. Use when testing LLM performance, measuring AI application quality, or establishing evaluation frameworks.
+description: Evaluate ADK agent responses using Google ADK AgentEvaluator, RubricBasedEvaluator, and LLM-as-Judge patterns. Use when writing eval rubrics, running evaluation suites, or validating agent behavior against business rules.
 ---
 
-# LLM Evaluation
+# Evaluating LLMs (ADK)
 
-Master comprehensive evaluation strategies for LLM applications, from automated metrics to human evaluation and A/B testing.
+SYD uses **Google ADK AgentEvaluator** for all agent evaluation — not LangSmith, RAGAS, or DeepEval.
 
-## Core Evaluation Types
+## SYD Evaluation Stack
 
-### 1. Automated Metrics
-Fast, repeatable, scalable evaluation using computed scores.
-**See [METRICS.md](METRICS.md)** for implementation details on BLEU, ROUGE, BERTScore, and custom toxicity/groundedness checks.
+| Component | File | Purpose |
+|-----------|------|---------|
+| Rubrics | `tests/evals/syd_rubrics.py` | Business-rule rubrics (Rubric objects) |
+| Runner | `tests/evals/run_evals.py` | CLI runner: `uv run python tests/evals/run_evals.py` |
+| Test data | `tests/evals/*.test.json` | Input/expected pairs per agent |
 
-### 2. Human Evaluation
-Manual assessment for quality aspects difficult to automate (Accuracy, Coherence, Relevance).
-**See [METRICS.md#2-human-evaluation-frameworks](METRICS.md)** for form templates and inter-rater agreement math.
+## Writing Rubrics
 
-### 3. LLM-as-Judge
-Use stronger LLMs to evaluate weaker model outputs.
-**See [JUDGE_PATTERNS.md](JUDGE_PATTERNS.md)** for Pairwise, Pointwise, and Reference-based prompt patterns.
-
-## Quick Start (Evaluation Suite)
+Each rubric encodes one testable business rule:
 
 ```python
-from dataclasses import dataclass
-from typing import Callable
-import numpy as np
+from google.adk.evaluation.eval_rubrics import Rubric, RubricContent
 
-class EvaluationSuite:
-    def __init__(self, metrics: list[Callable]):
-        self.metrics = metrics
-
-    async def evaluate(self, model, test_cases: list[dict]) -> dict:
-        results = {m.__name__: [] for m in self.metrics}
-        for test in test_cases:
-            prediction = await model.predict(test["input"])
-            for metric in self.metrics:
-                score = metric(prediction, reference=test.get("expected"))
-                results[metric.__name__].append(score)
-        return {"metrics": {k: np.mean(v) for k, v in results.items()}}
+NO_FURNITURE_RUBRIC = Rubric(
+    rubric_id="no_furniture",
+    rubric_content=RubricContent(
+        text_property=(
+            "The response does NOT mention furniture as quote line items. "
+            "Score 1.0 if none appear. Score 0.0 if any appears as a priced item."
+        )
+    ),
+    description="SYD only quotes structural/building work, never furniture.",
+    type="FINAL_RESPONSE_QUALITY",
+)
 ```
 
-## Advanced Workflows
+**SYD rubrics in production**: `no_furniture`, `italian_only`, `has_mq`, `sku_present`, `no_routing_in_quote_flow`, `intent_first_on_upload`.
 
-- **Regression Testing**: Compare current performance against a baseline.
-- **A/B Testing**: Use statistical tests (T-test) to validate improvements.
-- **Continuous Eval**: Integration with LangSmith or Weights & Biases.
+## Composing Metrics
 
-## Resources
+Group rubrics into composite metrics with a threshold:
 
-- [LangSmith Evaluation Guide](https://docs.smith.langchain.com/evaluation)
-- [RAGAS Framework](https://docs.ragas.io/)
-- [DeepEval Library](https://docs.deepeval.com/)
-- [HELM Benchmark](https://crfm.stanford.edu/helm/)
+```python
+from google.adk.evaluation.eval_metrics import EvalMetric, PrebuiltMetrics, RubricsBasedCriterion, JudgeModelOptions
 
-## Best Practices
+SYD_QUOTE_QUALITY = EvalMetric(
+    metric_name=PrebuiltMetrics.RUBRIC_BASED_FINAL_RESPONSE_QUALITY_V1.value,
+    criterion=RubricsBasedCriterion(
+        threshold=0.7,
+        judge_model_options=JudgeModelOptions(
+            judge_model="gemini-3.1-flash-lite-preview",
+            num_samples=3,
+        ),
+        rubrics=[NO_FURNITURE_RUBRIC, ITALIAN_ONLY_RUBRIC, HAS_MQ_RUBRIC],
+    ),
+)
+```
 
-1. **Multiple Metrics**: Never rely on a single score (e.g., BLEU alone is insufficient).
-2. **Representative Data**: Test on real-world edge cases, not just happy paths.
-3. **Statistically Significant**: Use A/B testing analysis before concluding a prompt is "better".
-4. **Golden Dataset**: Maintain a curated set of input/output pairs for regression testing.
+## Running Evaluations
+
+```bash
+# All eval sets
+uv run python tests/evals/run_evals.py
+
+# Specific test file
+uv run python tests/evals/run_evals.py --file quote_flow.test.json
+
+# Specific sub-agent
+uv run python tests/evals/run_evals.py --agent quote
+```
+
+## Self-Correction Loop
+
+When an eval fails:
+
+1. **Diagnose**: Which rubric scored < threshold?
+2. **Patch prompt**: Add explicit instruction to the ADK agent's `instruction` field
+3. **Re-run**: Verify the rubric now passes
+4. **Commit**: Rubric + prompt change together (atomic)
+
+## Test Data Format (`.test.json`)
+
+```json
+[
+  {
+    "input": "Vorrei un preventivo per il bagno, 6mq",
+    "expected": "Contains m² quantities and no furniture items",
+    "agent_name": "quote"
+  }
+]
+```
+
+## Rules
+
+- Judge model: `gemini-3.1-flash-lite-preview` (cost-efficient, 3 samples)
+- All rubrics score 0.0–1.0 (never boolean)
+- Rubric text must be self-contained — the judge model has no other context
+- Threshold per composite metric: 0.7 for quote quality, 0.8 for triage

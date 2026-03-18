@@ -381,8 +381,31 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 
 ## 🛡️ Phase 73: Model Armor & Batch Engine (Mar 17, 2026)
 - **Security Guardrails**: Integrazione runtime di Google Cloud Model Armor in ADK per sanitizzazione proattiva (Input/Output).
-- **Batch Processing**: Introduzione del motore di aggregazione per operazioni bulk di massa.
-- **TDD Achievement**: 100% pass rate sui test di sicurezza (10/10).
-- **Frontend CSP Fix**: Correzione sicura (no downgrading) delle policy iframe per Firebase Auth (`frame-src`).
+- **Batc## 🧠 Phase 70 (Mar 14, 2026): Self-Correction Loop, ADK Evals & Triage Fix (v4.0.23)
+- **ADK Evaluation Suite (tests/evals/)**: Infrastruttura completa: `test_config.json`, `syd_rubrics.py` (6 rubric: `no_furniture`, `italian_only`, `has_mq`, `sku_present`, `no_routing_in_quote_flow`, `intent_first_on_upload`), 3 file `.test.json` (quote/design/triage), runner standalone (`run_evals.py`), 13 pytest offline.
+- **root_agent alias (agents.py)**: Aggiunto `root_agent = syd_orchestrator` per compatibilità `AgentEvaluator`.
+- **Feedback API (src/api/feedback.py)**: `POST /feedback` → `sessions/{sid}/feedback/{fid}` Firestore. Pydantic models con Golden Sync TypeScript.
+- **Feedback UI (MessageFeedback.tsx)**: Componente 👍/👎 integrato in `MessageItem` su tutti i messaggi assistant. Animazione M3 Expressive. Visibile on hover.
+- **Skill evaluating-adk-agents**: Skill Claude Code custom con `SKILL.md` + `EVAL_SET.md` + `SELF_CORRECTION.md` — pattern per chiudere il loop failure → diagnosi → patch prompt.
+- **Triage Intent-First (agents.py)**: Orchestratore chiede "Rendering / Preventivo / Solo analisi?" PRIMA di delegare quando file caricato senza intent. Triage adatta conclusione al contesto (quote flow → no routing question).
 
-_Documento aggiornato: Marzo 17, 2026_
+## 🛡️ Phase 71 (Mar 14, 2026): ADK Session Persistence Hardening & Dead-code cleanup (v4.0.24)
+- **Dead-code elimination**: Rimozione di file e variabili inutilizzate nel backend con Ruff e Vulture.
+- **Ripristino file di Feedback**: Ripristinati `src/api/feedback.py`, `src/repositories/feedback_repository.py`, e `src/schemas/feedback.py` precedentemente rimossi per errore dal tool di dead-code elimination (aggiunti recentemente da un altro agente in Phase 70).
+- **Mid-stream recovery (`adk_orchestrator.py`)**: Aggiunto `_run_with_session_recovery()` async generator — avvolge `runner.run_async()` con retry una volta sola su `SessionNotFoundError`. Al secondo tentativo: ricrea sessione ADK, re-inietta ultimi 30 messaggi Firestore come Events, richiama `run_async`. Copre race condition non coperta dal pre-flight check già esistente.
+- **Structured logging**: Log `restored=True/False` su ogni invocazione `run_async` per diagnostica restart recovery.
+
+## 🛡️ Phase 72 (Mar 17, 2026): Feedback Persistence Fix, Enterprise Roadmap & Testimonials (v4.0.26)
+- **Testimonials Feature**: Implementata la funzionalità per lasciare recensioni nella sezione "Dicono di noi" della Home per gli utenti registrati. Aggiunto modulo interattivo con validazione Zod e React Hook Form, salvataggio in Firestore con stato `pending` e permessi di sicurezza in `firestore.rules` aggiornati.
+- **Feedback Persistence Fix**: Il componente `MessageFeedback` (thumbs up/down) ora mantiene il suo stato anche dopo il ricaricamento della pagina. Il backend (`FeedbackRepository`) ora salva il campo `rating` direttamente nel documento originale del messaggio su Firestore, oltre che nella sua subcollection dedicata. Il frontend (`useChatHistory`) legge questo campo e ripristina lo stato corretto tramite `initialRating`.
+- **Week 1 (d235e36)**: Security hardening — auth, tier isolation, attachment fix, HMAC verification
+- **Week 2 (7679c9b)**: Resilience — circuit breaker, idempotency, atomic quota reset, race condition prevention
+- **Week 3 (143cca0)**: Observability — OpenTelemetry tracing, tool instrumentation, CSP nonce generation, request ID injection
+- **Week 4 (baeb5d1)**: Data Governance — immutable audit trail service + Firestore TTL policies for GDPR retention
+- **Code Review Integration (30a800b)**: Addressed 12+ findings from Weeks 1-2 (memory exhaustion, event loop blocking, DRY violations, unused imports, socket timeout, cache overflow)
+- **Gallery Fix (b9a6e5b)**: Uploaded photos now persisted to Firestore. Upload endpoint calls `repo.save_file_metadata()` after Cloud Storage upload so photos appear in gallery alongside renders.
+- **Build Fix (94a2bef)**: Migrated `middleware.ts` → `proxy.ts` for Next.js 16 compatibility. Vercel build now succeeds.
+eError` (await su snapshot sincroni).
+- **Performance (adk_orchestrator.py)**: Esteso timeout `asyncio` a 180s per permettere il rendering completo Gemini + Imagen 3.
+- **Tool Audit (tools.py & generate_render.py)**: Verificata configurazione `gemini-3.1-flash-image-preview` e mapping parametri tool.
+

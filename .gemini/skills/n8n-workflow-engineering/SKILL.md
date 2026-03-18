@@ -1,48 +1,80 @@
 ---
 name: n8n-workflow-engineering
-description: Enables AI agents to design, documentation-check, and orchestrate complex n8n workflows using czlonkowski/n8n-mcp patterns.
+description: Design and orchestrate n8n workflows with FastAPI webhook integration. Use when building automation workflows, connecting n8n to the SYD backend, or designing data transformation pipelines.
 ---
 
-# n8n Workflow Engineering (Mode B)
+# n8n Workflow Engineering
 
-This skill focuses on **Designing** and **Building** workflows, rather than just triggering webhooks.
+Patterns for designing n8n workflows that integrate with the SYD FastAPI backend via webhooks.
 
-## Architecture: Mode B (Workflow Orchestration)
+## Architecture
 
-AI agent uses MCP tools to discover n8n node capabilities and constructs JSON workflow definitions.
-
-```mermaid
-graph TD
-    A[AI Agent] -->|mcp:get_node_info| B[n8n Documentation]
-    A -->|mcp:search_workflows| C[Existing Workflows]
-    A -->|mcp:execute_workflow| D[n8n Runtime]
-    D -->|Webhook/Event| E[FastAPI Backend]
+```
+n8n Workflow ──webhook──► FastAPI Backend ──► Firestore / ADK
+                              │
+FastAPI Backend ──HTTP────► n8n Workflow (trigger automation)
 ```
 
-## Engineering Patterns
+**Two directions:**
+- **Inbound**: n8n calls FastAPI endpoints (HTTP Request node → REST API)
+- **Outbound**: FastAPI triggers n8n (see `n8n-mcp-integration` skill)
 
-### 1. Node Discovery
-Before suggesting a workflow change, ALWAYS verify the node's properties:
-- Use `get_node_info` to check required parameters.
-- Use `search_workflows` to find similar implementations.
+## Workflow Design Patterns
 
-### 2. Data Transformation (Expression Language)
-n8n uses `{{ $json.field }}` or `{{ $node["NodeName"].json.field }}`. 
-- Ensure pathing is correct relative to the preceding node.
-- Prefer **Code Node** (JavaScript) for complex logic instead of multiple nested Core nodes.
+### 1. Webhook Trigger + Validation
 
-### 3. Integration with FastAPI
-- **Outbound**: Backend calls n8n (see `n8n-mcp-integration` skill).
-- **Inbound**: n8n calls FastAPI REST API using the "HTTP Request" node.
-- **Contract**: Ensure Pydantic models in `backend_python` match the JSON output of n8n HTTP nodes.
+Always validate immediately after the webhook node:
+
+```
+Webhook → Filter Node (validate payload) → Process → Respond
+```
+
+The Filter node rejects malformed requests before processing — prevents partial execution.
+
+### 2. Data Transformation
+
+- Use `{{ $json.field }}` for simple field access
+- Use **Code Node** (JavaScript) for complex transforms instead of chaining multiple Set/IF nodes
+- Ensure field paths match the Pydantic model on the FastAPI side (Golden Sync applies)
+
+### 3. Error Handling
+
+Every production workflow needs:
+- **Error Trigger** node connected to notification (email/Slack)
+- **Retry** logic on HTTP Request nodes (3 retries, exponential backoff)
+- Idempotency keys for payment/email workflows (prevent double-send)
+
+## FastAPI Integration Contract
+
+n8n HTTP Request nodes must match FastAPI Pydantic models:
+
+```python
+# backend_python/src/models/webhook.py
+class N8NWebhookPayload(BaseModel):
+    event_type: str
+    project_id: str
+    data: dict[str, Any]
+```
+
+The n8n HTTP Request node sends JSON matching this schema. Backend validates with `safeParse` equivalent (Pydantic).
+
+## Security
+
+- Webhook endpoints require HMAC-SHA256 signature verification
+- Use `X-N8N-Signature` header with shared secret
+- Never expose internal n8n URLs to the frontend (3-tier rule)
 
 ## Best Practices
-- **Idempotency**: Ensure n8n workflows can handle retries safely (especially for payments/emails).
-- **Validation**: Use a **Filter Node** immediately after a Webhook trigger to validate incoming data.
-- **Logging**: Include a "Catch-All" node for error handling in production workflows.
 
-> [!TIP]
-> Use the `execute_workflow` tool during development to verify that the logic flows correctly before committing to a design.
+- **Idempotency**: Handle retries safely (especially payments, emails, Firestore writes)
+- **Timeouts**: Set HTTP Request node timeout to 30s (match Cloud Run request timeout)
+- **Logging**: Include execution ID in all webhook payloads for traceability
+- **Testing**: Use n8n's "Test Workflow" with sample payloads before connecting live
 
-> [!IMPORTANT]
-> This skill is configured to work with the n8n instance at `https://apaxhud.app.n8n.cloud/mcp-server/http`.
+## Checklist
+
+- [ ] Webhook has Filter node for payload validation
+- [ ] Error Trigger connected to notification channel
+- [ ] HTTP Request nodes have retry + timeout configured
+- [ ] Pydantic model matches n8n JSON output (Golden Sync)
+- [ ] HMAC signature verification on webhook endpoint

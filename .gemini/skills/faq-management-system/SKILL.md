@@ -1,117 +1,90 @@
 ---
 name: faq-management-system
-description: Guide for creating FAQ sections optimized for SEO (Google) and GEO (AI/LLM). Includes Next.js implementation, Schema Markup, and Content Strategy. Use when building or optimizing Frequently Asked Questions pages.
+description: FAQ pages optimized for SEO and GEO (AI citation). Use when building or updating FAQ sections with JSON-LD structured data and category-based navigation.
 ---
 
 # FAQ Management System
 
-## Overview
+Server-rendered FAQ pages with JSON-LD structured data, optimized for Google Search and AI citation (GEO).
 
-This skill provides a comprehensive guide for building high-performance FAQ sections in Next.js 16 applications, optimized for both traditional Search Engine Optimization (SEO) and Generative Engine Optimization (GEO). It covers architectural patterns, content strategy, and technical implementation.
+## SYD Implementation
 
-## 1. Content Strategy (GEO Optimized)
+| Component | File |
+|-----------|------|
+| Data source | `lib/faq-data.ts` — `FAQ_DATA`, `FAQItem`, `CATEGORY_ICONS` |
+| Page (RSC) | `app/faq/page.tsx` — server component with JSON-LD |
+| Card component | `components/faq/FAQItem.tsx` — `FAQItemCard` |
 
-To be cited by AI models (Gemini, ChatGPT, Perplexity), your FAQ content must follow the "Answer First" principle.
+## Data Structure (Single Source of Truth)
 
-### The "Answer First" Pattern
-Every answer should begin with a direct, factual statement of 40-80 words that fully addresses the user's intent.
-
-**Do:**
-> **Q:** Quanto costa ristrutturare un bagno?
-> **A:** Il costo medio per ristrutturare un bagno completo (4-6 mq) varia dai **3.500€ ai 6.000€** chiavi in mano. Questo include demolizione, rifacimento impianti idraulici ed elettrici, posa rivestimenti e sanitari standard. I tempi di esecuzione sono di circa 5-7 giorni lavorativi.
-
-**Don't:**
-> **Q:** Quanto costa ristrutturare un bagno?
-> **A:** Dipende da molti fattori. Noi di SYD offriamo preventivi personalizzati basati sulle tue esigenze specifiche... (Vago, non risponde)
-
-### Structure for AI
-- **Lists**: Use bullet points for steps or items. AI parsers love structure.
-- **Data**: Be specific with numbers, ranges, and technical specs.
-- **Natural Language Questions**: Phrase questions as users actually ask them (e.g., "Come funziona..." instead of "Funzionamento").
-
-## 2. Technical Architecture (Next.js 16)
-
-Use a **Single Source of Truth** pattern. Define FAQ data in a TypeScript file (`lib/faq-data.ts`) to feed both the UI (React Components) and the Metadata (JSON-LD). This prevents content drift.
-
-### Data Structure (`lib/faq-data.ts`)
+All FAQ content lives in `lib/faq-data.ts`. Both the UI and JSON-LD read from the same array:
 
 ```typescript
 export interface FAQItem {
   question: string;
-  answer: string; // Markdown or HTML supported
-  category: string;
-  slug: string; // For anchor links
+  answer: string;  // HTML string
+  category: "Costi & Tempi" | "Permessi & Normative" | "Design & AI" | "Servizi SYD";
+  slug: string;    // Anchor link target
 }
 
-export const FAQ_DATA: FAQItem[] = [
-  {
-    question: "Quanto costa una ristrutturazione completa?",
-    answer: "Il costo medio è di **800-1.200€ al mq**...",
-    category: "Costi",
-    slug: "costo-ristrutturazione-mq"
-  },
-  // ...
-];
+export const CATEGORY_ICONS = {
+  "Costi & Tempi": "Coins",
+  "Permessi & Normative": "FileText",
+  "Design & AI": "Sparkles",
+  "Servizi SYD": "Wrench",
+} as const;
 ```
 
-### Page Implementation (`app/faq/page.tsx`)
+## JSON-LD Structured Data
 
-Render the FAQ list server-side (RSC) for optimal SEO. Inject JSON-LD using the `script` tag.
+Inject FAQPage schema for Google Rich Results:
 
 ```tsx
-import { FAQ_DATA } from '@/lib/faq-data';
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Domande Frequenti (FAQ) - SYD Renovation',
-  description: 'Risposte alle domande più comuni su ristrutturazioni, costi e tempi.',
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQ_DATA.map((faq) => ({
+    '@type': 'Question',
+    name: faq.question,
+    acceptedAnswer: { '@type': 'Answer', text: faq.answer },
+  })),
 };
 
-export default function FAQPage() {
-  // Generate JSON-LD Structured Data
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'FAQPage',
-    mainEntity: FAQ_DATA.map((faq) => ({
-      '@type': 'Question',
-      name: faq.question,
-      acceptedAnswer: {
-        '@type': 'Answer',
-        text: faq.answer, // Ensure HTML/Markdown is stripped or formatted correctly
-      },
-    })),
-  };
-
-  return (
-    <section className="container py-12">
-      <h1 className="text-4xl font-bold mb-8">Domande Frequenti</h1>
-      
-      {/* JSON-LD Script for Google/AI */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-
-      <div className="grid gap-6">
-        {FAQ_DATA.map((faq) => (
-          <div key={faq.slug} id={faq.slug} className="scroll-mt-20 border rounded-lg p-6">
-            <h3 className="text-xl font-semibold mb-2">{faq.question}</h3>
-            <div className="prose dark:prose-invert" dangerouslySetInnerHTML={{ __html: faq.answer }} />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
+<script type="application/ld+json"
+  dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 ```
 
-## 3. Advanced Features
+## GEO Content Rules ("Answer First")
 
-### Internal Search
-For >10 items, implement a client-side search (using `useSearchParams` or simple state filter) to help users find answers quickly.
+For AI models to cite your FAQ:
 
-### Anchor Links
-Ensure every FAQ item has an `id` attribute matching its slug. This allows deep linking (e.g., `syd.com/faq#costi`) which is excellent for sharing and SEO sitelinks.
+1. **Lead with a direct answer** (40–80 words) containing specific numbers/ranges
+2. **Use structured lists** for steps or factors — AI parsers extract these reliably
+3. **Natural-language questions** — phrase as users actually ask ("Quanto costa..." not "Informazioni costi")
 
-### Accordion UI
-Use an Accordion component (like Shadcn/UI Accordion) to keep the page clean, but ensure the content is present in the DOM for crawlers (avoid `display: none` techniques that hide content from bots if possible, though Google renders JS well now). Standard accessible accordions (`details`/`summary` or Radix UI) are best practice.
+**Good**: "Il costo medio per ristrutturare un bagno (4-6 mq) varia dai **3.500€ ai 6.000€** chiavi in mano."
+**Bad**: "Dipende da molti fattori. Contattaci per un preventivo personalizzato."
+
+## Page Structure
+
+The FAQ page is a **Server Component** (no `'use client'`):
+
+- Category filtering via Lucide icon map
+- Anchor links per slug (`/faq#costo-ristrutturazione-mq`)
+- Full SEO metadata with OpenGraph + canonical
+- ChatWidget embedded for follow-up questions
+
+## Adding New FAQs
+
+1. Add entry to `FAQ_DATA` in `lib/faq-data.ts`
+2. Choose existing category or add new one (update `CATEGORY_ICONS` + `FAQItem` union)
+3. Write answer following "Answer First" pattern
+4. Verify JSON-LD in Google Rich Results Test
+
+## Checklist
+
+- [ ] Answer starts with direct factual statement (40-80 words)
+- [ ] Specific numbers/ranges included (not "depends on many factors")
+- [ ] Category assigned with matching icon
+- [ ] Slug is URL-safe and descriptive
+- [ ] JSON-LD renders valid FAQPage schema

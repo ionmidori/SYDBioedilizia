@@ -66,6 +66,8 @@ The platform is built on a strict separation of concerns to ensure institutional
 3.  **Real-Time Market Intelligence**: Scans live market data to provide accurate, geo-localized price estimates.
 4.  **HITL Admin Approval**: Robust backend pipeline for PDF generation (WeasyPrint) and n8n-driven delivery.
 5.  **Universal Mobile Engine**: Custom gesture engine providing a 60fps "swipe" experience on touch devices.
+6.  **Batch Quote Aggregation**: Rule-based engine calculating multi-project cross-optimizations (deduplication, shared overhead).
+7.  **Enterprise Security**: Google Cloud Model Armor integrated for Prompt Injection and Data Leak prevention.
 
 ---
 

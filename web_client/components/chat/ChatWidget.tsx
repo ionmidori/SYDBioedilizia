@@ -15,6 +15,7 @@ import { useChatContext } from '@/hooks/useChatContext';
 import { useUpload } from '@/hooks/useUpload';
 import { useChatScroll } from '@/hooks/useChatScroll';
 import { useMobileViewport } from '@/hooks/useMobileViewport';
+import { useScrollLock } from '@/lib/smooth-scroll';
 import { useTypingIndicator } from '@/hooks/useTypingIndicator';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -163,6 +164,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     const { messagesContainerRef, messagesEndRef, scrollToBottom } = useChatScroll(messages, isOpen);
     // 🔥 FIX: Enable keyboard tracking for both floating and inline variants
     const { isMobile, keyboardHeight } = useMobileViewport(isOpen, chatContainerRef, isInline);
+    // 🔒 Lock Lenis smooth scroll when floating chat is open (body CSS lock alone is insufficient)
+    useScrollLock(isOpen && !isInline);
 
     // 7. Handlers
 

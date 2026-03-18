@@ -1,0 +1,30 @@
+﻿    + CategoryInfo     
+         : NotSpecifi  
+  ed: (INFO:     Wil   
+ l ...ackend_python    
+']:String) [], Rem    
+oteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+INFO:     Uvicorn 
+running on 
+http://127.0.0.1:8080 
+(Press CTRL+C to quit)
+INFO:     Started 
+reloader process 
+[11748] using 
+WatchFiles
+INFO:     Started 
+server process [22284]
+INFO:     Waiting for 
+application startup.
+21:56:41 | INFO     | [main] SYD Brain API starting on port 8080...
+21:56:41 | INFO     | [src.core.tracing] [Tracing] Console exporter initialized (development mode)
+21:56:41 | INFO     | [src.core.tracing] [Tracing] OpenTelemetry initialized
+21:56:55 | INFO     | [src.adk.adk_orchestrator] Initializing Vertex AI for ADK
+21:56:55 | INFO     | [src.adk.session] Initializing InMemorySessionService for ADK Orchestrator (singleton)
+21:56:55 | INFO     | [main] ADKOrchestrator warm-up complete.
+INFO:     Application 
+startup complete.

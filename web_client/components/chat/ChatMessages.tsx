@@ -56,6 +56,7 @@ const ChatMessagesComponent = ({
     return (
         <div
             ref={messagesContainerRef}
+            data-lenis-prevent="true"
             className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-luxury-gold/20 scrollbar-track-transparent overscroll-contain touch-pan-y"
             style={scrollStyle}
         >

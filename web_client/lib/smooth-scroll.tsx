@@ -8,6 +8,34 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 gsap.registerPlugin(ScrollTrigger);
 
 /**
+ * useScrollLock — imperatively stop/start Lenis smooth scrolling.
+ *
+ * Lenis operates via RAF transforms and ignores CSS `overflow: hidden`.
+ * When an overlay (chatbot, lightbox, modal) needs to lock page scroll,
+ * call this hook with `locked = true` to freeze Lenis and restore on close.
+ *
+ * @param locked — whether page scroll should be locked
+ */
+export function useScrollLock(locked: boolean) {
+  const lenis = useLenis();
+
+  useEffect(() => {
+    if (!lenis) return;
+
+    if (locked) {
+      lenis.stop();
+    } else {
+      lenis.start();
+    }
+
+    return () => {
+      // Always re-enable on unmount to avoid leaving scroll frozen
+      lenis.start();
+    };
+  }, [lenis, locked]);
+}
+
+/**
  * SmoothScrollProvider — wraps the app in Lenis smooth scrolling
  * and syncs Lenis RAF with GSAP ScrollTrigger.
  *

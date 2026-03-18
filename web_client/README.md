@@ -1,6 +1,6 @@
 # 🎨 SYD Bioedilizia (Web Client)
 
-**Status:** Production-Ready (v4.0.24)
+**Status:** Production-Ready (v4.0.28)
 **Vision:** Luxury Tech Renovation Platform
 **Stack:** Next.js 16.2, Tailwind CSS 4, Framer Motion 12, SWR
 
@@ -46,12 +46,16 @@ It combines the solidity of traditional craftsmanship with the fluidity of moder
 *   **Video Trimmer:** Built-in modal logic for trimming videos before upload to save bandwidth and compute time.
 *   **Media Carousel:** Dynamic "Recent Media" Bento grid section showcasing generated floorplans and renders.
 
-### 3. Hybrid Authentication
+### 3. Batch Operations & Management
+*   **BatchSubmitModal**: Multi-step flow for reviewing, confirming, and submitting multiple projects for batch quoting.
+*   **FloatingBatchBar**: Sticky selection interface for cross-project bulk actions.
+
+### 4. Hybrid Authentication
 *   **Biometric (Passkey):** Native login with FaceID/TouchID (WebAuthn).
 *   **Zero-Trust:** Every request includes a Firebase App Check token (ReCAPTCHA Enterprise).
 *   **Compliance:** All forms migrated to **React Hook Form + Zod** validation.
 
-### 4. The "Golden Sync"
+### 5. The "Golden Sync"
 *   Backend Pydantic Models are mirrored 1:1 in TypeScript Interfaces (`types/`).
 *   **Zero-Drift Policy:** Strict type safety enforced from database to view.
 
@@ -103,5 +107,5 @@ npm run build
 
 ---
 
-_Updated: March 14, 2026 — Phase 71_
+_Updated: March 18, 2026 — Phase 74 (v4.0.28)_
 

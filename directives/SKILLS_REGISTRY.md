@@ -45,7 +45,7 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/implementing-hybrid-search/SKILL.md)
 - **Prompt Engineering**: Master prompt design for Google Gemini models (2.5 Flash, 2.5 Pro). SYD-specific ADK agent prompt patterns.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/prompt-engineering/SKILL.md)
-- **Evaluating LLMs**: Implement comprehensive evaluation strategies for LLM applications.
+- **Evaluating LLMs**: ADK AgentEvaluator, RubricBasedEvaluator, and LLM-as-Judge patterns. SYD rubrics in `tests/evals/syd_rubrics.py`.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/evaluating-llms/SKILL.md)
 - **Gemini API Dev**: Integration of native Gemini API, tool calling, and structured outputs.
   - [SKILL.md](file:///C:/Users/User01/.agents/skills/gemini-api-dev/SKILL.md)
@@ -65,13 +65,13 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/optimizing-nextjs-architecture/SKILL.md)
 - **Developing Shadcn Components**: Master advanced Shadcn/UI patterns.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/developing-shadcn-components/SKILL.md)
-- **Animating UI Interactions**: High-fidelity, polished interactions and micro-animations.
+- **Animating UI Interactions**: Framer Motion micro-animations with M3 Expressive tokens from `lib/m3-motion.ts`. Hover/tap, shared layout, page transitions.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/animating-ui-interactions/SKILL.md)
-- **Animating Modern React Websites**: Web animation patterns using Lenis, Framer Motion, GSAP.
+- **Animating Modern React Websites**: Lenis smooth scrolling + GSAP ScrollTrigger for scroll-driven animations. Hooks in `hooks/use-scroll-animation.ts`, provider in `lib/smooth-scroll.tsx`.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/animating-modern-react-websites/SKILL.md)
 - **Mobile Camera Capture**: Enterprise patterns for native HTML5 camera access.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/mobile-camera-capture/SKILL.md)
-- **Mobile Native UI Patterns**: Mobile-native UI patterns for web using Vaul, touch interactions.
+- **Mobile Native UI Patterns**: Vaul drawers, ResponsiveDrawer (dialog/drawer switch), touch CSS hardening, safe area handling.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/mobile-native-ui-patterns/SKILL.md)
 - **M3 Expressive Chat UI**: Modern chat feedback graphics in Material Design 3 Expressive.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/m3-expressive-chat-ui/SKILL.md)
@@ -85,7 +85,7 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.agents/skills/web-design-guidelines/SKILL.md)
 - **Modern State Management**: TanStack Query and Zustand.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/modern-state-management/SKILL.md)
-- **Advanced Form Patterns**: Robust form handling using React Hook Form and Zod.
+- **Advanced Form Patterns**: React Hook Form + Zod + Shadcn Form. SYD schemas in `schemas/`, multi-step wizard pattern, Firestore submission via 3-tier.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/advanced-form-patterns/SKILL.md)
 - **Compressing Media**: Client-side image and video compression.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/compressing-media/SKILL.md)
@@ -99,9 +99,9 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/building-admin-dashboards/SKILL.md)
 - **N8N MCP Integration**: Automation via FastAPI webhooks.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/n8n-mcp-integration/SKILL.md)
-- **n8n Workflow Engineering**: Design and orchestration patterns.
+- **n8n Workflow Engineering**: Workflow design patterns with FastAPI webhook integration, HMAC security, idempotency.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/n8n-workflow-engineering/SKILL.md)
-- **FAQ Management System**: FAQ sections optimized for SEO (Google) and GEO.
+- **FAQ Management System**: Server-rendered FAQ with JSON-LD structured data, GEO "Answer First" pattern. Data in `lib/faq-data.ts`, page in `app/faq/page.tsx`.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/faq-management-system/SKILL.md)
 
 ## 🛠️ Ops, Git & Workflows
