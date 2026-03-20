@@ -27,6 +27,21 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.markdown(
+    """
+    <style>
+        /* Force vertical scrolling to work on desktop */
+        .stApp {
+            overflow-y: auto !important;
+        }
+        .main .block-container {
+            padding-bottom: 5rem !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ─── Config (CWD-independent path resolution) ─────────────────────────────────
 _CONFIG_PATH = Path(__file__).parent / "config.yaml"
 with _CONFIG_PATH.open("r", encoding="utf-8") as _f:

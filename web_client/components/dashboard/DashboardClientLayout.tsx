@@ -82,14 +82,14 @@ function DashboardContent({
     // Mobile: Always '4rem' (Rail width) because expansion is Overlay
     return (
         <>
-            <div className="flex h-dvh min-h-[100dvh] supports-[height:100dvh]:h-[100dvh] w-full bg-luxury-bg text-luxury-text overflow-hidden relative">
+            <div className="flex min-h-[100dvh] w-full bg-luxury-bg text-luxury-text relative">
                 {/* Desktop Sidebar (AppSidebar handles its own responsive visibility) */}
                 <AppSidebar />
 
                 {/* Main Content Area */}
-                <div className="flex-1 flex flex-col min-h-0 relative w-full overflow-hidden">
+                <div className="flex-1 flex flex-col min-w-0 relative w-full">
                     <DashboardHeader />
-                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative pb-[env(safe-area-inset-bottom)]" style={{ touchAction: 'pan-y' }}>
+                    <div className="flex-1 min-h-0 pb-[env(safe-area-inset-bottom)]">
                         {children}
                     </div>
 

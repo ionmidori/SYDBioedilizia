@@ -409,3 +409,10 @@ eError` (await su snapshot sincroni).
 - **Performance (adk_orchestrator.py)**: Esteso timeout `asyncio` a 180s per permettere il rendering completo Gemini + Imagen 3.
 - **Tool Audit (tools.py & generate_render.py)**: Verificata configurazione `gemini-3.1-flash-image-preview` e mapping parametri tool.
 
+## 🛡️ Fase 76: Skills Registry Audit & Animation Infrastructure (Mar 18, 2026)
+- **Skills Audit**: 38 skills attive e verificate. Rimosse dipendenze fantasma e allineate le definizioni al SYD ADK Standard.
+- **Scroll Infrastructure**: Integrazione Lenis (Smooth Scroll) e GSAP ScrollTrigger per animazioni di landing page high-end.
+
+## 🛡️ Fase 77: Repository Audit & Standard Compliance (Mar 18, 2026)
+- **Cleanup**: Rimozione file temporanei e log dump.
+- **Professional Integrity**: Allineamento root agli standard Enterprise Next.js/FastAPI.

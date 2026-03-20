@@ -107,8 +107,8 @@
   /* Mobile Native Hardening */
   html,
   body {
+    /* Prevent bounce scroll on iOS + pull-to-refresh on Android */
     overscroll-behavior-y: none;
-    /* Prevent bounce scroll on iOS */
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
@@ -131,8 +131,6 @@
 
   body {
     @apply bg-background text-foreground;
-    overscroll-behavior-y: none;
-    overscroll-behavior-x: none;
   }
 
   html {
@@ -212,6 +210,29 @@
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Custom scrollbar — used in AppSidebar nav and ProjectFilesView */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(233, 196, 106, 0.2);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(233, 196, 106, 0.4);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(233, 196, 106, 0.2) transparent;
 }
 
 /* Shake animation for auth errors */

@@ -289,7 +289,7 @@ class AppCheckMiddleware:
     Uses raw ASGI __call__ instead of @app.middleware("http") / BaseHTTPMiddleware
     to avoid buffering StreamingResponse bodies (which breaks /chat/stream).
     """
-    _PUBLIC_PATHS = frozenset({"/health", "/ready", "/favicon.ico"})
+    _PUBLIC_PATHS = frozenset({"/health", "/ready", "/favicon.ico", "/webhooks/n8n"})
     _DEV_PATHS = frozenset({"/docs", "/openapi.json"})
 
     def __init__(self, app: ASGIApp):
@@ -384,6 +384,10 @@ app.include_router(users_router)
 # Register feedback router (self-correction loop — evaluating-adk-agents skill)
 from src.api.feedback import feedback_router
 app.include_router(feedback_router)
+
+# Register inbound webhook routes (n8n -> FastAPI callbacks, HMAC-SHA256 auth)
+from src.api.routes.webhook_routes import router as webhook_router
+app.include_router(webhook_router)
 
 # 🧪 TEST AUTOMATION ROUTER (Only in development)
 if settings.ENV == "development":

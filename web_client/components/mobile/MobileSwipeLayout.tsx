@@ -105,7 +105,7 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
     if (!isMobile) return <>{children}</>;
 
     return (
-        <div className="relative h-[100dvh] w-full bg-luxury-bg overflow-x-hidden">
+        <div className="relative min-h-[100dvh] w-full bg-luxury-bg overflow-x-hidden">
             {children}
         </div>
     );
