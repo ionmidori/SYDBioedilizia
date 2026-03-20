@@ -96,10 +96,43 @@ async def test_quota_bypass_in_development(mock_env_development):
 ```
 
 ## ADK Evaluations (Self-Correction Loop)
-The `tests/evals` directory contains offline evaluations for tuning ADK system prompts:
-1. Define behavior expectations in `syd_rubrics.py`.
-2. Provide test cases in `.test.json` files.
-3. Run `python tests/evals/run_evals.py` to evaluate responses against rubrics.
+The `tests/evals` directory contains live ADK evaluations for validating agent quality:
+
+### Infrastructure (Phase 80d)
+- **Rubrics** (`syd_rubrics.py`): Custom LLM-as-Judge evaluators (NO_FURNITURE, ITALIAN_ONLY, HAS_MQ, SKU_PRESENT, NO_ROUTING_IN_QUOTE_FLOW, INTENT_FIRST).
+- **Test Cases** (`.test.json`): 5 eval cases across 3 flows:
+  - `quote_flow.test.json` — 2 cases (bathroom + large room quotes)
+  - `triage_flow.test.json` — 2 cases (intent routing)
+  - `design_flow.test.json` — 1 case (rendering)
+- **Config** (`test_config.json`): Tool trajectory matching (IN_ORDER) + response match criteria.
+- **Results** (`results/`): Live eval outputs stored as timestamped JSON (not tracked in git).
+
+### Running Live Evaluations
+**Requires**: `GOOGLE_API_KEY` in `.env` (calls live Gemini API + LLM-as-Judge).
+
+```bash
+# All test flows (quote, triage, design)
+npm run eval:run
+
+# Individual flows
+npm run eval:run:quote      # Quote agent validation
+npm run eval:run:triage     # Triage agent validation
+npm run eval:run:design     # Design agent validation
+
+# Advanced usage (from backend_python/)
+uv run python tests/evals/run_evals.py \
+  --file quote_flow.test.json \
+  --agent quote \
+  --runs 3 \
+  --output results/
+```
+
+### Evaluation Workflow
+1. Define behavior expectations in `syd_rubrics.py` (LLM-as-Judge prompts).
+2. Provide user/agent conversation test cases in `.test.json` files.
+3. Run `npm run eval:run` to launch `AgentEvaluator.evaluate()` (calls live Gemini API).
+4. Results saved to `results/eval_{timestamp}_{flow}.json` for analysis.
+5. Use rubric scores and tool trajectory metrics to drive prompt tuning.
 
 ## Continuous Integration
 

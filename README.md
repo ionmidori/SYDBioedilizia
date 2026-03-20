@@ -67,7 +67,8 @@ The platform is built on a strict separation of concerns to ensure institutional
 4.  **HITL Admin Approval**: Robust backend pipeline for PDF generation (WeasyPrint) and n8n-driven delivery.
 5.  **Universal Mobile Engine**: Custom gesture engine providing a 60fps "swipe" experience on touch devices.
 6.  **Batch Quote Aggregation**: Rule-based engine calculating multi-project cross-optimizations (deduplication, shared overhead).
-7.  **Enterprise Security**: Google Cloud Model Armor integrated for Prompt Injection and Data Leak prevention.
+7.  **Live ADK Evaluation**: Integrated Google ADK `AgentEvaluator` with SYD-specific rubrics for continuous agent quality validation.
+8.  **Enterprise Security**: Google Cloud Model Armor integrated for Prompt Injection and Data Leak prevention.
 
 ---
 
@@ -85,7 +86,8 @@ npm run dev:py         # Backend (Port 8081)
 ```
 
 ### Quality Assurance
-- **Verification**: `npm run type-check` (0 Errors) & `uv run pytest` (Passing **400+** unit and evaluation tests).
+- **Verification**: `npm run type-check` (0 Errors) & `uv run pytest` (Passing **461** unit and evaluation tests).
+- **Live Agent Evaluation**: Run `npm run eval:run` (requires `GOOGLE_API_KEY`) to launch ADK evaluation suite against 5 test cases across 3 agent flows (quote, triage, design). See [backend_python/tests/README.md](backend_python/tests/README.md) for details.
 - **Hardening**: Production-ready Docker builds with pre-compressed assets and security headers.
 
 ---

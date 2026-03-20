@@ -12,7 +12,7 @@ Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google G
 - **Guided Flows:** Advanced state tracking (`is_quote_completed`, `is_render_completed`) for cross-selling and journey management.
 - **Session Hardening:** Robust recovery mechanisms for transient Firestore and Vertex AI Session errors during active streams.
 - **HITL Pipeline:** Human-in-the-Loop quote approval logic with automated PDF generation (WeasyPrint) and deliverable tracking.
-- **Feedback & Evaluation:** Native feedback collection (`/feedback` API) and an integrated offline ADK Evaluation Suite.
+- **Feedback & Evaluation:** Native feedback collection (`/feedback` API) and an integrated **live ADK Evaluation Suite** with SYD-specific rubrics (no-furniture, italian-only, mq-present, sku-present, etc.).
 - **n8n Connectivity:** Native tools for Telegram/Email notifications and document delivery.
 - **Vision Integration:** Automated room analysis and CAD extraction (Gemini 1.5 Pro).
 - **Batch Processing:** `Batch Aggregation Engine` for multi-project cross-optimization and REST endpoints.
@@ -62,9 +62,17 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8081 --reload
 We enforce a strict testing policy for all core services, including offline evaluation logic.
 
 ```bash
-# Run 400+ unit, integration, and evaluation tests
+# Run 461 unit, integration, and evaluation tests
 uv run pytest
+
+# Run ADK evaluation suite (requires GOOGLE_API_KEY)
+npm run eval:run                          # All test flows
+npm run eval:run:quote                    # Quote flow only
+npm run eval:run:triage                   # Triage flow only
+npm run eval:run:design                   # Design flow only
 ```
+
+For detailed eval infrastructure docs, see [tests/README.md](tests/README.md).
 
 ## 📂 Project Structure
 
@@ -90,5 +98,5 @@ backend_python/
 - **PII Protection**: Output filtering & Log argument redaction in `structlog`.
 
 ---
-*Updated: March 18, 2026 — Phase 74 (v4.0.28)*
+*Updated: March 20, 2026 — Phase 80d (v4.1.3)*
 
