@@ -26,12 +26,16 @@ interface InactivityState {
 
 /**
  * Inactivity Detection Hook
- * 
+ *
  * Monitors user activity and triggers auto-logout after specified inactivity period.
  * Shows a warning dialog before logout to allow session extension.
- * 
+ *
+ * Handles two edge cases that the naive setTimeout approach misses:
+ * 1. User returns after long absence and moves mouse — timer must NOT reset past warning threshold
+ * 2. Tab goes to background (visibilitychange) — on return, elapsed time is checked immediately
+ *
  * Activity events monitored: mousemove, keydown, touchstart, scroll, click
- * 
+ *
  * @example
  * const { showWarning, secondsRemaining, extendSession } = useInactivityLogout({
  *   timeoutMinutes: 30,
@@ -50,16 +54,18 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
     const [showWarning, setShowWarning] = useState(false);
     const [secondsRemaining, setSecondsRemaining] = useState(0);
 
-    const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
     const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
-    const showWarningRef = useRef(false); // Ref mirror to avoid effect re-subscription on state change
+    const showWarningRef = useRef(false);
+
+    // Stable refs so inner closures always call the latest version without
+    // needing them as effect dependencies (avoids effect re-mount loop).
+    const timeoutMinutesRef = useRef(timeoutMinutes);
+    const warningMinutesRef = useRef(warningMinutes);
+    timeoutMinutesRef.current = timeoutMinutes;
+    warningMinutesRef.current = warningMinutes;
 
     const clearAllTimers = useCallback(() => {
-        if (inactivityTimerRef.current) {
-            clearTimeout(inactivityTimerRef.current);
-            inactivityTimerRef.current = null;
-        }
         if (warningTimerRef.current) {
             clearTimeout(warningTimerRef.current);
             warningTimerRef.current = null;
@@ -71,12 +77,11 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
     }, []);
 
     const startCountdown = useCallback(() => {
-        let seconds = warningMinutes * 60;
+        let seconds = warningMinutesRef.current * 60;
         setSecondsRemaining(seconds);
         showWarningRef.current = true;
         setShowWarning(true);
 
-        // Update countdown every second
         countdownIntervalRef.current = setInterval(() => {
             seconds -= 1;
             setSecondsRemaining(seconds);
@@ -88,7 +93,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
                 onLogout();
             }
         }, 1000);
-    }, [warningMinutes, onLogout, clearAllTimers]);
+    }, [onLogout, clearAllTimers]);
 
     const resetTimer = useCallback(() => {
         clearAllTimers();
@@ -97,10 +102,8 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
 
         if (!enabled) return;
 
-        // Calculate warning time (timeout - warning margin)
-        const warningTimeMs = (timeoutMinutes - warningMinutes) * 60 * 1000;
+        const warningTimeMs = (timeoutMinutesRef.current - warningMinutesRef.current) * 60 * 1000;
 
-        // Schedule warning dialog
         warningTimerRef.current = setTimeout(() => {
             if (process.env.NODE_ENV === 'development') {
                 console.log('[InactivityLogout] ⚠️ Showing inactivity warning');
@@ -110,23 +113,27 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
 
         if (process.env.NODE_ENV === 'development') {
             console.log(
-                `[InactivityLogout] Timer reset. Warning will show in ${timeoutMinutes - warningMinutes} minutes.`
+                `[InactivityLogout] Timer reset. Warning in ${timeoutMinutesRef.current - warningMinutesRef.current}m.`
             );
         }
-    }, [enabled, timeoutMinutes, warningMinutes, clearAllTimers, startCountdown]);
+    }, [enabled, clearAllTimers, startCountdown]);
 
     const extendSession = useCallback(() => {
         resetTimer();
     }, [resetTimer]);
 
-    // Store resetTimer in a ref so the event listener effect doesn't need
-    // it as a dependency (avoids infinite effect re-mount loop).
+    // Stable ref so the effect closure always calls the latest resetTimer / startCountdown
     const resetTimerRef = useRef(resetTimer);
     useEffect(() => {
         resetTimerRef.current = resetTimer;
     }, [resetTimer]);
 
-    // Monitor activity events
+    const startCountdownRef = useRef(startCountdown);
+    useEffect(() => {
+        startCountdownRef.current = startCountdown;
+    }, [startCountdown]);
+
+    // Monitor activity events + page visibility
     useEffect(() => {
         if (!enabled) return;
 
@@ -134,33 +141,68 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
         let lastActivity = Date.now();
 
         const handleActivity = () => {
+            if (showWarningRef.current) return; // warning already visible — ignore activity
+
             const now = Date.now();
-            // Throttle: activity relevant for a 30-min timeout doesn't need sub-minute resolution
-            if (now - lastActivity > 60_000) {
-                lastActivity = now;
-                if (!showWarningRef.current) {
-                    resetTimerRef.current();
-                }
-            }
+            const elapsed = now - lastActivity;
+
+            if (elapsed < 60_000) return; // throttle: only recalculate once per minute
+
+            const warningThresholdMs =
+                (timeoutMinutesRef.current - warningMinutesRef.current) * 60_000;
+
+            // BUG FIX: if we are already past the warning threshold, do NOT reset the timer.
+            // The scheduled setTimeout will fire (possibly with minor browser delay).
+            // Resetting here would give the user an extra full timeout cycle — effectively
+            // preventing logout as long as they occasionally interact with the page.
+            if (elapsed >= warningThresholdMs) return;
+
+            lastActivity = now;
+            resetTimerRef.current();
         };
 
-        // Register event listeners
+        // BUG FIX: handle page visibility changes.
+        // When a browser tab goes to background, setTimeout/setInterval are throttled
+        // aggressively (Chrome: 1-min minimum; some browsers pause entirely).
+        // On return, we proactively check elapsed time so the user is not silently
+        // granted an extra timeout cycle just because they switched tabs.
+        const handleVisibilityChange = () => {
+            if (document.hidden || showWarningRef.current) return;
+
+            const now = Date.now();
+            const elapsed = now - lastActivity;
+            const warningThresholdMs =
+                (timeoutMinutesRef.current - warningMinutesRef.current) * 60_000;
+            const logoutThresholdMs = timeoutMinutesRef.current * 60_000;
+
+            if (elapsed >= logoutThresholdMs) {
+                // Full timeout elapsed while hidden — show warning (not instant logout,
+                // to give the user a chance to extend if they're back at the computer).
+                clearAllTimers();
+                startCountdownRef.current();
+            } else if (elapsed >= warningThresholdMs) {
+                // Past warning threshold — start countdown immediately.
+                clearAllTimers();
+                startCountdownRef.current();
+            }
+            // else: tab was hidden for a short time, existing timer is still accurate.
+        };
+
         activityEvents.forEach(event => {
             window.addEventListener(event, handleActivity, { passive: true });
         });
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
-        // Initial timer start
         resetTimerRef.current();
 
-        // Cleanup
         return () => {
             activityEvents.forEach(event => {
                 window.removeEventListener(event, handleActivity);
             });
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             clearAllTimers();
         };
-         
-    }, [enabled, clearAllTimers]); // resetTimer intentionally excluded — accessed via ref
+    }, [enabled, clearAllTimers]); // resetTimer/startCountdown accessed via refs — intentionally excluded
 
     return {
         showWarning,

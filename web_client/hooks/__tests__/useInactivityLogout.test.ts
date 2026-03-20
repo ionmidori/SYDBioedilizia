@@ -204,4 +204,67 @@ describe('useInactivityLogout', () => {
         expect(result.current.showWarning).toBe(false);
         expect(mockOnLogout).not.toHaveBeenCalled();
     });
+
+    it('should NOT reset timer when user acts after warning threshold has passed', () => {
+        // BUG FIX regression: activity after 29min should not restart the 28-min timer.
+        // Without the fix, the user could avoid logout indefinitely by occasionally interacting.
+        renderHook(() =>
+            useInactivityLogout({
+                timeoutMinutes: 30,
+                warningMinutes: 2,
+                onLogout: mockOnLogout,
+            })
+        );
+
+        // Advance 29 minutes (past the 28-min warning threshold)
+        act(() => {
+            jest.advanceTimersByTime(29 * 60 * 1000);
+        });
+
+        // Warning should have fired at 28 min
+        expect(mockOnLogout).not.toHaveBeenCalled();
+
+        // Simulate user activity at 29 minutes — must NOT reset the timer
+        act(() => {
+            window.dispatchEvent(new MouseEvent('mousemove'));
+            jest.advanceTimersByTime(1000);
+        });
+
+        // Advance remaining warning period — logout must still fire
+        act(() => {
+            jest.advanceTimersByTime(2 * 60 * 1000);
+        });
+
+        expect(mockOnLogout).toHaveBeenCalledTimes(1);
+    });
+
+    it('should show warning immediately when tab becomes visible after long absence', () => {
+        renderHook(() =>
+            useInactivityLogout({
+                timeoutMinutes: 30,
+                warningMinutes: 2,
+                onLogout: mockOnLogout,
+            })
+        );
+
+        // Simulate tab going to background — advance time past warning threshold
+        // (browser throttles setTimeout when tab is hidden, so the timer may not fire)
+        act(() => {
+            jest.advanceTimersByTime(29 * 60 * 1000);
+        });
+
+        // Simulate tab becoming visible again
+        act(() => {
+            Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+            document.dispatchEvent(new Event('visibilitychange'));
+        });
+
+        // visibilitychange handler should have triggered startCountdown immediately
+        // (either via the threshold check or the scheduled timer already fired)
+        act(() => {
+            jest.advanceTimersByTime(2 * 60 * 1000);
+        });
+
+        expect(mockOnLogout).toHaveBeenCalledTimes(1);
+    });
 });
