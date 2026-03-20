@@ -59,9 +59,8 @@ class TestEvalConfig:
         assert len(config["criteria"]) > 0, "criteria must not be empty"
 
 
-@pytest.mark.skip(reason="google.adk.evaluation not available in google-adk 1.26.0")
 class TestSydRubrics:
-    """Verify custom SYD rubrics instantiate correctly."""
+    """Verify custom SYD rubrics instantiate correctly (google-adk 1.26.0+)."""
 
     def test_rubric_imports(self) -> None:
         from tests.evals.syd_rubrics import (
@@ -81,7 +80,7 @@ class TestSydRubrics:
             INTENT_FIRST_RUBRIC,
         ]
         for rubric in rubrics:
-            assert rubric.rubric_id, f"Rubric missing rubric_id"
+            assert rubric.rubric_id, "Rubric missing rubric_id"
             assert rubric.rubric_content, f"Rubric {rubric.rubric_id} missing rubric_content"
 
     def test_composite_metrics(self) -> None:
@@ -92,12 +91,11 @@ class TestSydRubrics:
         )
         metrics = [SYD_QUOTE_QUALITY, SYD_TRIAGE_QUALITY, SYD_INTENT_FIRST_QUALITY]
         for metric in metrics:
-            assert metric.metric_name, f"Metric missing metric_name"
+            assert metric.metric_name, "Metric missing metric_name"
             assert metric.criterion is not None, f"Metric {metric.metric_name} missing criterion"
             assert metric.criterion.threshold > 0, f"Metric {metric.metric_name} threshold must be > 0"
 
 
-@pytest.mark.skip(reason="Import resolution issue with google.adk namespace package in pytest")
 class TestAgentModule:
     """Verify agent module exposes root_agent for ADK eval compatibility."""
 
