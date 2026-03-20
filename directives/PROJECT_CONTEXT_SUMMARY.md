@@ -1,14 +1,21 @@
-# PROJECT CONTEXT SUMMARY (v4.1.1)
+# PROJECT CONTEXT SUMMARY (v4.1.2)
 **Ultimo aggiornamento:** 20 Marzo 2026 (Phase 80)
-**Status:** Production-Ready — Backend Cold Start Optimized + Admin Approval Dashboard Complete
+**Status:** Production-Ready — Scroll Hardening + N8N Webhook Security Complete
 
 ## 🎯 Obiettivi Correnti (Phase 80)
-1. **Backend Performance Optimized**: Non-blocking warm-up + lazy imports. `/health` in ~4s vs ~23s. 448 tests passing. Commit `0fcb460` (non pushato).
-2. **Admin Approval UI**: Dashboard "Progetto Completo" in Streamlit per revisione multisito (Batches).
-3. **Multi-Project Savings**: Calcolo risparmi aggregati cross-project nel tool admin.
-4. **CVE Remediation**: Stato 0 vulnerabilità High/Critical mantenuto.
+1. **Mobile Scroll Fixed**: iOS address bar handling (`100dvh`), overscroll prevention, `.custom-scrollbar` defined.
+2. **N8N Webhook Security**: HMAC-SHA256 inbound validation, idempotency, fail-secure (503 if unconfigured).
+3. **Backend Performance Optimized**: Non-blocking warm-up + lazy imports. `/health` in ~4s vs ~23s.
+4. **Admin Approval UI**: Dashboard "Progetto Completo" in Streamlit per revisione multisito.
+5. **CVE Remediation**: Stato 0 vulnerabilità High/Critical mantenuto.
 
 ---
+
+- **Phase 80c (Mar 20, 2026):** **Mobile Scroll Hardening + N8N Webhook Security (v4.1.2)**:
+    - **Mobile Scroll**: `DashboardClientLayout` min-h-screen → min-h-[100dvh] (iOS address bar fix). `globals.css`: add `overscroll-behavior-y: none` to prevent pull-to-refresh bounce. Define `.custom-scrollbar` (was referenced but undefined).
+    - **N8N Webhook Validation**: Inbound HMAC-SHA256 verification via `verify_n8n_webhook` FastAPI dependency. Fail-secure (503 if secret unconfigured). Replay protection (±5min window). POST /webhooks/n8n endpoint with idempotency dedup. Optional X-N8N-API-KEY header.
+    - **Infrastructure**: Exclude `/webhooks/n8n` from App Check middleware (n8n has no Firebase SDK). 9 unit tests all passing.
+    - **Status**: Commit `680c038`. Production Audit: 51/51 complete (CSRF webhook item now done).
 
 - **Phase 80b (Mar 20, 2026):** **Backend Cold Start Optimization (v4.1.1)**:
     - **O1 (main.py)**: Lifespan warm-up cambiato da blocking `await run_in_threadpool()` a `asyncio.create_task()`. `/health` disponibile in ~4s vs ~23s. Task salvato su `app.state.warmup_task`, cancellato su shutdown.
@@ -44,9 +51,9 @@
 
 ---
 
-- **Current Version**: `v4.1.1`
-- **Production Audit Status**: 50/51 items complete. Open items: Error budget alerting (Cloud Monitoring)
-- **Security Status**: Backend 0 CVEs (`pip-audit`). Frontend: 0 High/Critical/Moderate (`npm audit` exit 0, `audit-level=moderate`).
-- **Test Coverage**: Backend 97.9%, Frontend 0 TS errors.
-- **Next High Priority**: 1) Enable Model Armor logic in Backend | 2) Batch submission notifications (N8N/WhatsApp) | 3) Scroll animations on landing page | 4) Deploy Batch UI to Production Cloud Run (Admin Service)
+- **Current Version**: `v4.1.2`
+- **Production Audit Status**: 51/51 items complete ✅ All production audit items implemented
+- **Security Status**: Backend 0 CVEs (`pip-audit`). Frontend: 0 High/Critical/Moderate (`npm audit` exit 0, `audit-level=moderate`). N8N HMAC-SHA256 webhook auth hardening complete.
+- **Test Coverage**: Backend 457 passing (+9 webhook auth), Frontend 0 TS errors.
+- **Next High Priority**: 1) Scroll animations on landing page | 2) Live eval run `uv run python tests/evals/run_evals.py` | 3) Multi-room aggregation phase | 4) Deploy Batch UI to Production Cloud Run
 
