@@ -109,14 +109,21 @@ async def verify_token(req: Request) -> UserSession:
             logger.error(f"JWT Audience mismatch. Expected: {expected_aud}, Got: {decoded_token.get('aud')}")
             raise AuthError("Invalid audience", detail={"reason": "project_mismatch"})
 
-        return UserSession(
+        session = UserSession(
             uid=decoded_token.get("uid"),
             email=decoded_token.get("email"),
             is_authenticated=True,
             is_anonymous=(decoded_token.get("firebase", {}).get("sign_in_provider") == "anonymous"),
             claims=decoded_token
         )
-        
+
+        # Track activity for non-anonymous users (debounced, fire-and-forget)
+        if not session.is_anonymous and session.uid:
+            from src.auth.activity_tracker import schedule_touch
+            schedule_touch(session.uid)
+
+        return session
+
     except auth.RevokedIdTokenError:
         logger.warning(f"Revoked Firebase ID token provided from {req.client.host}")
         raise AuthError("Token revoked", detail={"reason": "revoked"})

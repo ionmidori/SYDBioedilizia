@@ -78,6 +78,15 @@ class Settings(BaseSettings):
     N8N_ALLOWED_WEBHOOK_HOSTS: str | None = Field(None, description="Comma-separated allowlist of n8n webhook hostnames (SSRF guard)")
     ADMIN_DASHBOARD_URL: str = Field(default="http://localhost:8501", description="Base URL of the Streamlit admin console")
 
+    # Account Lifecycle (GDPR B2C Inactivity Policy)
+    LIFECYCLE_SECRET: str | None = Field(
+        None,
+        description="Shared secret for POST /internal/lifecycle/run (X-Lifecycle-Secret header). Set in Cloud Scheduler job.",
+    )
+    LIFECYCLE_WARN_MONTHS: int = Field(12, description="Months of inactivity before warning email is sent.")
+    LIFECYCLE_DISABLE_MONTHS: int = Field(13, description="Months of inactivity before Firebase Auth is disabled.")
+    LIFECYCLE_ANONYMIZE_MONTHS: int = Field(24, description="Months of inactivity before Firestore PII is anonymized.")
+
     # Model Armor (Runtime Guardrails — OWASP LLM01/LLM02)
     MODEL_ARMOR_ENABLED: bool = Field(
         default=False,

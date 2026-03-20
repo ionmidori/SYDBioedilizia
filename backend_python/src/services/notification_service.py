@@ -155,6 +155,51 @@ class NotificationService:
             },
         )
 
+    # ── Account Lifecycle: inactivity warning ────────────────────────────────
+
+    async def send_inactivity_warning(
+        self,
+        email: str,
+        display_name: str,
+        disable_in_days: int,
+    ) -> str:
+        """
+        Sends a GDPR inactivity warning to a user informing them that their
+        account will be disabled in N days unless they log in again.
+
+        Fallback chain: SMTP → Firestore flag.
+        Returns a status message. Never raises.
+        """
+        subject = "Il tuo account SYD Bioedilizia verrà disattivato"
+        body = (
+            f"Gentile {display_name},\n\n"
+            f"Non rileviamo attività sul tuo account SYD Bioedilizia da oltre 12 mesi.\n\n"
+            f"In conformità alla nostra politica sulla privacy e al GDPR (Regolamento UE 2016/679),\n"
+            f"il tuo account verrà disattivato automaticamente tra {disable_in_days} giorni.\n\n"
+            f"Per mantenere attivo il tuo account, è sufficiente accedere a:\n"
+            f"https://sydbioedilizia.vercel.app/dashboard\n\n"
+            f"Se non desideri mantenere il tuo account, non è necessaria alcuna azione.\n"
+            f"I tuoi dati verranno conservati per 24 mesi e poi anonimizzati in modo sicuro.\n\n"
+            f"Per esercitare i tuoi diritti GDPR (accesso, rettifica, cancellazione) contattaci:\n"
+            f"privacy@sydbioedilizia.com\n\n"
+            f"Cordiali saluti,\n"
+            f"SYD Bioedilizia — Architetto Personale AI"
+        )
+
+        if settings.SMTP_HOST:
+            try:
+                await self._send_email(to=email, subject=subject, body=body)
+                return f"✅ Inactivity warning sent to {email}"
+            except Exception:
+                logger.warning("[Notification] SMTP inactivity warning failed.", exc_info=True)
+
+        # Firestore flag fallback
+        return await self._firestore_flag_notification(
+            event_type="account_inactivity_warning",
+            project_id=email,
+            metadata={"email": email, "disable_in_days": disable_in_days},
+        )
+
     # ── Internal helpers ─────────────────────────────────────────────────────
 
     async def _send_email(self, to: str, subject: str, body: str) -> None:
