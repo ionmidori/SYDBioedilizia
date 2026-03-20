@@ -30,27 +30,44 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     """Application lifespan: startup and shutdown logic."""
+    import asyncio
     logger.info("SYD Brain API starting on port 8080...")
 
     # ── OpenTelemetry Tracing ──────────────────────────────────────────────────
     from src.core.tracing import init_tracing, shutdown_tracing
     init_tracing()
 
-    # Eager-init: warm up ADKOrchestrator (Vertex AI + Runner) during startup
-    # so the first /chat/stream request doesn't pay the ~1-2s cold-start penalty.
-    # Runs in threadpool to avoid blocking the event loop during startup.
+    # ── Non-blocking ADK warm-up ──────────────────────────────────────────────
+    # Starts ADKOrchestrator initialization (Vertex AI + protobuf loading) in a
+    # background thread so /health, /ready and non-chat endpoints are available
+    # immediately (~4s) instead of waiting for the full warm-up (~16s).
+    #
+    # The first /chat/stream request blocks on the factory lock until warm-up
+    # completes (same total latency, but server is responsive earlier).
+    #
+    # Task reference stored on app.state per python-production-coding skill
+    # ("No fire-and-forget: never use create_task without storing the reference").
+    from starlette.concurrency import run_in_threadpool
     from src.services.orchestrator_factory import warm_up_orchestrator
-    try:
-        from starlette.concurrency import run_in_threadpool
-        await run_in_threadpool(warm_up_orchestrator)
-        logger.info("ADKOrchestrator warm-up complete.")
-    except Exception as e:
-        logger.warning(f"ADKOrchestrator warm-up failed (will retry lazily): {e}")
+
+    async def _background_warmup():
+        try:
+            await run_in_threadpool(warm_up_orchestrator)
+            logger.info("ADKOrchestrator warm-up complete.")
+        except Exception as e:
+            logger.warning(f"ADKOrchestrator warm-up failed (will retry lazily): {e}")
+
+    warmup_task = asyncio.create_task(_background_warmup())
+    _app.state.warmup_task = warmup_task
+
     yield
     # ── Graceful Shutdown ──────────────────────────────────────────────────────
     # Cloud Run sends SIGTERM and waits up to 40s (--timeout-graceful-shutdown).
     # uvicorn drains active SSE connections; we clean up owned gRPC resources here.
     logger.warning("SYD Brain API shutdown initiated — draining connections...")
+    if not warmup_task.done():
+        warmup_task.cancel()
+        logger.info("Cancelled in-progress ADKOrchestrator warm-up.")
     shutdown_tracing()
     try:
         import src.db.firebase_client as _fb

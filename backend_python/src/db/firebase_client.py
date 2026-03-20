@@ -1,13 +1,17 @@
+"""
+Firebase Admin SDK client — singleton initialization and client factories.
+
+Performance: firebase_admin.firestore and firebase_admin.storage are lazy-imported
+inside their factory functions to avoid loading google.cloud.firestore_v1 (and its
+~14s google.api_core protobuf chain) at module import time. Only credentials and
+initialize_app are imported eagerly since init_firebase() is called early.
+"""
 import os
 import logging
-from firebase_admin import credentials, firestore, storage, initialize_app
-from src.core.config import settings
 
-def get_storage_client():
-    """Get Firebase Storage client."""
-    init_firebase()
-    return storage.bucket()
 import firebase_admin
+from firebase_admin import credentials, initialize_app
+from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -15,12 +19,12 @@ logger = logging.getLogger(__name__)
 _cached_cred = None
 _async_db_client = None
 
-# Initialize Firebase Admin SDK (singleton pattern)
+
 def init_firebase():
     """Initialize Firebase Admin SDK if not already initialized."""
     global _cached_cred
-    
-    # ✅ Idempotency Check (Robust)
+
+    # Idempotency Check (Robust)
     try:
         app = firebase_admin.get_app()
         if _cached_cred is None:
@@ -35,13 +39,13 @@ def init_firebase():
         # Priority 1: settings.FIREBASE_CREDENTIALS (if set)
         # Priority 2: /secrets/service-account.json (Cloud Run default)
         # Priority 3: firebase-service-account.json (Local default)
-        
+
         cert_path = settings.FIREBASE_CREDENTIALS
         if not cert_path and os.path.exists('/secrets/service-account.json'):
-             cert_path = '/secrets/service-account.json'
+            cert_path = '/secrets/service-account.json'
         elif not cert_path and os.path.exists('firebase-service-account.json'):
-             cert_path = 'firebase-service-account.json'
-             
+            cert_path = 'firebase-service-account.json'
+
         if cert_path and os.path.exists(cert_path):
             cred = credentials.Certificate(cert_path)
             logger.info(f"Using service account: {cert_path}")
@@ -52,7 +56,7 @@ def init_firebase():
             private_key = settings.FIREBASE_PRIVATE_KEY
             if private_key:
                 private_key = private_key.replace('\\n', '\n')
-                
+
             cred = credentials.Certificate({
                 'type': 'service_account',
                 'project_id': settings.FIREBASE_PROJECT_ID,
@@ -63,32 +67,51 @@ def init_firebase():
                 'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
                 'token_uri': 'https://oauth2.googleapis.com/token',
             })
-        
+
         if settings.FIREBASE_STORAGE_BUCKET:
             initialize_app(cred, {
                 'storageBucket': settings.FIREBASE_STORAGE_BUCKET
             })
         else:
             initialize_app(cred)
-            
+
         _cached_cred = cred  # Cache for generic Google Cloud clients
         logger.info("Firebase Admin SDK initialized")
-    
+
     except ValueError as ve:
         # If we race-conditioned and it's already init, just ignore
         if "The default Firebase app already exists" in str(ve):
-             pass
+            pass
         else:
-             raise ve
+            raise ve
+
 
 def get_firestore_client():
-    """Get Sync Firestore client."""
+    """Get Sync Firestore client.
+
+    Lazy-imports firebase_admin.firestore to defer google.cloud.firestore_v1
+    protobuf loading until first actual Firestore access.
+    """
+    from firebase_admin import firestore  # Lazy: avoids ~2s google.api_core at module load
+
     init_firebase()
     return firestore.client()
 
-def get_async_firestore_client():
+
+def get_storage_client():
+    """Get Firebase Storage client.
+
+    Lazy-imports firebase_admin.storage to defer GCS proto loading.
     """
-    Get Asynchronous Firestore client (google-cloud-firestore).
+    from firebase_admin import storage  # Lazy: avoids GCS proto loading at module load
+
+    init_firebase()
+    return storage.bucket()
+
+
+def get_async_firestore_client():
+    """Get Asynchronous Firestore client (google-cloud-firestore).
+
     Singleton pattern to reuse gRPC channel.
     """
     global _async_db_client
@@ -96,29 +119,29 @@ def get_async_firestore_client():
         return _async_db_client
 
     from google.cloud import firestore as google_firestore
-    
+
     init_firebase()
-    
+
     # Use cached credentials if available
     if _cached_cred:
-         # _cached_cred.get_credential() returns google.oauth2.service_account.Credentials
-         client = google_firestore.AsyncClient(
-             project=_cached_cred.project_id,
-             credentials=_cached_cred.get_credential()
-         )
+        # _cached_cred.get_credential() returns google.oauth2.service_account.Credentials
+        client = google_firestore.AsyncClient(
+            project=_cached_cred.project_id,
+            credentials=_cached_cred.get_credential()
+        )
     else:
         # Fallback (should rarely happen if init_firebase runs first)
         client = google_firestore.AsyncClient()
-        
+
     _async_db_client = client
     return client
 
+
 def validate_firebase_config():
-    """
-    Validate all required Firebase environment variables are present.
-    
+    """Validate all required Firebase environment variables are present.
+
     Raises:
-        RuntimeError: If any required environment variable is missing
+        RuntimeError: If any required environment variable is missing.
     """
     required_vars = [
         'FIREBASE_PROJECT_ID',
@@ -126,19 +149,17 @@ def validate_firebase_config():
         'FIREBASE_CLIENT_EMAIL',
         'FIREBASE_STORAGE_BUCKET'
     ]
-    
+
     missing = [var for var in required_vars if not os.getenv(var)]
-    
+
     # Cloud Run: If the secret file is mounted, we don't need all env vars
     if os.path.exists('/secrets/service-account.json'):
-        # Check if we at least have project ID/Bucket (useful but not strictly required for auth)
         if not os.getenv('FIREBASE_STORAGE_BUCKET'):
-             logger.warning("⚠️ FIREBASE_STORAGE_BUCKET not set. Storage operations might fail if not inferred.")
-        logger.info("✅ Firebase configuration validated (using mounted secret: /secrets/service-account.json)")
+            logger.warning("FIREBASE_STORAGE_BUCKET not set. Storage operations might fail if not inferred.")
+        logger.info("Firebase configuration validated (using mounted secret: /secrets/service-account.json)")
         return
 
     if missing:
-        # Check settings
         required_vars = [
             settings.FIREBASE_PROJECT_ID,
             settings.FIREBASE_PRIVATE_KEY,
@@ -146,9 +167,8 @@ def validate_firebase_config():
             settings.FIREBASE_STORAGE_BUCKET
         ]
         if not all(required_vars) and not (settings.FIREBASE_CREDENTIALS or os.path.exists('/secrets/service-account.json') or os.path.exists('firebase-service-account.json')):
-             raise RuntimeError(
-                "❌ Missing Firebase configuration: Environment variables or JSON file required."
+            raise RuntimeError(
+                "Missing Firebase configuration: Environment variables or JSON file required."
             )
-    
-    logger.info("✅ Firebase configuration validated")
 
+    logger.info("Firebase configuration validated")

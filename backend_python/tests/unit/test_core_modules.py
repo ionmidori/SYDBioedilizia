@@ -448,7 +448,7 @@ class TestOrchestratorFactory:
         import src.services.orchestrator_factory as mod
         mod._orchestrator = None
 
-    @patch("src.services.orchestrator_factory.ADKOrchestrator")
+    @patch("src.adk.adk_orchestrator.ADKOrchestrator", create=True)
     def test_get_orchestrator_returns_adk_orchestrator(self, MockADK):
         self._reset_singleton()
         mock_instance = MagicMock()
@@ -458,7 +458,7 @@ class TestOrchestratorFactory:
         assert result is mock_instance
         MockADK.assert_called_once()
 
-    @patch("src.services.orchestrator_factory.ADKOrchestrator")
+    @patch("src.adk.adk_orchestrator.ADKOrchestrator", create=True)
     def test_get_orchestrator_is_singleton(self, MockADK):
         self._reset_singleton()
         mock_instance = MagicMock()
@@ -469,7 +469,7 @@ class TestOrchestratorFactory:
         assert first is second
         MockADK.assert_called_once()
 
-    @patch("src.services.orchestrator_factory.ADKOrchestrator")
+    @patch("src.adk.adk_orchestrator.ADKOrchestrator", create=True)
     def test_reset_and_recreate_singleton(self, MockADK):
         import src.services.orchestrator_factory as mod
         self._reset_singleton()
