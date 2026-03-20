@@ -44,6 +44,9 @@ env.local.template
 # generated renders
 /public/renders/
 
+# eval results (live runs output, not committed)
+backend_python/tests/evals/results/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
