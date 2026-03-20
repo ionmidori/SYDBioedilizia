@@ -1,15 +1,22 @@
-# PROJECT CONTEXT SUMMARY (v4.1.2)
-**Ultimo aggiornamento:** 20 Marzo 2026 (Phase 80)
-**Status:** Production-Ready — Scroll Hardening + N8N Webhook Security Complete
+# PROJECT CONTEXT SUMMARY (v4.1.3)
+**Ultimo aggiornamento:** 20 Marzo 2026 (Phase 80d)
+**Status:** Production-Ready — Live Eval Infrastructure Complete
 
-## 🎯 Obiettivi Correnti (Phase 80)
-1. **Mobile Scroll Fixed**: iOS address bar handling (`100dvh`), overscroll prevention, `.custom-scrollbar` defined.
-2. **N8N Webhook Security**: HMAC-SHA256 inbound validation, idempotency, fail-secure (503 if unconfigured).
-3. **Backend Performance Optimized**: Non-blocking warm-up + lazy imports. `/health` in ~4s vs ~23s.
-4. **Admin Approval UI**: Dashboard "Progetto Completo" in Streamlit per revisione multisito.
+## 🎯 Obiettivi Correnti (Phase 80d)
+1. **Live ADK Eval System Ready**: `npm run eval:run` (all flows) + per-flow targets. 13/13 infrastructure tests passing.
+2. **Mobile Scroll Fixed**: iOS address bar handling (`100dvh`), overscroll prevention, `.custom-scrollbar` defined.
+3. **N8N Webhook Security**: HMAC-SHA256 inbound validation, idempotency, fail-secure (503 if unconfigured).
+4. **Backend Performance Optimized**: Non-blocking warm-up + lazy imports. `/health` in ~4s vs ~23s.
 5. **CVE Remediation**: Stato 0 vulnerabilità High/Critical mantenuto.
 
 ---
+
+- **Phase 80d (Mar 20, 2026):** **Live ADK Evaluation Runner Infrastructure (v4.1.3)**:
+    - **Eval Scripts**: npm targets added: `eval:run` (all sets), `eval:run:quote/triage/design` (per-flow). CLI: `uv run python tests/evals/run_evals.py [--file FILE] [--agent AGENT] [--output DIR]`.
+    - **Infrastructure**: `tests/evals/results/` directory created + added to `.gitignore` (live runs not tracked). 5 test.json files: 3 flows (quote, triage, design) + 2 supplementary designs = 5 eval cases total.
+    - **Validation Complete**: `test_eval_infrastructure.py` 13/13 passing. `syd_rubrics.py` all rubrics instantiate (NO_FURNITURE, ITALIAN_ONLY, HAS_MQ, SKU_PRESENT, etc.). `test_config.json` with `tool_trajectory_avg_score` IN_ORDER criterion validates correctly.
+    - **Ready for Live**: `GOOGLE_API_KEY` ✅, `gemini-3.1-flash-lite-preview` judge model ✅, agent module resolution ✅. Can run: `npm run eval:run` (requires API quota).
+    - **Status**: Commit `5a7d92b`.
 
 - **Phase 80c (Mar 20, 2026):** **Mobile Scroll Hardening + N8N Webhook Security (v4.1.2)**:
     - **Mobile Scroll**: `DashboardClientLayout` min-h-screen → min-h-[100dvh] (iOS address bar fix). `globals.css`: add `overscroll-behavior-y: none` to prevent pull-to-refresh bounce. Define `.custom-scrollbar` (was referenced but undefined).
@@ -51,9 +58,10 @@
 
 ---
 
-- **Current Version**: `v4.1.2`
+- **Current Version**: `v4.1.3`
 - **Production Audit Status**: 51/51 items complete ✅ All production audit items implemented
 - **Security Status**: Backend 0 CVEs (`pip-audit`). Frontend: 0 High/Critical/Moderate (`npm audit` exit 0, `audit-level=moderate`). N8N HMAC-SHA256 webhook auth hardening complete.
-- **Test Coverage**: Backend 457 passing (+9 webhook auth), Frontend 0 TS errors.
-- **Next High Priority**: 1) Scroll animations on landing page | 2) Live eval run `uv run python tests/evals/run_evals.py` | 3) Multi-room aggregation phase | 4) Deploy Batch UI to Production Cloud Run
+- **Test Coverage**: Backend 461 passing (13 evals infra + 9 webhook), Frontend 0 TS errors.
+- **Eval Status**: Infrastructure 13/13 ✅. Ready for live: `npm run eval:run` (requires GOOGLE_API_KEY).
+- **Next High Priority**: 1) Run live evals (5 cases, 3 agents) | 2) Scroll animations on landing page | 3) Multi-room aggregation phase | 4) Deploy Batch UI to Production Cloud Run
 
