@@ -59,8 +59,27 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
     const dotHeight = size === 'small' ? 4 : 6;
     const inactiveDot = size === 'small' ? 4 : 6;
 
+    const handleDragEnd = (_: unknown, info: any) => {
+        // Swipe left (next)
+        if (info.offset.x < -40) {
+            const nextIndex = Math.min(activeIndex + 1, labels.length - 1);
+            if (nextIndex !== activeIndex) onIndexClick?.(nextIndex);
+        }
+        // Swipe right (prev)
+        else if (info.offset.x > 40) {
+            const prevIndex = Math.max(activeIndex - 1, 0);
+            if (prevIndex !== activeIndex) onIndexClick?.(prevIndex);
+        }
+    };
+
     return (
-        <div className="flex items-center justify-center gap-1.5 py-1">
+        <motion.div 
+            className="flex items-center justify-center gap-1.5 py-1 px-4 cursor-grab active:cursor-grabbing"
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.1}
+            onDragEnd={handleDragEnd}
+        >
             {labels.map((label, i) => (
                 <button
                     key={i}
@@ -82,12 +101,12 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
                 </button>
             ))}
             <span className={cn(
-                "ml-1.5 font-bold uppercase tracking-wider text-luxury-text/40",
+                "ml-1.5 font-bold uppercase tracking-wider text-luxury-text/40 select-none",
                 size === 'small' ? "text-[8px]" : "text-[10px]"
             )}>
                 {labels[activeIndex]}
             </span>
-        </div>
+        </motion.div>
     );
 }
 
