@@ -1,15 +1,32 @@
-# PROJECT CONTEXT SUMMARY (v4.1.3)
-**Ultimo aggiornamento:** 20 Marzo 2026 (Phase 80d)
-**Status:** Production-Ready — Live Eval Infrastructure Complete
+# PROJECT CONTEXT SUMMARY (v4.1.4)
+**Ultimo aggiornamento:** 21 Marzo 2026 (Phase 81b)
+**Status:** Production-Ready — GDPR Lifecycle + Mobile Swipe Complete
 
-## 🎯 Obiettivi Correnti (Phase 80d)
-1. **Live ADK Eval System Ready**: `npm run eval:run` (all flows) + per-flow targets. 13/13 infrastructure tests passing.
-2. **Mobile Scroll Fixed**: iOS address bar handling (`100dvh`), overscroll prevention, `.custom-scrollbar` defined.
-3. **N8N Webhook Security**: HMAC-SHA256 inbound validation, idempotency, fail-secure (503 if unconfigured).
-4. **Backend Performance Optimized**: Non-blocking warm-up + lazy imports. `/health` in ~4s vs ~23s.
-5. **CVE Remediation**: Stato 0 vulnerabilità High/Critical mantenuto.
+## 🎯 Obiettivi Correnti (Phase 81b)
+1. **GDPR Account Lifecycle**: 3-phase inactivity pipeline deployed. Cloud Scheduler (03:00 Europe/Rome), 3 Firestore composite indexes (READY), Secret Manager. Endpoint: `POST /internal/lifecycle/run`.
+2. **Activity Tracking**: `activity_tracker.py` debounced `last_active_at` on every authenticated request (1 write/hour/user).
+3. **Mobile Swipe on PaneIndicator**: Framer Motion drag gesture on dots indicator (40px threshold, left/right swipe).
+4. **Batch Admin Pages**: `2_📦_Progetto_Completo.py`, `batch_repo.py`, `batch_admin_service.py` committed.
+5. **Inactivity Logout Fixed**: 2 auth bugs resolved — stale session guard + anonymous user flag.
 
 ---
+
+- **Phase 81b (Mar 21, 2026):** **Mobile Swipe + Batch Admin Pages (v4.1.4)**:
+    - **Mobile UX**: `PaneIndicator` in `MobileSwipeLayout.tsx` wraps dots in `motion.div` with `drag="x"` + `onDragEnd`. Swipe left/right 40px threshold navigates panes. `select-none` prevents text selection during drag.
+    - **Batch Admin**: `2_📦_Progetto_Completo.py`, `seed_batch.py`, `batch_repo.py`, `batch_admin_service.py` committed to repo.
+    - **Status**: Commit `ed3fec5`.
+
+- **Phase 81a (Mar 21, 2026):** **GDPR 3-Phase Account Lifecycle (v4.1.3+)**:
+    - **Pipeline**: `account_lifecycle_service.py` — Phase 1 (12mo→warning email), Phase 2 (13mo→Firebase Auth disabled), Phase 3 (24mo→PII anonymized + Auth deleted). All phases idempotent via `lifecycle_*_at` timestamps.
+    - **Activity Tracking**: `activity_tracker.py` — debounced `last_active_at` Firestore write (1/hour per uid). Wired into `jwt_handler.py` as `schedule_touch(uid)` fire-and-forget.
+    - **Endpoint**: `POST /internal/lifecycle/run` — X-Lifecycle-Secret header (constant-time compare). Returns `{status, warned, disabled, anonymized, errors}`.
+    - **GCP**: Secret Manager (`syd-brain-lifecycle-secret`), Cloud Scheduler (`0 3 * * *` Europe/Rome, 3 retries, exp. backoff 30s-600s), 3 Firestore composite indexes (READY).
+    - **Test**: `{"status":"ok","warned":0,"disabled":0,"anonymized":0,"errors":[]}` ✅
+    - **Status**: Commit `a7ef2fe`. Endpoint live at Cloud Run URL.
+
+- **Phase 80f (Mar 21, 2026):** **Inactivity Auth Bug Fix (v4.1.3)**:
+    - Fixed 2 bugs: stale session not cleared on inactivity logout + anonymous users incorrectly flagged as authenticated.
+    - **Status**: Commit `aef268f`.
 
 - **Phase 80d (Mar 20, 2026):** **Live ADK Evaluation Runner Infrastructure (v4.1.3)**:
     - **Eval Scripts**: npm targets added: `eval:run` (all sets), `eval:run:quote/triage/design` (per-flow). CLI: `uv run python tests/evals/run_evals.py [--file FILE] [--agent AGENT] [--output DIR]`.
@@ -58,10 +75,10 @@
 
 ---
 
-- **Current Version**: `v4.1.3`
+- **Current Version**: `v4.1.4`
 - **Production Audit Status**: 51/51 items complete ✅ All production audit items implemented
-- **Security Status**: Backend 0 CVEs (`pip-audit`). Frontend: 0 High/Critical/Moderate (`npm audit` exit 0, `audit-level=moderate`). N8N HMAC-SHA256 webhook auth hardening complete.
-- **Test Coverage**: Backend 461 passing (13 evals infra + 9 webhook), Frontend 0 TS errors.
-- **Eval Status**: Infrastructure 13/13 ✅. Ready for live: `npm run eval:run` (requires GOOGLE_API_KEY).
+- **Security Status**: Backend 0 CVEs (`pip-audit`). Frontend: 0 High/Critical/Moderate (`npm audit` exit 0). GDPR lifecycle + N8N HMAC-SHA256 complete.
+- **Test Coverage**: Backend 461 passing, Frontend 0 TS errors.
+- **GDPR Status**: 3-phase lifecycle deployed ✅. Cloud Scheduler active. Firestore indexes READY.
 - **Next High Priority**: 1) Run live evals (5 cases, 3 agents) | 2) Scroll animations on landing page | 3) Multi-room aggregation phase | 4) Deploy Batch UI to Production Cloud Run
 
