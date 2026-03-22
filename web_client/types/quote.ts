@@ -16,18 +16,6 @@ export const quoteStatusSchema = z.enum([
 ]);
 export type QuoteStatus = z.infer<typeof quoteStatusSchema>;
 
-export const roomTypeSchema = z.enum([
-  'bagno',
-  'cucina',
-  'soggiorno',
-  'camera',
-  'corridoio',
-  'ingresso',
-  'terrazzo',
-  'altro',
-]);
-export type RoomType = z.infer<typeof roomTypeSchema>;
-
 // ── QuoteItem ────────────────────────────────────────────────────────────────
 
 export const quoteItemSchema = z.object({
@@ -40,7 +28,6 @@ export const quoteItemSchema = z.object({
   ai_reasoning: z.string().nullable().optional(),
   category: z.string().nullable().optional(),
   manual_override: z.boolean().default(false),
-  room_id: z.string().nullable().optional(),
 });
 export type QuoteItem = z.infer<typeof quoteItemSchema>;
 
@@ -54,25 +41,7 @@ export const quoteFinancialsSchema = z.object({
 });
 export type QuoteFinancials = z.infer<typeof quoteFinancialsSchema>;
 
-// ── RoomQuote (multi-room) ───────────────────────────────────────────────────
-
-export const roomQuoteSchema = z.object({
-  room_id: z.string(),
-  room_label: z.string(),
-  room_type: roomTypeSchema,
-  floor_mq: z.number().min(0).nullable().optional(),
-  walls_mq: z.number().min(0).nullable().optional(),
-  items: z.array(quoteItemSchema).default([]),
-  room_subtotal: z.number().default(0),
-  completeness_score: z.number().min(0).max(1).default(1),
-  missing_info: z.array(z.string()).default([]),
-  analyzed_at: z.string().nullable().optional(),
-  media_urls: z.array(z.string()).default([]),
-  version: z.number().default(1),
-});
-export type RoomQuote = z.infer<typeof roomQuoteSchema>;
-
-// ── AggregationAdjustment (multi-room) ───────────────────────────────────────
+// ── AggregationAdjustment (cross-project batch) ──────────────────────────────
 
 export const aggregationAdjustmentTypeSchema = z.enum([
   'dedup_singleton',
@@ -111,10 +80,6 @@ export const quoteSchema = z.object({
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   version: z.number().default(1),
-  // Multi-room fields (backward-compatible: defaults to empty)
-  rooms: z.array(roomQuoteSchema).default([]),
-  aggregation_adjustments: z.array(aggregationAdjustmentSchema).default([]),
-  aggregated_subtotal: z.number().nullable().optional(),
 });
 export type Quote = z.infer<typeof quoteSchema>;
 

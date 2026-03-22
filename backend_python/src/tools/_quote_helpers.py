@@ -1,8 +1,5 @@
 """
-Shared helpers for quote generation used by both single-room (quote_tools.py)
-and multi-room (room_analysis_service.py) flows.
-
-Extracted to avoid duplication while preserving backward compatibility.
+Shared helpers for quote generation (chat history, SKU validation, media extraction).
 """
 import logging
 from typing import Any, Dict, List
