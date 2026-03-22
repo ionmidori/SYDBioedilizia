@@ -21,6 +21,34 @@ class QuoteRepository:
     # READ
     # ------------------------------------------------------------------
 
+    def get_historical_quotes(self) -> list[dict[str, Any]]:
+        """
+        Fetch all quotes with status 'approved' or 'rejected'.
+
+        Returns:
+            List of quote dicts enriched with 'project_id'.
+        """
+        db = get_db()
+        try:
+            docs = (
+                db.collection_group("private_data")
+                .where(filter=FieldFilter("status", "in", ["approved", "rejected"]))
+                .stream()
+            )
+            quotes: list[dict[str, Any]] = []
+            for doc in docs:
+                if doc.id != "quote":
+                    continue
+                data: dict[str, Any] = doc.to_dict() or {}
+                parent_ref = doc.reference.parent.parent
+                if parent_ref:
+                    data["project_id"] = parent_ref.id
+                    quotes.append(data)
+            return quotes
+        except Exception:
+            logger.exception("Error fetching historical quotes.")
+            return []
+
     def get_pending_quotes(self) -> list[dict[str, Any]]:
         """
         Fetch all quotes in status 'draft' or 'pending_review'.

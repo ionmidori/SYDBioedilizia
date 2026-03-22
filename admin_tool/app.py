@@ -73,8 +73,12 @@ if st.session_state.get("authentication_status"):
         
         | Sezione | Descrizione |
         |---|---|
-        | 📋 Preventivi | Revisione, modifica e approvazione dei preventivi |
-        | 💰 Listino Prezzi | Gestione del Master Price Book (SKU e prezzi) |
+        | 🏠 Dashboard | KPI in tempo reale, trend approvazioni, riepilogo recensioni |
+        | 📋 Preventivi | Revisione, modifica, approvazione e storico dei preventivi |
+        | ⭐ Recensioni | Moderazione delle testimonianze utenti (approva / rifiuta) |
+        | 📦 Lotti | Gestione dei preventivi multi-progetto (batch) |
+        | 💰 Listino Prezzi | Master Price Book con dual-write Firestore + JSON |
+        | 🛡️ GDPR Monitor | Trigger manuale pipeline inattività GDPR (3 fasi) |
         """
     )
 

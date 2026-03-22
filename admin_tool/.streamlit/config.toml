@@ -1,0 +1,15 @@
+[theme]
+# SYD Bioedilizia brand theme — mirrors web_client globals.css variables
+base             = "dark"
+primaryColor     = "#E9C46A"   # luxury-gold
+backgroundColor  = "#1A2D38"   # deeper variant of luxury-bg (#264653)
+secondaryBackgroundColor = "#264653"   # luxury-bg
+textColor        = "#F4F1DE"   # luxury-text
+font             = "sans serif"
+
+[server]
+# Disable file watcher in production (Cloud Run)
+# runOnSave = false
+
+[browser]
+gatherUsageStats = false

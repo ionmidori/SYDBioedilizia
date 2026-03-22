@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,7 +23,24 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-const defaultTestimonials = [
+type TestimonialItem = {
+    id: string | number;
+    name: string;
+    role: string;
+    location: string;
+    text: string;
+    rating: number;
+    initials: string;
+    gradient: string;
+};
+
+const _GRADIENTS = [
+    'from-luxury-gold to-yellow-600',
+    'from-luxury-teal to-emerald-600',
+    'from-luxury-bg to-luxury-teal',
+] as const;
+
+const defaultTestimonials: TestimonialItem[] = [
     {
         id: 1,
         name: 'Marco Rossi',
@@ -57,9 +74,44 @@ const defaultTestimonials = [
 ];
 
 export function Testimonials() {
-    const [hoveredTestimonial, setHoveredTestimonial] = useState<number | null>(null);
+    const [hoveredTestimonial, setHoveredTestimonial] = useState<string | number | null>(null);
     const [isMobile, setIsMobile] = useState(false);
+    const [testimonials, setTestimonials] = useState<TestimonialItem[]>(defaultTestimonials);
     const { user } = useAuth();
+
+    // Load approved testimonials from Firestore; fall back to defaults if none yet.
+    // NOTE: Firestore security rules must allow: read where status == 'approved' for public.
+    useEffect(() => {
+        const loadApproved = async () => {
+            try {
+                const snap = await getDocs(
+                    query(collection(db, 'testimonials'), where('status', '==', 'approved'))
+                );
+                if (!snap.empty) {
+                    const items: TestimonialItem[] = snap.docs.map((doc, idx) => {
+                        const d = doc.data();
+                        const name: string = d.name || 'Cliente SYD';
+                        const initials = name.split(' ').slice(0, 2).map((w: string) => w[0] ?? '').join('').toUpperCase();
+                        return {
+                            id: doc.id,
+                            name,
+                            role: 'Cliente SYD',
+                            location: '',
+                            text: d.text || '',
+                            rating: d.rating ?? 5,
+                            initials,
+                            gradient: _GRADIENTS[idx % _GRADIENTS.length],
+                        };
+                    });
+                    setTestimonials(items);
+                }
+                // If empty, keep defaultTestimonials already in state
+            } catch {
+                // Silently keep defaultTestimonials (e.g. missing Firestore index or rules)
+            }
+        };
+        loadApproved();
+    }, []);
     
     // Review Form State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -260,7 +312,7 @@ export function Testimonials() {
                     ref={testGridRef}
                     className="grid grid-cols-1 md:grid-cols-3 gap-8"
                 >
-                    {defaultTestimonials.map((t, idx) => (
+                    {testimonials.map((t, idx) => (
                         <motion.div
                             key={t.id}
                             data-testimonial-card="true"

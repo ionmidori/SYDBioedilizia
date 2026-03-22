@@ -155,15 +155,20 @@ service cloud.firestore {
     // TESTIMONIALS COLLECTION
     // ==========================================
     match /testimonials/{testimonialId} {
-      // Public read so everyone can see the testimonials
-      allow read: if true;
-      
-      // Only authenticated (registered) users can create
-      allow create: if request.auth != null 
+      // Public read only for approved testimonials (landing page display).
+      // pending/rejected are not accessible from the client.
+      allow read: if resource.data.status == 'approved';
+
+      // Only authenticated (registered, non-anonymous) users can submit.
+      allow create: if request.auth != null
         && request.auth.token.firebase.sign_in_provider != 'anonymous'
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.text is string
-        && request.resource.data.rating is number;
+        && request.resource.data.rating is number
+        && request.resource.data.status == 'pending';
+
+      // Updates and deletes are admin-only (Admin SDK bypasses rules).
+      allow update, delete: if false;
     }
 
     // ==========================================
