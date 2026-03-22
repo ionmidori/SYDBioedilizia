@@ -10,6 +10,8 @@ import { SignInButton } from '@/components/auth/SignInButton';
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
 import { useAuth } from '@/hooks/useAuth';
+import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
 import {
     Sheet,
     SheetContent,
@@ -18,6 +20,8 @@ import {
     SheetHeader,
     SheetDescription,
 } from "@/components/ui/sheet";
+
+gsap.registerPlugin(ScrollTrigger);
 
 /**
  * Trigger a short haptic feedback on supported mobile devices
@@ -34,6 +38,7 @@ export function Navbar() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [contactMenuOpen, setContactMenuOpen] = useState(false);
     const [contactMenuOpenDesktop, setContactMenuOpenDesktop] = useState(false);
+    const navRef = useRef<HTMLElement>(null);
     const contactMenuRef = useRef<HTMLDivElement>(null);
     const contactMenuRefDesktop = useRef<HTMLDivElement>(null);
     const { user, isAnonymous } = useAuth();
@@ -63,13 +68,36 @@ export function Navbar() {
         };
     }, [contactMenuOpen, contactMenuOpenDesktop]);
 
+    // ── GSAP ScrollTrigger: Progressive navbar backdrop blur ──
+    // Interpolates backdrop-blur: 0px → 12px as user scrolls 0px → 50px
     useEffect(() => {
+        const navElement = navRef.current;
+        if (!navElement) return;
+
+        const tl = gsap.timeline({
+            scrollTrigger: {
+                trigger: document.body,
+                start: "top 0",
+                end: "top 50px",
+                scrub: 0.3,  // smooth scrub for fluid interpolation
+                onUpdate: (self) => {
+                    // Progress: 0 → 1 as scroll: 0px → 50px
+                    const blurAmount = self.progress * 12;
+                    gsap.set(navElement, {
+                        backdropFilter: `blur(${blurAmount}px)`,
+                    });
+                }
+            }
+        });
+
+        // Fallback for older browsers/edge cases: set isScrolled state
         const handleScroll = () => {
             setIsScrolled(window.scrollY > 20);
         };
         window.addEventListener('scroll', handleScroll, { passive: true });
 
         return () => {
+            tl.scrollTrigger?.kill();
             window.removeEventListener('scroll', handleScroll);
         };
     }, []);
@@ -126,10 +154,11 @@ export function Navbar() {
     return (
         <>
             <motion.nav
+                ref={navRef}
                 className={cn(
                     'fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent',
                     isScrolled
-                        ? 'bg-luxury-gold/10 backdrop-blur-xl border-luxury-gold/20 py-3 shadow-elevation-mid'
+                        ? 'bg-luxury-gold/10 border-luxury-gold/20 py-3 shadow-elevation-mid'
                         : 'bg-transparent py-5'
                 )}
                 initial={{ y: -100 }}

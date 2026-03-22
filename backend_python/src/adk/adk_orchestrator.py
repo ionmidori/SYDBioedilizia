@@ -15,7 +15,7 @@ from google.genai import types
 
 from src.services.base_orchestrator import BaseOrchestrator
 from src.adk.agents import syd_orchestrator
-from src.adk.session import get_session_service
+from src.adk.session import get_session_service, get_artifact_service
 from src.adk.filters import sanitize_before_agent, filter_agent_output
 from src.repositories.conversation_repository import get_conversation_repository
 import httpx
@@ -34,6 +34,8 @@ from src.utils.stream_protocol import (
     stream_status,
     stream_tool_call,
     stream_tool_result,
+    stream_ui_widget,
+    stream_artifact_event,
 )
 from src.utils.circuit_breaker import vertex_ai_breaker
 
@@ -65,6 +67,7 @@ class ADKOrchestrator(BaseOrchestrator):
             app_name="syd_orchestrator",
             agent=syd_orchestrator,
             session_service=get_session_service(),
+            artifact_service=get_artifact_service(),
         )
 
     async def stream_chat(
@@ -450,6 +453,47 @@ class ADKOrchestrator(BaseOrchestrator):
                                             except Exception as e:
                                                 logger.error(f"Failed to persist tool result: {e}")
 
+                                    # ── UiWidget Events (ADK 1.27+) ──
+                                # Tools call tool_context.render_ui_widget(UiWidget(...))
+                                # which populates event.actions.render_ui_widgets.
+                                # We stream each widget as a structured data event so
+                                # the frontend can render native UI components.
+                                render_widgets = getattr(
+                                    getattr(event, "actions", None),
+                                    "render_ui_widgets",
+                                    None,
+                                ) or []
+                                for widget in render_widgets:
+                                    widget_data = {
+                                        "id": getattr(widget, "id", ""),
+                                        "provider": getattr(widget, "provider", "syd"),
+                                        "payload": getattr(widget, "payload", {}),
+                                    }
+                                    logger.info(
+                                        f"[ADK] UiWidget received: id={widget_data['id']}, "
+                                        f"provider={widget_data['provider']}"
+                                    )
+                                    async for chunk in stream_ui_widget(widget_data):
+                                        yield chunk
+
+                                # ── Artifact Delta Events (ADK 1.27+) ──
+                                # Tools call tool_context.save_artifact(filename, part)
+                                # which populates event.actions.artifact_delta.
+                                # We notify the frontend so it can refresh media panels.
+                                artifact_delta = getattr(
+                                    getattr(event, "actions", None),
+                                    "artifact_delta",
+                                    None,
+                                ) or {}
+                                for filename, version in artifact_delta.items():
+                                    logger.info(
+                                        f"[ADK] Artifact saved: '{filename}' v{version}"
+                                    )
+                                    async for chunk in stream_artifact_event(
+                                        {"filename": filename, "version": version}
+                                    ):
+                                        yield chunk
+
                                 logger.info(
                                     "ADK Event received",
                                     extra={
@@ -457,6 +501,8 @@ class ADKOrchestrator(BaseOrchestrator):
                                         "has_text": has_text,
                                         "has_fc": has_fc,
                                         "has_fr": has_fr,
+                                        "ui_widgets": len(render_widgets),
+                                        "artifact_delta": len(artifact_delta),
                                     }
                                 )
 

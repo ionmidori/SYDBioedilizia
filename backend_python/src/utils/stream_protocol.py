@@ -79,6 +79,45 @@ async def stream_status(message: str) -> AsyncGenerator[str, None]:
     # Vercel Data Protocol expects a list
     yield f'2:{json.dumps([payload])}\n'
 
+async def stream_ui_widget(widget_data: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    """
+    Formats UiWidget events from ADK tools for the frontend.
+    Event '2': Data part (custom protocol).
+
+    ADK 1.27+ tools call tool_context.render_ui_widget(UiWidget(...)) which
+    populates event.actions.render_ui_widgets. The orchestrator detects these
+    and streams them to the client via this helper.
+
+    Format: 2:[{"type": "ui_widget", "widget_id": "...", "provider": "...", "payload": {...}}]\n
+    """
+    payload = {
+        "type": "ui_widget",
+        "widget_id": widget_data.get("id", ""),
+        "provider": widget_data.get("provider", "syd"),
+        "payload": widget_data.get("payload", {}),
+    }
+    yield f'2:{json.dumps([payload])}\n'
+
+
+async def stream_artifact_event(artifact_data: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    """
+    Formats artifact delta events from ADK tools for the frontend.
+    Event '2': Data part (custom protocol).
+
+    ADK 1.27+ tools call tool_context.save_artifact(filename, part) which
+    populates event.actions.artifact_delta. The orchestrator detects these
+    and notifies the client that a new artifact is available.
+
+    Format: 2:[{"type": "artifact", "filename": "...", "version": N}]\n
+    """
+    payload = {
+        "type": "artifact",
+        "filename": artifact_data.get("filename", ""),
+        "version": artifact_data.get("version", 0),
+    }
+    yield f'2:{json.dumps([payload])}\n'
+
+
 async def stream_reasoning(step_data: Dict[str, Any]) -> AsyncGenerator[str, None]:
     """
     Formats reasoning steps (CoT) for Vercel AI SDK.

@@ -301,16 +301,37 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }
     }, [historyLoaded, historyMessages, loadedForSessionId, sessionId, setMessages, status, messages]);
 
-    // -- ADK HITL INTERRUPT HANDLER --
+    // -- ADK STREAMING DATA HANDLERS (interrupt / ui_widget / artifact) --
     useEffect(() => {
         const currentData = (useChatData as StreamData[]) || [];
-        if (currentData.length > 0) {
-            const latestData = currentData[currentData.length - 1];
-            if (latestData && latestData.type === 'interrupt') {
-                console.log('[ChatProvider] ADK Interrupt Received:', latestData);
-                if (typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('adk-interrupt', { detail: latestData.payload }));
-                }
+        if (currentData.length === 0) return;
+
+        const latestData = currentData[currentData.length - 1];
+        if (!latestData) return;
+
+        if (latestData.type === 'interrupt') {
+            console.log('[ChatProvider] ADK Interrupt Received:', latestData);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('adk-interrupt', { detail: latestData.payload }));
+            }
+        }
+
+        // ADK 1.27+ UiWidget: backend tool called tool_context.render_ui_widget()
+        // Dispatch event so chat components can render native widget components
+        // without relying only on the tool name string.
+        if (latestData.type === 'ui_widget') {
+            console.log('[ChatProvider] ADK UiWidget Received:', latestData);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('adk-ui-widget', { detail: latestData }));
+            }
+        }
+
+        // ADK 1.27+ Artifact: backend tool called tool_context.save_artifact()
+        // Dispatch event so gallery/media panels can refresh to show the new artifact.
+        if (latestData.type === 'artifact') {
+            console.log('[ChatProvider] ADK Artifact Saved:', latestData);
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('adk-artifact', { detail: latestData }));
             }
         }
     }, [useChatData]);

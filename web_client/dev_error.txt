@@ -1,0 +1,29 @@
+
+> renovation-ai@4.0.0 dev
+> next dev
+
+⚠ Port 3000 is in use by process 19184, using available port 3001 instead.
+▲ Next.js 16.2.0 (Turbopack)
+- Local:         http://localhost:3001
+- Network:       http://192.168.1.173:3001
+- Environments: .env.local
+✓ Ready in 1304ms
+- Experiments (use with caution):
+  · optimizePackageImports
+  · serverActions
+
+
+thread 'tokio-runtime-worker' (3352) panicked at C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\qfilter-0.3.0-alpha.2\src\lib.rs:709:9:
+CPU doesn't support the bmi2 instructions
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'tokio-runtime-worker' (4124) panicked at C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\qfilter-0.3.0-alpha.2\src\lib.rs:709:9:
+CPU doesn't support the bmi2 instructions
+[?25h
+npm error Lifecycle script `dev` failed with error:
+npm error code 4294967295
+npm error path C:\Users\User01\.gemini\antigravity\scratch\renovation-next\web_client
+npm error workspace renovation-ai@4.0.0
+npm error location C:\Users\User01\.gemini\antigravity\scratch\renovation-next\web_client
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c next dev

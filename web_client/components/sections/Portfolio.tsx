@@ -122,15 +122,15 @@ export function Portfolio() {
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
                 >
                     <AnimatePresence>
-                        {filteredProjects.map((project) => (
+                        {filteredProjects.map((project, idx) => (
                             <motion.div
                                 layout
                                 key={project.id}
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
+                                initial={{ opacity: 0, y: 40 }}
+                                whileInView={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.9 }}
-                                transition={{ duration: 0.3 }}
-                                viewport={{ margin: "-30% 0px -30% 0px" }}
+                                transition={{ duration: 0.5, delay: idx * 0.1, ease: 'easeOut' }}
+                                viewport={{ once: true, margin: "-30% 0px -30% 0px" }}
                                 onViewportEnter={() => isMobile && setHoveredProject(project.id)}
                                 onViewportLeave={() => isMobile && setHoveredProject(prev => prev === project.id ? null : prev)}
                                 className={cn(
@@ -140,16 +140,21 @@ export function Portfolio() {
                                 onMouseEnter={() => !isMobile && setHoveredProject(project.id)}
                                 onMouseLeave={() => !isMobile && setHoveredProject(null)}
                             >
-                                <Image
-                                    src={project.image}
-                                    alt={project.title}
-                                    fill
-                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                    className={cn(
-                                        "object-cover transition-transform duration-700 group-hover:scale-110",
-                                        hoveredProject === project.id && "scale-110"
-                                    )}
-                                />
+                                {/* Image wrapper — no parallax on mobile (performance) */}
+                                <div
+                                    className="absolute inset-0"
+                                >
+                                    <Image
+                                        src={project.image}
+                                        alt={project.title}
+                                        fill
+                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                        className={cn(
+                                            "object-cover transition-transform duration-700 group-hover:scale-110",
+                                            hoveredProject === project.id && "scale-110"
+                                        )}
+                                    />
+                                </div>
 
                                 {/* Overlay Gradient */}
                                 <div className={cn(

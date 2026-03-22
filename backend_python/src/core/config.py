@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = Field(None, description="Required for Gemini AI models")
     GOOGLE_API_KEY: str | None = Field(None, description="Legacy alias for GEMINI_API_KEY")
     PERPLEXITY_API_KEY: str | None = Field(None, description="Required for Market Prices")
+    PINECONE_API_KEY: str | None = Field(None, description="Required for RAG Vector Database")
     CHAT_MODEL_VERSION: str = Field(default="gemini-3.1-flash-lite-preview", description="Default model for chat and analysis")
     
     # Feature Flags (App Check enabled by default for production safety)

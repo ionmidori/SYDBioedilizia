@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Quote, Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useStaggerReveal } from '@/hooks/use-scroll-animation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -71,6 +72,16 @@ export function Testimonials() {
             text: "",
         },
     });
+
+    // ── ADK 1.27 Phase 5: Testimonials stagger reveal (Bold/Premium) ──
+    const testGridRef = useStaggerReveal<HTMLDivElement>(
+        '[data-testimonial-card="true"]',
+        {
+            y: 35,
+            stagger: 0.15,
+            start: "top 80%"
+        }
+    );
 
     // Mobile detection
     useEffect(() => {
@@ -245,14 +256,14 @@ export function Testimonials() {
                     </AnimatePresence>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <motion.div
+                    ref={testGridRef}
+                    className="grid grid-cols-1 md:grid-cols-3 gap-8"
+                >
                     {defaultTestimonials.map((t, idx) => (
                         <motion.div
                             key={t.id}
-                            initial={{ opacity: 0, y: 30 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true, margin: "-30% 0px -30% 0px" }}
-                            transition={{ delay: idx * 0.1 }}
+                            data-testimonial-card="true"
                             whileHover={{ scale: 1.02 }}
                             onViewportEnter={() => isMobile && setHoveredTestimonial(t.id)}
                             onViewportLeave={() => isMobile && setHoveredTestimonial(prev => prev === t.id ? null : prev)}
@@ -291,7 +302,7 @@ export function Testimonials() {
                             </div>
                         </motion.div>
                     ))}
-                </div>
+                </motion.div>
             </div>
         </section>
     );

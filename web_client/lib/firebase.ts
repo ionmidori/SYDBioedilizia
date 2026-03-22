@@ -49,12 +49,22 @@ if (typeof window !== 'undefined') {
 export const waitForAuth = (): Promise<void> => authReadyPromise;
 
 // Initialize Firestore with modern persistence
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-    })
-});
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from 'firebase/firestore';
+
+let db: ReturnType<typeof getFirestore>;
+
+try {
+    // Attempt to initialize with persistence and polling fallback
+    db = initializeFirestore(app, {
+        localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager()
+        }),
+        experimentalAutoDetectLongPolling: true
+    });
+} catch (error) {
+    // If already initialized (e.g., during Next.js Fast Refresh), retrieve the existing instance
+    db = getFirestore(app);
+}
 
 // Initialize Storage
 import { getStorage } from 'firebase/storage';

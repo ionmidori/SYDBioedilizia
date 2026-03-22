@@ -16,6 +16,7 @@ import { AuthDialog } from '@/components/auth/AuthDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerHaptic } from '@/lib/haptics';
 import { createStaggerVariants, M3Transition } from '@/lib/m3-motion';
+import { useStaggerReveal } from '@/hooks/use-scroll-animation';
 
 const services = [
     {
@@ -62,15 +63,23 @@ const services = [
     }
 ];
 
-// Initialize staggered variants for the grid
-const { container, item } = createStaggerVariants({ y: 30 }, 0.1);
-
 export function Services() {
     const { user } = useAuth();
     const router = useRouter();
     const [authDialogOpen, setAuthDialogOpen] = useState(false);
     const [hoveredService, setHoveredService] = useState<number | null>(null);
     const [isMobile, setIsMobile] = useState(false);
+
+    // ── ADK 1.27 Phase 3: Bold/Premium stagger reveal on Services cards ──
+    // scale: 0.95 entrance + y: 30px slide + 0.15s stagger = premium effect
+    const gridRef = useStaggerReveal<HTMLDivElement>(
+        '[role="article"]',
+        {
+            y: 30,
+            stagger: 0.15,
+            start: "top 80%"
+        }
+    );
 
     // Mobile detection for hover states
     useEffect(() => {
@@ -129,18 +138,15 @@ export function Services() {
                     </motion.p>
                 </div>
 
-                {/* Orchestrated Staggered Grid */}
-                <motion.div 
-                    variants={container}
-                    initial="hidden"
-                    whileInView="visible"
-                    viewport={{ once: true, margin: "-10% 0px" }}
+                {/* Orchestrated Staggered Grid with Scroll Reveal */}
+                <motion.div
+                    ref={gridRef}
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
                     {services.map((service, index) => (
                         <motion.div
                             key={index}
-                            variants={item}
+                            role="article"
                             whileHover={{ y: -4, transition: M3Transition.containerTransform }}
                             whileTap={{ scale: 0.98, transition: M3Transition.buttonPress }}
                             onViewportEnter={() => isMobile && setHoveredService(index)}
@@ -151,8 +157,8 @@ export function Services() {
                             className={cn(
                                 "group relative p-6 md:p-8 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer transition-all duration-500",
                                 "bg-white/5 border border-luxury-gold/10 backdrop-blur-md",
-                                hoveredService === index 
-                                    ? "border-luxury-gold/30 shadow-elevation-high shadow-luxury-teal/20" 
+                                hoveredService === index
+                                    ? "border-luxury-gold/30 shadow-elevation-high shadow-luxury-teal/20"
                                     : "shadow-elevation-low"
                             )}
                         >

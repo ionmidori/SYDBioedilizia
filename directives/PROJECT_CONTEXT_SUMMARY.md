@@ -4,13 +4,20 @@
 
 ## 🎯 Obiettivi Correnti (Phase 81c)
 1. **GDPR Account Lifecycle**: 3-phase inactivity pipeline deployed. Cloud Scheduler (03:00 Europe/Rome), 3 Firestore composite indexes (READY), Secret Manager. Endpoint: `POST /internal/lifecycle/run`.
-2. **Activity Tracking**: `activity_tracker.py` debounced `last_active_at` on every authenticated request (1 write/hour/user).
-3. **Mobile Swipe on PaneIndicator**: Framer Motion drag gesture on dots indicator (40px threshold, left/right swipe).
-4. **Batch Admin Pages**: `2_📦_Progetto_Completo.py`, `batch_repo.py`, `batch_admin_service.py` committed.
-5. **Inactivity Logout Fixed**: 2 auth bugs resolved — stale session guard + anonymous user flag.
-6. **Architecture Canonicalized**: Removed legacy multi-room-per-project layer. Architecture is now: 1 stanza = 1 progetto, N progetti = 1 batch.
+2. **Native RAG System**: Deployed Pinecone Serverless with Integrated Inference (`multilingual-e5-large`). Zero-latency retrieval for ADK agents without local embedding overhead.
+3. **Activity Tracking**: `activity_tracker.py` debounced `last_active_at` on every authenticated request (1 write/hour/user).
+4. **Mobile Swipe on PaneIndicator**: Framer Motion drag gesture on dots indicator (40px threshold, left/right swipe).
+5. **Batch Admin Pages**: `2_📦_Progetto_Completo.py`, `batch_repo.py`, `batch_admin_service.py` committed.
+6. **Architecture Canonicalized**: 1 stanza = 1 progetto, N progetti = 1 batch.
 
 ---
+
+- **Phase 81d (Mar 22, 2026):** **Native RAG System — Pinecone Integrated Inference (v4.2.0)**:
+    - **Integrated Inference**: Replaced `google-genai` local embedding logic with Pinecone Serverless native embedding (`multilingual-e5-large`).
+    - **Backend**: Updated `RAGService` in `src/services/rag_service.py` and `retrieve_knowledge_wrapper` in `src/tools/rag_tools.py` to parse new serverless `result.hits.fields` structure.
+    - **Ingestion**: Refactored `scripts/ingest_docs.py` to upsert raw text chunks. Populated `syd-knowledge` index (Namespace: `normative`).
+    - **ADK Tool**: `retrieve_knowledge_adk` fully functional and verified with zero-latency retrieval.
+    - **Status**: Production-Ready. Model: `gemini-2.5-flash-lite`. Commit ` pending`.
 
 - **Phase 81c (Mar 22, 2026):** **Architecture Canonicalized — Remove Multi-Room-Per-Project (v4.1.5)**:
     - **Removed**: `room_analysis_service.py`, `aggregation_engine.py`, `room_routes.py` (6 REST endpoints), `suggest_multi_room_quote` ADK tool, `<multi_room_protocol>` from MODE_B prompt, `RoomQuote`/`RoomType` Pydantic+Zod models, `QuoteItem.room_id` field, `QuoteSchema.rooms/aggregation_adjustments/aggregated_subtotal` fields.

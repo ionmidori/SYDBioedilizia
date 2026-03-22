@@ -103,6 +103,20 @@ async def get_market_prices(query: str) -> str:
     return await get_market_prices_wrapper(query)
 
 
+# ─── Knowledge RAG ───────────────────────────────────────────────────────────
+
+@instrumented_tool("retrieve_knowledge")
+async def retrieve_knowledge(query: str) -> str:
+    """Retrieves authoritative knowledge about renovation standards, laws, 
+    and SYD practices from the Pinecone vector database.
+    
+    Args:
+        query: The user query or concept to look up.
+    """
+    from src.tools.rag_tools import retrieve_knowledge_wrapper
+    return await retrieve_knowledge_wrapper(query)
+
+
 
 
 # ─── Render Generation ───────────────────────────────────────────────────────
@@ -111,6 +125,7 @@ async def get_market_prices(query: str) -> str:
 async def generate_render(
     prompt: str,
     session_id: str,
+    tool_context,
     style: str = "photorealistic",
     room_type: str = "interior",
     mode: str = "creation",
@@ -121,6 +136,7 @@ async def generate_render(
     Args:
         prompt: Detailed description of the interior design to render.
         session_id: The current project/session identifier (required for saving the render).
+        tool_context: ADK ToolContext injected automatically by the runner.
         style: Design style (e.g. 'modern', 'industrial', 'minimalist', 'rustic').
         room_type: Type of room (e.g. 'living room', 'kitchen', 'bathroom').
         mode: 'creation' for text-to-image, 'modification' to transform an uploaded photo.
@@ -140,6 +156,30 @@ async def generate_render(
             source_image_url=source_image_url or None,
         )
         _logger.info(f"[ADK Tool] generate_render completed. Status: {result.get('status')}, session: {session_id}")
+
+        # ADK 1.27 Artifact Service: register the render as an artifact so
+        # other agents (e.g. quote_agent) can reference it cross-session.
+        if result.get("status") == "success" and result.get("imageUrl"):
+            try:
+                from google.genai import types as genai_types
+                image_url = result["imageUrl"]
+                artifact_filename = f"render_{session_id}_{mode}.png"
+                artifact = genai_types.Part(
+                    file_data=genai_types.FileData(
+                        file_uri=image_url,
+                        mime_type="image/png",
+                    )
+                )
+                version = await tool_context.save_artifact(artifact_filename, artifact)
+                result["artifact_filename"] = artifact_filename
+                result["artifact_version"] = version
+                _logger.info(
+                    f"[ADK Tool] generate_render: artifact saved '{artifact_filename}' v{version}"
+                )
+            except Exception as art_err:
+                # Non-fatal: image is already in Firebase Storage
+                _logger.warning(f"[ADK Tool] generate_render: artifact save skipped ({art_err})")
+
         return result
     except Exception as e:
         _logger.error(f"[ADK Tool] generate_render FAILED for session {session_id}: {e}", exc_info=True)
@@ -251,12 +291,31 @@ async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict
 
 # ─── Auth / Login ────────────────────────────────────────────────────────────
 
-async def request_login() -> str:
+async def request_login(tool_context) -> str:
     """Triggers the login/authentication card in the user interface.
-    
-    Call this when a guest user (unauthenticated) requests a premium feature 
+
+    Call this when a guest user (unauthenticated) requests a premium feature
     (renders, quotes, CAD) or when their identity is required.
+
+    Args:
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
+    import logging as _logging
+    _logger = _logging.getLogger(__name__)
+
+    try:
+        from google.adk.events.ui_widget import UiWidget
+        widget = UiWidget(
+            id="login-card",
+            provider="syd",
+            payload={"widget_type": "login_card"},
+        )
+        tool_context.render_ui_widget(widget)
+        _logger.info("[ADK Tool] request_login: UiWidget rendered via tool_context")
+    except Exception as e:
+        # Graceful fallback: frontend still handles the plain string signal
+        _logger.warning(f"[ADK Tool] request_login: UiWidget render failed ({e}), falling back to plain signal")
+
     return "LOGIN_REQUIRED_TRIGGERED"
 
 
@@ -272,3 +331,4 @@ list_project_files_adk = FunctionTool(list_project_files)
 suggest_quote_items_adk = FunctionTool(suggest_quote_items)
 trigger_n8n_webhook_adk = FunctionTool(trigger_n8n_webhook)
 request_login_adk = FunctionTool(request_login)
+retrieve_knowledge_adk = FunctionTool(retrieve_knowledge)

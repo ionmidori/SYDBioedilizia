@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
@@ -10,11 +11,19 @@ import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
 import { resetPasswordSchema, type ResetPasswordValues } from '@/lib/validation/auth-schema';
 import { triggerHaptic } from '@/utils/haptics';
+import { useScrollReveal } from '@/hooks/use-scroll-animation';
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
+
+    // ── ADK 1.27 Phase 6: Footer scroll reveal (Minimal/Elegant) ──
+    const footerRef = useScrollReveal<HTMLElement>({
+        y: 20,
+        duration: 0.6,
+        start: "bottom 90%"
+    });
 
     const {
         register,
@@ -49,7 +58,10 @@ export function Footer() {
     };
 
     return (
-        <footer className="bg-luxury-bg border-t border-luxury-gold/10 pt-20 pb-10 relative overflow-hidden">
+        <motion.footer
+            ref={footerRef}
+            className="bg-luxury-bg border-t border-luxury-gold/10 pt-20 pb-10 relative overflow-hidden"
+        >
 
             {/* Decorative Glow */}
             <div className="absolute bottom-0 left-0 w-full h-[500px] bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
@@ -183,6 +195,6 @@ export function Footer() {
                 </div>
             </div>
 
-        </footer>
+        </motion.footer>
     );
 }

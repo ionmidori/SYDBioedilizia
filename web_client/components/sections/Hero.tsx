@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { M3Spring } from '@/lib/m3-motion';
+import { useScrollParallax } from '@/hooks/use-scroll-animation';
 import { Button } from '@/components/ui/button';
 import { PlayCircle, Zap, Palette, FileText } from 'lucide-react';
 import { SlideShowModal } from './SlideShowModal';
@@ -73,14 +74,20 @@ export function Hero() {
     const [isSlideShowOpen, setIsSlideShowOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
 
+    // ── ADK 1.27 Phase 2: Parallax effect on hero video (speed: 0.25 — premium depth) ──
+    const videoContainerRef = useScrollParallax<HTMLDivElement>({
+        speed: 0.25,
+        direction: 'y'
+    });
+
     // Mobile detection
     useEffect(() => {
         // Run only once on mount to avoid cascading renders
         const handleResize = () => setIsMobile(window.innerWidth < 768);
-        
+
         // Wrap in timeout to avoid sync setState warning in effect body
         const timerId = setTimeout(handleResize, 0);
-        
+
         window.addEventListener('resize', handleResize);
         return () => {
             clearTimeout(timerId);
@@ -198,8 +205,9 @@ export function Hero() {
                     </div>
                 </motion.div>
 
-                {/* Desktop Video - Right Column */}
+                {/* Desktop Video - Right Column with Parallax */}
                 <motion.div
+                    ref={videoContainerRef}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.15, ...M3Spring.standard }}

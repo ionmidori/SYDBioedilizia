@@ -23,6 +23,7 @@ from src.adk.tools import (
     trigger_n8n_webhook_adk,
     request_quote_approval_adk,
     request_login_adk,
+    retrieve_knowledge_adk,
 )
 
 # ── Prompt Components ─────────────────────────────────────────────────────────
@@ -225,7 +226,7 @@ QUOTE_AGENT_INSTRUCTION = "\n\n".join([
 triage_agent = Agent(
     name="triage",
     model="gemini-3.1-flash-lite-preview",
-    tools=[show_project_gallery_adk],
+    tools=[show_project_gallery_adk, retrieve_knowledge_adk],
     instruction=TRIAGE_AGENT_INSTRUCTION,
 )
 
@@ -246,6 +247,7 @@ quote_agent = Agent(
         trigger_n8n_webhook_adk,
         request_quote_approval_adk,
         request_login_adk,
+        retrieve_knowledge_adk,
     ],
     instruction=QUOTE_AGENT_INSTRUCTION,
 )
