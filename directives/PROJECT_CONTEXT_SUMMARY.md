@@ -1,15 +1,22 @@
-# PROJECT CONTEXT SUMMARY (v4.1.4)
-**Ultimo aggiornamento:** 21 Marzo 2026 (Phase 81b)
-**Status:** Production-Ready — GDPR Lifecycle + Mobile Swipe Complete
+# PROJECT CONTEXT SUMMARY (v4.1.5)
+**Ultimo aggiornamento:** 22 Marzo 2026 (Phase 81c)
+**Status:** Production-Ready — GDPR Lifecycle + Architecture Canonicalized
 
-## 🎯 Obiettivi Correnti (Phase 81b)
+## 🎯 Obiettivi Correnti (Phase 81c)
 1. **GDPR Account Lifecycle**: 3-phase inactivity pipeline deployed. Cloud Scheduler (03:00 Europe/Rome), 3 Firestore composite indexes (READY), Secret Manager. Endpoint: `POST /internal/lifecycle/run`.
 2. **Activity Tracking**: `activity_tracker.py` debounced `last_active_at` on every authenticated request (1 write/hour/user).
 3. **Mobile Swipe on PaneIndicator**: Framer Motion drag gesture on dots indicator (40px threshold, left/right swipe).
 4. **Batch Admin Pages**: `2_📦_Progetto_Completo.py`, `batch_repo.py`, `batch_admin_service.py` committed.
 5. **Inactivity Logout Fixed**: 2 auth bugs resolved — stale session guard + anonymous user flag.
+6. **Architecture Canonicalized**: Removed legacy multi-room-per-project layer. Architecture is now: 1 stanza = 1 progetto, N progetti = 1 batch.
 
 ---
+
+- **Phase 81c (Mar 22, 2026):** **Architecture Canonicalized — Remove Multi-Room-Per-Project (v4.1.5)**:
+    - **Removed**: `room_analysis_service.py`, `aggregation_engine.py`, `room_routes.py` (6 REST endpoints), `suggest_multi_room_quote` ADK tool, `<multi_room_protocol>` from MODE_B prompt, `RoomQuote`/`RoomType` Pydantic+Zod models, `QuoteItem.room_id` field, `QuoteSchema.rooms/aggregation_adjustments/aggregated_subtotal` fields.
+    - **Kept**: `AggregationAdjustment` model (used by batch advisory), `BatchAggregationEngine`, `aggregation_rules.json`.
+    - **Architecture**: 1 stanza = 1 progetto, N progetti = 1 batch submission. Canonical and unambiguous.
+    - **Status**: 0 TS errors, backend imports clean. Commit `2d12faf`.
 
 - **Phase 81b (Mar 21, 2026):** **Mobile Swipe + Batch Admin Pages (v4.1.4)**:
     - **Mobile UX**: `PaneIndicator` in `MobileSwipeLayout.tsx` wraps dots in `motion.div` with `drag="x"` + `onDragEnd`. Swipe left/right 40px threshold navigates panes. `select-none` prevents text selection during drag.
@@ -75,10 +82,11 @@
 
 ---
 
-- **Current Version**: `v4.1.4`
+- **Current Version**: `v4.1.5`
 - **Production Audit Status**: 51/51 items complete ✅ All production audit items implemented
 - **Security Status**: Backend 0 CVEs (`pip-audit`). Frontend: 0 High/Critical/Moderate (`npm audit` exit 0). GDPR lifecycle + N8N HMAC-SHA256 complete.
 - **Test Coverage**: Backend 461 passing, Frontend 0 TS errors.
 - **GDPR Status**: 3-phase lifecycle deployed ✅. Cloud Scheduler active. Firestore indexes READY.
-- **Next High Priority**: 1) Run live evals (5 cases, 3 agents) | 2) Scroll animations on landing page | 3) Multi-room aggregation phase | 4) Deploy Batch UI to Production Cloud Run
+- **Architecture**: 1 stanza = 1 progetto → N progetti → 1 batch (canonical, no legacy multi-room per project).
+- **Next High Priority**: 1) Run live evals (5 cases, 3 agents) | 2) Scroll animations on landing page | 3) Deploy Batch UI to Production Cloud Run
 
