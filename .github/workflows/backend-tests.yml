@@ -1,4 +1,4 @@
-﻿name: 'Backend Python Tests'
+name: 'Backend Python Tests'
 
 on:
   push:
@@ -31,15 +31,15 @@ jobs:
     
     steps:
       - name: 'Checkout code'
-        uses: 'actions/checkout@v4'
+        uses: actions/checkout@v4
 
       - name: 'Set up Python'
-        uses: 'actions/setup-python@v5'
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: 'Install uv'
-        uses: 'astral-sh/setup-uv@v5'
+        uses: astral-sh/setup-uv@v5
         with:
           version: 'latest'
 
@@ -60,8 +60,7 @@ jobs:
           uv run pytest -v --tb=short --cov=src --cov-report=term-missing -m "not integration"
 
       - name: 'Upload coverage'
-        if: 'always()'
-        uses: 'codecov/codecov-action@v5'
+        uses: codecov/codecov-action@v5
         with:
           files: './backend_python/coverage.xml'
           flags: 'backend-python'
