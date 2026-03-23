@@ -20,9 +20,6 @@ import os
 
 import httpx
 import streamlit as st
-from dotenv import load_dotenv
-
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
