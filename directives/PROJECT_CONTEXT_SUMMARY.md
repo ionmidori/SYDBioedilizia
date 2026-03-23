@@ -23,6 +23,7 @@
     - **Frontend (UI)**: Created `AdminImageUpload.tsx` component with `react-dropzone` and client-side WebP compression (`browser-image-compression`).
     - **Integration**: Added "Nuova Foto" action button and M3-style upload modal to `GlobalGalleryContent.tsx` in the Next.js dashboard.
     - **Environment**: Fixed `LIFECYCLE_SECRET` typo and duplicate `INTERNAL_JWT_SECRET` in `.env.local`.
+    - **Security**: Fixed **H1** (Passkey signature verification) by migrating to `python-fido2` 2.1.1 and **C3** (Admin XSRF) by re-enabling protection in `Dockerfile`.
     - **Status**: Production-ready. Verified via `pytest` and health checks.
 
 - **Phase 81e (Mar 22, 2026):** **Mobile UI Polish & UX Hardening (v4.2.1)**:
