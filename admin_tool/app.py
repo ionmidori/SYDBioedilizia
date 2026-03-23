@@ -56,10 +56,17 @@ authenticator = stauth.Authenticate(
 )
 
 # ─── Login form + session state population ────────────────────────────────────
-authenticator.login()
+try:
+    name, authentication_status, username = authenticator.login("Login", "main")
+except Exception as e:
+    logger.warning("Auth error (stale cookie?): %s — resetting session.", e)
+    st.session_state.clear()
+    st.warning("⚠️ Sessione non valida. Cancella i cookie del browser se il problema persiste.")
+    st.stop()
+    authentication_status = None
 
-if st.session_state.get("authentication_status"):
-    st.sidebar.title(f"👤 {st.session_state.get('name', 'Admin')}")
+if authentication_status:
+    st.sidebar.title(f"👤 {name}")
     authenticator.logout("Logout", "sidebar")
     st.sidebar.info("Usa il menu di navigazione ↑ per accedere alle sezioni.")
 
@@ -68,9 +75,9 @@ if st.session_state.get("authentication_status"):
     st.markdown(
         """
         Benvenuto nella console di amministrazione.
-        
+
         Seleziona una sezione dal menu laterale:
-        
+
         | Sezione | Descrizione |
         |---|---|
         | 🏠 Dashboard | KPI in tempo reale, trend approvazioni, riepilogo recensioni |
@@ -83,7 +90,7 @@ if st.session_state.get("authentication_status"):
         """
     )
 
-elif st.session_state.get("authentication_status") is False:
+elif authentication_status is False:
     st.error("❌ Username o password non corretti.")
-elif st.session_state.get("authentication_status") is None:
+elif authentication_status is None:
     st.info("👆 Inserisci le credenziali nel form qui sopra per accedere.")
