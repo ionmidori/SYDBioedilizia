@@ -1,0 +1,10 @@
+credentials:
+  usernames:
+    admin:
+      name: Admin Name
+      email: admin@example.com
+      password: hashed_password_here
+cookie:
+  expiry_days: 30
+  key: your_cookie_signing_key_here
+  name: syd_admin_session

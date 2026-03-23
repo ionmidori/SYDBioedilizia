@@ -86,6 +86,9 @@ __pycache__/
 .coverage
 htmlcov/
 
+# admin tool secrets
+admin_tool/config.yaml
+
 # project memory (allow directives for architectural continuity)
 !directives/
 docs/
