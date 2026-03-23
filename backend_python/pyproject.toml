@@ -25,6 +25,7 @@ dependencies = [
     "aiosmtplib>=5.1.0",
     "reportlab>=4.4.10",
     "google-cloud-modelarmor>=0.1.0",
+    "fido2>=1.2.0",
 ]
 
 [project.optional-dependencies]
