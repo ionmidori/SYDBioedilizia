@@ -10,8 +10,6 @@ import { SignInButton } from '@/components/auth/SignInButton';
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
 import { useAuth } from '@/hooks/useAuth';
-import gsap from 'gsap';
-import ScrollTrigger from 'gsap/ScrollTrigger';
 import {
     Sheet,
     SheetContent,
@@ -20,8 +18,6 @@ import {
     SheetHeader,
     SheetDescription,
 } from "@/components/ui/sheet";
-
-gsap.registerPlugin(ScrollTrigger);
 
 /**
  * Trigger a short haptic feedback on supported mobile devices
@@ -68,38 +64,16 @@ export function Navbar() {
         };
     }, [contactMenuOpen, contactMenuOpenDesktop]);
 
-    // ── GSAP ScrollTrigger: Progressive navbar backdrop blur ──
-    // Interpolates backdrop-blur: 0px → 12px as user scrolls 0px → 50px
+    // ── Native CSS Scroll Handling for Glassmorphism ──
     useEffect(() => {
-        const navElement = navRef.current;
-        if (!navElement) return;
-
-        const tl = gsap.timeline({
-            scrollTrigger: {
-                trigger: document.body,
-                start: "top 0",
-                end: "top 50px",
-                scrub: 0.3,  // smooth scrub for fluid interpolation
-                onUpdate: (self) => {
-                    // Progress: 0 → 1 as scroll: 0px → 50px
-                    const blurAmount = self.progress * 12;
-                    gsap.set(navElement, {
-                        backdropFilter: `blur(${blurAmount}px)`,
-                    });
-                }
-            }
-        });
-
-        // Fallback for older browsers/edge cases: set isScrolled state
         const handleScroll = () => {
             setIsScrolled(window.scrollY > 20);
         };
+        
         window.addEventListener('scroll', handleScroll, { passive: true });
+        handleScroll(); // Check on mount
 
-        return () => {
-            tl.scrollTrigger?.kill();
-            window.removeEventListener('scroll', handleScroll);
-        };
+        return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     const pathname = usePathname();
