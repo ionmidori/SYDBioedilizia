@@ -3,8 +3,11 @@ Admin Service: orchestrates the quote approval pipeline.
 
 Skill: building-admin-dashboards — §Approval actions
 Skill: generating-pdf-documents — §FastAPI Route Pattern (run_in_threadpool)
+
+Architecture note:
+- PDF generation (CPU-bound) runs in a dedicated ThreadPoolExecutor.
+- n8n delivery is synchronous (httpx.Client) — no asyncio needed in Streamlit context.
 """
-import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -110,8 +113,8 @@ class AdminService:
         """
         Full approval pipeline: PDF generation → Storage upload → n8n delivery → DB update.
 
-        PDF is generated synchronously in a thread pool (CPU-bound).
-        Delivery webhook is called via asyncio.run() since Streamlit is synchronous.
+        PDF is generated in a dedicated thread pool (CPU-bound, non-blocking).
+        n8n delivery is fully synchronous (httpx.Client) — no asyncio required.
 
         Args:
             project_id: Target project.
@@ -126,32 +129,20 @@ class AdminService:
         if admin_notes:
             quote_data["admin_notes"] = admin_notes
 
-        # 3. Generate PDF in thread pool (CPU-bound) + deliver n8n webhook
-        # Single event loop for both operations — avoids resource overhead of two loops.
+        # 3. Generate PDF in thread pool (CPU-bound) — blocks until done
         logger.info("Generating PDF...", extra={"project_id": project_id})
-        loop = asyncio.new_event_loop()
-        try:
-            pdf_url: str = loop.run_until_complete(
-                loop.run_in_executor(
-                    _PDF_EXECUTOR,
-                    self.pdf_service.generate_and_deliver,
-                    quote_data,
-                )
-            )
+        future = _PDF_EXECUTOR.submit(self.pdf_service.generate_and_deliver, quote_data)
+        pdf_url: str = future.result()  # raises on exception, propagates to caller
 
-            # 4. Fetch real client info from project document
-            client_data = self.repo.get_client_info(project_id)
-            grand_total: float = quote_data.get("financials", {}).get("grand_total", 0.0)
+        # 4. Fetch real client info from project document
+        client_data = self.repo.get_client_info(project_id)
+        grand_total: float = quote_data.get("financials", {}).get("grand_total", 0.0)
 
-            # 5. Trigger n8n webhook (async HTTP) — reuse same loop
-            logger.info("Triggering n8n delivery...", extra={"project_id": project_id})
-            loop.run_until_complete(
-                self.delivery_service.deliver_quote(
-                    project_id, pdf_url, client_data, grand_total
-                )
-            )
-        finally:
-            loop.close()
+        # 5. Trigger n8n webhook (sync HTTP via httpx.Client)
+        logger.info("Triggering n8n delivery...", extra={"project_id": project_id})
+        self.delivery_service.deliver_quote(
+            project_id, pdf_url, client_data, grand_total
+        )
 
         # 6. Update DB status + notes
         self.repo.update_quote(

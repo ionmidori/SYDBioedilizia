@@ -27,21 +27,36 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
     React.useEffect(() => {
         const updateConstraints = () => {
             const isMobile = window.innerWidth < 768;
-            // Dimesioni del contenitore principale
+            
+            // L'immagine originale di Syd ha molto spazio trasparente attorno.
+            // Il contenitore è 158px/208px, ma il nucleo visibile (Syd e la nuvola) 
+            // è decisamente più piccolo e spostato verso destra.
+            // Pertanto, permettiamo al drag di sforare le dimensioni fisiche classiche
+            // permettendo valori più estremi a sinistra e in basso per allinearlo visivamente al bordo.
+            
             const elementSize = isMobile ? 158 : 208;
-            // Margini dati da bottom-4 right-4 (16px) o bottom-6 right-6 (24px)
             const margin = isMobile ? 16 : 24;
             
-            // Calcoliamo la distanza massima in negativo per non uscire dallo schermo
-            // a sinistra (left) e in alto (top)
-            const maxLeftDrag = -(window.innerWidth - elementSize - margin);
+            // L'offset visivo (trasparenza) che possiamo spingere "fuori" dallo schermo.
+            // Permettiamo di spostarlo più a sinistra (es. 48px in più su mobile)
+            const visualOffsetLeft = isMobile ? 48 : 32;
+            
+            // Permettiamo di spostarlo molto più in basso prima di bloccarlo
+            // poichè la base dell'immagine trasparente tocca in basso
+            const visualOffsetBottom = isMobile ? 24 : 32;
+
+            // Calcoliamo la distanza massima in negativo (da destra verso sinistra, dal basso verso l'alto)
+            const maxLeftDrag = -(window.innerWidth - elementSize - margin) - visualOffsetLeft;
             const maxTopDrag = -(window.innerHeight - elementSize - margin);
+            
+            // Permettiamo di scendere leggermente più in basso rispetto al punto di partenza (bottom 0)
+            const maxBottomDrag = visualOffsetBottom;
 
             setConstraints({
                 top: maxTopDrag,
                 left: maxLeftDrag,
                 right: 0,
-                bottom: 0
+                bottom: maxBottomDrag
             });
         };
 
@@ -113,7 +128,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                 "flex items-center justify-end gap-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
                 isOpen ? "translate-x-0" : "translate-x-12 md:translate-x-8"
             )}>
-                <div className="pointer-events-auto -mr-12 md:-mr-22 -translate-y-20 md:-translate-y-24 z-10">
+                <div className="pointer-events-auto -mr-16 md:-mr-24 -translate-y-20 md:-translate-y-24 z-10">
                     <WelcomeBadge isOpen={isOpen} onOpenChat={onClick} />
                 </div>
                 <Button

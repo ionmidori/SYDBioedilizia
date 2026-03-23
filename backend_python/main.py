@@ -385,6 +385,10 @@ app.include_router(feedback_router)
 from src.api.routes.webhook_routes import router as webhook_router
 app.include_router(webhook_router)
 
+# Register admin storage router (Signed URLs for direct upload)
+from src.api.routes.admin_storage import router as admin_storage_router
+app.include_router(admin_storage_router)
+
 # Register account lifecycle routes (GDPR inactivity pipeline — Cloud Scheduler only)
 from src.api.routes.lifecycle_routes import router as lifecycle_router
 app.include_router(lifecycle_router)

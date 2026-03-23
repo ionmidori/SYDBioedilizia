@@ -2,7 +2,10 @@
 Delivery Service: triggers n8n webhook to deliver an approved quote.
 
 Skill: n8n-mcp-integration
-Pattern: httpx async POST + tenacity exponential backoff.
+Pattern: httpx sync POST + tenacity exponential backoff.
+
+NOTE: Synchronous (not async) — Streamlit runs in a sync context and has its
+own event loop. Using httpx.Client avoids asyncio.new_event_loop() conflicts.
 """
 import os
 import logging
@@ -26,7 +29,7 @@ class DeliveryService:
         retry=retry_if_exception_type(httpx.HTTPStatusError),
         reraise=True,
     )
-    async def deliver_quote(
+    def deliver_quote(
         self,
         project_id: str,
         pdf_url: str,
@@ -37,6 +40,7 @@ class DeliveryService:
         Trigger n8n webhook (Mode A: FastAPI → n8n).
 
         Payload schema matches SKILL.md §n8n Workflow: Deliver Quote.
+        Synchronous — uses httpx.Client to avoid event loop conflicts in Streamlit.
 
         Args:
             project_id: Firestore project ID.
@@ -45,7 +49,7 @@ class DeliveryService:
             quote_total: Grand total (€) for n8n display.
 
         Returns:
-            True on success, False on mock/failure.
+            True on success.
 
         Raises:
             httpx.HTTPStatusError: after 3 retries.
@@ -55,7 +59,6 @@ class DeliveryService:
                 "N8N_WEBHOOK_DELIVER_QUOTE not set. Mocking delivery.",
                 extra={"project_id": project_id, "pdf_url": pdf_url},
             )
-            print(f"📦 [MOCK DELIVERY] Project: {project_id} → PDF: {pdf_url}")
             return True
 
         payload: dict = {
@@ -69,8 +72,8 @@ class DeliveryService:
             "delivery_channel": "email",
         }
 
-        async with httpx.AsyncClient(timeout=_N8N_TIMEOUT) as client:
-            response = await client.post(self.webhook_url, json=payload)
+        with httpx.Client(timeout=_N8N_TIMEOUT) as client:
+            response = client.post(self.webhook_url, json=payload)
             response.raise_for_status()
 
         logger.info("Quote delivered via n8n.", extra={"project_id": project_id})

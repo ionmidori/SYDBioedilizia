@@ -267,4 +267,4 @@ Edit `test_config.json`:
 
 ---
 
-**Updated**: March 20, 2026 — Phase 80d (v4.1.3)
+**Updated**: March 22, 2026 — Phase 81e (v4.2.1)
