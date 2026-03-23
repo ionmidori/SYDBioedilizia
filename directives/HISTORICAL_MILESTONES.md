@@ -416,3 +416,42 @@ eError` (await su snapshot sincroni).
 ## 🛡️ Fase 77: Repository Audit & Standard Compliance (Mar 18, 2026)
 - **Cleanup**: Rimozione file temporanei e log dump.
 - **Professional Integrity**: Allineamento root agli standard Enterprise Next.js/FastAPI.
+
+## 🧠 Fase 81d: Native RAG System — Pinecone Integrated Inference (Mar 22, 2026)
+*Sostituzione dell'embedding locale con l'inferenza integrata serverless di Pinecone.*
+- **Integrated Inference**: Eliminazione della dipendenza da `google-genai` per la vettorializzazione in locale. Implementato modello `multilingual-e5-large` direttamente sui server Pinecone.
+- **Zero-Latency Retrieval**: Tempi di ricerca ridotti grazie al bypass dell'API di vettorializzazione di Google intermedia.
+- **ADK Tool Sync**: Refactoring completo del wrapper `retrieve_knowledge_wrapper` e del servizio `RAGService` per estrarre il testo dal nuovo formato `result.hits.fields`.
+- **Status**: Production-Ready. Index `syd-knowledge` popolato.
+
+## 🖼️ Fase 82b: Portfolio Admin + Cloud Run Deploy (Mar 23, 2026)
+*Admin dashboard completo con gestione portfolio immagini e deploy su Cloud Run.*
+- **Portfolio Admin Page**: `pages/5_🖼️_Portfolio.py` — routing list/add/edit, thumbnail, visibility toggle, upload via `st.file_uploader` → `PortfolioService.upload_image()`.
+- **Service Layer**: `portfolio_repo.py` (Firestore CRUD `portfolio_projects`) + `portfolio_service.py` (Admin SDK direct upload `make_public()` → permanent public URL).
+- **Frontend Sync**: `Portfolio.tsx` refactored con `PortfolioItem` type, hover `string | number | null`, `useEffect` Firestore read (active==true, orderBy order) con fallback silenzioso ai defaults.
+- **Firestore Rules**: Regola `portfolio_projects` public read deployata su `chatbotluca-a8a73`.
+- **Cloud Run**: Dockerfile single-stage `python:3.12-slim`, ADC Firebase (no service account JSON), porta 8080, utente non-root. Repo AR dedicata `syd-admin-repo` (bypass SLSA attestation bug su `cloud-run-source-deploy`). URL live: https://syd-admin-972229558318.europe-west1.run.app
+- **Versioning**: Rilascio `v4.3.1`.
+
+## 📱 Fase 81e: Mobile UI Polish & UX Hardening (Mar 22, 2026)
+*Perfezionamento dell'interfaccia mobile della chat e fix di stabilità per il backend Firestore.*
+- **Chat UI Ergonomics**: Ridefinizione dei limiti di trascinamento (drag constraints) del bottone `ChatToggleButton` per prevenire la scomparsa dal viewport permettendo comunque una customizzazione flessibile all'utente.
+- **Safe Area Support**: Implementato `env(safe-area-inset-*)` direttamente via CSS sul root del widget chat per evitare sovrapposizioni con la notch e l'home indicator di iOS/Android.
+- **WelcomeBadge Realignment**: Ottimizzata la posizione del bubble di benvenuto per un'integrazione visiva più fluida con l'avatar.
+- **Firebase Stability**: Applicato `experimentalAutoDetectLongPolling` a Firestore e aggiunto blocco `try/catch` contro la multi-inizializzazione per risolvere i bug di disconnessione dei WebSocket (`[code=unavailable]`) introdotti da Next.js 16.2.0 Turbopack.
+- **Versioning**: Rilascio `v4.2.1`.
+
+---
+
+## 📈 Fasi 76-80f: Consolidamento Infrastrutturale & Security Audit (Marzo 2026)
+*Fase di transizione verso l'orchestrazione ADK e refactoring sistematico.*
+
+- **Phase 80f (Mar 21, 2026):** **Inactivity Auth Bug Fix (v4.1.3)**: Risolti bug su sessioni stale e flag anonimi.
+- **Phase 80d (Mar 20, 2026):** **ADK Eval Infrastructure**: npm targets per eval suite e rubriche SYD validate.
+- **Phase 80c (Mar 20, 2026):** **Mobile Scroll & Webhook Security**: Fix viewport iOS e HMAC n8n validation.
+- **Phase 80b (Mar 20, 2026):** **Cold Start Optimization**: Lifespan warmup non-blocking e lazy-imports.
+- **Phase 80a (Mar 20, 2026):** **Admin Approval Dashboard**: Dashboard "Progetto Completo" in Streamlit operativa.
+- **Phase 79 (Mar 18, 2026):** **CVE Remediation**: Pipeline `pip-audit` e `npm audit` pulite (0 CVE).
+- **Phase 78 (Mar 18, 2026):** **Dependency Hardening**: Rimozione completa legacy LangGraph/LangChain.
+- **Phase 77 (Mar 18, 2026):** **Repository Audit**: Sanificazione radicale dei file junk tracciati.
+- **Phase 76 (Mar 18, 2026):** **Skills Registry Update**: Sincronizzazione finale delle 38 skill attive.

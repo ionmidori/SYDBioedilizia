@@ -1,0 +1,31 @@
+# Secrets — NEVER bake into image
+.env
+firebase-service-account.json
+
+# Dev/test artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# One-off scripts not needed at runtime
+hash_password.py
+seed_batch.py
+test_auth.py
+test_db.py
+scripts/
+
+# IDE and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docs
+*.md

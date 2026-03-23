@@ -172,6 +172,16 @@ service cloud.firestore {
     }
 
     // ==========================================
+    // PORTFOLIO PROJECTS COLLECTION
+    // ==========================================
+    // Public read — displayed on landing page (active items only filtered client-side)
+    // Write admin-only via Admin SDK (bypasses rules)
+    match /portfolio_projects/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ==========================================
     // DEFAULT RULE - DENY ALL
     // ==========================================
     // Deny access to all other collections

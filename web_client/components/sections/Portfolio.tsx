@@ -6,9 +6,20 @@ import { ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-// Placeholder content - In production these would be your generated AI renders
-const projects = [
+interface PortfolioItem {
+    id: string | number;
+    title: string;
+    category: string;
+    location: string;
+    image: string;
+    description: string;
+    stats: { area: string; duration: string; budget: string };
+}
+
+const defaultProjects: PortfolioItem[] = [
     {
         id: 1,
         title: 'Villa Moderna',
@@ -69,8 +80,9 @@ const categories = ['Tutti', 'Soggiorno', 'Cucina', 'Bagno', 'Esterni'];
 
 export function Portfolio() {
     const [activeCategory, setActiveCategory] = useState('Tutti');
-    const [hoveredProject, setHoveredProject] = useState<number | null>(null);
+    const [hoveredProject, setHoveredProject] = useState<string | number | null>(null);
     const [isMobile, setIsMobile] = useState(false);
+    const [projects, setProjects] = useState<PortfolioItem[]>(defaultProjects);
 
     // Mobile detection
     useEffect(() => {
@@ -79,6 +91,43 @@ export function Portfolio() {
         handleResize(); // Initial check
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Load from Firestore; fall back to defaultProjects on error or empty collection
+    useEffect(() => {
+        const loadPortfolio = async () => {
+            try {
+                const snap = await getDocs(
+                    query(
+                        collection(db, 'portfolio_projects'),
+                        where('active', '==', true),
+                        orderBy('order')
+                    )
+                );
+                if (!snap.empty) {
+                    const items: PortfolioItem[] = snap.docs.map(doc => {
+                        const d = doc.data();
+                        return {
+                            id: doc.id,
+                            title: d.title ?? '',
+                            category: d.category ?? '',
+                            location: d.location ?? '',
+                            image: d.image_url ?? '',
+                            description: d.description ?? '',
+                            stats: {
+                                area: d.stats?.area ?? '',
+                                duration: d.stats?.duration ?? '',
+                                budget: d.stats?.budget ?? '',
+                            },
+                        };
+                    });
+                    setProjects(items);
+                }
+            } catch {
+                // Silent fallback — defaultProjects remain in state
+            }
+        };
+        loadPortfolio();
     }, []);
 
     const filteredProjects = activeCategory === 'Tutti'

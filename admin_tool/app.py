@@ -79,6 +79,7 @@ if st.session_state.get("authentication_status"):
         | 📦 Lotti | Gestione dei preventivi multi-progetto (batch) |
         | 💰 Listino Prezzi | Master Price Book con dual-write Firestore + JSON |
         | 🛡️ GDPR Monitor | Trigger manuale pipeline inattività GDPR (3 fasi) |
+        | 🖼️ Portfolio | Gestione gallery "I Nostri Capolavori" con upload immagini |
         """
     )
 
