@@ -15,7 +15,8 @@ import {
     Search,
     Loader2,
     FolderKanban,
-    Layers
+    Layers,
+    X
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useGalleryAssets } from '@/hooks/use-gallery';
