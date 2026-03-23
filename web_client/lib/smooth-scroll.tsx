@@ -94,7 +94,7 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
         duration: 1.2,
         smoothWheel: true,
         wheelMultiplier: 1,
-        touchMultiplier: 2,
+        touchMultiplier: 1,
         easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       }}
     >

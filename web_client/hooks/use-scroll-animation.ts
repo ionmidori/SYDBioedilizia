@@ -7,8 +7,28 @@ import { useGSAP } from '@gsap/react';
 
 gsap.registerPlugin(ScrollTrigger);
 
+// ─── Device / Motion Utilities ────────────────────────────────────────────────
+
+/** True when the OS/browser has requested reduced motion. */
+const prefersReducedMotion = (): boolean =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * True on touch-primary devices (phones, tablets).
+ * Uses `pointer: coarse` — more reliable than UA sniffing or innerWidth.
+ */
+const isMobileDevice = (): boolean =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(pointer: coarse)').matches;
+
+// ─── Hooks ────────────────────────────────────────────────────────────────────
+
 /**
  * useScrollReveal — fade-in + translate on scroll enter.
+ *
+ * Mobile: smaller y offset (max 20px) + shorter duration (0.5s).
+ * Reduced-motion: element appears instantly with no animation.
  *
  * Usage:
  * ```tsx
@@ -30,13 +50,20 @@ export function useScrollReveal<T extends HTMLElement>(
   useGSAP(
     () => {
       if (!ref.current) return;
+
+      if (prefersReducedMotion()) {
+        gsap.set(ref.current, { opacity: 1, y: 0 });
+        return;
+      }
+
+      const mobile = isMobileDevice();
       gsap.fromTo(
         ref.current,
-        { opacity: 0, y },
+        { opacity: 0, y: mobile ? Math.min(y, 20) : y },
         {
           opacity: 1,
           y: 0,
-          duration,
+          duration: mobile ? 0.5 : duration,
           delay,
           ease: 'power2.out',
           scrollTrigger: {
@@ -56,6 +83,10 @@ export function useScrollReveal<T extends HTMLElement>(
 /**
  * useScrollParallax — subtle parallax shift tied to scroll.
  *
+ * Mobile: skipped entirely (parallax is GPU-heavy on touch devices;
+ * the element renders at its natural CSS position instead).
+ * Reduced-motion: also skipped.
+ *
  * Usage:
  * ```tsx
  * const ref = useScrollParallax<HTMLImageElement>({ speed: 0.3 });
@@ -71,6 +102,10 @@ export function useScrollParallax<T extends HTMLElement>(
   useGSAP(
     () => {
       if (!ref.current) return;
+
+      // Skip on touch devices and reduced-motion: parallax is expensive + disorienting.
+      if (prefersReducedMotion() || isMobileDevice()) return;
+
       const distance = speed * 100;
       gsap.fromTo(
         ref.current,
@@ -96,6 +131,8 @@ export function useScrollParallax<T extends HTMLElement>(
 /**
  * useScrollTimeline — full GSAP timeline tied to scroll progress.
  * Returns a ref for the container and a timeline builder callback.
+ *
+ * Reduced-motion: timeline created but no ScrollTrigger (elements animate instantly).
  *
  * Usage:
  * ```tsx
@@ -131,6 +168,12 @@ export function useScrollTimeline<T extends HTMLElement>(
   useEffect(() => {
     if (!containerRef.current) return;
 
+    if (prefersReducedMotion()) {
+      // Create timeline without scroll binding — animations play at their natural speed.
+      timelineRef.current = gsap.timeline();
+      return () => { timelineRef.current?.kill(); };
+    }
+
     timelineRef.current = gsap.timeline({
       scrollTrigger: {
         trigger: containerRef.current,
@@ -152,6 +195,10 @@ export function useScrollTimeline<T extends HTMLElement>(
 /**
  * useStaggerReveal — stagger children on scroll enter.
  *
+ * Mobile: reduced y (max 20px), faster duration (0.5s), tighter stagger (0.08s)
+ * so the entire group finishes in under 0.5s on any number of cards.
+ * Reduced-motion: all children appear instantly.
+ *
  * Usage:
  * ```tsx
  * const ref = useStaggerReveal<HTMLDivElement>('.card');
@@ -168,14 +215,23 @@ export function useStaggerReveal<T extends HTMLElement>(
   useGSAP(
     () => {
       if (!ref.current) return;
+      const children = ref.current.querySelectorAll(childSelector);
+      if (!children.length) return;
+
+      if (prefersReducedMotion()) {
+        gsap.set(children, { opacity: 1, y: 0 });
+        return;
+      }
+
+      const mobile = isMobileDevice();
       gsap.fromTo(
-        ref.current.querySelectorAll(childSelector),
-        { opacity: 0, y },
+        children,
+        { opacity: 0, y: mobile ? Math.min(y, 20) : y },
         {
           opacity: 1,
           y: 0,
-          duration: 0.7,
-          stagger,
+          duration: mobile ? 0.5 : 0.7,
+          stagger: mobile ? 0.08 : stagger,
           ease: 'power2.out',
           scrollTrigger: {
             trigger: ref.current,
