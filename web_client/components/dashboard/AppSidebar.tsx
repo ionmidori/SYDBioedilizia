@@ -352,7 +352,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     dragConstraints={{ top: -500, bottom: 150 }}
                     onClick={() => setOpenMobile(true)}
                     data-no-swipe
-                    className="fixed right-0 top-3/4 z-[115] notch-draggable flex items-center justify-center w-6 h-12 bg-luxury-gold/25 backdrop-blur-xl text-luxury-gold shadow-2xl rounded-l-xl border-y border-l border-luxury-gold/40 cursor-grab active:cursor-grabbing hover:w-7 transition-[width,background-color] overflow-hidden group pointer-events-auto"
+                    className="fixed right-0 top-1/2 z-[115] notch-draggable flex items-center justify-center w-6 h-12 bg-luxury-gold/25 backdrop-blur-xl text-luxury-gold shadow-2xl rounded-l-xl border-y border-l border-luxury-gold/40 cursor-grab active:cursor-grabbing overflow-hidden group pointer-events-auto will-change-transform"
                     style={{ marginTop: '-1.5rem' }}
                     aria-label="Toggle sidebar"
                     tabIndex={0}

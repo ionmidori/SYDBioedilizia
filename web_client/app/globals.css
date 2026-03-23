@@ -134,7 +134,7 @@
   }
 
   html {
-    scroll-behavior: smooth;
+    /* scroll-behavior handled by Lenis — native smooth conflicts with it */
     scroll-padding-top: 80px;
     /* Prevent sticky header occlusion */
   }
