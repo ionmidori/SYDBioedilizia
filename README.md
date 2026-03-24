@@ -18,7 +18,7 @@ The platform is built on a strict separation of concerns to ensure institutional
 - **Engine**: Google ADK (Vertex AI Agent Builder) Multi-Agent Orchestration with active Session Persistence Hardening.
 - **Security**: **Sandwich Defense** implementation with active delimiter neutralization against Prompt Injection (OWASP LLM01).
 - **Logic**: `syd_orchestrator` dynamically routes to specialized sub-agents (`triage`, `design`, `quote`) with Intent-First processing.
-- **Context**: Dynamic context building via RAG-lite patterns and Vertex AI Session Services.
+- **Context**: Dynamic context building via **Native RAG (Pinecone Serverless)** with Integrated Inference (`multilingual-e5-large`).
 - **Evaluation**: Integrated ADK Evaluation Suite with dynamic offline rubrics.
 
 ### Tier 2: Orchestration (UI & Interaction Layer)
@@ -31,7 +31,7 @@ The platform is built on a strict separation of concerns to ensure institutional
 - **API**: FastAPI (Python 3.13+) with high-concurrency **Raw ASGI middleware** stack and native unstructured payload routing.
 - **Async Hygiene**: Firestore persistence offloaded to **FastAPI `BackgroundTasks`**, ensuring ultra-low TTFT (Time To First Token).
 - **Resource Protection**: Enforced **5MB file limits** and multimodal caps (5 images/2 videos) to prevent OOM and Denial of Wallet.
-- **Engines**: Vision & CAD (ezdxf), Market Intelligence (Perplexity), Visual Assets (Imagen 3).
+- **Engines**: Vision & CAD (ezdxf), Market Intelligence (Perplexity), Visual Assets (Imagen 3), **RAG Engine** (Pinecone).
 - **Feedback Loop**: Negative feedback collection and self-correction architecture.
 
 ---
@@ -53,6 +53,7 @@ The platform is built on a strict separation of concerns to ensure institutional
 | **Frontend** | Next.js 16.2, Tailwind CSS 4, Framer Motion 12, SWR, Zod |
 | **Backend** | Python 3.13, FastAPI 0.130, Pydantic V2 (Strict Mode), `uv` |
 | **AI - Reasoning** | **Gemini 2.5 Flash** (Default), **Google ADK**, **Perplexity Sonar** |
+| **AI - RAG** | **Pinecone Serverless**, Integrated Inference (`multilingual-e5-large`) |
 | **AI - Vision** | Gemini 1.5 Pro (CAD/Vectorization), Imagen 3 (Rendering), `ezdxf` |
 | **Cloud/Infra** | GCP (Cloud Run, Cloud Logging), Firebase (Auth, Firestore, App Check) |
 | **Security** | Nonce-based CSP, HSTS, Asymmetric JWT, BackgroundTasks Hygiene |
@@ -62,13 +63,14 @@ The platform is built on a strict separation of concerns to ensure institutional
 ## ✨ Key Capabilities
 
 1.  **AI Architect**: Proactive agent that guides users through technical quotes and photo-realistic architectural renders.
-2.  **Automated CAD Digitization**: Instantly converts photos of floorplans into editable layered DXF files.
-3.  **Real-Time Market Intelligence**: Scans live market data to provide accurate, geo-localized price estimates.
-4.  **HITL Admin Approval**: Robust backend pipeline for PDF generation (WeasyPrint) and n8n-driven delivery.
-5.  **Universal Mobile Engine**: Custom gesture engine providing a 60fps "swipe" experience on touch devices.
-6.  **Batch Quote Aggregation**: Rule-based engine calculating multi-project cross-optimizations (deduplication, shared overhead).
-7.  **Live ADK Evaluation**: Integrated Google ADK `AgentEvaluator` with SYD-specific rubrics for continuous agent quality validation.
-8.  **Enterprise Security**: Google Cloud Model Armor integrated for Prompt Injection and Data Leak prevention.
+2.  **Native RAG System**: Specialized knowledge retrieval using Pinecone Serverless, providing zero-latency access to the official **Lazio Regional Pricing List (2023-2026)**.
+3.  **Automated CAD Digitization**: Instantly converts photos of floorplans into editable layered DXF files.
+4.  **Real-Time Market Intelligence**: Scans live market data to provide accurate, geo-localized price estimates.
+5.  **HITL Admin Approval**: Robust backend pipeline for PDF generation (WeasyPrint) and n8n-driven delivery.
+6.  **Universal Mobile Engine**: Custom gesture engine providing a 60fps "swipe" experience on touch devices.
+7.  **Batch Quote Aggregation**: Rule-based engine calculating multi-project cross-optimizations (deduplication, shared overhead).
+8.  **Live ADK Evaluation**: Integrated Google ADK `AgentEvaluator` with SYD-specific rubrics for continuous agent quality validation.
+9.  **Enterprise Security**: Google Cloud Model Armor integrated for Prompt Injection and Data Leak prevention.
 
 ---
 
@@ -96,4 +98,4 @@ npm run dev:py         # Backend (Port 8081)
 **SYD Bioedilizia** - *Engineering the future of sustainable living through AI.*
 
 ---
-*© 2026 SYD Bioedilizia. All rights reserved. Professional Grade Software.*
+*© 2026 SYD Bioedilizia. All rights reserved. Version: v4.2.2 | Updated: March 24, 2026*

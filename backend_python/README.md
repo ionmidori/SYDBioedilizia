@@ -9,6 +9,7 @@ Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google G
 
 - **Architecture:** Async-native FastAPI service optimized for high-performance Cloud Run deployments.
 - **Multi-Agent Orchestration:** Fully migrated to Google ADK with a factory-pattern routing layer (`syd_orchestrator`).
+- **Native RAG System:** High-performance retrieval using **Pinecone Serverless** with Integrated Inference (`multilingual-e5-large`), eliminating local embedding overhead.
 - **Guided Flows:** Advanced state tracking (`is_quote_completed`, `is_render_completed`) for cross-selling and journey management.
 - **Session Hardening:** Robust recovery mechanisms for transient Firestore and Vertex AI Session errors during active streams.
 - **HITL Pipeline:** Human-in-the-Loop quote approval logic with automated PDF generation (WeasyPrint) and deliverable tracking.
@@ -27,9 +28,10 @@ Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google G
 
 ## 🛠️ Tech Stack
 
-- **Runtime:** Python 3.12+
+- **Runtime:** Python 3.13
 - **Manager:** `uv` (Rust-based, lightning fast)
 - **Framework:** FastAPI / Pydantic V2
+- **Vector DB:** **Pinecone Serverless** (Integrated Inference)
 - **LLM Engine:** Vertex AI / Google ADK v1.26 (`google-genai` SDK)
 - **Persistence:** Firebase Firestore via `VertexAiSessionService`
 - **Config:** `pydantic-settings` for Type-Safe environment management
@@ -46,6 +48,7 @@ uv sync
 ```ini
 GOOGLE_CLOUD_PROJECT=chatbotluca-a8a73
 FIREBASE_STORAGE_BUCKET=chatbotluca-a8a73.firebasestorage.app
+PINECONE_API_KEY=your_pinecone_key
 N8N_WEBHOOK_NOTIFY_ADMIN=https://n8n.your-domain.it/webhook/...
 N8N_WEBHOOK_DELIVER_QUOTE=https://n8n.your-domain.it/webhook/...
 ENV=development
@@ -98,5 +101,5 @@ backend_python/
 - **PII Protection**: Output filtering & Log argument redaction in `structlog`.
 
 ---
-*Updated: March 22, 2026 — Phase 81e (v4.2.1)*
+*Updated: March 24, 2026 — Phase 81f (v4.2.2)*
 
