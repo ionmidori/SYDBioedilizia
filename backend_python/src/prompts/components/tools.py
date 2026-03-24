@@ -232,6 +232,40 @@ TOOL_REQUEST_QUOTE_APPROVAL = """<tool name="request_quote_approval">
 </tool>"""
 
 
+TOOL_RETRIEVE_KNOWLEDGE = """<tool name="retrieve_knowledge">
+<trigger>
+Use this tool BEFORE answering any question about:
+- Official prices from the Tariffa dei Prezzi Regione Lazio (prezzario regionale)
+- Renovation norms, building codes, or technical standards
+- Material specifications or allowances referenced in regulations
+- Unit costs for specific works (e.g. "quanto costa posare il parquet secondo il prezzario?")
+- Any question where the user explicitly asks for "prezzi ufficiali", "tariffa regionale", "normativa"
+</trigger>
+
+<goal>
+Retrieve authoritative pricing and regulatory data from the Pinecone knowledge base
+(namespace: normative — contains Tariffa dei Prezzi Regione Lazio 2023, valid through 2026).
+</goal>
+
+<parameters>
+<param name="query" required="true">
+The search query. Be specific: include the material, work type, and unit when known.
+Examples:
+- "pavimento parquet rovere prima scelta posa mq prezzo"
+- "intonaco civile pareti interni mq"
+- "demolizione pavimento esistente mq"
+</param>
+</parameters>
+
+<rules>
+1. Call BEFORE quoting any official tariff price — do not rely on training data for official prices.
+2. Cite the source in your response: "Secondo la Tariffa dei Prezzi Regione Lazio 2023..."
+3. If the tool returns no results, fall back to get_market_prices for live market estimates.
+4. Present prices with their article code (e.g. "A 14.01.24.i — Rovere: €228,08/mq").
+</rules>
+</tool>"""
+
+
 # Combined export — ONLY tools that exist in src/adk/tools.py
 TOOLS = "\n\n".join([
     TOOL_GENERATE_RENDER,
@@ -243,4 +277,5 @@ TOOLS = "\n\n".join([
     TOOL_SUGGEST_QUOTE_ITEMS,
     TOOL_PRICING_ENGINE,
     TOOL_REQUEST_QUOTE_APPROVAL,
+    TOOL_RETRIEVE_KNOWLEDGE,
 ])

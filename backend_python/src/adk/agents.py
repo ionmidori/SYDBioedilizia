@@ -233,7 +233,7 @@ triage_agent = Agent(
 design_agent = Agent(
     name="design",
     model="gemini-3.1-flash-lite-preview",
-    tools=[generate_render_adk, list_project_files_adk, market_prices_adk, request_login_adk],
+    tools=[generate_render_adk, list_project_files_adk, market_prices_adk, request_login_adk, retrieve_knowledge_adk],
     instruction=DESIGN_AGENT_INSTRUCTION,
 )
 

@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import asyncio
 import logging
@@ -26,47 +27,40 @@ def extract_text_from_pdf(pdf_path: str) -> str:
             text += extracted + "\n"
     return text
 
-def chunk_text(text: str, max_chars: int = 1500, overlap: int = 150) -> list[str]:
+def chunk_text(text: str, max_chars: int = 3000, overlap: int = 200) -> list[str]:
     """
-    Chunk text by splitting on paragraphs, keeping chunks under max_chars.
-    Includes a slight overlap to prevent cutting context abruptly.
-    """
-    chunks = []
-    if len(text) <= max_chars:
-        return [text]
-    
-    # Try to split by double newline (paragraphs) first
-    paragraphs = text.split("\n\n")
-    current_chunk = ""
-    
-    for para in paragraphs:
-        # If a single paragraph is larger than max_chars, we must slice it forcefully
-        if len(para) > max_chars:
-            # First, append whatever we had in current_chunk
-            if current_chunk:
-                chunks.append(current_chunk)
-                current_chunk = ""
-            
-            # Slice the huge paragraph into max_chars chunks
-            for i in range(0, len(para), max_chars - overlap):
-                slice_chunk = para[i:i + max_chars]
-                if len(slice_chunk) > 50: # Avoid tiny tail chunks
-                    chunks.append(slice_chunk)
-            continue
+    Chunk a regional price list (prezzario) by main article code.
 
-        if len(current_chunk) + len(para) + 2 <= max_chars:
-            if current_chunk:
-                current_chunk += "\n\n" + para
-            else:
-                current_chunk = para
+    Splits on parent article boundaries like "A 14.01.24." (letter suffix absent),
+    keeping each article's description + all sub-items (.a, .b, ...) in one chunk.
+    This preserves the semantic unit: "what is the item" + "what are its prices".
+
+    Articles larger than max_chars are sliced with overlap so at least the
+    article header appears at the top of each continuation chunk.
+    """
+    # Match parent article codes: e.g. "A 14.01.24." but NOT "A 14.01.24.a."
+    article_pattern = re.compile(r'(?=\b[A-Z]\s+\d+\.\d+\.\d+\.\s)', re.MULTILINE)
+    parts = article_pattern.split(text)
+
+    chunks: list[str] = []
+    for part in parts:
+        part = part.strip()
+        if not part:
+            continue
+        if len(part) <= max_chars:
+            chunks.append(part)
         else:
-            if current_chunk:
-                chunks.append(current_chunk)
-            current_chunk = para
-            
-    if current_chunk:
-        chunks.append(current_chunk)
-        
+            # Article too long: slice with overlap, prepending the header line each time
+            header_end = part.find('\n')
+            header = part[:header_end].strip() if header_end != -1 else ""
+            for i in range(0, len(part), max_chars - overlap):
+                slice_chunk = part[i:i + max_chars]
+                # Re-attach header to continuation slices so context is preserved
+                if i > 0 and header:
+                    slice_chunk = header + " [continua]\n" + slice_chunk
+                if len(slice_chunk) > 50:
+                    chunks.append(slice_chunk)
+
     return chunks
 
 async def ingest_pdf(pdf_path: str, namespace: str = "normative"):
