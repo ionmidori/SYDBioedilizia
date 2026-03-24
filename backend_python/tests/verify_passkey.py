@@ -23,10 +23,14 @@ def test_passkey_flow():
         
         if resp.status_code == 200:
             data = resp.json()
+            # In fido2 2.x options might be nested under 'publicKey' or direct
+            challenge = data.get('publicKey', {}).get('challenge') or data.get('challenge')
             print("✅ Register Options Success!")
-            print(f"   Challenge: {data['challenge'][:10]}...")
-            print(f"   RP Name: {data['rp']['name']}")
-            print(f"   User ID: {data['user']['name']}")
+            print(f"   Challenge: {challenge[:10] if challenge else 'MISSING'}...")
+            rp = data.get('publicKey', {}).get('rp') or data.get('rp', {})
+            print(f"   RP Name: {rp.get('name')}")
+            user = data.get('publicKey', {}).get('user') or data.get('user', {})
+            print(f"   User ID: {user.get('name')}")
         else:
             print(f"❌ Register Options Failed: {resp.status_code} - {resp.text}")
             return
@@ -43,9 +47,11 @@ def test_passkey_flow():
         
         if resp.status_code == 200:
             data = resp.json()
+            challenge = data.get('publicKey', {}).get('challenge') or data.get('challenge')
+            rpId = data.get('publicKey', {}).get('rpId') or data.get('rpId')
             print("✅ Auth Options Success!")
-            print(f"   Challenge: {data['challenge'][:10]}...")
-            print(f"   RP ID: {data['rpId']}")
+            print(f"   Challenge: {challenge[:10] if challenge else 'MISSING'}...")
+            print(f"   RP ID: {rpId}")
         # Note: Might return 404 if no passkeys registered yet, which is expected behavior for a fresh user
         elif resp.status_code == 404:
              print("✅ Auth Options Correctly returned 404 (No credentials yet)")

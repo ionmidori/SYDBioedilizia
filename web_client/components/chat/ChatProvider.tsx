@@ -152,14 +152,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                     : lastMsgAny.parts?.[0]?.text || '')
                 : '';
 
-            console.log('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
-                sessionId: body.sessionId,
-                messagesCount: msgs?.length,
-                projectId: body.projectId,
-                lastMessageRole: lastMsg?.role,
-                lastMessageContent: String(lastMsgContent).substring(0, 50),
-                mediaUrlsCount: Array.isArray(body.mediaUrls) ? (body.mediaUrls as unknown[]).length : 0,
-            }));
+            if (process.env.NODE_ENV === 'development') {
+                console.log('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
+                    sessionId: body.sessionId,
+                    messagesCount: msgs?.length,
+                    projectId: body.projectId,
+                    lastMessageRole: lastMsg?.role,
+                    lastMessageContent: String(lastMsgContent).substring(0, 50),
+                    mediaUrlsCount: Array.isArray(body.mediaUrls) ? (body.mediaUrls as unknown[]).length : 0,
+                }));
+            }
             return { body };
         },
     }), [resolveHeaders, currentProjectId, user, sessionId]);

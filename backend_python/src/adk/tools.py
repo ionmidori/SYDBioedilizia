@@ -183,7 +183,7 @@ async def generate_render(
         return result
     except Exception as e:
         _logger.error(f"[ADK Tool] generate_render FAILED for session {session_id}: {e}", exc_info=True)
-        return {"status": "error", "error": str(e)}
+        return {"status": "error", "error": "Render generation failed. Please try again."}
 
 
 # ─── Project Gallery ─────────────────────────────────────────────────────────

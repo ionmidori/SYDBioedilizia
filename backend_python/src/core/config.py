@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     Centralized configuration for the application.
     Enforces strict typing and validation of environment variables.
     """
-    ENV: str = Field(default="development", description="Environment: development, production")
+    ENV: str = Field(default="production", description="Environment: development, production. Defaults to production (fail-secure).")
     # GOOGLE_CLOUD_PROJECT is the canonical GCP env var name.
     # PROJECT_ID is kept for backward compatibility with legacy code.
     GOOGLE_CLOUD_PROJECT: str = Field(

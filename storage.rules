@@ -60,9 +60,10 @@ service firebase.storage {
           (isValidDocument() && isWithinSizeLimit(25)) ||
           (isValidVideo() && isWithinSizeLimit(100))
         );
-      
-      allow read: if isAuthenticated();
-      allow delete: if isAuthenticated();
+
+      // SECURITY: Require non-anonymous auth for read/delete (prevents anonymous enumeration)
+      allow read: if isAuthenticated() && isNonAnonymous();
+      allow delete: if isAuthenticated() && isNonAnonymous();
     }
     
     // ==========================================
@@ -70,7 +71,8 @@ service firebase.storage {
     // ==========================================
     
     match /renders/{allPaths=**} {
-      allow read: if isAuthenticated();
+      // SECURITY: Require non-anonymous auth (renders are user-specific assets)
+      allow read: if isAuthenticated() && isNonAnonymous();
       allow write: if false;
     }
     
@@ -79,7 +81,8 @@ service firebase.storage {
     // ==========================================
     
     match /user-uploads/{sessionId}/{fileName} {
-      allow read: if isAuthenticated();
+      // SECURITY: Require non-anonymous auth for chat attachments
+      allow read: if isAuthenticated() && isNonAnonymous();
       allow write: if false;
     }
     

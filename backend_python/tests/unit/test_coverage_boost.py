@@ -351,7 +351,7 @@ class TestDownloadImageSmart:
         mock_client.__aexit__ = AsyncMock()
         mock_httpx_cls.return_value = mock_client
 
-        content, mime = await download_image_smart("https://example.com/photo.png")
+        content, mime = await download_image_smart("https://storage.googleapis.com/test-bucket/photo.png")
         assert content == b"\x89PNG\r\n\x1a\n"
         assert mime == "image/png"
 
@@ -369,7 +369,7 @@ class TestDownloadImageSmart:
         mock_client.__aexit__ = AsyncMock()
         mock_httpx_cls.return_value = mock_client
 
-        content, mime = await download_image_smart("https://example.com/photo.png")
+        content, mime = await download_image_smart("https://storage.googleapis.com/test-bucket/photo.png")
         assert mime == "image/png"  # guessed from URL
 
     @patch("src.utils.download.httpx.AsyncClient")
@@ -386,7 +386,7 @@ class TestDownloadImageSmart:
         mock_client.__aexit__ = AsyncMock()
         mock_httpx_cls.return_value = mock_client
 
-        content, mime = await download_image_smart("https://example.com/unknown")
+        content, mime = await download_image_smart("https://storage.googleapis.com/test-bucket/unknown")
         assert mime == "application/octet-stream"
 
     @patch("src.utils.download.httpx.AsyncClient")
@@ -402,7 +402,7 @@ class TestDownloadImageSmart:
         mock_httpx_cls.return_value = mock_client
 
         with pytest.raises(Exception, match="Failed to download"):
-            await download_image_smart("https://example.com/missing.jpg")
+            await download_image_smart("https://storage.googleapis.com/test-bucket/missing.jpg")
 
     @patch("src.utils.download.storage")
     async def test_blob_no_content_type(self, mock_storage):

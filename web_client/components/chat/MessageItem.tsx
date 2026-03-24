@@ -75,12 +75,27 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     const hasTools = toolInvocations.length > 0;
 
     // Helper: Convert custom backend image syntax to Markdown
+    // SECURITY: Only allow URLs from known-good domains (Firebase Storage, etc.)
+    const ALLOWED_IMAGE_HOSTS = [
+        'firebasestorage.googleapis.com',
+        'storage.googleapis.com',
+        'chatbotluca-a8a73.firebasestorage.app',
+        'replicate.delivery',
+    ];
+
     const formatMessageText = (rawText: string): string => {
         if (!rawText) return '';
-        // Regex to match [Immagine allegata: URL] and convert to ![Immagine allegata](URL)
         return rawText.replace(
             /\[(?:Immagine|Video) allegat[oa]:\s*(https?:\/\/[^\]]+)\]/gi,
-            (match, url) => `\n![Immagine allegata](${url})\n`
+            (_match, url: string) => {
+                try {
+                    const parsed = new URL(url);
+                    if (ALLOWED_IMAGE_HOSTS.includes(parsed.hostname)) {
+                        return `\n![Immagine allegata](${url})\n`;
+                    }
+                } catch { /* invalid URL — strip */ }
+                return '';
+            }
         );
     };
 
@@ -262,7 +277,9 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                                 <>
                                     {formattedText && !hasVisibleTools && (
                                         <Markdown
-                                            urlTransform={(value: string) => value}
+                                            urlTransform={(value: string) =>
+                                                /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
+                                            }
                                             components={markdownComponents}
                                         >
                                             {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
@@ -273,7 +290,9 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                                     {/* Special Case: Allow text IF it's NOT a Login Request (to preserve context for other tools) */}
                                     {formattedText && hasVisibleTools && !toolInvocations.some(t => t.toolName === 'request_login' || (t.result as string)?.includes?.('LOGIN_REQUIRED_UI_TRIGGER')) && (
                                         <Markdown
-                                            urlTransform={(value: string) => value}
+                                            urlTransform={(value: string) =>
+                                                /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
+                                            }
                                             components={markdownComponents}
                                         >
                                             {formattedText}

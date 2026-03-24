@@ -5,7 +5,7 @@ Provides endpoints for fetching chat message history from sessions.
 """
 import logging
 from typing import Optional, List, Union
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
 import json
 from firebase_admin import firestore
@@ -40,7 +40,7 @@ class ChatHistoryResponse(BaseModel):
 
 @router.get("/{session_id}/messages", response_model=ChatHistoryResponse)
 async def get_chat_history(
-    session_id: str,
+    session_id: str = Path(..., min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_-]+$"),
     limit: int = Query(default=50, ge=1, le=100),
     cursor: Optional[str] = Query(default=None),
     user_session: UserSession = Depends(verify_token),

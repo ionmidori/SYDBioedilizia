@@ -9,6 +9,7 @@ This module provides endpoints for uploading media files:
 MIME type spoofing attacks (e.g., .exe files renamed to .jpg).
 """
 import io
+import re
 import uuid
 from datetime import timedelta
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request
@@ -139,6 +140,10 @@ async def upload_image(
     Raises:
         HTTPException: If upload fails or file type is invalid
     """
+    # Validate session_id format (prevent path traversal / log injection)
+    if not re.match(r'^[a-zA-Z0-9_-]+$', session_id) or len(session_id) > 128:
+        raise HTTPException(status_code=422, detail="Invalid session_id format")
+
     try:
         # 1. Early rejection via Content-Length header (fast fail, advisory only)
         content_length = request.headers.get("content-length")

@@ -1,11 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { FAQItem } from "@/lib/faq-data";
 import { M3Transition } from "@/lib/m3-motion";
 import { cn } from "@/lib/utils";
+
+/**
+ * Lightweight HTML sanitizer for FAQ content.
+ * Only allows safe structural tags and class attributes.
+ * Strips all event handlers, script tags, and dangerous attributes.
+ */
+function sanitizeHtml(html: string): string {
+  // Strip <script>, <iframe>, <object>, <embed>, <form>, <input>, <style>, <link> tags and their content
+  let clean = html.replace(/<(script|iframe|object|embed|form|input|style|link|base|meta)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+  // Strip self-closing dangerous tags
+  clean = clean.replace(/<(script|iframe|object|embed|input|link|base|meta)\b[^>]*\/?>/gi, '');
+  // Strip all event handler attributes (on*)
+  clean = clean.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+  // Strip javascript: and data: URLs in href/src
+  clean = clean.replace(/(href|src)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '$1=""');
+  clean = clean.replace(/(href|src)\s*=\s*(?:"data:[^"]*"|'data:[^']*')/gi, '$1=""');
+  return clean;
+}
 
 interface FAQItemProps {
   item: FAQItem;
@@ -13,6 +31,7 @@ interface FAQItemProps {
 
 export function FAQItemCard({ item }: FAQItemProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const sanitizedAnswer = useMemo(() => sanitizeHtml(item.answer), [item.answer]);
 
   return (
     <div
@@ -71,7 +90,8 @@ export function FAQItemCard({ item }: FAQItemProps) {
             transition={M3Transition.containerTransform}
           >
             <div className="px-6 prose prose-invert max-w-none text-luxury-text/80 leading-relaxed prose-strong:text-luxury-text prose-li:text-luxury-text/80">
-              <div dangerouslySetInnerHTML={{ __html: item.answer }} />
+              {/* SECURITY: Sanitized to strip scripts, iframes, event handlers, javascript: URLs */}
+              <div dangerouslySetInnerHTML={{ __html: sanitizedAnswer }} />
             </div>
           </motion.div>
         )}

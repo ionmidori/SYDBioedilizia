@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from src.auth.jwt_handler import verify_token
 from src.schemas.internal import UserSession
 from src.db.projects import get_user_projects
@@ -55,8 +55,8 @@ async def get_dashboard_stats(
 
 @router.get("/gallery", response_model=GalleryResponse)
 async def get_gallery_assets(
-    limit: int = 50,
-    last_id: str = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    last_id: str = Query(default=None, max_length=128),
     user_session: UserSession = Depends(verify_token),
     gallery_service: GalleryService = Depends(get_gallery_service)
 ):

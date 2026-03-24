@@ -102,10 +102,10 @@ async def verify_n8n_webhook(request: Request) -> dict:
             detail="Invalid signature",
         )
 
-    # 5. Optional API key validation
+    # 5. Optional API key validation (constant-time comparison)
     if settings.N8N_API_KEY is not None:
         api_key = request.headers.get("X-N8N-API-KEY")
-        if api_key != settings.N8N_API_KEY:
+        if not api_key or not hmac.compare_digest(api_key.encode(), settings.N8N_API_KEY.encode()):
             logger.warning("[n8n webhook] Invalid or missing API key")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

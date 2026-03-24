@@ -55,6 +55,10 @@ _INJECTION_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE | re.UNICOD
     r"\[INST\]",               # Mistral/Llama instruction injection
     r"---(?:\s)*(SYSTEM|HUMAN|USER|ASSISTANT|END)(?:\s)*---",  # sandwich boundary spoofing (after ### neutralization)
     r"```\s*system",           # code block system prompt
+    # System context boundary spoofing (prevents injecting fake [SYSTEM_MESSAGE] blocks)
+    r"\[/?SYSTEM_MESSAGE\]",
+    r"\[/?END_SYSTEM_MESSAGE\]",
+    r"\[/?SYS(?:TEM)?(?:_MSG)?\]",
 ]]
 
 
@@ -87,9 +91,11 @@ def sanitize_input(raw_input: str) -> str:
     # 3. Strip control characters (except newline / tab — preserve readability)
     raw_input = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw_input)
 
-    # 4. Neutralize the Sandwich Defense delimiter to prevent boundary spoofing
+    # 4. Neutralize the Sandwich Defense delimiter and system context tags
     # This MUST happen before Injection pattern redaction to ensure the regex catches the neutralized boundaries
     sanitized = raw_input.replace("###", "---")
+    sanitized = sanitized.replace("[SYSTEM_MESSAGE]", "[REDACTED_TAG]")
+    sanitized = sanitized.replace("[END_SYSTEM_MESSAGE]", "[REDACTED_TAG]")
 
     # 5. Injection pattern redaction
     for pattern in _INJECTION_PATTERNS:

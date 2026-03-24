@@ -33,6 +33,10 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Verify codebase integrity (compile python to catch syntax errors during build)
 RUN python -m compileall src main.py
 
+# Non-root user (defense-in-depth for container escape)
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Expose the port used by Cloud Run
 EXPOSE 8080
 

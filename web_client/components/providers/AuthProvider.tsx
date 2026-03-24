@@ -74,11 +74,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
                     if (!isMounted) return;
 
-                    console.log('[AuthProvider] Auth state changed:', {
-                        uid: currentUser?.uid,
-                        isAnonymous: currentUser?.isAnonymous,
-                        email: currentUser?.email
-                    });
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('[AuthProvider] Auth state changed:', {
+                            uid: currentUser?.uid,
+                            isAnonymous: currentUser?.isAnonymous,
+                        });
+                    }
 
                     if (currentUser) {
                         // User exists (either anonymous or authenticated)

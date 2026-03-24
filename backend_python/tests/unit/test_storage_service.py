@@ -26,9 +26,9 @@ async def test_generate_upload_url(mock_storage, mock_settings):
     service = StorageService()
     
     request = SignedUrlRequest(
-        filename="test image.jpg",
+        filename="test_image.jpg",
         content_type="image/jpeg",
-        folder="admin_uploads"
+        folder="project_assets"
     )
 
     response = await service.generate_upload_url(request)
@@ -36,11 +36,11 @@ async def test_generate_upload_url(mock_storage, mock_settings):
     # Asserts
     assert response.upload_url == "https://mock-signed-url.com"
     assert "test-bucket.appspot.com" in response.public_url
-    assert "admin_uploads" in response.path
+    assert "project_assets" in response.path
     assert "test_image.jpg" in response.path
-    
+
     # Verify blob path and name serialization
     mock_bucket.blob.assert_called_once()
     blob_path_arg = mock_bucket.blob.call_args[0][0]
-    assert blob_path_arg.startswith("admin_uploads/")
-    assert blob_path_arg.endswith("_test_image.jpg")  # spaces mapped to underscores
+    assert blob_path_arg.startswith("project_assets/")
+    assert blob_path_arg.endswith("_test_image.jpg")

@@ -17,12 +17,20 @@ async def generate_signed_url(
 ):
     """
     Generate a direct-to-cloud PUT Signed URL for the Admin Panel.
-    Requires an authenticated session.
+    Requires an authenticated admin session.
     """
     if not user_session.is_authenticated:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required to generate upload URLs."
+        )
+
+    # Admin role enforcement — prevents non-admin users from uploading arbitrary files
+    if user_session.claims.get("role") != "admin":
+        logger.warning(f"Non-admin user {user_session.uid} attempted admin storage access")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required."
         )
         
     try:
