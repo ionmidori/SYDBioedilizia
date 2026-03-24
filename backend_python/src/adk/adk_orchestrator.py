@@ -110,7 +110,12 @@ class ADKOrchestrator(BaseOrchestrator):
         # (like authentication status) into the user's message payload.
         is_guest = user_session.is_anonymous or not user_session.is_authenticated
         auth_status_msg = (
-            "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO. Se richiede salvataggi di progetti, preventivi definitivi o azioni che richiedono un account, DEVI usare il tool request_login_adk."
+            "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO. "
+            "REGOLA ASSOLUTA: Prima di chiamare generate_render, suggest_quote_items, pricing_engine o qualsiasi tool premium, "
+            "DEVI OBBLIGATORIAMENTE chiamare request_login_adk. "
+            "NON chiamare MAI generate_render per un utente OSPITE. "
+            "Questo vale per rendering 3D, preventivi, salvataggi e qualsiasi azione premium. "
+            "Sequenza corretta: 1) chiama request_login_adk, 2) rispondi all'utente che deve autenticarsi."
             if is_guest else
             "STATO AUTENTICAZIONE: L'utente è GIA' LOGGATO con un account verificato. NON DEVI MAI USARE il tool request_login_adk per nessun motivo."
         )

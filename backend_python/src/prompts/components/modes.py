@@ -138,6 +138,14 @@ Tutto corretto? Se mi dai l'ok, procedo subito con la generazione."
 <phase name="5_execution">
 <trigger>User explicitly confirms the summary from Phase 4 (e.g., "Sì", "Procedi", "Vai")</trigger>
 <action>
+STEP AUTH_GATE (OBBLIGATORIO — ESEGUIRE PRIMA DI TUTTO):
+Controlla il messaggio di sistema iniettato all'inizio della conversazione.
+SE contiene "OSPITE ANONIMO":
+→ NON chiamare generate_render.
+→ Chiama SUBITO request_login_adk.
+→ Rispondi: "Per generare il rendering è necessario un account gratuito — ci vorranno solo pochi secondi! Clicca il pulsante qui sotto per accedere."
+→ STOP. Non eseguire gli step seguenti.
+
 STEP 0: FORCE EXECUTION CHECK ("God Mode" Rule).
 - SE il messaggio precedente dell'assistente era il Riassunto della Fase 4...
 - E l'utente dice "Procedi/Sì"...
