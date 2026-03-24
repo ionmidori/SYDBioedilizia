@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useDragControls } from 'framer-motion';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
@@ -23,6 +23,9 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
     // Track if we are dragging to prevent click
     const isDraggingRef = React.useRef(false);
     const [constraints, setConstraints] = React.useState({ top: 0, left: 0, right: 0, bottom: 0 });
+    
+    // Explicit drag controls to restrict the draggable area
+    const dragControls = useDragControls();
 
     React.useEffect(() => {
         const updateConstraints = () => {
@@ -85,6 +88,10 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
             e.stopPropagation();
         }
     };
+    
+    const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+        dragControls.start(e);
+    };
 
     return (
         <motion.div
@@ -103,6 +110,8 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
 
             // Drag configuration
             drag
+            dragControls={dragControls}
+            dragListener={false} // Disable dragging from the entire container
             dragMomentum={false}
             dragElastic={0.1}
             dragConstraints={constraints}
@@ -112,10 +121,6 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
             // Visual feedback during drag
             whileDrag={{
                 scale: 1.1,
-                cursor: 'grabbing',
-            }}
-            whileHover={{
-                cursor: 'grab'
             }}
         >
             {/* 
@@ -125,12 +130,13 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
               When open (isOpen), it resets so the 'X' button stays safely inside the screen.
             */}
             <div className={cn(
-                "flex items-center justify-end gap-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+                "flex items-center justify-end gap-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] relative",
                 isOpen ? "translate-x-0" : "translate-x-12 md:translate-x-8"
             )}>
                 <div className="pointer-events-auto -mr-16 md:-mr-24 -translate-y-20 md:-translate-y-24 z-10">
                     <WelcomeBadge isOpen={isOpen} onOpenChat={onClick} />
                 </div>
+                
                 <Button
                     onClick={handleClick}
                     size="icon"
@@ -145,17 +151,31 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                     {isOpen ? (
                         <X className="w-8 h-8 text-luxury-gold" />
                     ) : (
-                        <div className="relative w-full h-full flex items-center justify-center overflow-visible">
-                            <Image
-                                src="/assets/syd_final_v9.png"
-                                alt="Chat"
-                                fill
-                                sizes="(max-width: 768px) 158px, 208px"
-                                className="object-contain"
-                                draggable={false}
-                                style={{ imageRendering: 'auto', willChange: 'auto' }}
+                        <>
+                            {/* Visual Image */}
+                            <div className="relative w-full h-full flex items-center justify-center overflow-visible pointer-events-none">
+                                <Image
+                                    src="/assets/syd_final_v9.png"
+                                    alt="Chat"
+                                    fill
+                                    sizes="(max-width: 768px) 158px, 208px"
+                                    className="object-contain"
+                                    draggable={false}
+                                    style={{ imageRendering: 'auto', willChange: 'auto' }}
+                                />
+                            </div>
+                            
+                            {/* 
+                                Invisible Drag Handle 
+                                Positioned in the center of the image (over Syd's actual body)
+                                to prevent accidental drags from the transparent edges.
+                            */}
+                            <div 
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-24 md:w-20 md:h-32 cursor-grab active:cursor-grabbing z-20 touch-none"
+                                onPointerDown={startDrag}
+                                aria-hidden="true"
                             />
-                        </div>
+                        </>
                     )}
                 </Button>
             </div>

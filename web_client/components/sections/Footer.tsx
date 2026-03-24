@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Facebook, Instagram, Linkedin, Twitter, Mail, MapPin, Phone, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,7 @@ import { useScrollReveal } from '@/hooks/use-scroll-animation';
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
+    const pathname = usePathname();
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
 
@@ -22,7 +24,7 @@ export function Footer() {
     const footerRef = useScrollReveal<HTMLElement>({
         y: 20,
         duration: 0.6,
-        start: "bottom 90%"
+        start: "top 90%" // Modified from "bottom 90%" to ensure trigger when scrolling down
     });
 
     const {
@@ -82,6 +84,8 @@ export function Footer() {
                                 <a
                                     key={i}
                                     href="#"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className="w-10 h-10 rounded-full bg-black/20 border border-luxury-gold/10 flex items-center justify-center text-luxury-teal hover:text-white hover:border-luxury-teal/50 hover:bg-luxury-teal hover:scale-110 transition-all duration-300"
                                     aria-label={`Social Media Link ${i}`}
                                 >
@@ -98,8 +102,8 @@ export function Footer() {
                         <ul className="space-y-4">
                             {[
                                 { label: 'Home', href: '/' },
-                                { label: 'Servizi', href: '/#servizi' },
-                                { label: 'Portfolio', href: '/#portfolio' },
+                                { label: 'Servizi', href: pathname === '/' ? '#services' : '/#services' },
+                                { label: 'Portfolio', href: pathname === '/' ? '#portfolio' : '/#portfolio' },
                                 { label: 'Chi Siamo', href: '/chi-siamo' },
                                 { label: 'Blog', href: '/blog' },
                                 { label: 'FAQ', href: '/faq' },
@@ -140,8 +144,10 @@ export function Footer() {
                         </p>
                         <form className="space-y-3" onSubmit={handleSubmit(onSubscribe)}>
                             <div className="relative">
+                                <label htmlFor="newsletter-email" className="sr-only">La tua email</label>
                                 <input
                                     {...register('email')}
+                                    id="newsletter-email"
                                     type="email"
                                     placeholder="La tua email"
                                     className={cn(
@@ -154,6 +160,7 @@ export function Footer() {
                             </div>
 
                             <Button
+                                type="submit"
                                 variant="premium"
                                 className="w-full relative overflow-hidden bg-luxury-teal hover:bg-luxury-teal/90 text-white border-none"
                                 disabled={status === 'loading' || status === 'success'}
