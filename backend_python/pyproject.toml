@@ -26,6 +26,7 @@ dependencies = [
     "reportlab>=4.4.10",
     "google-cloud-modelarmor>=0.1.0",
     "fido2>=1.2.0",
+    "pypdf>=6.9.2",
 ]
 
 [project.optional-dependencies]

@@ -115,7 +115,7 @@ class RAGService:
             records.append(record)
             
         try:
-            batch_size = 100
+            batch_size = 90
             for i in range(0, len(records), batch_size):
                 batch = records[i:i + batch_size]
                 self.index.upsert_records(namespace=namespace, records=batch)
