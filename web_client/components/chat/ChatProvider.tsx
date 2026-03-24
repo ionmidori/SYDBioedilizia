@@ -260,6 +260,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             const needsSync = sdkLen !== histLen || (sdkLen > 0 && histLen > 0 && messages[sdkLen - 1].id !== fullHistory[histLen - 1].id);
 
             if (needsSync) {
+                // RACE CONDITION GUARD: Must run BEFORE first-sync to prevent
+                // overwriting SDK optimistic messages when Firestore is behind.
+                // Background task saves user message AFTER streaming completes,
+                // so Firestore may temporarily have fewer messages than the SDK.
+                if (isRecentlyFinished && histLen < sdkLen) {
+                    console.log('[ChatProvider] Sync Guard: Waiting for history snapshot...');
+                    return;
+                }
+
                 if (isFirstSyncRef.current) {
                     console.log(`[ChatProvider] Initial history sync (${histLen} messages)`);
                     timerId = setTimeout(() => setMessages(fullHistory), 0);
@@ -284,12 +293,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                         timerId = setTimeout(() => setMessages(fullHistory), 0);
                         return () => clearTimeout(timerId);
                     }
-                }
-
-                // RACE CONDITION GUARD: Wait for history to catch up if we just finished streaming.
-                if (isRecentlyFinished && histLen < sdkLen) {
-                    console.log('[ChatProvider] Sync Guard: Waiting for history snapshot...');
-                    return;
                 }
 
                 // If history is longer, it's definitive (another device or backend update)

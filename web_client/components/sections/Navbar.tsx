@@ -132,7 +132,7 @@ export function Navbar() {
                 className={cn(
                     'fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent',
                     isScrolled
-                        ? 'bg-luxury-gold/10 border-luxury-gold/20 py-3 shadow-elevation-mid'
+                        ? 'bg-luxury-bg/70 backdrop-blur-lg border-luxury-gold/20 py-3 shadow-elevation-mid'
                         : 'bg-transparent py-5'
                 )}
                 initial={{ y: -100 }}

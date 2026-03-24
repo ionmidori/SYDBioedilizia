@@ -591,9 +591,10 @@ async def chat_stream(
     )
 
     # --- CHRONOLOGICAL ANCHOR: SAVE USER MESSAGE BEFORE GENERATOR ---
-    # We must ensure the user message is written to Firestore BEFORE the generator starts.
-    # 🔥 FIXED: Use explicit Python timestamp (minus 100ms) to guarantee it's physically 
-    # earlier than the assistant's response in the same request flow.
+    # Session doc MUST exist with userId BEFORE streaming starts, otherwise
+    # save_message (called by the orchestrator for assistant messages) creates
+    # a session doc WITHOUT userId via set(merge=True), and Firestore security
+    # rules permanently deny client reads (onSnapshot gets permission-denied).
     user_msg_text = ""
     if body.messages:
         last_content = body.messages[-1].content
@@ -603,7 +604,7 @@ async def chat_stream(
     from src.repositories.conversation_repository import get_conversation_repository
     # Anchor timestamp: 100ms in the past guarantees user message sorts before assistant
     anchor_timestamp = datetime.now(timezone.utc) - timedelta(milliseconds=100)
-    
+
     # Extract attachments for persistence
     attachments = None
     media_urls = getattr(body, "media_urls", None)
@@ -614,12 +615,21 @@ async def chat_stream(
             "images": media_urls if media_urls else [],
             "videos": video_file_uris if video_file_uris else []
         }
-            
+
+    # CRITICAL: ensure_session MUST run synchronously before streaming.
+    # This sets userId on the session doc so Firestore security rules allow
+    # client-side onSnapshot reads. Without this, the orchestrator's
+    # save_message creates the doc first (without userId) and ensure_session
+    # in the background task sees doc.exists=True and skips setting userId.
+    repo = get_conversation_repository()
+    try:
+        await repo.ensure_session(body.session_id, user_session.uid)
+    except Exception as e:
+        logger.error(f"Failed to ensure session before stream: {e}")
+
     async def _persist_user_message():
         """Background: persist user message to Firestore without blocking the stream."""
         try:
-            repo = get_conversation_repository()
-            await repo.ensure_session(body.session_id, user_session.uid)
             await repo.save_message(
                 session_id=body.session_id,
                 role="user",

@@ -223,7 +223,7 @@ class ConversationRepository:
                 
                 update_data = {'expireAt': expire_at}
                 
-                if user_id and current_owner.startswith('guest_'):
+                if user_id and (not current_owner or current_owner.startswith('guest_')):
                     update_data['userId'] = user_id
                     update_data['updatedAt'] = async_firestore.SERVER_TIMESTAMP
                     
