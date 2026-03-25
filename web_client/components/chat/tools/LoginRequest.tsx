@@ -71,7 +71,7 @@ export const LoginRequest = () => {
 
                 {/* Body */}
                 <p className="mb-4 text-sm leading-relaxed text-luxury-text/70">
-                    Il rendering richiede un account gratuito.
+                    Il rendering e il preventivo richiedono un account gratuito.
                     <br />
                     Accedi in pochi secondi — procediamo subito dopo.
                 </p>
