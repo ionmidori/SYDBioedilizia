@@ -102,3 +102,7 @@ nul
 output.txt
 commit_files.txt
 
+
+# n8n secrets
+n8n/.env.n8n
+!n8n/.env.n8n.example

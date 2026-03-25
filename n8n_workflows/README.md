@@ -5,6 +5,58 @@ Quattro workflow pronti per l'importazione in n8n, implementati con pattern ente
 
 ---
 
+## 🚀 Deploy su Google Cloud Run (GRATUITO)
+
+n8n è open-source (fair-code). Deploy su Cloud Run con PostgreSQL Neon free tier = **€0/mese**.
+
+### Prerequisiti
+1. **Neon PostgreSQL** (free tier, nessuna carta di credito):
+   - Vai su `https://neon.tech` → Sign up → Crea progetto `syd-n8n`
+   - Copia la connection string dalla dashboard
+2. **gcloud CLI** autenticato: `gcloud auth login`
+
+### Deploy in 3 passi
+
+```bash
+# 1. Prepara le variabili
+cp n8n/.env.n8n.example n8n/.env.n8n
+# Edita n8n/.env.n8n con i valori reali (Neon, password, encryption key)
+
+# 2. Lancia il deploy (build + push + Cloud Run)
+chmod +x n8n/deploy.sh
+./n8n/deploy.sh
+
+# 3. Il deploy stampa l'URL finale, es:
+#    https://syd-n8n-972229558318.europe-west1.run.app
+```
+
+### Dopo il deploy
+1. Apri l'URL e accedi (credenziali da `.env.n8n`)
+2. Importa i workflow: **Workflows → Import from File**
+   - Prima: `workflow_error_handler.json`
+   - Poi tutti gli altri
+3. Configura le credenziali n8n (SMTP, Telegram)
+4. Aggiorna `backend_python/.env`:
+   ```env
+   N8N_WEBHOOK_NOTIFY_ADMIN=https://syd-n8n-XXX.europe-west1.run.app/webhook/syd-notify-admin
+   N8N_WEBHOOK_DELIVER_QUOTE=https://syd-n8n-XXX.europe-west1.run.app/webhook/syd-deliver-quote
+   ```
+5. Attiva i workflow (toggle in alto a destra in n8n)
+
+### Perché Cloud Run funziona per n8n
+SYD usa n8n **solo via webhook** (chiamate HTTP dal backend). Cloud Run scala a 0 quando idle → costo quasi zero. I workflow schedulati (poller 5min) non sono necessari: il backend notifica n8n direttamente on-demand.
+
+### File di deploy
+| File | Scopo |
+|------|-------|
+| `n8n/Dockerfile` | Immagine n8n ottimizzata per Cloud Run |
+| `n8n/deploy.sh` | Script build + push AR + deploy Cloud Run |
+| `n8n/.env.n8n.example` | Template variabili (copiare in `.env.n8n`) |
+
+---
+
+---
+
 ## Architettura dei Workflow
 
 ```text
