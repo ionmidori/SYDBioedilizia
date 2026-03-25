@@ -24,6 +24,7 @@ from src.adk.tools import (
     request_quote_approval_adk,
     request_login_adk,
     retrieve_knowledge_adk,
+    save_contact_phone_adk,
 )
 
 # ── Prompt Components ─────────────────────────────────────────────────────────
@@ -248,6 +249,7 @@ quote_agent = Agent(
         request_quote_approval_adk,
         request_login_adk,
         retrieve_knowledge_adk,
+        save_contact_phone_adk,
     ],
     instruction=QUOTE_AGENT_INSTRUCTION,
 )

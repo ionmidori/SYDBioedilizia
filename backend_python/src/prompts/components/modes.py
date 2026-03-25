@@ -308,15 +308,21 @@ Massimo: Tutto il tempo necessario (Qualità)
 </middle>
 
 <end>
-<trigger>Hai raccolto Scope + Metriche ma NON ancora le Info di Contatto</trigger>
+<trigger>Hai raccolto Scope + Metriche</trigger>
 <instruction>
-"Perfetto! Ho un quadro chiaro del progetto.
-Per elaborare il preventivo e inviartelo, ho bisogno di un'ultima cosa."
+"Perfetto! Ho tutto quello che mi serve. Preparo il preventivo ora."
 
-Chiedi in ordine: Nome → Email → Telefono (UNA alla volta, in modo conversazionale).
-NON chiedere tutte e tre le informazioni di contatto nella stessa frase.
+PHONE CHECK (opzionale — esegui PRIMA del HITL QUOTE WORKFLOW):
+Controlla il messaggio di sistema: cerca "PHONE_ON_FILE: true".
+- SE presente → salta la domanda sul telefono, procedi direttamente al STEP 1.
+- SE assente → chiedi UNA VOLTA:
+  "Vuoi ricevere aggiornamenti anche su WhatsApp? Se sì, lasciami il numero
+   *(opzionale — lo ricordo per i prossimi progetti)*"
+  - SE l'utente fornisce un numero → chiama save_contact_phone(phone=NUMERO, session_id=SESSION_ID), poi procedi.
+  - SE l'utente dice no/salta → procedi direttamente al STEP 1.
+  NON insistere e NON bloccare il flusso: il preventivo parte via email in ogni caso.
 
-Una volta raccolti Nome + Email + Telefono, esegui il HITL QUOTE WORKFLOW (in sequenza):
+Una volta gestito il PHONE CHECK, esegui il HITL QUOTE WORKFLOW (in sequenza):
 
 **STEP 1 — PROPONI LE VOCI (suggest_quote_items)**
 Chiama: suggest_quote_items(session_id=SESSION_ID, user_id=USER_UID, project_id=PROJECT_ID)
@@ -396,8 +402,9 @@ Demolizioni? Costruzioni? Finiture? Impianti?
 <pillar name="metrics" priority="essential">
 Tipo stanza, dimensioni approssimative (mq), vincoli strutturali
 </pillar>
-<pillar name="contact" priority="essential">
-Nome, Email, Telefono (raccolti per ultimi, in modo conversazionale)
+<pillar name="contact" priority="optional">
+Solo telefono (opzionale). Nome e email sono già noti dall'account.
+NON chiedere mai nome o email — sono gestiti dal backend.
 </pillar>
 </information_pillars>
 

@@ -319,6 +319,44 @@ async def request_login(tool_context) -> str:
     return "LOGIN_REQUIRED_TRIGGERED"
 
 
+# ─── Save Contact Phone ──────────────────────────────────────────────────────
+
+@instrumented_tool("save_contact_phone")
+async def save_contact_phone(phone: str, session_id: str) -> str:
+    """Saves the user's phone number to their profile for future use.
+
+    Call this ONCE after the user provides their phone number during the
+    quote flow. The number is stored in Firestore users/{uid} and reused
+    in all future quotes — the user will never be asked again.
+
+    Args:
+        phone: The user's phone number (e.g. '+393331234567').
+        session_id: The current session ID (used to resolve the user UID).
+    """
+    import re
+    from src.db.firebase_client import get_async_firestore_client
+
+    phone = phone.strip()
+    if not re.match(r"^\+?[0-9\s\-().]{7,20}$", phone):
+        return "Numero di telefono non valido. Riprova (es. +393331234567)."
+
+    db = get_async_firestore_client()
+    try:
+        session_doc = await db.collection("sessions").document(session_id).get()
+        user_id = (session_doc.to_dict() or {}).get("userId") if session_doc.exists else None
+        if not user_id:
+            return "Impossibile salvare il numero: sessione non trovata."
+
+        await db.collection("users").document(user_id).set(
+            {"phone": phone}, merge=True
+        )
+        return f"✅ Numero salvato. Userò {phone} per inviarti aggiornamenti via WhatsApp."
+    except Exception as e:
+        import logging as _logging
+        _logging.getLogger(__name__).error(f"[save_contact_phone] Failed: {e}")
+        return "Numero ricevuto. Procedo con il preventivo."
+
+
 # ─── FunctionTool wrappers (ADK 1.26: pass func directly) ────────────────────
 
 pricing_engine_tool_adk = FunctionTool(pricing_engine_tool)
@@ -332,3 +370,4 @@ suggest_quote_items_adk = FunctionTool(suggest_quote_items)
 trigger_n8n_webhook_adk = FunctionTool(trigger_n8n_webhook)
 request_login_adk = FunctionTool(request_login)
 retrieve_knowledge_adk = FunctionTool(retrieve_knowledge)
+save_contact_phone_adk = FunctionTool(save_contact_phone)

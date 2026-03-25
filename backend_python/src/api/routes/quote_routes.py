@@ -158,6 +158,43 @@ def _quote_doc_ref(project_id: str):
     )
 
 
+async def _get_user_profile(uid: str) -> dict:
+    """
+    Resolves user contact info from Firebase Auth + Firestore.
+
+    Returns {name, email, phone} for PDF generation and email delivery.
+    Phone is optional — only available if the user provided it during a quote flow.
+    Never raises: missing fields default to empty string.
+    """
+    name = ""
+    email = ""
+    phone = ""
+
+    # 1. Firebase Auth: authoritative source for email + display name
+    try:
+        from firebase_admin import auth as fb_auth
+        user_record = await run_in_threadpool(fb_auth.get_user, uid)
+        email = user_record.email or ""
+        name = user_record.display_name or ""
+    except Exception:
+        logger.warning("[UserProfile] Firebase Auth lookup failed for uid=%s", uid)
+
+    # 2. Firestore users/{uid}: phone (saved during quote flow) + name fallback
+    try:
+        db = get_async_firestore_client()
+        doc = await db.collection("users").document(uid).get()
+        data = doc.to_dict() or {} if doc.exists else {}
+        phone = data.get("phone", "")
+        if not name:
+            name = data.get("displayName") or data.get("name", "")
+        if not email:
+            email = data.get("email", "")
+    except Exception:
+        logger.warning("[UserProfile] Firestore lookup failed for uid=%s", uid)
+
+    return {"name": name, "email": email, "phone": phone}
+
+
 # ─── HITL Endpoints ─────────────────────────────────────────────────────────
 
 @router.post(
@@ -290,7 +327,9 @@ async def approve_quote(
             logger.info("PDF generated and saved.", extra={"project_id": project_id, "pdf_url": pdf_url[:80]})
 
             # 3. Deliver to client (fire-and-forget — don't block the response)
-            client_email = quote_data.get("client_email", "")
+            # Resolve email from Firebase Auth profile (authoritative), not from quote data
+            user_profile = await _get_user_profile(user_session.uid)
+            client_email = user_profile["email"]
             grand_total = quote_data.get("financials", {}).get("grand_total", 0.0)
             if client_email:
                 import asyncio

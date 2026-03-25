@@ -18,6 +18,7 @@ from src.adk.agents import syd_orchestrator
 from src.adk.session import get_session_service, get_artifact_service
 from src.adk.filters import sanitize_before_agent, filter_agent_output
 from src.repositories.conversation_repository import get_conversation_repository
+from src.db.firebase_client import get_async_firestore_client
 import httpx
 import asyncio
 import time
@@ -119,8 +120,25 @@ class ADKOrchestrator(BaseOrchestrator):
             if is_guest else
             "STATO AUTENTICAZIONE: L'utente è GIA' LOGGATO con un account verificato. NON DEVI MAI USARE il tool request_login_adk per nessun motivo."
         )
-        logger.info(f"[ADK] Auth injection: is_guest={is_guest}, uid={user_id}")
-        system_context = f"[SYSTEM_MESSAGE]\n{auth_status_msg}\n[END_SYSTEM_MESSAGE]\n\n"
+        # Check if phone is already on file (avoids asking again in quote flow)
+        phone_on_file = False
+        if not is_guest:
+            try:
+                _db = get_async_firestore_client()
+                _user_doc = await _db.collection("users").document(user_id).get()
+                phone_on_file = bool((_user_doc.to_dict() or {}).get("phone")) if _user_doc.exists else False
+            except Exception:
+                pass  # Non-fatal: agent will ask for phone if lookup fails
+
+        logger.info(f"[ADK] Auth injection: is_guest={is_guest}, uid={user_id}, phone_on_file={phone_on_file}")
+        system_context = (
+            f"[SYSTEM_MESSAGE]\n"
+            f"{auth_status_msg}\n"
+            f"USER_UID: {user_id}\n"
+            f"SESSION_ID: {session_id}\n"
+            f"PHONE_ON_FILE: {'true' if phone_on_file else 'false'}\n"
+            f"[END_SYSTEM_MESSAGE]\n\n"
+        )
         
         # Apply the Sandwich Defense boundary delimiters to the clean input
         delimited_input = f"{system_context}###\n{sanitized_input}\n###"

@@ -232,6 +232,25 @@ TOOL_REQUEST_QUOTE_APPROVAL = """<tool name="request_quote_approval">
 </tool>"""
 
 
+TOOL_SAVE_CONTACT_PHONE = """<tool name="save_contact_phone">
+<trigger>User provides their phone number during the quote flow (after PHONE CHECK step).</trigger>
+<goal>Save the phone number to the user's profile so it is never asked again.</goal>
+<parameters>
+<param name="phone" required="true">
+The phone number as provided by the user (e.g. '+393331234567' or '333 123 4567').
+</param>
+<param name="session_id" required="true">
+The current SESSION_ID from the system message.
+</param>
+</parameters>
+<rules>
+1. Call immediately after the user provides their number — do not wait.
+2. After calling, proceed directly to STEP 1 (suggest_quote_items) without further phone questions.
+3. If the tool returns an error, ignore it and proceed — the quote flow must never be blocked by phone collection.
+</rules>
+</tool>"""
+
+
 TOOL_RETRIEVE_KNOWLEDGE = """<tool name="retrieve_knowledge">
 <trigger>
 Use this tool BEFORE answering any question about:
@@ -278,4 +297,5 @@ TOOLS = "\n\n".join([
     TOOL_PRICING_ENGINE,
     TOOL_REQUEST_QUOTE_APPROVAL,
     TOOL_RETRIEVE_KNOWLEDGE,
+    TOOL_SAVE_CONTACT_PHONE,
 ])
