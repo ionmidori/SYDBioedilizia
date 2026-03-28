@@ -47,15 +47,9 @@ for var in "${REQUIRED_VARS[@]}"; do
   fi
 done
 
-echo "▶ Building and pushing Docker image to Artifact Registry..."
-gcloud builds submit \
-  --tag "$IMAGE" \
-  --project "$PROJECT_ID" \
-  "$(dirname "$0")"
-
-echo "▶ Deploying n8n to Cloud Run..."
+echo "▶ Deploying n8n to Cloud Run (using public Docker Hub image — no build required)..."
 gcloud run deploy "$SERVICE_NAME" \
-  --image "$IMAGE" \
+  --image "docker.io/n8nio/n8n:latest" \
   --region "$REGION" \
   --platform managed \
   --allow-unauthenticated \
@@ -82,7 +76,8 @@ gcloud run deploy "$SERVICE_NAME" \
   --set-env-vars "N8N_PUSH_BACKEND=sse" \
   --set-env-vars "N8N_DIAGNOSTICS_ENABLED=false" \
   --set-env-vars "N8N_VERSION_NOTIFICATIONS_ENABLED=false" \
-  --set-env-vars "N8N_SECURE_COOKIE=false"
+  --set-env-vars "N8N_SECURE_COOKIE=false" \
+  --set-env-vars "N8N_PORT=8080"
 
 # ── Retrieve the deployed URL ─────────────────────────────────────────────────
 N8N_URL=$(gcloud run services describe "$SERVICE_NAME" \
