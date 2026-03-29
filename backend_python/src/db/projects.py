@@ -102,25 +102,39 @@ async def count_user_projects(user_id: str) -> int:
         Number of projects.
     """
     db = get_async_firestore_client()
-    # L2 FIX: Define query BEFORE try block so it's always in scope for fallback
+    # Count only ACTIVE projects — exclude soft-deleted ones.
+    # is_deleted may be absent on legacy docs; the fallback handles that with Python-side filtering.
     query = (
         db.collection(PROJECTS_COLLECTION)
         .where(filter=FieldFilter("userId", "==", user_id))
+        .where(filter=FieldFilter("is_deleted", "==", False))
     )
     
     try:
-        # Use aggregation query (more efficient)
+        # Use aggregation query (most efficient path)
         aggregate_query = query.count()
         results = await aggregate_query.get()
         return results[0][0].value
         
     except Exception as e:
-        logger.error(f"[Projects] Error counting projects for {user_id}: {str(e)}")
-        # Fallback in case aggregation fails (or older sdk)
+        logger.warning(
+            f"[Projects] Aggregation count failed for {user_id} (may lack composite index): {str(e)}. "
+            "Falling back to stream-based count."
+        )
+        # Fallback: stream without the is_deleted filter (for legacy docs / missing index)
+        # and apply Python-side filtering so we never count deleted projects.
         try:
-            docs = query.select(['sessionId']).stream()
+            fallback_query = (
+                db.collection(PROJECTS_COLLECTION)
+                .where(filter=FieldFilter("userId", "==", user_id))
+            )
+            docs = fallback_query.select(['sessionId', 'is_deleted']).stream()
             count = 0
-            async for _ in docs:
+            async for doc in docs:
+                doc_data = doc.to_dict() or {}
+                # is_deleted absent on pre-soft-delete legacy docs → treat as active
+                if doc_data.get("is_deleted") is True:
+                    continue
                 count += 1
             return count
         except Exception as e2:
@@ -221,6 +235,8 @@ async def create_project(user_id: str, data: ProjectCreate) -> str:
         doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
         
         # S1 FIX: Explicit null initialization for ALL fields
+        # is_deleted is explicitly set to False so the composite index filter
+        # in count_user_projects works correctly without a fallback.
         await doc_ref.set({
             "sessionId": session_id,
             "userId": user_id,
@@ -230,6 +246,7 @@ async def create_project(user_id: str, data: ProjectCreate) -> str:
             "originalImageUrl": None,
             "constructionDetails": None,
             "messageCount": 0,
+            "is_deleted": False,
             "createdAt": utc_now(),
             "updatedAt": utc_now(),
         })
