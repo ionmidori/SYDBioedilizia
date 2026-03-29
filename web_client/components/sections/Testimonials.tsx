@@ -9,8 +9,7 @@ import { useStaggerReveal } from '@/hooks/use-scroll-animation';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import { fetchWithAuth } from '@/lib/api-client';
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -79,35 +78,30 @@ export function Testimonials() {
     const [testimonials, setTestimonials] = useState<TestimonialItem[]>(defaultTestimonials);
     const { user } = useAuth();
 
-    // Load approved testimonials from Firestore; fall back to defaults if none yet.
-    // NOTE: Firestore security rules must allow: read where status == 'approved' for public.
+    // Load approved testimonials via backend API (3-Tier: no direct Firestore)
     useEffect(() => {
         const loadApproved = async () => {
             try {
-                const snap = await getDocs(
-                    query(collection(db, 'testimonials'), where('status', '==', 'approved'))
-                );
-                if (!snap.empty) {
-                    const items: TestimonialItem[] = snap.docs.map((doc, idx) => {
-                        const d = doc.data();
-                        const name: string = d.name || 'Cliente SYD';
-                        const initials = name.split(' ').slice(0, 2).map((w: string) => w[0] ?? '').join('').toUpperCase();
+                const res = await fetch('/api/py/content/testimonials');
+                if (!res.ok) return;
+                const items: { id: string; name: string; text: string; rating: number }[] = await res.json();
+                if (items.length > 0) {
+                    setTestimonials(items.map((d, idx) => {
+                        const initials = d.name.split(' ').slice(0, 2).map((w: string) => w[0] ?? '').join('').toUpperCase();
                         return {
-                            id: doc.id,
-                            name,
+                            id: d.id,
+                            name: d.name,
                             role: 'Cliente SYD',
                             location: '',
-                            text: d.text || '',
-                            rating: d.rating ?? 5,
+                            text: d.text,
+                            rating: d.rating,
                             initials,
                             gradient: _GRADIENTS[idx % _GRADIENTS.length],
                         };
-                    });
-                    setTestimonials(items);
+                    }));
                 }
-                // If empty, keep defaultTestimonials already in state
             } catch {
-                // Silently keep defaultTestimonials (e.g. missing Firestore index or rules)
+                // Silently keep defaultTestimonials
             }
         };
         loadApproved();
@@ -147,16 +141,14 @@ export function Testimonials() {
 
     async function onSubmit(data: TestimonialFormValues) {
         if (!user) return;
-        
+
         try {
-            await addDoc(collection(db, 'testimonials'), {
-                userId: user.uid,
-                name: user.displayName || 'Utente SYD',
-                text: data.text.trim(),
-                rating: data.rating,
-                createdAt: serverTimestamp(),
-                status: 'pending' // For admin approval
+            const res = await fetchWithAuth('/api/py/content/testimonials', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: data.text.trim(), rating: data.rating }),
             });
+            if (!res.ok) throw new Error('Submit failed');
             setSubmitSuccess(true);
             setTimeout(() => {
                 setIsDialogOpen(false);

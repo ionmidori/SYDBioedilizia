@@ -6,8 +6,6 @@ import { ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 interface PortfolioItem {
     id: string | number;
@@ -93,34 +91,14 @@ export function Portfolio() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Load from Firestore; fall back to defaultProjects on error or empty collection
+    // Load from backend API (3-Tier: no direct Firestore)
     useEffect(() => {
         const loadPortfolio = async () => {
             try {
-                const snap = await getDocs(
-                    query(
-                        collection(db, 'portfolio_projects'),
-                        where('active', '==', true),
-                        orderBy('order')
-                    )
-                );
-                if (!snap.empty) {
-                    const items: PortfolioItem[] = snap.docs.map(doc => {
-                        const d = doc.data();
-                        return {
-                            id: doc.id,
-                            title: d.title ?? '',
-                            category: d.category ?? '',
-                            location: d.location ?? '',
-                            image: d.image_url ?? '',
-                            description: d.description ?? '',
-                            stats: {
-                                area: d.stats?.area ?? '',
-                                duration: d.stats?.duration ?? '',
-                                budget: d.stats?.budget ?? '',
-                            },
-                        };
-                    });
+                const res = await fetch('/api/py/content/portfolio');
+                if (!res.ok) return;
+                const items: PortfolioItem[] = await res.json();
+                if (items.length > 0) {
                     setProjects(items);
                 }
             } catch {

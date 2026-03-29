@@ -15,15 +15,12 @@ import {
     Search,
     Loader2,
     FolderKanban,
-    Layers,
-    X
+    Layers
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useGalleryAssets } from '@/hooks/use-gallery';
 import { cn } from '@/lib/utils';
 import { SydLoader } from '@/components/ui/SydLoader';
-import { AdminImageUpload } from '@/components/admin/AdminImageUpload';
-import { Plus } from 'lucide-react';
 
 type SortOption = 'newest' | 'oldest' | 'name';
 type FilterType = 'all' | 'image' | 'render' | 'video' | 'quote';
@@ -47,10 +44,8 @@ export function GlobalGalleryContent() {
     const [searchQuery, setSearchQuery] = useState('');
     const [groupBy, setGroupBy] = useState<GroupByOption>('type');
     const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
-    const [isUploadOpen, setIsUploadOpen] = useState(false);
-    
-    const filterMenuRef = useRef<HTMLDivElement>(null);
 
+    const filterMenuRef = useRef<HTMLDivElement>(null);
     // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -165,56 +160,8 @@ export function GlobalGalleryContent() {
                     <p className="text-luxury-text/60 text-xs md:text-sm font-light max-w-xl">
                         Tutti i documenti, i render e le acquisizioni vision aggregate dai tuoi progetti.
                     </p>
-                    
-                    {/* NEW: Upload Action Button */}
-                    <button 
-                        onClick={() => setIsUploadOpen(true)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-luxury-gold text-luxury-bg rounded-2xl text-sm font-bold shadow-lg shadow-luxury-gold/10 hover:scale-[1.02] active:scale-[0.98] transition-all"
-                    >
-                        <Plus className="w-4 h-4" />
-                        <span>Nuova Foto</span>
-                    </button>
                 </div>
             </div>
-
-            {/* NEW: Upload Modal/Overlay */}
-            <AnimatePresence>
-                {isUploadOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                        <motion.div 
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setIsUploadOpen(false)}
-                            className="absolute inset-0 bg-luxury-bg/80 backdrop-blur-xl"
-                        />
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            className="relative w-full max-w-xl bg-luxury-bg border border-luxury-gold/20 rounded-[32px] p-8 shadow-2xl overflow-hidden"
-                        >
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-serif text-luxury-text font-bold">Carica Nuova Foto</h2>
-                                <button 
-                                    onClick={() => setIsUploadOpen(false)}
-                                    className="p-2 hover:bg-white/5 rounded-full text-luxury-text/40 transition-colors"
-                                >
-                                    <X className="w-6 h-6" />
-                                </button>
-                            </div>
-                            
-                            <AdminImageUpload 
-                                folder="admin_uploads"
-                                onUploadSuccess={() => {
-                                    // Optionally refresh gallery or just close
-                                    setTimeout(() => setIsUploadOpen(false), 2000);
-                                }} 
-                            />
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
 
             {/* Premium Toolbar */}
             <div className="flex flex-col md:flex-row gap-4 mb-8 sticky top-0 z-20 pb-4 pt-2 bg-luxury-bg/80 backdrop-blur-md border-b border-luxury-gold/5">

@@ -1,7 +1,5 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 /**
  * WebAuthn Passkeys Hook
@@ -42,7 +40,7 @@ export function usePasskey() {
     }, []);
 
     /**
-     * Check if the user has any registered passkeys in Firestore.
+     * Check if the user has any registered passkeys via backend API.
      */
     const checkHasPasskeys = useCallback(async () => {
         if (!user) {
@@ -50,9 +48,11 @@ export function usePasskey() {
             return false;
         }
         try {
-            const passkeysRef = collection(db, 'users', user.uid, 'passkeys');
-            const snapshot = await getDocs(passkeysRef);
-            const active = !snapshot.empty;
+            const { fetchWithAuth } = await import('@/lib/api-client');
+            const res = await fetchWithAuth('/api/py/passkey/check');
+            if (!res.ok) { setHasPasskeys(false); return false; }
+            const data = await res.json();
+            const active = !!data.has_passkeys;
             setHasPasskeys(active);
             return active;
         } catch (error) {
