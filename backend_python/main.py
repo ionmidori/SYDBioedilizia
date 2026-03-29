@@ -343,27 +343,27 @@ class AppCheckMiddleware:
 app.add_middleware(AppCheckMiddleware)
 
 # Register Routers
-from src.api.upload import router as upload_router
+from src.api.routes.upload import router as upload_router
 app.include_router(upload_router)
 
 # Register chat history router
-from src.api.chat_history import router as chat_history_router
+from src.api.routes.chat_history import router as chat_history_router
 app.include_router(chat_history_router)
 
 # Register passkey router
-from src.api.passkey import router as passkey_router
+from src.api.routes.passkey import router as passkey_router
 app.include_router(passkey_router)
 
 # Register projects router (Dashboard)
-from src.api.projects_router import router as projects_router
+from src.api.routes.projects_router import router as projects_router
 app.include_router(projects_router)
 
 # Register reports router (gallery + dashboard stats)
-from src.api.reports import router as reports_router
+from src.api.routes.reports import router as reports_router
 app.include_router(reports_router)
 
 # Register metadata update router
-from src.api.update_metadata import router as metadata_router
+from src.api.routes.update_metadata import router as metadata_router
 app.include_router(metadata_router)
 # Register quote HITL router (skill: langgraph-hitl-patterns)
 from src.api.routes.quote_routes import router as quote_router
@@ -374,16 +374,20 @@ from src.api.routes.batch_routes import router as batch_router
 app.include_router(batch_router)
 
 # Register users router
-from src.api.users_router import router as users_router
+from src.api.routes.users_router import router as users_router
 app.include_router(users_router)
 
 # Register feedback router (self-correction loop — evaluating-adk-agents skill)
-from src.api.feedback import feedback_router
+from src.api.routes.feedback import feedback_router
 app.include_router(feedback_router)
 
 # Register inbound webhook routes (n8n -> FastAPI callbacks, HMAC-SHA256 auth)
 from src.api.routes.webhook_routes import router as webhook_router
 app.include_router(webhook_router)
+
+# Register public content routes (testimonials, portfolio — replaces direct Firestore reads)
+from src.api.routes.content_routes import router as content_router
+app.include_router(content_router)
 
 # Register admin storage router (Signed URLs for direct upload)
 from src.api.routes.admin_storage import router as admin_storage_router
@@ -395,7 +399,7 @@ app.include_router(lifecycle_router)
 
 # 🧪 TEST AUTOMATION ROUTER (Only in development)
 if settings.ENV == "development":
-    from src.api.test_router import router as test_router
+    from src.api.routes.test_router import router as test_router
     app.include_router(test_router)
 
 

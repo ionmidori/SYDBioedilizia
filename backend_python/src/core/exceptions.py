@@ -89,7 +89,7 @@ class QuoteAlreadyApprovedError(AppException):
 
 
 class CheckpointError(ServiceError):
-    """LangGraph checkpoint cannot be saved or resumed (FirestoreSaver)."""
+    """Checkpoint operation failed (e.g. quote state save/resume in Firestore)."""
     error_code = "CHECKPOINT_ERROR"
 
     def __init__(self, thread_id: str, reason: str) -> None:

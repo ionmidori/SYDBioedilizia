@@ -381,9 +381,21 @@ async def verify_authentication(
         raise HTTPException(status_code=500, detail="Token generation failed")
     
     logger.info(f"Passkey authentication successful for user {user_id}")
-    
+
     return {
         "success": True,
         "token": token,
         "user_id": user_id
     }
+
+
+@router.get("/check")
+async def check_has_passkeys(uid: str = Depends(get_current_user_id)):
+    """Check if the authenticated user has any registered passkeys."""
+    try:
+        db = get_firestore_client()
+        docs = list(db.collection("users").document(uid).collection("passkeys").limit(1).stream())
+        return {"has_passkeys": len(docs) > 0}
+    except Exception as e:
+        logger.warning(f"[passkey/check] Firestore query failed for {uid}: {e}")
+        return {"has_passkeys": False}

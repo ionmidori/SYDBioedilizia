@@ -30,10 +30,10 @@ class Settings(BaseSettings):
     
     # Feature Flags (App Check enabled by default for production safety)
     ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")
-    # Orchestration backend selector — Phase 0: langgraph only; Phase 1+: vertex_adk, canary
+    # Orchestration backend (ADK-only since Phase 4 — LangGraph decommissioned)
     ORCHESTRATOR_MODE: str = Field(
-        default="langgraph",
-        description="Orchestration backend: 'langgraph', 'vertex_adk', or 'canary'",
+        default="vertex_adk",
+        description="Orchestration backend: 'vertex_adk'",
     )
     ADK_CANARY_PERCENT: int = Field(
         default=0,
