@@ -75,7 +75,7 @@ def test_terminate_action():
 
 def test_extra_fields_forbidden():
     """Test that extra fields in input models are forbidden (Parameter Pollution)."""
-    from src.api.update_metadata import UpdateMetadataRequest
+    from src.api.routes.update_metadata import UpdateMetadataRequest
     
     # This should raise a validation error because we injected an extra 'malicious_field'
     with pytest.raises(ValidationError) as excinfo:

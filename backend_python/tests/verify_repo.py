@@ -51,7 +51,7 @@ async def verify_conversation_repository():
 async def verify_upload_router():
     try:
         logger.info("Verifying Upload Router...")
-        from src.api.upload import router
+        from src.api.routes.upload import router
         logger.info("✅ Upload Router imported successfully.")
     except Exception as e:
         logger.error(f"❌ Error importing Upload Router: {e}")

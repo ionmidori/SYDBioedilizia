@@ -7,7 +7,7 @@ import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from src.db.firebase_client import init_firebase
-from src.api.chat_history import MessageResponse
+from src.api.routes.chat_history import MessageResponse
 
 # Mock logging
 logging.basicConfig(level=logging.INFO)

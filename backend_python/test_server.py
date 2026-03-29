@@ -11,7 +11,7 @@ try:
     from pydantic import BaseModel
     print("Importing src components...")
     from src.db.firebase_client import init_firebase, get_async_firestore_client
-    from src.api.projects_router import router as projects_router
+    from src.api.routes.projects_router import router as projects_router
     
     print("Initializing Firebase...")
     init_firebase()
