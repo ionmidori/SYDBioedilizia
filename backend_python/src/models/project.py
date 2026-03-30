@@ -125,6 +125,7 @@ class ProjectListItem(BaseModel):
     original_image_url: Optional[str] = None
     updated_at: datetime
     message_count: int = 0
+    has_quote: bool = Field(False, description="Whether this project has completed the quote generation flow")
 
     @field_serializer('updated_at')
     def serialize_updated_at(self, dt: _datetime_type, _info) -> str:

@@ -13,11 +13,10 @@ import { FloatingBatchBar } from "@/components/dashboard/FloatingBatchBar"
 import { BatchSubmitModal } from "@/components/dashboard/BatchSubmitModal"
 
 /**
- * Projects that have status 'quoted' or 'draft' with a quote
- * are eligible for batch submission. For now we consider 'quoted'
- * and 'draft' as potentially having quotes — the backend validates.
+ * Quote eligibility is now determined by the server-authoritative
+ * `has_quote` field on each ProjectListItem. The backend checks if
+ * a valid quote document exists in Firestore (private_data/quote).
  */
-const QUOTE_ELIGIBLE_STATUSES = new Set(['draft', 'quoted', 'analyzing']);
 
 export function ProjectListClient() {
     const { data: projects = [], isLoading, isError, error: queryError, refetch } = useProjects();
@@ -76,9 +75,9 @@ export function ProjectListClient() {
         [projects, selectedIds]
     );
 
-    // Determine which projects have quotes (heuristic: status is quoted or beyond)
+    // Determine which projects truly have quotes (server-authoritative)
     const quoteEligible = useMemo(
-        () => new Set(projects.filter((p) => QUOTE_ELIGIBLE_STATUSES.has(p.status)).map((p) => p.session_id)),
+        () => new Set(projects.filter((p) => p.has_quote).map((p) => p.session_id)),
         [projects]
     );
 

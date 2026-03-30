@@ -36,6 +36,7 @@ export const projectListItemSchema = z.object({
     original_image_url: nullableOptionalUrl,
     updated_at: z.string().datetime({ offset: true }),
     message_count: z.number().int().min(0).default(0),
+    has_quote: z.boolean().default(false),
 });
 
 export const projectListResponseSchema = z.array(projectListItemSchema);

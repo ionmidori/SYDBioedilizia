@@ -67,6 +67,17 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
             # Safe status conversion
             status_enum = parse_enum(ProjectStatus, data.get("status"), ProjectStatus.DRAFT)
 
+            # Check if this project has a quote document (completed quote flow)
+            has_quote = False
+            try:
+                quote_doc = await db.collection(PROJECTS_COLLECTION).document(doc.id).collection("private_data").document("quote").get()
+                if quote_doc.exists:
+                    qdata = quote_doc.to_dict() or {}
+                    # A quote is considered valid if it has at least one item
+                    has_quote = len(qdata.get("items", [])) > 0
+            except Exception:
+                pass  # Fail-safe: default to no quote
+
             try:
                 projects.append(ProjectListItem(
                     session_id=doc.id,
@@ -75,7 +86,8 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
                     thumbnail_url=data.get("thumbnailUrl"),
                     original_image_url=data.get("originalImageUrl"),
                     updated_at=updated_at,
-                    message_count=data.get("messageCount") or 0, 
+                    message_count=data.get("messageCount") or 0,
+                    has_quote=has_quote,
                 ))
             except Exception as item_error:
                 logger.error(f"[Projects] Skipping Invalid Project {doc.id}: {item_error}")

@@ -55,6 +55,8 @@ This document lists all available **AI Skills** (Enterprise Patterns & Workflows
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/selecting-embeddings/SKILL.md)
 - **Performing Similarity Search**: Implement efficient similarity search with vector databases.
   - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/performing-similarity-search/SKILL.md)
+- **RAG Pipeline SYD**: Gemini multimodal PDF extraction, Pinecone Integrated Inference, BM25 hybrid upgrade, Ragas evaluation. SYD-specific: Prezzario Lazio 2023, `prezzario`/`normative` namespaces, eval scripts.
+  - [SKILL.md](file:///C:/Users/User01/.gemini/antigravity/scratch/renovation-next/.gemini/skills/rag-pipeline-syd/SKILL.md)
 
 ## 🎨 Frontend & UI/UX
 - **Enterprise User Dashboard UX**: 2026 guidelines (Bento, Glassmorphism) for User Dashboard.

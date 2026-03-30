@@ -107,14 +107,50 @@ async def get_market_prices(query: str) -> str:
 
 @instrumented_tool("retrieve_knowledge")
 async def retrieve_knowledge(query: str) -> str:
-    """Retrieves authoritative knowledge about renovation standards, laws, 
+    """Retrieves authoritative knowledge about renovation standards, laws,
     and SYD practices from the Pinecone vector database.
-    
+
+    Searches across both regulatory/normative knowledge and the regional
+    price list (Tariffa Regionale Lazio 2023).
+
     Args:
         query: The user query or concept to look up.
     """
-    from src.tools.rag_tools import retrieve_knowledge_wrapper
-    return await retrieve_knowledge_wrapper(query)
+    from src.tools.rag_tools import retrieve_knowledge as _retrieve
+    return await _retrieve(query)
+
+
+@instrumented_tool("search_prezzario")
+async def search_prezzario(query: str, categoria: str = "") -> str:
+    """Searches the regional price list (Tariffa Regionale Lazio 2023) for
+    construction work items and their official unit prices.
+
+    Use this tool when the user asks about costs, prices, or unit rates
+    for specific construction work items (demolitions, flooring, painting, etc.).
+
+    Args:
+        query: Description of the work item to search for, e.g.
+               'demolizione pavimento in marmo', 'tinteggiatura pareti al mq'.
+        categoria: Optional category filter to narrow results, e.g.
+                   'Demolizioni e Rimozioni', 'Tinteggiature e Verniciature'.
+    """
+    from src.tools.rag_tools import search_prezzario as _search
+    return await _search(query, categoria)
+
+
+@instrumented_tool("retrieve_price_by_code")
+async def retrieve_price_by_code(codice_articolo: str) -> str:
+    """Looks up a specific price-list article by its exact code.
+
+    Use this tool when the user references a specific article code like
+    'A 3.02.14.a.' or 'A 14.01.15.b.' and wants the full details.
+
+    Args:
+        codice_articolo: The exact article code from the regional price list,
+                         e.g. 'A 3.02.14.a.' or 'A 20.01.1.'
+    """
+    from src.tools.rag_tools import retrieve_price_by_code as _lookup
+    return await _lookup(codice_articolo)
 
 
 
@@ -370,4 +406,6 @@ suggest_quote_items_adk = FunctionTool(suggest_quote_items)
 trigger_n8n_webhook_adk = FunctionTool(trigger_n8n_webhook)
 request_login_adk = FunctionTool(request_login)
 retrieve_knowledge_adk = FunctionTool(retrieve_knowledge)
+search_prezzario_adk = FunctionTool(search_prezzario)
+retrieve_price_by_code_adk = FunctionTool(retrieve_price_by_code)
 save_contact_phone_adk = FunctionTool(save_contact_phone)

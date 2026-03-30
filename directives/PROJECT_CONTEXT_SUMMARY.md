@@ -2,14 +2,25 @@
 **Ultimo aggiornamento:** 23 Marzo 2026 (Phase 82b)
 **Status:** Production-Ready — Admin Dashboard + Portfolio Cloud Run Live
 
-## 🎯 Obiettivi Correnti (Phase 82b)
-1. **Admin Console Live**: Streamlit admin tool deployato su Cloud Run (`syd-admin`, europe-west1). Dashboard KPI, Preventivi, Portfolio, Recensioni, GDPR Monitor, Listino Prezzi — tutte le sezioni operative.
-2. **Portfolio Full-Cycle**: Admin carica immagini → Firebase Storage → Firestore `portfolio_projects` → `Portfolio.tsx` legge da Firestore con fallback agli hardcoded defaults.
-3. **Native RAG System**: Deployed Pinecone Serverless with Integrated Inference (`multilingual-e5-large`). Zero-latency retrieval for ADK agents without local embedding overhead.
+## 🎯 Obiettivi Correnti (Phase 83)
+1. **RAG Architecture & Knowledge Extraction**: Estrazione multimodale via Gemini 2.5 Flash del prezzario Lazio. Ingestion deterministica (SHA256) su Pinecone Serverless in multi-namespace.
+2. **Admin Console Live**: Streamlit admin tool deployato su Cloud Run (`syd-admin`, europe-west1). Dashboard KPI, Preventivi, Portfolio, Recensioni, GDPR Monitor, Listino Prezzi — tutte le sezioni operative.
+3. **Portfolio Full-Cycle**: Admin carica immagini → Firebase Storage → Firestore `portfolio_projects` → `Portfolio.tsx` legge da Firestore con fallback agli hardcoded defaults.
 4. **GDPR Account Lifecycle**: 3-phase inactivity pipeline deployed. Cloud Scheduler (03:00 Europe/Rome), 3 Firestore composite indexes (READY), Secret Manager. Endpoint: `POST /internal/lifecycle/run`.
 5. **Architecture Canonicalized**: 1 stanza = 1 progetto, N progetti = 1 batch.
 
 ---
+
+- **Phase 84 (Mar 30, 2026):** **Agent Skills & Workflow Standardization**:
+    - **Skill Integration**: Generato e importato un set massivo di ~30+ *Agent Skills* custom (via Claude) all'interno della directory `skills/` per uniformare e codificare gli standard architetturali del progetto.
+    - **Aree Coperte**: Pattern Enterprise in FastAPI, design UI moderno (M3/Glassmorphism/Shadcn) in Next.js, automazioni RAG/Pinecone, Integrazioni N8n, best-practice di test (TestSprite/E2E), GDPR base security, e direttive per gli Agent ADK.
+    - **Obiettivo**: Garantire tolleranza zero al debito tecnico e zero regressioni tramite direttive esplicite per l'Agent IDE (Antigravity).
+
+- **Phase 83 (Mar 29, 2026):** **RAG Pipeline & Pinecone Multi-Namespace (v4.4.0)**:
+    - **Multimodal Extraction**: Sostituito il fallimentare parser regex con `scripts/extract_prezzario.py`. Usa `gemini-2.5-flash` (Vision) per estrarre la struttura logica del PDF con schema Pydantic (`codice`, `prezzo_euro`, `categoria`, ecc.).
+    - **Namespace Segregation**: Aggiornato `RAGService` e `scripts/ingest_prezzario.py`. Dati vettoriali divisi in `prezzario` (dati strutturati listini) e `normative` (wiki e best-practice in markdown testuale).
+    - **Idempotency**: Inserimenti vettoriali Pinecone resi idempotenti (ID = `sha256(codice.encode())`). Gestione sicura `delete_namespace()` sui 404 per evitare crash a namespace vuoto.
+    - **ADK Integration**: `search_prezzario`, `retrieve_price_by_code`, `retrieve_knowledge` riprodotti e validati. Piena operatività del tool `quote_agent`.
 
 - **Phase 82b (Mar 23, 2026):** **Portfolio Admin Page + Cloud Run Deploy (v4.3.1)**:
     - **Portfolio Admin**: `pages/5_🖼️_Portfolio.py` con routing list/add/edit, thumbnail preview, visibility toggle, upload immagini Firebase Storage (Admin SDK direct upload → `make_public()` → permanent URL).

@@ -24,6 +24,8 @@ from src.adk.tools import (
     request_quote_approval_adk,
     request_login_adk,
     retrieve_knowledge_adk,
+    search_prezzario_adk,
+    retrieve_price_by_code_adk,
     save_contact_phone_adk,
 )
 
@@ -249,6 +251,8 @@ quote_agent = Agent(
         request_quote_approval_adk,
         request_login_adk,
         retrieve_knowledge_adk,
+        search_prezzario_adk,
+        retrieve_price_by_code_adk,
         save_contact_phone_adk,
     ],
     instruction=QUOTE_AGENT_INSTRUCTION,
