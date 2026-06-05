@@ -140,7 +140,7 @@ Questo documento traccia l'evoluzione della piattaforma SYD dall'architettura in
 
 ## 📉 Fase 20: Gemini Cost Optimization (Feb-19-2026)
 *Gestione dei costi operativi e ottimizzazione dei modelli AI.*
-- **Model Downgrade Strategy**: Migrazione dei task non creativi (CAD vectorization, Verify scripts) da Gemini Pro a `gemini-1.5-flash` e `gemini-3-flash-preview`.
+- **Model Downgrade Strategy**: Migrazione dei task non creativi (CAD vectorization, Verify scripts) da Gemini Pro a `gemini-1.5-flash` e `gemini-3.1-flash-preview`.
 - **Pro Guard**: Refactoring di `src/api/gemini_imagen.py` per supportare override del modello, prevenendo usage accidentale di modelli costosi durante i test.
 - **Cost Audit**: Analisi completa dei consumi e implementazione di logiche di routing del modello basate sulla complessità del task.
 
