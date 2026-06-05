@@ -27,7 +27,6 @@ dependencies = [
     "google-cloud-modelarmor>=0.1.0",
     "fido2>=1.2.0",
     "pypdf>=6.10.2",
-    "google-antigravity",
 ]
 
 [project.optional-dependencies]
@@ -62,9 +61,6 @@ exclude_lines = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
 ]
-
-[tool.uv.sources]
-google-antigravity = { git = "https://github.com/google-antigravity/antigravity-sdk-python" }
 
 [dependency-groups]
 dev = [
