@@ -4,34 +4,35 @@ version = "4.0.0"
 requires-python = ">=3.12"
 dependencies = [
     "email-validator>=2.3.0",
-    "fastapi>=0.128.0",
+    "fastapi>=0.136.3",
+    "starlette>=1.0.1",
     "firebase-admin>=7.1.0",
     "google-cloud-aiplatform>=1.133.0",
     "google-cloud-firestore>=2.23.0",
     "google-genai>=1.59.0",
-    "google-generativeai>=0.8.6",
     "httpx>=0.28.1",
-    "pillow>=12.1.0",
+    "pillow>=12.2.0",
     "pinecone>=6.0.0",
     "pyjwt>=2.12.0",
-    "python-dotenv>=1.2.1",
-    "python-multipart>=0.0.18",
+    "python-dotenv>=1.2.2",
+    "python-multipart>=0.0.27",
     "uvicorn[standard]>=0.40.0",
     "pydantic-settings>=2.0.0",
     "ezdxf>=1.4.3",
     "python-dateutil>=2.9.0.post0",
     "slowapi>=0.1.9",
-    "google-adk>=1.27.2",
+    "google-adk>=2.2.0",
     "aiosmtplib>=5.1.0",
     "reportlab>=4.4.10",
     "google-cloud-modelarmor>=0.1.0",
     "fido2>=1.2.0",
-    "pypdf>=6.9.2",
+    "pypdf>=6.10.2",
+    "google-antigravity",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0.0",
+    "pytest>=9.0.3",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.12.0",
@@ -61,6 +62,9 @@ exclude_lines = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
 ]
+
+[tool.uv.sources]
+google-antigravity = { git = "https://github.com/google-antigravity/antigravity-sdk-python" }
 
 [dependency-groups]
 dev = [
