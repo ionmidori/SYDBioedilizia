@@ -101,8 +101,19 @@ backend_python/server_debug.log
 nul
 output.txt
 commit_files.txt
+.git_status.txt
 
 
 # n8n secrets
 n8n/.env.n8n
 !n8n/.env.n8n.example
+
+# backend runtime data artifacts (extraction logs, scraped HTML, raw PDFs)
+backend_python/data/*.txt
+backend_python/data/*.html
+backend_python/data/*.pdf
+backend_python/data/*.log
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/
