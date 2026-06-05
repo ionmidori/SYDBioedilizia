@@ -14,7 +14,7 @@
         "eval:run:design": "cd backend_python && uv run python tests/evals/run_evals.py --file design_flow.test.json --output results/"
     },
     "dependencies": {
-        "next": "^16.2.0",
+        "next": "^16.2.6",
         "opencode-ai": "^1.1.53",
         "react": "18.3.1",
         "react-dom": "18.3.1",
@@ -22,8 +22,19 @@
     },
     "overrides": {
         "zod": "^3.23.8",
-        "fast-xml-parser": "5.5.8",
+        "fast-xml-parser": "^5.7.0",
+        "fast-xml-builder": "^1.1.7",
         "flatted": "3.4.2",
+        "protobufjs": "^7.5.8",
+        "@protobufjs/utf8": "^1.1.1",
+        "node-forge": "^1.4.0",
+        "lodash": "^4.18.0",
+        "brace-expansion": "^5.0.6",
+        "picomatch": "^4.0.4",
+        "uuid": "^11.1.1",
+        "postcss": "^8.5.10",
+        "@tootallnate/once": "^2.0.1",
+        "next": "^16.2.6",
         "minimatch": "$minimatch",
         "eslint": {
             "minimatch": "$minimatch"
