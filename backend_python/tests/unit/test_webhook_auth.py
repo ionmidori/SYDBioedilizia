@@ -25,7 +25,7 @@ def _make_valid_headers(
     sig = "sha256=" + hmac.new(
         secret.encode(), msg.encode(), hashlib.sha256
     ).hexdigest()
-    return {"X-N8N-Timestamp": ts, "X-N8N-Signature": sig}
+    return {"X-SYD-Timestamp": ts, "X-SYD-Signature": sig}
 
 
 _TEST_SECRET = "test-hmac-secret-for-unit-tests"
@@ -132,7 +132,7 @@ async def test_valid_signature_accepted():
 async def test_invalid_signature_rejected():
     body = json.dumps(_VALID_PAYLOAD)
     headers = _make_valid_headers(_TEST_SECRET, body)
-    headers["X-N8N-Signature"] = "sha256=0000000000000000000000000000000000000000"
+    headers["X-SYD-Signature"] = "sha256=0000000000000000000000000000000000000000"
     code, data = await _post_webhook(body, headers)
     assert code == 403
     assert "Invalid signature" in data["detail"]
@@ -167,8 +167,8 @@ async def test_missing_secret_fails_secure(monkeypatch: pytest.MonkeyPatch):
     # Build headers with a dummy secret (won't matter — secret is None server-side)
     ts = str(int(time.time()))
     headers = {
-        "X-N8N-Timestamp": ts,
-        "X-N8N-Signature": "sha256=dummy",
+        "X-SYD-Timestamp": ts,
+        "X-SYD-Signature": "sha256=dummy",
     }
     code, data = await _post_webhook(body, headers)
     assert code == 503
@@ -178,7 +178,7 @@ async def test_missing_secret_fails_secure(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.usefixtures("_mock_settings")
 async def test_missing_timestamp_header():
     body = json.dumps(_VALID_PAYLOAD)
-    headers = {"X-N8N-Signature": "sha256=dummy"}
+    headers = {"X-SYD-Signature": "sha256=dummy"}
     code, data = await _post_webhook(body, headers)
     assert code == 401
     assert "timestamp" in data["detail"].lower()
@@ -188,7 +188,7 @@ async def test_missing_timestamp_header():
 async def test_missing_signature_header():
     body = json.dumps(_VALID_PAYLOAD)
     ts = str(int(time.time()))
-    headers = {"X-N8N-Timestamp": ts}
+    headers = {"X-SYD-Timestamp": ts}
     code, data = await _post_webhook(body, headers)
     assert code == 401
     assert "signature" in data["detail"].lower()

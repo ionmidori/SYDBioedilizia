@@ -37,7 +37,7 @@ async def verify_n8n_webhook(request: Request) -> dict:
     body_str = body_bytes.decode("utf-8")
 
     # 1. Extract required headers
-    timestamp = request.headers.get("X-N8N-Timestamp")
+    timestamp = request.headers.get("X-SYD-Timestamp")
     if not timestamp:
         logger.warning("[n8n webhook] Missing timestamp header")
         raise HTTPException(
@@ -45,7 +45,7 @@ async def verify_n8n_webhook(request: Request) -> dict:
             detail="Missing timestamp header",
         )
 
-    signature = request.headers.get("X-N8N-Signature")
+    signature = request.headers.get("X-SYD-Signature")
     if not signature:
         logger.warning("[n8n webhook] Missing signature header")
         raise HTTPException(

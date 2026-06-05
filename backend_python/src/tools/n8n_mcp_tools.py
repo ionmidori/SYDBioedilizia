@@ -93,8 +93,8 @@ def _make_headers(body: str) -> dict:
         headers["X-N8N-API-KEY"] = settings.N8N_API_KEY
     timestamp, sig = _sign_payload(body)
     if timestamp and sig:
-        headers["X-N8N-Timestamp"] = timestamp
-        headers["X-N8N-Signature"] = f"sha256={sig}"
+        headers["X-SYD-Timestamp"] = timestamp
+        headers["X-SYD-Signature"] = f"sha256={sig}"
     return headers
 
 
