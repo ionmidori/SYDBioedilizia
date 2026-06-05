@@ -192,10 +192,16 @@ class RAGService:
             records.append(record)
             
         try:
-            batch_size = 90
+            import time as _time
+            batch_size = 50
+            total_batches = (len(records) + batch_size - 1) // batch_size
             for i in range(0, len(records), batch_size):
                 batch = records[i:i + batch_size]
+                batch_num = i // batch_size + 1
+                logger.info(f"Upserting batch {batch_num}/{total_batches} ({len(batch)} records)...")
                 self.index.upsert_records(namespace=namespace, records=batch)
+                if i + batch_size < len(records):
+                    _time.sleep(8)  # respect 250k TPM rate limit for multilingual-e5-large
             logger.info(f"Successfully upserted {len(records)} chunks to Pinecone in namespace '{namespace}'.")
             return True
         except Exception as e:

@@ -49,7 +49,7 @@ async def main():
     print(f"\n🚀 Testing Text-to-Image Generation (CHEAP FLASH MODE)...")
     try:
         # ⚠️ OVERRIDING MODEL TO FLASH TO PREVENT COSTS
-        CHEAP_MODEL = "gemini-3-flash-preview"
+        CHEAP_MODEL = "gemini-3.1-flash-preview"
         print(f"💰 Using cheaper model: {CHEAP_MODEL}")
         
         result = await generate_image_t2i(
