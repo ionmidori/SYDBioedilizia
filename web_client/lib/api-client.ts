@@ -92,11 +92,11 @@ import { z } from 'zod';
  * Wraps fetchWithAuth and validates the JSON response using a Zod schema.
  * Throws a structured error if validation fails.
  */
-export async function fetchValidated<T>(
-    url: string, 
-    schema: z.ZodType<T>, 
+export async function fetchValidated<S extends z.ZodTypeAny>(
+    url: string,
+    schema: S,
     options: FetchOptions = {}
-): Promise<T> {
+): Promise<z.output<S>> {
     const response = await fetchWithAuth(url, options);
     
     if (!response.ok) {
