@@ -95,7 +95,10 @@ class RAGService:
             if filter_dict:
                 query_kwargs["filter"] = filter_dict
                 
-            response = self.index.search_records(
+            # Pinecone SDK call is synchronous → offload to a thread so it
+            # never blocks the asyncio event loop (e.g. concurrent chat streams).
+            response = await asyncio.to_thread(
+                self.index.search_records,
                 namespace=namespace,
                 query=SearchQuery(**query_kwargs),
             )
@@ -192,16 +195,20 @@ class RAGService:
             records.append(record)
             
         try:
-            import time as _time
             batch_size = 50
             total_batches = (len(records) + batch_size - 1) // batch_size
             for i in range(0, len(records), batch_size):
                 batch = records[i:i + batch_size]
                 batch_num = i // batch_size + 1
                 logger.info(f"Upserting batch {batch_num}/{total_batches} ({len(batch)} records)...")
-                self.index.upsert_records(namespace=namespace, records=batch)
+                # Sync SDK call → offload to a thread to avoid blocking the event loop.
+                await asyncio.to_thread(
+                    self.index.upsert_records, namespace=namespace, records=batch
+                )
                 if i + batch_size < len(records):
-                    _time.sleep(8)  # respect 250k TPM rate limit for multilingual-e5-large
+                    # Async sleep: respects the 250k TPM rate limit for
+                    # multilingual-e5-large WITHOUT freezing the event loop.
+                    await asyncio.sleep(8)
             logger.info(f"Successfully upserted {len(records)} chunks to Pinecone in namespace '{namespace}'.")
             return True
         except Exception as e:
