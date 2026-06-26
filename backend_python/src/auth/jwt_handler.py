@@ -75,6 +75,8 @@ async def verify_token(req: Request) -> UserSession:
             "Auth Bypass (DEV): Skipping Firebase token verification.",
             extra={"uid": uid, "is_anonymous": is_anonymous}
         )
+        # Expose uid for identity-aware rate limiting (src/core/rate_limit.py).
+        req.state.uid = uid
         return UserSession(
             uid=uid,
             email=email,
@@ -116,6 +118,9 @@ async def verify_token(req: Request) -> UserSession:
             is_anonymous=(decoded_token.get("firebase", {}).get("sign_in_provider") == "anonymous"),
             claims=decoded_token
         )
+
+        # Expose uid for identity-aware rate limiting (src/core/rate_limit.py).
+        req.state.uid = session.uid
 
         # Track activity for non-anonymous users (debounced, fire-and-forget)
         if not session.is_anonymous and session.uid:
