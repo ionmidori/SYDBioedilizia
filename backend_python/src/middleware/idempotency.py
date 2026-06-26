@@ -20,6 +20,7 @@ Applicable paths: Only routes listed in _IDEMPOTENCY_PATHS.
 Excluded paths:   /chat/stream (streaming — never buffer) and any other SSE endpoint.
 """
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -28,6 +29,32 @@ from dataclasses import dataclass, field
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
+
+
+def _identity_prefix(headers: list[tuple[bytes, bytes]]) -> str:
+    """Derive a per-caller namespace so idempotency keys cannot collide or be
+    replayed across users.
+
+    This middleware runs before route-level auth, so we cannot read the verified
+    uid. We namespace by a hash of the bearer token (stable per user, opaque in
+    logs); if absent, we fall back to the originating client IP. A bare,
+    unscoped Idempotency-Key would otherwise let one caller replay another
+    caller's cached response.
+    """
+    auth = b""
+    xff = b""
+    for name, value in headers:
+        lname = name.lower()
+        if lname == b"authorization":
+            auth = value
+        elif lname == b"x-forwarded-for":
+            xff = value
+    if auth:
+        return "tok:" + hashlib.sha256(auth).hexdigest()[:16]
+    if xff:
+        client_ip = xff.split(b",")[0].strip().decode("utf-8", "replace")
+        return f"ip:{client_ip}"
+    return "anon"
 
 _TTL_SECONDS = 60 * 60 * 24  # 24 hours
 _MAX_CACHE_SIZE = 10_000      # Prevent unbounded memory growth on Cloud Run
@@ -113,6 +140,10 @@ class IdempotencyMiddleware:
         if not idempotency_key:
             await self.app(scope, receive, send)
             return
+
+        # Scope the key to the caller's identity (R3) so a key chosen by one
+        # user can never replay another user's cached response.
+        idempotency_key = f"{_identity_prefix(scope.get('headers', []))}:{idempotency_key}"
 
         async with self._lock:
             # Replay a cached response
