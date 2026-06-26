@@ -35,31 +35,22 @@ updates:
         update-types: ["minor", "patch"]
     labels: ["dependencies", "admin-tool"]
 
-  # ── Web client (npm) ─────────────────────────────────────────────────────
-  - package-ecosystem: "npm"
-    directory: "/web_client"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 10
-    groups:
-      web-client:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-    labels: ["dependencies", "frontend"]
-
-  # ── Root tooling (npm) ───────────────────────────────────────────────────
+  # ── npm (root + web_client workspace) ────────────────────────────────────
+  # web_client is an npm workspace of the root, so its dependency tree lives in
+  # the root package-lock.json. A single npm entry at "/" covers both — do NOT
+  # add a separate "/web_client" entry (no lockfile there; would break workspace
+  # resolution).
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
     groups:
-      root-tooling:
+      npm-all:
         patterns: ["*"]
         update-types: ["minor", "patch"]
-    labels: ["dependencies", "tooling"]
+    labels: ["dependencies", "frontend", "tooling"]
 
   # ── GitHub Actions ───────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"

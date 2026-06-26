@@ -38,15 +38,27 @@ does not recur.
 | Manifest | Ecosystem | Lockfile committed | CI audit gate |
 |----------|-----------|--------------------|---------------|
 | `backend_python/` (`pyproject.toml` + `uv.lock`) | pip/uv | ✅ | ✅ `pip-audit --strict` (`backend-tests.yml`) |
-| `web_client/` (`package.json`) | npm | ❌ (gitignored) | ✅ `npm audit --audit-level=high` (`frontend-checks.yml`) |
-| `/` (`package-lock.json`) | npm | ✅ | ✅ **new** `security-audit.yml` (prod, high) |
+| `web_client/` (`package.json`) | npm | ➖ workspace of `/` | ✅ via root lock audit (see below) |
+| `/` (`package-lock.json`) | npm | ✅ (covers the workspace) | ✅ **new** `security-audit.yml` (prod, high) |
 | `admin_tool/requirements.txt` | pip | ❌ | ✅ **new** `security-audit.yml` (`pip-audit`) |
+
+> **Workspace note:** `web_client` is declared as an npm **workspace** in the
+> root `package.json` (`"workspaces": ["web_client"]`). Its full dependency tree
+> (next, firebase, sharp, @ai-sdk, zod, …) is already resolved inside the root
+> `package-lock.json`. There is **no** separate `web_client/package-lock.json`
+> and one must NOT be created — it would conflict with the workspace. The root
+> lock is the single source of truth and is what `security-audit.yml` audits.
+> npm audit across the whole tree reports **19 moderate, 0 high** — all moderates
+> trace to the `js-yaml`/`gray-matter`/jest dev chain plus a `protobufjs` moderate
+> (`GHSA-f38q-mgvj-vph7`, fixable non-breaking via `npm audit fix`). The single
+> **high** alert is therefore NOT in the npm tree — look in the Python manifests.
 
 ## Controls added in this intervention
 
 1. **`.github/dependabot.yml`** — scheduled, grouped weekly version-update PRs
-   for all five ecosystems (backend pip, admin_tool pip, web_client npm, root
-   npm, github-actions). Grouping mirrors the team's "consolidated bumps".
+   for every ecosystem: backend pip, admin_tool pip, npm at `/` (covers the
+   `web_client` workspace), and github-actions. Grouping mirrors the team's
+   "consolidated bumps".
 2. **`.github/workflows/security-audit.yml`** — new CI gate for the two
    previously-unguarded manifests (root npm prod deps + `admin_tool` pip-audit),
    plus a weekly cron safety net.
@@ -59,12 +71,18 @@ does not recur.
 1. Open the Dependabot dashboard and fill the **Alert ledger** above.
 2. For each alert, prefer the auto-generated Dependabot PR. If none exists,
    bump the offending package in its manifest to `Fixed-in` (or later).
-3. `web_client` has **no committed lockfile** → Dependabot can only see the
-   `package.json` ranges. Commit `web_client/package-lock.json` so alerts pin to
-   exact resolved versions and `npm ci` in CI is reproducible.
-4. Re-run `security-audit.yml` (and the existing backend/frontend jobs); confirm
-   green.
-5. Verify the dashboard shows **0 open alerts**, then close this ticket.
+3. The **high** alert is not in the npm tree (npm audit = 0 high). Look in the
+   Python manifests: run `cd backend_python && uv run pip-audit --strict` and
+   `cd admin_tool && pip-audit -r requirements.txt`. The backend job already
+   gates this; `admin_tool` is newly gated by `security-audit.yml`.
+4. The `protobufjs` moderate in the root lock is fixable non-breaking:
+   `npm audit fix` (then commit the updated root `package-lock.json`).
+5. Re-run the CI jobs; confirm green. Verify the dashboard shows **0 open
+   alerts**, then close this ticket.
+
+> ⚠️ Do **not** add a `web_client/package-lock.json` — `web_client` is an npm
+> workspace and is already covered by the root lock (see Workspace note above).
+> A separate lockfile would break the workspace resolution.
 
 ## Notes
 
