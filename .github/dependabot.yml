@@ -1,0 +1,70 @@
+# Dependabot configuration — manages version-update & security PRs across
+# every dependency manifest in the monorepo.
+#
+# Security updates (the GitHub "Dependabot alerts" feed) are enabled at the
+# repo level regardless of this file; this config additionally schedules
+# grouped version-update PRs so dependencies do not silently drift and
+# accumulate advisories. Groups consolidate many bumps into a single PR,
+# matching the team's existing "consolidated Dependabot bumps" practice.
+version: 2
+
+updates:
+  # ── Backend (Python / uv) ────────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/backend_python"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      backend-python:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "backend"]
+
+  # ── Admin tool (Python / pip) ────────────────────────────────────────────
+  - package-ecosystem: "pip"
+    directory: "/admin_tool"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      admin-tool:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "admin-tool"]
+
+  # ── Web client (npm) ─────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/web_client"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      web-client:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "frontend"]
+
+  # ── Root tooling (npm) ───────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      root-tooling:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    labels: ["dependencies", "tooling"]
+
+  # ── GitHub Actions ───────────────────────────────────────────────────────
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "ci"]
