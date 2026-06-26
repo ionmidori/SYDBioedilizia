@@ -15,9 +15,12 @@ from datetime import datetime, timedelta
 # a real key sitting in a developer's .env. Unit tests mock `genai.Client`, so no
 # real API call is ever made — this guarantees the default suite never consumes
 # API quota or costs money, and lets settings.api_key resolve in CI (no key there).
-# setdefault: a key explicitly exported in the shell still wins, for the opt-in
-# `pytest -m integration` live runs.
-os.environ.setdefault("GEMINI_API_KEY", "test-dummy-key-not-real")
+# A non-empty key explicitly exported in the shell still wins, for the opt-in
+# `pytest -m integration` live runs. We treat an empty value as unset because CI
+# injects `GEMINI_API_KEY: ${{ secrets.* }}` which becomes "" when the secret is
+# absent — that empty string would otherwise defeat setdefault.
+if not os.environ.get("GEMINI_API_KEY"):
+    os.environ["GEMINI_API_KEY"] = "test-dummy-key-not-real"
 
 # Add parent directory to sys.path to enable 'src' imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
