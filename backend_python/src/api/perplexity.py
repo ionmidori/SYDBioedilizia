@@ -69,5 +69,7 @@ async def fetch_market_prices(query: str) -> Dict[str, Any]:
         logger.error(f"Perplexity API HTTP error: {e.response.status_code} - {e.response.text}")
         raise Exception(f"API request failed: {e.response.status_code}")
     except Exception as e:
+        # Log the detail; raise a generic message so upstream callers can't
+        # surface internal error text to end users.
         logger.error(f"Failed to fetch market prices: {str(e)}", exc_info=True)
-        raise Exception(f"Market price lookup failed: {str(e)}")
+        raise Exception("Market price lookup failed") from e

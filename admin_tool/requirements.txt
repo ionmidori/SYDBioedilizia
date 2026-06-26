@@ -1,12 +1,22 @@
-streamlit
-firebase-admin
-pandas
-plotly
-pydantic
-python-dotenv
-google-cloud-firestore
+# Admin tool (Streamlit console) dependencies.
+# Minimum version floors keep installs reproducible and let Dependabot /
+# pip-audit reason about advisories. Bump via Dependabot PRs (see
+# .github/dependabot.yml). The pinned-exact entry is called out below.
+
+streamlit>=1.37.0
+firebase-admin>=6.5.0
+pandas>=2.2.0
+plotly>=5.22.0
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+google-cloud-firestore>=2.16.0
 reportlab>=4.0.0
 jinja2>=3.1.0
 httpx>=0.27.0
 tenacity>=8.0.0
+
+# ⚠️ SECURITY REVIEW: streamlit-authenticator 0.2.3 is an old exact pin that
+# transitively constrains PyJWT to a legacy line. Upgrading to >=0.3.x changes
+# the authenticator API (config / login signature) and must be done with manual
+# testing — do NOT let Dependabot auto-merge this one.
 streamlit-authenticator==0.2.3

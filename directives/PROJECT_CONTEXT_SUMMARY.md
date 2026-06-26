@@ -40,7 +40,7 @@
     - **Skill rag-pipeline-syd**: `.gemini/skills/rag-pipeline-syd/` — SKILL.md aggiornato con pipeline reale (Gemini extraction), INGESTION.md (Docling+BM25 hybrid upgrade), HYBRID_SEARCH.md, EVALUATION.md. Registrato in `SKILLS_REGISTRY.md`.
 
 - **Phase 84a (Mar 29–30, 2026):** **n8n Cloud Run + Architecture Refactoring (v4.4.1)**:
-    - **n8n Cloud Run**: 4 workflow attivati via `POST /api/v1/workflows/{id}/activate` (public API, non `PATCH`). Gmail SMTP App Password corretta (`6808 4361 7357 2917`). Supabase PostgreSQL (`db.ztswcobfxmlivmojsayn.supabase.co`). Nodi Telegram/Twilio rimossi (no credenziali). API key `claude-auto-3` in `memory/n8n_deploy_reminder.md`.
+    - **n8n Cloud Run**: 4 workflow attivati via `POST /api/v1/workflows/{id}/activate` (public API, non `PATCH`). Credenziali (Gmail SMTP App Password, host Supabase PostgreSQL, n8n API key) gestite come secret fuori dal repo — vedi gestore segreti / variabili d'ambiente Cloud Run, NON documentarle qui. Nodi Telegram/Twilio rimossi (no credenziali).
     - **Router Consolidation**: 9 router file spostati con `git mv` da `src/api/` a `src/api/routes/`. `main.py` import paths aggiornati. 4 test file corretti. `gemini_imagen.py` e `perplexity.py` lasciati in `src/api/` (non sono router).
     - **Firestore → Backend API**: `Testimonials.tsx`, `Portfolio.tsx`, `usePasskey.ts` migrati da direct Firestore reads ad API calls. Nuovo file `src/api/routes/content_routes.py` con `GET/POST /api/content/testimonials` e `GET /api/content/portfolio`. Nuovo endpoint `GET /passkey/check`.
     - **LangChain Cleanup**: `ORCHESTRATOR_MODE` default `langgraph` → `vertex_adk` in `config.py`. Docstring `CheckpointError` de-langgraphizzato.

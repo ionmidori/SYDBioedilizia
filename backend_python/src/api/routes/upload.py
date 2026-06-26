@@ -103,18 +103,24 @@ def _firebase_upload(
 
     blob.upload_from_string(content, content_type=content_type)
 
-    blob.cache_control = "public, max-age=31536000, immutable"
+    # Private cache: the object is NOT public, so only the bearer of a valid
+    # signed URL may fetch it. "private" prevents shared/CDN caches from
+    # retaining the (authenticated) response.
+    blob.cache_control = "private, max-age=3600"
     blob.content_disposition = f'inline; filename="{safe_filename}"'
     blob.patch()
 
+    # 🔒 Security (H-2): do NOT call blob.make_public(). User uploads are
+    # private interiors/PII (GDPR). Access is granted ONLY via short-lived
+    # signed URLs; the gallery regenerates fresh signed URLs from the stored
+    # storage_path on read (see src/tools/gallery.py).
     signed_url = blob.generate_signed_url(
         version="v4",
         expiration=timedelta(hours=1),
         method="GET",
     )
 
-    blob.make_public()
-    return blob.public_url, signed_url
+    return signed_url, signed_url
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -182,17 +188,20 @@ async def upload_image(
         file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
 
         # 6. Firebase upload in threadpool (non-blocking)
-        public_url, signed_url = await run_in_threadpool(
+        # Both URLs are short-lived signed URLs (object stays private — H-2).
+        signed_url, _ = await run_in_threadpool(
             _firebase_upload, file_path, content, validated_mime, safe_filename
         )
 
         # 7. Increment quota
         await increment_quota(user_id, "upload_image")
 
-        # 8. Persist metadata to Firestore so uploaded photos appear in the gallery
+        # 8. Persist metadata to Firestore so uploaded photos appear in the gallery.
+        # The gallery regenerates fresh signed URLs from storage_path on read, so
+        # storing a (transient) signed URL here is acceptable.
         repo = get_conversation_repository()
         await repo.save_file_metadata(session_id, {
-            "url": public_url,
+            "url": signed_url,
             "type": "image",
             "name": safe_filename,
             "size": file_size,
@@ -209,13 +218,13 @@ async def upload_image(
                 "file_size_bytes": file_size,
                 "mime_type": validated_mime,
                 "user_id": user_id,
-                "storage_url": public_url,
+                "storage_url": signed_url.split("?")[0],
             }
         )
 
         return ImageMediaAsset(
             id=asset_id,
-            url=public_url,
+            url=signed_url,
             filename=safe_filename,
             mime_type=validated_mime,
             size_bytes=file_size,

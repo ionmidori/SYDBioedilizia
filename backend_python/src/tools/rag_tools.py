@@ -7,9 +7,18 @@ Provides:
     - search_prezzario: Semantic search specifically in the price list
 """
 import logging
-from src.services.rag_service import RAGService, NAMESPACE_PREZZARIO, NAMESPACE_NORMATIVE
+from src.services.rag_service import get_rag_service, NAMESPACE_PREZZARIO, NAMESPACE_NORMATIVE
 
 logger = logging.getLogger(__name__)
+
+# Returned to the agent when the knowledge base is unreachable. Phrased as an
+# instruction so the agent surfaces the degradation to the user instead of
+# silently answering without official data.
+_RAG_UNAVAILABLE = (
+    "ATTENZIONE: la knowledge base ufficiale (prezzario/normative) non è "
+    "raggiungibile in questo momento. Informa l'utente che i prezzi ufficiali "
+    "non sono disponibili ora e NON inventare importi: invita a riprovare più tardi."
+)
 
 
 async def retrieve_knowledge(query: str) -> str:
@@ -26,10 +35,11 @@ async def retrieve_knowledge(query: str) -> str:
         Formatted string with relevant findings, including source,
         relevance score, and any pricing information.
     """
-    rag_service = RAGService()
+    rag_service = get_rag_service()
 
     if not rag_service.pc:
-        return "Error: Pinecone RAG Service not configured (missing API keys from environment)."
+        logger.error("[RAG] retrieve_knowledge called but Pinecone is not configured.")
+        return _RAG_UNAVAILABLE
 
     try:
         results = await rag_service.search_multi_namespace(
@@ -68,7 +78,7 @@ async def retrieve_knowledge(query: str) -> str:
         return formatted_output
     except Exception as e:
         logger.error(f"RAG retrieve_knowledge error: {e}", exc_info=True)
-        return f"Error retrieving knowledge: {e}"
+        return _RAG_UNAVAILABLE
 
 
 async def search_prezzario(query: str, categoria: str = "") -> str:
@@ -87,10 +97,11 @@ async def search_prezzario(query: str, categoria: str = "") -> str:
         Formatted string with matching price-list articles including
         code, description, unit of measure, and unit price.
     """
-    rag_service = RAGService()
+    rag_service = get_rag_service()
 
     if not rag_service.pc:
-        return "Error: Pinecone RAG Service not configured."
+        logger.error("[RAG] search_prezzario called but Pinecone is not configured.")
+        return _RAG_UNAVAILABLE
 
     try:
         filter_dict = None
@@ -127,7 +138,7 @@ async def search_prezzario(query: str, categoria: str = "") -> str:
         return formatted_output
     except Exception as e:
         logger.error(f"RAG search_prezzario error: {e}", exc_info=True)
-        return f"Error searching prezzario: {e}"
+        return _RAG_UNAVAILABLE
 
 
 async def retrieve_price_by_code(codice_articolo: str) -> str:
@@ -143,10 +154,11 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
     Returns:
         Full details of the matching article, or a message if not found.
     """
-    rag_service = RAGService()
+    rag_service = get_rag_service()
 
     if not rag_service.pc:
-        return "Error: Pinecone RAG Service not configured."
+        logger.error("[RAG] retrieve_price_by_code called but Pinecone is not configured.")
+        return _RAG_UNAVAILABLE
 
     try:
         results = await rag_service.search(
@@ -188,4 +200,4 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
         return output
     except Exception as e:
         logger.error(f"RAG retrieve_price_by_code error: {e}", exc_info=True)
-        return f"Error looking up article: {e}"
+        return _RAG_UNAVAILABLE
