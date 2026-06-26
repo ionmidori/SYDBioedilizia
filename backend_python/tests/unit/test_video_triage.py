@@ -144,9 +144,8 @@ class TestGeminiVideoAnalysis:
         mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
         mock_client.aio.files.delete = AsyncMock()
         
-        with patch('src.vision.video_triage.GEMINI_API_KEY', 'test-key'):
-            with patch('src.vision.video_triage.genai.Client', return_value=mock_client):
-                result = await analyze_video_with_gemini(str(video_file))
+        with patch('src.vision.video_triage.genai.Client', return_value=mock_client):
+            result = await analyze_video_with_gemini(str(video_file))
         
         # Assert
         assert result["success"] is True
@@ -163,12 +162,11 @@ class TestGeminiVideoAnalysis:
         video_file = tmp_path / "test.mp4"
         video_file.write_bytes(b"fake video")
         
-        with patch('src.vision.video_triage.GEMINI_API_KEY', 'test-key'):
-            with patch('src.vision.video_triage.genai.Client') as mock_client_class:
-                mock_client = mock_client_class.return_value
-                mock_client.aio.files.upload = AsyncMock(side_effect=Exception("API Error"))
+        with patch('src.vision.video_triage.genai.Client') as mock_client_class:
+            mock_client = mock_client_class.return_value
+            mock_client.aio.files.upload = AsyncMock(side_effect=Exception("API Error"))
                 
-                result = await analyze_video_with_gemini(str(video_file))
+            result = await analyze_video_with_gemini(str(video_file))
         
         assert result["success"] is False
         assert "Unable to perform" in result["renovationNotes"]
