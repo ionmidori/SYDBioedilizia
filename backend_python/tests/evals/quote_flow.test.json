@@ -1,0 +1,72 @@
+{
+  "evalSetId": "syd_quote_flow_v1",
+  "name": "SYD Quote Flow Scenarios",
+  "evalCases": [
+    {
+      "evalId": "quote_bathroom_6mq",
+      "conversation": [
+        {
+          "invocationId": "inv_quote_001",
+          "userContent": {
+            "parts": [
+              {
+                "text": "Vorrei ristrutturare il mio bagno. È un bagno degli anni 80 con piastrelle bianche, pavimento in gres beige e sanitari vecchi. Circa 6 mq. Voglio un preventivo per rifarlo tutto."
+              }
+            ],
+            "role": "user"
+          },
+          "finalResponse": {
+            "parts": [
+              {
+                "text": "Test"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediateData": {
+            "toolUses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_001"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "evalId": "quote_livingroom_28mq",
+      "conversation": [
+        {
+          "invocationId": "inv_quote_002",
+          "userContent": {
+            "parts": [
+              {
+                "text": "Ho un soggiorno di 28 mq con parquet rovinato e pareti con carta da parati degli anni 70. Vorrei un preventivo per rifacimento pavimento e tinteggiatura pareti."
+              }
+            ],
+            "role": "user"
+          },
+          "finalResponse": {
+            "parts": [
+              {
+                "text": "Test"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediateData": {
+            "toolUses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_002"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

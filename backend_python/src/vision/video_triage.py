@@ -21,8 +21,6 @@ from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = settings.api_key
-
 # Video Triage Prompt - Multimodal (Visual + Audio)
 VIDEO_TRIAGE_PROMPT = """You are an expert interior architect analyzing this renovation video.
 
@@ -221,10 +219,7 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
     Returns:
         Dict with triage analysis results
     """
-    if not GEMINI_API_KEY:
-        raise Exception("GEMINI_API_KEY not configured")
-    
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client = genai.Client(api_key=settings.api_key)
     
     try:
         logger.info("Uploading video to Gemini File API...")

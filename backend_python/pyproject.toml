@@ -46,6 +46,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+# Exclude live-API tests by default so a plain `pytest` run never calls the real
+# Gemini API (no quota/cost). Opt in explicitly with: pytest -m integration
+addopts = "-m 'not integration'"
 markers = [
     "integration: marks tests as integration tests (requiring live API)",
 ]

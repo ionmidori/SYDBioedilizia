@@ -7,8 +7,6 @@ from src.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = settings.api_key
-
 TRIAGE_PROMPT = """You are an expert interior architect and structural engineer analyzing this image.
 
 **CRITICAL: Execute the following Chain of Thought (CoT) process before answering:**
@@ -56,11 +54,8 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
     Perform initial triage analysis on an interior space image.
     Uses google-genai SDK with Gemini 3 Flash.
     """
-    if not GEMINI_API_KEY:
-        raise Exception("GEMINI_API_KEY not configured")
-    
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        client = genai.Client(api_key=settings.api_key)
         
         logger.info("Performing triage analysis on image (Gemini 2.5 Flash)...")
 

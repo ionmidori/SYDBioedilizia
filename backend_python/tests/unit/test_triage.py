@@ -38,11 +38,9 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
         
-        # Patch both the Client and the module-level API key constant
-        with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
-            with patch('src.vision.triage.genai.Client', return_value=mock_client):
-                # Act
-                result = await analyze_image_triage(sample_image_bytes)
+        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+            # Act
+            result = await analyze_image_triage(sample_image_bytes)
         
         # Assert
         assert result["success"] is True
@@ -80,10 +78,9 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
         
-        with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
-            with patch('src.vision.triage.genai.Client', return_value=mock_client):
-                # Act
-                result = await analyze_image_triage(sample_image_bytes)
+        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+            # Act
+            result = await analyze_image_triage(sample_image_bytes)
         
         # Assert
         assert result["success"] is True
@@ -107,10 +104,9 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
         
-        with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
-            with patch('src.vision.triage.genai.Client', return_value=mock_client):
-                # Act
-                result = await analyze_image_triage(sample_image_bytes)
+        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+            # Act
+            result = await analyze_image_triage(sample_image_bytes)
         
         # Assert
         assert result["success"] is False
@@ -137,10 +133,9 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
         
-        with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
-            with patch('src.vision.triage.genai.Client', return_value=mock_client):
-                # Act
-                result = await analyze_image_triage(sample_image_bytes)
+        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+            # Act
+            result = await analyze_image_triage(sample_image_bytes)
         
         # Assert
         assert result["success"] is False
@@ -166,10 +161,9 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
         
-        with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
-            with patch('src.vision.triage.genai.Client', return_value=mock_client):
-                # Act
-                result = await analyze_image_triage(sample_image_bytes)
+        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+            # Act
+            result = await analyze_image_triage(sample_image_bytes)
         
         # Assert
         assert result["success"] is False
@@ -198,10 +192,9 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
         
-        with patch('src.vision.triage.GEMINI_API_KEY', 'test-key'):
-            with patch('src.vision.triage.genai.Client', return_value=mock_client):
-                # Act
-                result = await analyze_image_triage(sample_image_bytes)
+        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+            # Act
+            result = await analyze_image_triage(sample_image_bytes)
         
         # Assert
         assert result["success"] is True

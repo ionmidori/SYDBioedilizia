@@ -1,0 +1,74 @@
+{
+  "evalSetId": "syd_triage_flow_v1",
+  "name": "SYD Triage Flow Scenarios",
+  "description": "Validates intent-first behavior on file uploads and context-aware routing.",
+  "evalCases": [
+    {
+      "evalId": "photo_upload_no_context_intent_first",
+      "conversation": [
+        {
+          "invocationId": "inv_triage_intent_001",
+          "userContent": {
+            "parts": [
+              {
+                "text": "Ecco la foto del mio bagno"
+              }
+            ],
+            "role": "user"
+          },
+          "finalResponse": {
+            "parts": [
+              {
+                "text": "Come vuoi procedere con la foto?\n\n1. Rendering — Visualizzo idee di ristrutturazione in 3D\n2. Preventivo — Analizzo la stanza e preparo un computo metrico\n3. Solo analisi — Descrivo quello che vedo senza impegno\n\nDimmi 1, 2 o 3."
+              }
+            ],
+            "role": "model"
+          }
+        }
+      ]
+    },
+    {
+      "evalId": "photo_upload_in_quote_flow_no_routing",
+      "conversation": [
+        {
+          "invocationId": "inv_triage_context_001",
+          "userContent": {
+            "parts": [
+              {
+                "text": "Voglio un preventivo per ristrutturare il bagno."
+              }
+            ],
+            "role": "user"
+          },
+          "finalResponse": {
+            "parts": [
+              {
+                "text": "Certo! Per preparare un preventivo accurato, ho bisogno di una foto del bagno attuale. Puoi caricarla?"
+              }
+            ],
+            "role": "model"
+          }
+        },
+        {
+          "invocationId": "inv_triage_context_002",
+          "userContent": {
+            "parts": [
+              {
+                "text": "Ecco la foto del bagno"
+              }
+            ],
+            "role": "user"
+          },
+          "finalResponse": {
+            "parts": [
+              {
+                "text": "Ho analizzato la tua foto. Ecco quello che vedo:\n\nTipo stanza: bagno\nSuperfici: pavimento gres beige, pareti piastrelle bianche, soffitto intonaco.\n\nAnalisi completata. Ho aggiunto questi dati al contesto del tuo preventivo."
+              }
+            ],
+            "role": "model"
+          }
+        }
+      ]
+    }
+  ]
+}

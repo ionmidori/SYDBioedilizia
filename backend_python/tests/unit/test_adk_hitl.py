@@ -26,8 +26,10 @@ def mock_firestore_doc():
 
 @pytest.fixture
 def mock_db():
-    """Patches the Firestore AsyncClient at module level."""
-    with patch("src.adk.hitl.db") as mock:
+    """Patches the lazy Firestore AsyncClient getter used by hitl.py."""
+    with patch("src.adk.hitl.get_async_firestore_client") as mock_getter:
+        mock = MagicMock()
+        mock_getter.return_value = mock
         yield mock
 
 
