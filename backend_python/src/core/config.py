@@ -98,8 +98,11 @@ class Settings(BaseSettings):
 
     # Model Armor (Runtime Guardrails — OWASP LLM01/LLM02)
     MODEL_ARMOR_ENABLED: bool = Field(
-        default=False,
-        description="Enable Model Armor API guardrails. Requires template in GCP console.",
+        default=True,
+        description="Enable Model Armor API guardrails (OWASP LLM01/LLM02). "
+                    "Secure-by-default: inert until MODEL_ARMOR_TEMPLATE_ID is also set "
+                    "(get_model_armor_service() returns None and guardrails no-op), so "
+                    "enabling this has no effect until a template is configured in GCP.",
     )
     MODEL_ARMOR_TEMPLATE_ID: str = Field(
         default="",
