@@ -19,4 +19,4 @@ tenacity>=8.0.0
 # transitively constrains PyJWT to a legacy line. Upgrading to >=0.3.x changes
 # the authenticator API (config / login signature) and must be done with manual
 # testing — do NOT let Dependabot auto-merge this one.
-streamlit-authenticator==0.2.3
+streamlit-authenticator==0.4.2
