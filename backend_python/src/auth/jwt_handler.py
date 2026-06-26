@@ -47,7 +47,7 @@ async def verify_token(req: Request) -> UserSession:
     # Google's servers, which is fragile and unnecessary for dev testing.
     # The token is accepted as-is and decoded structurally if possible.
     # ─────────────────────────────────────────────────────────────────
-    if settings.ENV == "development":
+    if settings.ENV == "development" and settings.ALLOW_AUTH_BYPASS:
         # Try to extract uid from the token payload (JWT middle section)
         uid = "dev-user"
         email = "dev@local"

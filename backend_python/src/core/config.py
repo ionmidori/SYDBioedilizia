@@ -7,6 +7,14 @@ class Settings(BaseSettings):
     Enforces strict typing and validation of environment variables.
     """
     ENV: str = Field(default="production", description="Environment: development, production. Defaults to production (fail-secure).")
+    # 🔐 Auth bypass is DEV-ONLY and must be opted into EXPLICITLY (defence-in-depth).
+    # A single ENV misconfiguration must NOT be enough to disable token verification:
+    # the bypass requires BOTH ENV=development AND ALLOW_AUTH_BYPASS=True, and the
+    # validator below hard-refuses startup if it is ever enabled outside development.
+    ALLOW_AUTH_BYPASS: bool = Field(
+        default=False,
+        description="DEV ONLY. Skips Firebase token verification. Forbidden when ENV != development.",
+    )
     # GOOGLE_CLOUD_PROJECT is the canonical GCP env var name.
     # PROJECT_ID is kept for backward compatibility with legacy code.
     GOOGLE_CLOUD_PROJECT: str = Field(
@@ -122,6 +130,20 @@ class Settings(BaseSettings):
         """Keep PROJECT_ID in sync with GOOGLE_CLOUD_PROJECT for legacy code."""
         if not self.PROJECT_ID:
             self.PROJECT_ID = self.GOOGLE_CLOUD_PROJECT
+        return self
+
+    @model_validator(mode="after")
+    def _forbid_auth_bypass_in_prod(self) -> "Settings":
+        """Fail-secure: refuse to start if the auth bypass is enabled outside development.
+
+        This guarantees a single env-var slip (e.g. ALLOW_AUTH_BYPASS leaking into a
+        production deployment) can never silently disable Firebase token verification.
+        """
+        if self.ENV != "development" and self.ALLOW_AUTH_BYPASS:
+            raise ValueError(
+                "ALLOW_AUTH_BYPASS must not be True when ENV != 'development' "
+                f"(ENV={self.ENV!r}). Refusing to start with auth verification disabled."
+            )
         return self
 
     @property
