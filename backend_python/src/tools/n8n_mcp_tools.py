@@ -175,7 +175,7 @@ async def notify_admin_wrapper(
         return f"❌ Notifica admin fallita (HTTP {e.response.status_code}). Ritentare."
     except Exception as e:
         logger.error(f"[n8n] Admin notify unexpected error: {e}", exc_info=True)
-        return f"❌ Errore inatteso nella notifica admin: {str(e)}"
+        return "❌ Errore temporaneo nella notifica admin. Riprovare più tardi."
 
 
 notify_admin = notify_admin_wrapper
@@ -240,7 +240,7 @@ async def deliver_quote_wrapper(
         return f"❌ Consegna preventivo fallita (HTTP {e.response.status_code}). Riprovare."
     except Exception as e:
         logger.error(f"[n8n] Quote delivery unexpected error: {e}", exc_info=True)
-        return f"❌ Errore inatteso nella consegna preventivo: {str(e)}"
+        return "❌ Errore temporaneo nella consegna del preventivo. Riprovare più tardi."
 
 
 deliver_quote = deliver_quote_wrapper

@@ -1,5 +1,8 @@
+import logging
 from pydantic import BaseModel, Field
 from src.api.perplexity import fetch_market_prices
+
+logger = logging.getLogger(__name__)
 
 class MarketPricesInput(BaseModel):
     """Input schema for get_market_prices tool."""
@@ -29,8 +32,10 @@ async def get_market_prices_wrapper(query: str) -> str:
         
         return response
         
-    except Exception as e:
-        return f"Error fetching market prices: {str(e)}"
+    except Exception:
+        # Never echo raw exception text to the agent/user (info disclosure).
+        logger.error("get_market_prices failed", exc_info=True)
+        return "Unable to fetch market prices at this time. Please try again later."
 
 # Tool definition
 MARKET_PRICES_TOOL_DEF = {
