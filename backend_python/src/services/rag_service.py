@@ -256,3 +256,20 @@ class RAGService:
     def _deterministic_id(codice: str) -> str:
         """Generate a deterministic ID from article code for idempotent upserts."""
         return hashlib.sha256(codice.strip().encode("utf-8")).hexdigest()[:32]
+
+
+# ── Singleton factory ────────────────────────────────────────────────────────
+# Constructing RAGService() opens a Pinecone client and performs a list_indexes()
+# network round-trip in _initialize(). The ADK tools used to build a fresh
+# instance on every single tool call (i.e. every price lookup), adding latency
+# and connection churn. This module-level singleton reuses one initialized
+# client across the process.
+_rag_service_singleton: Optional["RAGService"] = None
+
+
+def get_rag_service() -> "RAGService":
+    """Return the process-wide RAGService singleton (lazy-initialized)."""
+    global _rag_service_singleton
+    if _rag_service_singleton is None:
+        _rag_service_singleton = RAGService()
+    return _rag_service_singleton
