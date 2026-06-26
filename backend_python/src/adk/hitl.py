@@ -6,13 +6,14 @@ import secrets
 import logging
 from google.cloud import firestore
 from src.core.exceptions import QuoteAlreadyApprovedError, QuoteNotFoundError
+from src.db.firebase_client import get_async_firestore_client
 
 logger = logging.getLogger(__name__)
-db = firestore.AsyncClient()
 
 async def save_resumption_token(project_id: str, nonce: str) -> None:
     """Saves a cryptographically secure token to the project's quote document."""
     try:
+        db = get_async_firestore_client()
         quote_ref = db.collection("projects").document(project_id).collection("quotes").document("active")
         await quote_ref.set({"resumption_token": nonce}, merge=True)
         logger.info(f"Saved resumption token for project {project_id}")
@@ -22,6 +23,7 @@ async def save_resumption_token(project_id: str, nonce: str) -> None:
 async def verify_resumption_token(project_id: str, provided_token: str) -> bool:
     """Verifies the resumption token and clears it if successful."""
     try:
+        db = get_async_firestore_client()
         quote_ref = db.collection("projects").document(project_id).collection("quotes").document("active")
         doc = await quote_ref.get()
         if not doc.exists:
@@ -46,6 +48,7 @@ async def start_quote_hitl(project_id: str, user_id: str) -> None:
     Saves a pending-review record to Firestore so approve_quote_hitl can resume it.
     Raises QuoteAlreadyApprovedError if the quote is already approved.
     """
+    db = get_async_firestore_client()
     quote_ref = (
         db.collection("projects")
         .document(project_id)
@@ -72,6 +75,7 @@ async def approve_quote_hitl(project_id: str, decision: str, notes: str, admin_u
     Phase 2: admin approves or rejects the pending quote.
     Raises QuoteNotFoundError if no pending review exists.
     """
+    db = get_async_firestore_client()
     quote_ref = (
         db.collection("projects")
         .document(project_id)

@@ -1,0 +1,39 @@
+{
+  "evalSetId": "syd_design_flow_v1",
+  "name": "SYD Design Flow Scenarios",
+  "evalCases": [
+    {
+      "evalId": "design_livingroom_modern",
+      "conversation": [
+        {
+          "invocationId": "inv_design_001",
+          "userContent": {
+            "parts": [
+              {
+                "text": "Voglio vedere come potrebbe diventare il mio soggiorno in stile moderno minimalista. Ho una foto del soggiorno attuale."
+              }
+            ],
+            "role": "user"
+          },
+          "finalResponse": {
+            "parts": [
+              {
+                "text": "Test"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediateData": {
+            "toolUses": [
+              {
+                "name": "generate_render",
+                "args": {},
+                "id": "call_001"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
