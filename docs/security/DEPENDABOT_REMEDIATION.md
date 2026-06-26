@@ -14,14 +14,30 @@ does not recur.
 > offline. To avoid mis-attributing advisories, confirm the 4 alerts from the
 > dashboard and fill the table below.
 
-## Alert ledger (confirm from dashboard)
+## Alert ledger
 
-| # | Severity | Package | Ecosystem / manifest | Advisory (GHSA/CVE) | Fixed-in | Status |
-|---|----------|---------|----------------------|---------------------|----------|--------|
-| 1 | High     | _TBD_   | _TBD_                | _TBD_               | _TBD_    | open   |
-| 2 | Moderate | _TBD_   | _TBD_                | _TBD_               | _TBD_    | open   |
-| 3 | Moderate | _TBD_   | _TBD_                | _TBD_               | _TBD_    | open   |
-| 4 | Moderate | _TBD_   | _TBD_                | _TBD_               | _TBD_    | open   |
+As of 2026-06-26 the dashboard shows **2 open** (both moderate, npm) and 154
+closed — the earlier "1 high + extra moderates" were already remediated.
+
+| # | Alert | Severity | Package | Manifest | Advisory | Resolution |
+|---|-------|----------|---------|----------|----------|------------|
+| 1 | #168 | Moderate | protobufjs | `package-lock.json` | GHSA-f38q-mgvj-vph7 (property shadowing) | ✅ **Fixed**: 7.6.2 → 7.6.4 (non-breaking `npm audit fix`) |
+| 2 | #166 | Moderate | js-yaml | `package-lock.json` | GHSA-h67p-54hq-rp68 (quadratic-complexity DoS) | ⚠️ **Dismiss** (see below) — no clean fix |
+
+### #166 js-yaml — recommended dismissal rationale
+
+- **Not reachable by attackers.** The only production use is `gray-matter@4.0.3`
+  (which pins `js-yaml ^3.13.1`, a 3.x line with no patched release) in
+  `web_client/lib/blog.ts`, parsing **repo-authored** markdown frontmatter from
+  `../docs/blog/*.md` at build/server time. The DoS requires attacker-supplied
+  YAML with repeated-alias merge keys — never the case here.
+- The remaining copies are the **dev-only** `jest` → `@istanbuljs` chain.
+- **No non-breaking fix exists**: npm's only path is downgrading `gray-matter` to
+  `2.0.1` (breaking). A blanket `js-yaml` override to 4.x/5.x would break
+  `gray-matter` (the 3.x→4.x API removed `safeLoad`).
+- **Action:** dismiss alert #166 on GitHub as *"Risk is tolerable"* with this
+  rationale, and let Dependabot bump `gray-matter`/`js-yaml` when upstream ships
+  a compatible release (tracked by the `npm-all` group in `dependabot.yml`).
 
 ## Known / confirmed offline
 
