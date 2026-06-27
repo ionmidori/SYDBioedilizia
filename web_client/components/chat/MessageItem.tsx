@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { User } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
 import { ToolStatus } from '@/components/chat/ToolStatus';
@@ -102,11 +102,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     const formattedText = formatMessageText(text);
 
     // ✅ Memoize ReactMarkdown components to prevent re-creation on every render
-    const markdownComponents = useMemo(() => ({
-        img: ({ ...props }: { src?: string; alt?: string }) => props.src ? (
+    const markdownComponents = useMemo<Components>(() => ({
+        img: ({ src, alt }) => src ? (
             <ImagePreview
-                src={String(props.src)}
-                alt={String(props.alt || 'Generated image')}
+                src={String(src)}
+                alt={String(alt || 'Generated image')}
                 onClick={onImageClick}
             />
         ) : null

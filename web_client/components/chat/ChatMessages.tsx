@@ -19,8 +19,8 @@ interface ChatMessagesProps {
     // 🔥 NEW: CoT Data Stream
     data?: unknown[];
 
-    messagesContainerRef: RefObject<HTMLDivElement>;
-    messagesEndRef: RefObject<HTMLDivElement>;
+    messagesContainerRef: RefObject<HTMLDivElement | null>;
+    messagesEndRef: RefObject<HTMLDivElement | null>;
     onFormSubmit?: (data: unknown) => void;
 }
 

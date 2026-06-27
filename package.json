@@ -18,8 +18,8 @@
         "minimatch": "10.2.3",
         "next": "^16.2.6",
         "opencode-ai": "^1.1.53",
-        "react": "18.3.1",
-        "react-dom": "18.3.1"
+        "react": "19.2.7",
+        "react-dom": "19.2.7"
     },
     "overrides": {
         "fast-xml-parser": "^5.7.0",
