@@ -2,8 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { FixedSizeGrid as Grid } from 'react-window';
+import React, { useState, useEffect, useRef } from 'react';
+import { Grid, type CellComponentProps } from 'react-window';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { M3Spring } from '@/lib/m3-motion';
@@ -24,6 +24,117 @@ interface VirtualizedGalleryGridProps {
     columnCount?: number;
     gap?: number;
     itemAspectRatio?: number;
+}
+
+/**
+ * Per-cell props passed to react-window v2's `cellComponent` via `cellProps`.
+ * (v2 replaced v1's render-prop closure with a stable component + explicit props.)
+ */
+type GalleryCellData = {
+    items: GalleryItem[];
+    columnCount: number;
+    onItemClick: (item: GalleryItem, index: number) => void;
+    onDeleteClick?: (item: GalleryItem) => void;
+    hoveredId: string | null;
+    setHoveredId: (id: string | null) => void;
+};
+
+/**
+ * Stable cell renderer for react-window v2 `<Grid>`.
+ * Receives grid coordinates + `ariaAttributes` from the Grid, and gallery data
+ * through `cellProps`. Uses the resolved `columnCount` (the value the Grid is
+ * laid out with) so the flattened item index always matches the rendered layout.
+ */
+function GalleryCell({
+    ariaAttributes,
+    columnIndex,
+    rowIndex,
+    style,
+    items,
+    columnCount,
+    onItemClick,
+    onDeleteClick,
+    hoveredId,
+    setHoveredId,
+}: CellComponentProps<GalleryCellData>) {
+    const itemIndex = rowIndex * columnCount + columnIndex;
+    const item = items[itemIndex];
+
+    if (!item) return null;
+
+    return (
+        <div style={style} className="flex items-center justify-center p-[8px]" {...ariaAttributes}>
+            <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                transition={M3Spring.standard}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onItemClick(item, itemIndex)}
+                onMouseEnter={() => setHoveredId(item.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                className="relative w-full aspect-square rounded-2xl overflow-hidden cursor-pointer group bg-luxury-bg/30 border border-luxury-gold/10 hover:border-luxury-gold/30 transition-all duration-300"
+                role="button"
+                tabIndex={0}
+                aria-label={`Apri ${item.title || 'immagine'}`}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') onItemClick(item, itemIndex);
+                }}
+            >
+                {/* Image or Placeholder */}
+                {(item.type === 'image' || item.type === 'render') ? (
+                    <img
+                        src={item.thumbnail || item.url}
+                        alt={item.title || ''}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 select-none"
+                        loading="lazy"
+                        decoding="async"
+                    />
+                ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-luxury-bg via-luxury-bg/80 to-luxury-bg/60">
+                        <span className="text-luxury-gold/60 text-xs font-bold uppercase tracking-widest">
+                            {item.type === 'quote' ? 'PDF' : item.type.toUpperCase()}
+                        </span>
+                    </div>
+                )}
+
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                    <div className="text-white text-xs font-bold truncate pr-8">
+                        {item.title || `${item.type} ${itemIndex + 1}`}
+                    </div>
+                </div>
+
+                {/* Delete Button (Hover) */}
+                {onDeleteClick && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteClick(item);
+                        }}
+                        className="absolute top-2 left-2 z-20 p-2 bg-red-500/80 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
+                        title="Elimina"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                )}
+
+                {/* Type Badge */}
+                <div className="absolute top-2 right-2 px-2 py-1 bg-luxury-gold/20 text-luxury-gold text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-luxury-gold/30 z-10">
+                    {item.type === 'quote' ? 'PDF' : item.type.substring(0, 3).toUpperCase()}
+                </div>
+
+                {/* Hover Focus Ring */}
+                {hoveredId === item.id && (
+                    <motion.div
+                        layoutId="focus-ring"
+                        className="absolute inset-0 border-2 border-luxury-gold/50 rounded-2xl pointer-events-none"
+                        transition={M3Spring.expressive}
+                    />
+                )}
+            </motion.div>
+        </div>
+    );
 }
 
 /**
@@ -66,91 +177,6 @@ export function VirtualizedGalleryGrid({
         return () => observer.disconnect();
     }, []);
 
-    // Item cell renderer
-    const Cell = useCallback(
-        ({ columnIndex, rowIndex, style }: { columnIndex: number; rowIndex: number; style: React.CSSProperties }) => {
-            const itemIndex = rowIndex * (defaultColumnCount || 3) + columnIndex;
-            const item = items[itemIndex];
-
-            if (!item) return null;
-
-            return (
-                <div style={style} className="flex items-center justify-center p-[8px]">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        whileInView={{ opacity: 1, scale: 1 }}
-                        transition={M3Spring.standard}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => onItemClick(item, itemIndex)}
-                        onMouseEnter={() => setHoveredId(item.id)}
-                        onMouseLeave={() => setHoveredId(null)}
-                        className="relative w-full aspect-square rounded-2xl overflow-hidden cursor-pointer group bg-luxury-bg/30 border border-luxury-gold/10 hover:border-luxury-gold/30 transition-all duration-300"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={`Apri ${item.title || 'immagine'}`}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') onItemClick(item, itemIndex);
-                        }}
-                    >
-                        {/* Image or Placeholder */}
-                        {(item.type === 'image' || item.type === 'render') ? (
-                            <img
-                                src={item.thumbnail || item.url}
-                                alt={item.title || ''}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 select-none"
-                                loading="lazy"
-                                decoding="async"
-                            />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-luxury-bg via-luxury-bg/80 to-luxury-bg/60">
-                                <span className="text-luxury-gold/60 text-xs font-bold uppercase tracking-widest">
-                                    {item.type === 'quote' ? 'PDF' : item.type.toUpperCase()}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Hover Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                            <div className="text-white text-xs font-bold truncate pr-8">
-                                {item.title || `${item.type} ${itemIndex + 1}`}
-                            </div>
-                        </div>
-
-                        {/* Delete Button (Hover) */}
-                        {onDeleteClick && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDeleteClick(item);
-                                }}
-                                className="absolute top-2 left-2 z-20 p-2 bg-red-500/80 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
-                                title="Elimina"
-                            >
-                                <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                        )}
-
-                        {/* Type Badge */}
-                        <div className="absolute top-2 right-2 px-2 py-1 bg-luxury-gold/20 text-luxury-gold text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-luxury-gold/30 z-10">
-                            {item.type === 'quote' ? 'PDF' : item.type.substring(0, 3).toUpperCase()}
-                        </div>
-
-                        {/* Hover Focus Ring */}
-                        {hoveredId === item.id && (
-                            <motion.div
-                                layoutId="focus-ring"
-                                className="absolute inset-0 border-2 border-luxury-gold/50 rounded-2xl pointer-events-none"
-                                transition={M3Spring.expressive}
-                            />
-                        )}
-                    </motion.div>
-                </div>
-            );
-        },
-        [items, defaultColumnCount, onItemClick, hoveredId, onDeleteClick]
-    );
-
     if (items.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-24 text-center border border-luxury-gold/10 rounded-3xl bg-luxury-bg/30 p-12">
@@ -182,15 +208,16 @@ export function VirtualizedGalleryGrid({
         <div ref={containerRef} className="w-full" style={{ height: exactHeight }} data-no-swipe>
             {dimensions.width > 0 && (
                 <Grid
+                    cellComponent={GalleryCell}
+                    cellProps={{ items, columnCount, onItemClick, onDeleteClick, hoveredId, setHoveredId }}
                     columnCount={columnCount}
                     columnWidth={itemSize + gap}
-                    height={exactHeight}
                     rowCount={rowCount}
                     rowHeight={itemSize + gap}
-                    width={dimensions.width}
-                >
-                    {Cell}
-                </Grid>
+                    defaultHeight={exactHeight}
+                    defaultWidth={dimensions.width}
+                    style={{ height: exactHeight, width: dimensions.width }}
+                />
             )}
         </div>
     );
