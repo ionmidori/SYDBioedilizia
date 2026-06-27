@@ -14,7 +14,7 @@
         "eval:run:design": "cd backend_python && uv run python tests/evals/run_evals.py --file design_flow.test.json --output results/"
     },
     "dependencies": {
-        "form-data": "^2.5.6",
+        "form-data": "^4.0.6",
         "minimatch": "10.2.3",
         "next": "^16.2.6",
         "opencode-ai": "^1.1.53",
