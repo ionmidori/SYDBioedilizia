@@ -176,6 +176,9 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
         logger.error("[RAG] retrieve_price_by_code called but Pinecone is not configured.")
         return _RAG_UNAVAILABLE
 
+    if not codice_articolo or not codice_articolo.strip():
+        return "Codice articolo non valido o vuoto."
+
     try:
         # Exact lookup via metadata filter on the indexed `codice` field.
         # This is deterministic: a code like 'A 3.02.14.a.' resolves to that
