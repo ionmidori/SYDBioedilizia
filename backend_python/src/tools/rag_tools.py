@@ -149,12 +149,11 @@ def _codice_variants(codice: str) -> list[str]:
     filter matches regardless of the trailing-dot convention.
     """
     base = codice.strip()
-    variants = {base}
-    if base.endswith("."):
-        variants.add(base[:-1])
-    else:
-        variants.add(base + ".")
-    return list(variants)
+    variants = [base]
+    other = base[:-1] if base.endswith(".") else base + "."
+    if other:
+        variants.append(other)
+    return variants
 
 
 async def retrieve_price_by_code(codice_articolo: str) -> str:
