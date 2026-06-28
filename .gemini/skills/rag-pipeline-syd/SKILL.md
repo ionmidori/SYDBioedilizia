@@ -118,12 +118,19 @@ Target scores: faithfulness > 0.85, context_precision > 0.75.
 }
 ```
 
-## Current State
+## Current State (verified 2026-06-28)
 
-- Index: `syd-knowledge` (Integrated Inference, cosine, multilingual-e5-large)
-- Namespace `normative`: 548 chunks (flat text — old ingestion)
-- Namespace `prezzario`: populated by running `extract_prezzario.py` + `ingest_prezzario.py`
+- Index: `syd-knowledge` (Integrated Inference, cosine, multilingual-e5-large, 1024d)
+- Namespace `prezzario`: **2859 vectors** (Tariffa Lazio 2023, structured metadata:
+  `codice`, `prezzo_euro`, `unita_misura`, `categoria`, `source`)
+- Namespace `normative`: **5 vectors only** (flat text — `bonus_ristrutturazioni_2026.md`).
+  NOT yet a full normative corpus; expansion is planned separately.
 - No BM25 sparse vectors (pure semantic search via Integrated Inference)
+- Reranking: available in `RAGService.search` (`RAG_RERANK_ENABLED`, bge-reranker-v2-m3)
+  but **default OFF** — a retrieval eval showed no unit-match@1 gain and a small @3
+  regression on the prezzario corpus. Re-evaluate before enabling.
+- `retrieve_price_by_code`: exact lookup via metadata `$in` filter on `codice` (deterministic).
+- Result score parsing reads SDK `score_`/`id_` keys (earlier code read `score` → always 0.0).
 
 ## Re-Ingestion Checklist (Current Pipeline)
 

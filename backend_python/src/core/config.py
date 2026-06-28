@@ -34,6 +34,30 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str | None = Field(None, description="Legacy alias for GEMINI_API_KEY")
     PERPLEXITY_API_KEY: str | None = Field(None, description="Required for Market Prices")
     PINECONE_API_KEY: str | None = Field(None, description="Required for RAG Vector Database")
+
+    # ── RAG retrieval tuning ──────────────────────────────────────────────────
+    RAG_RERANK_ENABLED: bool = Field(
+        default=False,
+        description="Re-rank Pinecone candidates with a cross-encoder before returning. "
+                    "Over-fetches RAG_RERANK_OVERFETCH×top_k, then keeps top_k by rerank score. "
+                    "Default OFF: a retrieval eval (bge-reranker-v2-m3, 2026-06-28) showed no "
+                    "unit-match@1 gain and a small @3 regression on the prezzario corpus. "
+                    "Re-evaluate with Ragas / chunk-ID labels before enabling.",
+    )
+    RAG_RERANK_MODEL: str = Field(
+        default="bge-reranker-v2-m3",
+        description="Pinecone hosted reranker. bge-reranker-v2-m3 is multilingual (good for IT).",
+    )
+    RAG_RERANK_OVERFETCH: int = Field(
+        default=4,
+        description="Candidate multiplier for reranking: fetch top_k×this, rerank down to top_k.",
+    )
+    RAG_MIN_SCORE: float = Field(
+        default=0.0,
+        description="Drop results whose relevance score is below this threshold. "
+                    "0.0 disables filtering. Tune against eval_rag.py (rerank scores run higher).",
+    )
+
     CHAT_MODEL_VERSION: str = Field(default="gemini-3.1-flash-lite-preview", description="Default model for chat and analysis")
     
     # Feature Flags (App Check enabled by default for production safety)
