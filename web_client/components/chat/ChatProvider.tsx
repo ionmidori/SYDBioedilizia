@@ -26,6 +26,33 @@ interface StreamData {
 }
 
 /**
+ * Convert a Firestore history row into a valid AI SDK v6 UIMessage.
+ *
+ * Firestore history comes back content-only (no `parts`). AI SDK v6 requires
+ * every message in `useChat` state to carry a `parts` array: loading
+ * content-only messages corrupts the streaming reconciliation so a
+ * freshly-streamed assistant reply is NEVER appended to state — it only shows
+ * after a full page refresh (which re-renders from history without streaming).
+ * Empty/new sessions are unaffected because nothing malformed is loaded.
+ */
+function historyToUIMessage(m: {
+    id?: string;
+    role?: string;
+    content?: unknown;
+    attachments?: { images?: string[] } | undefined;
+}): Message {
+    const text = typeof m.content === 'string' ? m.content : '';
+    const parts: Array<{ type: string; text?: string; mediaType?: string; url?: string }> = [];
+    if (text) parts.push({ type: 'text', text });
+    for (const url of m.attachments?.images ?? []) {
+        if (typeof url === 'string') parts.push({ type: 'file', mediaType: 'image/jpeg', url });
+    }
+    // v6 messages must have at least one part; an empty assistant renders as "thinking".
+    if (parts.length === 0) parts.push({ type: 'text', text: '' });
+    return { id: m.id, role: m.role, parts } as unknown as Message;
+}
+
+/**
  * ChatProvider
  *
  * Orchestrates the global chat state for the application.
@@ -235,8 +262,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const isRecentlyFinished = status === 'ready' && messages.length > 0;
 
         if (historyLoaded && status !== 'streaming' && status !== 'submitted') {
-            // ALWAYS prepend the welcome message to the history so it persists
-            const fullHistory = [WELCOME_MESSAGE, ...(historyMessages as unknown as Message[])];
+            // ALWAYS prepend the welcome message to the history so it persists.
+            // Standalone `tool` rows are not v6 messages (tool data lives inside
+            // the assistant message) — exclude them, and convert every row to a
+            // valid v6 UIMessage with `parts` so streaming reconciliation works.
+            const fullHistory = [
+                WELCOME_MESSAGE,
+                ...(historyMessages as unknown as { role?: string }[])
+                    .filter((m) => m.role !== 'tool')
+                    .map((m) => historyToUIMessage(m)),
+            ];
 
             // 1. Cold Start (Welcome Message)
             if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
