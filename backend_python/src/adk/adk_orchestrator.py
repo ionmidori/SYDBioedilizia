@@ -113,7 +113,7 @@ class ADKOrchestrator(BaseOrchestrator):
         auth_status_msg = (
             "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO. "
             "REGOLA ASSOLUTA: Prima di chiamare generate_render, suggest_quote_items, pricing_engine, "
-            "search_prezzario, retrieve_price_by_code o qualsiasi tool premium, "
+            "search_listino, search_prezzario, retrieve_price_by_code o qualsiasi tool premium, "
             "DEVI OBBLIGATORIAMENTE chiamare request_login_adk. "
             "NON chiamare MAI generate_render per un utente OSPITE. "
             "Questo vale per rendering 3D, preventivi, salvataggi e qualsiasi azione premium. "

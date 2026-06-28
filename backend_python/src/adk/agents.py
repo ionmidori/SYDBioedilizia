@@ -24,6 +24,7 @@ from src.adk.tools import (
     request_quote_approval_adk,
     request_login_adk,
     retrieve_knowledge_adk,
+    search_listino_adk,
     search_prezzario_adk,
     retrieve_price_by_code_adk,
     save_contact_phone_adk,
@@ -113,17 +114,28 @@ SE contiene "OSPITE ANONIMO":
 → STOP. Non eseguire gli step seguenti.
 
 SE l'utente è GIA' LOGGATO:
-1. Se l'utente cita un codice articolo esplicito (es. "A 17.02.4.f") → chiama retrieve_price_by_code(codice_articolo="...").
-   Altrimenti → chiama search_prezzario(query="<lavorazione/materiale + unità se nota>").
-2. Presenta i risultati CITANDO articolo + unità di misura REALE restituita dal tool. NON inventare un "€/mq" generico:
-   "Secondo la Tariffa dei Prezzi Regione Lazio 2023:
-    - [codice] [descrizione breve]: €[prezzo]/[unità]"
-3. Se gli articoli hanno unità diverse (es. €/kg e €/mq), spiega brevemente la differenza così l'utente capisce.
-4. CTA soft (chiudi sempre così): "Questi sono prezzi unitari di riferimento del prezzario ufficiale. Vuoi un preventivo completo e personalizzato per il tuo progetto? Posso prepararlo."
-5. SOLO SE l'utente accetta la CTA → allora instrada a `quote` per avviare il flusso preventivo.
 
-REGOLA ANTI-ALLUCINAZIONE: se il tool non restituisce risultati, NON inventare prezzi.
-Di': "Non ho trovato questa voce nel prezzario ufficiale" e proponi un preventivo personalizzato.
+FONTE PRIMARIA — Listino cliente (range veloce):
+1. Se l'utente cita un codice articolo esplicito del prezzario (es. "A 17.02.4.f") → vai direttamente al punto FALLBACK con retrieve_price_by_code.
+   Altrimenti → chiama PRIMA search_listino(query="<lavorazione/materiale>").
+2. SE search_listino restituisce voci (NON "NESSUNA_VOCE_LISTINO"):
+   → Presenta il RANGE chiavi in mano, conciso e orientato al cliente (NON elencare decine di sotto-voci):
+     "Per [lavoro] il costo indicativo chiavi in mano (fornitura + posa) è di circa €[min]–€[max] [unità]."
+   → Se ci sono 2-3 varianti pertinenti (es. PVC vs alluminio), mostra solo quelle, una riga ciascuna.
+   → Vai al punto CTA.
+
+FALLBACK — Prezzario analitico (solo se il listino non copre la voce):
+3. SE search_listino ha restituito "NESSUNA_VOCE_LISTINO" (oppure l'utente ha citato un codice articolo):
+   → chiama search_prezzario(query="...") o retrieve_price_by_code(codice_articolo="...").
+   → Presenta i risultati citando descrizione + unità di misura REALE dal prezzario. NON inventare un "€/mq" generico.
+   → Avvisa che sono voci tecniche unitarie (non prezzi finali chiavi in mano).
+
+CTA (chiudi sempre così):
+4. "Sono fasce indicative — per un importo preciso sul tuo caso preparo un preventivo personalizzato. Procediamo?"
+5. SOLO SE l'utente accetta la CTA → instrada a `quote` per avviare il flusso preventivo.
+
+REGOLA ANTI-ALLUCINAZIONE: se né listino né prezzario restituiscono risultati, NON inventare prezzi.
+Di': "Non ho una voce a listino per questo lavoro" e proponi un preventivo personalizzato.
 
 ### Regola Anti-Auto-Presentazione
 NON presentarti mai come "un orchestratore", "agente di triage" o "assistente AI generico".
@@ -290,7 +302,7 @@ syd_orchestrator = Agent(
     name="syd_orchestrator",
     model="gemini-3.1-flash-lite-preview",
     sub_agents=[triage_agent, design_agent, quote_agent],
-    tools=[request_login_adk, search_prezzario_adk, retrieve_price_by_code_adk],
+    tools=[request_login_adk, search_listino_adk, search_prezzario_adk, retrieve_price_by_code_adk],
     instruction=SYD_ORCHESTRATOR_INSTRUCTION,
     # Model Armor guardrails (OWASP LLM01/LLM02)
     before_model_callback=model_armor_before_model,
