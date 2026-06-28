@@ -141,6 +141,22 @@ async def search_prezzario(query: str, categoria: str = "") -> str:
         return _RAG_UNAVAILABLE
 
 
+def _codice_variants(codice: str) -> list[str]:
+    """Build exact-match candidates for a price-list code.
+
+    Prezzario codes are stored with a trailing dot (e.g. 'A 3.01.15.f.'), but
+    users (and the LLM) often omit it. Return both forms so an exact metadata
+    filter matches regardless of the trailing-dot convention.
+    """
+    base = codice.strip()
+    variants = {base}
+    if base.endswith("."):
+        variants.add(base[:-1])
+    else:
+        variants.add(base + ".")
+    return list(variants)
+
+
 async def retrieve_price_by_code(codice_articolo: str) -> str:
     """Looks up a specific price-list article by its exact code.
 
@@ -161,24 +177,38 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
         return _RAG_UNAVAILABLE
 
     try:
-        results = await rag_service.search(
+        # Exact lookup via metadata filter on the indexed `codice` field.
+        # This is deterministic: a code like 'A 3.02.14.a.' resolves to that
+        # exact article, never a semantically-similar (wrong) one.
+        exact_results = await rag_service.search(
             query=codice_articolo,
-            top_k=3,
+            top_k=1,
+            filter_dict={"codice": {"$in": _codice_variants(codice_articolo)}},
             namespace=NAMESPACE_PREZZARIO,
         )
 
-        if not results:
-            return f"Articolo '{codice_articolo}' non trovato nel prezzario."
+        exact_match = exact_results[0] if exact_results else None
 
-        # Find exact match first, then closest
-        exact_match = None
-        for r in results:
-            r_codice = r.get("metadata", {}).get("codice", "")
-            if r_codice.strip().lower() == codice_articolo.strip().lower():
-                exact_match = r
-                break
+        if exact_match is None:
+            # Fallback: semantic search so a typo / partial code still surfaces
+            # the closest article, clearly flagged as approximate below.
+            results = await rag_service.search(
+                query=codice_articolo,
+                top_k=3,
+                namespace=NAMESPACE_PREZZARIO,
+            )
+            if not results:
+                return f"Articolo '{codice_articolo}' non trovato nel prezzario."
+            for r in results:
+                r_codice = r.get("metadata", {}).get("codice", "")
+                if r_codice.strip().lower() == codice_articolo.strip().lower():
+                    exact_match = r
+                    break
+            results_fallback = results
+        else:
+            results_fallback = exact_results
 
-        target = exact_match or results[0]
+        target = exact_match or results_fallback[0]
         metadata = target.get("metadata", {})
         codice = metadata.get("codice", codice_articolo)
         descrizione = metadata.get("chunk_text", metadata.get("descrizione", "N/D"))
