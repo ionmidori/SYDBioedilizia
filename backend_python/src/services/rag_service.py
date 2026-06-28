@@ -127,7 +127,7 @@ class RAGService:
                 lambda: self.index.search(**search_kwargs)
             )
 
-            dict_resp = response.to_dict() if hasattr(response, 'to_dict') else response
+            dict_resp = response.to_dict() if hasattr(response, 'to_dict') else (response or {})
             hits = dict_resp.get("result", {}).get("hits", []) or dict_resp.get("matches", [])
 
             results = []
