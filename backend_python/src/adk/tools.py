@@ -103,6 +103,22 @@ async def get_market_prices(query: str) -> str:
     return await get_market_prices_wrapper(query)
 
 
+# ─── Customer listino (quick price ranges) ───────────────────────────────────
+
+@instrumented_tool("search_listino")
+async def search_listino(query: str) -> str:
+    """Quick customer-facing price RANGE from the SYD listino (composite
+    'fornitura e posa' packages). Use this FIRST for "quanto costa X?"
+    questions (e.g. finestra PVC, rifacimento bagno). If it returns
+    NESSUNA_VOCE_LISTINO, fall back to search_prezzario.
+
+    Args:
+        query: The work or material the customer asks about.
+    """
+    from src.tools.listino_tools import search_listino as _listino
+    return await _listino(query)
+
+
 # ─── Knowledge RAG ───────────────────────────────────────────────────────────
 
 @instrumented_tool("retrieve_knowledge")
@@ -406,6 +422,7 @@ suggest_quote_items_adk = FunctionTool(suggest_quote_items)
 trigger_n8n_webhook_adk = FunctionTool(trigger_n8n_webhook)
 request_login_adk = FunctionTool(request_login)
 retrieve_knowledge_adk = FunctionTool(retrieve_knowledge)
+search_listino_adk = FunctionTool(search_listino)
 search_prezzario_adk = FunctionTool(search_prezzario)
 retrieve_price_by_code_adk = FunctionTool(retrieve_price_by_code)
 save_contact_phone_adk = FunctionTool(save_contact_phone)
