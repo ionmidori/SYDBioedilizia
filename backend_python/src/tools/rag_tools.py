@@ -185,6 +185,11 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
             top_k=1,
             filter_dict={"codice": {"$in": _codice_variants(codice_articolo)}},
             namespace=NAMESPACE_PREZZARIO,
+            # Deterministic lookup: the filter already pins the article, so skip
+            # reranking and never let a global min_score drop the exact match
+            # (its semantic score vs the bare code string can be low).
+            rerank=False,
+            min_score=0.0,
         )
 
         exact_match = exact_results[0] if exact_results else None

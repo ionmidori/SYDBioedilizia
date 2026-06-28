@@ -70,6 +70,8 @@ class RAGService:
         top_k: int = 5,
         filter_dict: Optional[Dict[str, Any]] = None,
         namespace: str = NAMESPACE_NORMATIVE,
+        rerank: Optional[bool] = None,
+        min_score: Optional[float] = None,
     ) -> List[Dict[str, Any]]:
         """
         Searches the Pinecone database using Integrated Inference.
@@ -79,6 +81,11 @@ class RAGService:
             top_k: Maximum number of results to return.
             filter_dict: Optional metadata filter (e.g. {"categoria": {"$eq": "Demolizioni"}}).
             namespace: Pinecone namespace to search.
+            rerank: Override RAG_RERANK_ENABLED. When on, over-fetch
+                top_k×RAG_RERANK_OVERFETCH candidates and rerank down to top_k
+                with a cross-encoder — better precision on near-duplicate articles.
+            min_score: Override RAG_MIN_SCORE. Drop hits below this relevance
+                score (0.0 disables). Note rerank scores run higher than cosine.
 
         Returns:
             List of result dicts with 'id', 'score', and 'metadata' keys.
@@ -86,32 +93,63 @@ class RAGService:
         if not self.index:
             logger.warning("RAGService: Pinecone index not initialized.")
             return []
-            
+
+        use_rerank = settings.RAG_RERANK_ENABLED if rerank is None else rerank
+        threshold = settings.RAG_MIN_SCORE if min_score is None else min_score
+
         try:
+            # Over-fetch candidates when reranking so the cross-encoder has a
+            # meaningful pool to re-order; otherwise fetch exactly top_k.
+            fetch_k = top_k * max(1, settings.RAG_RERANK_OVERFETCH) if use_rerank else top_k
             query_kwargs: Dict[str, Any] = {
                 "inputs": {"text": query},
-                "top_k": top_k,
+                "top_k": fetch_k,
             }
             if filter_dict:
                 query_kwargs["filter"] = filter_dict
-                
+
+            search_kwargs: Dict[str, Any] = {
+                "namespace": namespace,
+                "query": SearchQuery(**query_kwargs),
+            }
+            if use_rerank:
+                # Pinecone hosted reranker expects a plain dict (the SearchRerank
+                # object is not JSON-serializable by the data-plane client).
+                search_kwargs["rerank"] = {
+                    "model": settings.RAG_RERANK_MODEL,
+                    "rank_fields": ["chunk_text"],
+                    "top_n": top_k,
+                }
+
             # Pinecone SDK call is synchronous → offload to a thread so it
             # never blocks the asyncio event loop (e.g. concurrent chat streams).
             response = await asyncio.to_thread(
-                self.index.search_records,
-                namespace=namespace,
-                query=SearchQuery(**query_kwargs),
+                lambda: self.index.search(**search_kwargs)
             )
-            
+
             dict_resp = response.to_dict() if hasattr(response, 'to_dict') else response
             hits = dict_resp.get("result", {}).get("hits", []) or dict_resp.get("matches", [])
-            
+
             results = []
             for match in hits:
-                record = match.get("fields", match.get("metadata", {}))
-                score = match.get("score", 0.0)
+                record = match.get("fields", match.get("metadata", {})) or {}
+                # SDK to_dict() emits 'score_'/'id_'; raw/MCP forms use '_score'/'_id'.
+                score = (
+                    match.get("score_")
+                    or match.get("_score")
+                    or match.get("score")
+                    or 0.0
+                )
+                rec_id = (
+                    match.get("id_")
+                    or match.get("_id")
+                    or match.get("id")
+                    or record.get("_id")
+                )
+                if threshold and score < threshold:
+                    continue
                 results.append({
-                    "id": match.get("_id") or match.get("id") or record.get("_id"),
+                    "id": rec_id,
                     "score": score,
                     "metadata": record,
                 })
