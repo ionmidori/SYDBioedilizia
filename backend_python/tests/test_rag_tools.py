@@ -35,12 +35,11 @@ def _prezzario_hit(codice: str, prezzo: float = 25.62):
 
 
 def test_codice_variants_adds_trailing_dot():
-    assert set(_codice_variants("A 3.01.15.f")) == {"A 3.01.15.f", "A 3.01.15.f."}
+    assert _codice_variants("A 3.01.15.f") == ["A 3.01.15.f", "A 3.01.15.f."]
 
 
 def test_codice_variants_strips_trailing_dot():
-    assert set(_codice_variants("A 3.01.15.f.")) == {"A 3.01.15.f", "A 3.01.15.f."}
-
+    assert _codice_variants("A 3.01.15.f.") == ["A 3.01.15.f.", "A 3.01.15.f"]
 
 @pytest.mark.asyncio
 async def test_exact_lookup_uses_codice_filter():
