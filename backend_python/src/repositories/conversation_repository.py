@@ -41,8 +41,16 @@ class ConversationRepository:
         attachments: Optional[Any] = None,
         timestamp: Optional[datetime] = None,
         room_id: Optional[str] = None,
+        message_id: Optional[str] = None,
     ) -> None:
-        """Save a message to Firestore with tool support and media attachments."""
+        """Save a message to Firestore with tool support and media attachments.
+
+        When ``message_id`` is provided it is used as the Firestore document id
+        (via ``document(id).set(...)``) instead of an auto-generated id. This
+        lets the streamed message and its persisted row share one identity, so
+        the client never has to swap a temporary SDK id for a Firestore id after
+        the turn — the swap is what re-mounts the bubble and causes flicker.
+        """
         try:
             if role == "user":
                 logger.info(f"[Repo] Saving user message to session {session_id} with timestamp {timestamp}")
@@ -86,8 +94,14 @@ class ConversationRepository:
             if attachments:
                 message_data['attachments'] = attachments
             
-            # Add to messages subcollection
-            await db.collection('sessions').document(session_id).collection('messages').add(message_data)
+            # Add to messages subcollection.
+            # Stable id → document(id).set() so the row keeps the same identity
+            # as the streamed message; otherwise let Firestore auto-generate one.
+            messages_ref = db.collection('sessions').document(session_id).collection('messages')
+            if message_id:
+                await messages_ref.document(message_id).set(message_data)
+            else:
+                await messages_ref.add(message_data)
             
             # Update session metadata
             session_ref = db.collection('sessions').document(session_id)

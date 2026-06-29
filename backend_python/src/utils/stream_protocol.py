@@ -159,12 +159,16 @@ async def stream_reasoning(step_data: Dict[str, Any]) -> AsyncGenerator[Dict[str
 
 async def to_ui_message_stream(
     source: AsyncIterator[Dict[str, Any]],
+    message_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Wrap a stream of v6 UI message chunk dicts as a serialized SSE byte stream,
     injecting the required lifecycle frames:
 
-    - a leading `start` chunk,
+    - a leading `start` chunk (carrying `messageId` when provided, so the AI SDK
+      adopts the backend-assigned id — `state.message.id = chunk.messageId` — and
+      keeps the streamed message on the same identity as its persisted Firestore
+      row; without it the post-turn id swap re-mounts the bubble and flickers),
     - `text-start` / `text-end` brackets around any run of `text-delta` chunks,
     - a trailing `finish` chunk and the `[DONE]` sentinel.
 
@@ -173,7 +177,10 @@ async def to_ui_message_stream(
     avoiding "async generator ignored GeneratorExit" runtime errors.
     """
     text_open = False
-    yield _sse({"type": "start"})
+    start_chunk: Dict[str, Any] = {"type": "start"}
+    if message_id:
+        start_chunk["messageId"] = message_id
+    yield _sse(start_chunk)
     try:
         async for chunk in source:
             ctype = chunk.get("type")

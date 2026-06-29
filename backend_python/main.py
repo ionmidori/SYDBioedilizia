@@ -447,6 +447,10 @@ async def submit_lead_endpoint(
     return {"status": "success", "message": result}
 
 class ChatMessage(BaseModel):
+    # Client-supplied AI SDK message id. Persisted as the Firestore document id
+    # for the user message so the streamed (optimistic) bubble and its stored row
+    # share one identity — avoids the post-turn id swap that causes UI flicker.
+    id: str | None = Field(None, max_length=128)
     role: str = Field(..., pattern=r'^(user|assistant|system|tool)$')
     content: str | list = Field(...)
 
@@ -600,9 +604,12 @@ async def chat_stream(
     # a session doc WITHOUT userId via set(merge=True), and Firestore security
     # rules permanently deny client reads (onSnapshot gets permission-denied).
     user_msg_text = ""
+    user_msg_id = None
     if body.messages:
         last_content = body.messages[-1].content
         user_msg_text = last_content if isinstance(last_content, str) else str(last_content)
+        # Reuse the client's AI SDK message id as the Firestore doc id (stable identity).
+        user_msg_id = body.messages[-1].id
 
     from datetime import datetime, timezone, timedelta
     from src.repositories.conversation_repository import get_conversation_repository
@@ -641,6 +648,7 @@ async def chat_stream(
                 metadata={"user_id": user_session.uid, "source": "chat_stream_route"},
                 attachments=attachments,
                 timestamp=anchor_timestamp,
+                message_id=user_msg_id,
             )
             logger.info(f"[Anchor] User message persisted for session {body.session_id}")
         except Exception as e:
