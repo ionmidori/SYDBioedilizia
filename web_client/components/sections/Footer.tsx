@@ -6,7 +6,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Facebook, Instagram, Linkedin, Twitter, Mail, MapPin, Phone, CheckCircle, XCircle } from 'lucide-react';
+import { Mail, MapPin, Phone, CheckCircle, XCircle } from 'lucide-react';
+import { FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter } from 'react-icons/fa6';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
@@ -80,7 +81,7 @@ export function Footer() {
                             Rivoluzioniamo il modo di progettare e ristrutturare casa. Tecnologia AI all&apos;avanguardia per risultati garantiti e senza sorprese.
                         </p>
                         <div className="flex gap-4">
-                            {[Facebook, Instagram, Linkedin, Twitter].map((Icon, i) => (
+                            {[FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter].map((Icon, i) => (
                                 <a
                                     key={i}
                                     href="#"
