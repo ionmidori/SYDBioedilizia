@@ -99,6 +99,24 @@ async def _collect_chunks(async_gen) -> list[str]:
     return chunks
 
 
+def _parse_sse(chunks: list[str]) -> list:
+    """
+    Parse the AI SDK v6 SSE byte stream produced by stream_chat into a list of
+    decoded chunks (dicts, plus the literal "[DONE]" sentinel).
+    """
+    import json
+    parsed = []
+    for line in chunks:
+        assert line.startswith("data: "), f"not an SSE data line: {line!r}"
+        body = line[len("data: "):].rstrip("\n")
+        parsed.append(body if body == "[DONE]" else json.loads(body))
+    return parsed
+
+
+def _types(parsed: list) -> list[str]:
+    return [p["type"] if isinstance(p, dict) else p for p in parsed]
+
+
 def _make_orchestrator_with_events(events: list, session_exists: bool = True):
     """Create an ADKOrchestrator instance with mocked internals."""
     from src.adk.adk_orchestrator import ADKOrchestrator
@@ -159,24 +177,29 @@ class TestADKOrchestratorStreamChat:
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
     @patch("src.adk.adk_orchestrator.get_session_service")
-    async def test_text_event_yields_data_stream_chunk(
+    async def test_text_event_yields_v6_text_delta(
         self, mock_get_session, mock_get_repo, mock_settings
     ):
-        """A text event from the model must produce a Data Stream Protocol text chunk."""
+        """A text event must produce an AI SDK v6 text-delta within the SSE lifecycle."""
         _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
 
         text_event = _make_text_event("Ciao! Come posso aiutarti?", partial=False)
         orch = _make_orchestrator_with_events([text_event])
         req, user = _make_request_and_user()
 
-        chunks = await _collect_chunks(orch.stream_chat(req, user))
+        parsed = _parse_sse(await _collect_chunks(orch.stream_chat(req, user)))
+        types = _types(parsed)
 
-        # Expected: [Status Chunk, Text Chunk]
-        assert len(chunks) == 2, f"Expected 2 chunks (status + text), got {len(chunks)}"
-        assert chunks[0].startswith("2:"), "First chunk must be status data"
-        assert "analizzando" in chunks[0]
-        assert chunks[1].startswith("0:"), f"Expected Data Stream text chunk, got: {chunks[1]}"
-        assert "Ciao" in chunks[1]
+        # Lifecycle present
+        assert types[0] == "start"
+        assert types[-2:] == ["finish", "[DONE]"]
+        # An initial status data part is emitted before any text
+        status = next(p for p in parsed if isinstance(p, dict) and p.get("type") == "data-status")
+        assert "analizzando" in status["data"]["message"]
+        # Text is bracketed and carries the model output
+        assert "text-start" in types and "text-end" in types
+        delta = next(p for p in parsed if isinstance(p, dict) and p.get("type") == "text-delta")
+        assert "Ciao" in delta["delta"]
 
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
@@ -190,13 +213,13 @@ class TestADKOrchestratorStreamChat:
         orch = _make_orchestrator_with_events([_make_function_call_event("pricing_engine")])
         req, user = _make_request_and_user()
 
-        chunks = await _collect_chunks(orch.stream_chat(req, user))
+        parsed = _parse_sse(await _collect_chunks(orch.stream_chat(req, user)))
 
-        # Expected: [initial status, tool status, tool call data]
-        assert len(chunks) == 3, f"Expected 3 chunks, got {len(chunks)}: {chunks}"
-        assert chunks[0].startswith("2:")  # initial status
-        assert chunks[1].startswith("2:")  # tool status
-        assert chunks[2].startswith("9:")  # tool call data chunk
+        # Tool activity is emitted as transient data parts (data-status + data-tool_call)
+        assert any(isinstance(p, dict) and p.get("type") == "data-status" for p in parsed)
+        tool_call = next(p for p in parsed if isinstance(p, dict) and p.get("type") == "data-tool_call")
+        assert tool_call["transient"] is True
+        assert _types(parsed)[-2:] == ["finish", "[DONE]"]
 
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
@@ -210,12 +233,11 @@ class TestADKOrchestratorStreamChat:
         orch = _make_orchestrator_with_events([_make_function_response_event()])
         req, user = _make_request_and_user()
 
-        chunks = await _collect_chunks(orch.stream_chat(req, user))
+        parsed = _parse_sse(await _collect_chunks(orch.stream_chat(req, user)))
 
-        # Expected: [initial status, tool result data]
-        assert len(chunks) == 2, f"Expected 2 chunks, got {len(chunks)}: {chunks}"
-        assert chunks[0].startswith("2:")  # initial status
-        assert chunks[1].startswith("a:")  # tool result chunk
+        tool_result = next(p for p in parsed if isinstance(p, dict) and p.get("type") == "data-tool_result")
+        assert tool_result["transient"] is True
+        assert _types(parsed)[-2:] == ["finish", "[DONE]"]
 
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
@@ -234,14 +256,17 @@ class TestADKOrchestratorStreamChat:
         orch = _make_orchestrator_with_events(events)
         req, user = _make_request_and_user()
 
-        chunks = await _collect_chunks(orch.stream_chat(req, user))
+        parsed = _parse_sse(await _collect_chunks(orch.stream_chat(req, user)))
+        types = _types(parsed)
 
-        # Expected: initial_status + tool_status + tool_call + tool_result + text = 5
-        assert len(chunks) == 5, f"Expected 5 chunks, got {len(chunks)}: {chunks}"
-        assert "analizzando" in chunks[0]
-        # Last chunk must be the text
-        assert chunks[-1].startswith("0:")
-        assert "preventivo" in chunks[-1]
+        # All tool data parts plus the final text part are present
+        assert "data-tool_call" in types
+        assert "data-tool_result" in types
+        delta = next(p for p in parsed if isinstance(p, dict) and p.get("type") == "text-delta")
+        assert "preventivo" in delta["delta"]
+        # text-end must precede the finish frame
+        assert types.index("text-end") < types.index("finish")
+        assert types[-2:] == ["finish", "[DONE]"]
 
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
@@ -260,12 +285,12 @@ class TestADKOrchestratorStreamChat:
         orch.runner.run_async = MagicMock(side_effect=RuntimeError("Gemini API quota exceeded"))
         req, user = _make_request_and_user()
 
-        chunks = await _collect_chunks(orch.stream_chat(req, user))
+        parsed = _parse_sse(await _collect_chunks(orch.stream_chat(req, user)))
+        types = _types(parsed)
 
-        # Expected: [Status Chunk, Error Chunk]
-        assert len(chunks) >= 2, f"Expected status and error chunks, got {len(chunks)}"
-        assert chunks[0].startswith("2:"), "First chunk must be status"
-        assert chunks[1].startswith("3:"), f"Expected error chunk at index 1, got: {chunks[1]}"
+        # An error frame must be surfaced, and the stream still finishes cleanly
+        assert "error" in types, f"Expected an error chunk, got: {types}"
+        assert types[-2:] == ["finish", "[DONE]"]
 
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
@@ -282,8 +307,8 @@ class TestADKOrchestratorStreamChat:
         orch = _make_orchestrator_with_events([event])
         req, user = _make_request_and_user()
 
-        chunks = await _collect_chunks(orch.stream_chat(req, user))
+        parsed = _parse_sse(await _collect_chunks(orch.stream_chat(req, user)))
 
-        assert len(chunks) == 2, f"Expected 2 chunks, got {len(chunks)}"
-        assert "analizzando" in chunks[0]
-        assert "Risposta" in chunks[1]
+        # partial=False text must be present as a v6 text-delta (not dropped)
+        delta = next(p for p in parsed if isinstance(p, dict) and p.get("type") == "text-delta")
+        assert "Risposta" in delta["delta"]

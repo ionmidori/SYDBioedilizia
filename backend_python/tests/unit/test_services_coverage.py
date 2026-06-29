@@ -111,149 +111,111 @@ class TestIntentClassifier:
 # 2. src/utils/stream_protocol.py
 # ---------------------------------------------------------------------------
 
+# NOTE: as of the AI SDK v6 migration, the stream_protocol helpers yield
+# UI-message **chunk dicts** (not serialized strings). SSE serialization and
+# lifecycle framing (start / text-start / text-end / finish / [DONE]) are added
+# by `to_ui_message_stream`. See TestToUiMessageStream below.
+
 class TestStreamText:
-    async def test_yields_text_chunk(self):
-        from src.utils.stream_protocol import stream_text
+    async def test_yields_text_delta_chunk(self):
+        from src.utils.stream_protocol import stream_text, TEXT_PART_ID
         chunks = [c async for c in stream_text("hello")]
-        assert len(chunks) == 1
-        assert chunks[0] == '0:"hello"\n'
+        assert chunks == [{"type": "text-delta", "id": TEXT_PART_ID, "delta": "hello"}]
 
     async def test_empty_text_yields_nothing(self):
         from src.utils.stream_protocol import stream_text
         chunks = [c async for c in stream_text("")]
         assert len(chunks) == 0
 
-    async def test_special_chars_escaped(self):
+    async def test_special_chars_preserved(self):
         from src.utils.stream_protocol import stream_text
         chunks = [c async for c in stream_text('he said "hi"')]
-        assert len(chunks) == 1
-        assert '\\"' in chunks[0]
+        assert chunks[0]["delta"] == 'he said "hi"'
 
 
 class TestStreamData:
-    async def test_dict_data(self):
+    async def test_event_payload_wrapped_transient(self):
         from src.utils.stream_protocol import stream_data
-        chunks = [c async for c in stream_data({"key": "value"})]
-        assert len(chunks) == 1
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed == [{"key": "value"}]
+        payload = {"type": "interrupt", "payload": {"k": "v"}}
+        chunks = [c async for c in stream_data(payload)]
+        assert chunks == [{"type": "data-event", "data": payload, "transient": True}]
 
-    async def test_string_data(self):
-        from src.utils.stream_protocol import stream_data
-        chunks = [c async for c in stream_data("hello")]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed == ["hello"]
-
-    async def test_int_data(self):
+    async def test_scalar_data(self):
         from src.utils.stream_protocol import stream_data
         chunks = [c async for c in stream_data(42)]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed == [42]
-
-    async def test_bool_data(self):
-        from src.utils.stream_protocol import stream_data
-        chunks = [c async for c in stream_data(True)]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed == [True]
-
-    async def test_list_data(self):
-        from src.utils.stream_protocol import stream_data
-        chunks = [c async for c in stream_data([1, 2, 3])]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed == [[1, 2, 3]]
+        assert chunks[0]["type"] == "data-event"
+        assert chunks[0]["data"] == 42
+        assert chunks[0]["transient"] is True
 
 
 class TestStreamError:
-    async def test_error_format(self):
+    async def test_error_chunk(self):
         from src.utils.stream_protocol import stream_error
         chunks = [c async for c in stream_error("something went wrong")]
-        assert chunks[0] == '3:"something went wrong"\n'
-
-    async def test_error_with_quotes(self):
-        from src.utils.stream_protocol import stream_error
-        chunks = [c async for c in stream_error('error "quote"')]
-        assert '\\"' in chunks[0]
+        assert chunks == [{"type": "error", "errorText": "something went wrong"}]
 
 
 class TestStreamToolCall:
-    async def test_tool_call_format(self):
+    async def test_tool_call_transient(self):
         from src.utils.stream_protocol import stream_tool_call
         chunks = [c async for c in stream_tool_call("tc-1", "analyze_room", {"url": "test"})]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["toolCallId"] == "tc-1"
-        assert parsed[0]["toolName"] == "analyze_room"
-        assert parsed[0]["args"] == {"url": "test"}
-
-    async def test_tool_call_empty_args(self):
-        from src.utils.stream_protocol import stream_tool_call
-        chunks = [c async for c in stream_tool_call("tc-2", "health_check", {})]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["args"] == {}
+        assert chunks[0]["type"] == "data-tool_call"
+        assert chunks[0]["transient"] is True
+        assert chunks[0]["data"]["toolCallId"] == "tc-1"
+        assert chunks[0]["data"]["toolName"] == "analyze_room"
+        assert chunks[0]["data"]["args"] == {"url": "test"}
 
 
 class TestStreamToolResult:
-    async def test_tool_result_format(self):
+    async def test_tool_result_transient(self):
         from src.utils.stream_protocol import stream_tool_result
         chunks = [c async for c in stream_tool_result("tc-1", {"status": "ok"})]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["toolCallId"] == "tc-1"
-        assert parsed[0]["result"] == {"status": "ok"}
-
-    async def test_tool_result_string(self):
-        from src.utils.stream_protocol import stream_tool_result
-        chunks = [c async for c in stream_tool_result("tc-2", "success")]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["result"] == "success"
-
-    async def test_tool_result_none(self):
-        from src.utils.stream_protocol import stream_tool_result
-        chunks = [c async for c in stream_tool_result("tc-3", None)]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["result"] is None
+        assert chunks[0]["type"] == "data-tool_result"
+        assert chunks[0]["transient"] is True
+        assert chunks[0]["data"]["toolCallId"] == "tc-1"
+        assert chunks[0]["data"]["result"] == {"status": "ok"}
 
 
 class TestStreamStatus:
-    async def test_status_format(self):
+    async def test_status_transient(self):
         from src.utils.stream_protocol import stream_status
         chunks = [c async for c in stream_status("Processing...")]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed == [{"type": "status", "message": "Processing..."}]
+        assert chunks == [
+            {"type": "data-status", "data": {"type": "status", "message": "Processing..."}, "transient": True}
+        ]
 
 
 class TestStreamReasoning:
-    async def test_reasoning_format(self):
+    async def test_reasoning_transient(self):
         from src.utils.stream_protocol import stream_reasoning
         chunks = [c async for c in stream_reasoning({"analysis": "testing"})]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed == [{"type": "reasoning", "data": {"analysis": "testing"}}]
+        assert chunks[0]["type"] == "data-reasoning"
+        assert chunks[0]["transient"] is True
+        assert chunks[0]["data"] == {"type": "reasoning", "data": {"analysis": "testing"}}
 
     async def test_sensitive_tool_redacted_submit_lead(self):
         from src.utils.stream_protocol import stream_reasoning
         data = {"tool_name": "submit_lead", "tool_args": {"email": "pii@test.com"}}
         chunks = [c async for c in stream_reasoning(data)]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["data"]["tool_args"] == {"REDACTED": "*** PII HIDDEN ***"}
+        assert chunks[0]["data"]["data"]["tool_args"] == {"REDACTED": "*** PII HIDDEN ***"}
 
     async def test_sensitive_tool_redacted_store_user_data(self):
         from src.utils.stream_protocol import stream_reasoning
         data = {"tool_name": "store_user_data", "tool_args": {"name": "John"}}
         chunks = [c async for c in stream_reasoning(data)]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["data"]["tool_args"] == {"REDACTED": "*** PII HIDDEN ***"}
+        assert chunks[0]["data"]["data"]["tool_args"] == {"REDACTED": "*** PII HIDDEN ***"}
 
     async def test_sensitive_tool_redacted_update_profile(self):
         from src.utils.stream_protocol import stream_reasoning
         data = {"tool_name": "update_profile", "tool_args": {"phone": "+39123"}}
         chunks = [c async for c in stream_reasoning(data)]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["data"]["tool_args"] == {"REDACTED": "*** PII HIDDEN ***"}
+        assert chunks[0]["data"]["data"]["tool_args"] == {"REDACTED": "*** PII HIDDEN ***"}
 
     async def test_safe_tool_not_redacted(self):
         from src.utils.stream_protocol import stream_reasoning
         data = {"tool_name": "analyze_room", "tool_args": {"url": "test.jpg"}}
         chunks = [c async for c in stream_reasoning(data)]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["data"]["tool_args"] == {"url": "test.jpg"}
+        assert chunks[0]["data"]["data"]["tool_args"] == {"url": "test.jpg"}
 
     async def test_original_dict_not_mutated(self):
         from src.utils.stream_protocol import stream_reasoning
@@ -266,5 +228,97 @@ class TestStreamReasoning:
         from src.utils.stream_protocol import stream_reasoning
         data = {"analysis": "No tool involved"}
         chunks = [c async for c in stream_reasoning(data)]
-        parsed = json.loads(chunks[0][2:].rstrip("\n"))
-        assert parsed[0]["data"]["analysis"] == "No tool involved"
+        assert chunks[0]["data"]["data"]["analysis"] == "No tool involved"
+
+
+class TestToUiMessageStream:
+    """The lifecycle wrapper that produces the actual AI SDK v6 SSE byte stream."""
+
+    @staticmethod
+    def _events(data):
+        async def gen():
+            for d in data:
+                yield d
+        return gen()
+
+    @staticmethod
+    def _parse(sse_lines):
+        # Each item is "data: <json>\n\n" or the "[DONE]" sentinel.
+        out = []
+        for line in sse_lines:
+            assert line.startswith("data: "), f"not an SSE data line: {line!r}"
+            assert line.endswith("\n\n"), f"missing SSE terminator: {line!r}"
+            body = line[len("data: "):].rstrip("\n")
+            out.append(body if body == "[DONE]" else json.loads(body))
+        return out
+
+    async def test_text_is_bracketed_and_finished(self):
+        from src.utils.stream_protocol import stream_text, to_ui_message_stream, TEXT_PART_ID
+
+        async def source():
+            async for c in stream_text("Ciao "):
+                yield c
+            async for c in stream_text("mondo"):
+                yield c
+
+        sse = [c async for c in to_ui_message_stream(source())]
+        parsed = self._parse(sse)
+        assert parsed[0] == {"type": "start"}
+        assert parsed[1] == {"type": "text-start", "id": TEXT_PART_ID}
+        assert parsed[2] == {"type": "text-delta", "id": TEXT_PART_ID, "delta": "Ciao "}
+        assert parsed[3] == {"type": "text-delta", "id": TEXT_PART_ID, "delta": "mondo"}
+        assert parsed[4] == {"type": "text-end", "id": TEXT_PART_ID}
+        assert parsed[5] == {"type": "finish"}
+        assert parsed[6] == "[DONE]"
+
+    async def test_no_text_still_starts_and_finishes(self):
+        from src.utils.stream_protocol import to_ui_message_stream
+        sse = [c async for c in to_ui_message_stream(self._events([]))]
+        parsed = self._parse(sse)
+        assert parsed == [{"type": "start"}, {"type": "finish"}, "[DONE]"]
+
+    async def test_transient_data_not_bracketed_as_text(self):
+        from src.utils.stream_protocol import stream_status, to_ui_message_stream
+
+        async def source():
+            async for c in stream_status("thinking"):
+                yield c
+
+        sse = [c async for c in to_ui_message_stream(source())]
+        parsed = self._parse(sse)
+        assert parsed[0] == {"type": "start"}
+        assert parsed[1]["type"] == "data-status"
+        assert parsed[1]["transient"] is True
+        assert parsed[2] == {"type": "finish"}
+        assert parsed[3] == "[DONE]"
+
+    async def test_text_end_emitted_before_following_data(self):
+        from src.utils.stream_protocol import stream_text, stream_status, to_ui_message_stream, TEXT_PART_ID
+
+        async def source():
+            async for c in stream_text("hi"):
+                yield c
+            async for c in stream_status("done"):
+                yield c
+
+        sse = [c async for c in to_ui_message_stream(source())]
+        parsed = self._parse(sse)
+        types = [p["type"] if isinstance(p, dict) else p for p in parsed]
+        assert types == ["start", "text-start", "text-delta", "text-end", "data-status", "finish", "[DONE]"]
+
+    async def test_source_error_becomes_error_frame(self):
+        from src.utils.stream_protocol import stream_text, to_ui_message_stream
+
+        async def source():
+            async for c in stream_text("partial"):
+                yield c
+            raise RuntimeError("boom")
+
+        sse = [c async for c in to_ui_message_stream(source())]
+        parsed = self._parse(sse)
+        types = [p["type"] if isinstance(p, dict) else p for p in parsed]
+        # text is closed, an error frame is surfaced, then the stream finishes cleanly
+        assert "text-end" in types
+        assert "error" in types
+        assert types[-2] == "finish"
+        assert types[-1] == "[DONE]"

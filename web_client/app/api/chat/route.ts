@@ -219,8 +219,10 @@ export async function POST(req: Request) {
         return new Response(clientStream, {
             status: 200,
             headers: {
-                'Content-Type': 'text/plain; charset=utf-8',
-                'x-vercel-ai-data-stream': 'v1',
+                // AI SDK v6 UI Message Stream protocol (SSE). The backend emits
+                // `data: {...}\n\n` frames; @ai-sdk/react parses them via this header.
+                'Content-Type': 'text/event-stream; charset=utf-8',
+                'x-vercel-ai-ui-message-stream': 'v1',
                 'X-Accel-Buffering': 'no',
                 'Cache-Control': 'no-cache, no-transform, no-store',
                 'Connection': 'keep-alive',
