@@ -37,12 +37,9 @@ from src.utils.stream_protocol import (
     stream_tool_result,
     stream_ui_widget,
     stream_artifact_event,
+    to_ui_message_stream,
 )
 from src.utils.circuit_breaker import vertex_ai_breaker
-
-def _sse(data: dict) -> str:
-    """DEPRECATED. Use stream_protocol helpers instead."""
-    return f"data: {json.dumps(data)}\n\n"
 
 class ADKOrchestrator(BaseOrchestrator):
     def __init__(self):
@@ -78,14 +75,34 @@ class ADKOrchestrator(BaseOrchestrator):
         background_tasks: Any = None,  # FastAPI BackgroundTasks (unused here, required by BaseOrchestrator)
     ) -> AsyncIterator[str]:
         """
+        Public streaming entry point.
+
+        `_stream_events` yields v6 UI message chunk dicts; `to_ui_message_stream`
+        serializes them as the AI SDK v6 SSE protocol (start / text-start /
+        text-delta / text-end / finish / [DONE]) that `@ai-sdk/react` parses.
+        """
+        async for sse in to_ui_message_stream(
+            self._stream_events(request, user_session, background_tasks)
+        ):
+            yield sse
+
+    async def _stream_events(
+        self,
+        request: Any,       # ChatRequest
+        user_session: Any,  # UserSession
+        background_tasks: Any = None,  # FastAPI BackgroundTasks (unused here, required by BaseOrchestrator)
+    ) -> AsyncIterator[dict]:
+        """
         Main streaming chat method for Vertex AI Agent Builder.
-        
+
+        Yields v6 UI message **chunk dicts** (via the `stream_protocol` helpers);
+        lifecycle framing and SSE serialization are added by `to_ui_message_stream`.
+
         Responsibilities:
         - Use the already verified user_session (H1 fix)
         - Session + conversation history loading via ADK Session Service
         - Multimodal handling (GCS images/video integration)
         - Native ADK Runner execution (Agent Engine)
-        - Vercel AI protocol SSE output (AI SDK v6)
         """
         from src.core.config import settings
 

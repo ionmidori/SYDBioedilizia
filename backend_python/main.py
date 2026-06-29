@@ -648,13 +648,15 @@ async def chat_stream(
 
     background_tasks.add_task(_persist_user_message)
 
-    # Directly pass the async iterator to StreamingResponse
+    # Directly pass the async iterator to StreamingResponse.
+    # The orchestrator emits the AI SDK v6 UI Message Stream protocol (SSE),
+    # which @ai-sdk/react parses via x-vercel-ai-ui-message-stream: v1.
     return StreamingResponse(
         orchestrator.stream_chat(body, user_session, background_tasks),
-        media_type="text/plain; charset=utf-8",
+        media_type="text/event-stream; charset=utf-8",
         headers={
-            "Connection": "close", 
-            "x-vercel-ai-data-stream": "v1", 
+            "Connection": "close",
+            "x-vercel-ai-ui-message-stream": "v1",
             "X-Accel-Buffering": "no",
             "Cache-Control": "no-cache"
         },

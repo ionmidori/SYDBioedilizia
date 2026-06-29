@@ -70,6 +70,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
+    // ADK custom-data stream (status / interrupt / ui_widget / artifact / reasoning).
+    // AI SDK v6 delivers transient `data-*` parts via the `onData` callback (NOT on
+    // `useChat().data`, which no longer exists), so we accumulate them here.
+    const [streamData, setStreamData] = useState<StreamData[]>([]);
     const welcomeInjectedRef = useRef(false);
     const isFirstSyncRef = useRef(true);
     const prevUserRef = useRef(user);
@@ -107,6 +111,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         welcomeInjectedRef.current = false;
         isFirstSyncRef.current = true;
+        setStreamData([]); // drop previous session's ADK data events
     }, [sessionId]);
 
     // -- HISTORY SYNC --
@@ -197,6 +202,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const chatHelpers = useChat({
         id: sessionId,
         transport,
+        onData: (dataPart) => {
+            // v6 transient `data-*` parts (ADK status/interrupt/ui_widget/artifact/reasoning).
+            // The backend wraps the legacy event object (which carries its own `type`)
+            // in `dataPart.data`, so unwrap it to keep downstream consumers unchanged.
+            const inner = (dataPart as { data?: unknown }).data;
+            if (inner && typeof inner === 'object') {
+                setStreamData((prev) => [...prev, inner as StreamData]);
+            }
+        },
         onFinish(message) {
             console.log('[ChatProvider] Turn finished. Last message:', message);
         },
@@ -215,9 +229,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         error: sdkError,
     } = chatHelpers;
 
-    // React AI SDK 3.0.5 doesn't fully type the 'data' property on useChat. 
-    // However, the internal implementation does expose it when streaming custom data chunks.
-    const useChatData = (chatHelpers as { data?: StreamData[] }).data;
     useEffect(() => {
         console.log('[ChatProvider Debug] SDK messages updated:', messages.length, messages.map(m => m.id));
     }, [messages]);
@@ -343,7 +354,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     // -- ADK STREAMING DATA HANDLERS (interrupt / ui_widget / artifact) --
     useEffect(() => {
-        const currentData = (useChatData as StreamData[]) || [];
+        const currentData = streamData;
         if (currentData.length === 0) return;
 
         const latestData = currentData[currentData.length - 1];
@@ -374,7 +385,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 window.dispatchEvent(new CustomEvent('adk-artifact', { detail: latestData }));
             }
         }
-    }, [useChatData]);
+    }, [streamData]);
 
     // -- PERSISTENCE: Save/Restore Last Project --
     useEffect(() => {
@@ -501,7 +512,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setInput,
         refreshHistory,
-        data: (useChatData as StreamData[]) || [],
+        data: streamData,
     }), [
         currentProjectId,
         isRestoringHistory,
@@ -517,7 +528,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setInput,
         refreshHistory,
-        useChatData
+        streamData
     ]);
     return (
         <ChatContext.Provider value={value}>

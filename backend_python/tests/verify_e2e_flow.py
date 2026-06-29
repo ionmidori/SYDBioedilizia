@@ -90,9 +90,9 @@ def verify_phase_3_4():
             print("\n🧪 Test 2: Orchestrator -> Graph Integration")
             assert response.status_code == 200
             content = response.content.decode()
-            # 0:"..." is the Vercel protocol
-            assert '0:"Thought process..."' in content or '0:' in content 
-            print("   ✅ Stream Protocol yielded data")
+            # AI SDK v6 UI Message Stream protocol: SSE `data: {...}` frames.
+            assert 'data: ' in content and ('"text-delta"' in content or '"type"' in content)
+            print("   ✅ Stream Protocol yielded v6 SSE data")
 
             # TEST 3: Error Handling & Standardization (Phase 4)
             print("\n🧪 Test 3: Standardized Error Handling")
