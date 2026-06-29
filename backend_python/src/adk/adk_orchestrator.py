@@ -80,9 +80,17 @@ class ADKOrchestrator(BaseOrchestrator):
         `_stream_events` yields v6 UI message chunk dicts; `to_ui_message_stream`
         serializes them as the AI SDK v6 SSE protocol (start / text-start /
         text-delta / text-end / finish / [DONE]) that `@ai-sdk/react` parses.
+
+        A single stable `assistant_msg_id` is generated up front and used BOTH
+        as the v6 `start.messageId` (so the SDK adopts it) AND as the Firestore
+        document id when the assistant message is persisted. Aligning the two
+        identities removes the post-turn id swap that re-mounts the bubble and
+        causes flicker.
         """
+        assistant_msg_id = uuid.uuid4().hex
         async for sse in to_ui_message_stream(
-            self._stream_events(request, user_session, background_tasks)
+            self._stream_events(request, user_session, background_tasks, assistant_msg_id),
+            message_id=assistant_msg_id,
         ):
             yield sse
 
@@ -91,6 +99,7 @@ class ADKOrchestrator(BaseOrchestrator):
         request: Any,       # ChatRequest
         user_session: Any,  # UserSession
         background_tasks: Any = None,  # FastAPI BackgroundTasks (unused here, required by BaseOrchestrator)
+        assistant_msg_id: str | None = None,  # stable id shared with start.messageId + Firestore doc id
     ) -> AsyncIterator[dict]:
         """
         Main streaming chat method for Vertex AI Agent Builder.
@@ -579,7 +588,8 @@ class ADKOrchestrator(BaseOrchestrator):
                             role="assistant",
                             content=full_response,
                             tool_calls=accumulated_tool_calls if accumulated_tool_calls else None,
-                            timestamp=assistant_timestamp
+                            timestamp=assistant_timestamp,
+                            message_id=assistant_msg_id,
                         )
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:

@@ -105,6 +105,42 @@ class TestSaveMessage:
         assert data["content"] == "Hello"
 
     @pytest.mark.asyncio
+    async def test_explicit_message_id_uses_document_set_not_add(self, repo, mock_db, mock_fs):
+        # A stable id (assigned by the orchestrator / forwarded from the client)
+        # must be used as the Firestore document id so the streamed message and
+        # its persisted row share one identity — no post-turn id swap on the client.
+        sess_ref, msgs_ref = self._setup_db(mock_db)
+        doc_ref = MagicMock()
+        doc_ref.set = AsyncMock()
+        msgs_ref.document.return_value = doc_ref
+
+        with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.sync_firestore", mock_fs), \
+             patch(f"{_MODULE}.async_firestore", mock_fs):
+            await repo.save_message("s1", "assistant", "Hi", message_id="assist-123")
+
+        msgs_ref.document.assert_called_once_with("assist-123")
+        doc_ref.set.assert_called_once()
+        msgs_ref.add.assert_not_called()
+        data = doc_ref.set.call_args[0][0]
+        assert data["role"] == "assistant"
+        assert data["content"] == "Hi"
+
+    @pytest.mark.asyncio
+    async def test_auto_id_used_when_message_id_absent(self, repo, mock_db, mock_fs):
+        sess_ref, msgs_ref = self._setup_db(mock_db)
+
+        with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.sync_firestore", mock_fs), \
+             patch(f"{_MODULE}.async_firestore", mock_fs):
+            await repo.save_message("s1", "user", "Hello")
+
+        msgs_ref.add.assert_called_once()
+        msgs_ref.document.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_timestamp_used_when_provided(self, repo, mock_db, mock_fs):
         self._setup_db(mock_db)
         ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
