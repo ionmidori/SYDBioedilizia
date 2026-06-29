@@ -71,7 +71,16 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     const Markdown = ReactMarkdown as React.ComponentType<React.ComponentProps<typeof ReactMarkdown>>;
 
     const text = getMessageText(message);
-    const toolInvocations = getToolInvocations(message);
+    // The AI SDK v6 keeps assistant message state text-only — transient tool
+    // results are NOT added to message.parts, and the SDK strips custom fields
+    // like `toolInvocations` (same reason `rating` is re-resolved from history
+    // above). So when the live SDK message carries no tool data, fall back to the
+    // Firestore-history version, where useChatHistory's smart-merge has already
+    // linked each tool result (e.g. a render's `imageUrl`) to its assistant turn.
+    const sdkToolInvocations = getToolInvocations(message);
+    const toolInvocations = sdkToolInvocations.length > 0
+        ? sdkToolInvocations
+        : (originalMessage ? getToolInvocations(originalMessage) : []);
     const hasTools = toolInvocations.length > 0;
 
     // Helper: Convert custom backend image syntax to Markdown
