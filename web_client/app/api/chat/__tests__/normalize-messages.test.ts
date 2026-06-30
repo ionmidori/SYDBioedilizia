@@ -65,5 +65,17 @@ describe('normalizeMessagesForBackend', () => {
 
             expect(result).toEqual([{ id: 'u1', role: 'user', content: 'ok' }]);
         });
+
+        it('drops primitive entries and objects without a string role (no { role: undefined } leaks)', () => {
+            const result = normalizeMessagesForBackend([
+                'just a string',
+                123,
+                { content: 'no role here' },
+                { role: 42, content: 'numeric role' },
+                { id: 'u1', role: 'user', content: 'hi' },
+            ] as unknown as never);
+
+            expect(result).toEqual([{ id: 'u1', role: 'user', content: 'hi' }]);
+        });
     });
 });

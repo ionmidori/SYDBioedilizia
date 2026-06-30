@@ -55,7 +55,7 @@ export function normalizeMessagesForBackend(messages: SDKMessage[] | undefined):
     // Tool messages are already merged into assistant toolInvocations by
     // useChatHistory and are not needed by the backend for processing.
     return (Array.isArray(messages) ? messages : [])
-        .filter((msg) => msg && msg.role !== 'tool')
+        .filter((msg) => msg && typeof msg === 'object' && typeof msg.role === 'string' && msg.role !== 'tool')
         .map((msg) => {
             const normalized: NormalizedMessage = { role: msg.role, content: toTextContent(msg) };
             if (msg.id) {
