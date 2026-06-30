@@ -172,14 +172,25 @@ class ModelArmorService:
 
     @staticmethod
     def _parse_result(sanitization_result) -> SanitizationVerdict:
-        """Parse the sanitization_result proto into a typed SanitizationVerdict."""
+        """Parse the sanitization_result proto into a typed SanitizationVerdict.
+
+        Filter key mapping (API response key → proto attribute):
+            'rai'              → rai_filter_result
+            'pi_and_jailbreak' → pi_and_jailbreak_filter_result
+            'malicious_uris'   → malicious_uri_filter_result
+            'csam'             → csam_filter_filter_result  (always active, not configurable)
+            'sdp'              → sdp_filter_result
+
+        Note: CSAM detection is always enforced by the Model Armor infrastructure
+        regardless of filterConfig. It cannot be disabled via template settings.
+        """
         filter_match_state = str(sanitization_result.filter_match_state)
         is_blocked = "MATCH_FOUND" in filter_match_state
 
         matched_filters: dict[str, str] = {}
         for filter_key, filter_value in sanitization_result.filter_results.items():
-            # Each filter type has a different result field name
-            # Extract match_state from whichever sub-result is present
+            # Each filter type has a different proto attribute name.
+            # Probe in priority order — first match wins.
             sub_result = None
             if hasattr(filter_value, "rai_filter_result"):
                 sub_result = filter_value.rai_filter_result
@@ -188,6 +199,7 @@ class ModelArmorService:
             elif hasattr(filter_value, "malicious_uri_filter_result"):
                 sub_result = filter_value.malicious_uri_filter_result
             elif hasattr(filter_value, "csam_filter_filter_result"):
+                # CSAM: always executed (EXECUTION_SUCCESS), not configurable in template.
                 sub_result = filter_value.csam_filter_filter_result
             elif hasattr(filter_value, "sdp_filter_result"):
                 sub_result = filter_value.sdp_filter_result
