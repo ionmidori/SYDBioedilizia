@@ -34,8 +34,8 @@ function toTextContent(msg: SDKMessage): string {
     // Vercel AI SDK v3+ `parts` array
     if (Array.isArray(msg.parts)) {
         return msg.parts
-            .filter((p) => p.type === 'text')
-            .map((p) => p.text)
+            .filter((p) => p && p.type === 'text')
+            .map((p) => p.text || '')
             .join('');
     }
     // Legacy array content
@@ -50,10 +50,12 @@ function toTextContent(msg: SDKMessage): string {
 }
 
 export function normalizeMessagesForBackend(messages: SDKMessage[] | undefined): NormalizedMessage[] {
+    // `messages` comes from the untrusted request body, so guard against a
+    // non-array value (would throw on .filter) and null/undefined entries.
     // Tool messages are already merged into assistant toolInvocations by
     // useChatHistory and are not needed by the backend for processing.
-    return (messages || [])
-        .filter((msg) => msg.role !== 'tool')
+    return (Array.isArray(messages) ? messages : [])
+        .filter((msg) => msg && msg.role !== 'tool')
         .map((msg) => {
             const normalized: NormalizedMessage = { role: msg.role, content: toTextContent(msg) };
             if (msg.id) {
