@@ -28,6 +28,14 @@ jest.mock('@/components/providers/AuthProvider', () => ({
     }),
 }));
 
+// Mock the chat context — MessageItem (rendered per message) reads
+// historyMessages from it; without a provider useChatContext throws.
+jest.mock('@/hooks/useChatContext', () => ({
+    useChatContext: () => ({
+        historyMessages: [],
+    }),
+}));
+
 describe('ChatMessages', () => {
     const mockMessagesContainerRef = {
         current: null,

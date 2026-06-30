@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MessageFeedback } from '../MessageFeedback';
 import { triggerHaptic } from '@/lib/haptics';
 
@@ -8,10 +8,11 @@ jest.mock('lucide-react', () => ({
     ThumbsDown: () => <div data-testid="thumbs-down" />,
 }));
 
-// Mock useAuth
+// Mock useAuth — the component calls refreshToken() to obtain a fresh token
+// before POSTing feedback (handles guest-auth race conditions).
 jest.mock('@/hooks/useAuth', () => ({
     useAuth: () => ({
-        idToken: 'mock-token',
+        refreshToken: jest.fn().mockResolvedValue('mock-token'),
     }),
 }));
 
@@ -52,10 +53,11 @@ describe('MessageFeedback', () => {
         fireEvent.click(upButton);
 
         expect(triggerHaptic).toHaveBeenCalled();
-        expect(global.fetch).toHaveBeenCalledWith('/api/feedback', expect.objectContaining({
+        // fetch runs after `await refreshToken()`, so assert on the next tick.
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/feedback', expect.objectContaining({
             method: 'POST',
             body: expect.stringContaining('"rating":1'),
-        }));
+        })));
 
         // Should show "Grazie!"
         expect(await screen.findByText(/grazie!/i)).toBeInTheDocument();
@@ -68,10 +70,11 @@ describe('MessageFeedback', () => {
         fireEvent.click(downButton);
 
         expect(triggerHaptic).toHaveBeenCalled();
-        expect(global.fetch).toHaveBeenCalledWith('/api/feedback', expect.objectContaining({
+        // fetch runs after `await refreshToken()`, so assert on the next tick.
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledWith('/api/feedback', expect.objectContaining({
             method: 'POST',
             body: expect.stringContaining('"rating":-1'),
-        }));
+        })));
 
         // Should show "Ci miglioreremo"
         expect(await screen.findByText(/ci miglioreremo/i)).toBeInTheDocument();
@@ -84,8 +87,8 @@ describe('MessageFeedback', () => {
         
         // First click: sets to 1
         fireEvent.click(upButton);
-        expect(global.fetch).toHaveBeenCalledTimes(1);
-        
+        await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
         // Wait for submission to finish (shown by "Grazie!" appearance)
         expect(await screen.findByText(/grazie!/i)).toBeInTheDocument();
         
