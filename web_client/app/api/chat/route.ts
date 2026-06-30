@@ -186,7 +186,7 @@ export async function POST(req: Request) {
         return new Response(clientStream, {
             status: 200,
             headers: {
-                // AI SDK v6 UI Message Stream protocol (SSE). The backend emits
+                // AI SDK v7 UI Message Stream protocol (SSE). The backend emits
                 // `data: {...}\n\n` frames; @ai-sdk/react parses them via this header.
                 'Content-Type': 'text/event-stream; charset=utf-8',
                 'x-vercel-ai-ui-message-stream': 'v1',

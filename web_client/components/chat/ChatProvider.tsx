@@ -26,9 +26,9 @@ interface StreamData {
 }
 
 /**
- * Convert a Firestore history row into a valid AI SDK v6 UIMessage.
+ * Convert a Firestore history row into a valid AI SDK v7 UIMessage.
  *
- * Firestore history comes back content-only (no `parts`). AI SDK v6 requires
+ * Firestore history comes back content-only (no `parts`). AI SDK v7 requires
  * every message in `useChat` state to carry a `parts` array: loading
  * content-only messages corrupts the streaming reconciliation so a
  * freshly-streamed assistant reply is NEVER appended to state — it only shows
@@ -47,7 +47,7 @@ function historyToUIMessage(m: {
     for (const url of m.attachments?.images ?? []) {
         if (typeof url === 'string') parts.push({ type: 'file', mediaType: 'image/jpeg', url });
     }
-    // v6 messages must have at least one part; an empty assistant renders as "thinking".
+    // v7 messages must have at least one part; an empty assistant renders as "thinking".
     if (parts.length === 0) parts.push({ type: 'text', text: '' });
     return { id: m.id, role: m.role, parts } as unknown as Message;
 }
@@ -58,7 +58,7 @@ function historyToUIMessage(m: {
  * Orchestrates the global chat state for the application.
  * Manages the connection between the UI (ChatWidget) and the AI Backend.
  *
- * AI SDK v6 Migration:
+ * AI SDK v7 Migration:
  * - Uses DefaultChatTransport for api/headers/body configuration
  * - sendMessage uses { text: string } format (not { content, role })
  * - No more `data` return — use onData callback for streaming metadata
@@ -71,7 +71,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
     // ADK custom-data stream (status / interrupt / ui_widget / artifact / reasoning).
-    // AI SDK v6 delivers transient `data-*` parts via the `onData` callback (NOT on
+    // AI SDK v7 delivers transient `data-*` parts via the `onData` callback (NOT on
     // `useChat().data`, which no longer exists), so we accumulate them here.
     const [streamData, setStreamData] = useState<StreamData[]>([]);
     const welcomeInjectedRef = useRef(false);
@@ -118,7 +118,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId);
 
     // -- DYNAMIC HEADERS/BODY RESOLVER --
-    // AI SDK v6: transport headers/body can be async functions (Resolvable)
+    // AI SDK v7: transport headers/body can be async functions (Resolvable)
     const resolveHeaders = useCallback(async (): Promise<Record<string, string>> => {
         const headers: Record<string, string> = {};
 
@@ -156,7 +156,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return headers;
     }, [refreshToken]);
 
-    // -- AI SDK v6 HOOK --
+    // -- AI SDK v7 HOOK --
     // NOTE: DefaultChatTransport does NOT accept `body` as a function.
     // Dynamic body fields must be injected via `prepareSendMessagesRequest`.
     const transport = useMemo(() => new DefaultChatTransport({
@@ -203,7 +203,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         id: sessionId,
         transport,
         onData: (dataPart) => {
-            // v6 transient `data-*` parts (ADK status/interrupt/ui_widget/artifact/reasoning).
+            // v7 transient `data-*` parts (ADK status/interrupt/ui_widget/artifact/reasoning).
             // The backend wraps the legacy event object (which carries its own `type`)
             // in `dataPart.data`, so unwrap it to keep downstream consumers unchanged.
             const inner = (dataPart as { data?: unknown }).data;
@@ -274,9 +274,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         if (historyLoaded && status !== 'streaming' && status !== 'submitted') {
             // ALWAYS prepend the welcome message to the history so it persists.
-            // Standalone `tool` rows are not v6 messages (tool data lives inside
+            // Standalone `tool` rows are not v7 messages (tool data lives inside
             // the assistant message) — exclude them, and convert every row to a
-            // valid v6 UIMessage with `parts` so streaming reconciliation works.
+            // valid v7 UIMessage with `parts` so streaming reconciliation works.
             const fullHistory = [
                 WELCOME_MESSAGE,
                 ...(historyMessages as unknown as { role?: string }[])
@@ -451,7 +451,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             // Optimistic UI: Clear input immediately
             setInput('');
 
-            // Build FileUIPart[] for AI SDK v6 — these populate message.parts with type:'file'
+            // Build FileUIPart[] for AI SDK v7 — these populate message.parts with type:'file'
             // which MessageItem reads to render image thumbnails in the user bubble.
             const files = hasAttachments
                 ? attachments!.map(url => ({
@@ -461,7 +461,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 }))
                 : undefined;
 
-            // AI SDK v6: sendMessage({ text, files }, { body, headers })
+            // AI SDK v7: sendMessage({ text, files }, { body, headers })
             // Transport-level headers/body are resolved automatically,
             // request-level options here override/extend them.
             const requestBody = {

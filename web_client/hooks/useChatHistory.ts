@@ -121,7 +121,7 @@ export function useChatHistory(
                         // Handles:
                         // 1. Legacy: List of objects [{url: string, type: string}]
                         // 2. Structured: { images: string[], videos: string[] } (Preferred)
-                        // 3. Fallback: message.parts (AI SDK v6) handled in MessageItem
+                        // 3. Fallback: message.parts (AI SDK v7) handled in MessageItem
                         let attachments = undefined;
                         const rawAttachments = data.attachments;
                         

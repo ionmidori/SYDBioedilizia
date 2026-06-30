@@ -20,7 +20,7 @@ export const LoginRequest = () => {
         for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             if (msg.role !== 'user') continue;
-            // AI SDK v6: messages use a `parts` array
+            // AI SDK v7: messages use a `parts` array
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const msgAny = msg as any;
             const parts: { type: string; text?: string }[] = msgAny.parts ?? [];
