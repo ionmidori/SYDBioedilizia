@@ -13,20 +13,11 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+import { normalizeMessagesForBackend, type SDKMessage } from './normalize-messages';
+
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8080';
 
 console.log('[Proxy Config] URL:', PYTHON_BACKEND_URL);
-
-interface SDKMessagePart {
-    type: string;
-    text?: string;
-}
-
-interface SDKMessage {
-    role: string;
-    content?: string | (string | SDKMessagePart)[];
-    parts?: SDKMessagePart[];
-}
 
 export async function POST(req: Request) {
     console.log('----> [Proxy] Chat request received');
@@ -63,35 +54,11 @@ export async function POST(req: Request) {
         // 🔄 NORMALIZE: Vercel AI SDK v3+ → Backend Contract
         // SDK sends {role, parts: [{type, text}]}, Backend expects {role, content: string}
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // Filter out tool messages — they're already merged into assistant toolInvocations
-        // by useChatHistory and are not needed by the backend for processing.
-        const nonToolMessages = (messages as SDKMessage[] || []).filter(
-            (msg) => msg.role !== 'tool'
-        );
-        const normalizedMessages = nonToolMessages.map((msg) => {
-            // If message already has 'content' as string, pass through
-            if (typeof msg.content === 'string') {
-                return { role: msg.role, content: msg.content };
-            }
-            // If message has 'parts' array (Vercel AI SDK v3+ format), extract text
-            if (Array.isArray(msg.parts)) {
-                const textContent = msg.parts
-                    .filter((p) => p.type === 'text')
-                    .map((p) => p.text)
-                    .join('');
-                return { role: msg.role, content: textContent };
-            }
-            // If content is an array (legacy format), stringify
-            if (Array.isArray(msg.content)) {
-                const textContent = msg.content
-                    .filter((p) => typeof p === 'string' || (typeof p === 'object' && p !== null && 'type' in p && p.type === 'text'))
-                    .map((p) => typeof p === 'string' ? p : (p as SDKMessagePart).text)
-                    .join('');
-                return { role: msg.role, content: textContent };
-            }
-            // Fallback: stringify whatever we got
-            return { role: msg.role, content: String(msg.content || '') };
-        });
+        // Flatten messages to { role, content } and forward the client AI SDK id
+        // (tool rows are filtered out — their data lives inside the assistant message).
+        // Preserving the id lets the backend persist the user message under the same
+        // identity the streamed bubble already has, keeping the chat from flickering.
+        const normalizedMessages = normalizeMessagesForBackend(messages as SDKMessage[]);
 
         // Build payload for Python backend
         const pythonPayload = {
