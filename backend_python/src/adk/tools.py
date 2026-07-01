@@ -327,6 +327,19 @@ async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict
             return {"status": "error", "message": f"Unknown workflow_id '{workflow_id}'. Valid values: {list(_WORKFLOW_URL_MAP.keys())}."}
         return {"status": "error", "message": f"Webhook URL for '{workflow_id}' is not configured in environment."}
 
+    # F-05 (Excessive Agency guard): bound the payload the model can forward to an
+    # external system. Together with the fixed _WORKFLOW_URL_MAP allowlist (the
+    # agent can only reach the two operator-configured n8n workflows, never an
+    # arbitrary URL) this limits the blast radius of a prompt-injection attempt.
+    import json as _json
+    try:
+        _payload_len = len(_json.dumps(payload, default=str))
+    except (TypeError, ValueError):
+        return {"status": "error", "message": "Invalid payload."}
+    if _payload_len > 8192:
+        _logger.warning("[ADK Tool] n8n webhook payload rejected (too large: %d bytes)", _payload_len)
+        return {"status": "error", "message": "Payload too large."}
+
     try:
         _validate_webhook_url(webhook_url)  # SSRF guard — raises ValueError if invalid host
         result = await _call_n8n_webhook(webhook_url, {"workflow_id": workflow_id, **payload})
