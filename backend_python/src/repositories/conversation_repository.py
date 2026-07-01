@@ -42,6 +42,7 @@ class ConversationRepository:
         timestamp: Optional[datetime] = None,
         room_id: Optional[str] = None,
         message_id: Optional[str] = None,
+        user_id: Optional[str] = None,
     ) -> None:
         """Save a message to Firestore with tool support and media attachments.
 
@@ -116,7 +117,17 @@ class ConversationRepository:
             
             if not session_doc.exists:
                 session_update['createdAt'] = async_firestore.SERVER_TIMESTAMP
-                
+
+            # SECURITY (F-12): stamp the owner on the session doc when it is not
+            # already set, so the Firestore ownership rule (sessions/*/messages
+            # read: exists(parent) && userId == uid) can authorize the owner's
+            # direct client reads. Never overwrite an existing owner — that would
+            # let one user hijack another's (already claimed) session.
+            if user_id:
+                existing_owner = (session_doc.to_dict() or {}).get('userId') if session_doc.exists else None
+                if not existing_owner:
+                    session_update['userId'] = user_id
+
             await session_ref.set(session_update, merge=True)
             
             logger.info(f"[Repo] Saved {role} message to session {session_id}")

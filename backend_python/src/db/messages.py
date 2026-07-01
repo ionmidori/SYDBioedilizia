@@ -14,7 +14,8 @@ async def save_message(
     metadata: Optional[Dict[str, Any]] = None,
     tool_calls: Optional[List[Dict[str, Any]]] = None,
     tool_call_id: Optional[str] = None,
-    attachments: Optional[List[Dict[str, Any]]] = None # 🔥 New: Structured Media
+    attachments: Optional[List[Dict[str, Any]]] = None, # 🔥 New: Structured Media
+    user_id: Optional[str] = None,
 ) -> None:
     """Save a message to Firestore with tool support and media attachments."""
     try:
@@ -38,29 +39,38 @@ async def save_message(
         if attachments:
             message_data['attachments'] = attachments
         
-        # Add to messages subcollection
-        db.collection('sessions').document(session_id).collection('messages').add(message_data)
-        
-        # Update session metadata
+        # Update session metadata FIRST so a failure here never leaves an orphan
+        # "phantom" parent (a messages subcollection with no valid parent doc),
+        # which is exactly the state the Firestore rules had to special-case
+        # via the now-removed "!exists(...)" fallback (F-03/F-12).
         session_ref = db.collection('sessions').document(session_id)
         session_doc = session_ref.get()
-        
+
         session_update = {
             'updatedAt': firestore.SERVER_TIMESTAMP,
             'sessionId': session_id,
             'messageCount': firestore.Increment(1)
         }
-        
+
         if not session_doc.exists:
             session_update['createdAt'] = firestore.SERVER_TIMESTAMP
-            
+
+        # F-12: stamp the owner when absent (never overwrite an existing owner),
+        # so the ownership-based read rule can authorize the owner.
+        if user_id:
+            existing_owner = (session_doc.to_dict() or {}).get('userId') if session_doc.exists else None
+            if not existing_owner:
+                session_update['userId'] = user_id
+
         session_ref.set(session_update, merge=True)
-        
+
+        # Add the message only after the parent doc is guaranteed to exist.
+        session_ref.collection('messages').add(message_data)
+
         logger.info(f"[Firestore] Saved {role} message to session {session_id}")
-        
+
     except Exception as e:
         logger.error(f"[Firestore] Error saving message: {str(e)}", exc_info=True)
-        pass
 
 
 async def get_conversation_context(
