@@ -77,6 +77,12 @@ def _resolve_rp_id(request: Request) -> str:
     if not candidate and host:
         candidate = host.split(":")[0]
 
+    # Hostnames are case-insensitive (DNS) but Python string/regex checks are not:
+    # normalise to lowercase before any whitelist or regex comparison so a mixed-
+    # case Origin/Host header can't bypass validation (Gemini review).
+    if candidate:
+        candidate = candidate.lower()
+
     if candidate and candidate in _ALLOWED_RP_IDS:
         return candidate
 

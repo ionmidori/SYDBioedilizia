@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # prezzario/normative corpus (prices, article codes must survive intact).
 _PII_PATTERNS = [
     (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[EMAIL_REDACTED]"),
-    (re.compile(r"\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b"), "[CF_REDACTED]"),
+    (re.compile(r"\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b", re.IGNORECASE), "[CF_REDACTED]"),
 ]
 
 

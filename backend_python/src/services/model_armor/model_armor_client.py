@@ -183,26 +183,26 @@ class ModelArmorService:
         filter_match_state = str(sanitization_result.filter_match_state)
         is_blocked = "MATCH_FOUND" in filter_match_state
 
+        # The filter_results map key already identifies which oneof member is
+        # set, so read that attribute directly. NOTE: hasattr() cannot detect
+        # presence on a proto message (every schema field always "exists"), which
+        # made the previous hasattr-chain always take the rai branch and mislabel
+        # every other filter. proto-plus does not expose HasField() either, so we
+        # key off the map key instead of probing presence (Gemini review).
+        _KEY_TO_ATTR = {
+            "rai": "rai_filter_result",
+            "pi_and_jailbreak": "pi_and_jailbreak_filter_result",
+            "malicious_uris": "malicious_uri_filter_result",
+            # CSAM: always executed (EXECUTION_SUCCESS), not configurable in template.
+            "csam": "csam_filter_filter_result",
+            "sdp": "sdp_filter_result",
+        }
         matched_filters: dict[str, str] = {}
         for filter_key, filter_value in sanitization_result.filter_results.items():
-            # Each filter type has a different proto attribute name.
-            # Probe in priority order — first match wins.
-            sub_result = None
-            if hasattr(filter_value, "rai_filter_result"):
-                sub_result = filter_value.rai_filter_result
-            elif hasattr(filter_value, "pi_and_jailbreak_filter_result"):
-                sub_result = filter_value.pi_and_jailbreak_filter_result
-            elif hasattr(filter_value, "malicious_uri_filter_result"):
-                sub_result = filter_value.malicious_uri_filter_result
-            elif hasattr(filter_value, "csam_filter_filter_result"):
-                # CSAM: always executed (EXECUTION_SUCCESS), not configurable in template.
-                sub_result = filter_value.csam_filter_filter_result
-            elif hasattr(filter_value, "sdp_filter_result"):
-                sub_result = filter_value.sdp_filter_result
-
-            if sub_result and hasattr(sub_result, "match_state"):
-                state = str(sub_result.match_state)
-                matched_filters[filter_key] = state
+            attr_name = _KEY_TO_ATTR.get(filter_key)
+            sub_result = getattr(filter_value, attr_name, None) if attr_name else None
+            if sub_result is not None and hasattr(sub_result, "match_state"):
+                matched_filters[filter_key] = str(sub_result.match_state)
 
         return SanitizationVerdict(
             is_blocked=is_blocked,

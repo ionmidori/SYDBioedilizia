@@ -67,7 +67,7 @@ export function proxy(request: NextRequest) {
     style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com https://images.unsplash.com https://replicate.delivery;
     font-src 'self' data:;
-    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com https://vitals.vercel-insights.com https://*.vercel-insights.com https://*.run.app https://www.google.com https://www.gstatic.com wss://*.firebaseio.com;
+    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com https://vitals.vercel-insights.com https://*.vercel-insights.com https://syd-brain-w6yrkh3gfa-ew.a.run.app https://www.google.com https://www.gstatic.com wss://*.firebaseio.com;
     media-src 'self' blob: https://firebasestorage.googleapis.com https://storage.googleapis.com;
     object-src 'none';
     base-uri 'self';
