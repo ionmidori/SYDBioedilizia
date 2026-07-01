@@ -78,6 +78,22 @@ class ModelArmorService:
             ),
         )
 
+    @staticmethod
+    def _error_verdict(state: str) -> "SanitizationVerdict":
+        """Verdict returned when a Model Armor call fails (F-02).
+
+        Fail-open (is_blocked=False) by default to preserve availability; set
+        MODEL_ARMOR_FAIL_CLOSED=True to block on error/timeout instead.
+        """
+        from src.core.config import settings
+
+        return SanitizationVerdict(
+            is_blocked=settings.MODEL_ARMOR_FAIL_CLOSED,
+            filter_match_state=state,
+            matched_filters={},
+            raw_response=None,
+        )
+
     def sanitize_prompt(self, text: str) -> SanitizationVerdict:
         """Sanitize a user prompt via Model Armor API.
 
@@ -101,28 +117,18 @@ class ModelArmorService:
             return self._parse_result(response.sanitization_result)
         except GoogleAPIError as exc:
             logger.warning(
-                "[ModelArmor] API error on sanitize_prompt (fail-open): %s",
+                "[ModelArmor] API error on sanitize_prompt: %s",
                 exc,
                 exc_info=True,
             )
-            return SanitizationVerdict(
-                is_blocked=False,
-                filter_match_state="API_ERROR",
-                matched_filters={},
-                raw_response=None,
-            )
+            return self._error_verdict("API_ERROR")
         except Exception as exc:
             logger.error(
-                "[ModelArmor] Unexpected error on sanitize_prompt (fail-open): %s",
+                "[ModelArmor] Unexpected error on sanitize_prompt: %s",
                 exc,
                 exc_info=True,
             )
-            return SanitizationVerdict(
-                is_blocked=False,
-                filter_match_state="UNEXPECTED_ERROR",
-                matched_filters={},
-                raw_response=None,
-            )
+            return self._error_verdict("UNEXPECTED_ERROR")
 
     def sanitize_response(self, text: str) -> SanitizationVerdict:
         """Sanitize a model response via Model Armor API.
@@ -147,28 +153,18 @@ class ModelArmorService:
             return self._parse_result(response.sanitization_result)
         except GoogleAPIError as exc:
             logger.warning(
-                "[ModelArmor] API error on sanitize_response (fail-open): %s",
+                "[ModelArmor] API error on sanitize_response: %s",
                 exc,
                 exc_info=True,
             )
-            return SanitizationVerdict(
-                is_blocked=False,
-                filter_match_state="API_ERROR",
-                matched_filters={},
-                raw_response=None,
-            )
+            return self._error_verdict("API_ERROR")
         except Exception as exc:
             logger.error(
-                "[ModelArmor] Unexpected error on sanitize_response (fail-open): %s",
+                "[ModelArmor] Unexpected error on sanitize_response: %s",
                 exc,
                 exc_info=True,
             )
-            return SanitizationVerdict(
-                is_blocked=False,
-                filter_match_state="UNEXPECTED_ERROR",
-                matched_filters={},
-                raw_response=None,
-            )
+            return self._error_verdict("UNEXPECTED_ERROR")
 
     @staticmethod
     def _parse_result(sanitization_result) -> SanitizationVerdict:
