@@ -7,9 +7,29 @@ Provides:
     - search_prezzario: Semantic search specifically in the price list
 """
 import logging
+import re
 from src.services.rag_service import get_rag_service, NAMESPACE_PREZZARIO, NAMESPACE_NORMATIVE
 
 logger = logging.getLogger(__name__)
+
+# F-08: conservative PII scrub applied to retrieved document text before it is
+# handed to the LLM, so any custom-ingested document (e.g. a project spec) can't
+# leak personal data through the RAG context. Only high-precision patterns are
+# used (email, Italian codice fiscale) to avoid false positives on the numeric
+# prezzario/normative corpus (prices, article codes must survive intact).
+_PII_PATTERNS = [
+    (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[EMAIL_REDACTED]"),
+    (re.compile(r"\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b"), "[CF_REDACTED]"),
+]
+
+
+def _redact_pii(text: str) -> str:
+    """Redact high-precision PII (email, codice fiscale) from RAG content."""
+    if not text:
+        return text
+    for pattern, replacement in _PII_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
 
 # Returned to the agent when the knowledge base is unreachable. Phrased as an
 # instruction so the agent surfaces the degradation to the user instead of
@@ -55,7 +75,7 @@ async def retrieve_knowledge(query: str) -> str:
             metadata = result.get("metadata", {})
             score = result.get("score", 0.0)
             namespace = result.get("namespace", "unknown")
-            content = metadata.get("chunk_text", "No content text")
+            content = _redact_pii(metadata.get("chunk_text", "No content text"))
             source = metadata.get("source", "Unknown Source")
 
             # Prezzario-specific formatting
