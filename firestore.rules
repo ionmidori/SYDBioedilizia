@@ -27,8 +27,12 @@ service cloud.firestore {
             sessionId == 'global-' + request.auth.uid
             || sessionId == 'guest-' + request.auth.uid
             || (
-              !exists(/databases/$(database)/documents/sessions/$(sessionId))
-              || get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid
+              // SECURITY (F-03): require the parent session to EXIST and be owned.
+              // The previous "!exists(...) ||" fallback granted read to ANY
+              // authenticated user whenever the parent session doc was missing
+              // (phantom-parent), enabling cross-user message disclosure.
+              exists(/databases/$(database)/documents/sessions/$(sessionId))
+              && get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid
             )
           );
 
@@ -71,20 +75,21 @@ service cloud.firestore {
     // ==========================================
 
     match /projects/{projectId}/files/{fileId} {
-      // Read: user must own the project
+      // Read: user must own the project.
+      // SECURITY (F-03): require the parent project to EXIST and be owned — the
+      // previous "!exists(...) ||" fallback leaked file metadata of any missing
+      // project to any authenticated user.
       allow read: if request.auth != null
-        && (
-          !exists(/databases/$(database)/documents/projects/$(projectId))
-          || get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid
-        );
+        && exists(/databases/$(database)/documents/projects/$(projectId))
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid;
 
-      // Write: user must own the project AND NOT BE ANONYMOUS
+      // Write: user must own the project AND NOT BE ANONYMOUS.
+      // SECURITY (F-03): require existence so metadata cannot be injected into a
+      // not-yet-created project by a non-owner.
       allow write: if request.auth != null
         && request.auth.token.firebase.sign_in_provider != 'anonymous'
-        && (
-          !exists(/databases/$(database)/documents/projects/$(projectId))
-          || get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid
-        );
+        && exists(/databases/$(database)/documents/projects/$(projectId))
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid;
 
       // Delete: user must own the project AND be the uploader
       allow delete: if request.auth != null
@@ -144,10 +149,16 @@ service cloud.firestore {
       // Allow authenticated users to read their own data
       allow read: if request.auth != null && request.auth.uid == userId;
 
-      // Allow authenticated users to write their own data + schema validation
+      // Allow authenticated users to write their own data + schema validation.
+      // SECURITY (F-10): block privilege/claim fields from being self-assigned
+      // in the user document. Authorization is enforced via Firebase custom
+      // claims (server-side), never from this doc, so these keys are never
+      // legitimately client-writable — denying them prevents confusion and any
+      // UI that might (incorrectly) trust a doc-level role.
       allow write: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.size() <= 30
+        && !request.resource.data.keys().hasAny(['role', 'roles', 'admin', 'isAdmin', 'claims', 'customClaims', 'permissions'])
         && (!('email' in request.resource.data) || request.resource.data.email is string)
         && (!('displayName' in request.resource.data) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 200))
         && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string);
