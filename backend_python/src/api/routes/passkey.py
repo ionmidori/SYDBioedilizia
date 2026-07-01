@@ -26,6 +26,7 @@ from fido2.webauthn import (
     UserVerificationRequirement,
     AuthenticatorAttachment,
     AttestedCredentialData,
+    AuthenticatorData,
 )
 from fido2.server import Fido2Server
 from fido2.utils import websafe_decode, websafe_encode
@@ -80,8 +81,16 @@ def _resolve_rp_id(request: Request) -> str:
         return candidate
 
     import re
-    if candidate and re.match(r"^(sydbioedilizia|website-renovation).*\.vercel\.app$", candidate):
-        logger.info(f"[Passkey] Allowed dynamic RP_ID: {candidate}")
+    # SECURITY (F-04): only accept Vercel preview subdomains under OUR team scope
+    # ("-ionmidori"). A bare ".*\.vercel\.app" would also match attacker-owned
+    # projects such as "sydbioedilizia-evil-<attacker>.vercel.app", enabling
+    # RP_ID spoofing. Anchoring the team-scope suffix blocks foreign projects
+    # while still allowing our own branch/preview deployments.
+    if candidate and re.fullmatch(
+        r"(sydbioedilizia|website-renovation)[a-z0-9-]*-ionmidori\.vercel\.app",
+        candidate,
+    ):
+        logger.info(f"[Passkey] Allowed dynamic RP_ID (team-scoped preview): {candidate}")
         return candidate
 
     if settings.ENV == "development":
@@ -363,15 +372,37 @@ async def verify_authentication(
             [stored_cred],
             assertion
         )
-        
-        # Update sign count to prevent cloning (anti-replay handled by challenge)
-        # The library verifies sign_count if provided. We should update it if the assertion contains one.
-        # auth_data = ... we'd extract the new signature counter if we inspect the assertion response,
-        # but for now verifying signature is the primary security goal.
-        
     except Exception as e:
         logger.error(f"Authentication verification failed: {e}")
         raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
+
+    # SECURITY (F-11): enforce a monotonically increasing signature counter to
+    # detect cloned authenticators, then persist the new value. Per WebAuthn
+    # spec §6.1.1, if both the stored and received counters are non-zero and the
+    # received one does not exceed the stored one, the authenticator may be a
+    # clone. Many platform authenticators (TouchID/FaceID) always report 0 — in
+    # that case the check is skipped (both zero) but we still store what we get.
+    stored_sign_count = passkey_ref.to_dict().get("sign_count", 0)
+    try:
+        raw_auth_data = websafe_decode(assertion["response"]["authenticatorData"])
+        new_sign_count = AuthenticatorData(raw_auth_data).counter
+    except Exception as e:
+        logger.warning(f"[Passkey] Could not parse signature counter: {e}")
+        new_sign_count = None
+
+    if new_sign_count is not None:
+        if stored_sign_count and new_sign_count and new_sign_count <= stored_sign_count:
+            logger.error(
+                f"[Passkey] Signature counter regression for user {user_id}: "
+                f"stored={stored_sign_count} received={new_sign_count} — possible cloned authenticator"
+            )
+            raise HTTPException(status_code=401, detail="Authentication rejected: counter anomaly")
+        try:
+            db.collection("users").document(user_id).collection("passkeys").document(
+                assertion["id"]
+            ).update({"sign_count": new_sign_count})
+        except Exception as e:
+            logger.warning(f"[Passkey] Failed to persist signature counter: {e}")
 
     try:
         custom_token_bytes = auth.create_custom_token(user_id)
