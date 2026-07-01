@@ -136,6 +136,13 @@ class Settings(BaseSettings):
         default="us-central1",
         description="Regional endpoint for Model Armor API.",
     )
+    MODEL_ARMOR_FAIL_CLOSED: bool = Field(
+        default=False,
+        description="F-02: when True, a Model Armor API error/timeout BLOCKS the "
+                    "prompt/response (fail-closed) instead of passing it through "
+                    "(fail-open). Note: this only affects requests where Model Armor "
+                    "is active — it has no effect if MODEL_ARMOR_TEMPLATE_ID is unset.",
+    )
 
     # Native Notification Service (SMTP — active replacement for n8n when n8n is unavailable)
     SMTP_HOST: str | None = Field(None, description="SMTP server hostname (e.g. smtp.gmail.com)")
@@ -171,6 +178,27 @@ class Settings(BaseSettings):
                 "ALLOW_AUTH_BYPASS must not be True when ENV != 'development' "
                 f"(ENV={self.ENV!r}). Refusing to start with auth verification disabled."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _warn_weak_secrets_in_prod(self) -> "Settings":
+        """F-07: warn (non-blocking) if production security secrets look weak.
+
+        Non-fatal on purpose — optional integrations (n8n, lifecycle scheduler)
+        may legitimately be unconfigured. Rotate any set secret to >=32 random
+        chars and prefer a secret manager over committed/.env values in prod.
+        """
+        if self.ENV == "production":
+            import logging
+            _log = logging.getLogger(__name__)
+            for name in ("N8N_WEBHOOK_HMAC_SECRET", "LIFECYCLE_SECRET"):
+                value = getattr(self, name, None)
+                if value and len(value) < 32:
+                    _log.warning(
+                        "[config] %s is set but short (<32 chars) in production — "
+                        "rotate to a high-entropy secret (>=32 chars).",
+                        name,
+                    )
         return self
 
     @property

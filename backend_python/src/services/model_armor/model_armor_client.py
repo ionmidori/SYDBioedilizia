@@ -78,6 +78,22 @@ class ModelArmorService:
             ),
         )
 
+    @staticmethod
+    def _error_verdict(state: str) -> "SanitizationVerdict":
+        """Verdict returned when a Model Armor call fails (F-02).
+
+        Fail-open (is_blocked=False) by default to preserve availability; set
+        MODEL_ARMOR_FAIL_CLOSED=True to block on error/timeout instead.
+        """
+        from src.core.config import settings
+
+        return SanitizationVerdict(
+            is_blocked=settings.MODEL_ARMOR_FAIL_CLOSED,
+            filter_match_state=state,
+            matched_filters={},
+            raw_response=None,
+        )
+
     def sanitize_prompt(self, text: str) -> SanitizationVerdict:
         """Sanitize a user prompt via Model Armor API.
 
@@ -101,28 +117,18 @@ class ModelArmorService:
             return self._parse_result(response.sanitization_result)
         except GoogleAPIError as exc:
             logger.warning(
-                "[ModelArmor] API error on sanitize_prompt (fail-open): %s",
+                "[ModelArmor] API error on sanitize_prompt: %s",
                 exc,
                 exc_info=True,
             )
-            return SanitizationVerdict(
-                is_blocked=False,
-                filter_match_state="API_ERROR",
-                matched_filters={},
-                raw_response=None,
-            )
+            return self._error_verdict("API_ERROR")
         except Exception as exc:
             logger.error(
-                "[ModelArmor] Unexpected error on sanitize_prompt (fail-open): %s",
+                "[ModelArmor] Unexpected error on sanitize_prompt: %s",
                 exc,
                 exc_info=True,
             )
-            return SanitizationVerdict(
-                is_blocked=False,
-                filter_match_state="UNEXPECTED_ERROR",
-                matched_filters={},
-                raw_response=None,
-            )
+            return self._error_verdict("UNEXPECTED_ERROR")
 
     def sanitize_response(self, text: str) -> SanitizationVerdict:
         """Sanitize a model response via Model Armor API.
@@ -147,28 +153,18 @@ class ModelArmorService:
             return self._parse_result(response.sanitization_result)
         except GoogleAPIError as exc:
             logger.warning(
-                "[ModelArmor] API error on sanitize_response (fail-open): %s",
+                "[ModelArmor] API error on sanitize_response: %s",
                 exc,
                 exc_info=True,
             )
-            return SanitizationVerdict(
-                is_blocked=False,
-                filter_match_state="API_ERROR",
-                matched_filters={},
-                raw_response=None,
-            )
+            return self._error_verdict("API_ERROR")
         except Exception as exc:
             logger.error(
-                "[ModelArmor] Unexpected error on sanitize_response (fail-open): %s",
+                "[ModelArmor] Unexpected error on sanitize_response: %s",
                 exc,
                 exc_info=True,
             )
-            return SanitizationVerdict(
-                is_blocked=False,
-                filter_match_state="UNEXPECTED_ERROR",
-                matched_filters={},
-                raw_response=None,
-            )
+            return self._error_verdict("UNEXPECTED_ERROR")
 
     @staticmethod
     def _parse_result(sanitization_result) -> SanitizationVerdict:
@@ -187,26 +183,26 @@ class ModelArmorService:
         filter_match_state = str(sanitization_result.filter_match_state)
         is_blocked = "MATCH_FOUND" in filter_match_state
 
+        # The filter_results map key already identifies which oneof member is
+        # set, so read that attribute directly. NOTE: hasattr() cannot detect
+        # presence on a proto message (every schema field always "exists"), which
+        # made the previous hasattr-chain always take the rai branch and mislabel
+        # every other filter. proto-plus does not expose HasField() either, so we
+        # key off the map key instead of probing presence (Gemini review).
+        _KEY_TO_ATTR = {
+            "rai": "rai_filter_result",
+            "pi_and_jailbreak": "pi_and_jailbreak_filter_result",
+            "malicious_uris": "malicious_uri_filter_result",
+            # CSAM: always executed (EXECUTION_SUCCESS), not configurable in template.
+            "csam": "csam_filter_filter_result",
+            "sdp": "sdp_filter_result",
+        }
         matched_filters: dict[str, str] = {}
         for filter_key, filter_value in sanitization_result.filter_results.items():
-            # Each filter type has a different proto attribute name.
-            # Probe in priority order — first match wins.
-            sub_result = None
-            if hasattr(filter_value, "rai_filter_result"):
-                sub_result = filter_value.rai_filter_result
-            elif hasattr(filter_value, "pi_and_jailbreak_filter_result"):
-                sub_result = filter_value.pi_and_jailbreak_filter_result
-            elif hasattr(filter_value, "malicious_uri_filter_result"):
-                sub_result = filter_value.malicious_uri_filter_result
-            elif hasattr(filter_value, "csam_filter_filter_result"):
-                # CSAM: always executed (EXECUTION_SUCCESS), not configurable in template.
-                sub_result = filter_value.csam_filter_filter_result
-            elif hasattr(filter_value, "sdp_filter_result"):
-                sub_result = filter_value.sdp_filter_result
-
-            if sub_result and hasattr(sub_result, "match_state"):
-                state = str(sub_result.match_state)
-                matched_filters[filter_key] = state
+            attr_name = _KEY_TO_ATTR.get(filter_key)
+            sub_result = getattr(filter_value, attr_name, None) if attr_name else None
+            if sub_result is not None and hasattr(sub_result, "match_state"):
+                matched_filters[filter_key] = str(sub_result.match_state)
 
         return SanitizationVerdict(
             is_blocked=is_blocked,

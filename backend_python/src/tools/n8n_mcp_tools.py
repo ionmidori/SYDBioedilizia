@@ -50,24 +50,46 @@ _HTTP_RETRYABLE = (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkErro
 
 def _validate_webhook_url(url: str) -> None:
     """
-    SSRF prevention: validates webhook URL against the N8N_ALLOWED_WEBHOOK_HOSTS allowlist.
-    Raises ValueError if the host is not in the allowlist (when configured).
-    No-op if allowlist is not configured (logs a warning in that case).
+    SSRF prevention: validates the webhook URL host against an allowlist.
+
+    Allowlist resolution (F-06 — fail-closed, no longer fail-open):
+      1. N8N_ALLOWED_WEBHOOK_HOSTS if configured (explicit allowlist); otherwise
+      2. the hosts of the operator-configured webhook URLs
+         (N8N_WEBHOOK_NOTIFY_ADMIN / N8N_WEBHOOK_DELIVER_QUOTE) as an implicit
+         allowlist — those are the only legitimate destinations.
+
+    If neither yields any host, we FAIL CLOSED in production (raise) and only
+    warn+allow in development, so a missing/mis-set allowlist can never silently
+    permit a webhook to an arbitrary host in production.
     """
     allowed_hosts_raw = settings.N8N_ALLOWED_WEBHOOK_HOSTS
-    if not allowed_hosts_raw:
+    if allowed_hosts_raw:
+        allowed = {h.strip().lower() for h in allowed_hosts_raw.split(",") if h.strip()}
+    else:
+        # Implicit allowlist derived from the configured webhook destinations.
+        allowed = set()
+        for configured in (settings.N8N_WEBHOOK_NOTIFY_ADMIN, settings.N8N_WEBHOOK_DELIVER_QUOTE):
+            if configured:
+                host = (urlparse(configured).hostname or "").lower()
+                if host:
+                    allowed.add(host)
+
+    if not allowed:
+        if settings.ENV == "production":
+            raise ValueError(
+                "[n8n] No webhook allowlist available (N8N_ALLOWED_WEBHOOK_HOSTS unset and no "
+                "webhook URLs configured) — refusing to send in production (fail-closed)."
+            )
         logger.warning(
-            "[n8n] N8N_ALLOWED_WEBHOOK_HOSTS is not set — SSRF protection disabled. "
-            "Configure this in production."
+            "[n8n] No webhook allowlist available — SSRF protection disabled (development only)."
         )
         return
-    allowed = {h.strip().lower() for h in allowed_hosts_raw.split(",") if h.strip()}
-    parsed = urlparse(url)
-    hostname = (parsed.hostname or "").lower()
+
+    hostname = (urlparse(url).hostname or "").lower()
     if hostname not in allowed:
         raise ValueError(
-            f"[n8n] Webhook host '{hostname}' is not in N8N_ALLOWED_WEBHOOK_HOSTS allowlist. "
-            "Update the allowlist or verify the webhook URL."
+            f"[n8n] Webhook host '{hostname}' is not allowed. Configure N8N_ALLOWED_WEBHOOK_HOSTS "
+            "or use one of the operator-configured webhook URLs."
         )
 
 
