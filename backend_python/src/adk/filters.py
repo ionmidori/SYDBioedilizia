@@ -7,8 +7,9 @@ Security boundaries:
   Catches: Python tracebacks, GCP/Firebase internals, PII patterns,
   system prompt boundary leaks, internal package paths.
 """
-import re
 import logging
+import re
+
 from src.utils.data_sanitizer import sanitize_input
 
 logger = logging.getLogger(__name__)

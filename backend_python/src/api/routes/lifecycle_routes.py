@@ -24,7 +24,6 @@ import secrets
 
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel
-
 from src.core.config import settings
 from src.services.account_lifecycle_service import get_account_lifecycle_service
 

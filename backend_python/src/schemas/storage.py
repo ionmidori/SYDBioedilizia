@@ -1,7 +1,6 @@
 import re
 
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
 
 _ALLOWED_CONTENT_TYPES = frozenset({
     "image/jpeg", "image/png", "image/webp", "image/gif",

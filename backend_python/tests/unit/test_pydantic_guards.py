@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 from src.models.reasoning import ReasoningStep
 
+
 def test_valid_reasoning_step():
     """Test creating a valid reasoning step."""
     step = ReasoningStep(
@@ -47,9 +48,9 @@ def test_security_scan_injection():
     # If implemented, it should raise error for patterns like <script> or specific keywords.
     # Note: Our current validator is a placeholder "security_scan" that prints/logs or raises.
     # If it raises, this test passes.
-    
+
     malicious_input = "Analyze this <script>alert('xss')</script>"
-    
+
     # If security_validator is active and strict:
     try:
         ReasoningStep(
@@ -76,7 +77,7 @@ def test_terminate_action():
 def test_extra_fields_forbidden():
     """Test that extra fields in input models are forbidden (Parameter Pollution)."""
     from src.api.routes.update_metadata import UpdateMetadataRequest
-    
+
     # This should raise a validation error because we injected an extra 'malicious_field'
     with pytest.raises(ValidationError) as excinfo:
         UpdateMetadataRequest(
@@ -84,6 +85,6 @@ def test_extra_fields_forbidden():
             file_path="renders/test.jpg",
             malicious_field="DROP TABLE users;"
         )
-    
+
     # Check that the error explicitly mentions extra fields
     assert "Extra inputs are not permitted" in str(excinfo.value) or "extra" in str(excinfo.value).lower()

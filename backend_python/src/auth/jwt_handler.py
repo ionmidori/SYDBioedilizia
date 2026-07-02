@@ -1,27 +1,25 @@
 import logging
-from fastapi import Security
+
+from fastapi import Request, Security
 from fastapi.security import HTTPBearer
 from firebase_admin import auth
+from src.core.exceptions import AuthError
 from src.db.firebase_client import init_firebase
+from src.schemas.internal import UserSession
 
 logger = logging.getLogger(__name__)
 
 # Allow optional auth for Dev/Debug scripts (auto_error=False)
 security = HTTPBearer(auto_error=False)
 
-from src.schemas.internal import UserSession
-
-from src.core.exceptions import AuthError
-
-from fastapi import Request
 
 async def verify_token(req: Request) -> UserSession:
     """Verifies Firebase JWT and handles rate limiting.
-    
+
     In development (ENV=development), skips token verification to avoid
     Firebase Admin SDK network calls that fail when credentials are not
     available (e.g. local dev with anonymous Firebase users).
-    
+
     In production, always verifies the token via Firebase Admin SDK.
     """
     from src.core.config import settings
@@ -61,7 +59,7 @@ async def verify_token(req: Request) -> UserSession:
             padding_needed = len(payload_b64) % 4
             if padding_needed:
                 payload_b64 += "=" * (4 - padding_needed)
-            
+
             # Use urlsafe_b64decode because JWTs use Base64URL encoding (- and _ instead of + and /)
             payload = _json.loads(base64.urlsafe_b64decode(payload_b64).decode("utf-8"))
             uid = payload.get("user_id") or payload.get("sub") or payload.get("uid") or "dev-user"
@@ -70,7 +68,7 @@ async def verify_token(req: Request) -> UserSession:
             is_anonymous = (provider == "anonymous")
         except Exception:
             pass  # Non-standard token format (DUMMY_TOKEN etc.) — use defaults
-        
+
         logger.warning(
             "Auth Bypass (DEV): Skipping Firebase token verification.",
             extra={"uid": uid, "is_anonymous": is_anonymous}
@@ -92,19 +90,19 @@ async def verify_token(req: Request) -> UserSession:
     try:
         # Ensure Firebase is initialized
         init_firebase()
-        
+
         # Verify the ID token using the Firebase Admin SDK.
-        # This performs asymmetric RSA signature verification using public keys 
+        # This performs asymmetric RSA signature verification using public keys
         # cached automatically by the SDK (rotated ~every 6 hours).
         # We enforce check_revoked=True for strict security (checks against blacklisted tokens).
         decoded_token = auth.verify_id_token(
-            token, 
-            check_revoked=True, 
+            token,
+            check_revoked=True,
             clock_skew_seconds=60
         )
-        
+
         # Extra Architecture Guard: Explicitly verify that the audience matches our Project ID.
-        # Although verify_id_token does this, explicit verification prevents cross-project 
+        # Although verify_id_token does this, explicit verification prevents cross-project
         # token injection if multiple projects share an environment accidentally.
         expected_aud = settings.GOOGLE_CLOUD_PROJECT or settings.FIREBASE_PROJECT_ID
         if expected_aud and decoded_token.get("aud") != expected_aud:
@@ -139,7 +137,8 @@ async def verify_token(req: Request) -> UserSession:
         logger.warning(f"Invalid Firebase ID token from {req.client.host}: {str(e)}")
         raise AuthError("Invalid token", detail={"reason": "Token validation failed"})
     except Exception as e:
-        if isinstance(e, AuthError): raise e
+        if isinstance(e, AuthError):
+            raise e
         logger.error(f"Unexpected Authentication error: {str(e)}", exc_info=True)
         raise AuthError("Authentication failed", detail={"reason": "internal_error"})
 

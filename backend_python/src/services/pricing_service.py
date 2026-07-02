@@ -1,8 +1,9 @@
 import json
-import os
 import logging
-from typing import List, Dict, Any, Optional
-from src.schemas.quote import QuoteItem, QuoteFinancials, QuoteSchema
+import os
+from typing import Any, Dict, List, Optional
+
+from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -56,12 +57,12 @@ class PricingService:
             sku = sku_data["sku"]
             qty = sku_data["qty"]
             reasoning = sku_data.get("ai_reasoning")
-            
+
             master_item = cls.get_item_by_sku(sku)
             if master_item:
                 unit_price = master_item["unit_price"]
                 total = round(qty * unit_price, 2)
-                
+
                 item = QuoteItem(
                     sku=sku,
                     description=master_item["description"],

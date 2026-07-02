@@ -8,12 +8,11 @@ Pattern: evaluating-adk-agents skill § SELF_CORRECTION.md
 """
 from google.adk.evaluation.eval_metrics import (
     EvalMetric,
+    JudgeModelOptions,
     PrebuiltMetrics,
     RubricsBasedCriterion,
-    JudgeModelOptions,
 )
 from google.adk.evaluation.eval_rubrics import Rubric, RubricContent
-
 
 # ── Judge Model Config ────────────────────────────────────────────────────────
 

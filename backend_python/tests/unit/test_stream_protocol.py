@@ -8,8 +8,7 @@ swap that caused message re-mount flicker).
 import json
 
 import pytest
-
-from src.utils.stream_protocol import to_ui_message_stream, stream_text
+from src.utils.stream_protocol import stream_text, to_ui_message_stream
 
 
 async def _empty_source():

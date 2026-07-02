@@ -3,16 +3,16 @@ Chat History API Router.
 
 Provides endpoints for fetching chat message history from sessions.
 """
-import logging
-from typing import Optional, List, Union
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from pydantic import BaseModel
 import json
-from firebase_admin import firestore
+import logging
+from typing import List, Optional, Union
 
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from firebase_admin import firestore
+from pydantic import BaseModel
 from src.auth.jwt_handler import verify_token
-from src.schemas.internal import UserSession
 from src.db.firebase_client import get_firestore_client
+from src.schemas.internal import UserSession
 
 logger = logging.getLogger(__name__)
 
@@ -47,36 +47,36 @@ async def get_chat_history(
 ) -> ChatHistoryResponse:
     """
     Fetch chat history for a session.
-    
+
     Args:
         session_id: The session ID to fetch messages from
         limit: Maximum number of messages to return (1-100)
         cursor: Optional cursor for pagination (message ID to start after)
         user_session: JWT verified user session
-        
+
     Returns:
         ChatHistoryResponse with messages and pagination info
-        
+
     Raises:
         HTTPException: If session not found or access denied
     """
     try:
         db = get_firestore_client()
         user_id = user_session.uid
-        
+
         # 🛡️ SECURITY: Verify user owns this session
         session_ref = db.collection('sessions').document(session_id)
         session_doc = session_ref.get()
-        
+
         if not session_doc.exists:
             # If session doesn't exist, it's a "fresh" session.
             # We return empty messages instead of 404 to prevent UI crashes.
             logger.info(f"[ChatHistory] Session {session_id} not found. Returning empty history.")
             return ChatHistoryResponse(messages=[], has_more=False)
-        
+
         session_data = session_doc.to_dict()
         session_owner = session_data.get('userId', '')
-        
+
         # Allow access only if user owns the session
         # Guest sessions: only accessible if user previously claimed them or session was created for them
         is_owner = session_owner == user_id
@@ -87,7 +87,7 @@ async def get_chat_history(
                 f"tried to access session '{session_id}' owned by '{session_owner}'"
             )
             raise HTTPException(status_code=403, detail="Access denied to this session")
-        
+
         # Build query
         messages_ref = (
             db.collection('sessions')
@@ -95,26 +95,26 @@ async def get_chat_history(
             .collection('messages')
             .order_by('timestamp', direction=firestore.Query.DESCENDING)
         )
-        
+
         # Apply cursor-based pagination
         if cursor:
             cursor_doc = db.collection('sessions').document(session_id).collection('messages').document(cursor).get()
             if cursor_doc.exists:
                 messages_ref = messages_ref.start_after(cursor_doc)
-        
+
         # Fetch one extra to check for more
         messages_ref = messages_ref.limit(limit + 1)
         docs = list(messages_ref.stream())
-        
+
         # Check if there are more messages
         has_more = len(docs) > limit
         if has_more:
             docs = docs[:limit]  # Remove the extra document
-        
+
         # Build response
         messages = []
         last_id = None
-        
+
         # Reverse docs to restore chronological order (Oldest -> Newest)
         # We fetched Newest -> Oldest to get the "latest" slice
         docs.reverse()
@@ -122,7 +122,7 @@ async def get_chat_history(
         for doc in docs:
             data = doc.to_dict()
             last_id = doc.id
-            
+
             # Convert timestamp
             timestamp_val = data.get('timestamp')
             timestamp_str = None
@@ -131,7 +131,7 @@ async def get_chat_history(
                     timestamp_str = timestamp_val
                 elif hasattr(timestamp_val, 'isoformat'):
                     timestamp_str = timestamp_val.isoformat()
-            
+
             # Robust extraction of attachments (handles legacy list AND structured dict)
             attachments_val = data.get('attachments')
             if attachments_val is not None:
@@ -146,7 +146,7 @@ async def get_chat_history(
                 tool_calls_val = []
             elif tool_calls_val is None:
                 tool_calls_val = []
-            
+
             # Robust content extraction
             content_val = data.get('content', '')
             if isinstance(content_val, list) or isinstance(content_val, dict):
@@ -158,7 +158,7 @@ async def get_chat_history(
                     content_val = str(content_val)
             elif content_val is None:
                 content_val = ""
-            
+
             messages.append(MessageResponse(
                 id=doc.id,
                 role=data.get('role', 'user'),
@@ -167,15 +167,15 @@ async def get_chat_history(
                 attachments=attachments_val,
                 tool_calls=tool_calls_val
             ))
-        
+
         logger.info(f"[ChatHistory] Retrieved {len(messages)} messages for session {session_id}")
-        
+
         return ChatHistoryResponse(
             messages=messages,
             has_more=has_more,
             next_cursor=last_id if has_more else None
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

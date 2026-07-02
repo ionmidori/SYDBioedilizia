@@ -2,9 +2,11 @@
 Admin resumption token pattern for ADK HITL interrupts.
 Ensures that only authorized admins can resume paused quote approval flows.
 """
-import secrets
 import logging
+import secrets
+
 from google.cloud import firestore
+
 from src.core.exceptions import QuoteAlreadyApprovedError, QuoteNotFoundError
 from src.db.firebase_client import get_async_firestore_client
 

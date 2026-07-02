@@ -8,7 +8,8 @@ Provides:
 """
 import logging
 import re
-from src.services.rag_service import get_rag_service, NAMESPACE_PREZZARIO, NAMESPACE_NORMATIVE
+
+from src.services.rag_service import NAMESPACE_PREZZARIO, get_rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,7 @@ async def search_prezzario(query: str, categoria: str = "") -> str:
             if prezzo and prezzo > 0:
                 formatted_output += f"   Prezzo: €{prezzo:.2f}/{unita}"
             else:
-                formatted_output += f"   Prezzo: a corpo/N.D."
+                formatted_output += "   Prezzo: a corpo/N.D."
             formatted_output += f" | Categoria: {categoria_art} | Score: {score:.2f}\n\n"
 
         return formatted_output
@@ -249,10 +250,10 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
         if prezzo and prezzo > 0:
             output += f"Prezzo unitario: €{prezzo:.2f}/{unita}\n"
         else:
-            output += f"Prezzo: a corpo / da definire\n"
+            output += "Prezzo: a corpo / da definire\n"
 
         if not exact_match:
-            output += f"\n⚠️ Nota: corrispondenza approssimativa (codice esatto non trovato)."
+            output += "\n⚠️ Nota: corrispondenza approssimativa (codice esatto non trovato)."
 
         return output
     except Exception as e:

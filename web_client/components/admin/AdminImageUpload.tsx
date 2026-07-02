@@ -110,9 +110,9 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
       setSuccess(true);
       onUploadSuccess(public_url); // Pass the public URL back to the parent component
       
-    } catch (err: any) {
+    } catch (err) {
       console.error("[AdminImageUpload]", err);
-      setError(err.message || "An unexpected error occurred.");
+      setError(err instanceof Error ? err.message : "An unexpected error occurred.");
     } finally {
       setUploading(false);
     }

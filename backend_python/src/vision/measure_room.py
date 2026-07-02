@@ -13,7 +13,6 @@ import logging
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
-
 from src.core.config import settings
 from src.utils.json_parser import extract_json_response
 

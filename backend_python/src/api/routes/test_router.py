@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from src.auth.jwt_handler import verify_token
-from src.schemas.internal import UserSession
 from src.core.logger import get_logger
+from src.schemas.internal import UserSession
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/test", tags=["test-automation"])
@@ -19,8 +19,6 @@ async def test_market_prices(
         logger.error(f"Test Market Prices failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-from fastapi import APIRouter, Depends, File, UploadFile
-# ...
 @router.post("/tools/analyze-room")
 async def test_analyze_room(
     file: UploadFile = File(...),
@@ -63,7 +61,7 @@ async def test_plan_renovation(
     user_session: UserSession = Depends(verify_token)
 ):
     """Exposes plan_renovation tool for TestSprite TC006."""
-    from src.services.architect import generate_renovation_plan # Correct import?
+    from src.services.architect import generate_renovation_plan  # Correct import?
     try:
         return await generate_renovation_plan(project_id=project_id)
     except Exception as e:
@@ -76,7 +74,7 @@ async def test_generate_cad(
     user_session: UserSession = Depends(verify_token)
 ):
     """Exposes generate_cad tool for TestSprite TC009."""
-    from src.vision.cad_engine import CADEngine # Adjust import
+    from src.vision.cad_engine import CADEngine  # Adjust import
     try:
         engine = CADEngine()
         return await engine.generate_dxf(image_url=image_url)

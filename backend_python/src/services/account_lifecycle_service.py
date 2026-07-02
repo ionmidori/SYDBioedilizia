@@ -19,7 +19,6 @@ import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from datetime import timezone
 from typing import Optional
 
 from src.core.config import settings

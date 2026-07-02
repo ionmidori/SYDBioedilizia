@@ -1,9 +1,10 @@
-from datetime import datetime
-from src.utils.datetime_utils import utc_now
-from typing import Any, Type, TypeVar
-from enum import Enum
 import logging
+from datetime import datetime
+from enum import Enum
+from typing import Any, Type, TypeVar
+
 from dateutil import parser
+from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,7 @@ def parse_enum(enum_cls: Type[T], value: Any, default: T) -> T:
     """
     if value is None:
         return default
-        
+
     try:
         return enum_cls(value)
     except ValueError:

@@ -6,12 +6,11 @@ enforcing the 3-Tier architecture boundary.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from starlette.concurrency import run_in_threadpool
-
 from src.auth.jwt_handler import verify_token
 from src.core.logger import get_logger
 from src.db.firebase_client import get_firestore_client
 from src.schemas.internal import UserSession
+from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/content", tags=["Content"])

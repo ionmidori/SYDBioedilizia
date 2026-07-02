@@ -8,7 +8,6 @@ Tests cover:
 """
 import pytest
 from fastapi import HTTPException
-
 from src.api.routes.batch_routes import (
     CreateBatchBody,
     ProjectDecisionBody,

@@ -3,15 +3,16 @@ Unit Tests - Image Triage
 ==========================
 Tests for the image triage/analysis module.
 """
-import pytest
 import json
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from src.vision.triage import analyze_image_triage
 
 
 class TestImageTriage:
     """Test image triage analysis functionality."""
-    
+
     @pytest.mark.asyncio
     async def test_successful_analysis(
         self,
@@ -31,17 +32,17 @@ class TestImageTriage:
             "condition": "excellent",
             "renovationNotes": "Well-maintained space"
         })
-        
+
         mock_models = MagicMock()
         mock_models.generate_content = AsyncMock(return_value=mock_response)
-        
+
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
-        
+
         with patch('src.vision.triage.genai.Client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
-        
+
         # Assert
         assert result["success"] is True
         assert result["roomType"] == "living room"
@@ -49,7 +50,7 @@ class TestImageTriage:
         assert isinstance(result["keyFeatures"], list)
         assert len(result["keyFeatures"]) == 3
         assert result["condition"] == "excellent"
-    
+
     @pytest.mark.asyncio
     async def test_handles_json_with_code_fences(
         self,
@@ -71,22 +72,22 @@ class TestImageTriage:
   "renovationNotes": "Modern appliances"
 }
 ```'''
-        
+
         mock_models = MagicMock()
         mock_models.generate_content = AsyncMock(return_value=mock_response)
-        
+
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
-        
+
         with patch('src.vision.triage.genai.Client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
-        
+
         # Assert
         assert result["success"] is True
         assert result["roomType"] == "kitchen"
         assert "stainless steel" in result["keyFeatures"]
-    
+
     @pytest.mark.asyncio
     async def test_handles_api_error(
         self,
@@ -100,19 +101,19 @@ class TestImageTriage:
         # Arrange: Mock API error
         mock_models = MagicMock()
         mock_models.generate_content = AsyncMock(side_effect=Exception("API quota exceeded"))
-        
+
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
-        
+
         with patch('src.vision.triage.genai.Client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
-        
+
         # Assert
         assert result["success"] is False
         assert result["roomType"] == "living space"  # Fallback value
         assert "API quota exceeded" in result["renovationNotes"]
-    
+
     @pytest.mark.asyncio
     async def test_handles_missing_response_text(
         self,
@@ -126,21 +127,21 @@ class TestImageTriage:
         # Arrange: Mock empty response
         mock_response = MagicMock()
         mock_response.text = None
-        
+
         mock_models = MagicMock()
         mock_models.generate_content = AsyncMock(return_value=mock_response)
-        
+
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
-        
+
         with patch('src.vision.triage.genai.Client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
-        
+
         # Assert
         assert result["success"] is False
         assert "Unable to perform detailed analysis" in result["renovationNotes"]
-    
+
     @pytest.mark.asyncio
     async def test_handles_malformed_json(
         self,
@@ -154,21 +155,21 @@ class TestImageTriage:
         # Arrange: Mock malformed JSON
         mock_response = MagicMock()
         mock_response.text = "This is not JSON at all!"
-        
+
         mock_models = MagicMock()
         mock_models.generate_content = AsyncMock(return_value=mock_response)
-        
+
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
-        
+
         with patch('src.vision.triage.genai.Client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
-        
+
         # Assert
         assert result["success"] is False
         assert result["roomType"] == "living space"  # Fallback
-    
+
     @pytest.mark.asyncio
     async def test_returns_fallback_values_on_parse_error(
         self,
@@ -185,17 +186,17 @@ class TestImageTriage:
             "roomType": "bedroom"
             # Missing other required fields
         })
-        
+
         mock_models = MagicMock()
         mock_models.generate_content = AsyncMock(return_value=mock_response)
-        
+
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
-        
+
         with patch('src.vision.triage.genai.Client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
-        
+
         # Assert
         assert result["success"] is True
         assert result["roomType"] == "bedroom"

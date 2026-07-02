@@ -13,11 +13,12 @@ Security Features:
 
 import logging
 from typing import Optional
+
 from fastapi import Request
 from firebase_admin import app_check
-from src.db.firebase_client import init_firebase
-
 from src.core.config import settings
+from src.core.exceptions import AppCheckError
+from src.db.firebase_client import init_firebase
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +26,15 @@ logger = logging.getLogger(__name__)
 ENABLE_APP_CHECK = settings.ENABLE_APP_CHECK
 
 
-from src.core.exceptions import AppCheckError
-
 async def validate_app_check_token(request: Request) -> Optional[dict]:
     """
     Validate App Check token from request headers.
-    
+
     In Monitoring Mode (ENABLE_APP_CHECK=False), it logs the result but never blocks.
     In Strict Mode (ENABLE_APP_CHECK=True), it raises AppCheckError for invalid/missing tokens.
     """
     app_check_token = request.headers.get("X-Firebase-AppCheck")
-    
+
     # Telemetry logic (Runs always if token is present)
     decoded_token = None
     if app_check_token:
@@ -53,7 +52,7 @@ async def validate_app_check_token(request: Request) -> Optional[dict]:
         if not app_check_token:
             logger.warning(f"[App Check] [STRICT] Missing token from {request.client.host}")
             raise AppCheckError("Missing App Check token", detail={"reason": "missing_header"})
-        
+
         if not decoded_token:
             # If we reach here and ENABLE_APP_CHECK is true, it means the token was invalid or verification crashed
             logger.error(f"[App Check] [STRICT] Blocking request from {request.client.host} - Invalid token")
@@ -66,7 +65,7 @@ def get_app_check_status() -> dict:
     """
     Get current App Check configuration status.
     Used for health checks and debugging.
-    
+
     Returns:
         Dict with enforcement status and configuration
     """

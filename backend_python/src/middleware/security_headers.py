@@ -10,7 +10,6 @@ See: https://www.starlette.io/middleware/#limitations
 """
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-
 # Pre-encoded header pairs for zero-alloc injection
 _SECURITY_HEADERS: list[tuple[bytes, bytes]] = [
     (b"x-content-type-options", b"nosniff"),

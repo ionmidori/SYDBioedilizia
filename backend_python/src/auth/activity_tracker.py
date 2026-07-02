@@ -9,7 +9,7 @@ Pattern: python-production-coding (no fire-and-forget without error handling).
 """
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from src.db.firebase_client import get_async_firestore_client
 from src.utils.datetime_utils import utc_now

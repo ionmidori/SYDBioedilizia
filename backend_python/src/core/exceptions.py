@@ -1,15 +1,16 @@
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 
 class AppException(Exception):
     """Base class for all application exceptions."""
     status_code: int = 500
     error_code: str = "INTERNAL_ERROR"
     message: str = "An unexpected error occurred."
-    
+
     def __init__(
-        self, 
-        message: Optional[str] = None, 
-        error_code: Optional[str] = None, 
+        self,
+        message: Optional[str] = None,
+        error_code: Optional[str] = None,
         status_code: Optional[int] = None,
         detail: Optional[Dict[str, Any]] = None
     ):
@@ -19,7 +20,7 @@ class AppException(Exception):
             self.error_code = error_code
         if status_code:
             self.status_code = status_code
-            
+
         super().__init__(self.message)
         self.detail = detail or {}
 
@@ -43,7 +44,7 @@ class ServiceError(AppException):
     """Exceptions related to external services (AI, DB, etc.)"""
     status_code = 502
     error_code = "SERVICE_ERROR"
-    
+
 class AIServiceError(ServiceError):
     error_code = "AI_GENERATION_FAILED"
 

@@ -7,10 +7,11 @@ Name comes from the function name; description from the docstring.
 Type hints on parameters define the input schema.
 Pydantic validation is enforced via the function's argument types.
 """
-from typing import Dict, Any
-from google.adk.tools import FunctionTool
-from src.core.telemetry import instrumented_tool
+from typing import Any, Dict
 
+from google.adk.tools import FunctionTool
+
+from src.core.telemetry import instrumented_tool
 
 # ─── Pricing Engine ──────────────────────────────────────────────────────────
 
@@ -64,6 +65,7 @@ async def request_quote_approval(
         tool_context: ADK ToolContext injected automatically by the runner.
     """
     import secrets
+
     from src.adk.hitl import save_resumption_token
 
     tool_confirmation = getattr(tool_context, "tool_confirmation", None)
@@ -309,9 +311,10 @@ async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict
         workflow_id: Logical workflow identifier. Maps to a specific webhook URL in settings.
         payload: JSON payload to send to the workflow.
     """
+    import logging
+
     from src.core.config import settings
     from src.tools.n8n_mcp_tools import _call_n8n_webhook, _validate_webhook_url
-    import logging
 
     _logger = logging.getLogger(__name__)
 
@@ -399,6 +402,7 @@ async def save_contact_phone(phone: str, session_id: str) -> str:
         session_id: The current session ID (used to resolve the user UID).
     """
     import re
+
     from src.db.firebase_client import get_async_firestore_client
 
     phone = phone.strip()

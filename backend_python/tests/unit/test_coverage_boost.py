@@ -15,7 +15,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-
 # ---------------------------------------------------------------------------
 # 1. src/utils/security.py — sanitize_filename
 # ---------------------------------------------------------------------------
@@ -430,7 +429,7 @@ class TestMediaProcessor:
     def test_init_with_api_key(self, mock_genai, mock_settings):
         from src.services.media_processor import MediaProcessor
         mock_settings.GEMINI_API_KEY = "test-key"
-        processor = MediaProcessor()
+        MediaProcessor()
         mock_genai.Client.assert_called_once()
 
     @patch("src.services.media_processor.settings")

@@ -2,11 +2,11 @@
 Tests for the customer listino lookup (src/tools/listino_tools.py).
 Verifies keyword matching, range formatting, and the no-match sentinel.
 """
-import pytest
 from unittest.mock import patch
 
+import pytest
 from src.tools import listino_tools
-from src.tools.listino_tools import search_listino, NO_LISTINO_MATCH, _normalize
+from src.tools.listino_tools import NO_LISTINO_MATCH, _normalize, search_listino
 
 _FAKE_BOOK = [
     {

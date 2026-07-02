@@ -4,11 +4,11 @@ Tests for RAGService.search (src/services/rag_service.py).
 Focus: the result parsing (SDK to_dict emits score_/id_), min_score
 filtering, and rerank request shaping (over-fetch + rerank payload).
 """
-import pytest
 from unittest.mock import MagicMock, patch
 
-from src.services.rag_service import RAGService
+import pytest
 from src.core import config
+from src.services.rag_service import RAGService
 
 
 class _FakeResp:

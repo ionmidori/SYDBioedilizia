@@ -20,7 +20,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # 1. src/core/context.py
 # ---------------------------------------------------------------------------
@@ -67,8 +66,12 @@ class TestContext:
 
     def test_multiple_context_vars_are_independent(self):
         from src.core.context import (
-            get_request_id, get_session_id, get_user_id,
-            set_request_id, set_session_id, set_user_id,
+            get_request_id,
+            get_session_id,
+            get_user_id,
+            set_request_id,
+            set_session_id,
+            set_user_id,
         )
         set_request_id("r1")
         set_session_id("s1")
@@ -349,6 +352,7 @@ class TestTraceSpanSync:
 
     def test_async_function_gets_async_wrapper(self):
         import asyncio
+
         from src.core.telemetry import trace_span
 
         @trace_span()
@@ -359,6 +363,7 @@ class TestTraceSpanSync:
 
     def test_sync_function_gets_sync_wrapper(self):
         import asyncio
+
         from src.core.telemetry import trace_span
 
         @trace_span()

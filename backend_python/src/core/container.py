@@ -4,7 +4,7 @@ class Container:
     Initializes and manages the lifecycle of singleton services.
     """
     _instance = None
-    
+
     def __init__(self):
         # Placeholders for Phase 2 Services
         # self.auth_service: AuthService = AuthService()

@@ -4,9 +4,10 @@ Tests for ConversationRepository — Firestore-backed conversation storage.
 Patches are applied at the IMPORT SITE (conversation_repository module),
 not at the definition site, to correctly intercept already-bound names.
 """
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 _MODULE = "src.repositories.conversation_repository"
 

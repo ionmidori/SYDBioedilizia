@@ -26,22 +26,21 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
-
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import (
+    CheckpointError,
     QuoteAlreadyApprovedError,
     QuoteNotFoundError,
-    CheckpointError,
 )
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteItem, QuoteSchema
-from src.services.pricing_service import PricingService
-from src.services.pdf_service import PdfService
+from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.services.notification_service import NotificationService
+from src.services.pdf_service import PdfService
+from src.services.pricing_service import PricingService
 from src.utils.datetime_utils import utc_now
-from src.services.audit import emit_audit_event, AuditAction, AuditResourceType
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/quote", tags=["Quote"])

@@ -9,9 +9,9 @@ Tests the cryptographic resumption token pattern used for admin quote approval:
 
 All Firestore calls are mocked — no external dependencies.
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from src.core.exceptions import QuoteAlreadyApprovedError, QuoteNotFoundError
 
 

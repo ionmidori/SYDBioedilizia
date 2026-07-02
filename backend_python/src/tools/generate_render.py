@@ -1,14 +1,13 @@
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
-from src.api.gemini_imagen import generate_image_t2i, generate_image_i2i
-from src.storage.upload import upload_base64_image as _upload_base64_image_sync
-from src.vision.triage import analyze_image_triage
-from src.utils.download import download_image_smart
 import asyncio
 import logging
+from typing import Any, Dict, Optional
 
-
+from pydantic import BaseModel, Field
+from src.api.gemini_imagen import generate_image_i2i, generate_image_t2i
 from src.db.messages import save_file_metadata
+from src.storage.upload import upload_base64_image as _upload_base64_image_sync
+from src.utils.download import download_image_smart
+from src.vision.triage import analyze_image_triage
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +15,15 @@ class GenerateRenderInput(BaseModel):
     """Input schema for generate_render tool."""
     model_config = {"extra": "forbid"}
     prompt: str = Field(
-        ..., 
+        ...,
         description="Detailed description of the interior design to generate"
     )
     room_type: str = Field(
-        ..., 
+        ...,
         description="Type of room (e.g., 'kitchen', 'living room')"
     )
     style: str = Field(
-        ..., 
+        ...,
         description="Design style (e.g., 'modern', 'industrial')"
     )
     mode: str = Field(
@@ -55,20 +54,20 @@ async def generate_render_wrapper(
     """
     try:
         negative_prompt = "low quality, blurry, distorted, cartoon"
-        
+
         # MODE: MODIFICATION (I2I)
         if mode == "modification" and source_image_url:
             # Download source image (Smart Download)
             source_bytes, source_mime_type = await download_image_smart(source_image_url)
-            
+
             # VALIDATION: Check if we got an actual image (not error XML/HTML)
             if not source_mime_type.startswith("image/"):
                 logger.error(f"[Render] ❌ Downloaded content is NOT an image! MIME: {source_mime_type}")
                 logger.error(f"[Render] ❌ First 200 bytes: {source_bytes[:200]}")
                 return f"Errore: L'immagine non è accessibile. Il server ha restituito: {source_mime_type}"
-            
+
             logger.info(f"[Render] ✅ Image downloaded: {len(source_bytes)} bytes, MIME: {source_mime_type}")
-            
+
             # Analyze source image (optional, for context)
             try:
                 analysis = await analyze_image_triage(source_bytes)
@@ -76,11 +75,11 @@ async def generate_render_wrapper(
                     room_type = analysis.get("roomType", room_type)
             except Exception:
                 pass  # Continue without analysis
-            
+
             # 🎨 USE ARCHITECT FOR ENHANCED PROMPT GENERATION
             try:
                 from src.vision.architect import generate_architectural_prompt
-                
+
                 arch_output = await generate_architectural_prompt(
                     image_bytes=source_bytes,
                     target_style=style,
@@ -88,18 +87,18 @@ async def generate_render_wrapper(
                     mime_type=source_mime_type,
                     user_instructions=prompt
                 )
-                
+
                 # Combine structured fields into final prompt
                 full_prompt = f"{arch_output.structural_skeleton} {arch_output.material_plan} {arch_output.furnishing_strategy} {arch_output.technical_notes}"
-                
+
                 # ✍️ DEBUG LOG: Log full prompt for verification
                 logger.info(f"[Render] 📝 FULL PROMPT (I2I):\n{'-'*40}\n{full_prompt}\n{'-'*40}")
-                
+
             except Exception as arch_error:
                 # Fallback to simple prompt if Architect fails
                 logger.warning(f"[Render] Architect failed, using fallback: {arch_error}")
                 full_prompt = f"Transform this {room_type} to {style} style. {prompt}"
-            
+
             # Generate I2I
             result = await generate_image_i2i(
                 source_image_bytes=source_bytes,
@@ -108,7 +107,7 @@ async def generate_render_wrapper(
                 negative_prompt=negative_prompt,
                 mime_type=source_mime_type
             )
-        
+
         # MODE: CREATION (T2I)
         else:
             # Enhanced T2I prompt matching legacy quality
@@ -119,15 +118,15 @@ async def generate_render_wrapper(
                 "realistic materials and textures, proper perspective, modern high-end interior design, "
                 "clean composition, 4K quality."
             )
-            
+
             result = await generate_image_t2i(
                 prompt=full_prompt,
                 negative_prompt=negative_prompt
             )
-        
+
         if not result["success"]:
             return "Failed to generate image. Please try again."
-        
+
         # Upload to Firebase Storage (sync SDK — offload to thread to avoid blocking event loop)
         image_url = await asyncio.to_thread(
             _upload_base64_image_sync,
@@ -135,12 +134,12 @@ async def generate_render_wrapper(
             session_id=session_id,
             prefix="renders",
         )
-        
+
         mode_label = "transformed" if mode == "modification" else "generated"
-        
+
         # 🚀 AUTOMATIC SLIDER UPDATE
         # 🚀 REGISTER FILE & SYNC COVER
-        # Instead of manually updating, we save the file metadata. 
+        # Instead of manually updating, we save the file metadata.
         # The hook in save_file_metadata will trigger sync_project_cover automatically.
         try:
             file_meta = {
@@ -155,10 +154,10 @@ async def generate_render_wrapper(
                     "style": style
                 }
             }
-            
+
             await save_file_metadata(session_id, file_meta)
             logger.info(f"[Render] 📂 Registered render file in project {session_id}")
-            
+
         except Exception as file_error:
              logger.warning(f"[Render] Failed to register file metadata: {file_error}")
 
@@ -170,7 +169,7 @@ async def generate_render_wrapper(
             "mode": mode_label,
             "sourceImageId": source_image_url, # Using URL as ID mapping for now
         }
-        
+
     except Exception as e:
         logger.error(f"[Render] ❌ generate_render_wrapper EXCEPTION: {e}", exc_info=True)
         return {

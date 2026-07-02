@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 def utc_now() -> datetime:
     """
     Return the current UTC time as a timezone-aware datetime.
-    
+
     Replaces deprecated `datetime.utcnow()` which returns a naive
     datetime that can silently produce incorrect comparisons with
     timezone-aware datetimes from Firestore or other sources.

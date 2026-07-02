@@ -12,7 +12,7 @@ Features:
 import json
 import logging
 from pathlib import Path
-from typing import List, Dict, Any, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from google import genai
 from google.genai import types as genai_types
@@ -373,8 +373,9 @@ Analizza la conversazione e produci la risposta strutturata.
 
         # Attach media (SSRF-protected to Firebase Storage domain only)
         if media_urls:
-            import httpx
             from urllib.parse import urlparse
+
+            import httpx
 
             async with httpx.AsyncClient(timeout=10.0) as http_client:
                 for url in media_urls:

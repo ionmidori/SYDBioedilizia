@@ -1,6 +1,7 @@
 import logging
+from typing import Any, Dict
+
 import httpx
-from typing import Dict, Any
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -13,19 +14,19 @@ PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
 async def fetch_market_prices(query: str) -> Dict[str, Any]:
     """
     Fetch market price information using Perplexity API.
-    
+
     Args:
         query: Search query for market prices (e.g., "average price for kitchen tiles in Italy")
-        
+
     Returns:
         Dictionary with price information and sources
-        
+
     Raises:
         Exception: If API call fails
     """
     if not PERPLEXITY_API_KEY:
         raise Exception("PERPLEXITY_API_KEY not configured in environment")
-    
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -48,23 +49,23 @@ async def fetch_market_prices(query: str) -> Dict[str, Any]:
                     ]
                 }
             )
-            
+
             response.raise_for_status()
             data = response.json()
-            
+
             # Extract the response content
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
             citations = data.get("citations", [])
-            
+
             logger.info(f"Market prices fetched successfully for query: {query[:50]}...")
-            
+
             return {
                 "success": True,
                 "content": content,
                 "citations": citations,
                 "query": query
             }
-            
+
     except httpx.HTTPStatusError as e:
         logger.error(f"Perplexity API HTTP error: {e.response.status_code} - {e.response.text}")
         raise Exception(f"API request failed: {e.response.status_code}")

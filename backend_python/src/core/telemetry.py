@@ -1,21 +1,22 @@
-import time
+import asyncio
 import functools
 import logging
-import asyncio
-from typing import Callable, Any
-from .context import get_request_id, get_session_id, get_user_id
-from .logger import _redact
-from .tracing import get_tracer
+import time
+from typing import Any, Callable
 
 from opentelemetry import trace
 from opentelemetry.trace import StatusCode
+
+from .context import get_request_id, get_session_id, get_user_id
+from .logger import _redact
+from .tracing import get_tracer
 
 logger = logging.getLogger(__name__)
 
 def trace_span(name: str = None, log_args: bool = False):
     """
     Decorator to trace function execution time and errors.
-    
+
     Args:
         name: Override function name in logs.
         log_args: If True, log arguments (WARNING: Potential PII leak). Default False.
@@ -26,11 +27,11 @@ def trace_span(name: str = None, log_args: bool = False):
             span_name = name or func.__name__
             req_id = get_request_id()
             start_time = time.perf_counter()
-            
+
             try:
                 # Log Start (Debug only)
                 logger.debug(f"Span Start: {span_name}", extra={"request_id": req_id})
-                
+
                 result = await func(*args, **kwargs)
                 return result
             except Exception as e:

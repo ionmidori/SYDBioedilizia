@@ -7,11 +7,11 @@ which is an extension of the existing Firestore "sessions" collection.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from datetime import datetime as _datetime_type
 from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
-from datetime import datetime as _datetime_type
 
 
 class ProjectStatus(str, Enum):
@@ -102,7 +102,7 @@ class ProjectDocument(ProjectBase):
     @field_serializer('updated_at', 'created_at')
     def serialize_datetime_fields(self, dt: _datetime_type, _info) -> str:
         """Serialize datetime to UTC ISO 8601 with Z suffix.
-        
+
         Naive datetimes are treated as UTC per the Firestore SDK contract.
         Output is always compatible with Zod .datetime({ offset: true }).
         """
@@ -130,7 +130,7 @@ class ProjectListItem(BaseModel):
     @field_serializer('updated_at')
     def serialize_updated_at(self, dt: _datetime_type, _info) -> str:
         """Serialize datetime to UTC ISO 8601 with Z suffix.
-        
+
         Naive datetimes are treated as UTC per the Firestore SDK contract.
         Output is always compatible with Zod .datetime({ offset: true }).
         """

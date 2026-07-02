@@ -4,8 +4,9 @@ Feedback schemas — Golden Sync with web_client/types/feedback.ts.
 Captures user ratings (thumbs up/down) on assistant messages for
 self-correction loop (see evaluating-adk-agents skill).
 """
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class FeedbackRequest(BaseModel):

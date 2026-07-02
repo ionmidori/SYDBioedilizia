@@ -1,6 +1,7 @@
-import pytest
 import json
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # ════════════════════════════════════════════════════════════════════════════
 # src.utils.context — contextvars getters/setters
@@ -16,7 +17,7 @@ class TestContextModule:
         assert isinstance(result, str)
 
     def test_set_and_get_current_user_id(self):
-        from src.utils.context import set_current_user_id, get_current_user_id
+        from src.utils.context import get_current_user_id, set_current_user_id
         set_current_user_id("user-abc")
         assert get_current_user_id() == "user-abc"
 
@@ -27,13 +28,13 @@ class TestContextModule:
         assert result is None or isinstance(result, dict)
 
     def test_set_and_get_current_media_metadata(self):
-        from src.utils.context import set_current_media_metadata, get_current_media_metadata
+        from src.utils.context import get_current_media_metadata, set_current_media_metadata
         meta = {"trim_start": 0, "trim_end": 10}
         set_current_media_metadata(meta)
         assert get_current_media_metadata() == meta
 
     def test_set_and_get_is_anonymous(self):
-        from src.utils.context import set_is_anonymous, get_is_anonymous
+        from src.utils.context import get_is_anonymous, set_is_anonymous
         set_is_anonymous(False)
         assert get_is_anonymous() is False
         set_is_anonymous(True)
@@ -116,7 +117,7 @@ class TestInsightEngine:
         ]
         with patch("src.services.insight_engine.PricingService.load_price_book", return_value=price_book):
             summary = engine._build_price_book_prompt()  # Changed from _get_price_book_summary (private method name check)
-        
+
         assert "LAM-001" in summary
         assert "ELE-001" in summary
         assert "Laminate floor" in summary
@@ -138,7 +139,6 @@ class TestInsightEngine:
         with patch("src.services.insight_engine.PricingService.load_price_book", return_value=price_book), \
              patch("src.core.config.settings") as mock_settings:
             mock_settings.FIREBASE_STORAGE_BUCKET = "test.appspot.com"
-            from src.services.insight_engine import InsightEngine, InsightAnalysis
             result = await engine.analyze_project_for_quote(
                 chat_history=[{"role": "user", "content": "I have a 20mq room"}],
                 media_urls=[]
@@ -194,7 +194,7 @@ class TestInsightEngine:
             import src.services.insight_engine as ie_mod
             ie_mod._insight_engine = None  # reset singleton
 
-            from src.services.insight_engine import get_insight_engine, InsightEngine
+            from src.services.insight_engine import InsightEngine, get_insight_engine
             e1 = get_insight_engine()
             e2 = get_insight_engine()
 

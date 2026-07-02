@@ -5,11 +5,11 @@ Focus: retrieve_price_by_code must resolve an article code via an exact
 metadata filter (deterministic) rather than relying on semantic ranking,
 which could return a wrong-but-similar article.
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from src.tools import rag_tools
-from src.tools.rag_tools import retrieve_price_by_code, _codice_variants
+from src.tools.rag_tools import _codice_variants, retrieve_price_by_code
 
 
 def _make_rag_service(search_side_effect):

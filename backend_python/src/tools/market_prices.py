@@ -1,4 +1,5 @@
 import logging
+
 from pydantic import BaseModel, Field
 from src.api.perplexity import fetch_market_prices
 
@@ -8,7 +9,7 @@ class MarketPricesInput(BaseModel):
     """Input schema for get_market_prices tool."""
     model_config = {"extra": "forbid"}
     query: str = Field(
-        ..., 
+        ...,
         description="Search query for market prices (e.g., 'average cost per square meter for bathroom tiles in Rome')"
     )
 
@@ -19,19 +20,19 @@ async def get_market_prices_wrapper(query: str) -> str:
     """
     try:
         result = await fetch_market_prices(query)
-        
+
         if not result["success"]:
             return "Unable to fetch market prices at this time. Please try again later."
-        
+
         # Format the response with citations
         response = result["content"]
         if result.get("citations"):
             response += "\n\nSources:\n"
             for i, citation in enumerate(result["citations"][:3], 1):  # Limit to 3 sources
                 response += f"{i}. {citation}\n"
-        
+
         return response
-        
+
     except Exception:
         # Never echo raw exception text to the agent/user (info disclosure).
         logger.error("get_market_prices failed", exc_info=True)

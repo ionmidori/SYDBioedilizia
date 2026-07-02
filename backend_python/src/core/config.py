@@ -1,5 +1,6 @@
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, model_validator, AliasChoices
+
 
 class Settings(BaseSettings):
     """
@@ -26,7 +27,7 @@ class Settings(BaseSettings):
         default="",
         description="Legacy alias — prefer GOOGLE_CLOUD_PROJECT for new code.",
     )
-    
+
     # Secrets
     # We allow None during init if .env is missing, but logic should check them.
     # Ideally, we enforce them.
@@ -59,7 +60,7 @@ class Settings(BaseSettings):
     )
 
     CHAT_MODEL_VERSION: str = Field(default="gemini-3.1-flash-lite-preview", description="Default model for chat and analysis")
-    
+
     # Feature Flags (App Check enabled by default for production safety)
     ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")
     # Orchestration backend (ADK-only since Phase 4 — LangGraph decommissioned)
@@ -86,11 +87,11 @@ class Settings(BaseSettings):
         description="Enable FirestoreSaver checkpointing on the main conversation graph. "
                     "Quote graph always uses checkpointing regardless of this flag.",
     )
-    
+
     # Auth & Infrastructure
     RP_ID: str | None = Field(None, description="WebAuthn Relying Party ID")
     FIREBASE_CREDENTIALS: str | None = Field(None, description="Path to firebase credentials json")
-    
+
     # Firebase Environment Variables (Alternative to JSON file)
     FIREBASE_PROJECT_ID: str | None = None
     FIREBASE_PRIVATE_KEY_ID: str | None = None

@@ -9,8 +9,6 @@ Tests for low-coverage modules:
 from __future__ import annotations
 
 import json
-import pytest
-
 
 # ---------------------------------------------------------------------------
 # 1. src/services/intent_classifier.py
@@ -118,7 +116,7 @@ class TestIntentClassifier:
 
 class TestStreamText:
     async def test_yields_text_delta_chunk(self):
-        from src.utils.stream_protocol import stream_text, TEXT_PART_ID
+        from src.utils.stream_protocol import TEXT_PART_ID, stream_text
         chunks = [c async for c in stream_text("hello")]
         assert chunks == [{"type": "text-delta", "id": TEXT_PART_ID, "delta": "hello"}]
 
@@ -253,7 +251,7 @@ class TestToUiMessageStream:
         return out
 
     async def test_text_is_bracketed_and_finished(self):
-        from src.utils.stream_protocol import stream_text, to_ui_message_stream, TEXT_PART_ID
+        from src.utils.stream_protocol import TEXT_PART_ID, stream_text, to_ui_message_stream
 
         async def source():
             async for c in stream_text("Ciao "):
@@ -293,7 +291,7 @@ class TestToUiMessageStream:
         assert parsed[3] == "[DONE]"
 
     async def test_text_end_emitted_before_following_data(self):
-        from src.utils.stream_protocol import stream_text, stream_status, to_ui_message_stream, TEXT_PART_ID
+        from src.utils.stream_protocol import stream_status, stream_text, to_ui_message_stream
 
         async def source():
             async for c in stream_text("hi"):

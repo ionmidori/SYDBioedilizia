@@ -11,8 +11,9 @@ These tests do NOT call live Gemini API — they validate structure only.
 For live eval runs, use: uv run python tests/evals/run_evals.py
 """
 import json
-import pytest
 from pathlib import Path
+
+import pytest
 
 EVALS_DIR = Path(__file__).parent
 
@@ -64,12 +65,12 @@ class TestSydRubrics:
 
     def test_rubric_imports(self) -> None:
         from tests.evals.syd_rubrics import (
-            NO_FURNITURE_RUBRIC,
-            ITALIAN_ONLY_RUBRIC,
             HAS_MQ_RUBRIC,
-            SKU_PRESENT_RUBRIC,
-            NO_ROUTING_IN_QUOTE_FLOW_RUBRIC,
             INTENT_FIRST_RUBRIC,
+            ITALIAN_ONLY_RUBRIC,
+            NO_FURNITURE_RUBRIC,
+            NO_ROUTING_IN_QUOTE_FLOW_RUBRIC,
+            SKU_PRESENT_RUBRIC,
         )
         rubrics = [
             NO_FURNITURE_RUBRIC,
@@ -85,9 +86,9 @@ class TestSydRubrics:
 
     def test_composite_metrics(self) -> None:
         from tests.evals.syd_rubrics import (
+            SYD_INTENT_FIRST_QUALITY,
             SYD_QUOTE_QUALITY,
             SYD_TRIAGE_QUALITY,
-            SYD_INTENT_FIRST_QUALITY,
         )
         metrics = [SYD_QUOTE_QUALITY, SYD_TRIAGE_QUALITY, SYD_INTENT_FIRST_QUALITY]
         for metric in metrics:

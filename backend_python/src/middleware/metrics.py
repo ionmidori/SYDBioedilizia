@@ -12,9 +12,10 @@ See: https://www.starlette.io/middleware/#limitations
 """
 
 import time
-from starlette.types import ASGIApp, Receive, Scope, Send
+
 from src.core.context import get_request_id
 from src.core.logger import get_logger
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = get_logger(__name__)
 

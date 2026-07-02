@@ -8,11 +8,10 @@ Tests webhook retry logic and soft-skip behavior for n8n integration:
 
 Pattern: Mock httpx.AsyncClient with retry simulation.
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import httpx
 
-from src.core.exceptions import DeliveryError
+import httpx
+import pytest
 
 
 class TestNotifyAdminWrapper:
@@ -147,7 +146,7 @@ class TestDeliverQuoteWrapper:
             mock_client_class.return_value = mock_client
 
             # Should succeed after retries
-            result = await _call_n8n_webhook(
+            await _call_n8n_webhook(
                 "https://n8n.example.com/webhook",
                 {"event": "test"},
             )

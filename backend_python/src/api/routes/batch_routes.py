@@ -22,13 +22,12 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 from pydantic import BaseModel, Field
-
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import BatchNotFoundError
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
-from src.schemas.quote import AggregationAdjustment, BatchProject, BatchStatusType, QuoteItem, QuoteBatch
+from src.schemas.quote import AggregationAdjustment, BatchProject, BatchStatusType, QuoteBatch, QuoteItem
 from src.services.batch_aggregation_engine import (
     ProjectQuoteSummary,
     get_batch_aggregation_engine,

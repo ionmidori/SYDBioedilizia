@@ -1,11 +1,12 @@
-from typing import List
-from datetime import datetime
 import asyncio
 import logging
+from datetime import datetime
+from typing import List
+
 from src.db.firebase_client import get_async_firestore_client
-from src.utils.serialization import parse_firestore_datetime
 from src.db.projects import get_user_projects
 from src.schemas.gallery import GalleryAsset, GalleryAssetMetadata, GalleryResponse
+from src.utils.serialization import parse_firestore_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,9 @@ class GalleryService:
         """
         # 1. Get all user projects
         projects = await get_user_projects(user_id)
-        
+
         all_files: List[GalleryAsset] = []
-        
+
         async def fetch_project_files(project):
             p_id = project.session_id
             p_files = []
@@ -29,11 +30,11 @@ class GalleryService:
                 # Subcollection query
                 files_ref = self.db.collection('projects').document(p_id).collection('files')
                 docs = files_ref.order_by('uploadedAt', direction="DESCENDING").limit(limit).stream()
-                
+
                 async for doc in docs:
                     data = doc.to_dict()
                     timestamp_dt = parse_firestore_datetime(data.get("uploadedAt"))
-                    
+
                     if not timestamp_dt:
                         # Fallback for missing timestamps
                         timestamp_dt = datetime.now()
@@ -61,13 +62,13 @@ class GalleryService:
         results = await asyncio.gather(*(fetch_project_files(p) for p in projects))
         for res in results:
             all_files.extend(res)
-        
+
         # 3. In-memory Sort (Global sort across projects)
         all_files.sort(
-            key=lambda x: x.timestamp.timestamp() if x.timestamp else 0, 
+            key=lambda x: x.timestamp.timestamp() if x.timestamp else 0,
             reverse=True
         )
-        
+
         # 4. Pagination Slice
         start_idx = 0
         if last_id:
@@ -75,9 +76,9 @@ class GalleryService:
                 if asset.id == last_id:
                     start_idx = i + 1
                     break
-        
+
         paginated_assets = all_files[start_idx:start_idx + limit]
-        
+
         return GalleryResponse(
             assets=paginated_assets,
             hasMore=start_idx + limit < len(all_files),

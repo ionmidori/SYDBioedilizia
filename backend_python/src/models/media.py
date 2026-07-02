@@ -6,11 +6,12 @@ Uses Pydantic V2 Discriminated Unions via `Literal` type discriminators.
 
 **Golden Sync**: TypeScript interfaces must be generated in `web_client/types/media.ts`.
 """
-from typing import Literal, Optional, Union
-from datetime import datetime
-from src.utils.datetime_utils import utc_now
-from pydantic import BaseModel, Field, ConfigDict
 import uuid
+from datetime import datetime
+from typing import Literal, Optional, Union
+
+from pydantic import BaseModel, ConfigDict, Field
+from src.utils.datetime_utils import utc_now
 
 
 class MediaAssetBase(BaseModel):
@@ -31,15 +32,15 @@ class MediaAssetBase(BaseModel):
 class ImageMediaAsset(MediaAssetBase):
     """
     Image-specific asset model.
-    
+
     Discriminator: asset_type = "image"
     """
     asset_type: Literal["image"] = "image"
-    
+
     # Image-specific metadata
     width: Optional[int] = Field(None, ge=1, description="Image width in pixels")
     height: Optional[int] = Field(None, ge=1, description="Image height in pixels")
-    
+
     # Storage paths
     file_path: str = Field(..., description="Storage path in bucket")
     signed_url: Optional[str] = Field(None, description="Signed URL (expires)")
@@ -48,16 +49,16 @@ class ImageMediaAsset(MediaAssetBase):
 class VideoMediaAsset(MediaAssetBase):
     """
     Video-specific asset model.
-    
+
     Discriminator: asset_type = "video"
     """
     asset_type: Literal["video"] = "video"
-    
+
     # Video-specific metadata
     width: Optional[int] = Field(None, ge=1, description="Video width in pixels")
     height: Optional[int] = Field(None, ge=1, description="Video height in pixels")
     duration_seconds: Optional[float] = Field(None, ge=0, description="Duration in seconds")
-    
+
     # File API reference (for Gemini multimodal processing)
     file_uri: str = Field(..., description="Google AI File API URI")
     state: str = Field(default="ACTIVE", description="File API processing state")
@@ -66,13 +67,13 @@ class VideoMediaAsset(MediaAssetBase):
 class DocumentMediaAsset(MediaAssetBase):
     """
     Document-specific asset model (PDF, etc).
-    
+
     Discriminator: asset_type = "document"
     """
     asset_type: Literal["document"] = "document"
-    
+
     page_count: Optional[int] = Field(None, ge=1, description="Number of pages (PDF)")
-    
+
     # Storage paths
     file_path: str = Field(..., description="Storage path in bucket")
     signed_url: Optional[str] = Field(None, description="Signed URL (expires)")
@@ -92,7 +93,7 @@ Usage in FastAPI responses:
 
 The discriminator field is `asset_type`:
 - "image" -> ImageMediaAsset
-- "video" -> VideoMediaAsset  
+- "video" -> VideoMediaAsset
 - "document" -> DocumentMediaAsset
 """
 
@@ -104,20 +105,20 @@ The discriminator field is `asset_type`:
 def parse_media_asset(data: dict) -> MediaAsset:
     """
     Parse a dictionary into the correct MediaAsset subtype.
-    
+
     Uses the `asset_type` discriminator to determine the model.
-    
+
     Args:
         data: Dictionary with asset data including `asset_type`
-        
+
     Returns:
         Appropriate MediaAsset subtype instance
-        
+
     Raises:
         ValueError: If asset_type is missing or invalid
     """
     asset_type = data.get("asset_type")
-    
+
     if asset_type == "image":
         return ImageMediaAsset.model_validate(data)
     elif asset_type == "video":
