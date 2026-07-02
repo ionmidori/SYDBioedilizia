@@ -497,7 +497,8 @@ class ADKOrchestrator(BaseOrchestrator):
                                                     role="tool",
                                                     content=content_str,
                                                     tool_call_id=call_id,
-                                                    timestamp=datetime.now(timezone.utc)
+                                                    timestamp=datetime.now(timezone.utc),
+                                                    user_id=user_id,
                                                 )
                                                 logger.info(f"[Repo] Saved tool result for call_id {call_id}")
                                             except Exception as e:
@@ -590,6 +591,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             tool_calls=accumulated_tool_calls if accumulated_tool_calls else None,
                             timestamp=assistant_timestamp,
                             message_id=assistant_msg_id,
+                            user_id=user_id,
                         )
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:

@@ -105,8 +105,9 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(self), microphone=(self), geolocation=(), browsing-topics=()'
           },
-          // NOTE: Content-Security-Policy is now set dynamically by middleware.ts
-          // with a per-request cryptographic nonce (replaces static 'unsafe-inline').
+          // NOTE: Content-Security-Policy is set dynamically by proxy.ts (the
+          // Next.js 16 middleware file) with a per-request cryptographic nonce
+          // and 'strict-dynamic' — enforcing, not Report-Only (F-01).
         ]
       }
     ];

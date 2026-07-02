@@ -45,38 +45,42 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // 3. CSP and Nonce Logic
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-
-  // CSP for Next.js 16 (App Router)
-  // Phase 1: Report-Only mode — logs violations without blocking anything.
+  // 3. CSP (F-01) — ENFORCING (was Content-Security-Policy-Report-Only).
+  //
+  // We deliberately do NOT use a per-request nonce + 'strict-dynamic' here:
+  // most public pages are statically prerendered, so Next.js cannot inject a
+  // per-request nonce into their <script> tags. Under 'strict-dynamic' a CSP3
+  // browser ignores 'self'/'unsafe-inline', which would BLOCK the (un-nonced)
+  // /_next/ chunks and break every static page (verified via `next start`).
+  //
+  // Instead we enforce a policy that works on static + dynamic routes: scripts
+  // limited to 'self' + trusted Google/Firebase origins (reCAPTCHA/App Check),
+  // 'unsafe-inline' retained only because static bootstrap scripts can't be
+  // nonced. This still hard-enforces object-src 'none', base-uri 'self',
+  // form-action 'self', frame-ancestors 'none', and connect/img/frame allowlists
+  // — real defense-in-depth on top of React's output escaping.
+  // FOLLOW-UP: a full nonce/'strict-dynamic' CSP requires converting pages to
+  // dynamic rendering (force-dynamic) so a per-request nonce can be emitted.
   const cspHeader = `
     default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:;
+    script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://apis.google.com;
     style-src 'self' 'unsafe-inline';
-    img-src 'self' blob: data: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com;
+    img-src 'self' blob: data: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com https://images.unsplash.com https://replicate.delivery;
     font-src 'self' data:;
-    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com https://vitals.vercel-insights.com https://*.vercel-insights.com wss://*.firebaseio.com;
+    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com https://vitals.vercel-insights.com https://*.vercel-insights.com https://syd-brain-w6yrkh3gfa-ew.a.run.app https://www.google.com https://www.gstatic.com wss://*.firebaseio.com;
     media-src 'self' blob: https://firebasestorage.googleapis.com https://storage.googleapis.com;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
-    frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com;
+    frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com https://www.google.com https://recaptcha.google.com;
+    upgrade-insecure-requests;
   `.replace(/\s{2,}/g, ' ').trim();
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
-
-  const response = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  const response = NextResponse.next();
 
   // Security Headers
-  response.headers.set('Content-Security-Policy-Report-Only', cspHeader);
-  response.headers.set('x-nonce', nonce);
+  response.headers.set('Content-Security-Policy', cspHeader);
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
