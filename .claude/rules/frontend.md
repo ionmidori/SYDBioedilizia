@@ -12,12 +12,12 @@ paths:
 
 ## Critical Files
 - `lib/firebase.ts`: Firebase singleton init (must run before anything else)
-- `components/chat/ChatProvider.tsx`: Real-time chat state + AI SDK v6 streaming
+- `components/chat/ChatProvider.tsx`: Real-time chat state + AI SDK v7 streaming
 - `components/mobile/MobileSwipeLayout.tsx`: 60fps swipe navigation (3-pane layout)
 
-## AI SDK v6 Patterns (CRITICAL)
+## AI SDK v7 Patterns (CRITICAL)
 ```typescript
-// CORRECT (v6):
+// CORRECT (v7):
 sendMessage({ text: "input" }, { body: extraData })
 // Messages use parts array: message.parts.map(p => p.type === 'text' ? p.text : ...)
 

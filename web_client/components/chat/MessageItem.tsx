@@ -71,7 +71,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     const Markdown = ReactMarkdown as React.ComponentType<React.ComponentProps<typeof ReactMarkdown>>;
 
     const text = getMessageText(message);
-    // The AI SDK v6 keeps assistant message state text-only — transient tool
+    // The AI SDK v7 keeps assistant message state text-only — transient tool
     // results are NOT added to message.parts, and the SDK strips custom fields
     // like `toolInvocations` (same reason `rating` is re-resolved from history
     // above). So when the live SDK message carries no tool data, fall back to the
@@ -246,7 +246,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
 
                 {/* 1. User Images Bubble (Visual Only) */}
                 {message.role === 'user' && (() => {
-                    // AI SDK v6: images live in message.parts as FileUIPart (type: 'file')
+                    // AI SDK v7: images live in message.parts as FileUIPart (type: 'file')
                     // Fallback: legacy message.attachments.images (Firestore history)
                     const filePartUrls = (message.parts as { type: string; url?: string; mediaType?: string }[] | undefined)
                         ?.filter((p) => p.type === 'file' && typeof p.url === 'string' && p.mediaType?.startsWith('image/'))

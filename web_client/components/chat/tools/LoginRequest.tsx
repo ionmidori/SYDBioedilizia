@@ -20,13 +20,10 @@ export const LoginRequest = () => {
         for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             if (msg.role !== 'user') continue;
-            // AI SDK v6: messages use a `parts` array
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const msgAny = msg as any;
-            const parts: { type: string; text?: string }[] = msgAny.parts ?? [];
+            // AI SDK v7: UIMessage.parts is fully typed — no `as any` needed.
+            const parts = (msg.parts ?? []) as { type: string; text?: string }[];
             const textPart = parts.find(p => p.type === 'text');
             if (textPart?.text) return textPart.text;
-            if (typeof msgAny.content === 'string') return msgAny.content;
         }
         return '';
     }, [messages]);

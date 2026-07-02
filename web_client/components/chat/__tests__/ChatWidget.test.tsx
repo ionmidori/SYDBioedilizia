@@ -37,6 +37,13 @@ jest.mock('@/hooks/useChatContext', () => ({
     }),
 }));
 
+// Mock smooth-scroll — it imports `lenis/react` (ESM) which Jest can't parse,
+// and Lenis smooth-scrolling isn't relevant to ChatWidget's unit behaviour.
+jest.mock('@/lib/smooth-scroll', () => ({
+    useScrollLock: jest.fn(),
+    SmoothScrollProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 jest.mock('@/hooks/useStatusQueue', () => ({
     useStatusQueue: () => ({ statusMessage: null, clearQueue: jest.fn(), addToQueue: jest.fn() }),
 }));

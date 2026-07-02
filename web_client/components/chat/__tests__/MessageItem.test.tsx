@@ -42,7 +42,7 @@ describe('MessageItem — render image attachment', () => {
 
     it('renders the render-tool image when toolInvocations live only in Firestore history (SDK stripped them)', () => {
         // The AI SDK keeps assistant message state WITHOUT toolInvocations
-        // (transient tool results are not added to message.parts in v6).
+        // (transient tool results are not added to message.parts in v7).
         const sdkMessage = {
             id: 'm1',
             role: 'assistant',
