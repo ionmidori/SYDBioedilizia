@@ -33,10 +33,12 @@ sys.modules['google.adk.agents'] = mock_google_adk.agents
 sys.modules['google.adk.tools'] = mock_google_adk.tools
 # ---------------------------------------------
 
-import pytest
-import time
 import asyncio
+import time
+
+import pytest
 from src.adk.adk_orchestrator import ADKOrchestrator
+
 
 class MockRequest:
     message = "Hello, what renovations do you do?"
@@ -47,20 +49,20 @@ class MockRequest:
 async def test_adk_first_token_latency():
     """Validates if the first-token latency of ADK is under 2.5s threshold."""
     orchestrator = ADKOrchestrator()
-    
+
     start_time = time.time()
     stream = orchestrator.stream_chat(MockRequest(), None)
-    
+
     first_chunk = None
     try:
         # We wrap in asyncio.wait_for to prevent infinite hangs in CI
         first_chunk = await asyncio.wait_for(stream.__anext__(), timeout=5.0)
     except Exception as e:
         pytest.fail(f"Failed to fetch first token: {e}")
-        
+
     latency = time.time() - start_time
     print(f"First chunk: {first_chunk}")
     print(f"First-token latency: {latency:.2f}s")
-    
+
     assert first_chunk is not None
     assert latency < 2.5, f"Latency {latency:.2f}s exceeded 2.5s budget in Phase 1 criteria."

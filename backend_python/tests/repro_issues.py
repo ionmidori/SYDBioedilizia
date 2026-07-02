@@ -1,13 +1,13 @@
-import sys
-import os
 import asyncio
 import logging
+import os
+import sys
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from src.db.firebase_client import init_firebase
 from src.api.routes.chat_history import MessageResponse
+from src.db.firebase_client import init_firebase
 
 # Mock logging
 logging.basicConfig(level=logging.INFO)
@@ -28,12 +28,12 @@ async def test_pydantic_model():
     try:
         # Simulate the problematic data from logs
         bad_content = [{'text': 'Perfetto! Ho ricevuto...'}]
-        
+
         # Test 1: Direct instantiation (Should Fail if model expects str)
         try:
-            m = MessageResponse(
-                id="123", 
-                role="user", 
+            MessageResponse(
+                id="123",
+                role="user",
                 content=bad_content, # Passing list directly
                 timestamp="2023-01-01"
             )
@@ -46,11 +46,11 @@ async def test_pydantic_model():
         content_val = bad_content
         if isinstance(content_val, list):
              content_val = json.dumps(content_val)
-        
+
         m2 = MessageResponse(
-            id="123", 
-            role="user", 
-            content=content_val, 
+            id="123",
+            role="user",
+            content=content_val,
             timestamp="2023-01-01"
         )
         print(f"Sanitized Validation: PASSED. Content: {m2.content[:20]}...")

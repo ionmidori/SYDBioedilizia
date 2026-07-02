@@ -1,7 +1,9 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-from src.tools.quote_tools import suggest_quote_items_wrapper
 from src.services.insight_engine import InsightAnalysis, SKUItemSuggestion
+from src.tools.quote_tools import suggest_quote_items_wrapper
+
 
 @pytest.mark.asyncio
 async def test_suggest_quote_items_wrapper_success():
@@ -44,7 +46,7 @@ async def test_suggest_quote_items_wrapper_success():
                 assert "Demolizione tramezzi" in result or "Demolition" in result
                 assert "pavimento ceramica" in result or "tiles" in result
                 assert "Subtotale" in result
-                
+
                 # Check Firestore call
                 # projects/{projectId}/private_data/quote
                 # db.collection('projects').document('test_project').collection('private_data').document('quote').set(...)
@@ -53,7 +55,7 @@ async def test_suggest_quote_items_wrapper_success():
                 mock_doc.collection.assert_called_with('private_data')
                 mock_subcol.document.assert_called_with('quote')
                 mock_subdoc.set.assert_called_once()
-                
+
                 call_args = mock_subdoc.set.call_args[0][0]
                 assert call_args["items"][0]["sku"] == "DEM-001"
                 assert call_args["financials"]["grand_total"] > 0

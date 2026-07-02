@@ -8,7 +8,6 @@ Mocking Notes:
 - We mock vertexai and google.adk imports to avoid requiring GCP credentials.
 - We test both InMemorySessionService (local) and VertexAiSessionService (prod) paths.
 """
-import pytest
 
 
 class TestGetSessionServiceSingleton:

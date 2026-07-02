@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
 from src.db.leads import save_lead
 from src.models.lead import LeadData
+
 
 class SubmitLeadInput(BaseModel):
     """Input schema for submit_lead tool."""
@@ -36,7 +38,7 @@ async def submit_lead_wrapper(
             room_type=room_type,
             style=style
         )
-        
+
         result = await save_lead(lead_data, uid, session_id)
         return f"Lead saved successfully! ID: {result['lead_id']}"
     except Exception as e:

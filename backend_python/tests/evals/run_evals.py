@@ -16,8 +16,8 @@ Usage:
 
 Requires: GOOGLE_API_KEY or GEMINI_API_KEY in .env (calls live Gemini API).
 """
-import asyncio
 import argparse
+import asyncio
 import json
 import logging
 import sys
@@ -28,6 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from dotenv import load_dotenv
+
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 from google.adk.evaluation import AgentEvaluator

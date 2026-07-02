@@ -8,7 +8,7 @@ Tests cover:
 - Smaltimento consolidation: Debris container consolidation
 """
 import pytest
-from src.schemas.quote import AggregationAdjustment, QuoteItem
+from src.schemas.quote import QuoteItem
 from src.services.batch_aggregation_engine import (
     BatchAggregationEngine,
     ProjectQuoteSummary,

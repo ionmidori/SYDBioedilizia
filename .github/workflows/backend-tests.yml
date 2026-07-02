@@ -46,6 +46,9 @@ jobs:
       - name: 'Install dependencies'
         run: 'uv sync --all-extras'
 
+      - name: 'Lint (ruff)'
+        run: 'uv run ruff check src/ main.py tests/'
+
       - name: 'Dependency audit (supply chain security)'
         # CVE-2026-28277: langgraph msgpack deserialization (transitive via google-adk).
         # Post-exploitation only — requires checkpoint-store write access. No fix available yet.

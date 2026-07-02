@@ -6,16 +6,16 @@ Provides REST endpoints for user management:
 - Update user preferences
 - Delete account (GDPR Art. 17 Right to Erasure)
 """
-from fastapi import APIRouter, HTTPException, Depends, status
-from fastapi.responses import Response
 import logging
 
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import AppException
-from src.schemas.internal import UserSession
 from src.db import users as users_db
 from src.models.user import UserPreferences, UserPreferencesUpdate
-from src.services.audit import emit_audit_event, AuditAction, AuditResourceType
+from src.schemas.internal import UserSession
+from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 
 logger = logging.getLogger(__name__)
 

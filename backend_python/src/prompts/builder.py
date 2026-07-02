@@ -5,18 +5,18 @@ This module assembles the final prompt from modular components,
 ensuring clean separation of concerns and maintainability.
 """
 
-from .components.identity import IDENTITY, CRITICAL_PROTOCOLS, OUTPUT_RULES, REASONING_INSTRUCTIONS
-from .components.tools import TOOLS
+from .components.identity import CRITICAL_PROTOCOLS, IDENTITY, OUTPUT_RULES, REASONING_INSTRUCTIONS
 from .components.modes import MODES
 from .components.protocol import PROTOCOL
-from .components.video import VIDEO_ANALYSIS_PROTOCOL  # 🎬 NEW
 from .components.security import SECURITY_GUARDRAILS  # 🛡️ SECURITY
+from .components.tools import TOOLS
+from .components.video import VIDEO_ANALYSIS_PROTOCOL  # 🎬 NEW
 
 
 def build_system_instruction() -> str:
     """
     Assemble the complete system instruction from components.
-    
+
     Order matters:
     1. Identity - Who is SYD
     2. Critical Protocols - Universal rules
@@ -24,7 +24,7 @@ def build_system_instruction() -> str:
     4. Tools - How to use each tool
     5. Modes - Detailed workflows
     6. Protocol - State machine and anti-loop rules
-    
+
     Returns:
         Complete system instruction string
     """
@@ -41,7 +41,7 @@ def build_system_instruction() -> str:
         PROTOCOL,
         "<!-- END SYSTEM INSTRUCTION -->"
     ]
-    
+
     return "\n\n".join(components)
 
 

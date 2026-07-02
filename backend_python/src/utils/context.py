@@ -21,7 +21,7 @@ current_is_anonymous: ContextVar[bool] = ContextVar("current_is_anonymous", defa
 
 def get_current_user_id() -> str:
     """Get the current user's ID from context.
-    
+
     Returns:
         User ID string (UID or guest_IP), or "default" if not set.
     """
@@ -30,7 +30,7 @@ def get_current_user_id() -> str:
 
 def set_current_user_id(user_id: str) -> None:
     """Set the current user's ID in context.
-    
+
     Args:
         user_id: User identifier to set (UID or guest_IP)
     """

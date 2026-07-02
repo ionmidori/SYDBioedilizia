@@ -5,10 +5,10 @@ Shared test fixtures for mocking external dependencies.
 """
 import os
 import sys
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, AsyncMock, MagicMock, patch
-from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # ── Test isolation: force a DUMMY Gemini API key BEFORE any `src` import ──────
 # pydantic-settings ranks os.environ above the .env file, so this dummy overrides
@@ -33,7 +33,7 @@ def mock_env_development(monkeypatch):
     monkeypatch.setenv("ENV", "development")
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     monkeypatch.setenv("FIREBASE_STORAGE_BUCKET", "test-bucket.firebasestorage.app")
-    
+
     # Patch the actual settings object
     from src.core.config import settings
     with patch.object(settings, 'ENV', 'development'):
@@ -46,7 +46,7 @@ def mock_env_production(monkeypatch):
     monkeypatch.setenv("ENV", "production")
     monkeypatch.setenv("GEMINI_API_KEY", "test-api-key")
     monkeypatch.setenv("FIREBASE_STORAGE_BUCKET", "test-bucket.firebasestorage.app")
-    
+
     # Patch the actual settings object
     from src.core.config import settings
     with patch.object(settings, 'ENV', 'production'):
@@ -57,18 +57,18 @@ def mock_env_production(monkeypatch):
 def mock_firestore_client():
     """Mock Firestore client to avoid real database calls."""
     mock_client = MagicMock()
-    
+
     # Mock collection and document references
     mock_collection = MagicMock()
     mock_doc_ref = MagicMock()
     mock_snapshot = MagicMock()
-    
+
     # Configure return values
     mock_client.collection.return_value = mock_collection
     mock_collection.document.return_value = mock_doc_ref
     mock_doc_ref.get.return_value = mock_snapshot
     mock_snapshot.exists = False
-    
+
     return mock_client
 
 
@@ -78,11 +78,11 @@ def mock_storage_client():
     mock_client = MagicMock()
     mock_bucket = MagicMock()
     mock_blob = MagicMock()
-    
+
     mock_client.bucket.return_value = mock_bucket
     mock_bucket.blob.return_value = mock_blob
     mock_blob.public_url = "https://storage.googleapis.com/test-bucket/renders/test.jpg"
-    
+
     return mock_client
 
 
@@ -180,12 +180,12 @@ def mock_quote_graph():
         with patch("src.adk.hitl.approve_quote_hitl") as mock_approve:
             mock_start.return_value = {"status": "awaiting_admin_review"}
             mock_approve.return_value = {"status": "completed"}
-            
+
             # Pack them into an object for test compatibility if needed
             class MockHitl:
                 start = mock_start
                 approve = mock_approve
-            
+
             yield MockHitl()
 
 
@@ -236,10 +236,10 @@ def mock_firestore_update():
         # get_async_firestore_client is async, so its mock must be awaited
         mock_client = MagicMock()
         mock_doc = AsyncMock()
-        
+
         # Sync ref chain
         mock_client.collection.return_value.document.return_value.collection.return_value.document.return_value = mock_doc
-        
+
         # Async return value for the function itself
         mock_fs.side_effect = AsyncMock(return_value=mock_client)
         yield mock_fs
@@ -251,7 +251,7 @@ def mock_httpx_async_client():
     with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_response = MagicMock()
-        
+
         # Mock sync methods
         mock_response.json.return_value = {"status": "success"}
         mock_response.raise_for_status.return_value = None
@@ -261,7 +261,7 @@ def mock_httpx_async_client():
         # Mock async context manager
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
-        
+
         # Mock async post
         mock_client.post = AsyncMock(return_value=mock_response)
 

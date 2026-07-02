@@ -7,16 +7,15 @@ Tests both HTTP endpoints with mocked graph singleton:
 
 Pattern: TestClient + AsyncMock for FastAPI async route testing.
 """
+from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock, patch
-
 from src.core.exceptions import (
-    QuoteNotFoundError,
-    QuoteAlreadyApprovedError,
     CheckpointError,
+    QuoteAlreadyApprovedError,
+    QuoteNotFoundError,
 )
-
 
 # ─── Helper to create TestClient ──────────────────────────────────────────────
 
@@ -140,7 +139,7 @@ class TestApproveQuoteFlow:
         assert data["status"] == "completed"
         assert data["decision"] == "approve"
         assert data["project_id"] == "test-project-001"
-        
+
         mock_quote_graph.approve.assert_called_once()
 
     @pytest.mark.asyncio

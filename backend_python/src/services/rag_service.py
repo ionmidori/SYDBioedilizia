@@ -6,14 +6,13 @@ Namespaces:
     - 'prezzario': Structured price-list articles (Tariffa Regionale Lazio 2023)
     - 'normative': Regulatory knowledge, building codes, bonus fiscali
 """
+import asyncio
 import hashlib
 import logging
-import asyncio
-from typing import List, Dict, Any, Optional
 import uuid
+from typing import Any, Dict, List, Optional
 
-from pinecone import Pinecone, ServerlessSpec, CloudProvider, AwsRegion, EmbedModel, IndexEmbed
-from pinecone import SearchQuery
+from pinecone import AwsRegion, CloudProvider, EmbedModel, IndexEmbed, Pinecone, SearchQuery
 
 from src.core.config import settings
 
@@ -27,18 +26,18 @@ NAMESPACE_NORMATIVE = "normative"
 class RAGService:
     """Service to handle retrieval and indexing operations using Pinecone
     Integrated Inference with multilingual-e5-large."""
-    
+
     def __init__(self):
         self.pc: Optional[Pinecone] = None
         self.index = None
         self._initialize()
-    
+
     def _initialize(self):
         try:
             if settings.PINECONE_API_KEY:
                 self.pc = Pinecone(api_key=settings.PINECONE_API_KEY)
                 index_name = "syd-knowledge"
-                
+
                 if index_name in [idx.name for idx in self.pc.list_indexes()]:
                     self.index = self.pc.Index(index_name)
                     logger.info(f"Connected to Pinecone index: {index_name}")
@@ -56,7 +55,7 @@ class RAGService:
                     )
                     self.index = self.pc.Index(host=index_config.host)
                     logger.info(f"Successfully created and connected to index: {index_name}")
-                    
+
         except Exception as e:
             logger.error(f"Failed to initialize RAGService database: {e}", exc_info=True)
             self.pc = None
@@ -216,7 +215,7 @@ class RAGService:
         if not self.index:
             logger.error("RAGService not fully initialized. Cannot upsert.")
             return False
-            
+
         records = []
         for chunk in chunks:
             record = chunk.copy()
@@ -231,7 +230,7 @@ class RAGService:
             if "text" in record:
                 del record["text"]
             records.append(record)
-            
+
         try:
             batch_size = 50
             total_batches = (len(records) + batch_size - 1) // batch_size

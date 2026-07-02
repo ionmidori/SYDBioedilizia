@@ -8,16 +8,16 @@ New code should use:
 
 Kept for backward compatibility with existing production data.
 """
-from datetime import datetime
-from src.utils.datetime_utils import utc_now
-from typing import Optional, Dict, Any, Literal
-from pydantic import BaseModel, Field
 import logging
+from datetime import datetime
+from typing import Any, Dict, Literal, Optional
+
+from pydantic import BaseModel, Field
 from src.db.firebase_client import get_async_firestore_client
+from src.utils.datetime_utils import utc_now
+from src.utils.serialization import parse_firestore_datetime
 
 logger = logging.getLogger(__name__)
-
-from src.utils.serialization import parse_firestore_datetime
 
 # Pydantic Models for Quote Data Structure (LEGACY v1 — see schemas/quote.py for v2)
 
@@ -49,14 +49,14 @@ class QuoteDraftData(BaseModel):
     logistics: Optional[LogisticsData] = None
     scopeOfWork: Optional[ScopeOfWorkData] = None
     quantities: Optional[QuantitiesData] = None
-    
+
     # Context
     roomType: Optional[str] = None
     style: Optional[str] = None
-    
+
     # Generated Visuals
     renderUrl: Optional[str] = None
-    
+
     # Metadata
     clientId: str
     status: Literal['draft', 'pending_review', 'processed'] = 'draft'
@@ -83,18 +83,18 @@ async def save_quote_draft(
 ) -> str:
     """
     Saves a new quote draft to the 'quotes' collection in Firestore.
-    
+
     Args:
         user_id: The ID of the user (or session ID if anonymous)
         image_url: Optional URL of the reference image or generated render
         ai_data: The structured data collected by the Technical Surveyor (Mode B)
-        
+
     Returns:
         The ID of the created document
     """
     try:
         db = get_async_firestore_client()
-        
+
         # Prepare data structure from loose AI dictionary
         quote_model = QuoteDraftData(
             clientId=user_id,
@@ -106,14 +106,14 @@ async def save_quote_draft(
             style=ai_data.get('style'),
             status='draft'
         )
-        
+
         # Add to 'quotes' collection (Async)
         collection_ref = db.collection('quotes')
         _, doc_ref = await collection_ref.add(quote_model.to_firestore())
-        
+
         logger.info(f"[QuoteSystem] Draft saved with ID: {doc_ref.id} for User: {user_id}")
         return doc_ref.id
-        
+
     except Exception as e:
         logger.error(f"[QuoteSystem] Error saving quote draft: {e}")
         raise Exception(f"Failed to save quote draft: {str(e)}")

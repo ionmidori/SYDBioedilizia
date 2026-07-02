@@ -5,57 +5,58 @@ Wraps the Vertex API Agent Engine runner into the BaseOrchestrator interface for
 Stream format: Data Stream Protocol v1 (compatible with Vercel AI SDK v6 / @ai-sdk/react v3).
 Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol#data-stream-protocol
 """
+import asyncio
 import json
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
-from typing import AsyncIterator, Any
+from typing import Any, AsyncIterator
+from urllib.parse import urlparse
+
+import httpx
+from google.adk.events import Event, EventActions
 from google.adk.runners import Runner
 from google.genai import types
 
-from src.services.base_orchestrator import BaseOrchestrator
 from src.adk.agents import syd_orchestrator
-from src.adk.session import get_session_service, get_artifact_service
-from src.adk.filters import sanitize_before_agent, filter_agent_output
-from src.repositories.conversation_repository import get_conversation_repository
+from src.adk.filters import filter_agent_output, sanitize_before_agent
+from src.adk.session import get_artifact_service, get_session_service
 from src.db.firebase_client import get_async_firestore_client
-import httpx
-import asyncio
-import time
-from urllib.parse import urlparse
-from google.adk.events import Event, EventActions
+from src.repositories.conversation_repository import get_conversation_repository
+from src.services.base_orchestrator import BaseOrchestrator
+from src.utils.circuit_breaker import vertex_ai_breaker
+from src.utils.stream_protocol import (
+    stream_artifact_event,
+    stream_data,
+    stream_error,
+    stream_status,
+    stream_text,
+    stream_tool_call,
+    stream_tool_result,
+    stream_ui_widget,
+    to_ui_message_stream,
+)
 
 logger = logging.getLogger(__name__)
 
 
-from src.utils.stream_protocol import (
-    stream_text,
-    stream_data,
-    stream_error,
-    stream_status,
-    stream_tool_call,
-    stream_tool_result,
-    stream_ui_widget,
-    stream_artifact_event,
-    to_ui_message_stream,
-)
-from src.utils.circuit_breaker import vertex_ai_breaker
-
 class ADKOrchestrator(BaseOrchestrator):
     def __init__(self):
-        from src.core.config import settings
         import vertexai
-        
+
+        from src.core.config import settings
+
         # P1 Requirement: EU Region constraint for ADK and CMEK Encryption
         logger.info(
-            "Initializing Vertex AI for ADK", 
+            "Initializing Vertex AI for ADK",
             extra={
-                "project_id": settings.GOOGLE_CLOUD_PROJECT, 
+                "project_id": settings.GOOGLE_CLOUD_PROJECT,
                 "location": settings.ADK_LOCATION,
                 "cmek": bool(settings.ADK_CMEK_KEY_NAME)
             }
         )
-        
+
         vertexai.init(
             project=settings.GOOGLE_CLOUD_PROJECT,
             location=settings.ADK_LOCATION
@@ -127,13 +128,13 @@ class ADKOrchestrator(BaseOrchestrator):
         if hasattr(request, "messages") and request.messages:
             last_msg_content = request.messages[-1].content
             user_message_text = last_msg_content if isinstance(last_msg_content, str) else str(last_msg_content)
-            
+
         sanitized_input = await sanitize_before_agent(user_message_text or "")
         # FIX: Use the client's session_id to ensure chats don't mix up across projects
         session_id = getattr(request, "session_id", "default-session")
-        
+
         # ────────── SYSTEM CONTEXT INJECTION (Auth State) ──────────
-        # Since ADK agents have static instructions, we must inject dynamic state 
+        # Since ADK agents have static instructions, we must inject dynamic state
         # (like authentication status) into the user's message payload.
         is_guest = user_session.is_anonymous or not user_session.is_authenticated
         auth_status_msg = (
@@ -166,13 +167,13 @@ class ADKOrchestrator(BaseOrchestrator):
             f"PHONE_ON_FILE: {'true' if phone_on_file else 'false'}\n"
             f"[END_SYSTEM_MESSAGE]\n\n"
         )
-        
+
         # Apply the Sandwich Defense boundary delimiters to the clean input
         delimited_input = f"{system_context}###\n{sanitized_input}\n###"
-        
+
         # Multimodal Injection & Triage Trigger
         content_parts = [types.Part(text=delimited_input)]
-        
+
         media_urls = getattr(request, "media_urls", []) or []
         video_uris = getattr(request, "video_file_uris", []) or []
         media_types = getattr(request, "media_types", []) or []
@@ -191,7 +192,7 @@ class ADKOrchestrator(BaseOrchestrator):
                 if not (hostname_ok or path_ok):
                     logger.warning(f"Rejected invalid media URL source: {url}")
                     return None
-                
+
                 async with httpx.AsyncClient(timeout=15.0) as client:
                     response = await client.get(url)
                     response.raise_for_status()
@@ -242,7 +243,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     session = None
                 else:
                     raise e
-            
+
             if session is None:
                 session = await session_service.create_session(
                     app_name="syd_orchestrator",
@@ -300,7 +301,7 @@ class ADKOrchestrator(BaseOrchestrator):
                 if not content_parts:
                     # ADK requires at least one part for a new_message to be valid
                     content_parts = [types.Part(text="[No content]")]
-                    
+
                 actual_message = types.Content(role="user", parts=content_parts)
                 logger.info(f"[ADK] Starting run_async. Session: {session_id}, Parts: {len(content_parts)}")
 
@@ -487,7 +488,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                             )
                                             async for chunk in stream_tool_result(call_id, raw_response):
                                                 yield chunk
-                                                
+
                                             # ── Persist Tool Result to Firestore ──
                                             try:
                                                 repo = get_conversation_repository()

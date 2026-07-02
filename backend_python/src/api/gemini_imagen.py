@@ -1,11 +1,11 @@
-import logging
 import asyncio
 import base64
-from typing import Optional, Dict, Any, List
-from google import genai
-from google.genai import types
-from google.api_core import exceptions as google_exceptions
+import logging
+from typing import Any, Dict, List, Optional
 
+from google import genai
+from google.api_core import exceptions as google_exceptions
+from google.genai import types
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -40,14 +40,14 @@ async def generate_image_t2i(
 ) -> Dict[str, Any]:
     """
     Generate an interior design image from text using Gemini 2.0 Flash.
-    
+
     Args:
         prompt: Detailed description of the desired interior design
         negative_prompt: Optional constraints (what to avoid)
-        
+
     Returns:
         Dictionary with base64 encoded image and metadata
-        
+
     Raises:
         Exception: If API call fails or no API key configured
     """
@@ -59,13 +59,13 @@ async def generate_image_t2i(
             "Generate a photorealistic interior design image. "
             "Focus on architectural accuracy, lighting quality, and material realism."
         )
-        
+
         full_prompt = f"{safety_instruction}\n\n{prompt}"
         if negative_prompt:
             full_prompt += f"\n\n[AVOID]: {negative_prompt}"
-        
+
         logger.info(f"Generating T2I image with prompt length: {len(full_prompt)} chars")
-        
+
         # Generate content with new SDK (Async)
         response = await client.aio.models.generate_content(
             model=model,
@@ -76,26 +76,26 @@ async def generate_image_t2i(
                 image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
             )
         )
-        
+
         # Extract image from response
         if not response.candidates or not response.candidates[0].content.parts:
             raise Exception("No content returned from Gemini API")
-        
+
         image_part = None
         for part in response.candidates[0].content.parts:
             if part.inline_data and part.inline_data.mime_type.startswith('image/'):
                 image_part = part
                 break
-        
+
         if not image_part:
             raise Exception("No image found in API response")
-        
+
         # Get base64 image data
         image_base64 = base64.b64encode(image_part.inline_data.data).decode('utf-8')
-        
+
         image_size_kb = len(image_base64) * 0.75 / 1024
         logger.info(f"T2I generation complete! Image size: ~{image_size_kb:.2f} KB")
-        
+
         return {
             "success": True,
             "image_base64": image_base64,
@@ -105,7 +105,7 @@ async def generate_image_t2i(
                 "mode": "text-to-image"
             }
         }
-        
+
     except google_exceptions.InvalidArgument as e:
         logger.error(f"[Gemini] ❌ Invalid Argument (400): {e}")
         raise Exception("Errore nell'immagine o nel prompt. Riprova con parametri diversi.")
@@ -128,17 +128,17 @@ async def generate_image_i2i(
 ) -> Dict[str, Any]:
     """
     Generate an interior design image from an existing image using Gemini (I2I mode).
-    
+
     Args:
-        source_image_bytes: Original room image as bytes        
+        source_image_bytes: Original room image as bytes
         prompt: Description of the desired renovation/transformation
         keep_elements: Optional list of elements to preserve
         negative_prompt: Optional constraints (what to avoid)
         mime_type: MIME type of the source image (default: image/jpeg)
-        
+
     Returns:
         Dictionary with base64 encoded image and metadata
-        
+
     Raises:
         Exception: If API call fails or no API key configured
     """
@@ -149,20 +149,20 @@ async def generate_image_i2i(
         preservation_note = ""
         if keep_elements:
             preservation_note = f"\n\nIMPORTANT: Preserve these elements: {', '.join(keep_elements)}"
-        
+
         geometric_instruction = (
             "[INSTRUCTION: Use the attached image as the strict geometric base. "
             "Maintain all structural lines, room layout, and spatial relationships exactly. "
             "Transform ONLY the surfaces, materials, colors, lighting, and furnishings "
             "according to the description below.]"
         )
-        
+
         full_prompt = f"{geometric_instruction}\n\n{prompt}{preservation_note}"
         if negative_prompt:
             full_prompt += f"\n\n[AVOID]: {negative_prompt}"
-        
+
         logger.info(f"Generating I2I image with prompt length: {len(full_prompt)} chars")
-        
+
         # Build multimodal content - Aligned with working triage.py
         contents = [
             types.Content(
@@ -172,9 +172,9 @@ async def generate_image_i2i(
                 ]
             )
         ]
-        
+
         logger.info(f"[Gemini] ⏳ Sending I2I request line... model={I2I_MODEL}")
-        
+
         # Call API Async with explicit configuration and timeout
         try:
             response = await asyncio.wait_for(
@@ -192,35 +192,35 @@ async def generate_image_i2i(
         except asyncio.TimeoutError:
             logger.error("[Gemini] ❌ I2I Request timed out after 90s")
             raise Exception("La generazione dell'immagine ha impiegato troppo tempo. Riprova.")
-        
+
         logger.info("[Gemini] ✅ API Response received!")
-        
+
         if not response.candidates:
              raise Exception("No candidates returned from API")
-             
+
         if not response.candidates[0].content.parts:
              raise Exception("Candidate has no parts")
-        
+
         image_base64 = None
         returned_mime_type = mime_type
-        
+
         for part in response.candidates[0].content.parts:
             if part.text:
                 logger.info(f"[Gemini] Received text part: {part.text[:100]}...")
-            
+
             if part.inline_data and part.inline_data.mime_type.startswith('image/'):
                  logger.info(f"[Gemini] Found IMAGE part ({part.inline_data.mime_type})")
                  # SDK returns bytes in part.inline_data.data
                  image_base64 = base64.b64encode(part.inline_data.data).decode('utf-8')
                  returned_mime_type = part.inline_data.mime_type
                  break
-        
+
         if not image_base64:
             raise Exception("No image found in API response parts")
-        
+
         image_size_kb = len(image_base64) * 0.75 / 1024
         logger.info(f"I2I generation complete! Image size: ~{image_size_kb:.2f} KB")
-        
+
         return {
             "success": True,
             "image_base64": image_base64,
@@ -230,7 +230,7 @@ async def generate_image_i2i(
                 "mode": "image-to-image"
             }
         }
-        
+
     except google_exceptions.InvalidArgument as e:
         logger.error(f"[Gemini] ❌ Invalid Argument (400): {e}")
         raise Exception("L'immagine caricata non è valida o il prompt è incorretto.")

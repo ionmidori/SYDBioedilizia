@@ -7,29 +7,28 @@ Implements FIDO2/WebAuthn protocol for biometric authentication:
 - Platform authenticator (FaceID/TouchID)
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status, Request
-from pydantic import BaseModel, Field
-from firebase_admin import firestore, auth
-from src.auth.jwt_handler import get_current_user_id
-from src.db.firebase_client import get_firestore_client
-from src.core.config import settings
 import base64
 import logging
 import time
-from typing import Optional, Dict, Any
+from typing import Optional
 from urllib.parse import urlparse
 
-from fido2.webauthn import (
-    PublicKeyCredentialRpEntity,
-    PublicKeyCredentialUserEntity,
-    AuthenticatorSelectionCriteria,
-    UserVerificationRequirement,
-    AuthenticatorAttachment,
-    AttestedCredentialData,
-    AuthenticatorData,
-)
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fido2.server import Fido2Server
 from fido2.utils import websafe_decode, websafe_encode
+from fido2.webauthn import (
+    AttestedCredentialData,
+    AuthenticatorAttachment,
+    AuthenticatorData,
+    PublicKeyCredentialRpEntity,
+    PublicKeyCredentialUserEntity,
+    UserVerificationRequirement,
+)
+from firebase_admin import auth, firestore
+from pydantic import BaseModel, Field
+from src.auth.jwt_handler import get_current_user_id
+from src.core.config import settings
+from src.db.firebase_client import get_firestore_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/passkey", tags=["auth"])
@@ -111,15 +110,11 @@ def _resolve_rp_id(request: Request) -> str:
 
 def _get_fido2_server(rp_id: str) -> Fido2Server:
     """Get a Fido2Server instance for the given RP ID."""
-    # Assuming standard origin based on RP ID. For production, you might want to strictly
-    # enforce https for non-localhost.
-    origin = f"https://{rp_id}" if rp_id != "localhost" else f"http://{rp_id}:3000"
-    
     # In Vercel previews, the origin is the exact preview URL
     # So we should be flexible or explicitly pass it from the request if possible,
     # but for Fido2Server initialization, setting verify_origin correctly is key.
     # Often, using a custom verify_origin function is safer if dynamic origins are used.
-    
+
     rp = PublicKeyCredentialRpEntity(id=rp_id, name="SYD - AI Renovation Assistant")
     return Fido2Server(rp)
 
@@ -148,7 +143,7 @@ async def get_registration_options(
     """Generate WebAuthn registration options using python-fido2."""
     if user_id != body.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot register passkey for another user")
-    
+
     _cleanup_challenges()
     if len(_challenge_store) >= _MAX_CHALLENGES:
         raise HTTPException(status_code=503, detail="Too many pending challenges.")
@@ -175,12 +170,6 @@ async def get_registration_options(
         display_name="SYD User"
     )
 
-    auth_selection = AuthenticatorSelectionCriteria(
-        authenticator_attachment=AuthenticatorAttachment.PLATFORM,
-        require_resident_key=True,
-        user_verification=UserVerificationRequirement.REQUIRED
-    )
-
     options, state = server.register_begin(
         user=user_entity,
         credentials=existing_creds,
@@ -194,7 +183,7 @@ async def get_registration_options(
     if isinstance(challenge_val, str):
         challenge_val = challenge_val.encode("utf-8")
     challenge_b64 = websafe_encode(challenge_val)
-    
+
     _challenge_store[challenge_b64] = {
         "user_id": user_id,
         "state": state,
@@ -202,7 +191,7 @@ async def get_registration_options(
     }
 
     logger.info(f"Generated passkey registration challenge for user {user_id} (RP_ID: {rp_id})")
-    
+
     return dict(options)
 
 
@@ -226,13 +215,13 @@ async def verify_registration(
     challenge_data = _challenge_store.pop(challenge_b64, None)
     if not challenge_data:
         raise HTTPException(status_code=400, detail="Challenge expired or invalid")
-        
+
     if challenge_data["user_id"] != user_id:
         raise HTTPException(status_code=403, detail="Challenge mismatch")
-    
+
     rp_id = _resolve_rp_id(request)
     server = _get_fido2_server(rp_id)
-    
+
     try:
         auth_data = server.register_complete(
             challenge_data["state"],
@@ -243,20 +232,20 @@ async def verify_registration(
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
 
     db = get_firestore_client()
-    
+
     # Store credential in Firestore
     cred_id_b64 = websafe_encode(auth_data.credential_data.credential_id)
-    
+
     credential_doc = {
         "credential_id": cred_id_b64,
-        "credential_data": auth_data.credential_data.to_dict(), 
+        "credential_data": auth_data.credential_data.to_dict(),
         "sign_count": auth_data.credential_data.sign_count if hasattr(auth_data.credential_data, 'sign_count') else 0,
         "created_at": firestore.SERVER_TIMESTAMP
     }
-    
+
     db.collection("users").document(user_id).collection("passkeys").document(cred_id_b64).set(credential_doc)
     logger.info(f"Passkey registered successfully for user {user_id}")
-    
+
     return {
         "success": True,
         "message": "Passkey registrata con successo"
@@ -277,14 +266,14 @@ async def get_authentication_options(
 
     rp_id = _resolve_rp_id(request)
     server = _get_fido2_server(rp_id)
-    
+
     allow_credentials = []
     if user_id:
         db = get_firestore_client()
         passkeys = db.collection("users").document(user_id).collection("passkeys").stream()
         for pk in passkeys:
              allow_credentials.append({"id": websafe_decode(pk.id), "type": "public-key"})
-        
+
         if not allow_credentials:
              raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nessuna passkey registrata per questo utente")
 
@@ -292,7 +281,7 @@ async def get_authentication_options(
         credentials=allow_credentials if allow_credentials else None,
         user_verification=UserVerificationRequirement.REQUIRED,
     )
-    
+
     # Convert state challenge to b64 string for keying
     challenge_val = state["challenge"]
     if isinstance(challenge_val, str):
@@ -303,7 +292,7 @@ async def get_authentication_options(
         "state": state,
         "expires_at": time.time() + 60
     }
-    
+
     logger.info(f"Generated passkey authentication challenge (user_id={user_id}) RP_ID: {rp_id}")
     return dict(options)
 
@@ -329,7 +318,7 @@ async def verify_authentication(
     # Determine user_id
     user_handle_b64 = assertion["response"].get("userHandle")
     user_id = None
-    
+
     if user_handle_b64:
         try:
             padding = "==" if len(user_handle_b64) % 4 else ""
@@ -344,10 +333,10 @@ async def verify_authentication(
 
     db = get_firestore_client()
     passkey_ref = db.collection("users").document(user_id).collection("passkeys").document(assertion["id"]).get()
-    
+
     if not passkey_ref.exists:
         raise HTTPException(status_code=404, detail="Passkey non riconosciuta")
-        
+
     stored_cred_data = passkey_ref.to_dict().get("credential_data")
     if not stored_cred_data:
         raise HTTPException(status_code=500, detail="Credential data missing from DB")
@@ -357,13 +346,13 @@ async def verify_authentication(
     try:
         # Reconstruct the AttestedCredentialData from the stored dict
         cred_obj = AttestedCredentialData.from_dict(stored_cred_data)
-        
+
         # We need the credential wrapped in a class that provides .credential_data and .sign_count
         class StoredCredential:
             def __init__(self, cred_data, count):
                 self.credential_data = cred_data
                 self.sign_count = count
-                
+
         stored_cred = StoredCredential(cred_obj, passkey_ref.to_dict().get("sign_count", 0))
     except Exception as e:
         logger.error(f"Failed to reconstruct credential: {e}")
@@ -371,7 +360,7 @@ async def verify_authentication(
 
     rp_id = _resolve_rp_id(request)
     server = _get_fido2_server(rp_id)
-    
+
     try:
         server.authenticate_complete(
             challenge_data["state"],
@@ -416,7 +405,7 @@ async def verify_authentication(
     except Exception as e:
         logger.error(f"Error creating custom token: {e}")
         raise HTTPException(status_code=500, detail="Token generation failed")
-    
+
     logger.info(f"Passkey authentication successful for user {user_id}")
 
     return {

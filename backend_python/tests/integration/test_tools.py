@@ -3,14 +3,15 @@ Integration Tests - Render Generation Tool
 ===========================================
 End-to-end tests for the generate_render tool (T2I and I2I modes).
 """
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
 from src.tools.generate_render import generate_render_wrapper
 
 
 class TestRenderGeneration:
     """Integration tests for render generation."""
-    
+
     @pytest.mark.asyncio
     async def test_t2i_generation_success(
         self,
@@ -27,7 +28,7 @@ class TestRenderGeneration:
             with patch('src.tools.generate_render._upload_base64_image_sync') as mock_upload:
                 mock_t2i.return_value = mock_gemini_imagen_response
                 mock_upload.return_value = "https://storage.googleapis.com/test/renders/image.jpg"
-                
+
                 # Act
                 result = await generate_render_wrapper(
                     prompt="Modern living room with natural light",
@@ -36,14 +37,14 @@ class TestRenderGeneration:
                     session_id="test-session",
                     mode="creation"
                 )
-        
+
         # Assert
         assert result["status"] == "success"
         assert "Rendering generated successfully" in result["description"]
         assert "https://storage.googleapis.com/" in result["imageUrl"]
         mock_t2i.assert_called_once()
         mock_upload.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_i2i_generation_with_architect(
         self,
@@ -58,12 +59,12 @@ class TestRenderGeneration:
         """
         # Arrange: Mock HTTP download
 
-        
+
         # NOTE: Patch src.vision.architect.generate_architectural_prompt because it is imported LOCALLY in the function
         # NOTE: Patch src.vision.architect.generate_architectural_prompt because it is imported LOCALLY in the function
         with patch('src.tools.generate_render.download_image_smart', new_callable=AsyncMock) as mock_download:
             mock_download.return_value = (sample_image_bytes, "image/jpeg")
-            
+
             with patch('src.vision.architect.generate_architectural_prompt', new_callable=AsyncMock) as mock_architect:
                 with patch('src.tools.generate_render.generate_image_i2i', new_callable=AsyncMock) as mock_i2i:
                      with patch('src.tools.generate_render._upload_base64_image_sync') as mock_upload:
@@ -77,7 +78,7 @@ class TestRenderGeneration:
                         )
                         mock_i2i.return_value = mock_gemini_imagen_response
                         mock_upload.return_value = "https://storage.googleapis.com/test/renders/transformed.jpg"
-                        
+
                         # Act
                         result = await generate_render_wrapper(
                             prompt="Transform to Industrial style",
@@ -88,22 +89,22 @@ class TestRenderGeneration:
                             source_image_url="https://example.com/source.jpg",
                             keep_elements=["floor", "stairs"]
                         )
-        
+
         # Assert
         assert result["status"] == "success"
         assert "Rendering transformed successfully" in result["description"]
         assert "https://storage.googleapis.com/" in result["imageUrl"]
-        
+
         # Verify Architect was called with correct params
         mock_architect.assert_called_once()
         call_kwargs = mock_architect.call_args.kwargs
         assert call_kwargs["target_style"] == "Industrial"
         assert call_kwargs["keep_elements"] == ["floor", "stairs"]
         assert call_kwargs["mime_type"] == "image/jpeg"
-        
+
         # Verify I2I was called
         mock_i2i.assert_called_once()
-    
+
     @pytest.mark.asyncio
     async def test_i2i_invalid_mime_type_rejection(
         self,
@@ -115,7 +116,7 @@ class TestRenderGeneration:
         """
         # Arrange: Mock HTTP download returning XML error
 
-        
+
         with patch('src.tools.generate_render.download_image_smart', new_callable=AsyncMock) as mock_download:
             mock_download.return_value = (b'Error', 'application/xml')
             # Act
@@ -127,11 +128,11 @@ class TestRenderGeneration:
                 mode="modification",
                 source_image_url="https://example.com/broken.jpg"
             )
-        
+
         # Assert
         assert "Errore" in result
         assert "application/xml" in result
-    
+
     @pytest.mark.asyncio
     async def test_architect_fallback_on_error(
         self,
@@ -145,12 +146,12 @@ class TestRenderGeneration:
         """
         # Arrange
 
-        
+
         # NOTE: Patch src.vision.architect since it's locally imported
         # NOTE: Patch src.vision.architect.generate_architectural_prompt because it is imported LOCALLY in the function
         with patch('src.tools.generate_render.download_image_smart', new_callable=AsyncMock) as mock_download:
             mock_download.return_value = (sample_image_bytes, "image/jpeg")
-            
+
             with patch('src.vision.architect.generate_architectural_prompt', new_callable=AsyncMock) as mock_architect:
                 with patch('src.tools.generate_render.generate_image_i2i', new_callable=AsyncMock) as mock_i2i:
                      with patch('src.tools.generate_render._upload_base64_image_sync') as mock_upload:
@@ -158,7 +159,7 @@ class TestRenderGeneration:
                         mock_architect.side_effect = Exception("Vision API error")
                         mock_i2i.return_value = mock_gemini_imagen_response
                         mock_upload.return_value = "https://storage.googleapis.com/test/renders/image.jpg"
-                        
+
                         # Act
                         result = await generate_render_wrapper(
                             prompt="Modern style",
@@ -168,11 +169,11 @@ class TestRenderGeneration:
                             mode="modification",
                             source_image_url="https://example.com/source.jpg"
                         )
-        
+
         # Assert: Should still succeed with fallback
         assert result["status"] == "success"
         assert "Rendering transformed successfully" in result["description"]
-        
+
         # Verify I2I was called with fallback prompt
         mock_i2i.assert_called_once()
         call_kwargs = mock_i2i.call_args.kwargs

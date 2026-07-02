@@ -3,12 +3,10 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from src.auth.jwt_handler import verify_token
-from src.schemas.internal import UserSession
 from src.db.projects import get_user_projects
-
-from src.services.gallery_service import get_gallery_service, GalleryService
-
 from src.schemas.gallery import GalleryResponse
+from src.schemas.internal import UserSession
+from src.services.gallery_service import GalleryService, get_gallery_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/reports", tags=["reports"])

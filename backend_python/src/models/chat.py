@@ -1,5 +1,7 @@
 from typing import Literal, Optional
+
 from pydantic import BaseModel
+
 
 class MediaAttachment(BaseModel):
     """
@@ -13,6 +15,6 @@ class MediaAttachment(BaseModel):
     file_uri: Optional[str] = None # For internal Gemini File API refs
     width: Optional[int] = None
     height: Optional[int] = None
-    
+
     def to_firestore(self) -> dict:
         return self.model_dump(exclude_none=True)

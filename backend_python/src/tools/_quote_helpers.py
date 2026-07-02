@@ -4,7 +4,6 @@ Shared helpers for quote generation (chat history, SKU validation, media extract
 import logging
 from typing import Any, Dict, List
 
-
 from src.services.pricing_service import PricingService
 
 logger = logging.getLogger(__name__)

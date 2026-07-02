@@ -1,6 +1,9 @@
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from pydantic import BaseModel, Field
+
 from .context import get_request_id
+
 
 class APIErrorResponse(BaseModel):
     """

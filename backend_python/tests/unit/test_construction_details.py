@@ -3,22 +3,19 @@ Unit Tests - Construction Site Details
 ======================================
 Tests for ProjectDetails Pydantic models and database operations.
 """
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from src.models.project import (
-    ProjectDetails,
     Address,
+    ProjectDetails,
     PropertyType,
-    ProjectDocument,
-    ProjectStatus,
 )
 
 
 class TestConstructionDetailsModels:
     """Test Pydantic models for construction details."""
-    
+
     def test_address_model_validation(self):
         """GIVEN valid address data
         WHEN Address is instantiated
@@ -52,7 +49,7 @@ class TestConstructionDetailsModels:
             technical_notes="Note di test",
             renovation_constraints=["Vincolo 1", "Vincolo 2"]
         )
-        
+
         assert details.id == "test-session-123"
         assert details.footage_sqm == 120.5
         assert details.property_type == PropertyType.APARTMENT
@@ -63,7 +60,7 @@ class TestConstructionDetailsModels:
 
 class TestConstructionDetailsDbOperations:
     """Test database operations for construction details."""
-    
+
     @pytest.mark.asyncio
     async def test_update_project_details_success(self):
         """GIVEN valid details and authorized user
@@ -71,18 +68,18 @@ class TestConstructionDetailsDbOperations:
         THEN should return True and call Firestore update
         """
         from src.db import projects as projects_db
-        
+
         # Mock Firestore
         mock_doc = MagicMock()
         mock_doc.exists = True
         mock_doc.to_dict.return_value = {"userId": "user-123"}
-        
+
         mock_doc_ref = AsyncMock()
         mock_doc_ref.get.return_value = mock_doc
-        
+
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
-        
+
         details = ProjectDetails(
             id="session-abc",
             footage_sqm=100,
@@ -91,10 +88,10 @@ class TestConstructionDetailsDbOperations:
             budget_cap=10000,
             renovation_constraints=[]
         )
-        
+
         with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
             result = await projects_db.update_project_details("session-abc", "user-123", details)
-        
+
         assert result is True
         mock_doc_ref.update.assert_called_once()
         update_data = mock_doc_ref.update.call_args[0][0]
@@ -108,18 +105,18 @@ class TestConstructionDetailsDbOperations:
         THEN should return False and NOT call Firestore update
         """
         from src.db import projects as projects_db
-        
+
         # Mock Firestore: Project exists but belongs to a different user
         mock_doc = MagicMock()
         mock_doc.exists = True
         mock_doc.to_dict.return_value = {"userId": "different-user"}
-        
+
         mock_doc_ref = AsyncMock()
         mock_doc_ref.get.return_value = mock_doc
-        
+
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
-        
+
         details = ProjectDetails(
             id="session-abc",
             footage_sqm=100,
@@ -128,10 +125,10 @@ class TestConstructionDetailsDbOperations:
             budget_cap=10000,
             renovation_constraints=[]
         )
-        
+
         with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
             result = await projects_db.update_project_details("session-abc", "user-123", details)
-        
+
         assert result is False
         # update should NOT be called except for possibly other calls, but we check this specific one
         mock_doc_ref.update.assert_not_called()

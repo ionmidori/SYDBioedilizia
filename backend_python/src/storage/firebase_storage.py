@@ -5,37 +5,38 @@ Ensures Storage uses the same credentials as Firestore,
 preventing authentication inconsistencies.
 """
 import logging
+
+import firebase_admin
 from google.cloud import storage
 from src.db.firebase_client import init_firebase
-import firebase_admin
 
 logger = logging.getLogger(__name__)
 
 def get_storage_client() -> storage.Client:
     """
     Get Google Cloud Storage client using Firebase Admin credentials.
-    
+
     Returns:
         storage.Client: Authenticated Storage client
-        
+
     Raises:
         ValueError: If Firebase is not properly initialized
     """
     # Ensure Firebase Admin SDK is initialized
     init_firebase()
-    
+
     # Get the Firebase Admin app instance
     try:
         app = firebase_admin.get_app()
     except ValueError:
         raise ValueError("Firebase Admin app not initialized. Call init_firebase() first.")
-    
+
     # Create Storage client using Firebase Admin credentials
     # This ensures Storage and Firestore use the same authentication
     client = storage.Client(
         credentials=app.credential.get_credential(),
         project=app.project_id
     )
-    
+
     logger.info(f"Storage client initialized for project: {app.project_id}")
     return client

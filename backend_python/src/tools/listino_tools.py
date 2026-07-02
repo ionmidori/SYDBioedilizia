@@ -10,7 +10,7 @@ detailed/formal quote.
 import logging
 import re
 import unicodedata
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from src.services.pricing_service import PricingService
 

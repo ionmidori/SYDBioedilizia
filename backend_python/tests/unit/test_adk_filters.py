@@ -9,9 +9,7 @@ Test Categories:
 - filter_agent_output: traceback masking, PII detection, project ID leak, system prompt boundary
 """
 import pytest
-
-from src.adk.filters import sanitize_before_agent, filter_agent_output, _MASKED_REPLY
-
+from src.adk.filters import _MASKED_REPLY, filter_agent_output, sanitize_before_agent
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # sanitize_before_agent

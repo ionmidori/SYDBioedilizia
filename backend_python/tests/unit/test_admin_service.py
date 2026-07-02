@@ -10,10 +10,9 @@ Workflow:
   3. n8n webhook delivery (deliver_quote_wrapper)
   4. Firestore update (update quote.status = "approved")
 """
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.core.exceptions import PDFGenerationError, DeliveryError
+import pytest
+from src.core.exceptions import DeliveryError, PDFGenerationError
 
 
 @pytest.fixture

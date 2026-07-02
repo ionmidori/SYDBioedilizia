@@ -11,28 +11,17 @@ Tests:
     4. Feature flag disabled → bypass (callback returns None immediately)
     5. Empty message → passes through without API call
 """
-import sys
-import pytest
 from unittest.mock import MagicMock, patch
-from dataclasses import dataclass
-from typing import Optional
 
+import pytest
 
-# We use unittest.mock to mock google.adk behavior where needed, but we don't 
+# We use unittest.mock to mock google.adk behavior where needed, but we don't
 # poison sys.modules so we avoid breaking other tests.
-
-
-
 # Now safe to import guardrails
 from src.adk.guardrails import (
     model_armor_before_model,
-    _extract_last_user_text,
-    _extract_response_text,
-    _make_blocked_response,
-    _INPUT_BLOCKED_MESSAGE,
 )
 from src.services.model_armor.model_armor_client import SanitizationVerdict
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 

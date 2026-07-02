@@ -1,9 +1,10 @@
 
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
-from unittest.mock import MagicMock
-from src.utils.serialization import parse_firestore_datetime, parse_enum
+
+from src.utils.serialization import parse_enum, parse_firestore_datetime
+
 
 class MockDatetimeWithNanoseconds:
     def __init__(self, dt):
@@ -30,12 +31,12 @@ class TestSerialization(unittest.TestCase):
         parsed = parse_firestore_datetime(iso_str)
         self.assertEqual(parsed.year, 2023)
         self.assertEqual(parsed.month, 1)
-        
+
     def test_parse_firestore_datetime_failure_defaults_to_now(self):
         # Invalid string
         val = parse_firestore_datetime("not-a-date")
         self.assertIsInstance(val, datetime)
-        
+
         # None
         val = parse_firestore_datetime(None)
         self.assertIsInstance(val, datetime)

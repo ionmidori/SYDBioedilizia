@@ -10,38 +10,38 @@ Prompt Architecture (Security-first, per 'securing-applications' skill):
 """
 import logging
 
-from src.adk.guardrails import model_armor_before_model, model_armor_after_model
 from google.adk.agents import Agent
 
+from src.adk.guardrails import model_armor_after_model, model_armor_before_model
 from src.adk.tools import (
-    pricing_engine_tool_adk,
-    market_prices_adk,
     generate_render_adk,
-    show_project_gallery_adk,
     list_project_files_adk,
-    suggest_quote_items_adk,
-    trigger_n8n_webhook_adk,
-    request_quote_approval_adk,
+    market_prices_adk,
+    pricing_engine_tool_adk,
     request_login_adk,
+    request_quote_approval_adk,
     retrieve_knowledge_adk,
-    search_listino_adk,
-    search_prezzario_adk,
     retrieve_price_by_code_adk,
     save_contact_phone_adk,
+    search_listino_adk,
+    search_prezzario_adk,
+    show_project_gallery_adk,
+    suggest_quote_items_adk,
+    trigger_n8n_webhook_adk,
 )
-
-# ── Prompt Components ─────────────────────────────────────────────────────────
-# Import the battle-tested SYD prompt system (src/prompts/).
-# Each component was used on LangGraph production and is now preserved 1:1.
-from src.prompts.components.security import SECURITY_GUARDRAILS, SECURITY_GUARDRAILS_TAIL
 from src.prompts.components.identity import (
-    IDENTITY,
     CRITICAL_PROTOCOLS,
+    IDENTITY,
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
 )
 from src.prompts.components.modes import MODE_A_DESIGNER, MODE_B_SURVEYOR
 from src.prompts.components.protocol import PROTOCOL
+
+# ── Prompt Components ─────────────────────────────────────────────────────────
+# Import the battle-tested SYD prompt system (src/prompts/).
+# Each component was used on LangGraph production and is now preserved 1:1.
+from src.prompts.components.security import SECURITY_GUARDRAILS, SECURITY_GUARDRAILS_TAIL
 from src.prompts.components.video import VIDEO_ANALYSIS_PROTOCOL
 
 logger = logging.getLogger(__name__)

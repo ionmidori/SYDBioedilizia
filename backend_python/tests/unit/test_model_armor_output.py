@@ -11,23 +11,16 @@ Tests:
     4. Feature flag disabled → bypass (callback returns None)
     5. Empty response → passes through without API call
 """
-import sys
-import pytest
-from dataclasses import dataclass
 from unittest.mock import MagicMock, patch
 
+import pytest
 
-# We use unittest.mock to mock google.adk behavior where needed, but we don't 
+# We use unittest.mock to mock google.adk behavior where needed, but we don't
 # poison sys.modules so we avoid breaking other tests.
-
-
-
 from src.adk.guardrails import (
     model_armor_after_model,
-    _OUTPUT_BLOCKED_MESSAGE,
 )
 from src.services.model_armor.model_armor_client import SanitizationVerdict
-
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -53,7 +46,6 @@ def make_llm_response():
     """Factory fixture — returns a function to create an LlmResponse with given text."""
     def _make(text: str):
         from google.genai import types
-        from src.adk.guardrails import _make_blocked_response
         # Build a real-ish LlmResponse structure
         response = MagicMock()
         content = types.Content(

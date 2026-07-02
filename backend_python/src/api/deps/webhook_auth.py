@@ -20,7 +20,6 @@ import logging
 import time
 
 from fastapi import HTTPException, Request, status
-
 from src.core.config import settings
 
 logger = logging.getLogger(__name__)

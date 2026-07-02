@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type PanInfo } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/components/dashboard/SidebarProvider';
 import { M3Spring } from '@/lib/m3-motion';
@@ -59,7 +59,7 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
     const dotHeight = size === 'small' ? 4 : 6;
     const inactiveDot = size === 'small' ? 4 : 6;
 
-    const handleDragEnd = (_: unknown, info: any) => {
+    const handleDragEnd = (_: unknown, info: PanInfo) => {
         // Swipe left (next)
         if (info.offset.x < -40) {
             const nextIndex = Math.min(activeIndex + 1, labels.length - 1);

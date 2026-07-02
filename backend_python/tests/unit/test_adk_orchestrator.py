@@ -13,9 +13,7 @@ Mocking:
 - Session service → InMemorySessionService
 - Filters → pass-through
 """
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 

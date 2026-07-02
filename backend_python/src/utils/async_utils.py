@@ -1,5 +1,6 @@
 import functools
-from typing import TypeVar, Callable, Any
+from typing import Any, Callable, TypeVar
+
 from starlette.concurrency import run_in_threadpool
 
 T = TypeVar("T")

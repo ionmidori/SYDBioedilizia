@@ -8,9 +8,8 @@ Verifies: SKU loading, per-item calculation, financial aggregation, and
 full quote construction from an AI-provided SKU list.
 """
 import pytest
-from src.services.pricing_service import PricingService
 from src.schemas.quote import QuoteItem
-
+from src.services.pricing_service import PricingService
 
 # ─── Price Book Loading ───────────────────────────────────────────────────────
 

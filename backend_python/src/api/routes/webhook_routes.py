@@ -14,7 +14,6 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, ValidationError
-
 from src.api.deps.webhook_auth import verify_n8n_webhook
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client

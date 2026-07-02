@@ -4,8 +4,9 @@ Video-specific Pydantic models for type safety.
 These models define the structure for video metadata and triage results.
 They ensure strict type synchronization with the frontend TypeScript interfaces.
 """
-from pydantic import BaseModel, Field
 from typing import Optional
+
+from pydantic import BaseModel, Field
 
 
 class VideoMetadata(BaseModel):
@@ -20,7 +21,7 @@ class VideoMetadata(BaseModel):
 
 class VideoTriageResult(BaseModel):
     """Result structure for video triage analysis.
-    
+
     Extends the standard image triage result with video-specific metadata
     and audio transcription notes.
     """

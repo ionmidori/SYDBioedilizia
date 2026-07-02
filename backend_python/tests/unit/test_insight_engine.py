@@ -16,19 +16,16 @@ Verifies:
 """
 from __future__ import annotations
 
-import asyncio
-import json
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from src.services.insight_engine import (
-    InsightEngine,
     InsightAnalysis,
+    InsightEngine,
     InsightEngineError,
     SKUItemSuggestion,
 )
 from src.services.pricing_service import PricingService
-
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -103,7 +100,7 @@ class TestBuildSystemPrompt:
 
 class TestAnalyzeProjectForQuote:
     """Tests for the Gemini call + structured output parsing.
-    
+
     Mocks the Gemini client to avoid real API calls in CI.
     """
 

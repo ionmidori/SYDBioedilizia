@@ -1,7 +1,9 @@
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 from src.schemas.storage import SignedUrlRequest
 from src.services.storage_service import StorageService
+
 
 @pytest.fixture
 def mock_storage():
@@ -24,7 +26,7 @@ async def test_generate_upload_url(mock_storage, mock_settings):
     mock_storage.bucket.return_value = mock_bucket
 
     service = StorageService()
-    
+
     request = SignedUrlRequest(
         filename="test_image.jpg",
         content_type="image/jpeg",

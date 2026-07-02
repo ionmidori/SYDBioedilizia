@@ -1,9 +1,10 @@
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from src.auth.jwt_handler import verify_token
+from src.schemas.internal import UserSession
 from src.schemas.storage import SignedUrlRequest, SignedUrlResponse
 from src.services.storage_service import StorageService, get_storage_service
-from src.schemas.internal import UserSession
-from src.auth.jwt_handler import verify_token
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ async def generate_signed_url(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required."
         )
-        
+
     try:
         response = await storage_service.generate_upload_url(request)
         logger.info(f"Generated signed URL for {request.filename} by user {user_session.uid}")

@@ -8,23 +8,23 @@ Provides REST endpoints for project management:
 - Update project metadata
 - Claim guest project (Deferred Auth)
 """
-from fastapi import APIRouter, HTTPException, Depends, status
-from typing import List
 import logging
+from typing import List
 
+from fastapi import APIRouter, Depends, HTTPException, status
 from src.auth.jwt_handler import verify_token
-from src.schemas.internal import UserSession
 from src.db import projects as projects_db
 from src.db.firebase_client import get_async_firestore_client
-from src.services.audit import emit_audit_event, AuditAction, AuditResourceType
 from src.models.project import (
     ProjectCreate,
+    ProjectDetails,
     ProjectDocument,
+    ProjectFileMetadata,
     ProjectListItem,
     ProjectUpdate,
-    ProjectDetails,
-    ProjectFileMetadata,
 )
+from src.schemas.internal import UserSession
+from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +37,16 @@ async def list_projects(
 ) -> List[ProjectListItem]:
     """
     List all projects for the authenticated user.
-    
+
     Returns:
         List of projects ordered by last activity.
     """
     try:
         user_id = user_session.uid
         logger.info(f"[API] Listing projects for user_id: {user_id}")
-        
+
         projects = await projects_db.get_user_projects(user_id)
-        
+
         # DEBUG: Log count
         logger.info(f"[API] Found {len(projects)} projects")
         return projects
@@ -65,27 +65,27 @@ async def get_project(
 ) -> ProjectDocument:
     """
     Get detailed project information.
-    
+
     Args:
         session_id: Project ID.
-    
+
     Returns:
         Full project document.
-    
+
     Raises:
         404: Project not found or not owned by user.
     """
     user_id = user_session.uid
     logger.info(f"[API] get_project request for session_id: {session_id} from user_id: {user_id}")
-    
+
     project = await projects_db.get_project(session_id, user_id)
-    
+
     if (not project):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="PROGETTO_NON_TROVATO_BACKEND"
         )
-    
+
     return project
 
 
@@ -96,16 +96,16 @@ async def create_project(
 ) -> dict:
     """
     Create a new project.
-    
+
     Args:
         data: Project creation data (title).
-    
+
     Returns:
         Object with session_id of the new project.
     """
     user_id = user_session.uid
     logger.info(f"[API] create_project request from user_id: {user_id} with data: {data}")
-    
+
     try:
         # 🛡️ PROJECT LIMIT CHECK
         # Max 5 projects per user
@@ -121,7 +121,7 @@ async def create_project(
         logger.info(f"[API] Created project {session_id} for user {user_id}")
         emit_audit_event(AuditAction.PROJECT_CREATE, AuditResourceType.PROJECT, session_id, user_id=user_id)
         return {"session_id": session_id}
-    
+
     # S4 FIX: Let HTTPExceptions (e.g. 403 limit) pass through
     except HTTPException:
         raise
@@ -141,24 +141,24 @@ async def update_project(
 ) -> dict:
     """
     Update project metadata (title, status, thumbnail).
-    
+
     Args:
         session_id: Project ID.
         data: Fields to update.
-    
+
     Returns:
         Success status.
     """
     user_id = user_session.uid
-    
+
     success = await projects_db.update_project(session_id, user_id, data)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Progetto non trovato o non autorizzato"
         )
-    
+
     return {"success": True}
 
 
@@ -169,25 +169,25 @@ async def claim_project(
 ) -> dict:
     """
     Claim a guest project (Deferred Auth).
-    
+
     Transfers ownership from guest_* to the authenticated user.
-    
+
     Args:
         session_id: Project ID with guest ownership.
-    
+
     Returns:
         Success status.
     """
     user_id = user_session.uid
-    
+
     success = await projects_db.claim_project(session_id, user_id)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Impossibile reclamare il progetto (non trovato o già assegnato)"
         )
-    
+
     logger.info(f"[API] User {user_id} claimed project {session_id}")
     emit_audit_event(AuditAction.PROJECT_CLAIM, AuditResourceType.PROJECT, session_id, user_id=user_id)
     return {"success": True, "message": "Progetto reclamato con successo"}
@@ -201,39 +201,39 @@ async def update_project_details(
 ) -> dict:
     """
     Update construction site details for a project.
-    
+
     This endpoint stores comprehensive project information that serves as
     the Single Source of Truth for AI context generation.
-    
+
     Args:
         session_id: Project ID.
         details: Construction site details (footage, property type, address, budget, etc.).
-    
+
     Returns:
         Success status.
-    
+
     Raises:
         404: Project not found or not owned by user.
         422: Validation error (handled by Pydantic).
     """
     user_id = user_session.uid
     logger.info(f"[API] update_project_details request for session_id: {session_id} from user_id: {user_id}")
-    
+
     # Ensure the details ID matches the session_id
     if details.id != session_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Project details ID must match session ID"
         )
-    
+
     success = await projects_db.update_project_details(session_id, user_id, details)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Progetto non trovato o non autorizzato"
         )
-    
+
     logger.info(f"[API] Successfully updated construction details for project {session_id}")
     return {"success": True, "message": "Dettagli del cantiere aggiornati con successo"}
 
@@ -249,19 +249,19 @@ async def add_project_file(
     """
     user_id = user_session.uid
     logger.info(f"[API] add_project_file request for session_id: {session_id} from user_id: {user_id}")
-    
+
     success = await projects_db.save_project_file_metadata(
-        session_id=session_id, 
-        user_id=user_id, 
+        session_id=session_id,
+        user_id=user_id,
         file_metadata=file_metadata.model_dump()
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Progetto non trovato o non autorizzato"
         )
-    
+
     return {"success": True, "message": "Metadati file salvati con successo"}
 
 
@@ -272,23 +272,23 @@ async def delete_project(
 ) -> dict:
     """
     Delete a project and all its associated data.
-    
+
     This is a destructive operation that:
     - Deletes all chat messages (messages subcollection)
     - Deletes the project document
-    
+
     Args:
         session_id: Project ID to delete.
-    
+
     Returns:
         Success status.
-    
+
     Raises:
         404: Project not found or not owned by user.
     """
     user_id = user_session.uid
     logger.info(f"[API] delete_project request for session_id: {session_id} from user_id: {user_id}")
-    
+
     success = await projects_db.soft_delete_project(session_id, user_id)
 
     if not success:

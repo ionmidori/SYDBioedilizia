@@ -1,9 +1,10 @@
+import json
 import logging
+import os
 import re
 import sys
-import os
-import json
 from logging.handlers import RotatingFileHandler
+
 from src.core.config import settings
 from src.core.context import get_request_id, get_session_id, get_user_id
 
@@ -62,9 +63,9 @@ def setup_logging():
     Configures the root logger with File (JSON) and Console (Human) handlers.
     Called once at application startup.
     """
-    log_dir = os.getcwd() 
+    log_dir = os.getcwd()
     log_file = os.path.join(log_dir, "server_debug.log")
-    
+
     # 1. JSON File Handler (Machine Readable)
     file_handler = RotatingFileHandler(
         log_file,
@@ -73,7 +74,7 @@ def setup_logging():
         encoding='utf-8'
     )
     file_handler.setFormatter(JsonFormatter(datefmt='%Y-%m-%d %H:%M:%S'))
-    
+
     # 2. Console Handler (Human Readable)
     # Force UTF-8 on Windows to support emoji in log messages (cp1252 can't encode them)
     if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
@@ -88,14 +89,14 @@ def setup_logging():
             '%(asctime)s | %(levelname)-8s | [%(name)s] %(message)s',
             datefmt='%H:%M:%S'
         ))
-    
+
     # 3. Root Logger Config
     logging.basicConfig(
         level=logging.INFO, # Force INFO as baseline
         handlers=[file_handler, console_handler],
-        force=True 
+        force=True
     )
-    
+
     # Silence noisy libs
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)

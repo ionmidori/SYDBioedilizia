@@ -4,9 +4,10 @@ Unit Tests - Architect (Vision)
 Tests for the architectural prompt generation (vision analysis).
 Uses google.genai native client (migrated from LangChain in Phase 4).
 """
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from src.vision.architect import generate_architectural_prompt, ArchitectOutput
+from src.vision.architect import ArchitectOutput, generate_architectural_prompt
 
 
 def _make_genai_client_mock(response_text: str) -> MagicMock:

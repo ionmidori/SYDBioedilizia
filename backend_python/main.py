@@ -1,25 +1,26 @@
 from dotenv import load_dotenv
+
 load_dotenv(".env")  # Load .env into os.environ before any other imports (required by google-adk, google-genai)
 
+import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, Request, Security, BackgroundTasks
-from fastapi.security import HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse, JSONResponse
+
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from src.core.rate_limit import limiter
-from src.auth.jwt_handler import verify_token, security
-from src.schemas.internal import UserSession
-from src.core.logger import setup_logging, get_logger
+from src.auth.jwt_handler import verify_token
 from src.core.config import settings
+from src.core.context import set_request_id
+from src.core.exceptions import AppException
+from src.core.logger import get_logger, setup_logging
+from src.core.rate_limit import limiter
+from src.core.schemas import APIErrorResponse
+from src.schemas.internal import UserSession
 from src.services.base_orchestrator import BaseOrchestrator
 from src.services.orchestrator_factory import get_orchestrator
-import uuid
-from src.core.context import set_request_id
-from src.core.schemas import APIErrorResponse
-from src.core.exceptions import AppException
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🔥 LOGGING & APP SETUP
@@ -47,8 +48,8 @@ async def lifespan(_app: FastAPI):
     #
     # Task reference stored on app.state per python-production-coding skill
     # ("No fire-and-forget: never use create_task without storing the reference").
-    from starlette.concurrency import run_in_threadpool
     from src.services.orchestrator_factory import warm_up_orchestrator
+    from starlette.concurrency import run_in_threadpool
 
     async def _background_warmup():
         try:
@@ -108,7 +109,11 @@ app.add_middleware(
 
 # 🆔 Request ID Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
 # ⚠️  Uses raw ASGI protocol to avoid buffering StreamingResponse for /chat/stream
-from starlette.types import ASGIApp as _ASGIApp, Receive as _Receive, Scope as _Scope, Send as _Send
+from starlette.types import ASGIApp as _ASGIApp
+from starlette.types import Receive as _Receive
+from starlette.types import Scope as _Scope
+from starlette.types import Send as _Send
+
 
 class RequestIDMiddleware:
     """
@@ -139,6 +144,7 @@ app.add_middleware(RequestIDMiddleware)
 
 # 📊 Metrics Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
 from src.middleware.metrics import MetricsMiddleware
+
 app.add_middleware(MetricsMiddleware)
 
 
@@ -203,6 +209,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # 🛡️ Security Headers Middleware (HSTS, CSP, XSS)
 from src.middleware.security_headers import SecurityHeadersMiddleware
+
 app.add_middleware(SecurityHeadersMiddleware)
 
 # 🔥 Global Error Catcher Middleware
@@ -217,6 +224,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # forwarding, which breaks StreamingResponse for /chat/stream.
 # See: https://www.starlette.io/middleware/#limitations
 from starlette.types import ASGIApp, Receive, Scope, Send
+
 
 class GlobalErrorCatcherMiddleware:
     """
@@ -275,12 +283,14 @@ app.add_middleware(GlobalErrorCatcherMiddleware)
 # Registered AFTER GlobalErrorCatcherMiddleware (LIFO = executes before it)
 # so duplicate replays skip all downstream processing including auth and rate limiting.
 from src.middleware.idempotency import IdempotencyMiddleware
+
 app.add_middleware(IdempotencyMiddleware)
 
 # 🔒 App Check Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
 # ⚠️  Uses raw ASGI protocol to avoid buffering StreamingResponse for /chat/stream
-from src.middleware.app_check import validate_app_check_token
 from src.core.exceptions import AppCheckError
+from src.middleware.app_check import validate_app_check_token
+
 
 class AppCheckMiddleware:
     """
@@ -344,57 +354,71 @@ app.add_middleware(AppCheckMiddleware)
 
 # Register Routers
 from src.api.routes.upload import router as upload_router
+
 app.include_router(upload_router)
 
 # Register chat history router
 from src.api.routes.chat_history import router as chat_history_router
+
 app.include_router(chat_history_router)
 
 # Register passkey router
 from src.api.routes.passkey import router as passkey_router
+
 app.include_router(passkey_router)
 
 # Register projects router (Dashboard)
 from src.api.routes.projects_router import router as projects_router
+
 app.include_router(projects_router)
 
 # Register reports router (gallery + dashboard stats)
 from src.api.routes.reports import router as reports_router
+
 app.include_router(reports_router)
 
 # Register metadata update router
 from src.api.routes.update_metadata import router as metadata_router
+
 app.include_router(metadata_router)
 # Register quote HITL router (skill: langgraph-hitl-patterns)
 from src.api.routes.quote_routes import router as quote_router
+
 app.include_router(quote_router)
 
 # Register batch submission routes (multi-project quote batches)
 from src.api.routes.batch_routes import router as batch_router
+
 app.include_router(batch_router)
 
 # Register users router
 from src.api.routes.users_router import router as users_router
+
 app.include_router(users_router)
 
 # Register feedback router (self-correction loop — evaluating-adk-agents skill)
 from src.api.routes.feedback import feedback_router
+
 app.include_router(feedback_router)
 
 # Register inbound webhook routes (n8n -> FastAPI callbacks, HMAC-SHA256 auth)
 from src.api.routes.webhook_routes import router as webhook_router
+
 app.include_router(webhook_router)
 
 # Register public content routes (testimonials, portfolio — replaces direct Firestore reads)
 from src.api.routes.content_routes import router as content_router
+
 app.include_router(content_router)
 
 # Register admin storage router (Signed URLs for direct upload)
 from src.api.routes.admin_storage import router as admin_storage_router
+
 app.include_router(admin_storage_router)
 
 # Register account lifecycle routes (GDPR inactivity pipeline — Cloud Scheduler only)
 from src.api.routes.lifecycle_routes import router as lifecycle_router
+
 app.include_router(lifecycle_router)
 
 # 🧪 TEST AUTOMATION ROUTER (Only in development)
@@ -432,9 +456,9 @@ async def submit_lead_endpoint(
     Bypasses the agent to save data directly to DB.
     """
     from src.tools.submit_lead import submit_lead_wrapper
-    
+
     user_id = user_session.uid
-    
+
     result = await submit_lead_wrapper(
         name=body.name,
         email=body.email,
@@ -443,7 +467,7 @@ async def submit_lead_endpoint(
         uid=user_id,
         session_id=body.session_id
     )
-    
+
     return {"status": "success", "message": result}
 
 class ChatMessage(BaseModel):
@@ -468,19 +492,19 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(..., max_length=100)
     session_id: str = Field(..., alias="sessionId", min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     # ✅ Support both images and videos
-    media_urls: list[str] | None = Field(None, alias="mediaUrls") 
+    media_urls: list[str] | None = Field(None, alias="mediaUrls")
     image_urls: list[str] | None = Field(None, alias="imageUrls")  # Backward compatibility
     media_types: list[str] | None = Field(None, alias="mediaTypes")  # Optional MIME type hints
     media_metadata: dict[str, dict] | None = Field(None, alias="mediaMetadata") # New: Trim Ranges
     # 🎬 NEW: Native Video Support (File API URIs)
     video_file_uris: list[str] | None = Field(None, alias="videoFileUris")  # File API URIs from /upload endpoint
-    
+
     # 🌍 CONTEXT AWARENESS (Renovation-Next)
     project_id: str | None = Field(None, alias="projectId", max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     # is_authenticated removed: auth state is derived exclusively from the verified JWT
     # via Depends(verify_token) → user_session.is_authenticated. Accepting it from the body
     # was redundant and opened a spoofing vector (client-controlled field bypassing JWT).
-    
+
     model_config = {"populate_by_name": True, "arbitrary_types_allowed": True}
     user_session: UserSession | None = Field(None, exclude=True) # Injected by Depends(verify_token)
 
@@ -547,7 +571,7 @@ async def chat_stream_generator(
     """
     Delegates streaming to the AgentOrchestrator.
     """
-    # Pass user_session.uid as credentials for backward compatibility if needed, 
+    # Pass user_session.uid as credentials for backward compatibility if needed,
     # but the orchestrator should ideally use request.user_session
     async for chunk in orchestrator.stream_chat(request, user_session):
         yield chunk
@@ -573,9 +597,9 @@ async def chat_stream(
     # per compensare l'alto costo computazionale di Gemini 2.5/3.0 Vision.
     has_media = bool(body.media_urls or body.video_file_uris)
     if has_media:
-        from slowapi.util import get_remote_address
         from slowapi.errors import RateLimitExceeded
-        
+        from slowapi.util import get_remote_address
+
         # slowapi exposes the underlying limits.Limiter via list of limits
         # We manually consume extra tokens for this specific limit
         try:
@@ -611,7 +635,8 @@ async def chat_stream(
         # Reuse the client's AI SDK message id as the Firestore doc id (stable identity).
         user_msg_id = body.messages[-1].id
 
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
+
     from src.repositories.conversation_repository import get_conversation_repository
     # Anchor timestamp: 100ms in the past guarantees user message sorts before assistant
     anchor_timestamp = datetime.now(timezone.utc) - timedelta(milliseconds=100)

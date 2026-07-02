@@ -40,5 +40,11 @@ jobs:
       - name: 'Dependency audit (supply chain security)'
         run: npm audit --audit-level=high
 
+      - name: 'Lint'
+        run: npm run lint
+
       - name: 'Type-check'
         run: npm run type-check
+
+      - name: 'Unit tests (Jest)'
+        run: npm test -- --ci

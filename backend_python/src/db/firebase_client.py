@@ -6,8 +6,8 @@ inside their factory functions to avoid loading google.cloud.firestore_v1 (and i
 ~14s google.api_core protobuf chain) at module import time. Only credentials and
 initialize_app are imported eagerly since init_firebase() is called early.
 """
-import os
 import logging
+import os
 
 import firebase_admin
 from firebase_admin import credentials, initialize_app

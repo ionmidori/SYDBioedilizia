@@ -13,13 +13,13 @@ S3 FIX: Quota is now tracked per-project (not per-user) to match business rules.
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from src.utils.datetime_utils import utc_now
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 from google.cloud.firestore_v1 import Increment, async_transactional
-from src.db.firebase_client import get_async_firestore_client
 from src.core.config import settings
 from src.core.exceptions import QuotaExceeded as _AppQuotaExceeded
+from src.db.firebase_client import get_async_firestore_client
+from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -99,39 +99,39 @@ def _build_quota_doc_id(user_id: str, tool_name: str, project_id: Optional[str] 
 
 
 async def check_quota(
-    user_id: str, 
-    tool_name: str, 
+    user_id: str,
+    tool_name: str,
     project_id: Optional[str] = None
 ) -> Tuple[bool, int, datetime]:
     """
     Check if the user has remaining quota for the specified tool.
     Supports Daily + Weekly limits and Administrator Overrides.
-    
+
     S2 FIX: Now fully async using get_async_firestore_client().
     S3 FIX: Quota tracked per-project when project_id is provided.
-    
+
     Args:
         user_id: Firebase UID.
         tool_name: Name of the tool to check quota for.
         project_id: Optional project/session ID for per-project tracking.
-    
+
     Returns:
         Tuple of (allowed, remaining, reset_at).
     """
     now = utc_now()
-    
+
     # ENVIRONMENT OVERRIDE: Unlimited quota in development
     if settings.ENV == "development":
         logging.info(f"[Quota] Dev mode active: Bypassing quota for {tool_name}")
         return True, 9999, now + timedelta(days=365)
-    
+
     db = get_async_firestore_client()
-    
+
     try:
         doc_id = _build_quota_doc_id(user_id, tool_name, project_id)
         quota_ref = db.collection("usage_quotas").document(doc_id)
         doc = await quota_ref.get()
-        
+
         # Override Logic
         custom_limit = None
         if doc.exists:
@@ -139,75 +139,75 @@ async def check_quota(
             if data.get("bypass_quota") is True:
                 logger.info(f"[Quota] 🛑 BYPASS ACTIVE for {doc_id} on {tool_name}")
                 return True, 9999, now + timedelta(days=365)
-            
+
             if data.get("override_limit") is not None:
                 custom_limit = int(data.get("override_limit"))
                 logger.info(f"[Quota] 🔧 CUSTOM LIMIT ACTIVE for {doc_id}: {custom_limit}")
-        
+
         # Determine limits
         is_authenticated = _is_authenticated_user(user_id)
         limits = QUOTA_LIMITS_AUTHENTICATED if is_authenticated else QUOTA_LIMITS_ANONYMOUS
         daily_limit = custom_limit if custom_limit is not None else limits.get(tool_name, float('inf'))
         weekly_limit = QUOTA_LIMITS_WEEKLY.get(tool_name)
-        
+
         logger.info(
             f"[Quota] Checking {doc_id} ({'auth' if is_authenticated else 'anon'}) "
             f"for {tool_name}. Limit: {daily_limit}/day, {weekly_limit}/week"
         )
-        
+
         # Check weekly limit (if applicable)
         if weekly_limit:
             weekly_doc_id = f"{doc_id}_weekly"
             weekly_ref = db.collection("usage_quotas").document(weekly_doc_id)
             weekly_doc = await weekly_ref.get()
-            
+
             if weekly_doc.exists:
                 w_data = weekly_doc.to_dict()
                 w_count = w_data.get("count", 0)
                 w_start = w_data.get("window_start")
                 if hasattr(w_start, 'timestamp'):
                     w_start = datetime.fromtimestamp(w_start.timestamp(), tz=timezone.utc)
-                
+
                 if now < w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS):
                     if w_count >= weekly_limit and custom_limit is None:
                          reset_at = w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS)
                          logger.warning(f"[Quota] Weekly limit reached for {doc_id}")
                          return False, 0, reset_at
-        
+
         # Check daily limit
         if not doc.exists:
             allowed = daily_limit > 0
             reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
             return allowed, max(0, daily_limit - 1) if allowed else 0, reset_at
-        
+
         data = doc.to_dict()
         count = data.get("count", 0)
         window_start = data.get("window_start")
-        
+
         if not window_start:
             reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
             return True, daily_limit - 1, reset_at
-        
-        if hasattr(window_start, 'timestamp'): 
+
+        if hasattr(window_start, 'timestamp'):
             window_start = datetime.fromtimestamp(window_start.timestamp(), tz=timezone.utc)
-        
+
         if now >= window_start + timedelta(hours=QUOTA_WINDOW_HOURS):
             allowed = daily_limit > 0
             reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
             return allowed, max(0, daily_limit - 1) if allowed else 0, reset_at
-        
+
         # Window active
         reset_at = window_start + timedelta(hours=QUOTA_WINDOW_HOURS)
         remaining = max(0, daily_limit - count)
         allowed = count < daily_limit
-        
+
         if not allowed:
             logger.warning(
                 f"[Quota] Daily limit reached for {doc_id} ({count}/{daily_limit})"
             )
-        
+
         return allowed, remaining, reset_at
-    
+
     except Exception as e:
         # SECURITY: fail-closed — deny operations during Firestore outages
         # to prevent quota bypass. Monitor this log for connectivity issues.
@@ -216,23 +216,23 @@ async def check_quota(
 
 
 async def increment_quota(
-    user_id: str, 
-    tool_name: str, 
+    user_id: str,
+    tool_name: str,
     project_id: Optional[str] = None
 ) -> None:
     """
     Increment the quota counter (Daily + Weekly).
-    
+
     S2 FIX: Now fully async.
     S3 FIX: Tracks per-project when project_id is provided.
     """
     db = get_async_firestore_client()
     doc_id = _build_quota_doc_id(user_id, tool_name, project_id)
-    
+
     # Update Daily Quota
     daily_ref = db.collection("usage_quotas").document(doc_id)
     await _increment_counter(db, daily_ref, user_id, tool_name, QUOTA_WINDOW_HOURS, project_id)
-    
+
     # Update Weekly Quota (if applicable)
     if tool_name in QUOTA_LIMITS_WEEKLY:
         weekly_ref = db.collection("usage_quotas").document(f"{doc_id}_weekly")

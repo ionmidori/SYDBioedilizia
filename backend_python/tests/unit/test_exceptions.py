@@ -4,19 +4,17 @@ Unit tests for the custom exception hierarchy.
 Skill: error-handling-patterns — verify structure, error_code, and inheritance.
 Rule: Every new Service/Exception set MUST have a test_ counterpart (rule #20).
 """
-import pytest
 from src.core.exceptions import (
     AppException,
-    QuoteNotFoundError,
-    QuoteAlreadyApprovedError,
     CheckpointError,
+    DeliveryError,
     PDFGenerationError,
     PDFUploadError,
-    DeliveryError,
+    QuoteAlreadyApprovedError,
+    QuoteNotFoundError,
     ResourceNotFound,
     ServiceError,
 )
-
 
 # ─── Inheritance ──────────────────────────────────────────────────────────────
 

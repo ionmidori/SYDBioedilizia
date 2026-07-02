@@ -11,7 +11,7 @@ Driven by test_admin_service.py (TDD approach).
 """
 import logging
 
-from src.core.exceptions import PDFGenerationError, DeliveryError
+from src.core.exceptions import DeliveryError, PDFGenerationError
 
 logger = logging.getLogger(__name__)
 

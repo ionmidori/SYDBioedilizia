@@ -1,13 +1,13 @@
-import sys
-import os
 import asyncio
 import logging
+import os
+import sys
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
+from src.db.firebase_client import init_firebase
 from src.db.projects import get_user_projects
-from src.db.firebase_client import init_firebase, get_async_firestore_client
 
 # Mock logging
 logging.basicConfig(level=logging.INFO)
@@ -20,8 +20,8 @@ async def trigger_index_error():
         # Use a dummy user ID that likely won't return results but will trigger the query plan
         # We need a user ID that definitely has <some> projects or just the query plan check?
         # Actually, query plan check happens even with no results if the index is missing.
-        user_id = "DOES_NOT_EXIST" 
-        
+        user_id = "DOES_NOT_EXIST"
+
         print(f"Querying projects for user: {user_id}")
         projects = await get_user_projects(user_id)
         print(f"Success? Retrieved {len(projects)} projects (Unexpected if index missing)")

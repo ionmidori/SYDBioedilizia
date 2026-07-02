@@ -1,17 +1,18 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
 import asyncio
 import logging
-import httpx
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
+
+import httpx
 from google import genai
 from google.genai import types as genai_types
-from src.services.insight_engine import get_insight_engine, InsightEngineError
-from src.services.pricing_service import PricingService
-from src.repositories.conversation_repository import ConversationRepository
-from src.db.firebase_client import get_async_firestore_client
-from src.vision.measure_room import measure_room_from_photo, format_measurements_for_insight
+from pydantic import BaseModel, Field
 from src.core.config import settings
+from src.db.firebase_client import get_async_firestore_client
+from src.repositories.conversation_repository import ConversationRepository
+from src.services.insight_engine import InsightEngineError, get_insight_engine
+from src.services.pricing_service import PricingService
+from src.vision.measure_room import format_measurements_for_insight, measure_room_from_photo
 
 logger = logging.getLogger(__name__)
 
@@ -381,7 +382,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
                 "Non è stato possibile analizzare automaticamente il progetto in questo momento. "
                 "Ti chiedo di descrivermi le lavorazioni previste e ti fornirò un preventivo manuale."
             )
-        
+
         if not analysis.suggestions:
             if analysis.missing_info:
                 questions = " ".join(analysis.missing_info[:2])
@@ -446,7 +447,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
         ]
         # We need a user_id. If not provided, we try to get it from context or use session_id
         final_user_id = user_id or "guest_" + session_id
-        
+
         quote = PricingService.create_quote_from_skus(project_id or session_id, final_user_id, sku_list)
 
         # Sanity check: suspiciously low totals often indicate malformed AI output
@@ -460,10 +461,10 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
         # 9. Save the draft to Firestore (Collection: projects/{projectId}/private_data/quote)
         db = get_async_firestore_client()
         target_project_id = project_id or session_id
-        
+
         quote_ref = db.collection('projects').document(target_project_id).collection('private_data').document('quote')
         await quote_ref.set(quote.model_dump(exclude_none=True))
-        
+
         # 10. Return human-readable Italian summary, grouped by WBS phase
         response = f"**{analysis.summary}**\n\nHo preparato una bozza di preventivo sulla base della nostra conversazione:\n\n"
 

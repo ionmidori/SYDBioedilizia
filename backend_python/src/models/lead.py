@@ -1,7 +1,9 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
 from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field
 from src.utils.datetime_utils import utc_now
+
 
 class LeadData(BaseModel):
     """Customer lead data model."""

@@ -12,20 +12,21 @@ import io
 import re
 import uuid
 from datetime import timedelta
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form, Request
-from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel
 from typing import Tuple
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from firebase_admin import storage as fb_storage
+from pydantic import BaseModel
 from src.auth.jwt_handler import verify_token
-from src.schemas.internal import UserSession
-from src.services.media_processor import MediaProcessor, get_media_processor, VideoProcessingError
+from src.core.exceptions import QuotaExceeded
 from src.core.logger import get_logger
 from src.models.media import ImageMediaAsset, VideoMediaAsset
-from src.utils.security import validate_image_magic_bytes, validate_video_magic_bytes, sanitize_filename
-from src.tools.quota import check_quota, increment_quota
-from src.core.exceptions import QuotaExceeded
 from src.repositories.conversation_repository import get_conversation_repository
+from src.schemas.internal import UserSession
+from src.services.media_processor import MediaProcessor, VideoProcessingError, get_media_processor
+from src.tools.quota import check_quota, increment_quota
+from src.utils.security import sanitize_filename, validate_image_magic_bytes, validate_video_magic_bytes
 
 logger = get_logger(__name__)
 

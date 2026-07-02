@@ -33,6 +33,8 @@ yarn-error.log*
 # server logs and debug files
 server*.log
 *.log
+*.log.*
+*.bak
 
 # env files (can opt-in for committing if needed)
 .env*
