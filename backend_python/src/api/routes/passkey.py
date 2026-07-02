@@ -22,6 +22,7 @@ from fido2.webauthn import (
     AuthenticatorData,
     PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
+    ResidentKeyRequirement,
     UserVerificationRequirement,
 )
 from firebase_admin import auth, firestore
@@ -173,6 +174,9 @@ async def get_registration_options(
     options, state = server.register_begin(
         user=user_entity,
         credentials=existing_creds,
+        # Resident (discoverable) credential required: authentication supports a
+        # username-less flow (PasskeyAuthenticationRequest.user_id is optional)
+        resident_key_requirement=ResidentKeyRequirement.REQUIRED,
         user_verification=UserVerificationRequirement.REQUIRED,
         authenticator_attachment=AuthenticatorAttachment.PLATFORM,
     )

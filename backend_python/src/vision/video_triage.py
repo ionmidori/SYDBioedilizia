@@ -340,12 +340,13 @@ async def analyze_video_triage(video_data: bytes, metadata: Optional[Dict[str, A
         with open(temp_input, 'wb') as f:
             f.write(video_data)
 
-        # Get metadata before optimization
-        vid_meta = get_video_metadata(temp_input)
+        # Get metadata before optimization (ffprobe subprocess — offloaded to keep the event loop free)
+        vid_meta = await asyncio.to_thread(get_video_metadata, temp_input)
         logger.info(f"Video metadata: {vid_meta.duration_seconds}s, {vid_meta.format}, {vid_meta.size_bytes} bytes")
 
-        # Optimize video (with optional trim)
-        temp_optimized = optimize_video(
+        # Optimize video (with optional trim) — blocking FFmpeg subprocess, offloaded to a thread
+        temp_optimized = await asyncio.to_thread(
+            optimize_video,
             temp_input,
             max_duration=30.0,
             trim_start=trim_start,
