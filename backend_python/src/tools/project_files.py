@@ -79,8 +79,8 @@ def list_project_files(session_id: str, category: Optional[str] = None, limit: i
             if is_match:
                 # Read metadata from Firebase Storage
                 metadata = blob.metadata or {}
-                room_tag = metadata.get('room', '').strip()
-                status_tag = metadata.get('status', '').strip()
+                room_tag = (metadata.get('room') or '').strip()
+                status_tag = (metadata.get('status') or '').strip()
 
                 # Build tag prefix for smart display
                 tags = []

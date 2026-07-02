@@ -63,13 +63,13 @@ def show_project_gallery(session_id: str, room: Optional[str] = None, status: Op
 
             # Filter by room if requested
             if room:
-                room_meta = metadata.get('room', '').lower()
+                room_meta = (metadata.get('room') or '').lower()
                 if room.lower() not in room_meta and room.lower() not in blob.name.lower():
                     continue
 
             # Filter by status if requested
             if status:
-                status_meta = metadata.get('status', '').lower()
+                status_meta = (metadata.get('status') or '').lower()
                 if status.lower() not in status_meta:
                     continue
 

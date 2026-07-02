@@ -192,7 +192,7 @@ async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument
             details_data = data["constructionDetails"]
             try:
                 # L5 FIX: Validate address fields before constructing
-                address_data = details_data.get("address", {})
+                address_data = details_data.get("address") or {}
                 if not all(address_data.get(k) for k in ("street", "city", "zip")):
                     raise ValueError("Incomplete address data")
 
@@ -352,7 +352,7 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
             return False
 
         current_data = doc.to_dict()
-        current_owner = current_data.get("userId", "")
+        current_owner = current_data.get("userId") or ""
 
         # Idempotent: already owned by this user → success (no-op)
         if current_owner == new_user_id:
@@ -691,7 +691,7 @@ async def sync_project_cover(session_id: str) -> bool:
             new_thumbnail = latest_render.get('url')
 
             # Check for source image id in metadata
-            meta = latest_render.get('metadata', {})
+            meta = latest_render.get('metadata') or {}
             source_id = meta.get('source_image_id')
             if source_id:
                 # Ideally source_id IS the URL if we set it that way.
