@@ -8,6 +8,7 @@ from urllib.parse import unquote, urlparse
 import httpx
 from firebase_admin import storage
 from src.core.config import settings
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
@@ -114,8 +115,8 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
             bucket = storage.bucket(bucket_name)
             blob = bucket.blob(blob_path)
 
-            # Download as bytes
-            file_bytes = blob.download_as_bytes()
+            # Download as bytes — sync GCS SDK call, offloaded so it can't block the event loop
+            file_bytes = await run_in_threadpool(blob.download_as_bytes)
             content_type = blob.content_type or mimetypes.guess_type(blob_path)[0] or "image/jpeg"
 
             logger.info(f"[SmartDownload] ✅ Direct access SUCCESS: {len(file_bytes)} bytes, Type: {content_type}")
