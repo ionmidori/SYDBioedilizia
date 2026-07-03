@@ -60,9 +60,13 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
 
     // Stable refs so inner closures always call the latest version without
     // needing them as effect dependencies (avoids effect re-mount loop).
+    // Written during render on purpose: moving these into an effect would let a
+    // timer callback fire between render and commit with a stale value.
     const timeoutMinutesRef = useRef(timeoutMinutes);
     const warningMinutesRef = useRef(warningMinutes);
+    // eslint-disable-next-line react-hooks/refs -- intentional latest-ref pattern, see above
     timeoutMinutesRef.current = timeoutMinutes;
+    // eslint-disable-next-line react-hooks/refs -- intentional latest-ref pattern, see above
     warningMinutesRef.current = warningMinutes;
 
     const clearAllTimers = useCallback(() => {

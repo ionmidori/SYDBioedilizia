@@ -260,8 +260,12 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
     const [notchY, setNotchY] = React.useState(0)
 
     React.useEffect(() => {
+        // Read persisted position after mount, NOT in a useState lazy initializer:
+        // localStorage is client-only, so initializing from it during render would
+        // diverge from the server-rendered 0 and cause a hydration mismatch.
         const savedY = localStorage.getItem('sidebar-fab-y')
         if (savedY) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- see above: post-mount localStorage read is intentional
             setNotchY(parseFloat(savedY))
         }
     }, [])
