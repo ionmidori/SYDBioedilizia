@@ -61,7 +61,7 @@ try {
         }),
         experimentalAutoDetectLongPolling: true
     });
-} catch (error) {
+} catch {
     // If already initialized (e.g., during Next.js Fast Refresh), retrieve the existing instance
     db = getFirestore(app);
 }

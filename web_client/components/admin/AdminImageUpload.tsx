@@ -25,25 +25,26 @@ interface AdminImageUploadProps {
   folder?: string;
 }
 
+// Compression options adhering to the 'compressing-media' skill.
+// Module-level constant: stable reference so it needn't be a useCallback dependency.
+const compressionOptions = {
+  maxSizeMB: 1,
+  maxWidthOrHeight: 1920,
+  useWebWorker: true,
+  fileType: 'image/webp'
+};
+
 export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: AdminImageUploadProps) {
   const { idToken, refreshToken } = useAuth();
-  
-  const [file, setFile] = useState<File | null>(null);
+
+  const [, setFile] = useState<File | null>(null);
   const [previewSize, setPreviewSize] = useState<number>(0);
   const [compressedSize, setCompressedSize] = useState<number>(0);
-  
+
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  // Compression options adhering to the 'compressing-media' skill
-  const compressionOptions = {
-    maxSizeMB: 1, 
-    maxWidthOrHeight: 1920,
-    useWebWorker: true,
-    fileType: 'image/webp'
-  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setError(null);

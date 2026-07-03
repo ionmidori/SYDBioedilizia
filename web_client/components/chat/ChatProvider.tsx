@@ -196,7 +196,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             }
             return { body };
         },
-    }), [resolveHeaders, currentProjectId, user, sessionId]);
+    }), [resolveHeaders, currentProjectId, sessionId]);
 
 
     const chatHelpers = useChat({

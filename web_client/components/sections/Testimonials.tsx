@@ -304,7 +304,7 @@ export function Testimonials() {
                     ref={testGridRef}
                     className="grid grid-cols-1 md:grid-cols-3 gap-8"
                 >
-                    {testimonials.map((t, idx) => (
+                    {testimonials.map((t) => (
                         <motion.div
                             key={t.id}
                             data-testimonial-card="true"
