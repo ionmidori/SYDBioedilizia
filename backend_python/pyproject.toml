@@ -31,7 +31,7 @@ dependencies = [
     # Transitive of the google-cloud / vertex / firestore stack. Pinned above the
     # YANKED 1.78.1 ("caused major outage with gcloud serverless environments"),
     # which uv would otherwise keep resolving on Cloud Run.
-    "grpcio>=1.79.0",
+    "grpcio>=1.82.0",
 ]
 
 [project.optional-dependencies]
