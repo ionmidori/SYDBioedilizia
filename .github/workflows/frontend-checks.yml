@@ -55,8 +55,10 @@ jobs:
       - name: 'Type-check'
         run: npm run type-check
 
-      - name: 'Unit tests (Jest)'
-        run: npm test -- --ci
+      - name: 'Unit tests (Jest) + coverage gate'
+        # --coverage enforces the ratchet floors in jest.config.js
+        # (coverageThreshold); the build fails if coverage regresses below them.
+        run: npm test -- --ci --coverage
 
       - name: 'Production build (next build)'
         # Placeholder public config: the build must not require live secrets.
