@@ -1,0 +1,23 @@
+# CODEOWNERS — automatic review requests.
+# Order matters: the LAST matching pattern for a path wins.
+# See https://docs.github.com/articles/about-code-owners
+
+# Default owner for everything in the repo.
+*                               @ionmidori
+
+# Tier 3 — FastAPI backend + ADK orchestration.
+/backend_python/                @ionmidori
+
+# Tier 2 — Next.js frontend.
+/web_client/                    @ionmidori
+
+# Admin tool (Streamlit).
+/admin_tool/                    @ionmidori
+
+# CI/CD, dependency policy, and repo governance — highest-risk surface.
+/.github/                       @ionmidori
+/backend_python/Dockerfile      @ionmidori
+/backend_python/pyproject.toml  @ionmidori
+/backend_python/uv.lock         @ionmidori
+/package.json                   @ionmidori
+/package-lock.json              @ionmidori
