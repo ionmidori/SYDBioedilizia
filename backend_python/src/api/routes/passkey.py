@@ -235,15 +235,20 @@ async def verify_registration(
         logger.error(f"Registration verification failed: {e}")
         raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
 
+    # register_complete populates credential_data on success; guard for typing/safety.
+    cred_data = auth_data.credential_data
+    if cred_data is None:
+        raise HTTPException(status_code=400, detail="Registration failed: missing credential data")
+
     db = get_firestore_client()
 
     # Store credential in Firestore
-    cred_id_b64 = websafe_encode(auth_data.credential_data.credential_id)
+    cred_id_b64 = websafe_encode(cred_data.credential_id)
 
     credential_doc = {
         "credential_id": cred_id_b64,
-        "credential_data": auth_data.credential_data.to_dict(),
-        "sign_count": auth_data.credential_data.sign_count if hasattr(auth_data.credential_data, 'sign_count') else 0,
+        "credential_data": cred_data.to_dict(),
+        "sign_count": cred_data.sign_count if hasattr(cred_data, 'sign_count') else 0,
         "created_at": firestore.SERVER_TIMESTAMP
     }
 

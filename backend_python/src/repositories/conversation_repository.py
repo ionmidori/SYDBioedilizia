@@ -245,7 +245,7 @@ class ConversationRepository:
                     logger.info(f"[Repo] 🚀 Sync: Created project {session_id} from session")
             else:
                 # 🔄 Session Claiming Logic: If existing session is a guest one, and we have a real user, upgrade it.
-                session_data = doc.to_dict()
+                session_data = doc.to_dict() or {}
                 current_owner = session_data.get('userId', '')
 
                 update_data = {'expireAt': expire_at}
@@ -267,7 +267,7 @@ class ConversationRepository:
                 project_ref = db.collection('projects').document(session_id)
                 project_snap = await project_ref.get()
                 if not project_snap.exists:
-                     session_data = doc.to_dict()
+                     session_data = doc.to_dict() or {}
                      await project_ref.set({
                         'id': session_id,
                         'name': session_data.get('title', 'Progetto Recuperato'),

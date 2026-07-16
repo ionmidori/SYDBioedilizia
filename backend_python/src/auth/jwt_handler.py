@@ -87,6 +87,8 @@ async def verify_token(req: Request) -> UserSession:
     # ─────────────────────────────────────────────────────────────────
     # 🔒 PRODUCTION — Full Firebase Admin SDK verification.
     # ─────────────────────────────────────────────────────────────────
+    # req.client is Optional (None for some ASGI/test transports); resolve once.
+    client_host = req.client.host if req.client else "unknown"
     try:
         # Ensure Firebase is initialized
         init_firebase()
@@ -128,13 +130,13 @@ async def verify_token(req: Request) -> UserSession:
         return session
 
     except auth.RevokedIdTokenError:
-        logger.warning(f"Revoked Firebase ID token provided from {req.client.host}")
+        logger.warning(f"Revoked Firebase ID token provided from {client_host}")
         raise AuthError("Token revoked", detail={"reason": "revoked"})
     except auth.ExpiredIdTokenError:
-        logger.warning(f"Expired Firebase ID token provided from {req.client.host}")
+        logger.warning(f"Expired Firebase ID token provided from {client_host}")
         raise AuthError("Token expired", detail={"reason": "expired"})
     except auth.InvalidIdTokenError as e:
-        logger.warning(f"Invalid Firebase ID token from {req.client.host}: {str(e)}")
+        logger.warning(f"Invalid Firebase ID token from {client_host}: {str(e)}")
         raise AuthError("Invalid token", detail={"reason": "Token validation failed"})
     except Exception as e:
         if isinstance(e, AuthError):

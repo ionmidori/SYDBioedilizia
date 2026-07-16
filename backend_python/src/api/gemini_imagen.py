@@ -78,20 +78,25 @@ async def generate_image_t2i(
         )
 
         # Extract image from response
-        if not response.candidates or not response.candidates[0].content.parts:
+        content = response.candidates[0].content if response.candidates else None
+        parts = content.parts if content else None
+        if not parts:
             raise Exception("No content returned from Gemini API")
 
-        image_part = None
-        for part in response.candidates[0].content.parts:
-            if part.inline_data and part.inline_data.mime_type.startswith('image/'):
-                image_part = part
+        image_data: bytes | None = None
+        image_mime: str | None = None
+        for part in parts:
+            inline = part.inline_data
+            if inline and inline.mime_type and inline.mime_type.startswith('image/'):
+                image_data = inline.data
+                image_mime = inline.mime_type
                 break
 
-        if not image_part:
+        if image_data is None:
             raise Exception("No image found in API response")
 
         # Get base64 image data
-        image_base64 = base64.b64encode(image_part.inline_data.data).decode('utf-8')
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
 
         image_size_kb = len(image_base64) * 0.75 / 1024
         logger.info(f"T2I generation complete! Image size: ~{image_size_kb:.2f} KB")
@@ -99,7 +104,7 @@ async def generate_image_t2i(
         return {
             "success": True,
             "image_base64": image_base64,
-            "mime_type": image_part.inline_data.mime_type,
+            "mime_type": image_mime,
             "metadata": {
                 "model": model,
                 "mode": "text-to-image"
@@ -198,21 +203,24 @@ async def generate_image_i2i(
         if not response.candidates:
              raise Exception("No candidates returned from API")
 
-        if not response.candidates[0].content.parts:
+        content = response.candidates[0].content
+        parts = content.parts if content else None
+        if not parts:
              raise Exception("Candidate has no parts")
 
         image_base64 = None
         returned_mime_type = mime_type
 
-        for part in response.candidates[0].content.parts:
+        for part in parts:
             if part.text:
                 logger.info(f"[Gemini] Received text part: {part.text[:100]}...")
 
-            if part.inline_data and part.inline_data.mime_type.startswith('image/'):
-                 logger.info(f"[Gemini] Found IMAGE part ({part.inline_data.mime_type})")
+            inline = part.inline_data
+            if inline and inline.data and inline.mime_type and inline.mime_type.startswith('image/'):
+                 logger.info(f"[Gemini] Found IMAGE part ({inline.mime_type})")
                  # SDK returns bytes in part.inline_data.data
-                 image_base64 = base64.b64encode(part.inline_data.data).decode('utf-8')
-                 returned_mime_type = part.inline_data.mime_type
+                 image_base64 = base64.b64encode(inline.data).decode('utf-8')
+                 returned_mime_type = inline.mime_type
                  break
 
         if not image_base64:

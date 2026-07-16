@@ -200,7 +200,7 @@ async def ensure_session(session_id: str, user_id: Optional[str] = None) -> None
             # Check if project exists even if session exists (backfill logic)
             project_ref = db.collection('projects').document(session_id)
             if not project_ref.get().exists:
-                 session_data = doc.to_dict()
+                 session_data = doc.to_dict() or {}
                  project_ref.set({
                     'id': session_id,
                     'name': session_data.get('title', 'Progetto Recuperato'),

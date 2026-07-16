@@ -46,9 +46,9 @@ async def get_approved_testimonials():
         return [
             TestimonialOut(
                 id=doc.id,
-                name=(doc.to_dict().get("name") or "Cliente SYD"),
-                text=(doc.to_dict().get("text") or ""),
-                rating=(doc.to_dict().get("rating") or 5),
+                name=((doc.to_dict() or {}).get("name") or "Cliente SYD"),
+                text=((doc.to_dict() or {}).get("text") or ""),
+                rating=((doc.to_dict() or {}).get("rating") or 5),
             )
             for doc in docs
         ]
@@ -121,7 +121,7 @@ async def get_portfolio_projects():
         docs = await run_in_threadpool(_query)
         results = []
         for doc in docs:
-            d = doc.to_dict()
+            d = doc.to_dict() or {}
             results.append(PortfolioOut(
                 id=doc.id,
                 title=d.get("title", ""),

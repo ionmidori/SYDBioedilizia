@@ -322,7 +322,7 @@ async def delete_project_file(
     if not project_doc.exists:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Progetto non trovato")
 
-    project_data = project_doc.to_dict()
+    project_data = project_doc.to_dict() or {}
     if project_data.get("userId") != user_id and project_data.get("user_id") != user_id:
         logger.warning(
             f"[API] User {user_id} attempted to delete file {file_id} in project {session_id} "

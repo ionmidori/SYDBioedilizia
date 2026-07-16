@@ -135,7 +135,7 @@ async def check_quota(
         # Override Logic
         custom_limit = None
         if doc.exists:
-            data = doc.to_dict()
+            data = doc.to_dict() or {}
             if data.get("bypass_quota") is True:
                 logger.info(f"[Quota] 🛑 BYPASS ACTIVE for {doc_id} on {tool_name}")
                 return True, 9999, now + timedelta(days=365)
@@ -162,10 +162,10 @@ async def check_quota(
             weekly_doc = await weekly_ref.get()
 
             if weekly_doc.exists:
-                w_data = weekly_doc.to_dict()
+                w_data = weekly_doc.to_dict() or {}
                 w_count = w_data.get("count", 0)
                 w_start = w_data.get("window_start")
-                if hasattr(w_start, 'timestamp'):
+                if w_start is not None and hasattr(w_start, 'timestamp'):
                     w_start = datetime.fromtimestamp(w_start.timestamp(), tz=timezone.utc)
 
                 if now < w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS):
@@ -180,7 +180,7 @@ async def check_quota(
             reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
             return allowed, max(0, daily_limit - 1) if allowed else 0, reset_at
 
-        data = doc.to_dict()
+        data = doc.to_dict() or {}
         count = data.get("count", 0)
         window_start = data.get("window_start")
 

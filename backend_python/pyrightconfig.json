@@ -12,8 +12,9 @@
   "venvPath": ".",
   "venv": ".venv",
 
-  "//": "Incremental adoption (ratchet). pyright runs in the CI gate and blocks NEW hard type errors (undefined vars, redeclarations, bad escapes, unbound vars, etc.). The categories below are the ~186 pre-existing findings in src/ as of adoption; they are surfaced as warnings (non-blocking) and should be ratcheted back to error module-by-module over time. Do NOT add new suppressions here — fix the code instead.",
-  "reportOptionalMemberAccess": "warning",
+  "//": "Incremental adoption (ratchet). pyright runs in the CI gate and blocks NEW hard type errors (undefined vars, redeclarations, bad escapes, unbound vars, etc.). The categories below are the pre-existing findings in src/ as of adoption; they are surfaced as warnings (non-blocking) and are ratcheted back to error category-by-category over time. Do NOT add new suppressions here — fix the code instead.",
+  "//reportOptionalMemberAccess": "RATCHETED to error (2026-07-17): all 88 None-member-access findings fixed. This category now blocks CI.",
+  "reportOptionalMemberAccess": "error",
   "reportOptionalSubscript": "warning",
   "reportOptionalOperand": "warning",
   "reportArgumentType": "warning",

@@ -305,8 +305,10 @@ async def _run_render_structural_vision(
         )
 
         text = ""
-        if response.candidates and response.candidates[0].content.parts:
-            for part in response.candidates[0].content.parts:
+        content = response.candidates[0].content if response.candidates else None
+        parts = content.parts if content else None
+        if parts:
+            for part in parts:
                 if part.text:
                     text += part.text
 
