@@ -312,7 +312,7 @@ async def upload_video(
                 mime_type=active_file.mime_type,
                 size_bytes=file_size,
                 file_uri=active_file.uri,
-                state=active_file.state.name,
+                state=active_file.state.name if active_file.state else "ACTIVE",
             )
 
         except VideoProcessingError as e:

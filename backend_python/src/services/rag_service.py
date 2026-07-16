@@ -92,6 +92,7 @@ class RAGService:
         if not self.index:
             logger.warning("RAGService: Pinecone index not initialized.")
             return []
+        index = self.index  # local narrows Optional across the to_thread closure below
 
         use_rerank = settings.RAG_RERANK_ENABLED if rerank is None else rerank
         threshold = settings.RAG_MIN_SCORE if min_score is None else min_score
@@ -123,7 +124,7 @@ class RAGService:
             # Pinecone SDK call is synchronous → offload to a thread so it
             # never blocks the asyncio event loop (e.g. concurrent chat streams).
             response = await asyncio.to_thread(
-                lambda: self.index.search(**search_kwargs)
+                lambda: index.search(**search_kwargs)
             )
 
             dict_resp = response.to_dict() if hasattr(response, 'to_dict') else (response or {})
@@ -256,6 +257,9 @@ class RAGService:
 
     async def delete_namespace(self, namespace: str) -> bool:
         """Completely wipe a namespace in Pinecone. Use with caution."""
+        if not self.index:
+            logger.error("RAGService: Pinecone index not initialized. Cannot delete namespace.")
+            return False
         try:
             logger.warning(f"Wiping namespace '{namespace}'. This action is irreversible.")
             await asyncio.to_thread(self.index.delete, delete_all=True, namespace=namespace)

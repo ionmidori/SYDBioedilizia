@@ -74,7 +74,7 @@ async def get_chat_history(
             logger.info(f"[ChatHistory] Session {session_id} not found. Returning empty history.")
             return ChatHistoryResponse(messages=[], has_more=False)
 
-        session_data = session_doc.to_dict()
+        session_data = session_doc.to_dict() or {}
         session_owner = session_data.get('userId', '')
 
         # Allow access only if user owns the session

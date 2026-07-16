@@ -55,7 +55,7 @@ async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListIt
         projects = []
 
         async for doc in docs:
-            data = doc.to_dict()
+            data = doc.to_dict() or {}
 
             # Skip soft-deleted projects (is_deleted may be absent on legacy docs)
             if data.get("is_deleted") is True:
@@ -175,7 +175,7 @@ async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument
             logger.warning(f"[Projects] Project {session_id} not found")
             return None
 
-        data = doc.to_dict()
+        data = doc.to_dict() or {}
 
         # Ownership check
         if data.get("userId") != user_id:
@@ -293,7 +293,7 @@ async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> 
             return False
 
         # Ownership check
-        if doc.to_dict().get("userId") != user_id:
+        if (doc.to_dict() or {}).get("userId") != user_id:
             logger.warning(f"[Projects] User {user_id} not authorized to update {session_id}")
             return False
 
@@ -351,7 +351,7 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
             logger.warning(f"[Projects] Cannot claim non-existent project {session_id}")
             return False
 
-        current_data = doc.to_dict()
+        current_data = doc.to_dict() or {}
         current_owner = current_data.get("userId") or ""
 
         # Idempotent: already owned by this user → success (no-op)
@@ -428,7 +428,7 @@ async def update_project_details(session_id: str, user_id: str, details: Project
             return False
 
         # Ownership check
-        if doc.to_dict().get("userId") != user_id:
+        if (doc.to_dict() or {}).get("userId") != user_id:
             logger.warning(f"[Projects] User {user_id} not authorized to update details for {session_id}")
             return False
 
@@ -483,7 +483,7 @@ async def save_project_file_metadata(session_id: str, user_id: str, file_metadat
             return False
 
         # Ownership check
-        if doc.to_dict().get("userId") != user_id:
+        if (doc.to_dict() or {}).get("userId") != user_id:
             logger.warning(f"[Projects] User {user_id} not authorized to save file to {session_id}")
             return False
 
@@ -556,7 +556,7 @@ async def soft_delete_project(session_id: str, user_id: str) -> bool:
             logger.warning(f"[Projects] Cannot soft-delete non-existent project {session_id}")
             return False
 
-        if doc.to_dict().get("userId") != user_id:
+        if (doc.to_dict() or {}).get("userId") != user_id:
             logger.warning(f"[Projects] User {user_id} not authorized to delete {session_id}")
             return False
 
@@ -603,7 +603,7 @@ async def delete_project(session_id: str, user_id: str) -> bool:
             return False
 
         # Ownership check
-        if doc.to_dict().get("userId") != user_id:
+        if (doc.to_dict() or {}).get("userId") != user_id:
             logger.warning(f"[Projects] User {user_id} not authorized to delete {session_id}")
             return False
 
@@ -732,7 +732,7 @@ async def sync_project_cover(session_id: str) -> bool:
         if not project_doc.exists:
              return False
 
-        current_data = project_doc.to_dict()
+        current_data = project_doc.to_dict() or {}
 
         # Only update if different
         if (current_data.get('thumbnailUrl') != new_thumbnail or

@@ -37,7 +37,7 @@ def list_project_files(session_id: str, category: Optional[str] = None, limit: i
             logger.warning(f"⚠️ [Tool] Project {session_id} not found")
             return "Error: Project not found."
 
-        project_data = project_snap.to_dict()
+        project_data = project_snap.to_dict() or {}
         owner_id = project_data.get("user_id") or project_data.get("uid")
 
         if owner_id != user_id:

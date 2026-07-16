@@ -233,13 +233,14 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
         logger.info(f"Waiting for video to be processed (file: {video_file.name})...")
         max_wait = 60  # Max 60 seconds wait
         elapsed = 0
-        while video_file.state.name == "PROCESSING" and elapsed < max_wait:
+        while (video_file.state.name if video_file.state else None) == "PROCESSING" and elapsed < max_wait:
             await asyncio.sleep(2)
             video_file = await client.aio.files.get(name=video_file.name)
             elapsed += 2
 
-        if video_file.state.name != "ACTIVE":
-            raise Exception(f"Video processing failed. State: {video_file.state.name}")
+        state_name = video_file.state.name if video_file.state else None
+        if state_name != "ACTIVE":
+            raise Exception(f"Video processing failed. State: {state_name}")
 
         logger.info("Video ready. Performing multimodal analysis (visual + audio)...")
 

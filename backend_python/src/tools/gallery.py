@@ -36,7 +36,7 @@ def show_project_gallery(session_id: str, room: Optional[str] = None, status: Op
         if not project_snap.exists:
             return "Error: Project not found."
 
-        project_data = project_snap.to_dict()
+        project_data = project_snap.to_dict() or {}
         owner_id = project_data.get("user_id") or project_data.get("uid")
 
         if owner_id != user_id:

@@ -34,6 +34,8 @@ async def validate_app_check_token(request: Request) -> Optional[dict]:
     In Strict Mode (ENABLE_APP_CHECK=True), it raises AppCheckError for invalid/missing tokens.
     """
     app_check_token = request.headers.get("X-Firebase-AppCheck")
+    # request.client is Optional (None for some ASGI/test transports); resolve once.
+    client_host = request.client.host if request.client else "unknown"
 
     # Telemetry logic (Runs always if token is present)
     decoded_token = None
@@ -41,21 +43,21 @@ async def validate_app_check_token(request: Request) -> Optional[dict]:
         try:
             init_firebase()
             decoded_token = app_check.verify_token(app_check_token)
-            logger.info(f"[App Check] ✅ Valid token from {request.client.host}")
+            logger.info(f"[App Check] ✅ Valid token from {client_host}")
         except Exception as e:
             # Handles: InvalidTokenError, ExpiredSignatureError, InvalidAudienceError, etc.
             # None of these are fatal in monitoring mode — they just mean decoded_token remains None.
-            logger.warning(f"[App Check] ⚠️ Token verification failed from {request.client.host}: {type(e).__name__}: {str(e)[:100]}")
+            logger.warning(f"[App Check] ⚠️ Token verification failed from {client_host}: {type(e).__name__}: {str(e)[:100]}")
 
     # Enforcement Logic
     if ENABLE_APP_CHECK:
         if not app_check_token:
-            logger.warning(f"[App Check] [STRICT] Missing token from {request.client.host}")
+            logger.warning(f"[App Check] [STRICT] Missing token from {client_host}")
             raise AppCheckError("Missing App Check token", detail={"reason": "missing_header"})
 
         if not decoded_token:
             # If we reach here and ENABLE_APP_CHECK is true, it means the token was invalid or verification crashed
-            logger.error(f"[App Check] [STRICT] Blocking request from {request.client.host} - Invalid token")
+            logger.error(f"[App Check] [STRICT] Blocking request from {client_host} - Invalid token")
             raise AppCheckError("Invalid App Check token", detail={"reason": "verification_failed"})
 
     return decoded_token

@@ -73,7 +73,7 @@ async def update_file_metadata(
         if not project_doc.exists:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        project_data = project_doc.to_dict()
+        project_data = project_doc.to_dict() or {}
         if project_data.get("userId") != user_id:
             raise HTTPException(
                 status_code=403,
