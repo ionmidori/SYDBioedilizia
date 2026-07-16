@@ -20,18 +20,27 @@ on:
       - 'package-lock.json'
       - 'package.json'
       - 'admin_tool/requirements.txt'
+      - '.github/workflows/security-audit.yml'
   schedule:
     # Weekly safety net — catches newly-published advisories even when no
     # manifest changed.
     - cron: '0 6 * * 1'
+
+# Least privilege: audit jobs only read the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: 'security-audit-${{ github.ref }}'
+  cancel-in-progress: true
 
 jobs:
   root-npm-audit:
     name: 'Root npm audit'
     runs-on: 'ubuntu-latest'
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: '22'
       # Production deps must be clean at high+. Dev-only advisories (e.g. the
@@ -48,7 +57,7 @@ jobs:
         working-directory: './admin_tool'
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
       - name: 'Install pip-audit'
