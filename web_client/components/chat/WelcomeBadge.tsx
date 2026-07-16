@@ -25,12 +25,14 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
 
     // Hide when chat opens
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: dismiss the badge as soon as the chat opens
         if (isOpen) setShowWelcomeBadge(false);
     }, [isOpen]);
 
     // Typewriter effect
     useEffect(() => {
         if (!showWelcomeBadge || isOpen) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset the typewriter when the badge is hidden or the chat opens
             setTypewriterText('');
             return;
         }

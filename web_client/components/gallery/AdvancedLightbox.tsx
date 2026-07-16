@@ -73,6 +73,7 @@ export function AdvancedLightbox({
     // Ensure index stays in bounds
     useEffect(() => {
         if (currentIndex >= images.length) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: clamp the index back in range when the image array shrinks
             setCurrentIndex(images.length - 1);
         }
     }, [images.length, currentIndex]);
