@@ -18,6 +18,12 @@ const customJestConfig = {
         '**/__tests__/**/*.[jt]s?(x)',
         '**/?(*.)+(spec|test).[jt]s?(x)',
     ],
+    // Playwright specs live in e2e/ and are run by Playwright, not Jest.
+    testPathIgnorePatterns: [
+        '<rootDir>/node_modules/',
+        '<rootDir>/.next/',
+        '<rootDir>/e2e/',
+    ],
     collectCoverageFrom: [
         'hooks/**/*.{js,jsx,ts,tsx}',
         'components/**/*.{js,jsx,ts,tsx}',
