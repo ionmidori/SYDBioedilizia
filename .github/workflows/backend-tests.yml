@@ -71,12 +71,14 @@ jobs:
         # We do not use LangGraph checkpointing; ADK uses InMemorySessionService.
         run: uv run pip-audit --strict --desc --ignore-vuln CVE-2026-28277
 
-      - name: 'Run tests'
+      - name: 'Run tests + coverage gate'
         env:
           GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
           GOOGLE_API_KEY: '${{ secrets.GOOGLE_API_KEY }}'
+        # --cov-fail-under is a ratchet floor (current total ~59%), not the goal.
+        # Raise it as coverage improves.
         run: |
-          uv run pytest -v --tb=short --cov=src --cov-report=term-missing --cov-report=xml -m "not integration"
+          uv run pytest -v --tb=short --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=55 -m "not integration"
 
       - name: 'Upload coverage'
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
