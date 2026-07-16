@@ -4,12 +4,12 @@ version = "4.0.0"
 requires-python = ">=3.12"
 dependencies = [
     "email-validator>=2.3.0",
-    "fastapi>=0.138.1",
+    "fastapi>=0.139.1",
     "starlette>=1.3.1",
     "firebase-admin>=7.5.0",
-    "google-cloud-aiplatform>=1.158.0",
+    "google-cloud-aiplatform>=1.161.0",
     "google-cloud-firestore>=2.28.0",
-    "google-genai>=2.10.0",
+    "google-genai>=2.12.0",
     "httpx>=0.28.1",
     "pillow>=12.3.0",
     "pinecone>=9.1.0",
@@ -21,17 +21,17 @@ dependencies = [
     "ezdxf>=1.4.4",
     "python-dateutil>=2.9.0.post0",
     "slowapi>=0.1.10",
-    "google-adk>=2.3.0",
+    "google-adk>=2.4.0",
     "aiosmtplib>=5.1.2",
     "reportlab>=5.0.0",
-    "google-cloud-modelarmor>=0.7.0",
+    "google-cloud-modelarmor>=0.7.1",
     "fido2>=2.2.1",
-    "pypdf>=6.13.3",
-    "cryptography>=48.0.1",
+    "pypdf>=6.14.2",
+    "cryptography>=49.0.0",
     # Transitive of the google-cloud / vertex / firestore stack. Pinned above the
     # YANKED 1.78.1 ("caused major outage with gcloud serverless environments"),
     # which uv would otherwise keep resolving on Cloud Run.
-    "grpcio>=1.79.0",
+    "grpcio>=1.82.1",
 ]
 
 [project.optional-dependencies]
@@ -91,5 +91,5 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "pip-audit>=2.10.1",
-    "ruff>=0.15.20",
+    "ruff>=0.15.21",
 ]
