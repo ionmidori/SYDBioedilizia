@@ -122,3 +122,9 @@ backend_python/data/*.log
 # Supabase CLI local state
 supabase/.temp/
 supabase/.branches/
+
+# agent skills & tooling (local-only, not needed on GitHub)
+.agents/
+.gemini/skills/
+skills_dev/
+skills_pkg/
