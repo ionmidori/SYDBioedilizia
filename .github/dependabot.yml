@@ -50,6 +50,11 @@ updates:
       npm-all:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # eslint-plugin-react does not support ESLint 10 yet — repo is pinned to
+      # ^9 (see PR #130/#135). Remove once the plugin ships ESLint 10 support.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     labels: ["dependencies", "frontend", "tooling"]
 
   # ── GitHub Actions ───────────────────────────────────────────────────────
