@@ -14,32 +14,43 @@ on:
       - 'develop'
     paths:
       - 'backend_python/**'
+      - '.github/workflows/backend-tests.yml'
+
+# Least privilege: this workflow only reads the repo and uploads coverage.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref (saves CI minutes; keeps only the
+# latest push/PR update running).
+concurrency:
+  group: 'backend-tests-${{ github.ref }}'
+  cancel-in-progress: true
 
 jobs:
   test:
     name: 'Pytest CI'
     runs-on: 'ubuntu-latest'
-    
+
     env:
       ENV: 'development'
       FIREBASE_STORAGE_BUCKET: 'test-bucket.firebasestorage.app'
       GOOGLE_CLOUD_PROJECT: 'chatbotluca-a8a73'
-    
+
     defaults:
       run:
         working-directory: './backend_python'
-    
+
     steps:
       - name: 'Checkout code'
-        uses: actions/checkout@v7
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
       - name: 'Set up Python'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
 
       - name: 'Install uv'
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           version: 'latest'
 
@@ -48,6 +59,11 @@ jobs:
 
       - name: 'Lint (ruff)'
         run: 'uv run ruff check src/ main.py tests/'
+
+      - name: 'Type check (pyright)'
+        # Incremental-adoption gate: blocks NEW hard type errors. Pre-existing
+        # findings are baselined as warnings in pyrightconfig.json (ratchet).
+        run: 'uv run pyright'
 
       - name: 'Dependency audit (supply chain security)'
         # CVE-2026-28277: langgraph msgpack deserialization (transitive via google-adk).
@@ -63,7 +79,7 @@ jobs:
           uv run pytest -v --tb=short --cov=src --cov-report=term-missing --cov-report=xml -m "not integration"
 
       - name: 'Upload coverage'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
           files: 'backend_python/coverage.xml'
           flags: 'backend-python'

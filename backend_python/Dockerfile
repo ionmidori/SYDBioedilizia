@@ -18,14 +18,16 @@ ENV UV_COMPILE_BYTECODE=1
 # Copy dependency files first to leverage Docker layer caching
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies without the project code (creates .venv)
-RUN uv sync --no-install-project
+# Install runtime dependencies only (no dev group: pytest/ruff/pyright/pip-audit
+# are not shipped in the production image). --frozen fails the build if uv.lock
+# is out of sync with pyproject.toml, so Cloud Run never builds from a stale lock.
+RUN uv sync --no-install-project --no-dev --frozen
 
 # Copy remaining application code
 COPY . .
 
-# Final sync to include project code
-RUN uv sync
+# Final sync to include project code (still runtime-only, still frozen)
+RUN uv sync --no-dev --frozen
 
 # Place the virtual environment in the PATH
 ENV PATH="/app/.venv/bin:$PATH"
