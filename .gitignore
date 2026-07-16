@@ -94,8 +94,8 @@ htmlcov/
 # admin tool secrets
 admin_tool/config.yaml
 
-# project memory (allow directives for architectural continuity)
-!directives/
+# project memory & directives — LOCAL ONLY, must NOT be pushed to GitHub
+directives/
 docs/
 gemini.md
 CLAUDE.md
