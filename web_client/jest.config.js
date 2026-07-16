@@ -10,6 +10,13 @@ const createJestConfig = nextJest({
 const customJestConfig = {
     setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     testEnvironment: 'jest-environment-jsdom',
+    // Use V8's native coverage instead of Istanbul (babel-plugin-istanbul).
+    // babel-plugin-istanbul is the only package in the coverage path that
+    // require()s test-exclude; the repo pins minimatch to v10 (object export)
+    // globally, which breaks test-exclude@6's call to minimatch() as a function
+    // ("minimatch is not a function") under --coverage on the CI runner. The v8
+    // provider never loads babel-plugin-istanbul, so it sidesteps that clash.
+    coverageProvider: 'v8',
     moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/$1',
         '^@ai-core$': '<rootDir>/../ai_core/src/index.ts',
