@@ -25,6 +25,9 @@
     ],
     "*.{json,md,css}": [
       "prettier --write"
+    ],
+    "backend_python/**/*.py": [
+      "uv run --project backend_python ruff check --fix --force-exclude"
     ]
   },
   "optionalDependencies": {
