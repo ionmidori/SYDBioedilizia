@@ -14,7 +14,7 @@ paths:
 - This is an **npm workspace**: the single `package-lock.json` lives at the **repo root**, not in `web_client/`. Run npm from the repo root.
 - **Use npm 10 / Node 22 to touch the lockfile** — this is what CI runs (`.github/workflows/frontend-checks.yml`: `npm ci` + `npm audit --audit-level=high` + `npm run type-check`).
 - **Do NOT regenerate the lockfile with npm 11.** On Windows/npm 11 a plain `npm install` silently corrupts it in ways CI's npm 10 rejects:
-  - prunes optional cross-platform deps (`@emnapi/*`, tailwind-oxide/sharp WASM variants),
+  - prunes optional cross-platform deps (`@emnapi/*`, `@tailwindcss/oxide`/`sharp` WASM variants),
   - re-resolves unrelated ranges (e.g. downgrades the `eslint@10` tree).
   - Result: CI fails fast (~8s) at `npm ci` with `Missing <pkg> from lock file`, **even though local `npm ci` on npm 11 passes** (false green).
 - Safe dependency bump: change the version in `web_client/package.json`, then regenerate the lockfile with **npm 10** (`npx -y npm@10 install --package-lock-only` if your default npm is 11), and confirm the diff vs `main` touches **only** the bumped package's subtree. The repo lockfile uses **4-space indentation** — preserve it.
