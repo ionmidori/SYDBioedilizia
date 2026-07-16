@@ -3,7 +3,7 @@
 # pip-audit reason about advisories. Bump via Dependabot PRs (see
 # .github/dependabot.yml). The pinned-exact entry is called out below.
 
-streamlit>=1.37.0
+streamlit>=1.59.2
 firebase-admin>=7.5.0
 pandas>=3.0.3
 plotly>=6.9.0
