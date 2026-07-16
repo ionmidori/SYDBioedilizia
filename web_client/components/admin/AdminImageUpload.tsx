@@ -25,25 +25,25 @@ interface AdminImageUploadProps {
   folder?: string;
 }
 
+// Compression options adhering to the 'compressing-media' skill.
+// Module-level constant: stable reference so it needn't be a useCallback dependency.
+const compressionOptions = {
+  maxSizeMB: 1,
+  maxWidthOrHeight: 1920,
+  useWebWorker: true,
+  fileType: 'image/webp'
+};
+
 export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: AdminImageUploadProps) {
   const { idToken, refreshToken } = useAuth();
-  
-  const [file, setFile] = useState<File | null>(null);
+
   const [previewSize, setPreviewSize] = useState<number>(0);
   const [compressedSize, setCompressedSize] = useState<number>(0);
-  
+
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  // Compression options adhering to the 'compressing-media' skill
-  const compressionOptions = {
-    maxSizeMB: 1, 
-    maxWidthOrHeight: 1920,
-    useWebWorker: true,
-    fileType: 'image/webp'
-  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setError(null);
@@ -53,7 +53,6 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
     if (acceptedFiles.length === 0) return;
     
     const originalFile = acceptedFiles[0];
-    setFile(originalFile);
     setPreviewSize(originalFile.size);
     
     try {
@@ -206,7 +205,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
                 <p className="text-body-small text-on-surface-variant">Your image was successfully uploaded.</p>
               </div>
               <button 
-                onClick={(e) => { e.stopPropagation(); setSuccess(false); setFile(null); }}
+                onClick={(e) => { e.stopPropagation(); setSuccess(false); }}
                 className="text-primary text-label-large hover:underline mt-2 p-2"
               >
                 Upload another file
@@ -227,7 +226,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
               <p className="text-title-small text-error font-medium">Upload Failed</p>
               <p className="text-body-medium text-on-surface-variant max-w-[250px]">{error}</p>
               <button 
-                onClick={(e) => { e.stopPropagation(); setError(null); setFile(null); }}
+                onClick={(e) => { e.stopPropagation(); setError(null); }}
                 className="text-on-surface bg-surface-variant text-label-large mt-3 rounded-full px-5 py-2 hover:bg-surface-variant/80 transition-colors"
               >
                 Try again

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { AuthDialog } from '@/components/auth/AuthDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerHaptic } from '@/lib/haptics';
-import { createStaggerVariants, M3Transition } from '@/lib/m3-motion';
+import { M3Transition } from '@/lib/m3-motion';
 import { useStaggerReveal } from '@/hooks/use-scroll-animation';
 
 const services = [

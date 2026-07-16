@@ -111,6 +111,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         welcomeInjectedRef.current = false;
         isFirstSyncRef.current = true;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional per-session reset: drop the previous session's ADK data events when sessionId changes
         setStreamData([]); // drop previous session's ADK data events
     }, [sessionId]);
 
@@ -196,7 +197,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             }
             return { body };
         },
-    }), [resolveHeaders, currentProjectId, user, sessionId]);
+    }), [resolveHeaders, currentProjectId, sessionId]);
 
 
     const chatHelpers = useChat({

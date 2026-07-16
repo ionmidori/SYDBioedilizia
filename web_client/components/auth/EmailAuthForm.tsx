@@ -43,6 +43,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
     // Reset errors when mode changes
     useEffect(() => {
         reset({ email: '', password: '' });
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: clear the stale error when switching between login/register/reset modes
         setError('');
     }, [mode, reset]);
 

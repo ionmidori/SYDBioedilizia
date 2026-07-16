@@ -1,6 +1,5 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
-import Link from 'next/link';
 import { FAQ_DATA, FAQItem, CATEGORY_ICONS } from '@/lib/faq-data';
 import { FAQItemCard } from '@/components/faq/FAQItem';
 import { Navbar } from '@/components/sections/Navbar';
