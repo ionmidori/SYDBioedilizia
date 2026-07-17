@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import os
@@ -77,7 +78,7 @@ def setup_logging():
 
     # 2. Console Handler (Human Readable)
     # Force UTF-8 on Windows to support emoji in log messages (cp1252 can't encode them)
-    if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    if sys.platform == "win32" and isinstance(sys.stdout, io.TextIOWrapper):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     console_handler = logging.StreamHandler(sys.stdout)
     if settings.ENV == "production":

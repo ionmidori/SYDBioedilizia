@@ -401,7 +401,7 @@ class ADKOrchestrator(BaseOrchestrator):
                         async for event in _run_with_session_recovery():
                             logger.debug(f"[ADK] Event: {getattr(event, 'event_type', 'content')}")
                             # ── Handle Interrupts (HITL) ──
-                            if hasattr(event, "event_type") and event.event_type == "interrupt":
+                            if getattr(event, "event_type", None) == "interrupt":
                                 payload = {
                                     "type": "interrupt",
                                     "payload": getattr(event, "payload", {})

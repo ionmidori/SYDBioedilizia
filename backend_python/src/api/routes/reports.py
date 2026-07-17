@@ -34,7 +34,10 @@ async def get_dashboard_stats(
 
         total_files = 0
         total_renders = 0
-        if not isinstance(gallery, Exception):
+        # gather(return_exceptions=True) yields BaseException, not just Exception —
+        # narrow against BaseException so a non-Exception failure (e.g. CancelledError)
+        # doesn't slip through and AttributeError on `.assets`.
+        if not isinstance(gallery, BaseException):
             for asset in gallery.assets:
                 if asset.type == "render":
                     total_renders += 1
