@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from src.auth.jwt_handler import verify_token
 from src.core.logger import get_logger
 from src.schemas.internal import UserSession
@@ -55,29 +55,32 @@ async def test_generate_render(
         logger.error(f"Test Generate Render failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/tools/plan-renovation")
-async def test_plan_renovation(
-    project_id: str,
-    user_session: UserSession = Depends(verify_token)
-):
-    """Exposes plan_renovation tool for TestSprite TC006."""
-    from src.services.architect import generate_renovation_plan  # Correct import?
-    try:
-        return await generate_renovation_plan(project_id=project_id)
-    except Exception as e:
-        logger.error(f"Test Plan Renovation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.post("/tools/generate-cad")
 async def test_generate_cad(
-    image_url: str,
+    file: UploadFile = File(...),
     user_session: UserSession = Depends(verify_token)
 ):
     """Exposes generate_cad tool for TestSprite TC009."""
-    from src.vision.cad_engine import CADEngine  # Adjust import
+    from src.vision.cad_engine import analyze_floorplan_vector, generate_dxf_bytes
     try:
-        engine = CADEngine()
-        return await engine.generate_dxf(image_url=image_url)
+        content = await file.read()
+        # Reject empty / non-image payloads before hitting the Gemini vision API
+        # (avoids wasted calls + opaque 500s on garbage input).
+        if not content:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Uploaded file must be an image")
+        vector_data = await analyze_floorplan_vector(content)
+        dxf_bytes = generate_dxf_bytes(vector_data)
+        return Response(
+            content=dxf_bytes,
+            media_type="application/dxf",
+            headers={"Content-Disposition": 'attachment; filename="floorplan.dxf"'},
+        )
+    except HTTPException:
+        # Preserve intended 4xx status codes — the generic handler below would
+        # otherwise re-wrap them as 500.
+        raise
     except Exception as e:
         logger.error(f"Test Generate CAD failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
