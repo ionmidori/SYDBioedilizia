@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from firebase_admin import firestore as sync_firestore
 from google.cloud import firestore as async_firestore
+from pydantic import BaseModel
 
 from src.db.firebase_client import get_async_firestore_client, get_firestore_client
 from src.db.projects import sync_project_cover
@@ -62,11 +63,11 @@ class ConversationRepository:
 
             # 🛡️ Defense: Ensure Pydantic models are dumped
             if tool_calls:
-                tool_calls = [tc.model_dump() if hasattr(tc, 'model_dump') else tc for tc in tool_calls]
+                tool_calls = [tc.model_dump() if isinstance(tc, BaseModel) else tc for tc in tool_calls]
 
             if attachments and isinstance(attachments, list):
-                attachments = [att.model_dump() if hasattr(att, 'model_dump') else att for att in attachments]
-            elif attachments and hasattr(attachments, 'model_dump'):
+                attachments = [att.model_dump() if isinstance(att, BaseModel) else att for att in attachments]
+            elif isinstance(attachments, BaseModel):
                 attachments = attachments.model_dump()
 
             # 🚀 Use correct sentinel for Async Client

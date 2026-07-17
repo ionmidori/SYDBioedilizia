@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import BaseModel
 
 _MODULE = "src.repositories.conversation_repository"
 
@@ -216,8 +217,12 @@ class TestSaveMessage:
     @pytest.mark.asyncio
     async def test_pydantic_tool_calls_are_dumped(self, repo, mock_db, mock_fs):
         self._setup_db(mock_db)
-        pydantic_tc = MagicMock()
-        pydantic_tc.model_dump.return_value = {"name": "tool"}
+
+        # A real Pydantic model — the repo dumps it via isinstance(x, BaseModel).
+        class _ToolCall(BaseModel):
+            name: str
+
+        pydantic_tc = _ToolCall(name="tool")
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
