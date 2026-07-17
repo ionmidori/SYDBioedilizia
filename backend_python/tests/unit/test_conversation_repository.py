@@ -54,7 +54,6 @@ def repo(mock_db, mock_fs, mock_sync):
     """ConversationRepository with all Firestore deps patched."""
     with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
          patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-         patch(f"{_MODULE}.sync_firestore", mock_fs), \
          patch(f"{_MODULE}.async_firestore", mock_fs), \
          patch(f"{_MODULE}.sync_project_cover", mock_sync):
         from src.repositories.conversation_repository import ConversationRepository
@@ -97,7 +96,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message(session_id="s1", role="user", content="Hello")
 
@@ -118,7 +116,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "assistant", "Hi", message_id="assist-123")
 
@@ -135,7 +132,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "user", "Hello")
 
@@ -149,7 +145,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "assistant", "Hi", timestamp=ts)
 
@@ -163,7 +158,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "user", "msg")
 
@@ -177,7 +171,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "user", "msg", metadata={"src": "web"})
 
@@ -191,7 +184,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "user", "msg")
 
@@ -206,7 +198,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "assistant", "", tool_calls=tcs)
 
@@ -226,7 +217,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "assistant", "", tool_calls=[pydantic_tc])
 
@@ -240,7 +230,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "tool", "result", tool_call_id="tc-1")
 
@@ -255,7 +244,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("s1", "user", "see image", attachments=atts)
 
@@ -269,7 +257,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.save_message("new-sess", "user", "hi")
 
@@ -283,7 +270,6 @@ class TestSaveMessage:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             # Must not raise
             await repo.save_message("s1", "user", "msg")
@@ -314,7 +300,6 @@ class TestGetContext:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             result = await repo.get_context("s1", limit=10)
 
@@ -334,7 +319,6 @@ class TestGetContext:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             result = await repo.get_context("s1")
 
@@ -349,7 +333,6 @@ class TestGetContext:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             result = await repo.get_context("s1")
 
@@ -361,7 +344,6 @@ class TestGetContext:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             result = await repo.get_context("s1")
 
@@ -373,7 +355,6 @@ class TestGetContext:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             result = await repo.get_context("s1")
 
@@ -414,7 +395,6 @@ class TestEnsureSession:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.ensure_session("new-sess", user_id="user123")
 
@@ -431,7 +411,6 @@ class TestEnsureSession:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.ensure_session("abcdefgh-rest", user_id=None)
 
@@ -446,7 +425,6 @@ class TestEnsureSession:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.ensure_session("sess1", user_id="real-uid")
 
@@ -462,7 +440,6 @@ class TestEnsureSession:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.ensure_session("sess1", user_id="real-user")
 
@@ -474,7 +451,6 @@ class TestEnsureSession:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.ensure_session("s1", user_id="u1")  # no raise
 
@@ -503,7 +479,6 @@ class TestSaveFileMetadata:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs), \
              patch(f"{_MODULE}.sync_project_cover", mock_sync):
             await repo.save_file_metadata("proj1", {"url": "gs://b/f.jpg", "name": "f.jpg"})
@@ -520,7 +495,6 @@ class TestSaveFileMetadata:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs), \
              patch(f"{_MODULE}.sync_project_cover", mock_sync):
             await repo.save_file_metadata("proj1", {"url": "gs://b/existing.jpg"})
@@ -534,7 +508,6 @@ class TestSaveFileMetadata:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs), \
              patch(f"{_MODULE}.sync_project_cover", mock_sync):
             await repo.save_file_metadata("proj1", {"url": "gs://b/f.jpg"})
@@ -551,7 +524,6 @@ class TestSaveFileMetadata:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs), \
              patch(f"{_MODULE}.sync_project_cover", mock_sync):
             await repo.save_file_metadata("proj1", {"url": "gs://x"})  # no raise
@@ -580,7 +552,6 @@ class TestGetHistorySync:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             result = repo.get_history_sync("s1", limit=20)
 
@@ -594,7 +565,6 @@ class TestGetHistorySync:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             result = repo.get_history_sync("s1")
 
@@ -605,7 +575,6 @@ class TestGetHistorySync:
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             assert repo.get_history_sync("s1") == []
 
@@ -613,7 +582,7 @@ class TestGetHistorySync:
         self._setup_db(mock_db, [])
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs):
+             patch(f"{_MODULE}.async_firestore", mock_fs):
             assert repo.get_history_sync("s1") == []
 
 
@@ -629,7 +598,6 @@ class TestFactory:
     def test_get_db_calls_client(self, mock_db, mock_fs, mock_sync):
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
-             patch(f"{_MODULE}.sync_firestore", mock_fs), \
              patch(f"{_MODULE}.async_firestore", mock_fs), \
              patch(f"{_MODULE}.sync_project_cover", mock_sync):
             from src.repositories.conversation_repository import ConversationRepository

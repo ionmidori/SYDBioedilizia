@@ -2,7 +2,10 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from firebase_admin import firestore
+# Firestore sentinels/classes (SERVER_TIMESTAMP, Increment, Query) come from the
+# typed google.cloud.firestore — firebase_admin.firestore re-exports them at
+# runtime via a dynamic globals() loop that static type-checkers can't follow.
+from google.cloud import firestore
 from src.db.firebase_client import get_firestore_client
 from src.db.projects import sync_project_cover
 

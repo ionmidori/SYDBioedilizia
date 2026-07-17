@@ -8,7 +8,10 @@ import logging
 from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from firebase_admin import firestore
+
+# firestore.Query comes from the typed google.cloud.firestore (firebase_admin's
+# re-export is a dynamic runtime loop pyright can't resolve).
+from google.cloud import firestore
 from pydantic import BaseModel
 from src.auth.jwt_handler import verify_token
 from src.db.firebase_client import get_firestore_client
