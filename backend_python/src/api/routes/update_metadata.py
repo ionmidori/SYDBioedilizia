@@ -80,9 +80,10 @@ async def update_file_metadata(
                 detail="You don't have permission to edit this project's files"
             )
 
-        # Update Storage Metadata
-        storage = get_storage_client()
-        bucket = storage.bucket()
+        # Update Storage Metadata.
+        # get_storage_client() (firebase_client) already returns a Bucket,
+        # so use it directly — do NOT call .bucket() on it.
+        bucket = get_storage_client()
         blob = bucket.blob(request.file_path)
 
         if not blob.exists():

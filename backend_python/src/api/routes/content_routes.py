@@ -72,7 +72,7 @@ async def submit_testimonial(
         db = get_firestore_client()
         db.collection("testimonials").add({
             "userId": user_session.uid,
-            "name": user_session.display_name or "Utente SYD",
+            "name": user_session.claims.get("name") or "Utente SYD",
             "text": body.text.strip(),
             "rating": body.rating,
             "createdAt": SERVER_TIMESTAMP,
