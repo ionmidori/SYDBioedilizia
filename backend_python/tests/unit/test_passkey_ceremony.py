@@ -53,9 +53,9 @@ class SoftwareAuthenticator:
             {"type": typ, "challenge": challenge_b64, "origin": ORIGIN, "crossOrigin": False}
         ).encode()
 
-    def make_registration(self, challenge_b64: str) -> dict:
+    def make_registration(self, challenge_b64: str, counter: int = 0) -> dict:
         acd = AttestedCredentialData.create(self.aaguid, self.cred_id, self._cose)
-        auth_data = AuthenticatorData.create(self.rp_hash, _FLAG_UP_UV_AT, 0, acd)
+        auth_data = AuthenticatorData.create(self.rp_hash, _FLAG_UP_UV_AT, counter, acd)
         cdj = self._client_data("webauthn.create", challenge_b64)
         att = cbor.encode({"fmt": "none", "attStmt": {}, "authData": bytes(auth_data)})
         cid = websafe_encode(self.cred_id)
@@ -251,3 +251,42 @@ def test_passkey_authentication_rejects_forged_signature(passkey_client):
         assert r.status_code == 400, r.text
         # Counter must NOT advance on a rejected assertion.
         assert next(iter(fake_db.store.values()))["sign_count"] == 0
+
+
+def test_passkey_counter_regression_with_zero_is_rejected(passkey_client):
+    """Clone-detection must not be bypassable by a counter of 0.
+
+    A device that increments its counter (stored=5) followed by an assertion
+    reporting counter 0 is a regression and must be rejected. The previous
+    truthiness check ``stored and new and new <= stored`` let 0 slip through
+    because 0 is falsy (WebAuthn spec §6.1.1 treats 0<=stored as a clone signal
+    when the stored counter is non-zero).
+    """
+    app, pk_mod = passkey_client
+    fake_db = _FakeFirestore()
+    client = TestClient(app)
+    authenticator = SoftwareAuthenticator()
+
+    with patch.object(pk_mod, "get_firestore_client", return_value=fake_db), patch.object(
+        pk_mod.settings, "RP_ID", "localhost"
+    ), patch.object(pk_mod.auth, "create_custom_token", return_value=b"custom-token"):
+        # Register with a non-zero counter so stored_sign_count = 5.
+        r = client.post(
+            "/api/passkey/register/options", json={"user_id": UID}, headers={"origin": ORIGIN}
+        )
+        reg = authenticator.make_registration(r.json()["publicKey"]["challenge"], counter=5)
+        r = client.post("/api/passkey/register/verify", json=reg, headers={"origin": ORIGIN})
+        assert r.status_code == 200, r.text
+        assert next(iter(fake_db.store.values()))["sign_count"] == 5
+
+        # Assertion reporting counter 0 (a valid signature, but a counter regression).
+        r = client.post(
+            "/api/passkey/authenticate/options", json={"user_id": UID}, headers={"origin": ORIGIN}
+        )
+        assertion = authenticator.make_assertion(r.json()["publicKey"]["challenge"], counter=0)
+        r = client.post(
+            "/api/passkey/authenticate/verify", json=assertion, headers={"origin": ORIGIN}
+        )
+        assert r.status_code == 401, r.text
+        # Stored counter must NOT be reset to 0.
+        assert next(iter(fake_db.store.values()))["sign_count"] == 5

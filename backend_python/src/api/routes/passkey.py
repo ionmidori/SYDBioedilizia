@@ -404,7 +404,13 @@ async def verify_authentication(
         new_sign_count = None
 
     if new_sign_count is not None:
-        if stored_sign_count and new_sign_count and new_sign_count <= stored_sign_count:
+        # NB: check `stored_sign_count > 0` explicitly, NOT truthiness of both
+        # counters. A cloned authenticator reporting counter 0 against a stored
+        # non-zero counter is a regression (0 <= stored) and must be rejected;
+        # the old `stored and new_sign_count and ...` form let 0 bypass the check
+        # because 0 is falsy. When stored is 0 the authenticator doesn't count,
+        # so no regression can be detected — accept and store what we get.
+        if stored_sign_count > 0 and new_sign_count <= stored_sign_count:
             logger.error(
                 f"[Passkey] Signature counter regression for user {user_id}: "
                 f"stored={stored_sign_count} received={new_sign_count} — possible cloned authenticator"
