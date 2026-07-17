@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import time
@@ -90,7 +89,10 @@ CRITICAL RULES:
             image_part = genai_types.Part(
                 inline_data=genai_types.Blob(
                     mime_type="image/jpeg",
-                    data=base64.b64encode(image_bytes).decode('utf-8'),
+                    # genai Blob.data wants RAW bytes — the SDK base64-encodes it
+                    # for the REST request. Passing an already-base64 str would
+                    # double-encode and corrupt the image (matches measure_room.py:208).
+                    data=image_bytes,
                 )
             )
 
