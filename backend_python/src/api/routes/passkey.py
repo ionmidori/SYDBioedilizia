@@ -127,6 +127,23 @@ class PasskeyAuthenticationRequest(BaseModel):
     user_id: Optional[str] = None
 
 
+def _challenge_key(state_challenge) -> str:
+    """Normalise a fido2 state challenge to the base64url key the browser echoes
+    back in clientDataJSON.
+
+    python-fido2 2.x returns ``state['challenge']`` as an (unpadded) base64url
+    *string* — already exactly what the client puts in
+    ``clientDataJSON.challenge``. Older versions returned raw *bytes*. Both must
+    map to the same key we look up at verify time
+    (``client_data['challenge'].rstrip('=')``). The previous code re-encoded the
+    str via ``websafe_encode(s.encode())`` (double-encoding), so the store key
+    never matched and every verify failed with "Challenge expired or invalid".
+    """
+    if isinstance(state_challenge, bytes):
+        return websafe_encode(state_challenge)
+    return state_challenge.rstrip("=")
+
+
 def _cleanup_challenges():
     """Remove expired challenges."""
     now = time.time()
@@ -181,12 +198,9 @@ async def get_registration_options(
         authenticator_attachment=AuthenticatorAttachment.PLATFORM,
     )
 
-    # Convert state challenge to b64 string for keying
-    # Ensure it's bytes for websafe_encode (fido2 2.x might return it as str in some contexts)
-    challenge_val = state["challenge"]
-    if isinstance(challenge_val, str):
-        challenge_val = challenge_val.encode("utf-8")
-    challenge_b64 = websafe_encode(challenge_val)
+    # Key the anti-replay store by the same base64url challenge the browser will
+    # echo back in clientDataJSON (see _challenge_key).
+    challenge_b64 = _challenge_key(state["challenge"])
 
     _challenge_store[challenge_b64] = {
         "user_id": user_id,
@@ -247,8 +261,13 @@ async def verify_registration(
 
     credential_doc = {
         "credential_id": cred_id_b64,
-        "credential_data": cred_data.to_dict(),
-        "sign_count": cred_data.sign_count if hasattr(cred_data, 'sign_count') else 0,
+        # AttestedCredentialData is a bytes subclass in python-fido2 2.x: persist
+        # its raw bytes (websafe base64) and reconstruct via the constructor at
+        # authentication time. There is no to_dict()/from_dict() in 2.x.
+        "credential_data": websafe_encode(bytes(cred_data)),
+        # The signature counter lives on the AuthenticatorData, not on the
+        # credential data (which has no sign_count attribute).
+        "sign_count": auth_data.counter,
         "created_at": firestore.SERVER_TIMESTAMP
     }
 
@@ -291,11 +310,9 @@ async def get_authentication_options(
         user_verification=UserVerificationRequirement.REQUIRED,
     )
 
-    # Convert state challenge to b64 string for keying
-    challenge_val = state["challenge"]
-    if isinstance(challenge_val, str):
-        challenge_val = challenge_val.encode("utf-8")
-    challenge_b64 = websafe_encode(challenge_val)
+    # Key the anti-replay store by the same base64url challenge the browser will
+    # echo back in clientDataJSON (see _challenge_key).
+    challenge_b64 = _challenge_key(state["challenge"])
     _challenge_store[challenge_b64] = {
         "user_id": user_id,
         "state": state,
@@ -350,19 +367,11 @@ async def verify_authentication(
     if not stored_cred_data:
         raise HTTPException(status_code=500, detail="Credential data missing from DB")
 
-    # In python-fido2 >= 1.0, credential_data stored natively maps back.
-    # In 2.x, we use AttestedCredentialData.from_dict for the dict representation.
+    # AttestedCredentialData is a bytes subclass in python-fido2 2.x: reconstruct
+    # it directly from the stored websafe base64 bytes (mirrors the registration
+    # serialization). authenticate_complete expects a Sequence[AttestedCredentialData].
     try:
-        # Reconstruct the AttestedCredentialData from the stored dict
-        cred_obj = AttestedCredentialData.from_dict(stored_cred_data)
-
-        # We need the credential wrapped in a class that provides .credential_data and .sign_count
-        class StoredCredential:
-            def __init__(self, cred_data, count):
-                self.credential_data = cred_data
-                self.sign_count = count
-
-        stored_cred = StoredCredential(cred_obj, passkey_ref.to_dict().get("sign_count", 0))
+        cred_obj = AttestedCredentialData(websafe_decode(stored_cred_data))
     except Exception as e:
         logger.error(f"Failed to reconstruct credential: {e}")
         raise HTTPException(status_code=500, detail="Corrupted credential data")
@@ -373,7 +382,7 @@ async def verify_authentication(
     try:
         server.authenticate_complete(
             challenge_data["state"],
-            [stored_cred],
+            [cred_obj],
             assertion
         )
     except Exception as e:
@@ -395,7 +404,13 @@ async def verify_authentication(
         new_sign_count = None
 
     if new_sign_count is not None:
-        if stored_sign_count and new_sign_count and new_sign_count <= stored_sign_count:
+        # NB: check `stored_sign_count > 0` explicitly, NOT truthiness of both
+        # counters. A cloned authenticator reporting counter 0 against a stored
+        # non-zero counter is a regression (0 <= stored) and must be rejected;
+        # the old `stored and new_sign_count and ...` form let 0 bypass the check
+        # because 0 is falsy. When stored is 0 the authenticator doesn't count,
+        # so no regression can be detected — accept and store what we get.
+        if stored_sign_count > 0 and new_sign_count <= stored_sign_count:
             logger.error(
                 f"[Passkey] Signature counter regression for user {user_id}: "
                 f"stored={stored_sign_count} received={new_sign_count} — possible cloned authenticator"
