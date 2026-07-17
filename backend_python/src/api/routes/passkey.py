@@ -25,7 +25,11 @@ from fido2.webauthn import (
     ResidentKeyRequirement,
     UserVerificationRequirement,
 )
-from firebase_admin import auth, firestore
+from firebase_admin import auth
+
+# firestore.SERVER_TIMESTAMP comes from the typed google.cloud.firestore
+# (firebase_admin's re-export is a dynamic runtime loop pyright can't resolve).
+from google.cloud import firestore
 from pydantic import BaseModel, Field
 from src.auth.jwt_handler import get_current_user_id
 from src.core.config import settings

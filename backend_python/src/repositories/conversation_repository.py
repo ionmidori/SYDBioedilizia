@@ -2,7 +2,6 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from firebase_admin import firestore as sync_firestore
 from google.cloud import firestore as async_firestore
 from pydantic import BaseModel
 
@@ -334,7 +333,7 @@ class ConversationRepository:
                 db.collection('sessions')
                 .document(session_id)
                 .collection('messages')
-                .order_by('timestamp', direction=sync_firestore.Query.DESCENDING)
+                .order_by('timestamp', direction=async_firestore.Query.DESCENDING)
                 .limit(limit)
             )
 
