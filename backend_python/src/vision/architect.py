@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 from typing import List, Optional
@@ -130,7 +129,6 @@ Respond with ONLY valid JSON. No markdown, no explanations:
 
     try:
         client = genai.Client(api_key=settings.api_key)
-        base64_image = base64.b64encode(image_bytes).decode('utf-8')
 
         response = await client.aio.models.generate_content(
             model=model_name,
@@ -138,7 +136,9 @@ Respond with ONLY valid JSON. No markdown, no explanations:
                 genai_types.Part(text=system_prompt),
                 genai_types.Part(inline_data=genai_types.Blob(
                     mime_type=mime_type,
-                    data=base64_image,
+                    # genai Blob.data wants RAW bytes (the SDK base64-encodes it
+                    # for the wire); a base64 str would double-encode.
+                    data=image_bytes,
                 )),
             ])],
             config=genai_types.GenerateContentConfig(temperature=0.4),
