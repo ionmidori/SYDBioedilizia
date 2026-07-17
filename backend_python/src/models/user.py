@@ -15,7 +15,7 @@ class UIPreferences(BaseModel):
 
 class UserPreferences(BaseModel):
     notifications: NotificationPreferences = Field(default_factory=NotificationPreferences)
-    ui: UIPreferences = Field(default_factory=UIPreferences)
+    ui: UIPreferences = Field(default_factory=lambda: UIPreferences())
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 

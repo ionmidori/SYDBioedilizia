@@ -248,7 +248,7 @@ class ConversationRepository:
                 session_data = doc.to_dict() or {}
                 current_owner = session_data.get('userId', '')
 
-                update_data = {'expireAt': expire_at}
+                update_data: dict[str, Any] = {'expireAt': expire_at}
 
                 if user_id and (not current_owner or current_owner.startswith('guest_')):
                     update_data['userId'] = user_id

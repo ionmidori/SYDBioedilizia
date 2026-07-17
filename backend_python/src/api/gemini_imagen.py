@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from google import genai
 from google.api_core import exceptions as google_exceptions
@@ -125,7 +125,7 @@ async def generate_image_t2i(
 async def generate_image_i2i(
     source_image_bytes: bytes,
     prompt: str,
-    keep_elements: List[str] = None,
+    keep_elements: Optional[List[str]] = None,
     negative_prompt: Optional[str] = None,
     mime_type: str = "image/jpeg",
     model: str = I2I_MODEL,
@@ -185,7 +185,9 @@ async def generate_image_i2i(
             response = await asyncio.wait_for(
                 client.aio.models.generate_content(
                     model=model,
-                    contents=contents,
+                    # genai's contents union is invariant in the stub; our
+                    # list[Content] is valid at runtime.
+                    contents=cast("types.ContentListUnion", contents),
                     config=types.GenerateContentConfig(
                         response_modalities=["IMAGE", "TEXT"],
                         temperature=0.4,

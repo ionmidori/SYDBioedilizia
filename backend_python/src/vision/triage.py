@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from google import genai
 from google.genai import types
@@ -111,7 +111,7 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
         }
 
 
-async def analyze_media_triage(media_data: bytes, mime_type: str, metadata: Dict[str, Any] = None) -> Dict[str, Any]:
+async def analyze_media_triage(media_data: bytes, mime_type: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Unified entry point for media triage analysis.
 
