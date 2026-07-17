@@ -65,3 +65,29 @@ def test_generate_cad_returns_dxf(cad_client):
     # A valid ezdxf R2010 document always contains the ENTITIES section marker.
     assert b"SECTION" in resp.content
     assert b"WALLS" in resp.content
+
+
+def test_generate_cad_rejects_empty_file(cad_client):
+    """Empty upload must 400 before touching the vision API (not 500)."""
+    with patch(
+        "src.vision.cad_engine.analyze_floorplan_vector", new=AsyncMock()
+    ) as vision:
+        resp = cad_client.post(
+            "/api/test/tools/generate-cad",
+            files={"file": ("empty.png", b"", "image/png")},
+        )
+    assert resp.status_code == 400, resp.text
+    vision.assert_not_called()
+
+
+def test_generate_cad_rejects_non_image(cad_client):
+    """Non-image content-type must 400 before touching the vision API."""
+    with patch(
+        "src.vision.cad_engine.analyze_floorplan_vector", new=AsyncMock()
+    ) as vision:
+        resp = cad_client.post(
+            "/api/test/tools/generate-cad",
+            files={"file": ("notes.txt", b"just some text", "text/plain")},
+        )
+    assert resp.status_code == 400, resp.text
+    vision.assert_not_called()

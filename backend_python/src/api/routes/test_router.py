@@ -64,6 +64,12 @@ async def test_generate_cad(
     from src.vision.cad_engine import analyze_floorplan_vector, generate_dxf_bytes
     try:
         content = await file.read()
+        # Reject empty / non-image payloads before hitting the Gemini vision API
+        # (avoids wasted calls + opaque 500s on garbage input).
+        if not content:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty")
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=400, detail="Uploaded file must be an image")
         vector_data = await analyze_floorplan_vector(content)
         dxf_bytes = generate_dxf_bytes(vector_data)
         return Response(
@@ -71,6 +77,10 @@ async def test_generate_cad(
             media_type="application/dxf",
             headers={"Content-Disposition": 'attachment; filename="floorplan.dxf"'},
         )
+    except HTTPException:
+        # Preserve intended 4xx status codes — the generic handler below would
+        # otherwise re-wrap them as 500.
+        raise
     except Exception as e:
         logger.error(f"Test Generate CAD failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
