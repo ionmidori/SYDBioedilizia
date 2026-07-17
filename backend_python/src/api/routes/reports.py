@@ -30,19 +30,26 @@ async def get_dashboard_stats(
             return_exceptions=True,
         )
 
-        active_projects_count = len(projects) if isinstance(projects, list) else 0
+        # gather(return_exceptions=True) returns exception objects instead of
+        # raising, so both sub-calls always run to completion. Re-raise any
+        # failure so it surfaces as a 500 (via the outer handler) rather than a
+        # misleading 200 with zeroed stats that looks like the user lost data.
+        # (Re-raising a CancelledError correctly propagates cancellation — the
+        # outer `except Exception` won't swallow it.)
+        if isinstance(projects, BaseException):
+            raise projects
+        if isinstance(gallery, BaseException):
+            raise gallery
+
+        active_projects_count = len(projects)
 
         total_files = 0
         total_renders = 0
-        # gather(return_exceptions=True) yields BaseException, not just Exception —
-        # narrow against BaseException so a non-Exception failure (e.g. CancelledError)
-        # doesn't slip through and AttributeError on `.assets`.
-        if not isinstance(gallery, BaseException):
-            for asset in gallery.assets:
-                if asset.type == "render":
-                    total_renders += 1
-                else:
-                    total_files += 1
+        for asset in gallery.assets:
+            if asset.type == "render":
+                total_renders += 1
+            else:
+                total_files += 1
 
         return {
             "activeProjects": active_projects_count,
