@@ -64,7 +64,12 @@ async def generate_render_wrapper(
             if not source_mime_type.startswith("image/"):
                 logger.error(f"[Render] ❌ Downloaded content is NOT an image! MIME: {source_mime_type}")
                 logger.error(f"[Render] ❌ First 200 bytes: {source_bytes[:200]}")
-                return f"Errore: L'immagine non è accessibile. Il server ha restituito: {source_mime_type}"
+                # Return an error dict (not a bare str): the ADK tool wrapper reads
+                # result.get(...) / result["imageUrl"], so a str would crash it.
+                return {
+                    "status": "error",
+                    "message": f"Errore: L'immagine non è accessibile. Il server ha restituito: {source_mime_type}",
+                }
 
             logger.info(f"[Render] ✅ Image downloaded: {len(source_bytes)} bytes, MIME: {source_mime_type}")
 
@@ -125,7 +130,7 @@ async def generate_render_wrapper(
             )
 
         if not result["success"]:
-            return "Failed to generate image. Please try again."
+            return {"status": "error", "message": "Failed to generate image. Please try again."}
 
         # Upload to Firebase Storage (sync SDK — offload to thread to avoid blocking event loop)
         image_url = await asyncio.to_thread(

@@ -129,9 +129,12 @@ class TestRenderGeneration:
                 source_image_url="https://example.com/broken.jpg"
             )
 
-        # Assert
-        assert "Errore" in result
-        assert "application/xml" in result
+        # Assert: error is returned as a dict (not a bare str), so the ADK tool
+        # caller's result.get(...) doesn't crash.
+        assert isinstance(result, dict)
+        assert result["status"] == "error"
+        assert "Errore" in result["message"]
+        assert "application/xml" in result["message"]
 
     @pytest.mark.asyncio
     async def test_architect_fallback_on_error(

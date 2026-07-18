@@ -46,6 +46,9 @@ QUOTA_LIMITS_WEEKLY = {
 
 QUOTA_WINDOW_HOURS = 24
 QUOTA_WINDOW_WEEKLY_HOURS = 24 * 7
+# Sentinel for an unlimited daily quota — a large int (not float('inf')) so the
+# remaining count stays int and JSON-serializable.
+_UNLIMITED_QUOTA = 10 ** 9
 
 
 # Firebase UIDs: 20-128 chars, alphanumeric plus dash/underscore
@@ -148,7 +151,9 @@ async def check_quota(
         # Determine limits
         is_authenticated = _is_authenticated_user(user_id)
         limits = QUOTA_LIMITS_AUTHENTICATED if is_authenticated else QUOTA_LIMITS_ANONYMOUS
-        daily_limit = custom_limit if custom_limit is not None else limits.get(tool_name, float('inf'))
+        # "Unlimited" is a large int sentinel (not float('inf')) so the remaining
+        # count stays int end-to-end and JSON-serializable (Infinity is invalid JSON).
+        daily_limit = custom_limit if custom_limit is not None else limits.get(tool_name, _UNLIMITED_QUOTA)
         weekly_limit = QUOTA_LIMITS_WEEKLY.get(tool_name)
 
         logger.info(

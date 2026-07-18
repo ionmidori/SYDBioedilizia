@@ -158,7 +158,8 @@ class InsightEngine:
             except Exception as exc:
                 logger.error("[InsightEngine] Failed to load assemblies.", extra={"error": str(exc)})
                 self._assemblies = {"assemblies": [], "dependency_rules": []}
-        return self._assemblies
+        # Set in both branches above; narrow away the Optional for the return type.
+        return self._assemblies if self._assemblies is not None else {"assemblies": [], "dependency_rules": []}
 
     def _build_assembly_prompt(self) -> str:
         """
