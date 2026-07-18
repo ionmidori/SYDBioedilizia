@@ -302,6 +302,15 @@ async def upload_video(
                 raise HTTPException(status_code=502, detail="Upload returned no file name")
             active_file = await processor.wait_for_processing(uploaded_file.name)
 
+            # An ACTIVE file always carries a uri + mime_type; guard defensively so
+            # a malformed File response fails loud (502) instead of building an
+            # invalid VideoMediaAsset with None where str is required.
+            if not active_file or not active_file.uri or not active_file.mime_type:
+                raise HTTPException(
+                    status_code=502,
+                    detail="Video processing returned an incomplete file reference.",
+                )
+
             # 8. Increment quota (only on success)
             await increment_quota(user_id, "upload_video")
 

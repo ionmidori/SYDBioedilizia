@@ -13,5 +13,5 @@ class APIErrorResponse(BaseModel):
     model_config = {"extra": "ignore"}
     error_code: str = Field(..., description="Machine-readable error code (e.g., AUTH_001)")
     message: str = Field(..., description="Human-readable error message")
-    detail: Optional[Dict[str, Any]] = Field(None, description="Debug details (optional)")
+    detail: Optional[Dict[str, Any]] = Field(default=None, description="Debug details (optional)")
     request_id: str = Field(default_factory=get_request_id, description="Tracing ID")

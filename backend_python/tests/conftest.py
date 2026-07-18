@@ -206,46 +206,6 @@ def mock_quote_graph_with_memory_saver():
 
 
 @pytest.fixture
-def mock_pdf_generation():
-    """Mock PDF generation for testing admin approval pipeline."""
-    with patch("src.services.admin_service.generate_pdf") as mock_gen:
-        mock_gen.return_value = b"PDF bytes for test"
-        yield mock_gen
-
-
-@pytest.fixture
-def mock_storage_upload():
-    """Mock Firebase Storage upload for testing admin approval pipeline."""
-    with patch("src.services.admin_service.upload_pdf_to_storage") as mock_upload:
-        mock_upload.return_value = "https://storage.googleapis.com/test-bucket/projects/test-project-001/quote.pdf"
-        yield mock_upload
-
-
-@pytest.fixture
-def mock_n8n_delivery():
-    """Mock n8n webhook delivery for testing admin approval pipeline."""
-    with patch("src.services.admin_service.deliver_quote_wrapper") as mock_deliver:
-        mock_deliver.return_value = "Delivered"
-        yield mock_deliver
-
-
-@pytest.fixture
-def mock_firestore_update():
-    """Mock Firestore update for testing admin approval pipeline."""
-    with patch("src.services.admin_service.get_async_firestore_client") as mock_fs:
-        # get_async_firestore_client is async, so its mock must be awaited
-        mock_client = MagicMock()
-        mock_doc = AsyncMock()
-
-        # Sync ref chain
-        mock_client.collection.return_value.document.return_value.collection.return_value.document.return_value = mock_doc
-
-        # Async return value for the function itself
-        mock_fs.side_effect = AsyncMock(return_value=mock_client)
-        yield mock_fs
-
-
-@pytest.fixture
 def mock_httpx_async_client():
     """Mock httpx.AsyncClient for testing n8n delivery with retries."""
     with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
