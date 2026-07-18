@@ -49,7 +49,7 @@ class BaseOrchestrator(ABC):
         ...
 
     @abstractmethod
-    async def resume_interrupt(
+    def resume_interrupt(
         self,
         session_id: str,
         response: dict,

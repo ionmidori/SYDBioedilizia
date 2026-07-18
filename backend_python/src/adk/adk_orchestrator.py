@@ -626,7 +626,24 @@ class ADKOrchestrator(BaseOrchestrator):
             session_id: The paused session identifier (matches project_id).
             response: Admin decision payload with 'token', 'decision', 'notes'.
             admin_uid: The authenticated admin's UID for audit trail attribution.
+
+        Mirrors ``stream_chat``: ``_resume_events`` yields v6 UI message chunk
+        dicts and ``to_ui_message_stream`` serializes them to the SSE strings
+        the client parses (previously the raw dicts were yielded unwrapped).
         """
+        assistant_msg_id = uuid.uuid4().hex
+        async for sse in to_ui_message_stream(
+            self._resume_events(session_id, response, admin_uid),
+            message_id=assistant_msg_id,
+        ):
+            yield sse
+
+    async def _resume_events(
+        self,
+        session_id: str,
+        response: dict,
+        admin_uid: str = "unknown",
+    ) -> AsyncIterator[dict]:
         project_id = session_id  # Assuming session_id matches project_id in our architecture
         provided_token = response.get("token")
 

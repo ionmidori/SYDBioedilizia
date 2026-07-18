@@ -222,7 +222,7 @@ async def _run_render_structural_vision(
 
     def _is_allowed_url(url: str) -> bool:
         parsed = urlparse(url)
-        return (
+        return bool(
             parsed.hostname == bucket
             or (
                 bucket
