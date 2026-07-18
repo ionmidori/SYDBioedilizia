@@ -148,6 +148,11 @@ class TestGeminiVideoAnalysis:
         assert result["audioTranscript"] == "Voglio cambiare il pavimento"
         assert "floor" in result["renovationNotes"]
 
+        # Regression: the genai SDK's AsyncFiles.upload only accepts the local
+        # file via the `file` kwarg (there is no `path` param). Passing `path=`
+        # raised TypeError on every real video triage; assert the correct kwarg.
+        mock_client.aio.files.upload.assert_awaited_once_with(file=str(video_file))
+
     @pytest.mark.asyncio
     async def test_analyze_video_handles_gemini_error(self, tmp_path):
         """GIVEN Gemini API raises exception
