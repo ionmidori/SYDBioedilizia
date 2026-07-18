@@ -38,12 +38,12 @@ class ImageMediaAsset(MediaAssetBase):
     asset_type: Literal["image"] = "image"
 
     # Image-specific metadata
-    width: Optional[int] = Field(None, ge=1, description="Image width in pixels")
-    height: Optional[int] = Field(None, ge=1, description="Image height in pixels")
+    width: Optional[int] = Field(default=None, ge=1, description="Image width in pixels")
+    height: Optional[int] = Field(default=None, ge=1, description="Image height in pixels")
 
     # Storage paths
     file_path: str = Field(..., description="Storage path in bucket")
-    signed_url: Optional[str] = Field(None, description="Signed URL (expires)")
+    signed_url: Optional[str] = Field(default=None, description="Signed URL (expires)")
 
 
 class VideoMediaAsset(MediaAssetBase):
@@ -55,9 +55,9 @@ class VideoMediaAsset(MediaAssetBase):
     asset_type: Literal["video"] = "video"
 
     # Video-specific metadata
-    width: Optional[int] = Field(None, ge=1, description="Video width in pixels")
-    height: Optional[int] = Field(None, ge=1, description="Video height in pixels")
-    duration_seconds: Optional[float] = Field(None, ge=0, description="Duration in seconds")
+    width: Optional[int] = Field(default=None, ge=1, description="Video width in pixels")
+    height: Optional[int] = Field(default=None, ge=1, description="Video height in pixels")
+    duration_seconds: Optional[float] = Field(default=None, ge=0, description="Duration in seconds")
 
     # File API reference (for Gemini multimodal processing)
     file_uri: str = Field(..., description="Google AI File API URI")
@@ -72,11 +72,11 @@ class DocumentMediaAsset(MediaAssetBase):
     """
     asset_type: Literal["document"] = "document"
 
-    page_count: Optional[int] = Field(None, ge=1, description="Number of pages (PDF)")
+    page_count: Optional[int] = Field(default=None, ge=1, description="Number of pages (PDF)")
 
     # Storage paths
     file_path: str = Field(..., description="Storage path in bucket")
-    signed_url: Optional[str] = Field(None, description="Signed URL (expires)")
+    signed_url: Optional[str] = Field(default=None, description="Signed URL (expires)")
 
 
 # ============================================================================

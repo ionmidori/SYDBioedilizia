@@ -31,10 +31,10 @@ class Settings(BaseSettings):
     # Secrets
     # We allow None during init if .env is missing, but logic should check them.
     # Ideally, we enforce them.
-    GEMINI_API_KEY: str | None = Field(None, description="Required for Gemini AI models")
-    GOOGLE_API_KEY: str | None = Field(None, description="Legacy alias for GEMINI_API_KEY")
-    PERPLEXITY_API_KEY: str | None = Field(None, description="Required for Market Prices")
-    PINECONE_API_KEY: str | None = Field(None, description="Required for RAG Vector Database")
+    GEMINI_API_KEY: str | None = Field(default=None, description="Required for Gemini AI models")
+    GOOGLE_API_KEY: str | None = Field(default=None, description="Legacy alias for GEMINI_API_KEY")
+    PERPLEXITY_API_KEY: str | None = Field(default=None, description="Required for Market Prices")
+    PINECONE_API_KEY: str | None = Field(default=None, description="Required for RAG Vector Database")
 
     # ── RAG retrieval tuning ──────────────────────────────────────────────────
     RAG_RERANK_ENABLED: bool = Field(
@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     )
     # P1 Requirement: CMEK Encryption
     ADK_CMEK_KEY_NAME: str | None = Field(
-        None,
+        default=None,
         description="Cloud KMS Key Name for CMEK encryption of ADK Sessions"
     )
     USE_CHECKPOINTER: bool = Field(
@@ -89,8 +89,8 @@ class Settings(BaseSettings):
     )
 
     # Auth & Infrastructure
-    RP_ID: str | None = Field(None, description="WebAuthn Relying Party ID")
-    FIREBASE_CREDENTIALS: str | None = Field(None, description="Path to firebase credentials json")
+    RP_ID: str | None = Field(default=None, description="WebAuthn Relying Party ID")
+    FIREBASE_CREDENTIALS: str | None = Field(default=None, description="Path to firebase credentials json")
 
     # Firebase Environment Variables (Alternative to JSON file)
     FIREBASE_PROJECT_ID: str | None = None
@@ -101,25 +101,25 @@ class Settings(BaseSettings):
     FIREBASE_STORAGE_BUCKET: str | None = None
 
     # n8n MCP Integration (Webhook URLs)
-    N8N_WEBHOOK_NOTIFY_ADMIN: str | None = Field(None, description="n8n webhook URL to notify admin of new quote draft")
-    N8N_WEBHOOK_DELIVER_QUOTE: str | None = Field(None, description="n8n webhook URL to deliver approved quote to client")
-    N8N_API_KEY: str | None = Field(None, description="Optional API key for n8n webhook authentication")
+    N8N_WEBHOOK_NOTIFY_ADMIN: str | None = Field(default=None, description="n8n webhook URL to notify admin of new quote draft")
+    N8N_WEBHOOK_DELIVER_QUOTE: str | None = Field(default=None, description="n8n webhook URL to deliver approved quote to client")
+    N8N_API_KEY: str | None = Field(default=None, description="Optional API key for n8n webhook authentication")
     # Shared HMAC-SHA256 secret for webhook request signing (prevents replay attacks).
     # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
-    N8N_WEBHOOK_HMAC_SECRET: str | None = Field(None, description="Shared HMAC-SHA256 secret for n8n webhook signature verification")
+    N8N_WEBHOOK_HMAC_SECRET: str | None = Field(default=None, description="Shared HMAC-SHA256 secret for n8n webhook signature verification")
     # Comma-separated allowlist of valid n8n hostnames (SSRF prevention).
     # Example: "n8n.sydbioedilizia.com,n8n-staging.sydbioedilizia.com"
-    N8N_ALLOWED_WEBHOOK_HOSTS: str | None = Field(None, description="Comma-separated allowlist of n8n webhook hostnames (SSRF guard)")
+    N8N_ALLOWED_WEBHOOK_HOSTS: str | None = Field(default=None, description="Comma-separated allowlist of n8n webhook hostnames (SSRF guard)")
     ADMIN_DASHBOARD_URL: str = Field(default="http://localhost:8501", description="Base URL of the Streamlit admin console")
 
     # Account Lifecycle (GDPR B2C Inactivity Policy)
     LIFECYCLE_SECRET: str | None = Field(
-        None,
+        default=None,
         description="Shared secret for POST /internal/lifecycle/run (X-Lifecycle-Secret header). Set in Cloud Scheduler job.",
     )
-    LIFECYCLE_WARN_MONTHS: int = Field(12, description="Months of inactivity before warning email is sent.")
-    LIFECYCLE_DISABLE_MONTHS: int = Field(13, description="Months of inactivity before Firebase Auth is disabled.")
-    LIFECYCLE_ANONYMIZE_MONTHS: int = Field(24, description="Months of inactivity before Firestore PII is anonymized.")
+    LIFECYCLE_WARN_MONTHS: int = Field(default=12, description="Months of inactivity before warning email is sent.")
+    LIFECYCLE_DISABLE_MONTHS: int = Field(default=13, description="Months of inactivity before Firebase Auth is disabled.")
+    LIFECYCLE_ANONYMIZE_MONTHS: int = Field(default=24, description="Months of inactivity before Firestore PII is anonymized.")
 
     # Model Armor (Runtime Guardrails — OWASP LLM01/LLM02)
     MODEL_ARMOR_ENABLED: bool = Field(
@@ -146,12 +146,12 @@ class Settings(BaseSettings):
     )
 
     # Native Notification Service (SMTP — active replacement for n8n when n8n is unavailable)
-    SMTP_HOST: str | None = Field(None, description="SMTP server hostname (e.g. smtp.gmail.com)")
-    SMTP_PORT: int = Field(587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
-    SMTP_USER: str | None = Field(None, description="SMTP username/email for authentication")
-    SMTP_PASSWORD: str | None = Field(None, description="SMTP password or app-specific password")
-    SMTP_FROM_EMAIL: str = Field("noreply@sydbioedilizia.com", description="Sender email address for notifications")
-    ADMIN_EMAIL: str | None = Field(None, description="Admin email address for quote review notifications")
+    SMTP_HOST: str | None = Field(default=None, description="SMTP server hostname (e.g. smtp.gmail.com)")
+    SMTP_PORT: int = Field(default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
+    SMTP_USER: str | None = Field(default=None, description="SMTP username/email for authentication")
+    SMTP_PASSWORD: str | None = Field(default=None, description="SMTP password or app-specific password")
+    SMTP_FROM_EMAIL: str = Field(default="noreply@sydbioedilizia.com", description="Sender email address for notifications")
+    ADMIN_EMAIL: str | None = Field(default=None, description="Admin email address for quote review notifications")
 
     model_config = SettingsConfigDict(
         env_file=".env",

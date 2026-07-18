@@ -19,7 +19,6 @@ class BaseOrchestrator(ABC):
 
     Contract:
     - stream_chat()       — primary streaming chat (called by /chat/stream)
-    - resume_interrupt()  — HITL admin approval flow resume
     - health_check()      — liveness check
 
     Streaming Protocol: UI Message Stream SSE (Vercel AI SDK v6).
@@ -45,31 +44,6 @@ class BaseOrchestrator(ABC):
 
         Yields:
             Vercel AI protocol strings (text tokens, tool calls, errors)
-        """
-        ...
-
-    @abstractmethod
-    def resume_interrupt(
-        self,
-        session_id: str,
-        response: dict,
-        admin_uid: str = "unknown",
-    ) -> AsyncIterator[str]:
-        """
-        Resume an HITL (Human-in-the-Loop) interrupt.
-
-        Called by the admin quote approval flow after the orchestrator
-        has paused execution waiting for human review.
-
-        Args:
-            session_id: The paused session/thread identifier.
-            response: Admin decision payload, e.g.:
-                {"decision": "approve", "notes": "Approved with modifications"}
-                {"decision": "reject", "reason": "Pricing too high"}
-            admin_uid: The authenticated admin's UID for audit trail.
-
-        Yields:
-            UI Message Stream SSE strings for the resumed execution.
         """
         ...
 

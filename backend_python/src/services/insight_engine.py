@@ -416,7 +416,7 @@ Analizza la conversazione e produci la risposta strutturata.
                     temperature=0.1,
                     response_mime_type="application/json",
                     response_schema=InsightAnalysis,  # Pydantic-native, no manual parsing
-                    thinking_config=genai_types.ThinkingConfig(thinkingBudget=2048),
+                    thinking_config=genai_types.ThinkingConfig(thinking_budget=2048),
                 ),
             )
 
