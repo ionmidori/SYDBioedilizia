@@ -395,7 +395,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     async with asyncio.timeout(180):
                         logger.info(
                             f"[ADK] Calling run_async. session_id={session_id}, "
-                            f"parts={len(actual_message.parts)}, restored={session is not None}"
+                            f"parts={len(actual_message.parts or [])}, restored={session is not None}"
                         )
 
                         async for event in _run_with_session_recovery():
@@ -435,18 +435,23 @@ class ADKOrchestrator(BaseOrchestrator):
 
                                             call_id = getattr(fc, 'call_id', None) or getattr(fc, 'id', None) or str(uuid.uuid4())
 
-                                            # Track call_id so tool results can be correlated
-                                            pending_tool_calls[fc.name] = call_id
+                                            # fc.name is Optional in the genai types; a function call
+                                            # without a name is degenerate, but fall back so the key/
+                                            # stream args stay str-typed.
+                                            fname = fc.name or "unknown_tool"
 
-                                            status_msg = f"Syd sta usando {fc.name}..."
-                                            if fc.name == "generate_render":
+                                            # Track call_id so tool results can be correlated
+                                            pending_tool_calls[fname] = call_id
+
+                                            status_msg = f"Syd sta usando {fname}..."
+                                            if fname == "generate_render":
                                                 status_msg = "Syd sta generando il tuo rendering (potrebbe volerci un momento)..."
-                                            elif fc.name == "pricing_engine_tool":
+                                            elif fname == "pricing_engine_tool":
                                                 status_msg = "Syd sta calcolando i costi..."
 
                                             async for chunk in stream_status(status_msg):
                                                 yield chunk
-                                            async for chunk in stream_tool_call(call_id, fc.name, fc.args or {}):
+                                            async for chunk in stream_tool_call(call_id, fname, fc.args or {}):
                                                 yield chunk
 
                                             accumulated_tool_calls.append({
@@ -479,7 +484,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                             )
                                             # Ensure response is JSON-serializable (ADK may return protobuf MapComposite)
                                             raw_response = fr.response
-                                            if hasattr(raw_response, '__iter__') and not isinstance(raw_response, (dict, list, str)):
+                                            if raw_response is not None and hasattr(raw_response, '__iter__') and not isinstance(raw_response, (dict, list, str)):
                                                 raw_response = dict(raw_response)
 
                                             logger.info(

@@ -1,6 +1,7 @@
 import asyncio
+import io
 import logging
-from typing import IO
+from typing import IO, cast
 
 from google import genai
 from google.genai import types
@@ -56,7 +57,9 @@ class MediaProcessor:
             # Using the SDK's async upload interface
             # The SDK handles reading from the stream.
             uploaded_file = await self.client.aio.files.upload(
-                file=file_stream,
+                # genai's stub types `file` as str | PathLike | IOBase; the binary
+                # stream we pass is an IOBase at runtime (BytesIO/SpooledTemporaryFile).
+                file=cast(io.IOBase, file_stream),
                 config=types.UploadFileConfig(
                     display_name=display_name,
                     mime_type=mime_type

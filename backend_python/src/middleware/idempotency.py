@@ -26,7 +26,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
@@ -176,7 +176,7 @@ class IdempotencyMiddleware:
         response_headers: list[list] = [[]]
         response_chunks: list[bytes] = []
 
-        async def _capture_send(message: dict) -> None:
+        async def _capture_send(message: Message) -> None:
             if message["type"] == "http.response.start":
                 response_status[0] = message.get("status", 200)
                 response_headers[0] = list(message.get("headers", []))

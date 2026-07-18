@@ -7,7 +7,7 @@ Projects are stored in the `sessions` collection with extended schema.
 import logging
 import uuid
 from datetime import timedelta
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from google.cloud.firestore_v1 import FieldFilter
 from src.db.firebase_client import get_async_firestore_client, get_storage_client
@@ -297,8 +297,10 @@ async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> 
             logger.warning(f"[Projects] User {user_id} not authorized to update {session_id}")
             return False
 
-        # Build update dict (only non-None fields)
-        update_data = {"updatedAt": utc_now()}
+        # Build update dict (only non-None fields). Annotated dict[str, Any] so
+        # the initial datetime value doesn't narrow the inferred value type and
+        # reject the str/enum fields assigned below.
+        update_data: dict[str, Any] = {"updatedAt": utc_now()}
 
         if data.title is not None:
             update_data["title"] = data.title

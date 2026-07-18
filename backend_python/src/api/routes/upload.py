@@ -298,6 +298,8 @@ async def upload_video(
             )
 
             # 7. Wait for processing (async polling)
+            if not uploaded_file.name:
+                raise HTTPException(status_code=502, detail="Upload returned no file name")
             active_file = await processor.wait_for_processing(uploaded_file.name)
 
             # 8. Increment quota (only on success)

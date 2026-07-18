@@ -2,7 +2,7 @@ import asyncio
 import functools
 import logging
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from opentelemetry import trace
 from opentelemetry.trace import StatusCode
@@ -13,7 +13,7 @@ from .tracing import get_tracer
 
 logger = logging.getLogger(__name__)
 
-def trace_span(name: str = None, log_args: bool = False):
+def trace_span(name: Optional[str] = None, log_args: bool = False):
     """
     Decorator to trace function execution time and errors.
 

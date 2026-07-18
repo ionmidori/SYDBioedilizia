@@ -228,6 +228,11 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
         # Upload video file to Gemini (Async)
         # client.aio.files.upload accepts path
         video_file = await client.aio.files.upload(path=video_path)
+        if not video_file.name:
+            raise Exception("Video upload returned no file name")
+        # File name is immutable for this upload; reuse it for poll/delete so it
+        # stays str-typed even after video_file is reassigned in the poll loop.
+        file_name = video_file.name
 
         # Wait for processing
         logger.info(f"Waiting for video to be processed (file: {video_file.name})...")
@@ -235,7 +240,7 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
         elapsed = 0
         while (video_file.state.name if video_file.state else None) == "PROCESSING" and elapsed < max_wait:
             await asyncio.sleep(2)
-            video_file = await client.aio.files.get(name=video_file.name)
+            video_file = await client.aio.files.get(name=file_name)
             elapsed += 2
 
         state_name = video_file.state.name if video_file.state else None
@@ -265,7 +270,7 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
 
         # Clean up uploaded file
         try:
-            await client.aio.files.delete(name=video_file.name)
+            await client.aio.files.delete(name=file_name)
         except Exception:
             pass  # Non-critical
 

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects import get_user_projects
@@ -14,7 +14,7 @@ class GalleryService:
     def __init__(self):
         self.db = get_async_firestore_client()
 
-    async def get_all_assets(self, user_id: str, limit: int = 50, last_id: str = None) -> GalleryResponse:
+    async def get_all_assets(self, user_id: str, limit: int = 50, last_id: Optional[str] = None) -> GalleryResponse:
         """
         Business logic for fetching and orchestrating gallery assets across projects.
         """

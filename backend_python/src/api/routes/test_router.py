@@ -28,7 +28,9 @@ async def test_analyze_room(
     from src.vision.triage import analyze_media_triage
     try:
         content = await file.read()
-        return await analyze_media_triage(media_data=content, mime_type=file.content_type)
+        return await analyze_media_triage(
+            media_data=content, mime_type=file.content_type or "application/octet-stream"
+        )
     except Exception as e:
         logger.error(f"Test Analyze Room failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

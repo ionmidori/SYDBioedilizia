@@ -53,6 +53,8 @@ class RAGService:
                             field_map={"text": "chunk_text"}
                         )
                     )
+                    if not index_config.host:
+                        raise RuntimeError(f"Pinecone index '{index_name}' created without a host")
                     self.index = self.pc.Index(host=index_config.host)
                     logger.info(f"Successfully created and connected to index: {index_name}")
 

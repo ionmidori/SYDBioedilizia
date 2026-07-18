@@ -140,8 +140,9 @@ async def check_quota(
                 logger.info(f"[Quota] 🛑 BYPASS ACTIVE for {doc_id} on {tool_name}")
                 return True, 9999, now + timedelta(days=365)
 
-            if data.get("override_limit") is not None:
-                custom_limit = int(data.get("override_limit"))
+            override_limit = data.get("override_limit")
+            if override_limit is not None:
+                custom_limit = int(override_limit)
                 logger.info(f"[Quota] 🔧 CUSTOM LIMIT ACTIVE for {doc_id}: {custom_limit}")
 
         # Determine limits
