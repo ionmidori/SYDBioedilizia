@@ -226,8 +226,9 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
         logger.info("Uploading video to Gemini File API...")
 
         # Upload video file to Gemini (Async)
-        # client.aio.files.upload accepts path
-        video_file = await client.aio.files.upload(path=video_path)
+        # client.aio.files.upload accepts the local file via the `file` kwarg
+        # (str | os.PathLike | IOBase); there is no `path` parameter.
+        video_file = await client.aio.files.upload(file=video_path)
         if not video_file.name:
             raise Exception("Video upload returned no file name")
         # File name is immutable for this upload; reuse it for poll/delete so it
