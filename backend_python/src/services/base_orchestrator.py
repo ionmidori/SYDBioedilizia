@@ -26,7 +26,7 @@ class BaseOrchestrator(ABC):
     """
 
     @abstractmethod
-    async def stream_chat(
+    def stream_chat(
         self,
         request: Any,        # ChatRequest (typed in concrete implementations)
         user_session: Any,   # UserSession (typed in concrete implementations)

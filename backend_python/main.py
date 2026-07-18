@@ -4,6 +4,7 @@ load_dotenv(".env")  # Load .env into os.environ before any other imports (requi
 
 import uuid
 from contextlib import asynccontextmanager
+from typing import Any, cast
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -82,7 +83,10 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="SYD Brain", version="2.9.21", lifespan=lifespan)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+# slowapi's handler is typed (Request, RateLimitExceeded) -> Response; starlette's
+# add_exception_handler wants (Request, Exception) -> Response. The narrower exc
+# type is a stub incompatibility for this documented-correct registration.
+app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_handler))
 
 # 🔒 CORS Middleware (Hardened)
 from fastapi.middleware.cors import CORSMiddleware
