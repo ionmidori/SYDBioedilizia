@@ -94,7 +94,7 @@ class FeedbackRepository:
 
         docs = []
         async for doc in query.stream():
-            data = doc.to_dict()
+            data = doc.to_dict() or {}
             data["feedback_id"] = doc.id
             # Extract session_id from document path: sessions/{sid}/feedback/{fid}
             data["session_id"] = doc.reference.parent.parent.id

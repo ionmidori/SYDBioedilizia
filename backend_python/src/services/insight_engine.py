@@ -382,7 +382,19 @@ Analizza la conversazione e produci la risposta strutturata.
                 for url in media_urls:
                     try:
                         parsed = urlparse(url)
-                        if settings.FIREBASE_STORAGE_BUCKET not in parsed.netloc:
+                        # SSRF guard: only fetch from our Firebase Storage bucket.
+                        # Mirrors the pattern in quote_tools._run_measurement_vision —
+                        # the bucket may be the virtual-hosted host, or the leading
+                        # path segment under storage.googleapis.com (where signed URLs
+                        # actually live). Fail-closed when the bucket is unconfigured.
+                        bucket = settings.FIREBASE_STORAGE_BUCKET or ""
+                        hostname_ok = parsed.hostname == bucket
+                        path_ok = (
+                            bool(bucket)
+                            and parsed.hostname == "storage.googleapis.com"
+                            and parsed.path.startswith(f"/{bucket}/")
+                        )
+                        if not (hostname_ok or path_ok):
                             logger.warning(
                                 "[InsightEngine] Unauthorized media URL blocked.",
                                 extra={"host": parsed.netloc},
