@@ -28,5 +28,6 @@
   "reportOperatorIssue": "warning",
   "reportGeneralTypeIssues": "warning",
   "reportPrivateImportUsage": "warning",
-  "reportMissingImports": "warning"
+  "//reportMissingImports": "RATCHETED to error (2026-07-19): the only finding was tracing.py importing opentelemetry.exporter.cloud_trace, which was never declared in pyproject/uv.lock -> in production the try/except silently fell back to the console exporter and traces never reached GCP Cloud Trace. Fixed by adding opentelemetry-exporter-gcp-trace as a real dependency. This category now blocks CI.",
+  "reportMissingImports": "error"
 }
