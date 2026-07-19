@@ -201,6 +201,49 @@ class TestAnalyzeProjectForQuote:
         assert isinstance(result, InsightAnalysis)
 
     @pytest.mark.asyncio
+    async def test_legit_storage_url_is_fetched_not_overblocked(self, engine: InsightEngine) -> None:
+        """A signed URL under storage.googleapis.com/<bucket>/... must be fetched.
+
+        Regression: the SSRF guard previously checked `bucket not in netloc`, but
+        signed URLs carry the bucket in the PATH (netloc == storage.googleapis.com),
+        so every legitimate media URL was blocked and the analysis silently lost
+        image context. The fix mirrors quote_tools (host + leading-path-segment).
+        """
+        from src.services import insight_engine as ie_mod
+
+        bucket = "test-bucket.firebasestorage.app"
+        expected = InsightAnalysis(
+            suggestions=[],
+            summary="ok",
+            completeness_score=0.5,
+            missing_info=[],
+        )
+
+        mock_resp = MagicMock()
+        mock_resp.content = b"\xff\xd8\xff\xe0"  # jpeg magic bytes
+        mock_resp.raise_for_status = MagicMock()
+        mock_http = MagicMock()
+        mock_http.get = AsyncMock(return_value=mock_resp)
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_http)
+        mock_cm.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("httpx.AsyncClient", return_value=mock_cm), \
+             patch.object(ie_mod.settings, "FIREBASE_STORAGE_BUCKET", bucket), \
+             patch.object(
+                 engine.client.aio.models, "generate_content", new_callable=AsyncMock
+             ) as mock_generate:
+            mock_generate.return_value = self._make_mock_response(expected)
+            result = await engine.analyze_project_for_quote(
+                chat_history=[{"role": "user", "content": "Hai visto le foto?"}],
+                media_urls=[f"https://storage.googleapis.com/{bucket}/o/img.jpg"],
+            )
+
+        assert isinstance(result, InsightAnalysis)
+        # The legit URL was fetched (not over-blocked by the SSRF guard).
+        mock_http.get.assert_awaited_once()
+
+    @pytest.mark.asyncio
     async def test_empty_chat_history_does_not_crash(self, engine: InsightEngine) -> None:
         """Engine must handle empty chat history without crashing (returns empty analysis)."""
         expected = InsightAnalysis(
