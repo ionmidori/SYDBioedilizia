@@ -21,7 +21,8 @@ import logging
 from typing import Optional
 
 from google.adk.agents.callback_context import CallbackContext
-from google.adk.models import LlmRequest, LlmResponse
+from google.adk.models.llm_request import LlmRequest
+from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
 from src.services.model_armor.model_armor_client import get_model_armor_service

@@ -141,6 +141,35 @@ class TestQuotaCheckProduction:
         assert allowed is False
         assert remaining == 0
 
+    async def test_weekly_doc_missing_window_start_does_not_crash(
+        self, mock_env_production, mock_async_firestore
+    ):
+        """GIVEN a weekly quota doc that exists but has no window_start (malformed)
+        WHEN check_quota is called for a tool with a weekly limit
+        THEN the weekly check is skipped instead of crashing on `None + timedelta`.
+
+        Regression for the reportOptionalOperand ratchet: before the guard,
+        `now < w_start + timedelta` with w_start=None raised TypeError that the
+        outer except swallowed into a fail-closed deny.
+        """
+        # Daily doc absent; weekly doc exists but lacks window_start.
+        daily_snapshot = MagicMock()
+        daily_snapshot.exists = False
+
+        weekly_snapshot = MagicMock()
+        weekly_snapshot.exists = True
+        weekly_snapshot.to_dict.return_value = {"count": 99}  # no window_start
+
+        mock_async_firestore.collection.return_value.document.return_value.get = AsyncMock(
+            side_effect=[daily_snapshot, weekly_snapshot]
+        )
+
+        with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
+            allowed, remaining, reset_at = await check_quota("authenticatedUser123", "generate_render")
+
+        # Weekly check skipped (malformed) -> falls through to daily (absent) -> allowed.
+        assert allowed is True
+
     async def test_quota_window_reset(self, mock_env_production, mock_async_firestore):
         """GIVEN quota window has expired (>24h since window_start)
         WHEN check_quota is called

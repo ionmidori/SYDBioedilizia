@@ -382,7 +382,9 @@ Analizza la conversazione e produci la risposta strutturata.
                 for url in media_urls:
                     try:
                         parsed = urlparse(url)
-                        if settings.FIREBASE_STORAGE_BUCKET not in parsed.netloc:
+                        # Fail-closed: if the bucket is unconfigured (None), block the
+                        # URL rather than crashing on `None not in str`.
+                        if not settings.FIREBASE_STORAGE_BUCKET or settings.FIREBASE_STORAGE_BUCKET not in parsed.netloc:
                             logger.warning(
                                 "[InsightEngine] Unauthorized media URL blocked.",
                                 extra={"host": parsed.netloc},

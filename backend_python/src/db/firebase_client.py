@@ -8,16 +8,23 @@ initialize_app are imported eagerly since init_firebase() is called early.
 """
 import logging
 import os
+from typing import TYPE_CHECKING
 
 import firebase_admin
 from firebase_admin import credentials, initialize_app
 from src.core.config import settings
 
+if TYPE_CHECKING:
+    # Type-only: google.cloud.firestore is lazy-imported inside the factories
+    # below to keep module import fast (see docstring); this import is erased at
+    # runtime and only gives the global its proper type.
+    from google.cloud import firestore as google_firestore
+
 logger = logging.getLogger(__name__)
 
 # Global credential cache
 _cached_cred = None
-_async_db_client = None
+_async_db_client: "google_firestore.AsyncClient | None" = None
 
 
 def init_firebase():

@@ -75,7 +75,10 @@ async def lifespan(_app: FastAPI):
         import src.db.firebase_client as _fb
         client = _fb._async_db_client
         if client is not None:
-            await client.close()
+            # AsyncClient.close() is synchronous (returns None); `await`-ing it
+            # raised TypeError that the except below swallowed, so the gRPC
+            # channel was never actually closed on shutdown.
+            client.close()
             logger.info("Async Firestore gRPC channel closed.")
     except Exception as _e:
         logger.warning(f"Non-fatal error during shutdown cleanup: {_e}")

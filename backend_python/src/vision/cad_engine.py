@@ -3,7 +3,7 @@ import json
 import logging
 from typing import List, Optional
 
-import ezdxf
+from ezdxf.filemanagement import new as ezdxf_new
 from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
@@ -115,7 +115,7 @@ def generate_dxf_bytes(vector_data: CadVectorData) -> bytes:
     Converte i dati vettoriali JSON in un file DXF binario valido.
     """
     try:
-        doc = ezdxf.new('R2010')
+        doc = ezdxf_new('R2010')
         msp = doc.modelspace()
 
         scale_factor = 0.01

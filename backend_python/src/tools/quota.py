@@ -174,7 +174,9 @@ async def check_quota(
                 if w_start is not None and hasattr(w_start, 'timestamp'):
                     w_start = datetime.fromtimestamp(w_start.timestamp(), tz=timezone.utc)
 
-                if now < w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS):
+                # A malformed doc may lack window_start; skip the weekly check then
+                # (mirrors the daily-path `if not window_start` handling below).
+                if w_start is not None and now < w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS):
                     if w_count >= weekly_limit and custom_limit is None:
                          reset_at = w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS)
                          logger.warning(f"[Quota] Weekly limit reached for {doc_id}")
