@@ -4,6 +4,7 @@
  */
 import { useState } from 'react';
 import { useAuth } from './useAuth';
+import { logger } from '@/lib/logger';
 
 interface UpdateMetadataRequest {
     projectId: string;
@@ -50,7 +51,7 @@ export function useMetadataEditor() {
             }
 
             const data: UpdateMetadataResponse = await response.json();
-            console.log('[useMetadataEditor] Metadata updated successfully:', data);
+            logger.debug('[useMetadataEditor] Metadata updated successfully:', data);
             return true;
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error';

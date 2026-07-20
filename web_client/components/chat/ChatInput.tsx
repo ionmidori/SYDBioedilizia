@@ -23,6 +23,7 @@ import { validateFileForUpload } from "@/lib/validation/file-upload-schema";
 import { validateVideo } from "@/lib/media-utils";
 import { AttachmentMenu } from '@/components/chat/AttachmentMenu';
 import { VideoTrimmer } from '@/components/chat/VideoTrimmer';
+import { logger } from '@/lib/logger';
 
 interface ChatInputProps {
     /** Current text input value */
@@ -154,7 +155,7 @@ export function ChatInput({
     };
 
     const handleTrimConfirm = (file: File, start: number, end: number) => {
-        console.log(`[ChatInput] Video trimmed from ${start.toFixed(2)}s to ${end.toFixed(2)}s`);
+        logger.debug(`[ChatInput] Video trimmed from ${start.toFixed(2)}s to ${end.toFixed(2)}s`);
         // We append the (pseudo) trimmed video to the rest of the files and upload
         onFileSelect([file, ...pendingFiles]);
         setVideoToTrim(null);

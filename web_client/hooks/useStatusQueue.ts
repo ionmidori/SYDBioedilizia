@@ -1,5 +1,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 const MIN_DISPLAY_MS = 800;
 
@@ -43,7 +44,7 @@ export function useStatusQueue() {
         // Prevent duplicate consecutive messages  
         const lastInQueue = queueRef.current[queueRef.current.length - 1];
         if (lastInQueue === message && !process.env.NEXT_PUBLIC_IS_PROD) {
-            console.log('[useStatusQueue] Skipping duplicate:', message);
+            logger.debug('[useStatusQueue] Skipping duplicate:', message);
             return;
         }
         if (currentStatus === message && queueRef.current.length === 0) {

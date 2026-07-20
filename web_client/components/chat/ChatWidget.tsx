@@ -21,6 +21,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
+import { logger } from '@/lib/logger';
 
 /**
  * ChatWidget Component
@@ -204,7 +205,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         // Prepare Media
         const completedUploads = successfulUploads;
 
-        console.log('[ChatWidget] Submit: completedUploads:', completedUploads.map(u => ({
+        logger.debug('[ChatWidget] Submit: completedUploads:', completedUploads.map(u => ({
             id: u.id,
             status: u.status,
             assetType: u.serverData?.asset_type,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 interface InactivityConfig {
     /** Inactivity timeout in minutes (default: 30) */
@@ -93,7 +94,7 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
             if (seconds <= 0) {
                 clearAllTimers();
                 setShowWarning(false);
-                console.log('[InactivityLogout] ⏰ Session expired - logging out');
+                logger.debug('[InactivityLogout] ⏰ Session expired - logging out');
                 onLogout();
             }
         }, 1000);
@@ -110,13 +111,13 @@ export function useInactivityLogout(config: InactivityConfig): InactivityState {
 
         warningTimerRef.current = setTimeout(() => {
             if (process.env.NODE_ENV === 'development') {
-                console.log('[InactivityLogout] ⚠️ Showing inactivity warning');
+                logger.debug('[InactivityLogout] ⚠️ Showing inactivity warning');
             }
             startCountdown();
         }, warningTimeMs);
 
         if (process.env.NODE_ENV === 'development') {
-            console.log(
+            logger.debug(
                 `[InactivityLogout] Timer reset. Warning in ${timeoutMinutesRef.current - warningMinutesRef.current}m.`
             );
         }

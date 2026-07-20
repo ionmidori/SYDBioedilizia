@@ -1,5 +1,6 @@
 import { Message } from '@/types/chat';
 import imageCompression from 'browser-image-compression';
+import { logger } from '@/lib/logger';
 
 export interface MediaAsset {
     id: string;
@@ -123,7 +124,7 @@ export async function compressImage(file: File): Promise<File> {
         // Log optimization results for engineering monitoring
         const originalSize = (file.size / 1024 / 1024).toFixed(2);
         const compressedSize = (compressedFile.size / 1024 / 1024).toFixed(2);
-        console.log(`[MediaUtils] Optimization: ${originalSize}MB -> ${compressedSize}MB`);
+        logger.debug(`[MediaUtils] Optimization: ${originalSize}MB -> ${compressedSize}MB`);
 
         return compressedFile;
     } catch (error) {

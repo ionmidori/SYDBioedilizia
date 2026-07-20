@@ -17,6 +17,7 @@ import { auth, waitForAuth } from '@/lib/firebase';
 import { tokenManager } from '@/lib/auth/token-manager';
 import { setAuthCookie, removeAuthCookie } from '@/app/actions/auth-session';
 import { queryClient } from '@/lib/query-client';
+import { logger } from '@/lib/logger';
 
 /**
  * AuthContext Interface
@@ -68,14 +69,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
                 // Wait for persistence to be configured
                 await waitForAuth();
-                console.log('[AuthProvider] Firebase persistence ready');
+                logger.debug('[AuthProvider] Firebase persistence ready');
 
                 // Subscribe to auth state changes
                 const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
                     if (!isMounted) return;
 
                     if (process.env.NODE_ENV === 'development') {
-                        console.log('[AuthProvider] Auth state changed:', {
+                        logger.debug('[AuthProvider] Auth state changed:', {
                             uid: currentUser?.uid,
                             isAnonymous: currentUser?.isAnonymous,
                         });
@@ -112,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     if (!hasInitialized) {
                         hasInitialized = true;
                         setIsInitialized(true);
-                        console.log('[AuthProvider] ✅ Initialization complete');
+                        logger.debug('[AuthProvider] ✅ Initialization complete');
                     }
 
                     setLoading(false);
@@ -142,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Subscribe to token refresh events
         const unsubscribeRefresh = tokenManager.onRefresh(async (newToken) => {
             if (isMounted) {
-                console.log('[AuthProvider] Token refreshed');
+                logger.debug('[AuthProvider] Token refreshed');
                 setIdToken(newToken);
                 // Sync refreshed token
                 await setAuthCookie(newToken);
@@ -177,14 +178,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         if (user) {
-            console.log('[AuthProvider] Already have a user, skipping anonymous sign-in');
+            logger.debug('[AuthProvider] Already have a user, skipping anonymous sign-in');
             return;
         }
 
         try {
-            console.log('[AuthProvider] Signing in anonymously...');
+            logger.debug('[AuthProvider] Signing in anonymously...');
             await firebaseSignInAnonymously(auth);
-            console.log('[AuthProvider] ✅ Anonymous sign-in successful');
+            logger.debug('[AuthProvider] ✅ Anonymous sign-in successful');
         } catch (err) {
             console.error('[AuthProvider] ❌ Anonymous sign-in failed:', err);
             setError(err as Error);
@@ -245,9 +246,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             // NOTE: We call firebaseSignInAnonymously directly instead of the wrapper
             // because setUser(null) above is batched by React — the wrapper's `if (user)`
             // guard would still see the stale user and return early.
-            console.log('[AuthProvider] Signing in anonymously after logout...');
+            logger.debug('[AuthProvider] Signing in anonymously after logout...');
             await firebaseSignInAnonymously(auth);
-            console.log('[AuthProvider] ✅ Anonymous sign-in after logout successful');
+            logger.debug('[AuthProvider] ✅ Anonymous sign-in after logout successful');
         } catch (error) {
             console.error('[AuthProvider] Logout error:', error);
             // Even if error, force local state clear

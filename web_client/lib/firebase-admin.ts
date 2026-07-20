@@ -3,6 +3,7 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import { getStorage, Storage } from 'firebase-admin/storage';
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from '@/lib/logger';
 
 /**
  * Firebase Admin SDK initialization for server-side operations
@@ -79,7 +80,7 @@ function validateServiceAccount(clientEmail: string, projectId: string): void {
  */
 function initializeFirebase(): App {
     if (getApps().length === 0) {
-        console.log('[Firebase] Initializing Firebase Admin SDK...');
+        logger.debug('[Firebase] Initializing Firebase Admin SDK...');
 
         try {
             // Try environment variables first (Vercel-compatible)
@@ -87,7 +88,7 @@ function initializeFirebase(): App {
             const rawPrivateKey = process.env.FIREBASE_PRIVATE_KEY;
 
             if (rawPrivateKey && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
-                console.log('[Firebase] Loading credentials from environment variables');
+                logger.debug('[Firebase] Loading credentials from environment variables');
 
                 // ✅ CRITICAL FIX #2: Sanitize & Validate
                 const privateKey = sanitizeAndValidatePrivateKey(rawPrivateKey);
@@ -106,7 +107,7 @@ function initializeFirebase(): App {
                     storageBucket: `${process.env.FIREBASE_PROJECT_ID}.firebasestorage.app`,
                 });
 
-                console.log('[Firebase] ✅ Successfully initialized from environment variables');
+                logger.debug('[Firebase] ✅ Successfully initialized from environment variables');
 
                 return firebaseApp;
             }
@@ -114,7 +115,7 @@ function initializeFirebase(): App {
             // Fallback to JSON file (local development)
             const serviceAccountPath = path.join(process.cwd(), 'firebase-service-account.json');
 
-            console.log('[Firebase] Loading credentials from:', serviceAccountPath);
+            logger.debug('[Firebase] Loading credentials from:', serviceAccountPath);
 
             if (!fs.existsSync(serviceAccountPath)) {
                 throw new Error(`Firebase service account file not found at: ${serviceAccountPath}. Please ensure firebase-service-account.json exists in the project root OR set environment variables.`);
@@ -138,7 +139,7 @@ function initializeFirebase(): App {
                 storageBucket: serviceAccount.project_id + '.firebasestorage.app',
             });
 
-            console.log('[Firebase] ✅ Successfully initialized from JSON file');
+            logger.debug('[Firebase] ✅ Successfully initialized from JSON file');
 
             return firebaseApp!; // Assert not null since we just initialized it
         } catch (error) {

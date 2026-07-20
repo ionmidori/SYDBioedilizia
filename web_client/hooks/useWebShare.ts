@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 export interface ShareData {
     title?: string;
@@ -37,13 +38,13 @@ export function useWebShare() {
 
         try {
             await navigator.share(data);
-            console.log('[WebShare] Share successful');
+            logger.debug('[WebShare] Share successful');
             return true;
         } catch (error: unknown) {
             const err = error as Error;
             //  User cancelled share (not an error)
             if (err.name === 'AbortError') {
-                console.log('[WebShare] User cancelled');
+                logger.debug('[WebShare] User cancelled');
                 return false;
             }
             console.error('[WebShare] Share failed:', err);

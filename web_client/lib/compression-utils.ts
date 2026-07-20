@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 /**
  * File Compression Utilities.
  *
@@ -62,18 +63,18 @@ function getCompressionConfig(
     }
 
     if (ratio > 8) {
-        console.log(`[Compression] Extreme: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+        logger.debug(`[Compression] Extreme: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
         return { maxWidth: 1024, quality: 0.5, mimeType: 'image/jpeg' };
     }
     if (ratio > 4) {
-        console.log(`[Compression] Heavy: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+        logger.debug(`[Compression] Heavy: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
         return { maxWidth: 1280, quality: 0.6, mimeType: 'image/jpeg' };
     }
     if (ratio > 2) {
-        console.log(`[Compression] Medium: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+        logger.debug(`[Compression] Medium: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
         return { maxWidth: 1536, quality: 0.7, mimeType: 'image/jpeg' };
     }
-    console.log(`[Compression] Light: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+    logger.debug(`[Compression] Light: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
     return { maxWidth: 1800, quality: 0.75, mimeType: 'image/jpeg' };
 }
 

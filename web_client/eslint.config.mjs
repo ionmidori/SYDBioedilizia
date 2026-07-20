@@ -20,7 +20,16 @@ const eslintConfig = defineConfig([
       // refactors — tracked as follow-up, not fixable in a lint-gate rollout.
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/refs": "warn",
+      // Debug traces must go through lib/logger, which is dev-gated and drops
+      // out of the production bundle. warn/error stay allowed: they are
+      // legitimate diagnostics in production too.
+      "no-console": ["error", { allow: ["warn", "error"] }],
     },
+  },
+  {
+    // The logger itself is the one place where console.log IS the implementation.
+    files: ["lib/logger.ts"],
+    rules: { "no-console": "off" },
   },
 ]);
 

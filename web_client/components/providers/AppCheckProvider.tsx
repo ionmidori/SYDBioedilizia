@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { logger } from '@/lib/logger';
 
 /**
  * Global App Check Provider
@@ -11,9 +12,9 @@ export function AppCheckProvider({ children }: { children: React.ReactNode }) {
         if (typeof window === 'undefined') return;
 
         if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
-            console.log("[AppCheck] 🛡️ Active (Managed via lib/firebase)");
+            logger.debug("[AppCheck] 🛡️ Active (Managed via lib/firebase)");
         } else {
-            console.log("[AppCheck] 🛑 Disabled (Feature Flag)");
+            logger.debug("[AppCheck] 🛑 Disabled (Feature Flag)");
         }
     }, []);
 

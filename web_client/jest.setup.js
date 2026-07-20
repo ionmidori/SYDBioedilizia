@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-console.log('--- JEST SETUP EXECUTING ---');
 // Polyfill TextEncoder/TextDecoder (MUST BE AT TOP)
 const { TextEncoder, TextDecoder } = require('node:util');
 global.TextEncoder = TextEncoder;
@@ -11,7 +10,6 @@ if (typeof window !== 'undefined') {
     window.TextEncoder = TextEncoder;
     window.TextDecoder = TextDecoder;
 }
-console.log('TextDecoder polyfill applied:', !!global.TextDecoder);
 
 // ✅ PILLAR 1 FIX: Properly import testing-library matchers
 // This extends Jest's expect() with custom matchers like toBeInTheDocument()
