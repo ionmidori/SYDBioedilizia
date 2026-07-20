@@ -35,7 +35,7 @@ dependencies = [
     # Cloud Trace span exporter used by src/core/tracing.py in production. Was
     # imported but never declared, so the prod try/except silently fell back to
     # the console exporter and traces never reached GCP Cloud Trace.
-    "opentelemetry-exporter-gcp-trace>=1.9.0",
+    "opentelemetry-exporter-gcp-trace>=1.12.0",
 ]
 
 [project.optional-dependencies]
