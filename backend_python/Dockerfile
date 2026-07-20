@@ -1,5 +1,5 @@
 # Use a Python image with uv pre-installed via multi-stage or copy
-FROM python:3.12-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 # Copy uv from the official image (Best Practice for speed/reliability).
 # Version pinned for reproducible builds — bumped by Dependabot (docker ecosystem).
