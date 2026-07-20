@@ -55,7 +55,37 @@ updates:
       # ^9 (see PR #130/#135). Remove once the plugin ships ESLint 10 support.
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
+      # TypeScript 7 ships the native Go compiler (tsgo); Next.js 16.2.x
+      # `hasNecessaryDependencies` does not detect it and `next build` fails with
+      # "trying to use TypeScript but do not have the required package(s)".
+      # See PR #200 (closed). Remove once Next.js supports tsgo.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     labels: ["dependencies", "frontend", "tooling"]
+
+  # ── Docker base images ───────────────────────────────────────────────────
+  # Every Dockerfile pins an explicit image tag (no `:latest`) so builds are
+  # reproducible; these entries are what keeps those pins from going stale.
+  - package-ecosystem: "docker"
+    directory: "/backend_python"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "docker", "backend"]
+
+  - package-ecosystem: "docker"
+    directory: "/n8n"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "docker"]
+
+  - package-ecosystem: "docker"
+    directory: "/admin_tool"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels: ["dependencies", "docker", "admin-tool"]
 
   # ── GitHub Actions ───────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"
