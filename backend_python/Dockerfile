@@ -1,8 +1,9 @@
 # Use a Python image with uv pre-installed via multi-stage or copy
 FROM python:3.12-slim-bookworm
 
-# Copy uv from the official image (Best Practice for speed/reliability)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+# Copy uv from the official image (Best Practice for speed/reliability).
+# Version pinned for reproducible builds — bumped by Dependabot (docker ecosystem).
+COPY --from=ghcr.io/astral-sh/uv:0.11.29 /uv /uvx /bin/
 
 # Set working directory
 WORKDIR /app
