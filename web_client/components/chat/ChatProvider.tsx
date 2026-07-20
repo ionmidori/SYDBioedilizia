@@ -7,13 +7,13 @@ import { ChatContext } from '@/hooks/useChatContext';
 import { ChatContextType } from '@/types/chat-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatHistory } from '@/hooks/useChatHistory';
+import { useChatSync } from '@/hooks/useChatSync';
 import { auth, appCheck } from '@/lib/firebase';
 import { getToken } from 'firebase/app-check';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 import { logger } from '@/lib/logger';
-import { buildFullHistory, getMessageText } from '@/lib/chat/messages';
-import { planHistorySync } from '@/lib/chat/history-sync';
+import { getMessageText } from '@/lib/chat/messages';
 
 interface StreamData {
     type: string;
@@ -43,8 +43,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // AI SDK v7 delivers transient `data-*` parts via the `onData` callback (NOT on
     // `useChat().data`, which no longer exists), so we accumulate them here.
     const [streamData, setStreamData] = useState<StreamData[]>([]);
-    const welcomeInjectedRef = useRef(false);
-    const isFirstSyncRef = useRef(true);
     const prevUserRef = useRef(user);
 
     // -- STABLE SESSION ID (L3 Persistent Guest) --
@@ -76,12 +74,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return currentProjectId || `global-${user.uid}`;
     }, [user, currentProjectId, stableGuestId]);
 
-    // Reset per-session refs when sessionId changes.
+    // Drop the previous session's ADK data events when sessionId changes.
+    // (useChatSync owns the equivalent reset for its own per-session refs.)
     useEffect(() => {
-        welcomeInjectedRef.current = false;
-        isFirstSyncRef.current = true;
         // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional per-session reset: drop the previous session's ADK data events when sessionId changes
-        setStreamData([]); // drop previous session's ADK data events
+        setStreamData([]);
     }, [sessionId]);
 
     // -- HISTORY SYNC --
@@ -219,52 +216,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     const isLoading = status === 'streaming' || status === 'submitted';
 
-    // Sync History to SDK State
-    //
-    // The decision itself lives in the pure `planHistorySync` (lib/chat/history-sync.ts),
-    // where every guard and race condition is unit-tested. This effect only applies it:
-    // the `setTimeout(…, 0)` defers `setMessages` out of the effect commit.
-    useEffect(() => {
-        // ALWAYS prepend the welcome message to the history so it persists.
-        const fullHistory = buildFullHistory(historyMessages);
-
-        const decision = planHistorySync({
-            sdkMessages: messages,
-            fullHistory,
-            historyLength: historyMessages.length,
-            status,
-            historyLoaded,
-            sessionMatches: loadedForSessionId === sessionId,
-            isFirstSync: isFirstSyncRef.current,
-            welcomeInjected: welcomeInjectedRef.current,
-        });
-
-        if (decision.kind === 'noop') {
-            if (decision.reason === 'awaiting-snapshot') {
-                logger.debug('[ChatProvider] Sync Guard: Waiting for history snapshot...');
-            }
-            return;
-        }
-
-        switch (decision.reason) {
-            case 'cold-start':
-                logger.debug('[ChatProvider] Cold start: Injecting welcome message.');
-                welcomeInjectedRef.current = true;
-                break;
-            case 'first-sync':
-                logger.debug(`[ChatProvider] Initial history sync (${fullHistory.length} messages)`);
-                isFirstSyncRef.current = false;
-                break;
-            case 'adopt-ids':
-                logger.debug('[ChatProvider] Adopting Firestore IDs (ID update only).');
-                break;
-            default:
-                logger.debug(`[ChatProvider] History Sync (Mismatch: SDK ${messages.length} vs Hist ${fullHistory.length})`);
-        }
-
-        const timerId = setTimeout(() => setMessages(decision.messages), 0);
-        return () => clearTimeout(timerId);
-    }, [historyLoaded, historyMessages, loadedForSessionId, sessionId, setMessages, status, messages]);
+    // -- HISTORY -> SDK STATE RECONCILIATION --
+    useChatSync({
+        messages,
+        setMessages,
+        historyMessages,
+        historyLoaded,
+        loadedForSessionId,
+        sessionId,
+        status,
+    });
 
     // -- ADK STREAMING DATA HANDLERS (interrupt / ui_widget / artifact) --
     useEffect(() => {
