@@ -12,45 +12,13 @@ import { getToken } from 'firebase/app-check';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 import { logger } from '@/lib/logger';
-
-const WELCOME_MESSAGE = {
-    id: 'welcome-msg',
-    role: 'assistant',
-    parts: [{ type: 'text', text: "✨ **Ciao! Sono Syd**, il tuo assistente per la ristrutturazione. ✨\n\nEcco cosa posso fare per aiutarti a realizzare il tuo progetto:\n\n\n📋 **1. Creare preventivo veloce:**\n_Ottieni subito una stima dei costi._\n\n\n🎨 **2. Creare un rendering gratuito:**\n_Visualizza in anteprima le tue idee._\n\n\n💡 **3. Fornire informazioni dettagliate:**\n_Chiedi consigli su materiali e design._\n\n\n👇 **Come posso aiutarti oggi?**" }],
-    createdAt: new Date()
-} as unknown as Message;
+import { buildFullHistory, getMessageText } from '@/lib/chat/messages';
+import { planHistorySync } from '@/lib/chat/history-sync';
 
 interface StreamData {
     type: string;
     payload?: unknown;
     [key: string]: unknown;
-}
-
-/**
- * Convert a Firestore history row into a valid AI SDK v7 UIMessage.
- *
- * Firestore history comes back content-only (no `parts`). AI SDK v7 requires
- * every message in `useChat` state to carry a `parts` array: loading
- * content-only messages corrupts the streaming reconciliation so a
- * freshly-streamed assistant reply is NEVER appended to state — it only shows
- * after a full page refresh (which re-renders from history without streaming).
- * Empty/new sessions are unaffected because nothing malformed is loaded.
- */
-function historyToUIMessage(m: {
-    id?: string;
-    role?: string;
-    content?: unknown;
-    attachments?: { images?: string[] } | undefined;
-}): Message {
-    const text = typeof m.content === 'string' ? m.content : '';
-    const parts: Array<{ type: string; text?: string; mediaType?: string; url?: string }> = [];
-    if (text) parts.push({ type: 'text', text });
-    for (const url of m.attachments?.images ?? []) {
-        if (typeof url === 'string') parts.push({ type: 'file', mediaType: 'image/jpeg', url });
-    }
-    // v7 messages must have at least one part; an empty assistant renders as "thinking".
-    if (parts.length === 0) parts.push({ type: 'text', text: '' });
-    return { id: m.id, role: m.role, parts } as unknown as Message;
 }
 
 /**
@@ -178,13 +146,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
             const msgs = body.messages as Message[];
             const lastMsg = msgs?.[msgs.length - 1];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const lastMsgAny = lastMsg as any;
-            const lastMsgContent = lastMsg
-                ? (typeof lastMsgAny.content === 'string'
-                    ? lastMsgAny.content
-                    : lastMsgAny.parts?.[0]?.text || '')
-                : '';
+            const lastMsgContent = getMessageText(lastMsg);
 
             if (process.env.NODE_ENV === 'development') {
                 logger.debug('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
@@ -258,100 +220,50 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const isLoading = status === 'streaming' || status === 'submitted';
 
     // Sync History to SDK State
+    //
+    // The decision itself lives in the pure `planHistorySync` (lib/chat/history-sync.ts),
+    // where every guard and race condition is unit-tested. This effect only applies it:
+    // the `setTimeout(…, 0)` defers `setMessages` out of the effect commit.
     useEffect(() => {
-        let timerId: NodeJS.Timeout;
+        // ALWAYS prepend the welcome message to the history so it persists.
+        const fullHistory = buildFullHistory(historyMessages);
 
-        // STALE DATA GUARD: historyMessages is only valid once loadedForSessionId matches
-        // the current sessionId. During a session transition, the Firestore snapshot for the
-        // new session hasn't fired yet, so historyMessages still holds data from the previous
-        // session. Syncing it would re-populate the chat with old messages.
-        if (loadedForSessionId !== sessionId) {
+        const decision = planHistorySync({
+            sdkMessages: messages,
+            fullHistory,
+            historyLength: historyMessages.length,
+            status,
+            historyLoaded,
+            sessionMatches: loadedForSessionId === sessionId,
+            isFirstSync: isFirstSyncRef.current,
+            welcomeInjected: welcomeInjectedRef.current,
+        });
+
+        if (decision.kind === 'noop') {
+            if (decision.reason === 'awaiting-snapshot') {
+                logger.debug('[ChatProvider] Sync Guard: Waiting for history snapshot...');
+            }
             return;
         }
 
-        // RACE CONDITION GUARD: Status 'ready' means useChat just finished a request.
-        // In local dev, there might be a lag between saving to Firestore and onSnapshot firing.
-        // We don't want to revert to an empty history while waiting for that snapshot.
-        const isRecentlyFinished = status === 'ready' && messages.length > 0;
-
-        if (historyLoaded && status !== 'streaming' && status !== 'submitted') {
-            // ALWAYS prepend the welcome message to the history so it persists.
-            // Standalone `tool` rows are not v7 messages (tool data lives inside
-            // the assistant message) — exclude them, and convert every row to a
-            // valid v7 UIMessage with `parts` so streaming reconciliation works.
-            const fullHistory = [
-                WELCOME_MESSAGE,
-                ...(historyMessages as unknown as { role?: string }[])
-                    .filter((m) => m.role !== 'tool')
-                    .map((m) => historyToUIMessage(m)),
-            ];
-
-            // 1. Cold Start (Welcome Message)
-            if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
+        switch (decision.reason) {
+            case 'cold-start':
                 logger.debug('[ChatProvider] Cold start: Injecting welcome message.');
                 welcomeInjectedRef.current = true;
-
-                timerId = setTimeout(() => {
-                    setMessages(fullHistory);
-                }, 0);
-                return () => clearTimeout(timerId);
-            }
-
-            // Skip sync if we injected the welcome message and history is empty
-            if (welcomeInjectedRef.current && historyMessages.length === 0) {
-                return;
-            }
-
-            // 2. Synchronization Logic
-            const sdkLen = messages.length;
-            const histLen = fullHistory.length;
-            const needsSync = sdkLen !== histLen || (sdkLen > 0 && histLen > 0 && messages[sdkLen - 1].id !== fullHistory[histLen - 1].id);
-
-            if (needsSync) {
-                // RACE CONDITION GUARD: Must run BEFORE first-sync to prevent
-                // overwriting SDK optimistic messages when Firestore is behind.
-                // Background task saves user message AFTER streaming completes,
-                // so Firestore may temporarily have fewer messages than the SDK.
-                if (isRecentlyFinished && histLen < sdkLen) {
-                    logger.debug('[ChatProvider] Sync Guard: Waiting for history snapshot...');
-                    return;
-                }
-
-                if (isFirstSyncRef.current) {
-                    logger.debug(`[ChatProvider] Initial history sync (${histLen} messages)`);
-                    timerId = setTimeout(() => setMessages(fullHistory), 0);
-                    isFirstSyncRef.current = false;
-                    return () => clearTimeout(timerId);
-                }
-
-                // Optimization: If lengths are equal and the last message content is identical,
-                // just adopt the Firestore IDs without a full state rebuild.
-                if (sdkLen === histLen && sdkLen > 0) {
-                    const lastSdk = messages[sdkLen - 1];
-                    const lastHist = fullHistory[histLen - 1];
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const sdkMsg = lastSdk as any;
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const histMsg = lastHist as any;
-                    const sdkContent = typeof sdkMsg.content === 'string' ? sdkMsg.content : sdkMsg.parts?.[0]?.text || '';
-                    const histContent = typeof histMsg.content === 'string' ? histMsg.content : histMsg.parts?.[0]?.text || '';
-
-                    if (sdkContent === histContent) {
-                        logger.debug('[ChatProvider] Adopting Firestore IDs (ID update only).');
-                        timerId = setTimeout(() => setMessages(fullHistory), 0);
-                        return () => clearTimeout(timerId);
-                    }
-                }
-
-                // If history is longer, it's definitive (another device or backend update)
-                logger.debug(`[ChatProvider] History Sync (Mismatch: SDK ${sdkLen} vs Hist ${histLen})`);
-                timerId = setTimeout(() => {
-                    setMessages(fullHistory);
-                }, 0);
-                return () => clearTimeout(timerId);
-            }
-
+                break;
+            case 'first-sync':
+                logger.debug(`[ChatProvider] Initial history sync (${fullHistory.length} messages)`);
+                isFirstSyncRef.current = false;
+                break;
+            case 'adopt-ids':
+                logger.debug('[ChatProvider] Adopting Firestore IDs (ID update only).');
+                break;
+            default:
+                logger.debug(`[ChatProvider] History Sync (Mismatch: SDK ${messages.length} vs Hist ${fullHistory.length})`);
         }
+
+        const timerId = setTimeout(() => setMessages(decision.messages), 0);
+        return () => clearTimeout(timerId);
     }, [historyLoaded, historyMessages, loadedForSessionId, sessionId, setMessages, status, messages]);
 
     // -- ADK STREAMING DATA HANDLERS (interrupt / ui_widget / artifact) --
