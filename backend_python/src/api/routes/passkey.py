@@ -9,6 +9,7 @@ Implements FIDO2/WebAuthn protocol for biometric authentication:
 
 import base64
 import logging
+import re
 import time
 from typing import Optional
 from urllib.parse import urlparse
@@ -72,8 +73,12 @@ def _resolve_rp_id(request: Request) -> str:
         try:
             parsed = urlparse(origin)
             candidate = parsed.hostname
-        except Exception:
-            pass
+        except ValueError:
+            # urlparse only raises ValueError (malformed IPv6 literal, non-numeric
+            # port). A bare `except: pass` also swallowed programming errors and
+            # left no trace on a security-relevant path — fall through to the
+            # Host / X-Forwarded-Host candidates, but say so.
+            logger.warning(f"[Passkey] Unparsable Origin header, ignored: {origin!r}")
 
     if not candidate and x_forwarded_host:
         candidate = x_forwarded_host.split(":")[0]
@@ -90,7 +95,6 @@ def _resolve_rp_id(request: Request) -> str:
     if candidate and candidate in _ALLOWED_RP_IDS:
         return candidate
 
-    import re
     # SECURITY (F-04): only accept Vercel preview subdomains under OUR team scope
     # ("-ionmidori"). A bare ".*\.vercel\.app" would also match attacker-owned
     # projects such as "sydbioedilizia-evil-<attacker>.vercel.app", enabling
