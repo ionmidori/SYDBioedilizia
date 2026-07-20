@@ -41,15 +41,17 @@ const customJestConfig = {
         '!**/node_modules/**',
         '!**/.next/**',
     ],
-    // Ratchet floors, NOT the aspirational goal. Actual coverage is ~20% today;
-    // these are set just below current so CI enforces "no regression" while the
-    // suite grows. Raise them as coverage improves — target remains 70%.
+    // Ratchet floors, NOT the aspirational goal. Set just below the measured
+    // figure so CI enforces "no regression" while the suite grows; raise them
+    // whenever coverage improves — target remains 70%.
+    // Measured 2026-07-20 after the lib/validation + cookie-manager +
+    // media-utils increment: 23.64 stmts / 61.48 branches / 29.03 funcs.
     coverageThreshold: {
         global: {
-            branches: 11,
-            functions: 14,
-            lines: 18,
-            statements: 18,
+            branches: 58,
+            functions: 27,
+            lines: 22,
+            statements: 22,
         },
     },
     transformIgnorePatterns: [
