@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 
 export const maxDuration = 60; // Standard duration for auth requests
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
     const path = resolvedParams.path.join('/');
     const targetUrl = `${PYTHON_BACKEND_URL}/api/passkey/${path}`;
 
-    console.log(`[Passkey Proxy] Forwarding ${req.method} request to: ${targetUrl}`);
+    logger.debug(`[Passkey Proxy] Forwarding ${req.method} request to: ${targetUrl}`);
 
     try {
         // 2. Prepare headers

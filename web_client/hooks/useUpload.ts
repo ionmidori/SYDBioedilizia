@@ -31,6 +31,7 @@ import {
     getUploadEndpoint,
     isAllowedType,
 } from '@/lib/compression-utils';
+import { logger } from '@/lib/logger';
 
 // =============================================================================
 // CONFIGURATION
@@ -74,10 +75,10 @@ export function useUpload(options: UseUploadOptions = {}) {
         try {
             if ('wakeLock' in navigator && !wakeLockRef.current) {
                 wakeLockRef.current = await navigator.wakeLock.request('screen');
-                console.log('[useUpload] 🔒 Screen wake lock acquired');
+                logger.debug('[useUpload] 🔒 Screen wake lock acquired');
             }
         } catch (err) {
-            console.log('[useUpload] Wake lock request failed:', err);
+            logger.debug('[useUpload] Wake lock request failed:', err);
         }
     }, []);
 
@@ -86,9 +87,9 @@ export function useUpload(options: UseUploadOptions = {}) {
             try {
                 await wakeLockRef.current.release();
                 wakeLockRef.current = null;
-                console.log('[useUpload] 🔓 Screen wake lock released');
+                logger.debug('[useUpload] 🔓 Screen wake lock released');
             } catch (err) {
-                console.log('[useUpload] Wake lock release failed:', err);
+                logger.debug('[useUpload] Wake lock release failed:', err);
             }
         }
     }, []);
@@ -151,7 +152,7 @@ export function useUpload(options: UseUploadOptions = {}) {
                         fileToUpload = new File([compressed], item.file.name, {
                             type: 'image/jpeg',
                         });
-                        console.log(
+                        logger.debug(
                             `[useUpload] Compressed ${item.file.name}: ${(item.file.size / 1024 / 1024).toFixed(2)}MB -> ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`
                         );
                     } catch (err) {
@@ -167,7 +168,7 @@ export function useUpload(options: UseUploadOptions = {}) {
 
                 // ⚡ Anonymous sign-in if guest
                 if (!user) {
-                    console.log('[useUpload] No user found, attempting anonymous sign-in...');
+                    logger.debug('[useUpload] No user found, attempting anonymous sign-in...');
                     await signInAnonymously();
                 }
 
@@ -183,7 +184,7 @@ export function useUpload(options: UseUploadOptions = {}) {
                         const result = await getToken(appCheck, false);
                         appCheckToken = result.token;
                     } catch (error) {
-                        console.debug('[useUpload] App Check suppressed:', error);
+                        logger.debug('[useUpload] App Check suppressed:', error);
                     }
                 }
 
@@ -238,11 +239,11 @@ export function useUpload(options: UseUploadOptions = {}) {
                     progress: 100,
                     serverData: result,
                 });
-                console.log(`[useUpload] ✅ Upload complete: ${item.file.name}`);
+                logger.debug(`[useUpload] ✅ Upload complete: ${item.file.name}`);
 
             } catch (err: unknown) {
                 if (err instanceof DOMException && err.name === 'AbortError') {
-                    console.log(`[useUpload] Upload cancelled: ${item.file.name}`);
+                    logger.debug(`[useUpload] Upload cancelled: ${item.file.name}`);
                     return; // Don't update state, item is being removed
                 }
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logger } from '@/lib/logger';
 
 /**
  * Custom hook for managing chat session ID with localStorage persistence
@@ -11,14 +12,14 @@ export function useSessionId() {
         // 1. Priority: Project Context (Logged in User)
         const activeProjectId = localStorage.getItem('activeProjectId');
         if (activeProjectId) {
-            console.log('[SessionID] Restored Project Context:', activeProjectId);
+            logger.debug('[SessionID] Restored Project Context:', activeProjectId);
             return activeProjectId;
         }
 
         // 2. Fallback: Anonymous Session
         const stored = localStorage.getItem('chatSessionId');
         if (stored) {
-            console.log('[SessionID] Restored anonymous session:', stored);
+            logger.debug('[SessionID] Restored anonymous session:', stored);
             return stored;
         }
 
@@ -26,7 +27,7 @@ export function useSessionId() {
         // preventing session ID brute-force that was possible with Math.random().
         const newSessionId = crypto.randomUUID();
         localStorage.setItem('chatSessionId', newSessionId);
-        console.log('[SessionID] Created new session:', newSessionId);
+        logger.debug('[SessionID] Created new session:', newSessionId);
         return newSessionId;
     });
 

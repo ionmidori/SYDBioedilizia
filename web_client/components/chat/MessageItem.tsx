@@ -19,6 +19,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 import { Message, ReasoningStep, ToolInvocation } from '@/types/chat';
+import { logger } from '@/lib/logger';
 
 interface MessageItemProps {
     message: Message;
@@ -319,7 +320,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                                                     <LeadCaptureForm
                                                         description={args?.quote_summary || "Per generare il render, ho bisogno di questi dati."}
                                                         onSubmit={(data) => {
-                                                            console.log("📝 Form Submitted:", data);
+                                                            logger.debug("📝 Form Submitted:", data);
                                                             if (onFormSubmit) onFormSubmit(data);
                                                         }}
                                                     />

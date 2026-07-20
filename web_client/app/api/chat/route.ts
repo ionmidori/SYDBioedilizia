@@ -14,20 +14,21 @@ export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 import { normalizeMessagesForBackend, type SDKMessage } from './normalize-messages';
+import { logger } from '@/lib/logger';
 
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8080';
 
-console.log('[Proxy Config] URL:', PYTHON_BACKEND_URL);
+logger.debug('[Proxy Config] URL:', PYTHON_BACKEND_URL);
 
 export async function POST(req: Request) {
-    console.log('----> [Proxy] Chat request received');
+    logger.debug('----> [Proxy] Chat request received');
 
     try {
         // Extract request body
         const body = await req.json();
         const { messages, images, imageUrls, mediaUrls, mediaTypes, mediaMetadata, sessionId, projectId, is_authenticated } = body;
 
-        console.log('[Proxy] Request details:', {
+        logger.debug('[Proxy] Request details:', {
             messagesCount: messages?.length || 0,
             hasImages: !!images,
             imageUrlsCount: imageUrls?.length || 0,
@@ -90,7 +91,7 @@ export async function POST(req: Request) {
         const idToken = authHeader.split('Bearer ')[1];
         const appCheckToken = req.headers.get('X-Firebase-AppCheck');
 
-        console.log('[Proxy] Forwarding to Python backend:', PYTHON_BACKEND_URL);
+        logger.debug('[Proxy] Forwarding to Python backend:', PYTHON_BACKEND_URL);
 
         // Forward to Python backend
         const proxyHeaders: Record<string, string> = {
@@ -154,7 +155,7 @@ export async function POST(req: Request) {
             });
         }
 
-        console.log('[Proxy] ✅ Streaming response from Python backend');
+        logger.debug('[Proxy] ✅ Streaming response from Python backend');
 
         // Tee the stream: log chunks AND forward to client
         // This helps diagnose if data is flowing through the proxy correctly
@@ -168,13 +169,13 @@ export async function POST(req: Request) {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) {
-                        console.log(`[Proxy] Stream complete (${totalChunks} chunks sent to client)`);
+                        logger.debug(`[Proxy] Stream complete (${totalChunks} chunks sent to client)`);
                         await writer.close();
                         break;
                     }
                     totalChunks++;
                     const text = new TextDecoder().decode(value);
-                    console.log(`[Proxy] Chunk ${totalChunks}: ${JSON.stringify(text)}`);
+                    logger.debug(`[Proxy] Chunk ${totalChunks}: ${JSON.stringify(text)}`);
                     await writer.write(value);
                 }
             } catch (err) {

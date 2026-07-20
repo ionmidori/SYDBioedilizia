@@ -2,6 +2,7 @@ import { fetchWithAuth, fetchValidated } from '@/lib/api-client';
 import { ProjectListItem, ProjectCreate, ProjectUpdate } from '@/types/projects';
 import { projectListResponseSchema, projectSchema } from '@/lib/validation/project-list-schema';
 import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py'; // Use proxy or direct URL
 
@@ -30,7 +31,7 @@ export const projectsApi = {
             // Check if it's a network 404 vs validation error
             const typedError = error as { status?: number; message?: string };
             if (typedError?.status === 404) {
-                console.log('[ProjectsApi] Project not found (404), returning null');
+                logger.debug('[ProjectsApi] Project not found (404), returning null');
                 return null;
             }
             throw new Error(typedError?.message || 'Errore nel recupero del progetto');

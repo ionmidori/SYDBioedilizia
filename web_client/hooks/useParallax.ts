@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/lib/logger';
 
 export interface ParallaxTilt {
     x: number; // -20 to +20 degrees
@@ -21,7 +22,7 @@ export function useParallax(enabled: boolean = true) {
         // Check for reduced motion preference
         const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (prefersReducedMotion) {
-            console.log('[Parallax] Disabled due to prefers-reduced-motion');
+            logger.debug('[Parallax] Disabled due to prefers-reduced-motion');
             return;
         }
 

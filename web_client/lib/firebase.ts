@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
+import { logger } from '@/lib/logger';
 
 /**
  * Firebase Client SDK Configuration
@@ -30,7 +31,7 @@ const authReadyPromise = new Promise<void>((resolve) => {
 if (typeof window !== 'undefined') {
     setPersistence(auth, browserLocalPersistence)
         .then(() => {
-            console.log('[Firebase] ✅ Persistence configured');
+            logger.debug('[Firebase] ✅ Persistence configured');
             authReadyResolve?.();
         })
         .catch((error) => {
@@ -85,7 +86,7 @@ if (typeof window !== 'undefined') {
                     // Enable Dev Debug Token
                     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                         (window as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN: boolean | string }).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-                        console.log('[Firebase] 🔧 App Check Debug mode enabled for localhost');
+                        logger.debug('[Firebase] 🔧 App Check Debug mode enabled for localhost');
                     }
 
                     appCheck = initializeAppCheck(app, {
@@ -94,7 +95,7 @@ if (typeof window !== 'undefined') {
                     });
                     // @ts-expect-error - Mark as initialized
                     window._firebaseAppCheckInitialized = true;
-                    console.log('[Firebase] ✅ App Check initialized');
+                    logger.debug('[Firebase] ✅ App Check initialized');
                 }
             } catch (error) {
                 console.error('[Firebase] ❌ App Check initialization error:', error);

@@ -9,6 +9,7 @@
  */
 
 import { User } from 'firebase/auth';
+import { logger } from '@/lib/logger';
 
 interface TokenRefreshConfig {
     /** Minutes before token expiry to trigger refresh (default: 5) */
@@ -49,7 +50,7 @@ class TokenManager {
                 const refreshMarginMs = this.config.refreshMarginMinutes * 60 * 1000;
                 const timeUntilRefresh = Math.max(0, timeUntilExpiry - refreshMarginMs);
 
-                console.log(
+                logger.debug(
                     `[TokenManager] Token expires at ${new Date(expirationTime).toLocaleTimeString()}.`,
                     `Scheduling refresh in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes.`
                 );
@@ -70,9 +71,9 @@ class TokenManager {
      */
     private async refreshToken(user: User) {
         try {
-            console.log('[TokenManager] Refreshing token...');
+            logger.debug('[TokenManager] Refreshing token...');
             const newToken = await user.getIdToken(true); // Force refresh
-            console.log('[TokenManager] ✅ Token refreshed successfully');
+            logger.debug('[TokenManager] ✅ Token refreshed successfully');
 
             this.notifyRefresh(newToken);
 

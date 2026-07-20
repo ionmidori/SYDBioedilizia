@@ -25,6 +25,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { useClaimProject } from '@/hooks/use-claim-project';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 
 interface AuthDialogProps {
     open: boolean;
@@ -50,7 +51,7 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
 
     useEffect(() => {
         if (open) {
-            console.log('[AuthDialog] 🟢 Opened. User state:', {
+            logger.debug('[AuthDialog] 🟢 Opened. User state:', {
                 uid: user?.uid,
                 isAnonymous: user?.isAnonymous,
                 redirectOnLogin

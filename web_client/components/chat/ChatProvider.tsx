@@ -11,6 +11,7 @@ import { auth, appCheck } from '@/lib/firebase';
 import { getToken } from 'firebase/app-check';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
+import { logger } from '@/lib/logger';
 
 const WELCOME_MESSAGE = {
     id: 'welcome-msg',
@@ -130,7 +131,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // anonymous sign-in), try auth.currentUser directly from the Firebase SDK.
         // This bridges the window between signInAnonymously() resolving and React re-rendering.
         if (!token && auth.currentUser) {
-            console.log('[ChatProvider] refreshToken returned null, falling back to auth.currentUser.getIdToken()');
+            logger.debug('[ChatProvider] refreshToken returned null, falling back to auth.currentUser.getIdToken()');
             try {
                 token = await auth.currentUser.getIdToken();
             } catch (fallbackErr) {
@@ -186,7 +187,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 : '';
 
             if (process.env.NODE_ENV === 'development') {
-                console.log('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
+                logger.debug('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
                     sessionId: body.sessionId,
                     messagesCount: msgs?.length,
                     projectId: body.projectId,
@@ -213,7 +214,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             }
         },
         onFinish(message) {
-            console.log('[ChatProvider] Turn finished. Last message:', message);
+            logger.debug('[ChatProvider] Turn finished. Last message:', message);
         },
         onError: (err) => {
             console.error('[ChatProvider] SDK Error:', err);
@@ -231,7 +232,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     } = chatHelpers;
 
     useEffect(() => {
-        console.log('[ChatProvider Debug] SDK messages updated:', messages.length, messages.map(m => m.id));
+        logger.debug('[ChatProvider Debug] SDK messages updated:', messages.length, messages.map(m => m.id));
     }, [messages]);
 
     // When an authenticated user logs out, clear the AI SDK messages immediately and
@@ -287,7 +288,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
             // 1. Cold Start (Welcome Message)
             if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
-                console.log('[ChatProvider] Cold start: Injecting welcome message.');
+                logger.debug('[ChatProvider] Cold start: Injecting welcome message.');
                 welcomeInjectedRef.current = true;
 
                 timerId = setTimeout(() => {
@@ -312,12 +313,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 // Background task saves user message AFTER streaming completes,
                 // so Firestore may temporarily have fewer messages than the SDK.
                 if (isRecentlyFinished && histLen < sdkLen) {
-                    console.log('[ChatProvider] Sync Guard: Waiting for history snapshot...');
+                    logger.debug('[ChatProvider] Sync Guard: Waiting for history snapshot...');
                     return;
                 }
 
                 if (isFirstSyncRef.current) {
-                    console.log(`[ChatProvider] Initial history sync (${histLen} messages)`);
+                    logger.debug(`[ChatProvider] Initial history sync (${histLen} messages)`);
                     timerId = setTimeout(() => setMessages(fullHistory), 0);
                     isFirstSyncRef.current = false;
                     return () => clearTimeout(timerId);
@@ -336,14 +337,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                     const histContent = typeof histMsg.content === 'string' ? histMsg.content : histMsg.parts?.[0]?.text || '';
 
                     if (sdkContent === histContent) {
-                        console.log('[ChatProvider] Adopting Firestore IDs (ID update only).');
+                        logger.debug('[ChatProvider] Adopting Firestore IDs (ID update only).');
                         timerId = setTimeout(() => setMessages(fullHistory), 0);
                         return () => clearTimeout(timerId);
                     }
                 }
 
                 // If history is longer, it's definitive (another device or backend update)
-                console.log(`[ChatProvider] History Sync (Mismatch: SDK ${sdkLen} vs Hist ${histLen})`);
+                logger.debug(`[ChatProvider] History Sync (Mismatch: SDK ${sdkLen} vs Hist ${histLen})`);
                 timerId = setTimeout(() => {
                     setMessages(fullHistory);
                 }, 0);
@@ -362,7 +363,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         if (!latestData) return;
 
         if (latestData.type === 'interrupt') {
-            console.log('[ChatProvider] ADK Interrupt Received:', latestData);
+            logger.debug('[ChatProvider] ADK Interrupt Received:', latestData);
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('adk-interrupt', { detail: latestData.payload }));
             }
@@ -372,7 +373,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Dispatch event so chat components can render native widget components
         // without relying only on the tool name string.
         if (latestData.type === 'ui_widget') {
-            console.log('[ChatProvider] ADK UiWidget Received:', latestData);
+            logger.debug('[ChatProvider] ADK UiWidget Received:', latestData);
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('adk-ui-widget', { detail: latestData }));
             }
@@ -381,7 +382,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // ADK 1.27+ Artifact: backend tool called tool_context.save_artifact()
         // Dispatch event so gallery/media panels can refresh to show the new artifact.
         if (latestData.type === 'artifact') {
-            console.log('[ChatProvider] ADK Artifact Saved:', latestData);
+            logger.debug('[ChatProvider] ADK Artifact Saved:', latestData);
             if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('adk-artifact', { detail: latestData }));
             }
@@ -394,7 +395,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             const key = `last_active_project:${user.uid}`;
             const lastId = localStorage.getItem(key);
             if (lastId) {
-                console.log('[ChatProvider] Restoring last active project:', lastId);
+                logger.debug('[ChatProvider] Restoring last active project:', lastId);
                 const timerId = setTimeout(() => {
                     setCurrentProjectId(lastId);
                 }, 0);
@@ -430,9 +431,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         try {
             // Anonymous sign-in if guest — MUST happen BEFORE sending
             if (!user) {
-                console.log('[ChatProvider] No user found, attempting anonymous sign-in...');
+                logger.debug('[ChatProvider] No user found, attempting anonymous sign-in...');
                 await signInAnonymously();
-                console.log('[ChatProvider] Anonymous sign-in completed');
+                logger.debug('[ChatProvider] Anonymous sign-in completed');
 
                 // ⚡ CRITICAL: Force token hydration before transport resolveHeaders() runs.
                 // signInAnonymously() resolves when Firebase has the User object, but the
@@ -442,7 +443,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 if (auth.currentUser) {
                     try {
                         await auth.currentUser.getIdToken();
-                        console.log('[ChatProvider] ✅ Token pre-warmed after anonymous sign-in');
+                        logger.debug('[ChatProvider] ✅ Token pre-warmed after anonymous sign-in');
                     } catch (tokenErr) {
                         console.error('[ChatProvider] ⚠️ Token pre-warm failed, sending anyway:', tokenErr);
                     }
@@ -491,7 +492,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // F5 FIX: properly reset isRestoringHistory after sync completes
     const refreshHistory = useCallback(async () => {
         setIsRestoringHistory(true);
-        console.log('[ChatProvider] Refresh requested');
+        logger.debug('[ChatProvider] Refresh requested');
         // Allow the history sync effect to run, then reset the flag
         setTimeout(() => setIsRestoringHistory(false), 1000);
     }, []);
