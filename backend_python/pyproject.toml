@@ -96,5 +96,5 @@ exclude_lines = [
 dev = [
     "pip-audit>=2.10.1",
     "ruff>=0.15.22",
-    "pyright>=1.1.406",
+    "pyright>=1.1.411",
 ]
