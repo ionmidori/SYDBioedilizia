@@ -31,6 +31,8 @@ describe('useAdkStreamEvents', () => {
             result.current.onData({ type: 'data-adk' });
             result.current.onData({ data: null });
             result.current.onData({ data: 'not-an-object' });
+            result.current.onData(null);
+            result.current.onData('not-an-object');
         });
 
         expect(result.current.streamData).toEqual([]);
@@ -64,6 +66,23 @@ describe('useAdkStreamEvents', () => {
         cleanup();
     });
 
+    it('dispatches every event when several arrive in one render batch', () => {
+        // The SDK drains a stream chunk synchronously, so two data parts can land
+        // in the same React batch: one re-render, one effect run. Reacting only to
+        // the last element of streamData silently drops the earlier ones — an
+        // `interrupt` swallowed here would stall the HITL flow.
+        const { seen, cleanup } = listenFor('adk-interrupt', 'adk-ui-widget');
+        const { result } = renderHook(() => useAdkStreamEvents('s1'));
+
+        act(() => {
+            result.current.onData({ data: { type: 'interrupt', payload: { id: 1 } } });
+            result.current.onData({ data: { type: 'ui_widget', payload: { id: 2 } } });
+        });
+
+        expect(seen.map((e) => e.name)).toEqual(['adk-interrupt', 'adk-ui-widget']);
+        cleanup();
+    });
+
     it('drops accumulated events when the session changes', () => {
         const { result, rerender } = renderHook(({ id }) => useAdkStreamEvents(id), {
             initialProps: { id: 's1' },
@@ -75,5 +94,23 @@ describe('useAdkStreamEvents', () => {
         rerender({ id: 's2' });
 
         expect(result.current.streamData).toEqual([]);
+    });
+
+    it('still dispatches the first event of a new session', () => {
+        // Guards the cursor reset: without it the counter stays ahead of the
+        // emptied array and the new session's first event is never broadcast.
+        const { seen, cleanup } = listenFor('adk-artifact');
+        const { result, rerender } = renderHook(({ id }) => useAdkStreamEvents(id), {
+            initialProps: { id: 's1' },
+        });
+
+        act(() => { result.current.onData({ data: { type: 'artifact', payload: { id: 1 } } }); });
+        expect(seen).toHaveLength(1);
+
+        rerender({ id: 's2' });
+        act(() => { result.current.onData({ data: { type: 'artifact', payload: { id: 2 } } }); });
+
+        expect(seen).toHaveLength(2);
+        cleanup();
     });
 });

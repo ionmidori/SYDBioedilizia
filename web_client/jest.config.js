@@ -45,11 +45,11 @@ const customJestConfig = {
     // figure so CI enforces "no regression" while the suite grows; raise them
     // whenever coverage improves — target remains 70%.
     // Measured 2026-07-20 after the full ChatProvider decomposition (lib/chat +
-    // useChatSync + useAdkStreamEvents + useChatTransport + useChatSession):
-    // 26.09 stmts / 67.11 branches / 31.67 funcs.
+    // useChatSync + useAdkStreamEvents + useChatTransport + useChatSession)
+    // plus the batched-dispatch fix: 26.13 stmts / 67.2 branches / 31.67 funcs.
     coverageThreshold: {
         global: {
-            branches: 66,
+            branches: 67,
             functions: 31,
             lines: 26,
             statements: 26,
