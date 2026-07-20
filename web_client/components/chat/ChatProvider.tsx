@@ -8,18 +8,13 @@ import { ChatContextType } from '@/types/chat-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useChatSync } from '@/hooks/useChatSync';
+import { useAdkStreamEvents } from '@/hooks/useAdkStreamEvents';
 import { auth, appCheck } from '@/lib/firebase';
 import { getToken } from 'firebase/app-check';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 import { logger } from '@/lib/logger';
 import { getMessageText } from '@/lib/chat/messages';
-
-interface StreamData {
-    type: string;
-    payload?: unknown;
-    [key: string]: unknown;
-}
 
 /**
  * ChatProvider
@@ -39,10 +34,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
-    // ADK custom-data stream (status / interrupt / ui_widget / artifact / reasoning).
-    // AI SDK v7 delivers transient `data-*` parts via the `onData` callback (NOT on
-    // `useChat().data`, which no longer exists), so we accumulate them here.
-    const [streamData, setStreamData] = useState<StreamData[]>([]);
     const prevUserRef = useRef(user);
 
     // -- STABLE SESSION ID (L3 Persistent Guest) --
@@ -74,12 +65,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return currentProjectId || `global-${user.uid}`;
     }, [user, currentProjectId, stableGuestId]);
 
-    // Drop the previous session's ADK data events when sessionId changes.
-    // (useChatSync owns the equivalent reset for its own per-session refs.)
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional per-session reset: drop the previous session's ADK data events when sessionId changes
-        setStreamData([]);
-    }, [sessionId]);
+    // -- ADK CUSTOM-DATA STREAM (status / interrupt / ui_widget / artifact) --
+    const { streamData, onData } = useAdkStreamEvents(sessionId);
 
     // -- HISTORY SYNC --
     const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId);
@@ -163,15 +150,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const chatHelpers = useChat({
         id: sessionId,
         transport,
-        onData: (dataPart) => {
-            // v7 transient `data-*` parts (ADK status/interrupt/ui_widget/artifact/reasoning).
-            // The backend wraps the legacy event object (which carries its own `type`)
-            // in `dataPart.data`, so unwrap it to keep downstream consumers unchanged.
-            const inner = (dataPart as { data?: unknown }).data;
-            if (inner && typeof inner === 'object') {
-                setStreamData((prev) => [...prev, inner as StreamData]);
-            }
-        },
+        onData,
         onFinish(message) {
             logger.debug('[ChatProvider] Turn finished. Last message:', message);
         },
@@ -226,41 +205,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         sessionId,
         status,
     });
-
-    // -- ADK STREAMING DATA HANDLERS (interrupt / ui_widget / artifact) --
-    useEffect(() => {
-        const currentData = streamData;
-        if (currentData.length === 0) return;
-
-        const latestData = currentData[currentData.length - 1];
-        if (!latestData) return;
-
-        if (latestData.type === 'interrupt') {
-            logger.debug('[ChatProvider] ADK Interrupt Received:', latestData);
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('adk-interrupt', { detail: latestData.payload }));
-            }
-        }
-
-        // ADK 1.27+ UiWidget: backend tool called tool_context.render_ui_widget()
-        // Dispatch event so chat components can render native widget components
-        // without relying only on the tool name string.
-        if (latestData.type === 'ui_widget') {
-            logger.debug('[ChatProvider] ADK UiWidget Received:', latestData);
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('adk-ui-widget', { detail: latestData }));
-            }
-        }
-
-        // ADK 1.27+ Artifact: backend tool called tool_context.save_artifact()
-        // Dispatch event so gallery/media panels can refresh to show the new artifact.
-        if (latestData.type === 'artifact') {
-            logger.debug('[ChatProvider] ADK Artifact Saved:', latestData);
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('adk-artifact', { detail: latestData }));
-            }
-        }
-    }, [streamData]);
 
     // -- PERSISTENCE: Save/Restore Last Project --
     useEffect(() => {

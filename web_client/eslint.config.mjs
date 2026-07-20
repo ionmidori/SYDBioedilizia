@@ -15,11 +15,12 @@ const eslintConfig = defineConfig([
   ]),
   {
     rules: {
-      // Downgraded to warnings: pre-existing violations in critical components
-      // (ChatProvider, AppSidebar, use-media-query) need dedicated behavioral
-      // refactors — tracked as follow-up, not fixable in a lint-gate rollout.
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/refs": "warn",
+      // Promoted back to errors once the ChatProvider decomposition removed the
+      // last violations (the effects now live in useChatSync /
+      // useAdkStreamEvents). The single remaining exception is the deliberate
+      // per-session reset in useAdkStreamEvents, silenced inline with a reason.
+      "react-hooks/set-state-in-effect": "error",
+      "react-hooks/refs": "error",
       // Debug traces must go through lib/logger, which is dev-gated and drops
       // out of the production bundle. warn/error stay allowed: they are
       // legitimate diagnostics in production too.
