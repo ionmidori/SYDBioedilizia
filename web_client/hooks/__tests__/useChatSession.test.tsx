@@ -133,4 +133,24 @@ describe('useChatSession — logout reset', () => {
         expect(result.current.sessionId).not.toBe('proj-9');
         expect(result.current.sessionId).not.toBe('old-guest');
     });
+
+    it('persists the new guest id so a reload keeps the same session', () => {
+        // AuthProvider.logout() removes chatSessionId for privacy. If the fresh id
+        // only lives in memory, the post-logout conversation is written under an id
+        // no reload can reproduce: F5 mints a different one, queries an empty
+        // session and falls back to the welcome message.
+        mockUser = { uid: 'u-1', isAnonymous: false };
+        const { result } = renderSession();
+
+        localStorage.removeItem(GUEST_KEY); // what logout does
+        mockUser = null;
+        act(() => { result.current.resetToNewGuestSession(); });
+
+        const liveId = result.current.sessionId;
+        expect(localStorage.getItem(GUEST_KEY)).toBe(liveId);
+
+        // A reload must land on the same session, not mint a third id.
+        const reloaded = renderSession();
+        expect(reloaded.result.current.sessionId).toBe(liveId);
+    });
 });

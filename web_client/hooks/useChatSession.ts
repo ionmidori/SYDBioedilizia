@@ -83,7 +83,19 @@ export function useChatSession(): UseChatSessionReturn {
 
     const resetToNewGuestSession = useCallback(() => {
         setCurrentProjectId(null);    // prevent backend receiving stale projectId
-        setStableGuestId(crypto.randomUUID());
+        const freshId = crypto.randomUUID();
+        // Persist it: AuthProvider.logout() has just removed the key, so without
+        // this the post-logout session exists only in memory and a reload mints a
+        // different id — the conversation would be written under a session no
+        // reload can reach, and the chat would come back empty.
+        if (typeof window !== 'undefined') {
+            try {
+                localStorage.setItem(GUEST_SESSION_KEY, freshId);
+            } catch {
+                // localStorage may be unavailable (private browsing)
+            }
+        }
+        setStableGuestId(freshId);
     }, []);
 
     return { sessionId, currentProjectId, setCurrentProjectId, resetToNewGuestSession };
