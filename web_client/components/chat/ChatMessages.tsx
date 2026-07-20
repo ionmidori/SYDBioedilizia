@@ -69,7 +69,6 @@ const ChatMessagesComponent = ({
                         <MessageItem
                             key={msg.id || idx}
                             message={msg}
-                            typingMessage={typingMessage || undefined}
                             sessionId={sessionId || ""}
                             onImageClick={onImageClick || (() => { })}
                             onFormSubmit={onFormSubmit}

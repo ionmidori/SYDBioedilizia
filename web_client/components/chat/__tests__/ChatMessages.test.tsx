@@ -136,6 +136,43 @@ describe('ChatMessages', () => {
         expect(screen.getByText('Sto elaborando...')).toBeInTheDocument();
     });
 
+    // Regression: while a turn is in flight the SDK holds an empty assistant
+    // placeholder. MessageItem used to render its own ThinkingIndicator for that
+    // placeholder, on top of the one ChatMessages renders from isLoading — so the
+    // user saw two status lines at once ("Contando i mattoni" + "Consultando le stelle").
+    describe('thinking indicator', () => {
+        const pendingAssistant = [
+            { id: '1', role: 'user' as const, content: 'Quanto costa?' },
+            { id: '2', role: 'assistant' as const, content: '' },
+        ];
+
+        it('shows exactly one indicator while an empty assistant message is pending', () => {
+            render(<ChatMessages {...defaultProps} isLoading={true} messages={pendingAssistant} />);
+
+            expect(screen.getAllByTestId('thinking-indicator')).toHaveLength(1);
+        });
+
+        it('prefers the backend status message over the rotating filler', () => {
+            render(
+                <ChatMessages
+                    {...defaultProps}
+                    isLoading={true}
+                    messages={pendingAssistant}
+                    statusMessage="Sto consultando il prezzario..."
+                />
+            );
+
+            expect(screen.getByText('Sto consultando il prezzario...')).toBeInTheDocument();
+            expect(screen.queryByText('Sto pensando...')).not.toBeInTheDocument();
+        });
+
+        it('renders no indicator once the turn is over', () => {
+            render(<ChatMessages {...defaultProps} isLoading={false} messages={pendingAssistant} />);
+
+            expect(screen.queryByTestId('thinking-indicator')).not.toBeInTheDocument();
+        });
+    });
+
     it('should handle message with special characters', () => {
         const messages = [
             { id: '1', role: 'user' as const, content: '<script>alert("test")</script>' },

@@ -38,7 +38,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
     const displayMessage = statusMessage || message || "Elaborazione in corso...";
 
     return (
-        <div className="flex flex-col gap-2 min-w-[200px] max-w-full">
+        <div data-testid="thinking-indicator" className="flex flex-col gap-2 min-w-[200px] max-w-full">
             {/* Header / Summary */}
             <div className="flex items-center justify-between gap-3 text-luxury-gold/80 text-sm h-8">
                 <div className="flex items-center gap-3">
