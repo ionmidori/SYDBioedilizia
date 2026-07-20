@@ -2,19 +2,18 @@
 
 import React, { useState, useEffect, useCallback, FormEvent, useMemo, useRef } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport, UIMessage as Message } from 'ai';
 import { ChatContext } from '@/hooks/useChatContext';
 import { ChatContextType } from '@/types/chat-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatHistory } from '@/hooks/useChatHistory';
+import { useChatSession } from '@/hooks/useChatSession';
 import { useChatSync } from '@/hooks/useChatSync';
+import { useChatTransport } from '@/hooks/useChatTransport';
 import { useAdkStreamEvents } from '@/hooks/useAdkStreamEvents';
-import { auth, appCheck } from '@/lib/firebase';
-import { getToken } from 'firebase/app-check';
+import { auth } from '@/lib/firebase';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 import { logger } from '@/lib/logger';
-import { getMessageText } from '@/lib/chat/messages';
 
 /**
  * ChatProvider
@@ -28,42 +27,22 @@ import { getMessageText } from '@/lib/chat/messages';
  * - No more `data` return — use onData callback for streaming metadata
  */
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-    const { user, refreshToken, isInitialized, signInAnonymously } = useAuth();
+    const { user, signInAnonymously } = useAuth();
 
     // -- STATE --
-    const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
-    const prevUserRef = useRef(user);
-
-    // -- STABLE SESSION ID (L3 Persistent Guest) --
-    const [stableGuestId, setStableGuestId] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const key = 'chatSessionId';
-            let id = localStorage.getItem(key);
-            if (!id) {
-                id = crypto.randomUUID();
-                localStorage.setItem(key, id);
-            }
-            const timerId = setTimeout(() => {
-                setStableGuestId(id);
-            }, 0);
-            return () => clearTimeout(timerId);
-        }
-    }, []);
-
     // prevUserRef tracks auth state transitions to detect logout.
     // The actual cleanup effect is defined AFTER useChat (needs setMessages).
+    const prevUserRef = useRef(user);
 
-    // Derived Session ID
-    // Anonymous Firebase users keep using stableGuestId to prevent useChat reset
-    // when signInAnonymously() completes mid-message (would wipe all messages).
-    const sessionId = useMemo(() => {
-        if (!user || user.isAnonymous) return stableGuestId || 'guest-loading';
-        return currentProjectId || `global-${user.uid}`;
-    }, [user, currentProjectId, stableGuestId]);
+    // -- SESSION IDENTITY (persistent guest id, project, derived sessionId) --
+    const {
+        sessionId,
+        currentProjectId,
+        setCurrentProjectId,
+        resetToNewGuestSession,
+    } = useChatSession();
 
     // -- ADK CUSTOM-DATA STREAM (status / interrupt / ui_widget / artifact) --
     const { streamData, onData } = useAdkStreamEvents(sessionId);
@@ -71,81 +50,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // -- HISTORY SYNC --
     const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId);
 
-    // -- DYNAMIC HEADERS/BODY RESOLVER --
-    // AI SDK v7: transport headers/body can be async functions (Resolvable)
-    const resolveHeaders = useCallback(async (): Promise<Record<string, string>> => {
-        const headers: Record<string, string> = {};
-
-        // Primary: use the managed refreshToken (uses auth.currentUser || user state)
-        let token = await refreshToken();
-
-        // ⚡ Fallback: If refreshToken returned null (e.g. state hasn't re-rendered yet after
-        // anonymous sign-in), try auth.currentUser directly from the Firebase SDK.
-        // This bridges the window between signInAnonymously() resolving and React re-rendering.
-        if (!token && auth.currentUser) {
-            logger.debug('[ChatProvider] refreshToken returned null, falling back to auth.currentUser.getIdToken()');
-            try {
-                token = await auth.currentUser.getIdToken();
-            } catch (fallbackErr) {
-                console.error('[ChatProvider] Fallback getIdToken failed:', fallbackErr);
-            }
-        }
-
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        } else {
-            console.warn('[ChatProvider] ⚠️ No token available for Authorization header — request may fail with 401');
-        }
-
-        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true' && appCheck) {
-            try {
-                const result = await getToken(appCheck, false);
-                if (result.token) {
-                    headers['X-Firebase-AppCheck'] = result.token;
-                }
-            } catch (err) {
-                console.error('[ChatProvider] App Check token error:', err);
-            }
-        }
-        return headers;
-    }, [refreshToken]);
-
-    // -- AI SDK v7 HOOK --
-    // NOTE: DefaultChatTransport does NOT accept `body` as a function.
-    // Dynamic body fields must be injected via `prepareSendMessagesRequest`.
-    const transport = useMemo(() => new DefaultChatTransport({
-        api: '/api/chat',
-        headers: resolveHeaders,
-        prepareSendMessagesRequest: ({ id, messages, body: sdkBody }) => {
-            // sdkBody = { ...transport.body (static), ...options.body (per-request) }
-            // options.body carries mediaUrls, mediaMetadata, videoFileUris from ChatWidget.
-            const extra = (sdkBody ?? {}) as Record<string, unknown>;
-            const body: Record<string, unknown> = {
-                id,
-                messages,
-                ...extra,
-                projectId: currentProjectId,
-                sessionId,
-            };
-
-            const msgs = body.messages as Message[];
-            const lastMsg = msgs?.[msgs.length - 1];
-            const lastMsgContent = getMessageText(lastMsg);
-
-            if (process.env.NODE_ENV === 'development') {
-                logger.debug('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
-                    sessionId: body.sessionId,
-                    messagesCount: msgs?.length,
-                    projectId: body.projectId,
-                    lastMessageRole: lastMsg?.role,
-                    lastMessageContent: String(lastMsgContent).substring(0, 50),
-                    mediaUrlsCount: Array.isArray(body.mediaUrls) ? (body.mediaUrls as unknown[]).length : 0,
-                }));
-            }
-            return { body };
-        },
-    }), [resolveHeaders, currentProjectId, sessionId]);
-
+    // -- AI SDK v7 TRANSPORT (auth headers + request body enrichment) --
+    const transport = useChatTransport({ sessionId, currentProjectId });
 
     const chatHelpers = useChat({
         id: sessionId,
@@ -186,12 +92,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             // Use setTimeout to avoid cascading renders during effect cleanup/transition
             setTimeout(() => {
                 setMessages([]);
-                setCurrentProjectId(null);    // prevent backend receiving stale projectId
-                setStableGuestId(crypto.randomUUID());
+                resetToNewGuestSession();
             }, 0);
         }
         prevUserRef.current = user;
-    }, [user, setMessages]);
+    }, [user, setMessages, resetToNewGuestSession]);
 
     const isLoading = status === 'streaming' || status === 'submitted';
 
@@ -205,29 +110,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         sessionId,
         status,
     });
-
-    // -- PERSISTENCE: Save/Restore Last Project --
-    useEffect(() => {
-        if (isInitialized && user && !user.isAnonymous && !currentProjectId) {
-            const key = `last_active_project:${user.uid}`;
-            const lastId = localStorage.getItem(key);
-            if (lastId) {
-                logger.debug('[ChatProvider] Restoring last active project:', lastId);
-                const timerId = setTimeout(() => {
-                    setCurrentProjectId(lastId);
-                }, 0);
-                return () => clearTimeout(timerId);
-            }
-        }
-    }, [isInitialized, user, currentProjectId]);
-
-    // Save Effect
-    useEffect(() => {
-        if (user && !user.isAnonymous && currentProjectId) {
-            const key = `last_active_project:${user.uid}`;
-            localStorage.setItem(key, currentProjectId);
-        }
-    }, [user, currentProjectId]);
 
     // -- HANDLERS --
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -334,6 +216,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         data: streamData,
     }), [
         currentProjectId,
+        // Stable useState setter from useChatSession; listed because the lint rule
+        // can only prove stability for setters destructured from useState inline.
+        setCurrentProjectId,
         isRestoringHistory,
         isLoading,
         messages,
