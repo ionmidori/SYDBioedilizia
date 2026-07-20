@@ -279,72 +279,70 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                             : "bg-luxury-bg/85 backdrop-blur-2xl border border-luxury-gold/10 text-luxury-text rounded-[24px_24px_24px_4px] shadow-lg shadow-black/5" // Organic shape AI + Stronger Glass
                     )}>
                         <div className="prose prose-sm prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
-                            <>
-                                    {formattedText && !hasVisibleTools && (
-                                        <Markdown
-                                            urlTransform={(value: string) =>
-                                                /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
-                                            }
-                                            components={markdownComponents}
-                                        >
-                                            {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
-                                            {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
-                                        </Markdown>
-                                    )}
+                            {formattedText && !hasVisibleTools && (
+                                <Markdown
+                                    urlTransform={(value: string) =>
+                                        /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
+                                    }
+                                    components={markdownComponents}
+                                >
+                                    {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
+                                    {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
+                                </Markdown>
+                            )}
 
-                                    {/* Special Case: Allow text IF it's NOT a Login Request (to preserve context for other tools) */}
-                                    {formattedText && hasVisibleTools && !toolInvocations.some(t => t.toolName === 'request_login' || (t.result as string)?.includes?.('LOGIN_REQUIRED_UI_TRIGGER')) && (
-                                        <Markdown
-                                            urlTransform={(value: string) =>
-                                                /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
-                                            }
-                                            components={markdownComponents}
-                                        >
-                                            {formattedText}
-                                        </Markdown>
-                                    )}
+                            {/* Special Case: Allow text IF it's NOT a Login Request (to preserve context for other tools) */}
+                            {formattedText && hasVisibleTools && !toolInvocations.some(t => t.toolName === 'request_login' || (t.result as string)?.includes?.('LOGIN_REQUIRED_UI_TRIGGER')) && (
+                                <Markdown
+                                    urlTransform={(value: string) =>
+                                        /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
+                                    }
+                                    components={markdownComponents}
+                                >
+                                    {formattedText}
+                                </Markdown>
+                            )}
 
 
-                                    {/* Tool Invocations */}
-                                    {toolInvocations.map((tool, toolIdx) => {
-                                        // 💎 PREMIUM WIDGET: Lead Capture Form
-                                        if (tool.toolName === 'display_lead_form') {
-                                            const args = tool.args as { quote_summary?: string };
-                                            return (
-                                                <div key={toolIdx} className="mt-4">
-                                                    <LeadCaptureForm
-                                                        description={args?.quote_summary || "Per generare il render, ho bisogno di questi dati."}
-                                                        onSubmit={(data) => {
-                                                            logger.debug("📝 Form Submitted:", data);
-                                                            if (onFormSubmit) onFormSubmit(data);
-                                                        }}
-                                                    />
-                                                </div>
-                                            );
-                                        }
-
-                                        // 🔒 AUTH WIDGET: Login Request
-                                        // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
-                                        const result = tool.result || (tool as { output?: unknown }).output;
-                                        const isAuthSignal = typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER');
-
-                                        if (tool.toolName === 'request_login' || isAuthSignal) {
-                                            return (
-                                                <div key={toolIdx} className="mt-4">
-                                                    <LoginRequest />
-                                                </div>
-                                            );
-                                        }
-
-                                        return (
-                                            <ToolStatus
-                                                key={toolIdx}
-                                                tool={tool}
-                                                onImageClick={onImageClick}
+                            {/* Tool Invocations */}
+                            {toolInvocations.map((tool, toolIdx) => {
+                                // 💎 PREMIUM WIDGET: Lead Capture Form
+                                if (tool.toolName === 'display_lead_form') {
+                                    const args = tool.args as { quote_summary?: string };
+                                    return (
+                                        <div key={toolIdx} className="mt-4">
+                                            <LeadCaptureForm
+                                                description={args?.quote_summary || "Per generare il render, ho bisogno di questi dati."}
+                                                onSubmit={(data) => {
+                                                    logger.debug("📝 Form Submitted:", data);
+                                                    if (onFormSubmit) onFormSubmit(data);
+                                                }}
                                             />
-                                        );
-                                    })}
-                            </>
+                                        </div>
+                                    );
+                                }
+
+                                // 🔒 AUTH WIDGET: Login Request
+                                // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
+                                const result = tool.result || (tool as { output?: unknown }).output;
+                                const isAuthSignal = typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER');
+
+                                if (tool.toolName === 'request_login' || isAuthSignal) {
+                                    return (
+                                        <div key={toolIdx} className="mt-4">
+                                            <LoginRequest />
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <ToolStatus
+                                        key={toolIdx}
+                                        tool={tool}
+                                        onImageClick={onImageClick}
+                                    />
+                                );
+                            })}
                         </div>
                     </div>
                 )}
