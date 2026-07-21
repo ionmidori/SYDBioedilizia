@@ -16,7 +16,10 @@
       "name": "Ogni 5 Minuti",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 400],
+      "position": [
+        200,
+        400
+      ],
       "notes": "Polling ogni 5 minuti. In produzione si può ridurre a 2 minuti o usare Firestore triggers via Cloud Functions per zero-latency."
     },
     {
@@ -49,13 +52,18 @@
       "name": "Fetch Progetti in Attesa → Backend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [420, 400],
+      "position": [
+        420,
+        400
+      ],
       "notes": "Chiama /api/internal/projects/pending-review che restituisce i progetti con status='ready_for_quote' non ancora notificati."
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "typeValidation": "strict" },
+          "options": {
+            "typeValidation": "strict"
+          },
           "conditions": [
             {
               "id": "p1",
@@ -75,7 +83,10 @@
       "name": "Ci Sono Progetti?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [640, 400]
+      "position": [
+        640,
+        400
+      ]
     },
     {
       "parameters": {
@@ -86,17 +97,23 @@
       "name": "Itera su Ogni Progetto",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [860, 300]
+      "position": [
+        860,
+        300
+      ]
     },
     {
       "parameters": {
-        "jsCode": "// ─── Calcola Urgency & Prepara Payload Notifica ──────────────────────────────\n// Determina l'urgenza in base a valore stimato e anzianità del draft.\nconst project = $json;\nconst now = new Date();\nconst createdAt = new Date(project.created_at ?? project.quote_draft?.generated_at ?? now);\nconst ageHours = (now - createdAt) / (1000 * 60 * 60);\nconst estimatedValue = project.quote_draft?.financials?.grand_total ?? 0;\n\n// Logica urgenza:\n// - Valore > 20.000€ → ALTA\n// - Draft più vecchio di 4 ore → ALTA  \n// - Altrimenti → NORMALE\nconst isHighValue = estimatedValue > 20000;\nconst isOld = ageHours > 4;\nconst urgency = (isHighValue || isOld) ? 'high' : 'normal';\n\n// Costruisci riassunto voci per l'AI summary\nconst items = project.quote_draft?.items ?? [];\nconst topItems = items\n  .sort((a, b) => b.total - a.total)\n  .slice(0, 3)\n  .map(i => `${i.description} (€${i.total.toFixed(2)})`)\n  .join(', ');\n\nconst aiSummary = project.ai_summary \n  || (topItems ? `Voci principali: ${topItems}. ${items.length} voci totali.` : 'Nessun dettaglio disponibile.');\n\n// Costruisci review URL (link diretto alla console admin per questo progetto)\nconst adminConsoleUrl = $env['ADMIN_CONSOLE_URL'] ?? 'https://admin.sydarchitetto.it';\nconst reviewUrl = `${adminConsoleUrl}/quotes/${project.project_id}`;\n\nreturn [{\n  json: {\n    project_id: project.project_id,\n    client_name: project.client_name ?? project.lead_name ?? 'N/D',\n    estimated_value: estimatedValue,\n    item_count: items.length,\n    urgency,\n    ai_summary: aiSummary,\n    review_url: reviewUrl,\n    age_hours: Math.round(ageHours * 10) / 10,\n    notify_channels: ['email', 'telegram']\n  }\n}];"
+        "jsCode": "// ─── Calcola Urgency & Prepara Payload Notifica ──────────────────────────────\n// Determina l'urgenza in base a valore stimato e anzianità del draft.\nconst project = $json;\nconst now = new Date();\nconst createdAt = new Date(project.created_at ?? project.quote_draft?.generated_at ?? now);\nconst ageHours = (now - createdAt) / (1000 * 60 * 60);\nconst estimatedValue = project.quote_draft?.financials?.grand_total ?? 0;\n\n// Logica urgenza:\n// - Valore > 20.000€ → ALTA\n// - Draft più vecchio di 4 ore → ALTA  \n// - Altrimenti → NORMALE\nconst isHighValue = estimatedValue > 20000;\nconst isOld = ageHours > 4;\nconst urgency = (isHighValue || isOld) ? 'high' : 'normal';\n\n// Costruisci riassunto voci per l'AI summary\nconst items = project.quote_draft?.items ?? [];\nconst topItems = items\n  .sort((a, b) => b.total - a.total)\n  .slice(0, 3)\n  .map(i => `${i.description} (€${i.total.toFixed(2)})`)\n  .join(', ');\n\nconst aiSummary = project.ai_summary \n  || (topItems ? `Voci principali: ${topItems}. ${items.length} voci totali.` : 'Nessun dettaglio disponibile.');\n\n// Costruisci review URL (link diretto alla console admin per questo progetto)\nconst adminConsoleUrl = $env['ADMIN_CONSOLE_URL'] ?? 'https://admin.sydarchitetto.it';\nconst reviewUrl = `${adminConsoleUrl}/quotes/${project.project_id}`;\n\nreturn [{\n  json: {\n    // Unix timestamp firmato assieme al body (schema backend {ts}.{body}); stabile per header + firma.\n    _syd_timestamp: String(Math.floor(Date.now() / 1000)),\n    project_id: project.project_id,\n    client_name: project.client_name ?? project.lead_name ?? 'N/D',\n    estimated_value: estimatedValue,\n    item_count: items.length,\n    urgency,\n    ai_summary: aiSummary,\n    review_url: reviewUrl,\n    age_hours: Math.round(ageHours * 10) / 10,\n    notify_channels: ['email', 'telegram']\n  }\n}];"
       },
       "id": "calc-urgency",
       "name": "Calcola Urgenza & Build Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1080, 300]
+      "position": [
+        1080,
+        300
+      ]
     },
     {
       "parameters": {
@@ -110,8 +127,12 @@
               "value": "application/json"
             },
             {
+              "name": "X-SYD-Timestamp",
+              "value": "={{ $json._syd_timestamp }}"
+            },
+            {
               "name": "X-SYD-Signature",
-              "value": "={{ (() => { const crypto = require('crypto'); const payload = JSON.stringify($json); return 'sha256=' + crypto.createHmac('sha256', $env['SYD_WEBHOOK_SECRET'] ?? '').update(payload).digest('hex'); })() }}"
+              "value": "={{ (() => { const crypto = require('crypto'); const ts = $json._syd_timestamp; const payload = JSON.stringify($json); return 'sha256=' + crypto.createHmac('sha256', $env['SYD_WEBHOOK_SECRET'] ?? '').update(`${ts}.${payload}`).digest('hex'); })() }}"
             }
           ]
         },
@@ -131,7 +152,10 @@
       "name": "Trigger Notify Admin Workflow",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1300, 300],
+      "position": [
+        1300,
+        300
+      ],
       "notes": "Chiama il webhook del workflow SYD Notify Admin con firma HMAC corretta."
     },
     {
@@ -167,7 +191,10 @@
       "name": "Segna come Notificato → Backend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1520, 300],
+      "position": [
+        1520,
+        300
+      ],
       "notes": "CRITICO: Aggiorna il flag admin_notified su Firestore per evitare notifiche duplicate al prossimo polling."
     },
     {
@@ -178,7 +205,10 @@
       "name": "Summary Run Poller",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1740, 300]
+      "position": [
+        1740,
+        300
+      ]
     },
     {
       "parameters": {
@@ -188,44 +218,95 @@
       "name": "Nessun Progetto — Skip",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [860, 520]
+      "position": [
+        860,
+        520
+      ]
     }
   ],
   "connections": {
     "Ogni 5 Minuti": {
       "main": [
-        [{ "node": "Fetch Progetti in Attesa → Backend", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Fetch Progetti in Attesa → Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Fetch Progetti in Attesa → Backend": {
       "main": [
-        [{ "node": "Ci Sono Progetti?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Ci Sono Progetti?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Ci Sono Progetti?": {
       "main": [
-        [{ "node": "Itera su Ogni Progetto", "type": "main", "index": 0 }],
-        [{ "node": "Nessun Progetto — Skip", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Itera su Ogni Progetto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nessun Progetto — Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Itera su Ogni Progetto": {
       "main": [
-        [{ "node": "Calcola Urgenza & Build Payload", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Calcola Urgenza & Build Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Calcola Urgenza & Build Payload": {
       "main": [
-        [{ "node": "Trigger Notify Admin Workflow", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Trigger Notify Admin Workflow",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Trigger Notify Admin Workflow": {
       "main": [
-        [{ "node": "Segna come Notificato → Backend", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Segna come Notificato → Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Segna come Notificato → Backend": {
       "main": [
-        [{ "node": "Summary Run Poller", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Summary Run Poller",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -237,7 +318,13 @@
     "timezone": "Europe/Rome"
   },
   "staticData": null,
-  "tags": ["syd", "poller", "firestore", "automation", "enterprise"],
+  "tags": [
+    "syd",
+    "poller",
+    "firestore",
+    "automation",
+    "enterprise"
+  ],
   "meta": {
     "templateId": "syd-firestore-poller-v1",
     "instanceId": "syd-bioedilizia",

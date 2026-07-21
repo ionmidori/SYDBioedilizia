@@ -14,18 +14,24 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 400],
+      "position": [
+        200,
+        400
+      ],
       "webhookId": "syd-notify-admin"
     },
     {
       "parameters": {
-        "jsCode": "// ─── HMAC-SHA256 Signature Validation ───────────────────────────────────────\n// Verifica che la richiesta provenga dal backend SYD e non da terze parti.\n// Header atteso: X-SYD-Signature: sha256=<hmac_hex>\nconst crypto = require('crypto');\n\nconst rawBody = $input.item.json.rawBody || JSON.stringify($input.item.json.body);\nconst signature = $input.item.json.headers['x-syd-signature'] || '';\nconst secret = $env['SYD_WEBHOOK_SECRET'];\n\nif (!secret) {\n  // In sviluppo, se il secret non è configurato, bypassa la validazione con warning\n  console.warn('[SYD] WARNING: SYD_WEBHOOK_SECRET non configurato. Bypass validazione (solo dev).');\n  return $input.all();\n}\n\nif (!signature.startsWith('sha256=')) {\n  throw new Error('Signature mancante o formato non valido');\n}\n\nconst expectedSig = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(rawBody)\n  .digest('hex');\n\nconst sigBuffer = Buffer.from(signature);\nconst expectedBuffer = Buffer.from(expectedSig);\n\nif (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {\n  throw new Error('Signature non valida: richiesta rifiutata');\n}\n\nreturn $input.all();"
+        "jsCode": "// ─── HMAC-SHA256 Signature Validation ───────────────────────────────────────\n// Verifica che la richiesta provenga dal backend SYD e non da terze parti.\n// Header attesi: X-SYD-Timestamp: <unix>, X-SYD-Signature: sha256=<hmac_hex>\n// Formula (allineata al backend): HMAC-SHA256(secret, `${timestamp}.${rawBody}`)\nconst crypto = require('crypto');\n\nconst rawBody = $input.item.json.rawBody || JSON.stringify($input.item.json.body);\nconst headers = $input.item.json.headers || {};\nconst signature = headers['x-syd-signature'] || '';\nconst timestamp = headers['x-syd-timestamp'] || '';\nconst secret = $env['SYD_WEBHOOK_SECRET'];\n\nif (!secret) {\n  // In sviluppo, se il secret non è configurato, bypassa la validazione con warning\n  console.warn('[SYD] WARNING: SYD_WEBHOOK_SECRET non configurato. Bypass validazione (solo dev).');\n  return $input.all();\n}\n\nif (!timestamp) {\n  throw new Error('Timestamp mancante (header X-SYD-Timestamp)');\n}\n\n// Protezione replay: rifiuta richieste con |now - timestamp| > 300s (come il backend).\nconst nowSec = Math.floor(Date.now() / 1000);\nconst tsInt = parseInt(timestamp, 10);\nif (!Number.isFinite(tsInt) || Math.abs(nowSec - tsInt) > 300) {\n  throw new Error('Richiesta scaduta o timestamp non valido');\n}\n\nif (!signature.startsWith('sha256=')) {\n  throw new Error('Signature mancante o formato non valido');\n}\n\nconst expectedSig = 'sha256=' + crypto\n  .createHmac('sha256', secret)\n  .update(`${timestamp}.${rawBody}`)\n  .digest('hex');\n\nconst sigBuffer = Buffer.from(signature);\nconst expectedBuffer = Buffer.from(expectedSig);\n\nif (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {\n  throw new Error('Signature non valida: richiesta rifiutata');\n}\n\nreturn $input.all();"
       },
       "id": "validate-signature",
       "name": "Valida Firma HMAC",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [420, 400]
+      "position": [
+        420,
+        400
+      ]
     },
     {
       "parameters": {
@@ -93,7 +99,10 @@
       "name": "Estrai & Normalizza Campi",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [640, 400]
+      "position": [
+        640,
+        400
+      ]
     },
     {
       "parameters": {
@@ -122,7 +131,10 @@
       "name": "Urgenza Alta?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [860, 400]
+      "position": [
+        860,
+        400
+      ]
     },
     {
       "parameters": {
@@ -139,7 +151,10 @@
       "name": "Email Admin — Urgente",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1080, 240]
+      "position": [
+        1080,
+        240
+      ]
     },
     {
       "parameters": {
@@ -156,7 +171,10 @@
       "name": "Email Admin — Normale",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
-      "position": [1080, 540]
+      "position": [
+        1080,
+        540
+      ]
     },
     {
       "parameters": {
@@ -174,7 +192,10 @@
       "name": "Telegram — Alert Urgente",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1300, 340],
+      "position": [
+        1300,
+        340
+      ],
       "continueOnFail": true,
       "notes": "continueOnFail=true: se Telegram non è configurato, il workflow continua"
     },
@@ -186,7 +207,10 @@
       "name": "Prepara Audit Log",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1520, 400]
+      "position": [
+        1520,
+        400
+      ]
     },
     {
       "parameters": {
@@ -225,7 +249,10 @@
       "name": "POST Audit Log → Backend",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1740, 400],
+      "position": [
+        1740,
+        400
+      ],
       "continueOnFail": true,
       "notes": "continueOnFail=true: audit failure non deve bloccare la risposta al webhook"
     },
@@ -241,7 +268,10 @@
       "name": "Risposta 200 OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1960, 400]
+      "position": [
+        1960,
+        400
+      ]
     },
     {
       "parameters": {
@@ -255,57 +285,126 @@
       "name": "Risposta 401 Unauthorized",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [640, 600]
+      "position": [
+        640,
+        600
+      ]
     }
   ],
   "connections": {
     "Webhook Trigger": {
       "main": [
-        [{ "node": "Valida Firma HMAC", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Valida Firma HMAC",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Valida Firma HMAC": {
       "main": [
-        [{ "node": "Estrai & Normalizza Campi", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Estrai & Normalizza Campi",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ],
       "error": [
-        [{ "node": "Risposta 401 Unauthorized", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Risposta 401 Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Estrai & Normalizza Campi": {
       "main": [
-        [{ "node": "Urgenza Alta?", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Urgenza Alta?",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Urgenza Alta?": {
       "main": [
-        [{ "node": "Email Admin — Urgente", "type": "main", "index": 0 }],
-        [{ "node": "Email Admin — Normale", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Email Admin — Urgente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Admin — Normale",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Email Admin — Urgente": {
       "main": [
-        [{ "node": "Telegram — Alert Urgente", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Telegram — Alert Urgente",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Email Admin — Normale": {
       "main": [
-        [{ "node": "Telegram — Alert Urgente", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Telegram — Alert Urgente",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Telegram — Alert Urgente": {
       "main": [
-        [{ "node": "Prepara Audit Log", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Prepara Audit Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Prepara Audit Log": {
       "main": [
-        [{ "node": "POST Audit Log → Backend", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "POST Audit Log → Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "POST Audit Log → Backend": {
       "main": [
-        [{ "node": "Risposta 200 OK", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Risposta 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },
@@ -317,7 +416,14 @@
     "timezone": "Europe/Rome"
   },
   "staticData": null,
-  "tags": ["syd", "quote", "admin", "notify", "v2", "enterprise"],
+  "tags": [
+    "syd",
+    "quote",
+    "admin",
+    "notify",
+    "v2",
+    "enterprise"
+  ],
   "meta": {
     "templateId": "syd-notify-admin-v2",
     "instanceId": "syd-bioedilizia",
