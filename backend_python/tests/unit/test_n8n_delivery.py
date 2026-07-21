@@ -189,7 +189,7 @@ class TestDeliverQuoteWrapper:
                 client_email="vip@example.com",
                 pdf_url="https://storage.googleapis.com/bucket/projects/test-project-456/quote.pdf",
                 quote_total=15000.0,
-                delivery_channel="both",
+                delivery_channel="email",
             )
 
             # Verify payload structure
@@ -201,7 +201,32 @@ class TestDeliverQuoteWrapper:
             assert payload["client_email"] == "vip@example.com"
             assert "pdf_url" in payload
             assert payload["quote_total"] == 15000.0
-            assert payload["delivery_channel"] == "both"
+            assert payload["delivery_channel"] == "email"
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("channel", ["whatsapp", "both"])
+    async def test_deliver_quote_refuses_unwired_channels(
+        self, channel, mock_n8n_webhook_urls, monkeypatch
+    ):
+        """whatsapp/both route to Twilio nodes absent from the live workflow.
+
+        Without this guard the webhook fires, n8n drops the item on a dangling
+        connection, and the caller is told the quote was delivered.
+        """
+        from src.tools.n8n_mcp_tools import deliver_quote_wrapper
+
+        with patch("src.tools.n8n_mcp_tools._call_n8n_webhook") as mock_call:
+            result = await deliver_quote_wrapper(
+                project_id="test-project",
+                client_email="client@example.com",
+                pdf_url="https://storage.googleapis.com/bucket/quote.pdf",
+                quote_total=5000.0,
+                delivery_channel=channel,
+            )
+
+            mock_call.assert_not_called()
+            assert "❌" in result
+            assert channel in result
 
 
 class TestCallN8nWebhook:
