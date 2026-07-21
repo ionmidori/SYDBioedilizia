@@ -7,7 +7,6 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
 import { ToolStatus } from '@/components/chat/ToolStatus';
-import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
 import { LeadCaptureForm } from '@/components/chat/widgets/LeadCaptureForm';
 import { LoginRequest } from '@/components/chat/tools/LoginRequest';
 import { ReasoningStepView } from '@/components/chat/ReasoningStepView';
@@ -23,7 +22,6 @@ import { logger } from '@/lib/logger';
 
 interface MessageItemProps {
     message: Message;
-    typingMessage?: string;
     sessionId?: string; // made optional
     onImageClick: (imageUrl: string) => void;
     onFormSubmit?: (data: unknown) => void;
@@ -34,7 +32,7 @@ interface MessageItemProps {
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessage, sessionId, onImageClick, onFormSubmit }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onFormSubmit }) => {
     const { user } = useAuth();
     const { historyMessages } = useChatContext();
 
@@ -82,7 +80,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
     const toolInvocations = sdkToolInvocations.length > 0
         ? sdkToolInvocations
         : (originalMessage ? getToolInvocations(originalMessage) : []);
-    const hasTools = toolInvocations.length > 0;
 
     // Helper: Convert custom backend image syntax to Markdown
     // SECURITY: Only allow URLs from known-good domains (Firebase Storage, etc.)
@@ -145,9 +142,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
         return null;
     }
 
-    // 💎 PREMIUM UI: Native Thinking State
-    // Check if the message is in "Thinking Mode" (Assistant + Empty/Placeholder)
-    const isThinking = message.role === 'assistant' && (!text || text.trim() === '' || text.trim() === '...') && !hasTools;
+    // NOTE: the "thinking" state is NOT rendered here. An empty assistant
+    // placeholder simply renders nothing; ChatMessages owns the single
+    // ThinkingIndicator, driven by isLoading. Rendering one here too showed the
+    // user two rotating status lines at once, and left one on screen after the
+    // turn had finished (isLoading false, placeholder still empty).
 
     // Check if tools have any visual output (Loading state OR Result with Image/Error OR Widgets)
     const hasVisibleTools = toolInvocations.some(tool => {
@@ -192,7 +191,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
 
     // Determine if the bubble (AND the entire row) should be visible
     const shouldShow =
-        isThinking ||
         (text && text.trim().length > 0) ||
         hasVisibleTools ||
         (message.attachments?.images && message.attachments.images.length > 0); // User images
@@ -281,82 +279,76 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, typingMessag
                             : "bg-luxury-bg/85 backdrop-blur-2xl border border-luxury-gold/10 text-luxury-text rounded-[24px_24px_24px_4px] shadow-lg shadow-black/5" // Organic shape AI + Stronger Glass
                     )}>
                         <div className="prose prose-sm prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
-                            {isThinking ? (
-                                <ThinkingIndicator message={typingMessage} />
-                            ) : (
-                                <>
-                                    {formattedText && !hasVisibleTools && (
-                                        <Markdown
-                                            urlTransform={(value: string) =>
-                                                /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
-                                            }
-                                            components={markdownComponents}
-                                        >
-                                            {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
-                                            {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
-                                        </Markdown>
-                                    )}
-
-                                    {/* Special Case: Allow text IF it's NOT a Login Request (to preserve context for other tools) */}
-                                    {formattedText && hasVisibleTools && !toolInvocations.some(t => t.toolName === 'request_login' || (t.result as string)?.includes?.('LOGIN_REQUIRED_UI_TRIGGER')) && (
-                                        <Markdown
-                                            urlTransform={(value: string) =>
-                                                /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
-                                            }
-                                            components={markdownComponents}
-                                        >
-                                            {formattedText}
-                                        </Markdown>
-                                    )}
-
-
-                                    {/* Tool Invocations */}
-                                    {toolInvocations.map((tool, toolIdx) => {
-                                        // 💎 PREMIUM WIDGET: Lead Capture Form
-                                        if (tool.toolName === 'display_lead_form') {
-                                            const args = tool.args as { quote_summary?: string };
-                                            return (
-                                                <div key={toolIdx} className="mt-4">
-                                                    <LeadCaptureForm
-                                                        description={args?.quote_summary || "Per generare il render, ho bisogno di questi dati."}
-                                                        onSubmit={(data) => {
-                                                            logger.debug("📝 Form Submitted:", data);
-                                                            if (onFormSubmit) onFormSubmit(data);
-                                                        }}
-                                                    />
-                                                </div>
-                                            );
-                                        }
-
-                                        // 🔒 AUTH WIDGET: Login Request
-                                        // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
-                                        const result = tool.result || (tool as { output?: unknown }).output;
-                                        const isAuthSignal = typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER');
-
-                                        if (tool.toolName === 'request_login' || isAuthSignal) {
-                                            return (
-                                                <div key={toolIdx} className="mt-4">
-                                                    <LoginRequest />
-                                                </div>
-                                            );
-                                        }
-
-                                        return (
-                                            <ToolStatus
-                                                key={toolIdx}
-                                                tool={tool}
-                                                onImageClick={onImageClick}
-                                            />
-                                        );
-                                    })}
-                                </>
+                            {formattedText && !hasVisibleTools && (
+                                <Markdown
+                                    urlTransform={(value: string) =>
+                                        /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
+                                    }
+                                    components={markdownComponents}
+                                >
+                                    {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
+                                    {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
+                                </Markdown>
                             )}
+
+                            {/* Special Case: Allow text IF it's NOT a Login Request (to preserve context for other tools) */}
+                            {formattedText && hasVisibleTools && !toolInvocations.some(t => t.toolName === 'request_login' || (t.result as string)?.includes?.('LOGIN_REQUIRED_UI_TRIGGER')) && (
+                                <Markdown
+                                    urlTransform={(value: string) =>
+                                        /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
+                                    }
+                                    components={markdownComponents}
+                                >
+                                    {formattedText}
+                                </Markdown>
+                            )}
+
+
+                            {/* Tool Invocations */}
+                            {toolInvocations.map((tool, toolIdx) => {
+                                // 💎 PREMIUM WIDGET: Lead Capture Form
+                                if (tool.toolName === 'display_lead_form') {
+                                    const args = tool.args as { quote_summary?: string };
+                                    return (
+                                        <div key={toolIdx} className="mt-4">
+                                            <LeadCaptureForm
+                                                description={args?.quote_summary || "Per generare il render, ho bisogno di questi dati."}
+                                                onSubmit={(data) => {
+                                                    logger.debug("📝 Form Submitted:", data);
+                                                    if (onFormSubmit) onFormSubmit(data);
+                                                }}
+                                            />
+                                        </div>
+                                    );
+                                }
+
+                                // 🔒 AUTH WIDGET: Login Request
+                                // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
+                                const result = tool.result || (tool as { output?: unknown }).output;
+                                const isAuthSignal = typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER');
+
+                                if (tool.toolName === 'request_login' || isAuthSignal) {
+                                    return (
+                                        <div key={toolIdx} className="mt-4">
+                                            <LoginRequest />
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <ToolStatus
+                                        key={toolIdx}
+                                        tool={tool}
+                                        onImageClick={onImageClick}
+                                    />
+                                );
+                            })}
                         </div>
                     </div>
                 )}
 
                 {/* Feedback: thumbs up/down on assistant messages (self-correction loop) */}
-                {message.role === 'assistant' && !isThinking && text && sessionId && (
+                {message.role === 'assistant' && text && sessionId && (
                     <MessageFeedback messageId={message.id} sessionId={sessionId} initialRating={resolvedRating} />
                 )}
             </div>
