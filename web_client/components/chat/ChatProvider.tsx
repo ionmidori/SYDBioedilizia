@@ -2,56 +2,18 @@
 
 import React, { useState, useEffect, useCallback, FormEvent, useMemo, useRef } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport, UIMessage as Message } from 'ai';
 import { ChatContext } from '@/hooks/useChatContext';
 import { ChatContextType } from '@/types/chat-context';
 import { useAuth } from '@/hooks/useAuth';
 import { useChatHistory } from '@/hooks/useChatHistory';
-import { auth, appCheck } from '@/lib/firebase';
-import { getToken } from 'firebase/app-check';
+import { useChatSession } from '@/hooks/useChatSession';
+import { useChatSync } from '@/hooks/useChatSync';
+import { useChatTransport } from '@/hooks/useChatTransport';
+import { useAdkStreamEvents } from '@/hooks/useAdkStreamEvents';
+import { auth } from '@/lib/firebase';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 import { logger } from '@/lib/logger';
-
-const WELCOME_MESSAGE = {
-    id: 'welcome-msg',
-    role: 'assistant',
-    parts: [{ type: 'text', text: "✨ **Ciao! Sono Syd**, il tuo assistente per la ristrutturazione. ✨\n\nEcco cosa posso fare per aiutarti a realizzare il tuo progetto:\n\n\n📋 **1. Creare preventivo veloce:**\n_Ottieni subito una stima dei costi._\n\n\n🎨 **2. Creare un rendering gratuito:**\n_Visualizza in anteprima le tue idee._\n\n\n💡 **3. Fornire informazioni dettagliate:**\n_Chiedi consigli su materiali e design._\n\n\n👇 **Come posso aiutarti oggi?**" }],
-    createdAt: new Date()
-} as unknown as Message;
-
-interface StreamData {
-    type: string;
-    payload?: unknown;
-    [key: string]: unknown;
-}
-
-/**
- * Convert a Firestore history row into a valid AI SDK v7 UIMessage.
- *
- * Firestore history comes back content-only (no `parts`). AI SDK v7 requires
- * every message in `useChat` state to carry a `parts` array: loading
- * content-only messages corrupts the streaming reconciliation so a
- * freshly-streamed assistant reply is NEVER appended to state — it only shows
- * after a full page refresh (which re-renders from history without streaming).
- * Empty/new sessions are unaffected because nothing malformed is loaded.
- */
-function historyToUIMessage(m: {
-    id?: string;
-    role?: string;
-    content?: unknown;
-    attachments?: { images?: string[] } | undefined;
-}): Message {
-    const text = typeof m.content === 'string' ? m.content : '';
-    const parts: Array<{ type: string; text?: string; mediaType?: string; url?: string }> = [];
-    if (text) parts.push({ type: 'text', text });
-    for (const url of m.attachments?.images ?? []) {
-        if (typeof url === 'string') parts.push({ type: 'file', mediaType: 'image/jpeg', url });
-    }
-    // v7 messages must have at least one part; an empty assistant renders as "thinking".
-    if (parts.length === 0) parts.push({ type: 'text', text: '' });
-    return { id: m.id, role: m.role, parts } as unknown as Message;
-}
 
 /**
  * ChatProvider
@@ -65,154 +27,36 @@ function historyToUIMessage(m: {
  * - No more `data` return — use onData callback for streaming metadata
  */
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-    const { user, refreshToken, isInitialized, signInAnonymously } = useAuth();
+    const { user, signInAnonymously } = useAuth();
 
     // -- STATE --
-    const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
     const [isRestoringHistory, setIsRestoringHistory] = useState<boolean>(false);
     const [input, setInput] = useState<string>(''); // Local input state
-    // ADK custom-data stream (status / interrupt / ui_widget / artifact / reasoning).
-    // AI SDK v7 delivers transient `data-*` parts via the `onData` callback (NOT on
-    // `useChat().data`, which no longer exists), so we accumulate them here.
-    const [streamData, setStreamData] = useState<StreamData[]>([]);
-    const welcomeInjectedRef = useRef(false);
-    const isFirstSyncRef = useRef(true);
-    const prevUserRef = useRef(user);
-
-    // -- STABLE SESSION ID (L3 Persistent Guest) --
-    const [stableGuestId, setStableGuestId] = useState<string | null>(null);
-
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const key = 'chatSessionId';
-            let id = localStorage.getItem(key);
-            if (!id) {
-                id = crypto.randomUUID();
-                localStorage.setItem(key, id);
-            }
-            const timerId = setTimeout(() => {
-                setStableGuestId(id);
-            }, 0);
-            return () => clearTimeout(timerId);
-        }
-    }, []);
-
     // prevUserRef tracks auth state transitions to detect logout.
     // The actual cleanup effect is defined AFTER useChat (needs setMessages).
+    const prevUserRef = useRef(user);
 
-    // Derived Session ID
-    // Anonymous Firebase users keep using stableGuestId to prevent useChat reset
-    // when signInAnonymously() completes mid-message (would wipe all messages).
-    const sessionId = useMemo(() => {
-        if (!user || user.isAnonymous) return stableGuestId || 'guest-loading';
-        return currentProjectId || `global-${user.uid}`;
-    }, [user, currentProjectId, stableGuestId]);
+    // -- SESSION IDENTITY (persistent guest id, project, derived sessionId) --
+    const {
+        sessionId,
+        currentProjectId,
+        setCurrentProjectId,
+        resetToNewGuestSession,
+    } = useChatSession();
 
-    // Reset per-session refs when sessionId changes.
-    useEffect(() => {
-        welcomeInjectedRef.current = false;
-        isFirstSyncRef.current = true;
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional per-session reset: drop the previous session's ADK data events when sessionId changes
-        setStreamData([]); // drop previous session's ADK data events
-    }, [sessionId]);
+    // -- ADK CUSTOM-DATA STREAM (status / interrupt / ui_widget / artifact) --
+    const { streamData, onData } = useAdkStreamEvents(sessionId);
 
     // -- HISTORY SYNC --
     const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId);
 
-    // -- DYNAMIC HEADERS/BODY RESOLVER --
-    // AI SDK v7: transport headers/body can be async functions (Resolvable)
-    const resolveHeaders = useCallback(async (): Promise<Record<string, string>> => {
-        const headers: Record<string, string> = {};
-
-        // Primary: use the managed refreshToken (uses auth.currentUser || user state)
-        let token = await refreshToken();
-
-        // ⚡ Fallback: If refreshToken returned null (e.g. state hasn't re-rendered yet after
-        // anonymous sign-in), try auth.currentUser directly from the Firebase SDK.
-        // This bridges the window between signInAnonymously() resolving and React re-rendering.
-        if (!token && auth.currentUser) {
-            logger.debug('[ChatProvider] refreshToken returned null, falling back to auth.currentUser.getIdToken()');
-            try {
-                token = await auth.currentUser.getIdToken();
-            } catch (fallbackErr) {
-                console.error('[ChatProvider] Fallback getIdToken failed:', fallbackErr);
-            }
-        }
-
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        } else {
-            console.warn('[ChatProvider] ⚠️ No token available for Authorization header — request may fail with 401');
-        }
-
-        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true' && appCheck) {
-            try {
-                const result = await getToken(appCheck, false);
-                if (result.token) {
-                    headers['X-Firebase-AppCheck'] = result.token;
-                }
-            } catch (err) {
-                console.error('[ChatProvider] App Check token error:', err);
-            }
-        }
-        return headers;
-    }, [refreshToken]);
-
-    // -- AI SDK v7 HOOK --
-    // NOTE: DefaultChatTransport does NOT accept `body` as a function.
-    // Dynamic body fields must be injected via `prepareSendMessagesRequest`.
-    const transport = useMemo(() => new DefaultChatTransport({
-        api: '/api/chat',
-        headers: resolveHeaders,
-        prepareSendMessagesRequest: ({ id, messages, body: sdkBody }) => {
-            // sdkBody = { ...transport.body (static), ...options.body (per-request) }
-            // options.body carries mediaUrls, mediaMetadata, videoFileUris from ChatWidget.
-            const extra = (sdkBody ?? {}) as Record<string, unknown>;
-            const body: Record<string, unknown> = {
-                id,
-                messages,
-                ...extra,
-                projectId: currentProjectId,
-                sessionId,
-            };
-
-            const msgs = body.messages as Message[];
-            const lastMsg = msgs?.[msgs.length - 1];
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const lastMsgAny = lastMsg as any;
-            const lastMsgContent = lastMsg
-                ? (typeof lastMsgAny.content === 'string'
-                    ? lastMsgAny.content
-                    : lastMsgAny.parts?.[0]?.text || '')
-                : '';
-
-            if (process.env.NODE_ENV === 'development') {
-                logger.debug('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
-                    sessionId: body.sessionId,
-                    messagesCount: msgs?.length,
-                    projectId: body.projectId,
-                    lastMessageRole: lastMsg?.role,
-                    lastMessageContent: String(lastMsgContent).substring(0, 50),
-                    mediaUrlsCount: Array.isArray(body.mediaUrls) ? (body.mediaUrls as unknown[]).length : 0,
-                }));
-            }
-            return { body };
-        },
-    }), [resolveHeaders, currentProjectId, sessionId]);
-
+    // -- AI SDK v7 TRANSPORT (auth headers + request body enrichment) --
+    const transport = useChatTransport({ sessionId, currentProjectId });
 
     const chatHelpers = useChat({
         id: sessionId,
         transport,
-        onData: (dataPart) => {
-            // v7 transient `data-*` parts (ADK status/interrupt/ui_widget/artifact/reasoning).
-            // The backend wraps the legacy event object (which carries its own `type`)
-            // in `dataPart.data`, so unwrap it to keep downstream consumers unchanged.
-            const inner = (dataPart as { data?: unknown }).data;
-            if (inner && typeof inner === 'object') {
-                setStreamData((prev) => [...prev, inner as StreamData]);
-            }
-        },
+        onData,
         onFinish(message) {
             logger.debug('[ChatProvider] Turn finished. Last message:', message);
         },
@@ -248,169 +92,24 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             // Use setTimeout to avoid cascading renders during effect cleanup/transition
             setTimeout(() => {
                 setMessages([]);
-                setCurrentProjectId(null);    // prevent backend receiving stale projectId
-                setStableGuestId(crypto.randomUUID());
+                resetToNewGuestSession();
             }, 0);
         }
         prevUserRef.current = user;
-    }, [user, setMessages]);
+    }, [user, setMessages, resetToNewGuestSession]);
 
     const isLoading = status === 'streaming' || status === 'submitted';
 
-    // Sync History to SDK State
-    useEffect(() => {
-        let timerId: NodeJS.Timeout;
-
-        // STALE DATA GUARD: historyMessages is only valid once loadedForSessionId matches
-        // the current sessionId. During a session transition, the Firestore snapshot for the
-        // new session hasn't fired yet, so historyMessages still holds data from the previous
-        // session. Syncing it would re-populate the chat with old messages.
-        if (loadedForSessionId !== sessionId) {
-            return;
-        }
-
-        // RACE CONDITION GUARD: Status 'ready' means useChat just finished a request.
-        // In local dev, there might be a lag between saving to Firestore and onSnapshot firing.
-        // We don't want to revert to an empty history while waiting for that snapshot.
-        const isRecentlyFinished = status === 'ready' && messages.length > 0;
-
-        if (historyLoaded && status !== 'streaming' && status !== 'submitted') {
-            // ALWAYS prepend the welcome message to the history so it persists.
-            // Standalone `tool` rows are not v7 messages (tool data lives inside
-            // the assistant message) — exclude them, and convert every row to a
-            // valid v7 UIMessage with `parts` so streaming reconciliation works.
-            const fullHistory = [
-                WELCOME_MESSAGE,
-                ...(historyMessages as unknown as { role?: string }[])
-                    .filter((m) => m.role !== 'tool')
-                    .map((m) => historyToUIMessage(m)),
-            ];
-
-            // 1. Cold Start (Welcome Message)
-            if (historyMessages.length === 0 && messages.length === 0 && !welcomeInjectedRef.current) {
-                logger.debug('[ChatProvider] Cold start: Injecting welcome message.');
-                welcomeInjectedRef.current = true;
-
-                timerId = setTimeout(() => {
-                    setMessages(fullHistory);
-                }, 0);
-                return () => clearTimeout(timerId);
-            }
-
-            // Skip sync if we injected the welcome message and history is empty
-            if (welcomeInjectedRef.current && historyMessages.length === 0) {
-                return;
-            }
-
-            // 2. Synchronization Logic
-            const sdkLen = messages.length;
-            const histLen = fullHistory.length;
-            const needsSync = sdkLen !== histLen || (sdkLen > 0 && histLen > 0 && messages[sdkLen - 1].id !== fullHistory[histLen - 1].id);
-
-            if (needsSync) {
-                // RACE CONDITION GUARD: Must run BEFORE first-sync to prevent
-                // overwriting SDK optimistic messages when Firestore is behind.
-                // Background task saves user message AFTER streaming completes,
-                // so Firestore may temporarily have fewer messages than the SDK.
-                if (isRecentlyFinished && histLen < sdkLen) {
-                    logger.debug('[ChatProvider] Sync Guard: Waiting for history snapshot...');
-                    return;
-                }
-
-                if (isFirstSyncRef.current) {
-                    logger.debug(`[ChatProvider] Initial history sync (${histLen} messages)`);
-                    timerId = setTimeout(() => setMessages(fullHistory), 0);
-                    isFirstSyncRef.current = false;
-                    return () => clearTimeout(timerId);
-                }
-
-                // Optimization: If lengths are equal and the last message content is identical,
-                // just adopt the Firestore IDs without a full state rebuild.
-                if (sdkLen === histLen && sdkLen > 0) {
-                    const lastSdk = messages[sdkLen - 1];
-                    const lastHist = fullHistory[histLen - 1];
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const sdkMsg = lastSdk as any;
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const histMsg = lastHist as any;
-                    const sdkContent = typeof sdkMsg.content === 'string' ? sdkMsg.content : sdkMsg.parts?.[0]?.text || '';
-                    const histContent = typeof histMsg.content === 'string' ? histMsg.content : histMsg.parts?.[0]?.text || '';
-
-                    if (sdkContent === histContent) {
-                        logger.debug('[ChatProvider] Adopting Firestore IDs (ID update only).');
-                        timerId = setTimeout(() => setMessages(fullHistory), 0);
-                        return () => clearTimeout(timerId);
-                    }
-                }
-
-                // If history is longer, it's definitive (another device or backend update)
-                logger.debug(`[ChatProvider] History Sync (Mismatch: SDK ${sdkLen} vs Hist ${histLen})`);
-                timerId = setTimeout(() => {
-                    setMessages(fullHistory);
-                }, 0);
-                return () => clearTimeout(timerId);
-            }
-
-        }
-    }, [historyLoaded, historyMessages, loadedForSessionId, sessionId, setMessages, status, messages]);
-
-    // -- ADK STREAMING DATA HANDLERS (interrupt / ui_widget / artifact) --
-    useEffect(() => {
-        const currentData = streamData;
-        if (currentData.length === 0) return;
-
-        const latestData = currentData[currentData.length - 1];
-        if (!latestData) return;
-
-        if (latestData.type === 'interrupt') {
-            logger.debug('[ChatProvider] ADK Interrupt Received:', latestData);
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('adk-interrupt', { detail: latestData.payload }));
-            }
-        }
-
-        // ADK 1.27+ UiWidget: backend tool called tool_context.render_ui_widget()
-        // Dispatch event so chat components can render native widget components
-        // without relying only on the tool name string.
-        if (latestData.type === 'ui_widget') {
-            logger.debug('[ChatProvider] ADK UiWidget Received:', latestData);
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('adk-ui-widget', { detail: latestData }));
-            }
-        }
-
-        // ADK 1.27+ Artifact: backend tool called tool_context.save_artifact()
-        // Dispatch event so gallery/media panels can refresh to show the new artifact.
-        if (latestData.type === 'artifact') {
-            logger.debug('[ChatProvider] ADK Artifact Saved:', latestData);
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('adk-artifact', { detail: latestData }));
-            }
-        }
-    }, [streamData]);
-
-    // -- PERSISTENCE: Save/Restore Last Project --
-    useEffect(() => {
-        if (isInitialized && user && !user.isAnonymous && !currentProjectId) {
-            const key = `last_active_project:${user.uid}`;
-            const lastId = localStorage.getItem(key);
-            if (lastId) {
-                logger.debug('[ChatProvider] Restoring last active project:', lastId);
-                const timerId = setTimeout(() => {
-                    setCurrentProjectId(lastId);
-                }, 0);
-                return () => clearTimeout(timerId);
-            }
-        }
-    }, [isInitialized, user, currentProjectId]);
-
-    // Save Effect
-    useEffect(() => {
-        if (user && !user.isAnonymous && currentProjectId) {
-            const key = `last_active_project:${user.uid}`;
-            localStorage.setItem(key, currentProjectId);
-        }
-    }, [user, currentProjectId]);
+    // -- HISTORY -> SDK STATE RECONCILIATION --
+    useChatSync({
+        messages,
+        setMessages,
+        historyMessages,
+        historyLoaded,
+        loadedForSessionId,
+        sessionId,
+        status,
+    });
 
     // -- HANDLERS --
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -517,6 +216,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         data: streamData,
     }), [
         currentProjectId,
+        // Stable useState setter from useChatSession; listed because the lint rule
+        // can only prove stability for setters destructured from useState inline.
+        setCurrentProjectId,
         isRestoringHistory,
         isLoading,
         messages,

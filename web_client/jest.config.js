@@ -44,14 +44,15 @@ const customJestConfig = {
     // Ratchet floors, NOT the aspirational goal. Set just below the measured
     // figure so CI enforces "no regression" while the suite grows; raise them
     // whenever coverage improves — target remains 70%.
-    // Measured 2026-07-20 after the lib/validation + cookie-manager +
-    // media-utils increment: 23.64 stmts / 61.48 branches / 29.03 funcs.
+    // Measured 2026-07-20 after the full ChatProvider decomposition (lib/chat +
+    // useChatSync + useAdkStreamEvents + useChatTransport + useChatSession)
+    // plus the batched-dispatch fix: 26.13 stmts / 67.2 branches / 31.67 funcs.
     coverageThreshold: {
         global: {
-            branches: 58,
-            functions: 27,
-            lines: 22,
-            statements: 22,
+            branches: 67,
+            functions: 31,
+            lines: 26,
+            statements: 26,
         },
     },
     transformIgnorePatterns: [
