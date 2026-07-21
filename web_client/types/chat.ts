@@ -39,7 +39,6 @@ export interface Message {
     id: string;
     role: 'system' | 'user' | 'assistant' | 'data' | 'tool';
     content?: string;
-    reasoning?: string | ReasoningStep; // Support both raw string and structured CoT
     createdAt?: Date;
     timestamp?: string; // ISO timestamp from backend
     tool_call_id?: string; // For tool result messages
