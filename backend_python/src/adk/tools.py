@@ -45,49 +45,44 @@ async def pricing_engine_tool(sku: str, qty: float) -> Dict[str, Any]:
     }
 
 
-# ─── Quote Approval (HITL) ───────────────────────────────────────────────────
+# ─── Quote Submission (batch pipeline, shared with dashboard) ────────────────
 
-async def request_quote_approval(
-    quote_id: str,
-    project_id: str,
-    grand_total: float,
-    tool_context,
-) -> Dict[str, Any]:
-    """Pauses execution and sends the quote to the administrator for approval.
+@instrumented_tool("list_ready_quotes")
+async def list_ready_quotes(session_id: str) -> str:
+    """Lists the user's projects with a draft quote ready to be sent to the team.
 
-    Generates a secure nonce and calls request_confirmation() so the admin
-    dashboard can resume the session after review.
+    Call this BEFORE submit_quote_request when the user asks to send their
+    quote request(s): present the returned list and ask for explicit
+    confirmation. Requires an authenticated user (login gate applies).
 
     Args:
-        quote_id: Unique quote identifier.
-        project_id: Project this quote belongs to.
-        grand_total: Total euro amount for admin display.
-        tool_context: ADK ToolContext injected automatically by the runner.
+        session_id: The current session identifier (used to resolve the user).
     """
-    import secrets
+    from src.tools.batch_tools import list_ready_quotes_wrapper
+    return await list_ready_quotes_wrapper(session_id=session_id)
 
-    from src.adk.hitl import save_resumption_token
 
-    tool_confirmation = getattr(tool_context, "tool_confirmation", None)
-    if not tool_confirmation:
-        nonce = secrets.token_urlsafe(32)
-        await save_resumption_token(project_id, nonce)
-        tool_context.request_confirmation(
-            hint="Preventivo pronto per revisione admin. Approvare o rifiutare.",
-            payload={
-                "quote_id": quote_id,
-                "total": grand_total,
-                "nonce": nonce,
-                "decision": "",
-                "notes": "",
-            },
-        )
-        return {"status": "pending_approval", "message": "Awaiting admin confirmation."}
+@instrumented_tool("submit_quote_request")
+async def submit_quote_request(session_id: str, project_ids: list[str] = []) -> str:  # noqa: B006
+    """Sends the user's quote request(s) to the admin team for review.
 
-    decision = tool_confirmation.payload.get("decision", "reject")
-    if decision == "approve":
-        return {"status": "approved", "notes": tool_confirmation.payload.get("notes", "")}
-    return {"status": "rejected", "reason": tool_confirmation.payload.get("reason", "")}
+    Creates and submits a quote batch — the SAME pipeline as the dashboard
+    "invia al team" button. The admin is notified by email and the client
+    receives the final quote by email after approval.
+
+    CRITICAL: call ONLY after the user gave an EXPLICIT confirmation
+    ("sì, invia") on a summary of the projects being sent. Never call
+    automatically.
+
+    Args:
+        session_id: The current session identifier (used to resolve the user).
+        project_ids: Project IDs to submit. Empty → the current session's project.
+    """
+    from src.tools.batch_tools import submit_quote_request_wrapper
+    return await submit_quote_request_wrapper(
+        session_id=session_id,
+        project_ids=project_ids or None,
+    )
 
 
 # ─── Market Prices ───────────────────────────────────────────────────────────
@@ -429,7 +424,8 @@ async def save_contact_phone(phone: str, session_id: str) -> str:
 # ─── FunctionTool wrappers (ADK 1.26: pass func directly) ────────────────────
 
 pricing_engine_tool_adk = FunctionTool(pricing_engine_tool)
-request_quote_approval_adk = FunctionTool(request_quote_approval)
+list_ready_quotes_adk = FunctionTool(list_ready_quotes)
+submit_quote_request_adk = FunctionTool(submit_quote_request)
 market_prices_adk = FunctionTool(get_market_prices)
 
 generate_render_adk = FunctionTool(generate_render)
