@@ -204,11 +204,15 @@ TOOL_REQUEST_LOGIN = """<tool name="request_login">
 
 
 TOOL_SUGGEST_QUOTE_ITEMS = """<tool name="suggest_quote_items">
-<trigger>Quote interview is underway and you need to propose renovation line items to the user for confirmation.</trigger>
-<goal>Analyze conversation history and suggest relevant SKU line items for the quote.</goal>
+<trigger>Quote interview is complete and the request must be registered for team review.</trigger>
+<goal>Analyze conversation history and save an INTERNAL draft quote for admin review.</goal>
 <parameters>
 <param name="session_id" required="true">The current project/session identifier.</param>
 </parameters>
+<rules>
+1. The draft (items, SKUs, prices, totals) is CONFIDENTIAL: never reveal it to the client.
+2. Relay only the descriptive works summary the tool returns, then propose sending the request.
+</rules>
 </tool>"""
 
 

@@ -52,12 +52,10 @@ async def _get_ready_quotes(user_id: str) -> list[dict]:
         items = qdata.get("items", [])
         if qdata.get("status") != "draft" or not items:
             continue
-        financials = qdata.get("financials", {})
         ready.append({
             "project_id": pid,
             "title": project.title,
             "item_count": len(items),
-            "grand_total": financials.get("grand_total", financials.get("subtotal", 0.0)),
         })
     return ready
 
@@ -76,15 +74,18 @@ async def list_ready_quotes_wrapper(session_id: str) -> str:
                 "Completa prima un preventivo in chat (le voci vengono salvate come bozza)."
             )
 
-        lines = ["Preventivi pronti per l'invio al team:"]
+        # NB: niente prezzi — la bozza non va mostrata al cliente; la revisiona
+        # prima l'admin in dashboard.
+        lines = ["Richieste di preventivo pronte per l'invio al team:"]
         for i, r in enumerate(ready, start=1):
             lines.append(
-                f"{i}. **{r['title']}** — {r['item_count']} voci, "
-                f"€{r['grand_total']:,.2f} (ID: {r['project_id']})"
+                f"{i}. **{r['title']}** — {r['item_count']} lavorazioni identificate "
+                f"(ID: {r['project_id']})"
             )
         lines.append(
             "Chiedi al cliente QUALI progetti inviare e attendi la sua CONFERMA "
-            "esplicita prima di chiamare submit_quote_request."
+            "esplicita prima di chiamare submit_quote_request. NON mostrare voci "
+            "o prezzi della bozza."
         )
         return "\n".join(lines)
     except Exception:
@@ -121,8 +122,7 @@ async def submit_quote_request_wrapper(
         n = submitted.total_projects
         progetti = "progetto" if n == 1 else "progetti"
         return (
-            f"✅ Richiesta di preventivo inviata! {n} {progetti} "
-            f"(subtotale €{submitted.batch_subtotal:,.2f}). "
+            f"✅ Richiesta di preventivo inviata! {n} {progetti}. "
             f"Il nostro team è stato avvisato: riceverai il preventivo finale "
             f"via email dopo la revisione."
         )

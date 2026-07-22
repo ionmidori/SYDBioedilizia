@@ -41,11 +41,13 @@ async def test_suggest_quote_items_wrapper_success():
                     user_id="test_user"
                 )
 
-                # Verify
+                # Verify: neutral summary only — the draft is CONFIDENTIAL
+                # (admin reviews it first; client never sees items/prices in chat)
                 assert "Renovation of living room floor" in result
-                assert "Demolizione tramezzi" in result or "Demolition" in result
-                assert "pavimento ceramica" in result or "tiles" in result
-                assert "Subtotale" in result
+                assert "2 lavorazioni" in result
+                assert "Demolizione tramezzi" not in result
+                assert "Subtotale" not in result
+                assert "€" not in result
 
                 # Check Firestore call
                 # projects/{projectId}/private_data/quote
