@@ -201,7 +201,10 @@ class TestApproveRecipient:
 
         mock_pdf = MagicMock()
         mock_pdf.generate_pdf_bytes.return_value = PDF_BYTES
-        mock_pdf.upload_pdf.return_value = "https://signed.example/q.pdf"
+        mock_pdf.upload_pdf.return_value = (
+            "https://signed.example/q.pdf",
+            "projects/test-project-001/quotes/quote_1.pdf",
+        )
 
         async def fake_profile(uid):
             return {
