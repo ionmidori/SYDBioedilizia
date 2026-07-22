@@ -191,6 +191,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
         { href: '/dashboard', label: 'Bacheca', icon: Home },
         { href: '/dashboard/gallery', label: 'Galleria', icon: LayoutGrid },
         { href: '/dashboard/projects', label: 'Progetti', icon: FolderKanban },
+        { href: '/dashboard/quotes', label: 'Preventivi', icon: FileText },
     ], [])
 
     const projectSubItems = React.useMemo(() =>

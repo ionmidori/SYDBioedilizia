@@ -120,3 +120,26 @@ export const quoteBatchSchema = z.object({
   aggregation_preview: z.array(aggregationAdjustmentSchema).default([]),
 });
 export type QuoteBatch = z.infer<typeof quoteBatchSchema>;
+
+// ── QuoteListItem (client area "Preventivi" section) ─────────────────────────
+// Golden Sync: backend_python/src/api/routes/quote_routes.py → QuoteListItemResponse
+
+export const quoteListItemSchema = z.object({
+  project_id: z.string(),
+  project_name: z.string().default(''),
+  status: z.string(),
+  // Masked to 0 by the backend for non-admin callers until the quote is approved
+  grand_total: z.number().default(0),
+  item_count: z.number().min(0).default(0),
+  updated_at: z.string().default(''),
+  pdf_available: z.boolean().default(false),
+});
+export type QuoteListItem = z.infer<typeof quoteListItemSchema>;
+
+export const quoteListResponseSchema = z.array(quoteListItemSchema);
+
+export const quotePdfUrlSchema = z.object({
+  pdf_url: z.string(),
+  expires_in_seconds: z.number().default(900),
+});
+export type QuotePdfUrl = z.infer<typeof quotePdfUrlSchema>;
