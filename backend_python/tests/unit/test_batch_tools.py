@@ -137,7 +137,9 @@ class TestListReadyQuotes:
             result = await list_ready_quotes_wrapper(SESSION)
 
         assert "Cucina" in result
-        assert "122" in result
+        assert "1 lavorazioni" in result
+        # riservatezza bozza: nessun prezzo nell'output visibile al cliente
+        assert "€" not in result
         assert "Bagno" not in result  # approved → not submittable
         assert "Camera" not in result  # no items
 
