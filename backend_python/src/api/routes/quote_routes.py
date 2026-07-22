@@ -20,6 +20,7 @@ Storage path: projects/{project_id}/private_data/quote
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Literal, Optional
 
@@ -155,6 +156,20 @@ def _quote_doc_ref(project_id: str):
         .collection("private_data")
         .document("quote")
     )
+
+
+async def _resolve_project_owner_uid(project_id: str) -> str | None:
+    """
+    Resolve the uid of the client who owns the project (projects/{id}.userId).
+
+    Used by the post-approval delivery pipeline: the quote must go to the
+    project owner, NOT to the admin performing the approval.
+    """
+    db = get_async_firestore_client()
+    doc = await db.collection("projects").document(project_id).get()
+    if not doc.exists:
+        return None
+    return (doc.to_dict() or {}).get("userId")
 
 
 async def _get_user_profile(uid: str) -> dict:
@@ -317,21 +332,32 @@ async def approve_quote(
             if body.notes:
                 quote_data["admin_notes"] = body.notes
 
-            # 1. Generate PDF (sync ReportLab + Firebase upload → run in thread)
+            # 1. Generate PDF bytes once (sync ReportLab → run in thread),
+            #    then upload for the 7-day signed link. The same bytes are
+            #    attached to the delivery email — no re-download needed.
             pdf_service = PdfService()
-            pdf_url = await pdf_service.async_generate_and_deliver(quote_data)
+            pdf_bytes = await asyncio.to_thread(pdf_service.generate_pdf_bytes, quote_data)
+            pdf_url = await asyncio.to_thread(pdf_service.upload_pdf, pdf_bytes, project_id)
 
             # 2. Save PDF URL to quote document
             await quote_ref.update({"pdf_url": pdf_url})
             logger.info("PDF generated and saved.", extra={"project_id": project_id, "pdf_url": pdf_url[:80]})
 
-            # 3. Deliver to client (fire-and-forget — don't block the response)
-            # Resolve email from Firebase Auth profile (authoritative), not from quote data
-            user_profile = await _get_user_profile(user_session.uid)
-            client_email = user_profile["email"]
+            # 3. Deliver to client (fire-and-forget — don't block the response).
+            #    Recipient = the PROJECT OWNER's email (from Firebase Auth),
+            #    not the admin performing the approval.
+            owner_uid = await _resolve_project_owner_uid(project_id)
+            client_email = ""
+            if owner_uid:
+                user_profile = await _get_user_profile(owner_uid)
+                client_email = user_profile["email"]
+            else:
+                logger.warning(
+                    "Cannot resolve project owner for delivery.",
+                    extra={"project_id": project_id},
+                )
             grand_total = quote_data.get("financials", {}).get("grand_total", 0.0)
             if client_email:
-                import asyncio
                 notification = NotificationService()
                 asyncio.create_task(
                     notification.deliver_quote_to_client(
@@ -339,6 +365,7 @@ async def approve_quote(
                         pdf_url=pdf_url,
                         client_email=client_email,
                         quote_total=grand_total,
+                        pdf_bytes=pdf_bytes,
                     )
                 )
         except Exception:

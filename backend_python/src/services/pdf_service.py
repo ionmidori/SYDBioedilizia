@@ -35,8 +35,10 @@ _GOLD = colors.HexColor("#C9A84C")
 _DARK = colors.HexColor("#2C3E50")
 _LIGHT_GRAY = colors.HexColor("#F8F9FA")
 
-# Signed URL expiration: 1 hour per P2 security audit (FU-04)
-_SIGNED_URL_EXPIRY = datetime.timedelta(hours=1)
+# Signed URL expiration: 7 days — the URL is embedded in the client delivery
+# email and must outlive the inbox turnaround (the on-demand /quote/{id}/pdf
+# endpoint keeps its own short 15-minute TTL for interactive use).
+_SIGNED_URL_EXPIRY = datetime.timedelta(days=7)
 
 
 class PdfService:
@@ -261,7 +263,7 @@ class PdfService:
 
     def upload_pdf(self, pdf_bytes: bytes, project_id: str) -> str:
         """
-        Upload PDF to Firebase Storage and return a signed URL (1 hour).
+        Upload PDF to Firebase Storage and return a signed URL (7 days).
 
         This is a SYNC method (Firebase Admin SDK is synchronous).
         Call via asyncio.to_thread() from async context.
@@ -271,7 +273,7 @@ class PdfService:
             project_id: Project ID for path namespacing.
 
         Returns:
-            Signed URL string valid for 1 hour.
+            Signed URL string valid for 7 days.
         """
         bucket = storage.bucket()
         ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
