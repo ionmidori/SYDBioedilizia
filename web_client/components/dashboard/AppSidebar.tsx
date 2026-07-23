@@ -22,6 +22,7 @@ import {
 
 import { useSidebar } from '@/components/dashboard/SidebarProvider'
 import { cn } from '@/lib/utils'
+import { getProjectIdFromPathname } from '@/lib/dashboard-routes'
 import { useAuth } from '@/hooks/useAuth'
 
 // ============================================================================
@@ -166,8 +167,6 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 // MAIN COMPONENT
 // ============================================================================
 
-const SYSTEM_ROUTES = ['projects', 'settings', 'profile', 'notifications', 'gallery']
-
 export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>) {
     const pathname = usePathname()
     const router = useRouter()
@@ -175,16 +174,9 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
     const { logout, user } = useAuth()
     const { state, open, toggleSidebar, isMobile, openMobile, setOpenMobile } = useSidebar()
 
-    const isInProject = React.useMemo(() => {
-        const segments = pathname.split('/')
-        if (segments.length < 3) return false
-        const potentialProjectId = segments[2]
-        return !SYSTEM_ROUTES.includes(potentialProjectId)
-    }, [pathname])
-
     const currentProjectId = React.useMemo(
-        () => isInProject ? pathname.split('/')[2] : null,
-        [isInProject, pathname]
+        () => getProjectIdFromPathname(pathname),
+        [pathname]
     )
 
     const navItems = React.useMemo(() => [
