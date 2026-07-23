@@ -12,6 +12,7 @@
  * @see hooks/useUpload.ts - Source of upload state
  */
 import React, { RefObject, useState, useMemo, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Loader2 } from 'lucide-react';
@@ -434,6 +435,19 @@ export function ChatInput({
                     </motion.button>
                 </Button>
             </div>
+
+            {/* Disclaimer GDPR / AI Act — trasparenza sull'uso di IA e rinvio all'informativa privacy */}
+            <p className="mt-2 text-center text-[10px] leading-tight text-luxury-text/40">
+                SYD è un&apos;intelligenza artificiale e può commettere errori. I tuoi dati sono
+                trattati secondo la nostra{' '}
+                <Link
+                    href="/privacy"
+                    className="underline hover:text-luxury-gold transition-colors"
+                >
+                    Informativa Privacy
+                </Link>
+                .
+            </p>
 
             <VideoTrimmer
                 file={videoToTrim}
