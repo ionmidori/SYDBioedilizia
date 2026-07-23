@@ -1,0 +1,91 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Antigravity PR Review — AI-powered code review on every PR.
+#
+# Prerequisites (already completed):
+#   1. Generate an API key from Google AI Studio / Antigravity.
+#   2. Store it as ANTIGRAVITY_API_KEY in Settings > Secrets > Actions.
+#
+# The workflow posts inline review comments on the PR diff using the
+# Antigravity SDK via rsamborski/run-agy-sdk@v1.  Comments are posted through
+# the GitHub Issues API (PR comments are technically issue comments), which is
+# why both pull-requests: write and issues: write are required.
+# ─────────────────────────────────────────────────────────────────────────────
+name: 'Antigravity PR Review'
+
+on:
+  pull_request:
+    branches: ['main', 'develop']
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: 'antigravity-review-${{ github.ref }}'
+  cancel-in-progress: true
+
+# Least privilege + write scopes for PR comment posting.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write              # PR comments use the Issues API internally
+
+jobs:
+  review:
+    name: 'Antigravity AI Review'
+    # Skip Dependabot PRs — they are version bumps, not logic changes.
+    if: github.actor != 'dependabot[bot]'
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          # Full history so the diff analysis has complete context.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: 'Run Antigravity SDK'
+        uses: rsamborski/run-agy-sdk@v1
+        with:
+          api_key: ${{ secrets.ANTIGRAVITY_API_KEY }}
+          model: 'gemini-3.1-pro'
+          prompt: |
+            You are reviewing a Pull Request for the **SYD Bioedilizia** monorepo.
+            This is a Hybrid Cloud Application with:
+            - **Tier 2 (Frontend):** Next.js 16 + React 19 + Tailwind CSS 4 + Radix UI (`web_client/`)
+            - **Tier 3 (Backend):** Python FastAPI + Google ADK 1.x (`backend_python/`)
+
+            Review the diff with focus on:
+
+            ## Architecture & Separation of Concerns
+            - Frontend must NOT contain heavy business logic or direct DB calls.
+            - Backend is the Source of Truth for all business logic and AI orchestration.
+            - Schema changes in `backend_python/src/core/schemas.py` MUST have
+              corresponding TypeScript interfaces in `web_client/types/`.
+
+            ## Security
+            - No secrets or API keys in code.
+            - JWT validation on protected endpoints.
+            - MIME type validation (magic numbers) for file uploads.
+            - `os.environ` must NOT be accessed directly — use `pydantic-settings`.
+
+            ## Type Safety
+            - Python: no `Any`, no untyped `dict`. Use `Optional[T]` and Pydantic V2.
+            - TypeScript: no `any`. Strict mode compliance.
+
+            ## ADK Conventions (Google ADK)
+            - Tools must use `FunctionTool(func)` pattern, NOT `@tool` decorator.
+            - No LangChain/LangGraph imports — completely removed in Phase 4.
+            - Agent files must be < 200 lines.
+
+            ## Error Handling
+            - Backend must NEVER return HTML 500 — all errors as JSON:
+              `{ "error_code", "message", "request_id", "details" }`.
+
+            ## Performance
+            - Blocking operations (PIL, PDF) must use `run_in_threadpool`.
+            - No bare `asyncio.create_task` without tracking.
+
+            Be concise. Flag only real issues, not style nitpicks.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
