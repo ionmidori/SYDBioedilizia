@@ -21,6 +21,31 @@ def test_insight_analysis_converts_to_genai_schema():
     assert schema is not None
 
 
+def test_schema_has_no_additional_properties_keyword():
+    """
+    Regression (found in production E2E #2, 23 Lug 2026): model_config
+    {"extra": "forbid"} emits `additionalProperties: false` in the JSON schema.
+    t_schema accepts it (Schema has an additional_properties field), but the
+    GEMINI_API backend rejects the serialized snake_case key with
+    400 INVALID_ARGUMENT: 'Unknown name "additional_properties"' — at the
+    schema root (InsightAnalysis) and at suggestions.items (SKUItemSuggestion).
+    Every suggest_quote_items call failed → no draft → no submit → no email.
+    """
+    schema = genai_transformers.t_schema(None, InsightAnalysis)
+    dumped = schema.model_dump(exclude_none=True)
+
+    def assert_no_additional_properties(node: object, path: str = "$") -> None:
+        if isinstance(node, dict):
+            for key, value in node.items():
+                assert key != "additional_properties", f"found at {path}.{key}"
+                assert_no_additional_properties(value, f"{path}.{key}")
+        elif isinstance(node, list):
+            for i, value in enumerate(node):
+                assert_no_additional_properties(value, f"{path}[{i}]")
+
+    assert_no_additional_properties(dumped)
+
+
 def test_qty_still_rejects_zero_and_negative():
     """The gt→ge fix must not weaken validation: qty <= 0 stays invalid."""
     import pytest
