@@ -28,7 +28,10 @@ logger = logging.getLogger(__name__)
 
 class SKUItemSuggestion(BaseModel):
     """A single line-item suggested by the AI Quantity Surveyor."""
-    model_config = {"extra": "forbid"}
+    # NO extra="forbid": it emits additionalProperties in the JSON schema and
+    # the GEMINI_API backend rejects the serialized `additional_properties`
+    # key with 400 INVALID_ARGUMENT (this model is a response_schema).
+    # Regression: tests/unit/test_insight_schema_genai.py
     sku: str = Field(..., description="The SKU from the Master Price Book. Must be an exact match.")
     # ge (minimum) — NOT gt (exclusiveMinimum): the genai Schema model rejects
     # exclusiveMinimum (extra_forbidden) and the response_schema conversion
@@ -48,7 +51,7 @@ class SKUItemSuggestion(BaseModel):
 
 class InsightAnalysis(BaseModel):
     """Structured output produced by InsightEngine.analyze_project_for_quote()."""
-    model_config = {"extra": "forbid"}
+    # NO extra="forbid" — see SKUItemSuggestion (used as Gemini response_schema).
     suggestions: List[SKUItemSuggestion] = Field(
         default_factory=list,
         description="List of suggested SKU items derived from the conversation."
