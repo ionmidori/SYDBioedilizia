@@ -159,6 +159,7 @@ class Settings(BaseSettings):
     SMTP_USER: str | None = Field(default=None, description="SMTP username/email for authentication")
     SMTP_PASSWORD: str | None = Field(default=None, description="SMTP password or app-specific password")
     SMTP_FROM_EMAIL: str = Field(default="noreply@sydbioedilizia.com", description="Sender email address for notifications")
+    SMTP_FROM_NAME: str = Field(default="SYD Bioedilizia", description="Sender display name for notifications (e.g. 'SYD Bioedilizia <noreply@...>')")
     ADMIN_EMAIL: str | None = Field(default=None, description="Admin email address for quote review notifications")
 
     model_config = SettingsConfigDict(

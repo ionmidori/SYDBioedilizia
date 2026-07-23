@@ -10,6 +10,7 @@ import logging
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from typing import Optional
 
 import aiosmtplib
@@ -155,6 +156,7 @@ class NotificationService:
                     body=body,
                     html=html,
                     attachments=attachments,
+                    list_unsubscribe_email="privacy@sydbioedilizia.com",
                 )
                 return f"✅ Preventivo inviato a {client_email} via email"
             except Exception:
@@ -204,7 +206,12 @@ class NotificationService:
 
         if settings.SMTP_HOST:
             try:
-                await self._send_email(to=email, subject=subject, body=body)
+                await self._send_email(
+                    to=email,
+                    subject=subject,
+                    body=body,
+                    list_unsubscribe_email="privacy@sydbioedilizia.com",
+                )
                 return f"✅ Inactivity warning sent to {email}"
             except Exception:
                 logger.warning("[Notification] SMTP inactivity warning failed.", exc_info=True)
@@ -257,6 +264,7 @@ class NotificationService:
         body: str,
         html: Optional[str] = None,
         attachments: Optional[list[tuple[str, bytes]]] = None,
+        list_unsubscribe_email: Optional[str] = None,
     ) -> None:
         """
         Send an email via SMTP (async, non-blocking).
@@ -265,12 +273,23 @@ class NotificationService:
         (list of (filename, raw_bytes)). Existing plain-only callers are
         unaffected.
 
+        `list_unsubscribe_email`, when given, adds List-Unsubscribe /
+        List-Unsubscribe-Post headers (mailto-based) — recommended by
+        Gmail/Yahoo bulk-sender guidelines and a deliverability signal for
+        any automated client-facing email. Omitted for internal admin
+        notifications, where it isn't meaningful.
+
         Raises on failure — caller is responsible for fallback.
         """
         msg = MIMEMultipart("mixed")
-        msg["From"] = settings.SMTP_FROM_EMAIL
+        msg["From"] = formataddr((settings.SMTP_FROM_NAME, settings.SMTP_FROM_EMAIL))
         msg["To"] = to
         msg["Subject"] = subject
+        msg["Reply-To"] = settings.SMTP_FROM_EMAIL
+        if list_unsubscribe_email:
+            # List-Unsubscribe-Post (RFC 8058 one-click) is omitted: it only
+            # applies to an https POST target, not a mailto: link.
+            msg["List-Unsubscribe"] = f"<mailto:{list_unsubscribe_email}?subject=unsubscribe>"
 
         if html:
             alternative = MIMEMultipart("alternative")
