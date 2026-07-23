@@ -65,7 +65,7 @@ class TestStartQuoteFlow:
         mock_quote_graph.start.return_value = {"status": "awaiting_admin_review"}
 
         with patch("src.adk.hitl.start_quote_hitl", mock_quote_graph.start):
-            response = client.post("/quote/test-project-001/start")
+            response = client.post("/api/quote/test-project-001/start")
 
         assert response.status_code == 202
         data = response.json()
@@ -83,7 +83,7 @@ class TestStartQuoteFlow:
         mock_quote_graph.start.side_effect = QuoteAlreadyApprovedError(project_id="test-project-001")
 
         with patch("src.adk.hitl.start_quote_hitl", mock_quote_graph.start):
-            response = client.post("/quote/test-project-001/start")
+            response = client.post("/api/quote/test-project-001/start")
 
         assert response.status_code == 409
         assert "already approved" in response.json()["detail"]
@@ -97,7 +97,7 @@ class TestStartQuoteFlow:
         )
 
         with patch("src.adk.hitl.start_quote_hitl", mock_quote_graph.start):
-            response = client.post("/quote/test-project-001/start")
+            response = client.post("/api/quote/test-project-001/start")
 
         assert response.status_code == 502
         assert response.json()["detail"] is not None
@@ -108,7 +108,7 @@ class TestStartQuoteFlow:
         mock_quote_graph.start.side_effect = RuntimeError("Unexpected error")
 
         with patch("src.adk.hitl.start_quote_hitl", mock_quote_graph.start):
-            response = client.post("/quote/test-project-001/start")
+            response = client.post("/api/quote/test-project-001/start")
 
         assert response.status_code == 500
         data = response.json()
@@ -130,7 +130,7 @@ class TestApproveQuoteFlow:
 
         with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
             response = client.post(
-                "/quote/test-project-001/approve",
+                "/api/quote/test-project-001/approve",
                 json={"decision": "approve", "notes": "Approved by admin console."},
             )
 
@@ -151,7 +151,7 @@ class TestApproveQuoteFlow:
 
         with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
             response = client.post(
-                "/quote/test-project-001/approve",
+                "/api/quote/test-project-001/approve",
                 json={"decision": "reject", "notes": "Budget constraint"},
             )
 
@@ -169,7 +169,7 @@ class TestApproveQuoteFlow:
 
         with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
             response = client.post(
-                "/quote/test-project-001/approve",
+                "/api/quote/test-project-001/approve",
                 json={"decision": "approve", "notes": "Test"},
             )
 
@@ -188,7 +188,7 @@ class TestApproveQuoteFlow:
 
         with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
             response = client.post(
-                "/quote/test-project-001/approve",
+                "/api/quote/test-project-001/approve",
                 json={"decision": "approve", "notes": "Test"},
             )
 
@@ -203,7 +203,7 @@ class TestApproveQuoteFlow:
 
         with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
             response = client.post(
-                "/quote/test-project-001/approve",
+                "/api/quote/test-project-001/approve",
                 json={"decision": "approve", "notes": "Test"},
             )
 
@@ -219,7 +219,7 @@ class TestQuoteRoutesErrorHandling:
     async def test_start_quote_with_empty_project_id(self, mock_quote_graph, client):
         """Empty project_id in path → 404 Not Found (FastAPI path validation)."""
         with patch("src.adk.hitl.start_quote_hitl", mock_quote_graph.start):
-            response = client.post("/quote//start")
+            response = client.post("/api/quote//start")
 
         # FastAPI treats // as invalid path
         assert response.status_code == 404
@@ -231,7 +231,7 @@ class TestQuoteRoutesErrorHandling:
         """Missing 'decision' field → 422 Unprocessable Entity."""
         with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
             response = client.post(
-                "/quote/test-project-001/approve",
+                "/api/quote/test-project-001/approve",
                 json={"notes": "No decision field"},
             )
 
@@ -245,7 +245,7 @@ class TestQuoteRoutesErrorHandling:
         """Invalid decision value → 422 Unprocessable Entity."""
         with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
             response = client.post(
-                "/quote/test-project-001/approve",
+                "/api/quote/test-project-001/approve",
                 json={"decision": "invalid", "notes": "Test"},
             )
 

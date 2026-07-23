@@ -66,7 +66,7 @@ class TestListUserQuotes:
     def test_non_admin_sees_masked_total_for_pending_quote(self):
         db = self._db_with([_project_doc("p1", _quote_doc("pending_review"))])
         with patch("src.api.routes.quote_routes.get_async_firestore_client", return_value=db):
-            resp = _make_client().get(f"/quote/user/{OWNER_UID}")
+            resp = _make_client().get(f"/api/quote/user/{OWNER_UID}")
 
         assert resp.status_code == 200
         [row] = resp.json()
@@ -79,7 +79,7 @@ class TestListUserQuotes:
         quote = _quote_doc("approved", blob_path="projects/p1/quotes/quote_1.pdf")
         db = self._db_with([_project_doc("p1", quote)])
         with patch("src.api.routes.quote_routes.get_async_firestore_client", return_value=db):
-            resp = _make_client().get(f"/quote/user/{OWNER_UID}")
+            resp = _make_client().get(f"/api/quote/user/{OWNER_UID}")
 
         [row] = resp.json()
         assert row["grand_total"] == 1000.0
@@ -88,7 +88,7 @@ class TestListUserQuotes:
     def test_admin_sees_unmasked_totals(self):
         db = self._db_with([_project_doc("p1", _quote_doc("draft"))])
         with patch("src.api.routes.quote_routes.get_async_firestore_client", return_value=db):
-            resp = _make_client(role="admin", uid="admin-uid").get(f"/quote/user/{OWNER_UID}")
+            resp = _make_client(role="admin", uid="admin-uid").get(f"/api/quote/user/{OWNER_UID}")
 
         [row] = resp.json()
         assert row["grand_total"] == 1000.0
@@ -116,7 +116,7 @@ class TestQuotePdfUrl:
             ownership,
             patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
         ):
-            resp = _make_client().get("/quote/p1/pdf")
+            resp = _make_client().get("/api/quote/p1/pdf")
         assert resp.status_code == 404
 
     def test_approved_quote_uses_stored_blob_path(self):
@@ -128,7 +128,7 @@ class TestQuotePdfUrl:
             patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
             patch("firebase_admin.storage.bucket", return_value=bucket),
         ):
-            resp = _make_client().get("/quote/p1/pdf")
+            resp = _make_client().get("/api/quote/p1/pdf")
 
         assert resp.status_code == 200
         assert resp.json()["pdf_url"] == "https://fresh.example/q.pdf"
@@ -144,5 +144,5 @@ class TestQuotePdfUrl:
             patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
             patch("firebase_admin.storage.bucket", return_value=bucket),
         ):
-            resp = _make_client().get("/quote/p1/pdf")
+            resp = _make_client().get("/api/quote/p1/pdf")
         assert resp.status_code == 404

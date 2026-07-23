@@ -36,7 +36,8 @@ from src.services import batch_service
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/quote/batch", tags=["QuoteBatch"])
+# /api prefix: see quote_routes.py — client-facing routers live under /api/*.
+router = APIRouter(prefix="/api/quote/batch", tags=["QuoteBatch"])
 
 _BATCH_ID = Path(
     ...,
