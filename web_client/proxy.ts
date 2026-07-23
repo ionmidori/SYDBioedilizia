@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { buildCspHeader, generateNonce, isStrictCspPath } from '@/lib/security/csp';
 
 /**
  * Validates a Firebase JWT token's structural validity and expiration.
@@ -45,39 +46,31 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // 3. CSP (F-01) — ENFORCING (was Content-Security-Policy-Report-Only).
+  // 3. CSP (F-01 + issue #133) — ENFORCING, route-scoped (see lib/security/csp.ts):
   //
-  // We deliberately do NOT use a per-request nonce + 'strict-dynamic' here:
-  // most public pages are statically prerendered, so Next.js cannot inject a
-  // per-request nonce into their <script> tags. Under 'strict-dynamic' a CSP3
-  // browser ignores 'self'/'unsafe-inline', which would BLOCK the (un-nonced)
-  // /_next/ chunks and break every static page (verified via `next start`).
+  // - /dashboard/* is rendered dynamically (force-dynamic in its layout), so we
+  //   generate a per-request nonce and send the STRICT policy
+  //   (nonce + 'strict-dynamic', no effective 'unsafe-inline' on CSP3 browsers).
+  //   The nonce travels on the REQUEST headers (x-nonce + Content-Security-Policy)
+  //   so Next.js stamps it onto every <script> it emits during SSR.
   //
-  // Instead we enforce a policy that works on static + dynamic routes: scripts
-  // limited to 'self' + trusted Google/Firebase origins (reCAPTCHA/App Check),
-  // 'unsafe-inline' retained only because static bootstrap scripts can't be
-  // nonced. This still hard-enforces object-src 'none', base-uri 'self',
-  // form-action 'self', frame-ancestors 'none', and connect/img/frame allowlists
-  // — real defense-in-depth on top of React's output escaping.
-  // FOLLOW-UP: a full nonce/'strict-dynamic' CSP requires converting pages to
-  // dynamic rendering (force-dynamic) so a per-request nonce can be emitted.
-  const cspHeader = `
-    default-src 'self';
-    script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://apis.google.com;
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' blob: data: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com https://images.unsplash.com https://replicate.delivery;
-    font-src 'self' data:;
-    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com https://vitals.vercel-insights.com https://*.vercel-insights.com https://syd-brain-w6yrkh3gfa-ew.a.run.app https://www.google.com https://www.gstatic.com wss://*.firebaseio.com;
-    media-src 'self' blob: https://firebasestorage.googleapis.com https://storage.googleapis.com;
-    object-src 'none';
-    base-uri 'self';
-    form-action 'self';
-    frame-ancestors 'none';
-    frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com https://www.google.com https://recaptcha.google.com;
-    upgrade-insecure-requests;
-  `.replace(/\s{2,}/g, ' ').trim();
+  // - Statically prerendered routes (landing, blog, FAQ, legal) cannot carry a
+  //   per-request nonce ('strict-dynamic' would block the un-nonced /_next/
+  //   chunks — verified via `next start`), so they keep the FALLBACK policy:
+  //   script-src 'self' + trusted Google origins + 'unsafe-inline'.
+  const useStrictCsp = isStrictCspPath(pathname);
+  const nonce = useStrictCsp ? generateNonce() : undefined;
+  const cspHeader = buildCspHeader({ nonce, isDev });
 
-  const response = NextResponse.next();
+  let response: NextResponse;
+  if (nonce) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-nonce', nonce);
+    requestHeaders.set('Content-Security-Policy', cspHeader);
+    response = NextResponse.next({ request: { headers: requestHeaders } });
+  } else {
+    response = NextResponse.next();
+  }
 
   // Security Headers
   response.headers.set('Content-Security-Policy', cspHeader);
