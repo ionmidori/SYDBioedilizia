@@ -1,27 +1,29 @@
 """
 Admin Service: orchestrates the quote approval pipeline.
 
-Skill: building-admin-dashboards — §Approval actions
-Skill: generating-pdf-documents — §FastAPI Route Pattern (run_in_threadpool)
+Approve/reject delegate to the backend's unified pipeline
+(POST /internal/quote/approve — same code path as the client-facing
+POST /api/quote/{id}/approve): PDF generation, Storage upload, pdf_blob_path,
+and client email delivery all happen server-side. This console used to run
+its own separate pipeline (PdfService + DeliveryService, removed in this
+change) that silently fell back to a fake pdf_url on upload failure and never
+persisted pdf_blob_path — the client's "Preventivi" PDF download 404'd as a
+result. See Phase 96 smoke findings.
 
-Architecture note:
-- PDF generation (CPU-bound) runs in a dedicated ThreadPoolExecutor.
-- n8n delivery is synchronous (httpx.Client) — no asyncio needed in Streamlit context.
+Skill: building-admin-dashboards — §Approval actions
 """
 import logging
-from concurrent.futures import ThreadPoolExecutor
-from typing import Any
+import os
 
+import httpx
 import pandas as pd
 
+from src.core.exceptions import QuoteApprovalError
 from src.db.quote_repo import QuoteRepository
-from src.services.pdf_service import PdfService
-from src.services.delivery_service import DeliveryService
 
 logger = logging.getLogger(__name__)
 
-# Dedicated thread pool so PDF generation never competes with other blocking work
-_PDF_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="pdf_worker")
+_TIMEOUT = 60.0  # PDF generation + SMTP send can take a few seconds
 
 
 class AdminService:
@@ -29,15 +31,15 @@ class AdminService:
     Orchestrates all admin-level operations on quotes.
 
     Enforced separations:
-    - DB logic → QuoteRepository
-    - PDF logic → PdfService (CPU-bound, runs in thread pool)
-    - Delivery logic → DeliveryService (async httpx)
+    - DB logic (read-only display, item edits) → QuoteRepository
+    - Approve/reject side effects (PDF + email) → backend, via
+      POST /internal/quote/approve (this class is a thin HTTP client for it)
     """
 
     def __init__(self) -> None:
         self.repo = QuoteRepository()
-        self.pdf_service = PdfService()
-        self.delivery_service = DeliveryService()
+        self._backend_url = os.getenv("BACKEND_URL", "http://localhost:8080").rstrip("/")
+        self._internal_secret = os.getenv("ADMIN_INTERNAL_SECRET", "")
 
     # ------------------------------------------------------------------
     # READ
@@ -69,11 +71,11 @@ class AdminService:
             )
         return pd.DataFrame(rows)
 
-    def get_quote_details(self, project_id: str) -> dict[str, Any]:
+    def get_quote_details(self, project_id: str) -> dict:
         """Full quote data for the review page."""
         return self.repo.get_quote(project_id)
 
-    def get_project_info(self, project_id: str) -> dict[str, Any]:
+    def get_project_info(self, project_id: str) -> dict:
         """Project metadata (address, client name, etc.) for context display."""
         return self.repo.get_project_details(project_id)
 
@@ -81,9 +83,7 @@ class AdminService:
     # WRITE
     # ------------------------------------------------------------------
 
-    def update_quote_items(
-        self, project_id: str, new_items: list[dict[str, Any]]
-    ) -> None:
+    def update_quote_items(self, project_id: str, new_items: list[dict]) -> None:
         """
         Persist edited items and recalculate financials.
 
@@ -109,44 +109,70 @@ class AdminService:
             },
         )
 
-    def approve_quote(self, project_id: str, admin_notes: str = "") -> None:
+    def _call_internal_approve(
+        self, project_id: str, decision: str, notes: str, reviewed_by: str
+    ) -> None:
         """
-        Full approval pipeline: PDF generation → Storage upload → n8n delivery → DB update.
-
-        PDF is generated in a dedicated thread pool (CPU-bound, non-blocking).
-        n8n delivery is fully synchronous (httpx.Client) — no asyncio required.
-
-        Args:
-            project_id: Target project.
-            admin_notes: Optional admin comments saved to the quote.
+        POST /internal/quote/approve — shared secret auth, no Firebase user.
+        Raises QuoteApprovalError on any failure (config, auth, HTTP, network).
+        Never silently succeeds.
         """
-        # 1. Fetch latest quote data
-        quote_data = self.repo.get_quote(project_id)
-        if not quote_data:
-            raise ValueError(f"Quote not found for project: {project_id}")
+        if not self._internal_secret:
+            raise QuoteApprovalError(
+                "ADMIN_INTERNAL_SECRET non configurato nel file .env dell'admin tool."
+            )
 
-        # 2. Add admin notes before generating PDF
-        if admin_notes:
-            quote_data["admin_notes"] = admin_notes
+        try:
+            response = httpx.post(
+                f"{self._backend_url}/internal/quote/approve",
+                json={
+                    "project_id": project_id,
+                    "decision": decision,
+                    "notes": notes,
+                    "reviewed_by": reviewed_by or "admin-console",
+                },
+                headers={"X-Admin-Internal-Secret": self._internal_secret},
+                timeout=_TIMEOUT,
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "Quote %s failed.",
+                decision,
+                extra={
+                    "project_id": project_id,
+                    "status_code": exc.response.status_code,
+                    "body": exc.response.text,
+                },
+            )
+            raise QuoteApprovalError(
+                f"Il backend ha rifiutato la richiesta ({exc.response.status_code}): "
+                f"{exc.response.text}"
+            ) from exc
+        except httpx.RequestError as exc:
+            logger.error(
+                "Quote %s request error.", decision, extra={"project_id": project_id}
+            )
+            raise QuoteApprovalError(
+                f"Impossibile contattare il backend ({self._backend_url}): {exc}"
+            ) from exc
 
-        # 3. Generate PDF in thread pool (CPU-bound) — blocks until done
-        logger.info("Generating PDF...", extra={"project_id": project_id})
-        future = _PDF_EXECUTOR.submit(self.pdf_service.generate_and_deliver, quote_data)
-        pdf_url: str = future.result()  # raises on exception, propagates to caller
-
-        # 4. Fetch real client info from project document
-        client_data = self.repo.get_client_info(project_id)
-        grand_total: float = quote_data.get("financials", {}).get("grand_total", 0.0)
-
-        # 5. Trigger n8n webhook (sync HTTP via httpx.Client)
-        logger.info("Triggering n8n delivery...", extra={"project_id": project_id})
-        self.delivery_service.deliver_quote(
-            project_id, pdf_url, client_data, grand_total
+        logger.info(
+            "Quote %sd via backend pipeline.", decision, extra={"project_id": project_id}
         )
 
-        # 6. Update DB status + notes
-        self.repo.update_quote(
-            project_id,
-            {"status": "approved", "admin_notes": admin_notes, "pdf_url": pdf_url},
-        )
-        logger.info("Quote approved and delivered.", extra={"project_id": project_id})
+    def approve_quote(
+        self, project_id: str, admin_notes: str = "", reviewed_by: str = "admin-console"
+    ) -> None:
+        """
+        Approve a quote: triggers PDF generation + client email delivery
+        server-side. Raises QuoteApprovalError on failure — never a silent
+        success (see module docstring).
+        """
+        self._call_internal_approve(project_id, "approve", admin_notes, reviewed_by)
+
+    def reject_quote(
+        self, project_id: str, admin_notes: str = "", reviewed_by: str = "admin-console"
+    ) -> None:
+        """Reject a quote: status update only, no PDF/email."""
+        self._call_internal_approve(project_id, "reject", admin_notes, reviewed_by)
