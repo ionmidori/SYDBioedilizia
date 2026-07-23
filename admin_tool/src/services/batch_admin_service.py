@@ -45,22 +45,26 @@ class BatchAdminService:
     def get_batch_details(self, batch_id: str) -> dict[str, Any]:
         return self.batch_repo.get_batch(batch_id)
 
-    def decide_project_in_batch(self, batch_id: str, project_id: str, decision: Literal["approve", "reject"], notes: str = "") -> None:
+    def decide_project_in_batch(
+        self,
+        batch_id: str,
+        project_id: str,
+        decision: Literal["approve", "reject"],
+        notes: str = "",
+        reviewed_by: str = "admin-console",
+    ) -> None:
         """
         Admin decides on a single project in a batch.
-        If approved: generates PDF & triggers webhook using AdminService.
-        Regardless: updates batch progress status in Firestore.
+        Both decisions go through AdminService -> POST /internal/quote/approve
+        (approve triggers PDF + email delivery server-side; reject is a status
+        update only). Raises QuoteApprovalError on failure — the batch
+        bookkeeping below is only updated once this succeeds.
         """
-        # 1. Update quote + trigger events
         now = datetime.now(timezone.utc)
         if decision == "approve":
-            self.admin_service.approve_quote(project_id, admin_notes=notes)
+            self.admin_service.approve_quote(project_id, admin_notes=notes, reviewed_by=reviewed_by)
         else:
-            self.admin_service.repo.update_quote(project_id, {
-                "status": "rejected", 
-                "admin_notes": notes,
-                "updated_at": now
-            })
+            self.admin_service.reject_quote(project_id, admin_notes=notes, reviewed_by=reviewed_by)
 
         # 2. Update the batch document
         batch = self.batch_repo.get_batch(batch_id)

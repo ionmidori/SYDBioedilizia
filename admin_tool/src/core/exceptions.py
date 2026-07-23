@@ -41,23 +41,12 @@ class QuoteAlreadyApprovedError(AdminError):
         )
 
 
-class PDFGenerationError(AdminError):
-    """WeasyPrint/Jinja2 rendering failed."""
+class QuoteApprovalError(AdminError):
+    """
+    POST /internal/quote/approve (backend) failed — config, auth, HTTP, or
+    network error. Approve/reject must never silently succeed: this is
+    always raised, never swallowed, by AdminService.
+    """
 
-    def __init__(self, project_id: str, reason: str) -> None:
-        super().__init__(
-            message=f"Generazione PDF fallita per '{project_id}': {reason}",
-            error_code="PDF_GENERATION_ERROR",
-            details={"project_id": project_id, "reason": reason},
-        )
-
-
-class DeliveryError(AdminError):
-    """n8n webhook delivery failed after all retries."""
-
-    def __init__(self, project_id: str, http_status: int | None = None) -> None:
-        super().__init__(
-            message=f"Notifica webhook fallita per '{project_id}'.",
-            error_code="DELIVERY_ERROR",
-            details={"project_id": project_id, "http_status": http_status},
-        )
+    def __init__(self, message: str) -> None:
+        super().__init__(message=message, error_code="QUOTE_APPROVAL_ERROR")

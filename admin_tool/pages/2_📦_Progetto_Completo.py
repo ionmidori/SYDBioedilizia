@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 
 from src.services.batch_admin_service import BatchAdminService
+from src.core.exceptions import QuoteApprovalError
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +45,19 @@ def goto_detail(batch_id: str):
     st.session_state.batch_view = "detail"
     st.session_state.selected_batch_id = batch_id
 
-def handle_decision(batch_id: str, project_id: str, decision: str, notes: str):
+def handle_decision(batch_id: str, project_id: str, decision: str, notes: str) -> bool:
+    """Returns True on success. Never lets an approval/delivery failure crash
+    the page — surfaces it as a visible error instead (no silent failure)."""
+    reviewed_by = st.session_state.get("username", "admin-console")
     with st.spinner(f"Processando elaborazione ({decision}) per {project_id}..."):
-        service.decide_project_in_batch(batch_id, project_id, decision, notes)
+        try:
+            service.decide_project_in_batch(batch_id, project_id, decision, notes, reviewed_by=reviewed_by)
+        except QuoteApprovalError as exc:
+            st.error(f"❌ Elaborazione fallita per {project_id}: {exc}")
+            logger.error("Batch decision failed.", extra={"batch_id": batch_id, "project_id": project_id})
+            return False
         st.toast(f"Progetto {project_id} elaborato con successo: {decision}!", icon="✅")
+        return True
 
 
 # ─── List View ───────────────────────────────────────────────────────────────
@@ -135,20 +145,48 @@ def render_detail_view():
             st.caption(f"Project ID: `{pid}` | Elementi originari: {p.get('item_count', 0)}")
             if p.get("admin_notes"):
                 st.write(f"**Note Storiche:** {p.get('admin_notes')}")
-            
+
+            # Voci del preventivo: l'admin deve vedere sku/descrizione/prezzo di
+            # OGNI voce prima di decidere, non solo il subtotale aggregato
+            # (il subtotale qui sopra viene dallo snapshot del batch — le voci
+            # dettagliate vivono solo sul preventivo live).
+            quote_data = service.admin_service.get_quote_details(pid)
+            items = quote_data.get("items", []) if quote_data else []
+            if items:
+                st.dataframe(
+                    pd.DataFrame(items),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "sku": st.column_config.TextColumn("SKU", width="small"),
+                        "description": st.column_config.TextColumn("Descrizione", width="large"),
+                        "unit": st.column_config.TextColumn("Unità", width="small"),
+                        "qty": st.column_config.NumberColumn("Qtà", format="%.2f"),
+                        "unit_price": st.column_config.NumberColumn("€/Unità", format="€%.2f"),
+                        "total": st.column_config.NumberColumn("Totale €", format="€%.2f"),
+                    },
+                )
+            else:
+                st.caption("Nessuna voce disponibile per questo preventivo.")
+
+            if st.button("✏️ Modifica voci", key=f"edit_{pid}"):
+                st.session_state.selected_project_id = pid
+                st.session_state.quotes_view = "review"
+                st.switch_page("pages/1_📋_Quotes.py")
+
             # Form per decidere se non è ancora approvato/rifiutato
             if pstatus not in ("approved", "rejected"):
                 notes = st.text_area("Aggiungi note per il cliente (opzionale)", key=f"notes_{pid}")
-                
+
                 c1, c2, _ = st.columns([2, 2, 6])
                 with c1:
                     if st.button("👍 Approva Progetto", key=f"approve_{pid}", type="primary"):
-                        handle_decision(batch_id, pid, "approve", notes)
-                        st.rerun()
+                        if handle_decision(batch_id, pid, "approve", notes):
+                            st.rerun()
                 with c2:
                     if st.button("👎 Rifiuta Progetto", key=f"reject_{pid}"):
-                        handle_decision(batch_id, pid, "reject", notes)
-                        st.rerun()
+                        if handle_decision(batch_id, pid, "reject", notes):
+                            st.rerun()
             else:
                 st.success(f"Questo progetto è già stato elaborato con stato: {pstatus}")
 

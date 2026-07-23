@@ -261,13 +261,15 @@ def _render_review(project_id: str) -> None:
                 QuoteRepository().update_quote(project_id, {"admin_notes": admin_notes})
             st.success("Bozza salvata!")
 
+    reviewed_by: str = st.session_state.get("username", "admin-console")
+
     with col_approve:
         if st.button("✅ Approva & Invia"):
             with st.spinner("Generazione PDF e invio…"):
                 new_items = edited_df.to_dict("records") if not edited_df.empty else []
                 service.update_quote_items(project_id, new_items)
                 try:
-                    service.approve_quote(project_id, admin_notes=admin_notes)
+                    service.approve_quote(project_id, admin_notes=admin_notes, reviewed_by=reviewed_by)
                     st.balloons()
                     st.success("🎉 Preventivo approvato e inviato al cliente!")
                     _load_pending_quotes.clear()
@@ -280,15 +282,16 @@ def _render_review(project_id: str) -> None:
 
     with col_reject:
         if st.button("❌ Rifiuta"):
-            QuoteRepository().update_quote(
-                project_id,
-                {"status": "rejected", "admin_notes": admin_notes},
-            )
-            st.warning("Preventivo rifiutato.")
-            _load_pending_quotes.clear()
-            time.sleep(1)
-            st.session_state.quotes_view = "list"
-            st.rerun()
+            try:
+                service.reject_quote(project_id, admin_notes=admin_notes, reviewed_by=reviewed_by)
+                st.warning("Preventivo rifiutato.")
+                _load_pending_quotes.clear()
+                time.sleep(1)
+                st.session_state.quotes_view = "list"
+                st.rerun()
+            except Exception as exc:
+                logger.exception("Rejection failed.", extra={"project_id": project_id})
+                st.error(f"Errore: {exc}")
 
 
 # ─── Router ──────────────────────────────────────────────────────────────────
