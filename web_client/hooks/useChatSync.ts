@@ -76,9 +76,6 @@ export function useChatSync({
                 logger.debug(`[ChatProvider] Initial history sync (${fullHistory.length} messages)`);
                 isFirstSyncRef.current = false;
                 break;
-            case 'adopt-ids':
-                logger.debug('[ChatProvider] Adopting Firestore IDs (ID update only).');
-                break;
             default:
                 logger.debug(`[ChatProvider] History Sync (Mismatch: SDK ${messages.length} vs Hist ${fullHistory.length})`);
         }

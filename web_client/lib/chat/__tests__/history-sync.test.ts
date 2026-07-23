@@ -108,7 +108,11 @@ describe('planHistorySync — reconciliation', () => {
         expect(decision).toEqual({ kind: 'set', messages: fullHistory, reason: 'first-sync' });
     });
 
-    it('adopts Firestore ids when lengths match and the last text is identical', () => {
+    it('takes over the Firestore ids when lengths match and the last text is identical', () => {
+        // This used to be a dedicated `adopt-ids` branch. It returned exactly the
+        // same set(fullHistory) as the fallthrough, so it was removed — the
+        // outcome that matters is asserted here and must not change: the SDK ids
+        // are replaced by the Firestore ones.
         const fullHistory = [WELCOME_MESSAGE, msg('firestore-id', 'stessa risposta')];
         const decision = planHistorySync(
             input({
@@ -117,7 +121,23 @@ describe('planHistorySync — reconciliation', () => {
                 historyLength: 1,
             })
         );
-        expect(decision).toEqual({ kind: 'set', messages: fullHistory, reason: 'adopt-ids' });
+        expect(decision).toEqual({ kind: 'set', messages: fullHistory, reason: 'length-mismatch' });
+    });
+
+    it('replaces the state the same way whether or not the trailing text matches', () => {
+        // Guards the removal: identical vs differing trailing text used to pick
+        // different branches. Both must still yield the same replacement.
+        const fullHistory = [WELCOME_MESSAGE, msg('firestore-id', 'testo A')];
+        const base = { fullHistory, historyLength: 1 };
+
+        const sameText = planHistorySync(
+            input({ ...base, sdkMessages: [WELCOME_MESSAGE, msg('sdk-id', 'testo A')] })
+        );
+        const differentText = planHistorySync(
+            input({ ...base, sdkMessages: [WELCOME_MESSAGE, msg('sdk-id', 'testo B')] })
+        );
+
+        expect(sameText).toEqual(differentText);
     });
 
     it('replaces the state when the history is longer (another device / backend update)', () => {

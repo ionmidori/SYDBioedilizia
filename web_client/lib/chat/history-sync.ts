@@ -1,5 +1,4 @@
 import type { ChatStatus, UIMessage as Message } from 'ai';
-import { getMessageText } from './messages';
 
 /**
  * Reconciliation between the Firestore history and the AI SDK `useChat` state.
@@ -20,7 +19,6 @@ export type SyncReason =
     | 'in-sync'
     | 'awaiting-snapshot'
     | 'first-sync'
-    | 'adopt-ids'
     | 'length-mismatch';
 
 export type SyncDecision =
@@ -113,16 +111,12 @@ export function planHistorySync(input: HistorySyncInput): SyncDecision {
         return { kind: 'set', messages: fullHistory, reason: 'first-sync' };
     }
 
-    // Optimization: If lengths are equal and the last message content is identical,
-    // just adopt the Firestore IDs without a full state rebuild.
-    if (sdkLen === histLen && sdkLen > 0) {
-        const sdkContent = getMessageText(sdkMessages[sdkLen - 1]);
-        const histContent = getMessageText(fullHistory[histLen - 1]);
-        if (sdkContent === histContent) {
-            return { kind: 'set', messages: fullHistory, reason: 'adopt-ids' };
-        }
-    }
-
-    // If history is longer, it's definitive (another device or backend update)
+    // Everything that reaches this point is replaced by the history.
+    //
+    // There used to be an extra branch here for "same length, same trailing text"
+    // that adopted the Firestore ids. It returned the very same
+    // `set(fullHistory)` as this line: the text comparison only picked a
+    // different log label, never a different outcome. Removed, so this function
+    // has one exit for one behaviour.
     return { kind: 'set', messages: fullHistory, reason: 'length-mismatch' };
 }
