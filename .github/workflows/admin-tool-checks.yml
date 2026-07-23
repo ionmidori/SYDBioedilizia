@@ -1,0 +1,77 @@
+name: 'Admin Console Checks'
+
+# admin_tool has NO deployment automation (Cloud Run image is built and
+# pushed manually -- see PROJECT_CONTEXT_SUMMARY.md, Phase 97). Because of
+# that, a dependency bump can sit merged and unexercised for months: the
+# streamlit-authenticator 0.2.3 -> 0.4.2 bump (PR #101, 2026-06-29) broke
+# app.py's login() call, and nobody found out until the first real deploy
+# 4 months later. This workflow can't replace an actual deploy, but it runs
+# the app's code path on every push/PR so a breaking change like that one
+# fails CI instead of failing silently in production.
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+    paths:
+      - 'admin_tool/**'
+      - '.github/workflows/admin-tool-checks.yml'
+  pull_request:
+    branches:
+      - 'main'
+      - 'develop'
+    paths:
+      - 'admin_tool/**'
+      - '.github/workflows/admin-tool-checks.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 'admin-tool-checks-${{ github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: 'Syntax + Streamlit AppTest smoke'
+    runs-on: 'ubuntu-latest'
+
+    defaults:
+      run:
+        working-directory: './admin_tool'
+
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: 'Set up Python'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: 'Install dependencies'
+        run: 'pip install -r requirements.txt pytest'
+
+      - name: 'Syntax check (compileall)'
+        run: 'python -m compileall -q app.py pages src'
+
+      - name: 'Streamlit AppTest smoke (app.py + every page)'
+        # Headless script execution via streamlit.testing.v1.AppTest -- no
+        # live server, no browser. Catches import-time errors and unhandled
+        # exceptions in app.py's auth flow (the exact bug class from Phase
+        # 97) without needing any Firebase/GCP credentials: app.py only
+        # touches config.yaml + streamlit_authenticator, and every page has
+        # an auth guard (st.stop()) before any Firestore-touching code.
+        run: 'python -m pytest test_smoke_app.py -v'
+
+  docker-build:
+    name: 'Docker image builds'
+    runs-on: 'ubuntu-latest'
+
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: 'Build image (validates Dockerfile only -- not pushed)'
+        run: 'docker build -t admin-tool-ci-check ./admin_tool'
