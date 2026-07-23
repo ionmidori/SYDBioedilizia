@@ -73,5 +73,12 @@ jobs:
       - name: 'Checkout code'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: 'Provide throwaway config.yaml for the build'
+        # config.yaml is gitignored (like .env) -- the real deploy build
+        # picks it up from the local working directory, not from git. CI
+        # has no such file, so the Dockerfile's `COPY config.yaml .` needs
+        # a stand-in; config.yaml.example (tracked, non-sensitive) is it.
+        run: 'cp admin_tool/config.yaml.example admin_tool/config.yaml'
+
       - name: 'Build image (validates Dockerfile only -- not pushed)'
         run: 'docker build -t admin-tool-ci-check ./admin_tool'
