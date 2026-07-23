@@ -6,7 +6,7 @@
 #   2. Store it as ANTIGRAVITY_API_KEY in Settings > Secrets > Actions.
 #
 # The workflow posts inline review comments on the PR diff using the
-# Antigravity SDK via rsamborski/run-agy-sdk@v1.  Comments are posted through
+# Antigravity SDK via rsamborski/run-agy-sdk.  Comments are posted through
 # the GitHub Issues API (PR comments are technically issue comments), which is
 # why both pull-requests: write and issues: write are required.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -16,9 +16,10 @@ on:
   pull_request:
     branches: ['main', 'develop']
     types: [opened, synchronize, reopened]
+  workflow_dispatch:            # Allows manual trigger from the Actions tab
 
 concurrency:
-  group: 'antigravity-review-${{ github.ref }}'
+  group: '${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name }}'
   cancel-in-progress: true
 
 # Least privilege + write scopes for PR comment posting.
@@ -34,7 +35,7 @@ jobs:
     if: github.actor != 'dependabot[bot]'
 
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: 'Checkout code'
@@ -45,10 +46,12 @@ jobs:
           persist-credentials: false
 
       - name: 'Run Antigravity SDK'
-        uses: rsamborski/run-agy-sdk@v1
+        uses: rsamborski/run-agy-sdk@90e944e2f0d1bfcc392c954cd937f7d3b36d1441 # main
         with:
-          api_key: ${{ secrets.ANTIGRAVITY_API_KEY }}
-          model: 'gemini-3.1-pro'
+          api-key: ${{ secrets.ANTIGRAVITY_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          mode: 'review'
+          trust-workspace: 'true'
           prompt: |
             You are reviewing a Pull Request for the **SYD Bioedilizia** monorepo.
             This is a Hybrid Cloud Application with:
@@ -87,5 +90,4 @@ jobs:
             - No bare `asyncio.create_task` without tracking.
 
             Be concise. Flag only real issues, not style nitpicks.
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            Use gemini-3.1-pro as the review model.
