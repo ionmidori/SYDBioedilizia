@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import timedelta
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
@@ -555,7 +556,9 @@ async def get_quote_pdf_url(
             blob = bucket.blob(blob_path)
             if not blob.exists():
                 return None
-            return blob.generate_signed_url(expiration=900, method="GET")  # 15 minutes
+            return blob.generate_signed_url(
+                expiration=timedelta(minutes=15), method="GET", version="v4"
+            )
 
         pdf_url = await run_in_threadpool(_generate_url)
     except Exception:
