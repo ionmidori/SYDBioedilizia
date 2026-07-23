@@ -225,7 +225,7 @@ class TestApproveRecipient:
                   new=deliver_mock),
         ):
             response = client.post(
-                "/quote/test-project-001/approve",
+                "/api/quote/test-project-001/approve",
                 json={"decision": "approve", "notes": "ok"},
             )
 

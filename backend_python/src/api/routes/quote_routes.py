@@ -44,7 +44,10 @@ from src.services.pricing_service import PricingService
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/quote", tags=["Quote"])
+# /api prefix: client-facing routers live under /api/* — the Next.js rewrite
+# maps /api/py/:path* → backend /api/:path*, and NEXT_PUBLIC_API_URL ends in
+# /api. Without it the dashboard "Preventivi" calls 404'd (found in smoke).
+router = APIRouter(prefix="/api/quote", tags=["Quote"])
 
 # ─── Path parameter: project_id with strict format validation ─────────────────
 _PROJECT_ID = Path(
