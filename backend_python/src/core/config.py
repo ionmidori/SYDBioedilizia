@@ -121,6 +121,14 @@ class Settings(BaseSettings):
     LIFECYCLE_DISABLE_MONTHS: int = Field(default=13, description="Months of inactivity before Firebase Auth is disabled.")
     LIFECYCLE_ANONYMIZE_MONTHS: int = Field(default=24, description="Months of inactivity before Firestore PII is anonymized.")
 
+    # Admin Console internal trust (server-to-server, no Firebase user on the Streamlit side)
+    ADMIN_INTERNAL_SECRET: str | None = Field(
+        default=None,
+        description="Shared secret for POST /internal/quote/approve (X-Admin-Internal-Secret "
+                    "header). Dedicated secret, distinct from LIFECYCLE_SECRET, so a leak of "
+                    "one does not grant access to the other's action.",
+    )
+
     # Model Armor (Runtime Guardrails — OWASP LLM01/LLM02)
     MODEL_ARMOR_ENABLED: bool = Field(
         default=True,
@@ -192,7 +200,7 @@ class Settings(BaseSettings):
         if self.ENV == "production":
             import logging
             _log = logging.getLogger(__name__)
-            for name in ("N8N_WEBHOOK_HMAC_SECRET", "LIFECYCLE_SECRET"):
+            for name in ("N8N_WEBHOOK_HMAC_SECRET", "LIFECYCLE_SECRET", "ADMIN_INTERNAL_SECRET"):
                 value = getattr(self, name, None)
                 if value and len(value) < 32:
                     _log.warning(
