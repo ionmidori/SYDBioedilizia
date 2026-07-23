@@ -57,14 +57,21 @@ authenticator = stauth.Authenticate(
 )
 
 # ─── Login form + session state population ────────────────────────────────────
+# streamlit-authenticator 0.4.x: login() no longer takes a form-name/location
+# positional pair, and (unless location="unrendered") it returns None — the
+# widget populates st.session_state directly instead. (API changed in the
+# 0.2.3 -> 0.4.2 bump, PR #101; this call site was never updated to match.)
 try:
-    name, authentication_status, username = authenticator.login("Login", "main")
+    authenticator.login(location="main")
 except Exception as e:
     logger.warning("Auth error (stale cookie?): %s — resetting session.", e)
     st.session_state.clear()
     st.warning("⚠️ Sessione non valida. Cancella i cookie del browser se il problema persiste.")
     st.stop()
-    authentication_status = None
+
+name = st.session_state.get("name")
+authentication_status = st.session_state.get("authentication_status")
+username = st.session_state.get("username")
 
 if authentication_status:
     st.sidebar.title(f"👤 {name}")
