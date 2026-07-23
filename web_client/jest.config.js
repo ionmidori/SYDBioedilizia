@@ -37,6 +37,13 @@ const customJestConfig = {
         'hooks/**/*.{js,jsx,ts,tsx}',
         'components/**/*.{js,jsx,ts,tsx}',
         'lib/**/*.{js,jsx,ts,tsx}',
+        // Pure data / init wiring: no logic to exercise. Under the v8 provider a
+        // bare import would mark them covered — inflated number, zero guarantees.
+        // Kept out of the denominator so the percentage measures testable code.
+        '!lib/faq-data.ts',
+        '!lib/m3-motion.ts',
+        '!lib/firebase.ts',
+        '!lib/firebase-admin.ts',
         '!**/*.d.ts',
         '!**/node_modules/**',
         '!**/.next/**',
@@ -44,15 +51,16 @@ const customJestConfig = {
     // Ratchet floors, NOT the aspirational goal. Set just below the measured
     // figure so CI enforces "no regression" while the suite grows; raise them
     // whenever coverage improves — target remains 70%.
-    // Measured 2026-07-20 after the full ChatProvider decomposition (lib/chat +
-    // useChatSync + useAdkStreamEvents + useChatTransport + useChatSession)
-    // plus the batched-dispatch fix: 26.13 stmts / 67.2 branches / 31.67 funcs.
+    // Measured 2026-07-23 after the hooks + lib increment (API clients, TanStack
+    // hooks, state hooks, remaining validation schemas) with the data/init
+    // modules excluded from the denominator: 33.07 stmts / 75.9 branches /
+    // 55.03 funcs.
     coverageThreshold: {
         global: {
-            branches: 67,
-            functions: 31,
-            lines: 26,
-            statements: 26,
+            branches: 74,
+            functions: 53,
+            lines: 32,
+            statements: 32,
         },
     },
     transformIgnorePatterns: [
