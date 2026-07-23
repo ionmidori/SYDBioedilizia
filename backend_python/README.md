@@ -1,7 +1,7 @@
 # 🧠 SYD Brain (Python Backend)
 
 The core AI orchestration engine for the SYD Renovation Ecosystem.
-Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google Gemini 2.5 Flash**.
+Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google Gemini 3.1 Flash Lite**.
 
 ---
 
@@ -28,7 +28,7 @@ Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google G
 
 ## 🛠️ Tech Stack
 
-- **Runtime:** Python 3.13
+- **Runtime:** Python 3.12
 - **Manager:** `uv` (Rust-based, lightning fast)
 - **Framework:** FastAPI / Pydantic V2
 - **Vector DB:** **Pinecone Serverless** (Integrated Inference)
@@ -65,7 +65,7 @@ uv run uvicorn main:app --host 0.0.0.0 --port 8081 --reload
 We enforce a strict testing policy for all core services, including offline evaluation logic.
 
 ```bash
-# Run 461 unit, integration, and evaluation tests
+# Run 463 unit, integration, and evaluation tests
 uv run pytest
 
 # Run ADK evaluation suite (requires GOOGLE_API_KEY)
@@ -101,5 +101,5 @@ backend_python/
 - **PII Protection**: Output filtering & Log argument redaction in `structlog`.
 
 ---
-*Updated: March 24, 2026 — Phase 81f (v4.2.2)*
+*Updated: July 23, 2026 — Phase 96 (v4.4.6)*
 

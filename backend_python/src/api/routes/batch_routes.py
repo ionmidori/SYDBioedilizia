@@ -19,8 +19,9 @@ from __future__ import annotations
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from pydantic import BaseModel, Field
+from src.api.routes.quote_routes import _run_quote_approval
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import (
     BatchNotFoundError,
@@ -153,7 +154,7 @@ def _require_admin(user_session: UserSession) -> None:
 )
 @limiter.limit("10/hour")
 async def create_batch(
-    request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
     body: CreateBatchBody,
     user_session: UserSession = Depends(verify_token),
 ) -> CreateBatchResponse:
@@ -191,7 +192,7 @@ async def create_batch(
 )
 @limiter.limit("60/minute")
 async def list_user_batches(
-    request,  # pyright: ignore[reportUnusedParameter]
+    request: Request,  # pyright: ignore[reportUnusedParameter]
     user_id: str,
     user_session: UserSession = Depends(verify_token),
 ) -> list[BatchListItemResponse]:
@@ -229,7 +230,7 @@ async def list_user_batches(
 )
 @limiter.limit("60/minute")
 async def get_batch(
-    request,  # pyright: ignore[reportUnusedParameter]
+    request: Request,  # pyright: ignore[reportUnusedParameter]
     batch_id: str = _BATCH_ID,
     user_session: UserSession = Depends(verify_token),
 ) -> QuoteBatch:
@@ -247,7 +248,7 @@ async def get_batch(
 )
 @limiter.limit("30/minute")
 async def get_aggregation_preview(
-    request,  # pyright: ignore[reportUnusedParameter]
+    request: Request,  # pyright: ignore[reportUnusedParameter]
     batch_id: str = _BATCH_ID,
     user_session: UserSession = Depends(verify_token),
 ) -> AggregationPreviewResponse:
@@ -278,7 +279,7 @@ async def get_aggregation_preview(
 )
 @limiter.limit("5/hour")
 async def submit_batch(
-    request,  # pyright: ignore[reportUnusedParameter]
+    request: Request,  # pyright: ignore[reportUnusedParameter]
     batch_id: str = _BATCH_ID,
     user_session: UserSession = Depends(verify_token),
 ) -> CreateBatchResponse:
@@ -322,7 +323,7 @@ async def submit_batch(
 )
 @limiter.limit("20/minute")
 async def decide_project(
-    request,  # pyright: ignore[reportUnusedParameter]
+    request: Request,  # pyright: ignore[reportUnusedParameter]
     batch_id: str = _BATCH_ID,
     project_id: str = _PROJECT_ID,
     body: ProjectDecisionBody = ...,  # type: ignore[assignment]
@@ -378,19 +379,24 @@ async def decide_project(
         "updated_at": now,
     })
 
-    # Also update the individual project's quote document
-    db = get_async_firestore_client()
-    quote_ref = (
-        db.collection("projects").document(project_id)
-        .collection("private_data").document("quote")
-    )
+    # Run the SAME approve/reject pipeline as POST /api/quote/{id}/approve —
+    # on approve this generates the PDF, saves pdf_blob_path, and delivers the
+    # quote by email to the project owner (previously this only flipped the
+    # quote doc's status field, so batch-approved quotes were never delivered
+    # and their PDF download always 404'd — see Phase 96 smoke findings).
+    # Best-effort like the previous inline update: the batch decision itself
+    # must succeed even if the per-project pipeline fails (e.g. already
+    # decided outside the batch flow, or a transient PDF/delivery error).
     try:
-        quote_update: dict = {"status": new_status, "updated_at": now}
-        if body.notes:
-            quote_update["admin_notes"] = body.notes
-        await quote_ref.update(quote_update)
-    except Exception:
-        logger.warning("Failed to sync project quote status.", extra={"project_id": project_id})
+        await _run_quote_approval(project_id, body.decision, body.notes, user_session.uid)
+    except HTTPException as e:
+        # _run_quote_approval maps its own domain errors (e.g. no pending
+        # review found — already decided outside the batch flow) to
+        # HTTPException; swallow here, the batch decision already succeeded.
+        logger.warning(
+            "Quote approval pipeline failed for project in batch.",
+            extra={"project_id": project_id, "batch_id": batch_id, "status_code": e.status_code},
+        )
 
     logger.info(
         "Admin decided on project in batch.",

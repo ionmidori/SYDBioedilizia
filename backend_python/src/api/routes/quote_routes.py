@@ -273,37 +273,35 @@ async def start_quote_flow(
     )
 
 
-@router.post(
-    "/{project_id}/approve",
-    response_model=ApproveQuoteResponse,
-    summary="Admin approve/reject HITL quote (Phase 2) — ADMIN ONLY",
-)
-@limiter.limit("10/hour")
-async def approve_quote(
-    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
-    project_id: str = _PROJECT_ID,
-    body: AdminDecisionBody = ...,  # type: ignore[assignment]
-    user_session: UserSession = Depends(verify_token),
+async def _run_quote_approval(
+    project_id: str, decision: str, notes: str, actor_uid: str
 ) -> ApproveQuoteResponse:
     """
-    Phase 2: updates the Firestore checkpoint with the admin decision,
-    then resumes the graph from where it was interrupted.
-    ADMIN ONLY: requires 'role=admin' Firebase custom claim.
+    Phase 2 core logic: updates the Firestore checkpoint with the admin
+    decision, resumes the graph, then (on approve) runs PDF generation +
+    client delivery.
+
+    Shared by two callers with different auth models:
+      - POST /api/quote/{id}/approve (this module) — Firebase ID token,
+        actor_uid = the admin's Firebase uid.
+      - POST /internal/quote/approve (internal_quote_routes.py) — shared
+        secret, actor_uid = the Streamlit admin console username (no
+        Firebase user exists for that caller).
+
     CRITICAL: ainvoke(None, config) resumes — do NOT pass initial state.
     """
-    _require_admin(user_session)
     logger.info(
         "Resuming HITL quote (ADK).",
-        extra={"project_id": project_id, "decision": body.decision, "admin_uid": user_session.uid},
+        extra={"project_id": project_id, "decision": decision, "admin_uid": actor_uid},
     )
 
     try:
         from src.adk.hitl import approve_quote_hitl
         await approve_quote_hitl(
             project_id=project_id,
-            decision=body.decision,
-            notes=body.notes,
-            admin_uid=user_session.uid,
+            decision=decision,
+            notes=notes,
+            admin_uid=actor_uid,
         )
     except QuoteNotFoundError:
         raise HTTPException(
@@ -323,22 +321,22 @@ async def approve_quote(
             detail={"error_code": "INTERNAL_ERROR", "project_id": project_id},
         )
 
-    result_status = "completed" if body.decision == "approve" else "rejected"
-    audit_action = AuditAction.QUOTE_APPROVE if body.decision == "approve" else AuditAction.QUOTE_REJECT
+    result_status = "completed" if decision == "approve" else "rejected"
+    audit_action = AuditAction.QUOTE_APPROVE if decision == "approve" else AuditAction.QUOTE_REJECT
     emit_audit_event(
         audit_action, AuditResourceType.QUOTE, project_id,
-        user_id=user_session.uid, metadata={"decision": body.decision},
+        user_id=actor_uid, metadata={"decision": decision},
     )
 
     # ── Post-approval pipeline: PDF generation + client delivery ──────────
-    if body.decision == "approve":
+    if decision == "approve":
         try:
             quote_ref = _quote_doc_ref(project_id)
             quote_doc = await quote_ref.get()
             quote_data = (quote_doc.to_dict() or {}) if quote_doc.exists else {}
             quote_data["project_id"] = project_id
-            if body.notes:
-                quote_data["admin_notes"] = body.notes
+            if notes:
+                quote_data["admin_notes"] = notes
 
             # 1. Generate PDF bytes once (sync ReportLab → run in thread),
             #    then upload for the 7-day signed link. The same bytes are
@@ -391,8 +389,29 @@ async def approve_quote(
     return ApproveQuoteResponse(
         status=result_status,
         project_id=project_id,
-        decision=body.decision,
+        decision=decision,
     )
+
+
+@router.post(
+    "/{project_id}/approve",
+    response_model=ApproveQuoteResponse,
+    summary="Admin approve/reject HITL quote (Phase 2) — ADMIN ONLY",
+)
+@limiter.limit("10/hour")
+async def approve_quote(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    project_id: str = _PROJECT_ID,
+    body: AdminDecisionBody = ...,  # type: ignore[assignment]
+    user_session: UserSession = Depends(verify_token),
+) -> ApproveQuoteResponse:
+    """
+    Phase 2: updates the Firestore checkpoint with the admin decision,
+    then resumes the graph from where it was interrupted.
+    ADMIN ONLY: requires 'role=admin' Firebase custom claim.
+    """
+    _require_admin(user_session)
+    return await _run_quote_approval(project_id, body.decision, body.notes, user_session.uid)
 
 
 # ─── CRUD Endpoints ──────────────────────────────────────────────────────────

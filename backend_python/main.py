@@ -306,7 +306,10 @@ class AppCheckMiddleware:
     Uses raw ASGI __call__ instead of @app.middleware("http") / BaseHTTPMiddleware
     to avoid buffering StreamingResponse bodies (which breaks /chat/stream).
     """
-    _PUBLIC_PATHS = frozenset({"/health", "/ready", "/favicon.ico", "/webhooks/n8n", "/internal/lifecycle/run"})
+    _PUBLIC_PATHS = frozenset({
+        "/health", "/ready", "/favicon.ico", "/webhooks/n8n",
+        "/internal/lifecycle/run", "/internal/quote/approve",
+    })
     _DEV_PATHS = frozenset({"/docs", "/openapi.json"})
 
     def __init__(self, app: ASGIApp):
@@ -427,6 +430,11 @@ app.include_router(admin_storage_router)
 from src.api.routes.lifecycle_routes import router as lifecycle_router
 
 app.include_router(lifecycle_router)
+
+# Register internal quote approval route (Streamlit admin console, shared secret)
+from src.api.routes.internal_quote_routes import router as internal_quote_router
+
+app.include_router(internal_quote_router)
 
 # 🧪 TEST AUTOMATION ROUTER (Only in development)
 if settings.ENV == "development":
