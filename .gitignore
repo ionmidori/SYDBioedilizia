@@ -107,6 +107,9 @@ docs/
 gemini.md
 CLAUDE.md
 SECURITY_AUDIT_P*.md
+architecture_analysis.md
+backend_python/docs/chain_of_thought_analysis.md
+backend_python/scripts/debug/debugging.md
 backend_python/server_debug.log
 
 # temporary files
