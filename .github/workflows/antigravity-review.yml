@@ -90,4 +90,4 @@ jobs:
             - No bare `asyncio.create_task` without tracking.
 
             Be concise. Flag only real issues, not style nitpicks.
-            Use gemini-3.1-pro as the review model.
+            Use gemini-3.6-flash as the review model.
