@@ -78,6 +78,41 @@ class TestSendEmail:
         assert pdf_part.get_payload(decode=True) == PDF_BYTES
 
 
+# ─── Deliverability headers (From display name, Reply-To, List-Unsubscribe) ──
+
+class TestDeliverabilityHeaders:
+    async def test_from_uses_display_name(self, smtp_settings, monkeypatch):
+        monkeypatch.setattr(settings, "SMTP_FROM_NAME", "SYD Bioedilizia")
+        service = NotificationService()
+        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
+            await service._send_email(to="a@b.c", subject="Test", body="Ciao")
+
+        parsed = _sent_message(mock_send)
+        assert parsed["From"] == "SYD Bioedilizia <sender@test.local>"
+        assert parsed["Reply-To"] == "sender@test.local"
+
+    async def test_list_unsubscribe_omitted_by_default(self, smtp_settings):
+        service = NotificationService()
+        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
+            await service._send_email(to="a@b.c", subject="Test", body="Ciao")
+
+        parsed = _sent_message(mock_send)
+        assert parsed["List-Unsubscribe"] is None
+
+    async def test_list_unsubscribe_present_when_requested(self, smtp_settings):
+        service = NotificationService()
+        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
+            await service._send_email(
+                to="a@b.c",
+                subject="Test",
+                body="Ciao",
+                list_unsubscribe_email="privacy@sydbioedilizia.com",
+            )
+
+        parsed = _sent_message(mock_send)
+        assert parsed["List-Unsubscribe"] == "<mailto:privacy@sydbioedilizia.com?subject=unsubscribe>"
+
+
 # ─── deliver_quote_to_client ─────────────────────────────────────────────────
 
 class TestDeliverQuoteToClient:
