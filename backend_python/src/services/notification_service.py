@@ -7,6 +7,7 @@ Fallback chain: n8n webhook (if configured) → SMTP email → Firestore flag + 
 Pattern: Service Layer (no HTTP logic, pure domain behavior).
 """
 import logging
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
@@ -97,9 +98,13 @@ class NotificationService:
         pdf_url: str,
         client_email: str,
         quote_total: float,
+        pdf_bytes: Optional[bytes] = None,
     ) -> str:
         """
         Deliver the approved quote PDF to the client.
+
+        When pdf_bytes is provided, the PDF is attached to the email
+        alongside the signed download link (valid 7 days).
 
         Returns a status message. Never raises.
         """
@@ -129,16 +134,27 @@ class NotificationService:
                     f"Gentile Cliente,\n\n"
                     f"Il tuo preventivo per il progetto {project_id} è stato approvato.\n\n"
                     f"Totale: €{quote_total:,.2f} (IVA inclusa)\n\n"
-                    f"Puoi scaricare il PDF del preventivo dal seguente link (valido 15 minuti):\n"
+                    f"In allegato trovi il PDF del preventivo. Puoi anche scaricarlo\n"
+                    f"dal seguente link (valido 7 giorni):\n"
                     f"{pdf_url}\n\n"
                     f"Per qualsiasi domanda, rispondi a questa email o contattaci.\n\n"
                     f"Cordiali saluti,\n"
                     f"SYD Bioedilizia — Architetto Personale AI"
                 )
+                html = self._build_quote_email_html(
+                    project_id=project_id,
+                    pdf_url=pdf_url,
+                    quote_total=quote_total,
+                )
+                attachments = (
+                    [(f"preventivo_{project_id}.pdf", pdf_bytes)] if pdf_bytes else None
+                )
                 await self._send_email(
                     to=client_email,
                     subject=subject,
                     body=body,
+                    html=html,
+                    attachments=attachments,
                 )
                 return f"✅ Preventivo inviato a {client_email} via email"
             except Exception:
@@ -202,17 +218,72 @@ class NotificationService:
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
-    async def _send_email(self, to: str, subject: str, body: str) -> None:
+    @staticmethod
+    def _build_quote_email_html(
+        project_id: str,
+        pdf_url: str,
+        quote_total: float,
+    ) -> str:
+        """Minimal branded HTML body for the client quote delivery email."""
+        return (
+            '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;'
+            'margin:0 auto;color:#2C3E50;">'
+            '<div style="background:#2C3E50;padding:24px;text-align:center;">'
+            '<h1 style="color:#C9A84C;margin:0;font-size:22px;">SYD Bioedilizia</h1>'
+            '<p style="color:#ffffff;margin:4px 0 0;font-size:13px;">'
+            "Architetto Personale AI</p></div>"
+            '<div style="padding:24px;">'
+            "<p>Gentile Cliente,</p>"
+            f"<p>il tuo preventivo per il progetto <strong>{project_id}</strong> "
+            "è stato <strong>approvato</strong>.</p>"
+            '<p style="font-size:20px;margin:16px 0;">Totale: '
+            f"<strong>€{quote_total:,.2f}</strong> "
+            '<span style="font-size:13px;">(IVA inclusa)</span></p>'
+            "<p>In allegato trovi il PDF del preventivo. Puoi anche scaricarlo dal "
+            "pulsante qui sotto (link valido <strong>7 giorni</strong>):</p>"
+            '<p style="text-align:center;margin:24px 0;">'
+            f'<a href="{pdf_url}" style="background:#C9A84C;color:#ffffff;'
+            'padding:12px 28px;text-decoration:none;border-radius:6px;'
+            'font-weight:bold;">Scarica il preventivo (PDF)</a></p>'
+            "<p>Per qualsiasi domanda, rispondi a questa email o contattaci.</p>"
+            "<p>Cordiali saluti,<br>SYD Bioedilizia — Architetto Personale AI</p>"
+            "</div></div>"
+        )
+
+    async def _send_email(
+        self,
+        to: str,
+        subject: str,
+        body: str,
+        html: Optional[str] = None,
+        attachments: Optional[list[tuple[str, bytes]]] = None,
+    ) -> None:
         """
-        Send a plain-text email via SMTP (async, non-blocking).
+        Send an email via SMTP (async, non-blocking).
+
+        Plain-text always; optional HTML alternative and PDF attachments
+        (list of (filename, raw_bytes)). Existing plain-only callers are
+        unaffected.
 
         Raises on failure — caller is responsible for fallback.
         """
-        msg = MIMEMultipart()
+        msg = MIMEMultipart("mixed")
         msg["From"] = settings.SMTP_FROM_EMAIL
         msg["To"] = to
         msg["Subject"] = subject
-        msg.attach(MIMEText(body, "plain", "utf-8"))
+
+        if html:
+            alternative = MIMEMultipart("alternative")
+            alternative.attach(MIMEText(body, "plain", "utf-8"))
+            alternative.attach(MIMEText(html, "html", "utf-8"))
+            msg.attach(alternative)
+        else:
+            msg.attach(MIMEText(body, "plain", "utf-8"))
+
+        for filename, content in attachments or []:
+            part = MIMEApplication(content, _subtype="pdf")
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
 
         await aiosmtplib.send(
             msg,

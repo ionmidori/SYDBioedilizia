@@ -467,43 +467,21 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str]
         quote_ref = db.collection('projects').document(target_project_id).collection('private_data').document('quote')
         await quote_ref.set(quote.model_dump(exclude_none=True))
 
-        # 10. Return human-readable Italian summary, grouped by WBS phase
-        response = f"**{analysis.summary}**\n\nHo preparato una bozza di preventivo sulla base della nostra conversazione:\n\n"
-
-        # Group items by WBS phase for readability
-        from collections import defaultdict
-        by_phase: dict[str, list] = defaultdict(list)
-        for item in quote.items:
-            phase = item.category or "Lavori"
-            by_phase[phase].append(item)
-
-        for phase, items in by_phase.items():
-            response += f"**{phase}**\n"
-            for item in items:
-                response += f"  • {item.description} ({item.qty} {item.unit}) — €{item.total:.2f}\n"
-            response += "\n"
-
-        response += f"**Subtotale: €{quote.financials.subtotal:.2f}**\n"
-        response += f"**Totale (IVA inclusa): €{quote.financials.grand_total:.2f}**\n\n"
-
-        # Add confidence band and completeness note when score is moderate
-        if 0.70 <= analysis.completeness_score < 0.85:
-            uncertainty = (1 - analysis.completeness_score) * 0.3
-            low = round(quote.financials.subtotal * (1 - uncertainty), 2)
-            high = round(quote.financials.subtotal * (1 + uncertainty), 2)
-            response += (
-                f"_Nota: stima indicativa nell'intervallo €{low:,.2f} – €{high:,.2f} (± {uncertainty*100:.0f}%). "
-                "Il nostro geometra lo affinerà durante la revisione._ \n\n"
-            )
-
-        response += (
-            "Puoi revisionare e modificare questa bozza nella tua dashboard sotto 'Preventivo'.\n\n"
-            "Quando sei pronto, seleziona i progetti dalla dashboard e clicca "
-            "'Richiedi preventivo' per inviarli al nostro team."
+        # 10. Return a NEUTRAL Italian summary — the draft (items + prices) is
+        # deliberately NOT shown to the client: the admin reviews and adjusts
+        # it first in the dashboard, then the client receives the final quote
+        # by email after approval. Only the works summary is disclosed.
+        response = (
+            f"**{analysis.summary}**\n\n"
+            f"Ho registrato la tua richiesta di preventivo: ho identificato "
+            f"{len(quote.items)} lavorazioni da sottoporre al nostro team tecnico.\n\n"
+            "Il team esaminerà la richiesta, definirà le voci e i prezzi e "
+            "riceverai il preventivo dettagliato via email dopo la revisione.\n\n"
+            "Vuoi che invii ora la richiesta al team?"
         )
 
         # NOTE: Admin notification removed — now triggered explicitly via batch submission
-        # (POST /quote/batch). The user selects projects from the dashboard and submits.
+        # (POST /quote/batch or the chat submit_quote_request tool).
 
         return response
 

@@ -20,6 +20,7 @@ Storage path: projects/{project_id}/private_data/quote
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Literal, Optional
 
@@ -93,12 +94,17 @@ class QuoteUpdateBody(BaseModel):
 
 
 class QuoteListItemResponse(BaseModel):
+    """Golden Sync: web_client/types/quote.ts → QuoteListItem."""
     model_config = {"extra": "ignore"}
     project_id: str
+    project_name: str = ""
     status: str
+    # Confidential until admin approval: masked to 0.0 for non-admin callers
+    # when status != "approved" (the draft is reviewed by the admin first).
     grand_total: float
     item_count: int
     updated_at: str
+    pdf_available: bool = False
 
 
 class QuotePdfUrlResponse(BaseModel):
@@ -155,6 +161,20 @@ def _quote_doc_ref(project_id: str):
         .collection("private_data")
         .document("quote")
     )
+
+
+async def _resolve_project_owner_uid(project_id: str) -> str | None:
+    """
+    Resolve the uid of the client who owns the project (projects/{id}.userId).
+
+    Used by the post-approval delivery pipeline: the quote must go to the
+    project owner, NOT to the admin performing the approval.
+    """
+    db = get_async_firestore_client()
+    doc = await db.collection("projects").document(project_id).get()
+    if not doc.exists:
+        return None
+    return (doc.to_dict() or {}).get("userId")
 
 
 async def _get_user_profile(uid: str) -> dict:
@@ -317,21 +337,36 @@ async def approve_quote(
             if body.notes:
                 quote_data["admin_notes"] = body.notes
 
-            # 1. Generate PDF (sync ReportLab + Firebase upload → run in thread)
+            # 1. Generate PDF bytes once (sync ReportLab → run in thread),
+            #    then upload for the 7-day signed link. The same bytes are
+            #    attached to the delivery email — no re-download needed.
             pdf_service = PdfService()
-            pdf_url = await pdf_service.async_generate_and_deliver(quote_data)
+            pdf_bytes = await asyncio.to_thread(pdf_service.generate_pdf_bytes, quote_data)
+            pdf_url, pdf_blob_path = await asyncio.to_thread(
+                pdf_service.upload_pdf, pdf_bytes, project_id
+            )
 
-            # 2. Save PDF URL to quote document
-            await quote_ref.update({"pdf_url": pdf_url})
+            # 2. Save PDF URL + blob path to quote document.
+            # The blob path powers the client area "Preventivi" section:
+            # GET /quote/{id}/pdf mints fresh short-lived signed URLs from it.
+            await quote_ref.update({"pdf_url": pdf_url, "pdf_blob_path": pdf_blob_path})
             logger.info("PDF generated and saved.", extra={"project_id": project_id, "pdf_url": pdf_url[:80]})
 
-            # 3. Deliver to client (fire-and-forget — don't block the response)
-            # Resolve email from Firebase Auth profile (authoritative), not from quote data
-            user_profile = await _get_user_profile(user_session.uid)
-            client_email = user_profile["email"]
+            # 3. Deliver to client (fire-and-forget — don't block the response).
+            #    Recipient = the PROJECT OWNER's email (from Firebase Auth),
+            #    not the admin performing the approval.
+            owner_uid = await _resolve_project_owner_uid(project_id)
+            client_email = ""
+            if owner_uid:
+                user_profile = await _get_user_profile(owner_uid)
+                client_email = user_profile["email"]
+            else:
+                logger.warning(
+                    "Cannot resolve project owner for delivery.",
+                    extra={"project_id": project_id},
+                )
             grand_total = quote_data.get("financials", {}).get("grand_total", 0.0)
             if client_email:
-                import asyncio
                 notification = NotificationService()
                 asyncio.create_task(
                     notification.deliver_quote_to_client(
@@ -339,6 +374,7 @@ async def approve_quote(
                         pdf_url=pdf_url,
                         client_email=client_email,
                         quote_total=grand_total,
+                        pdf_bytes=pdf_bytes,
                     )
                 )
         except Exception:
@@ -387,6 +423,8 @@ async def list_user_quotes(
     projects_query = db.collection("projects").where("userId", "==", user_id)
     project_docs = await projects_query.get()
 
+    is_admin = user_session.claims.get("role") == "admin"
+
     results: list[QuoteListItemResponse] = []
     for proj_doc in project_docs:
         quote_ref = proj_doc.reference.collection("private_data").document("quote")
@@ -396,18 +434,29 @@ async def list_user_quotes(
             # Exclude soft-deleted quotes
             if qdata.get("status") == "deleted":
                 continue
+            quote_status = qdata.get("status", "draft")
             financials = qdata.get("financials", {})
             items = qdata.get("items", [])
             updated = qdata.get("updated_at", "")
             if hasattr(updated, "isoformat"):
                 updated = updated.isoformat()
+
+            # Confidentiality: the draft is reviewed by the admin first —
+            # non-admin callers see the total only once approved.
+            grand_total = financials.get("grand_total", 0.0)
+            if not is_admin and quote_status != "approved":
+                grand_total = 0.0
+
+            proj_data = proj_doc.to_dict() or {}
             results.append(
                 QuoteListItemResponse(
                     project_id=proj_doc.id,
-                    status=qdata.get("status", "draft"),
-                    grand_total=financials.get("grand_total", 0.0),
+                    project_name=proj_data.get("name", ""),
+                    status=quote_status,
+                    grand_total=grand_total,
                     item_count=len(items),
                     updated_at=str(updated),
+                    pdf_available=bool(qdata.get("pdf_blob_path") or qdata.get("pdf_url")),
                 )
             )
 
@@ -459,15 +508,29 @@ async def get_quote_pdf_url(
     Generates a fresh 15-minute signed URL for the project's quote PDF.
     Does NOT use long-lived cached URLs — every call produces a new short-lived token.
     Caller must own the project or be admin.
+    Non-admin callers can only fetch the PDF of an APPROVED quote (the draft
+    is confidential until the admin review — client area "Preventivi" section).
     """
     await _verify_project_ownership(project_id, user_session)
+
+    quote_doc = await _quote_doc_ref(project_id).get()
+    qdata = (quote_doc.to_dict() or {}) if quote_doc.exists else {}
+    is_admin = user_session.claims.get("role") == "admin"
+    if not is_admin and qdata.get("status") != "approved":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="PDF not yet available for this project.",
+        )
+
+    # Blob path saved at approval time; legacy fallback for pre-existing quotes.
+    blob_path = qdata.get("pdf_blob_path") or f"projects/{project_id}/quote.pdf"
 
     try:
         from firebase_admin import storage as fb_storage
 
         def _generate_url() -> str | None:
             bucket = fb_storage.bucket()
-            blob = bucket.blob(f"projects/{project_id}/quote.pdf")
+            blob = bucket.blob(blob_path)
             if not blob.exists():
                 return None
             return blob.generate_signed_url(expiration=900, method="GET")  # 15 minutes

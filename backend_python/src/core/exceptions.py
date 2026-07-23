@@ -111,6 +111,29 @@ class BatchNotFoundError(ResourceNotFound):
         )
 
 
+class NoEligibleProjectsError(AppException):
+    """Batch creation found no projects with an eligible draft quote."""
+    status_code = 422
+    error_code = "NO_ELIGIBLE_PROJECTS"
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="No eligible projects found. Each project must have a draft quote.",
+        )
+
+
+class BatchNotSubmittableError(AppException):
+    """Attempt to submit a batch that is not in 'draft' status."""
+    status_code = 409
+    error_code = "BATCH_NOT_SUBMITTABLE"
+
+    def __init__(self, batch_id: str, current_status: str) -> None:
+        super().__init__(
+            message=f"Batch is already '{current_status}'. Only draft batches can be submitted.",
+            detail={"batch_id": batch_id, "status": current_status},
+        )
+
+
 class PDFGenerationError(ServiceError):
     """WeasyPrint/Jinja2 rendering failed (CPU-bound, run_in_threadpool)."""
     error_code = "PDF_GENERATION_ERROR"

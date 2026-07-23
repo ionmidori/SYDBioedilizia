@@ -215,8 +215,8 @@ class DeliverQuoteInput(BaseModel):
     quote_total: float = Field(..., ge=0, description="Final grand total in EUR (for email subject)")
     delivery_channel: str = Field(
         default="email",
-        description="Delivery channel: 'email', 'whatsapp', or 'both'",
-        pattern="^(email|whatsapp|both)$"
+        description="Delivery channel. Only 'email' is available.",
+        pattern="^email$"
     )
 
 
@@ -229,8 +229,22 @@ async def deliver_quote_wrapper(
 ) -> str:
     """
     Delivers the approved PDF quote to the client via n8n automation.
-    n8n handles: email with PDF attachment, WhatsApp message, CRM update, etc.
+    n8n handles: email with PDF attachment, CRM update, etc.
+
+    Only the email channel is wired up. The 'whatsapp' and 'both' branches of the
+    n8n workflow point at Twilio nodes that do not exist in the live instance, so
+    a request for them silently delivers nothing — reject it here instead.
     """
+    if delivery_channel != "email":
+        logger.error(
+            f"[n8n] Quote delivery refused — channel '{delivery_channel}' is not wired up "
+            f"(no Twilio node in the live workflow). Project: {project_id}"
+        )
+        return (
+            f"❌ Canale '{delivery_channel}' non disponibile: il preventivo può essere "
+            f"inviato solo via email."
+        )
+
     webhook_url = settings.N8N_WEBHOOK_DELIVER_QUOTE
     if not webhook_url:
         logger.warning("[n8n] N8N_WEBHOOK_DELIVER_QUOTE not configured. Skipping delivery.")

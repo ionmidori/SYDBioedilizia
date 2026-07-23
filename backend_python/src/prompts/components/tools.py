@@ -13,7 +13,8 @@ Registered tools (from src/adk/tools.py):
   - list_project_files(session_id)
   - suggest_quote_items(session_id)
   - pricing_engine_tool(sku, qty)
-  - request_quote_approval(quote_id, project_id, grand_total)
+  - list_ready_quotes(session_id)
+  - submit_quote_request(session_id, project_ids)
   - request_login()
 """
 
@@ -203,11 +204,15 @@ TOOL_REQUEST_LOGIN = """<tool name="request_login">
 
 
 TOOL_SUGGEST_QUOTE_ITEMS = """<tool name="suggest_quote_items">
-<trigger>Quote interview is underway and you need to propose renovation line items to the user for confirmation.</trigger>
-<goal>Analyze conversation history and suggest relevant SKU line items for the quote.</goal>
+<trigger>Quote interview is complete and the request must be registered for team review.</trigger>
+<goal>Analyze conversation history and save an INTERNAL draft quote for admin review.</goal>
 <parameters>
 <param name="session_id" required="true">The current project/session identifier.</param>
 </parameters>
+<rules>
+1. The draft (items, SKUs, prices, totals) is CONFIDENTIAL: never reveal it to the client.
+2. Relay only the descriptive works summary the tool returns, then propose sending the request.
+</rules>
 </tool>"""
 
 
@@ -221,14 +226,30 @@ TOOL_PRICING_ENGINE = """<tool name="pricing_engine_tool">
 </tool>"""
 
 
-TOOL_REQUEST_QUOTE_APPROVAL = """<tool name="request_quote_approval">
-<trigger>A complete quote has been compiled and requires administrator review before delivery.</trigger>
-<goal>Pause execution and send the quote for admin HITL approval.</goal>
+TOOL_LIST_READY_QUOTES = """<tool name="list_ready_quotes">
+<trigger>The user asks to send their quote request(s) to the team, or a draft quote is complete.</trigger>
+<goal>List the user's projects with a draft quote ready for submission, so you can ask for explicit confirmation.</goal>
 <parameters>
-<param name="quote_id" required="true">Unique quote identifier.</param>
-<param name="project_id" required="true">Project this quote belongs to.</param>
-<param name="grand_total" required="true">Total euro amount (numeric).</param>
+<param name="session_id" required="true">The current SESSION_ID from the system message.</param>
 </parameters>
+<rules>
+1. Call BEFORE submit_quote_request: present the list and ask which projects to send.
+2. Never submit without an explicit "sì" from the user on the summary.
+</rules>
+</tool>"""
+
+
+TOOL_SUBMIT_QUOTE_REQUEST = """<tool name="submit_quote_request">
+<trigger>The user gave an EXPLICIT confirmation to send their quote request(s) to the team.</trigger>
+<goal>Create and submit a quote batch (same pipeline as the dashboard button); the admin is notified by email.</goal>
+<parameters>
+<param name="session_id" required="true">The current SESSION_ID from the system message.</param>
+<param name="project_ids" required="false">Project IDs confirmed by the user. Empty = current session's project.</param>
+</parameters>
+<rules>
+1. NEVER call automatically — only after an explicit user confirmation on a summary (projects + total).
+2. If the tool says login is required, call request_login and resume after authentication.
+</rules>
 </tool>"""
 
 
@@ -295,7 +316,8 @@ TOOLS = "\n\n".join([
     TOOL_REQUEST_LOGIN,
     TOOL_SUGGEST_QUOTE_ITEMS,
     TOOL_PRICING_ENGINE,
-    TOOL_REQUEST_QUOTE_APPROVAL,
+    TOOL_LIST_READY_QUOTES,
+    TOOL_SUBMIT_QUOTE_REQUEST,
     TOOL_RETRIEVE_KNOWLEDGE,
     TOOL_SAVE_CONTACT_PHONE,
 ])

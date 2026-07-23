@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Generated coverage report (gitignored): its bundled JS trips
+    // unused-eslint-disable warnings when linting after `npm run test:coverage`.
+    "coverage/**",
   ]),
   {
     rules: {

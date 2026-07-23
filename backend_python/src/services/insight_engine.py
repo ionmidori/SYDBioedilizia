@@ -30,7 +30,11 @@ class SKUItemSuggestion(BaseModel):
     """A single line-item suggested by the AI Quantity Surveyor."""
     model_config = {"extra": "forbid"}
     sku: str = Field(..., description="The SKU from the Master Price Book. Must be an exact match.")
-    qty: float = Field(..., gt=0, description="Estimated quantity (must be > 0)")
+    # ge (minimum) — NOT gt (exclusiveMinimum): the genai Schema model rejects
+    # exclusiveMinimum (extra_forbidden) and the response_schema conversion
+    # would crash every suggest_quote_items call. 0.01 matches pricing_engine's
+    # lower bound. Regression: tests/unit/test_insight_schema_genai.py
+    qty: float = Field(..., ge=0.01, description="Estimated quantity (must be >= 0.01)")
     ai_reasoning: str = Field(..., description="Why this item is necessary based on chat/images")
     phase: Literal[
         "Demolizioni", "Impianti", "Opere Murarie",
