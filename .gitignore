@@ -76,6 +76,7 @@ next-env.d.ts
 !tsconfig.json
 !jsconfig.json
 !vercel.json
+!firestore.indexes.json
 # ADK eval fixtures (test data, no secrets) — required by tests/evals/test_eval_infrastructure.py in CI
 !backend_python/tests/evals/*.test.json
 !backend_python/tests/evals/test_config.json
