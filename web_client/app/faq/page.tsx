@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { Suspense } from 'react';
-import { FAQ_DATA, FAQItem, CATEGORY_ICONS } from '@/lib/faq-data';
+import { FAQ_DATA, FAQItem, CATEGORY_ICONS, faqBlocksToPlainText } from '@/lib/faq-data';
 import { FAQItemCard } from '@/components/faq/FAQItem';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
@@ -49,7 +49,7 @@ export default function FAQPage() {
           name: faq.question,
           acceptedAnswer: {
             '@type': 'Answer',
-            text: faq.answer.replace(/<[^>]*>?/gm, ''),
+            text: faqBlocksToPlainText(faq.answer),
           },
         })),
       },
