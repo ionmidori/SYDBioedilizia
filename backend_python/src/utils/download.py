@@ -198,6 +198,16 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
         try:
             for _ in range(_MAX_REDIRECTS + 1):
                 _validate_url_for_ssrf(current_url)
+
+                # Inline host-allowlist barrier, immediately adjacent to the
+                # request sink. Functionally redundant with the check inside
+                # _validate_url_for_ssrf above, but kept here so static taint
+                # analysis (CodeQL py/full-ssrf) can see the exact-hostname
+                # allowlist guard dominating the outbound request.
+                request_host = (urlparse(current_url).hostname or "").lower()
+                if request_host not in _allowed_download_hosts():
+                    raise ValueError(f"URL host '{request_host}' not in download allowlist")
+
                 resp = await client.get(current_url, headers=headers)
 
                 if resp.status_code in _REDIRECT_STATUS:
