@@ -6,7 +6,6 @@ Covers CodeQL alerts py/full-ssrf (#1), py/incomplete-url-substring-sanitization
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 from src.utils.download import (
     _build_allowlisted_request_url,
     _parse_firebase_url,
