@@ -2,7 +2,7 @@
 import ipaddress
 import logging
 import mimetypes
-from urllib.parse import unquote, urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse, urlunparse
 
 import httpx
 from firebase_admin import storage
@@ -91,6 +91,32 @@ def _validate_url_for_ssrf(url: str) -> None:
 
     if hostname not in _allowed_download_hosts():
         raise ValueError(f"URL host '{hostname}' not in download allowlist")
+
+
+def _build_allowlisted_request_url(url: str) -> str:
+    """Return a request URL whose host is a **constant** drawn from the allowlist.
+
+    After validating the parsed hostname against the allowlist, the outbound URL
+    is rebuilt using the matched allowlist constant as the netloc — not the raw
+    user-supplied host. This both (a) guarantees the request can only ever reach
+    an allowlisted host even if httpx and urlparse disagree on parsing, and
+    (b) breaks the host-taint so static analysis no longer sees a fully
+    attacker-controlled request URL (CodeQL py/full-ssrf). Scheme is pinned to
+    https; any user-supplied port is dropped.
+
+    Raises ValueError if the host is not allowlisted (or the URL is malformed).
+    """
+    _validate_url_for_ssrf(url)
+    parsed = urlparse(url)
+    hostname = (parsed.hostname or "").lower()
+
+    # Pick the canonical host from the allowlist constant. `matched` is sourced
+    # from the allowlist set, so the rebuilt URL's host is not user-controlled.
+    matched = next((h for h in _allowed_download_hosts() if h == hostname), None)
+    if matched is None:
+        raise ValueError(f"URL host '{hostname}' not in download allowlist")
+
+    return urlunparse(("https", matched, parsed.path, parsed.params, parsed.query, ""))
 
 
 def _parse_firebase_url(url: str) -> tuple[str, str] | None:
@@ -197,18 +223,10 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
         current_url = url
         try:
             for _ in range(_MAX_REDIRECTS + 1):
-                _validate_url_for_ssrf(current_url)
-
-                # Inline host-allowlist barrier, immediately adjacent to the
-                # request sink. Functionally redundant with the check inside
-                # _validate_url_for_ssrf above, but kept here so static taint
-                # analysis (CodeQL py/full-ssrf) can see the exact-hostname
-                # allowlist guard dominating the outbound request.
-                request_host = (urlparse(current_url).hostname or "").lower()
-                if request_host not in _allowed_download_hosts():
-                    raise ValueError(f"URL host '{request_host}' not in download allowlist")
-
-                resp = await client.get(current_url, headers=headers)
+                # Validate and rebuild with an allowlisted constant host, so the
+                # request can only reach an allowlisted host (redirects included).
+                safe_url = _build_allowlisted_request_url(current_url)
+                resp = await client.get(safe_url, headers=headers)
 
                 if resp.status_code in _REDIRECT_STATUS:
                     location = resp.headers.get("location")

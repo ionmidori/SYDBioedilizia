@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.utils.download import (
+    _build_allowlisted_request_url,
     _parse_firebase_url,
     _validate_url_for_ssrf,
     download_image_smart,
@@ -57,6 +58,21 @@ class TestValidateSsrf:
 
     def test_allows_allowlisted_host(self):
         _validate_url_for_ssrf("https://storage.googleapis.com/bucket/o.png")  # no raise
+
+
+class TestBuildAllowlistedRequestUrl:
+    def test_rebuilds_with_constant_host_and_https(self):
+        out = _build_allowlisted_request_url("http://storage.googleapis.com:8080/bucket/o.png?x=1")
+        # Scheme pinned to https, user-supplied port dropped, path/query preserved.
+        assert out == "https://storage.googleapis.com/bucket/o.png?x=1"
+
+    def test_rejects_non_allowlisted(self):
+        with pytest.raises(ValueError):
+            _build_allowlisted_request_url("https://evil.example.com/x")
+
+    def test_rejects_internal_ip(self):
+        with pytest.raises(ValueError):
+            _build_allowlisted_request_url("http://169.254.1.1/x")
 
 
 class TestParseFirebaseUrl:
