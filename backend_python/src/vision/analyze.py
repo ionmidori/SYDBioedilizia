@@ -7,6 +7,7 @@ from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 from src.core.config import settings
+from src.utils.download import is_gemini_file_uri
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ CRITICAL RULES:
         # Determine content part based on input type
         try:
             candidate_str = image_bytes.decode('utf-8')
-            if candidate_str.startswith("https://generativelanguage.googleapis.com") or candidate_str.startswith("files/"):
+            if is_gemini_file_uri(candidate_str):
                 logger.info(f"[Vision] Using Native File API URI: {candidate_str}")
                 image_part = genai_types.Part(file_data=genai_types.FileData(file_uri=candidate_str))
             else:

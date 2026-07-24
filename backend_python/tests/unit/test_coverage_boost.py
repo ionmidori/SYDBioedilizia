@@ -267,6 +267,36 @@ class TestValidateImageMagicBytes:
 # 4. src/utils/download.py
 # ---------------------------------------------------------------------------
 
+def _mock_stream_client(mock_httpx_cls, status_code, headers, body=b"", raise_for_status_error=None):
+    """Wire mock_httpx_cls so `async with client.stream(...) as resp:` yields a
+    single response with the given status/headers/body (download.py streams
+    the response body instead of buffering it via client.get())."""
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.headers = headers
+    if raise_for_status_error is not None:
+        resp.raise_for_status = MagicMock(side_effect=raise_for_status_error)
+    else:
+        resp.raise_for_status = MagicMock()
+
+    async def aiter_bytes():
+        if body:
+            yield body
+
+    resp.aiter_bytes = aiter_bytes
+
+    stream_cm = AsyncMock()
+    stream_cm.__aenter__ = AsyncMock(return_value=resp)
+    stream_cm.__aexit__ = AsyncMock(return_value=False)
+
+    mock_client = AsyncMock()
+    mock_client.stream = MagicMock(return_value=stream_cm)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+    mock_httpx_cls.return_value = mock_client
+    return mock_client
+
+
 class TestDownloadImageSmart:
     async def test_gemini_file_api_url_passthrough(self):
         from src.utils.download import download_image_smart
@@ -319,16 +349,9 @@ class TestDownloadImageSmart:
         mock_storage.bucket.side_effect = Exception("Not initialized")
 
         # HTTP succeeds
-        mock_response = MagicMock()
-        mock_response.content = b"\xff\xd8\xff\xe0"
-        mock_response.headers = {"content-type": "image/jpeg"}
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
-        mock_httpx_cls.return_value = mock_client
+        _mock_stream_client(
+            mock_httpx_cls, 200, {"content-type": "image/jpeg"}, body=b"\xff\xd8\xff\xe0"
+        )
 
         content, mime = await download_image_smart(
             "https://firebasestorage.googleapis.com/v0/b/bucket/o/path?alt=media"
@@ -339,16 +362,9 @@ class TestDownloadImageSmart:
     @patch("src.utils.download.httpx.AsyncClient")
     async def test_regular_http_download(self, mock_httpx_cls):
         from src.utils.download import download_image_smart
-        mock_response = MagicMock()
-        mock_response.content = b"\x89PNG\r\n\x1a\n"
-        mock_response.headers = {"content-type": "image/png"}
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
-        mock_httpx_cls.return_value = mock_client
+        _mock_stream_client(
+            mock_httpx_cls, 200, {"content-type": "image/png"}, body=b"\x89PNG\r\n\x1a\n"
+        )
 
         content, mime = await download_image_smart("https://storage.googleapis.com/test-bucket/photo.png")
         assert content == b"\x89PNG\r\n\x1a\n"
@@ -357,16 +373,9 @@ class TestDownloadImageSmart:
     @patch("src.utils.download.httpx.AsyncClient")
     async def test_suspicious_content_type_fallback(self, mock_httpx_cls):
         from src.utils.download import download_image_smart
-        mock_response = MagicMock()
-        mock_response.content = b"\x89PNG"
-        mock_response.headers = {"content-type": "application/octet-stream"}
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
-        mock_httpx_cls.return_value = mock_client
+        _mock_stream_client(
+            mock_httpx_cls, 200, {"content-type": "application/octet-stream"}, body=b"\x89PNG"
+        )
 
         content, mime = await download_image_smart("https://storage.googleapis.com/test-bucket/photo.png")
         assert mime == "image/png"  # guessed from URL
@@ -374,16 +383,7 @@ class TestDownloadImageSmart:
     @patch("src.utils.download.httpx.AsyncClient")
     async def test_missing_content_type_header(self, mock_httpx_cls):
         from src.utils.download import download_image_smart
-        mock_response = MagicMock()
-        mock_response.content = b"data"
-        mock_response.headers = {}
-        mock_response.raise_for_status = MagicMock()
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock()
-        mock_httpx_cls.return_value = mock_client
+        _mock_stream_client(mock_httpx_cls, 200, {}, body=b"data")
 
         content, mime = await download_image_smart("https://storage.googleapis.com/test-bucket/unknown")
         assert mime == "application/octet-stream"
@@ -391,14 +391,9 @@ class TestDownloadImageSmart:
     @patch("src.utils.download.httpx.AsyncClient")
     async def test_http_error_propagation(self, mock_httpx_cls):
         from src.utils.download import download_image_smart
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = Exception("404 Not Found")
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_httpx_cls.return_value = mock_client
+        _mock_stream_client(
+            mock_httpx_cls, 404, {}, raise_for_status_error=Exception("404 Not Found")
+        )
 
         with pytest.raises(Exception, match="Failed to download"):
             await download_image_smart("https://storage.googleapis.com/test-bucket/missing.jpg")
