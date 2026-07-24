@@ -48,7 +48,10 @@ concurrency:
 env:
   # ⚠️ MUST match the `name:` of the job below, verbatim. This job shows up in
   # the PR's own check list, so the gate has to skip its own entry -- see the
-  # long comment in the "Wait for all checks" step.
+  # long comment in the "Wait for all checks" step. Never add a
+  # `strategy.matrix` to that job: GitHub would render the check as
+  # `name (values)` and this literal would stop matching. Drift fails closed
+  # (the gate deadlocks to its timeout) rather than merging early.
   SELF_CHECK_NAME: 'Auto-merge Dependabot PRs'
 
 jobs:
@@ -68,14 +71,27 @@ jobs:
     # `pull_request` runs are restricted to Dependabot's own PRs. Manual
     # dispatch is allowed for anyone who can run workflows, but it is forced
     # into dry-run mode below, so it can never merge anything.
+    #
+    # BOTH author and actor are required, deliberately. `user.login` is the PR
+    # author and never changes; `github.actor` on a `synchronize` event is
+    # whoever pushed. Author alone would let a human push arbitrary commits
+    # onto a `dependabot/*` branch and have them squash-merged into an
+    # unprotected `main` with no review, since fetch-metadata still reports
+    # semver-patch off Dependabot's original commit. Requiring the actor too
+    # means a human-triggered re-run simply skips the job -- fails closed.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.pull_request.user.login == 'dependabot[bot]'
+      (github.event.pull_request.user.login == 'dependabot[bot]' &&
+       github.actor == 'dependabot[bot]')
 
     env:
       GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
       REPO: '${{ github.repository }}'
       PR_NUMBER: '${{ github.event.pull_request.number || inputs.pr_number }}'
+      # The head SHA whose checks the gate validates. The merge is pinned to it
+      # so a push landing between the last poll and the merge call cannot slip
+      # unvalidated code in. Empty on workflow_dispatch, which never merges.
+      HEAD_SHA: '${{ github.event.pull_request.head.sha }}'
 
     steps:
       # NOTE: there is deliberately no `actions/checkout` here. This job only
@@ -128,9 +144,19 @@ jobs:
           # do not auto-merge" note in its description that no automation could
           # act on. A label can be acted on -- add `no-auto-merge` to any
           # Dependabot PR that must not go in unattended.
+          #
+          # The fetch is kept separate from the match on purpose. Piping gh
+          # straight into `grep -q` makes ANY gh failure -- 5xx, secondary rate
+          # limit, token blip -- indistinguishable from "label absent", so the
+          # one guard that exists to stop a merge would fail OPEN and merge.
+          # Every other failure path in this workflow fails closed; so does
+          # this one now.
           if [ "$eligible" = 'true' ]; then
-            if gh pr view "$PR_NUMBER" --repo "$REPO" --json labels \
-                 --jq '.labels[].name' | grep -qx 'no-auto-merge'; then
+            if ! labels="$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '.labels[].name')"; then
+              echo "::error::Could not read labels on PR #$PR_NUMBER -- refusing to merge blind."
+              exit 1
+            fi
+            if printf '%s\n' "$labels" | grep -qx 'no-auto-merge'; then
               eligible=false
               reason='PR carries the no-auto-merge label'
             fi
@@ -159,16 +185,40 @@ jobs:
 
           poll_interval=30
           deadline=$(( $(date +%s) + 25 * 60 ))
+          err="$RUNNER_TEMP/gh-checks.err"
 
           # Anti-race: at job start the other workflows may not have registered
           # their checks yet. An empty list must never be read as "all green",
           # so give them a head start and treat empty as pending below.
           sleep 60
 
+          # `total > 0 && pending == 0` must hold on two CONSECUTIVE polls before
+          # merging. `total > 0` only proves that *some* checks exist, not that
+          # the expected ones do: Vercel and default-setup CodeQL create their
+          # contexts outside this repo's workflows and can register minutes in,
+          # after the faster checks have already gone green. Requiring the green
+          # state to persist across one poll interval costs 30s and closes that
+          # class of race, which a longer initial sleep cannot.
+          green_streak=0
+
           while :; do
-            # `gh pr checks` exits non-zero while checks are pending or failing;
-            # we parse the JSON ourselves, so ignore the exit status.
-            checks="$(gh pr checks "$PR_NUMBER" --repo "$REPO" --json name,bucket 2>/dev/null || echo '[]')"
+            # NOTE: with `--json`, gh returns 0 even when checks are failing or
+            # pending -- the exporter path returns before the exit-code logic.
+            # So a non-zero exit here is a REAL error (auth, rate limit, 5xx)
+            # with one exception: "no checks reported" when none exist yet.
+            # Collapsing the two into `|| echo '[]'` would both hide genuine
+            # failures and, if gh ever did exit non-zero on pending, capture the
+            # stdout of BOTH commands into one string -- two JSON documents, so
+            # every `[ "$total" -gt 0 ]` would break with "integer expression
+            # expected" and the gate would silently run to the timeout.
+            if ! checks="$(gh pr checks "$PR_NUMBER" --repo "$REPO" --json name,bucket 2>"$err")"; then
+              if grep -q 'no checks reported' "$err"; then
+                checks='[]'
+              else
+                echo "::error::gh pr checks failed on PR #$PR_NUMBER: $(cat "$err")"
+                exit 1
+              fi
+            fi
 
             # `bucket` normalises check runs and legacy status contexts (Vercel
             # reports as the latter) into: pass|fail|pending|skipping|cancel.
@@ -186,9 +236,15 @@ jobs:
             fi
 
             if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ]; then
-              echo "All $total check(s) passed."
-              printf '%s' "$relevant" | jq -r '.[] | "  - \(.name) [\(.bucket)]"'
-              break
+              green_streak=$(( green_streak + 1 ))
+              if [ "$green_streak" -ge 2 ]; then
+                echo "All $total check(s) passed (stable across 2 polls)."
+                printf '%s' "$relevant" | jq -r '.[] | "  - \(.name) [\(.bucket)]"'
+                break
+              fi
+              echo "All $total check(s) green -- confirming on the next poll..."
+            else
+              green_streak=0
             fi
 
             if [ "$(date +%s)" -ge "$deadline" ]; then
@@ -206,11 +262,19 @@ jobs:
 
       - name: 'Merge'
         if: "steps.decide.outputs.eligible == 'true' && steps.decide.outputs.dry_run != 'true'"
+        # --match-head-commit pins the merge to the SHA whose checks the gate
+        # actually validated: if a push lands in the window between the last
+        # poll and this call, the API rejects the merge instead of merging
+        # code nothing has run against. `cancel-in-progress` is not sufficient
+        # on its own -- cancellation is asynchronous and can arrive after the
+        # merge has already been issued.
+        #
         # --delete-branch compensates for the repo-level delete_branch_on_merge
         # being off, so Dependabot branches do not pile up.
         run: |
           set -euo pipefail
-          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch
+          gh pr merge "$PR_NUMBER" --repo "$REPO" --squash --delete-branch \
+            --match-head-commit "$HEAD_SHA"
           echo "Merged PR #$PR_NUMBER." >> "$GITHUB_STEP_SUMMARY"
 
       - name: 'Dry run -- would have merged'
