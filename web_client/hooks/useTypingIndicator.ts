@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
 
+/** Cryptographically-strong random index in [0, length). Avoids Math.random(),
+ *  which CodeQL flags as insecure randomness (js/insecure-randomness). */
+function randomIndex(length: number): number {
+    const buf = new Uint32Array(1);
+    crypto.getRandomValues(buf);
+    return buf[0] % length;
+}
+
 /**
  * Custom hook for managing contextual typing indicator messages
  * Extracted from ChatWidget.tsx (lines 220, 238-261)
@@ -49,11 +57,11 @@ export function useTypingIndicator(isLoading: boolean) {
 
         // Pick random start - wrap in timeout to avoid sync setState warning
         timerId = setTimeout(() => {
-            const index = Math.floor(Math.random() * typingMessages.length);
+            const index = randomIndex(typingMessages.length);
             setTypingMessage(typingMessages[index]);
         }, 0);
 
-        let currentIndex = Math.floor(Math.random() * typingMessages.length);
+        let currentIndex = randomIndex(typingMessages.length);
 
         const interval = setInterval(() => {
             currentIndex = (currentIndex + 1) % typingMessages.length;

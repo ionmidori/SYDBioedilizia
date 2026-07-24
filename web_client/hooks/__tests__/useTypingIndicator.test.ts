@@ -5,12 +5,17 @@ import { act } from 'react';
 describe('useTypingIndicator', () => {
     beforeEach(() => {
         jest.useFakeTimers();
-        jest.spyOn(Math, 'random').mockReturnValue(0); // Always start at index 0
+        // The hook picks its starting index via crypto.getRandomValues; force it
+        // to 0 so message cycling is deterministic in tests.
+        jest.spyOn(crypto, 'getRandomValues').mockImplementation((arr) => {
+            if (arr) new Uint32Array(arr.buffer).fill(0);
+            return arr;
+        });
     });
 
     afterEach(() => {
         jest.useRealTimers();
-        jest.spyOn(Math, 'random').mockRestore();
+        jest.restoreAllMocks();
     });
 
     it('should return default message when not loading', () => {

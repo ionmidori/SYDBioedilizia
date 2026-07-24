@@ -37,7 +37,9 @@ async def test_generate_upload_url(mock_storage, mock_settings):
 
     # Asserts
     assert response.upload_url == "https://mock-signed-url.com"
-    assert "test-bucket.appspot.com" in response.public_url
+    assert response.public_url.startswith(
+        "https://firebasestorage.googleapis.com/v0/b/test-bucket.appspot.com/"
+    )
     assert "project_assets" in response.path
     assert "test_image.jpg" in response.path
 
