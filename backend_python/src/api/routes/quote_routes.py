@@ -253,10 +253,10 @@ async def start_quote_flow(
             detail=f"Quote for project '{project_id}' is already approved.",
         )
     except CheckpointError as e:
-        logger.error(f"Checkpoint error: {e}")
+        logger.error(f"Checkpoint error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(e),
+            detail="Quote checkpoint service is temporarily unavailable.",
         )
     except Exception:
         logger.exception("Unexpected error in start_quote_flow.", extra={"project_id": project_id})
@@ -310,10 +310,10 @@ async def _run_quote_approval(
             detail=f"No pending quote found for project '{project_id}'. Run /start first.",
         )
     except CheckpointError as e:
-        logger.error(f"Checkpoint error during approve: {e}")
+        logger.error(f"Checkpoint error during approve: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(e),
+            detail="Quote checkpoint service is temporarily unavailable.",
         )
     except Exception:
         logger.exception("Unexpected error in approve_quote.", extra={"project_id": project_id})

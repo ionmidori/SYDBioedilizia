@@ -41,8 +41,7 @@ async def main():
         print(f"   Please set it using: $env:GEMINI_API_KEY='your_key'")
         return
 
-    masked_key = f"{api_key[:4]}...{api_key[-4:]}"
-    print(f"✅ API Key found: {masked_key}")
+    print("✅ API Key found.")
     print(f"🎯 Target Model: {T2I_MODEL}")
 
     # 2. Test T2I Generation

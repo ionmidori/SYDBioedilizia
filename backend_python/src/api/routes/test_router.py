@@ -16,8 +16,8 @@ async def test_market_prices(
     try:
         return await get_market_prices_wrapper(query=query)
     except Exception as e:
-        logger.error(f"Test Market Prices failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Test Market Prices failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Market prices tool failed.")
 
 @router.post("/tools/analyze-room")
 async def test_analyze_room(
@@ -32,8 +32,8 @@ async def test_analyze_room(
             media_data=content, mime_type=file.content_type or "application/octet-stream"
         )
     except Exception as e:
-        logger.error(f"Test Analyze Room failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Test Analyze Room failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Analyze room tool failed.")
 
 @router.post("/tools/generate-render")
 async def test_generate_render(
@@ -54,8 +54,8 @@ async def test_generate_render(
             keep_elements=payload.get("keep_elements")
         )
     except Exception as e:
-        logger.error(f"Test Generate Render failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Test Generate Render failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Generate render tool failed.")
 
 @router.post("/tools/generate-cad")
 async def test_generate_cad(
@@ -84,5 +84,5 @@ async def test_generate_cad(
         # otherwise re-wrap them as 500.
         raise
     except Exception as e:
-        logger.error(f"Test Generate CAD failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Test Generate CAD failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Generate CAD tool failed.")
