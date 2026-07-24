@@ -41,7 +41,7 @@ class TestRenderGeneration:
         # Assert
         assert result["status"] == "success"
         assert "Rendering generated successfully" in result["description"]
-        assert "https://storage.googleapis.com/" in result["imageUrl"]
+        assert result["imageUrl"].startswith("https://storage.googleapis.com/")
         mock_t2i.assert_called_once()
         mock_upload.assert_called_once()
 
@@ -93,7 +93,7 @@ class TestRenderGeneration:
         # Assert
         assert result["status"] == "success"
         assert "Rendering transformed successfully" in result["description"]
-        assert "https://storage.googleapis.com/" in result["imageUrl"]
+        assert result["imageUrl"].startswith("https://storage.googleapis.com/")
 
         # Verify Architect was called with correct params
         mock_architect.assert_called_once()

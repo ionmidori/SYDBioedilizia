@@ -2,6 +2,32 @@ import { Message } from '@/types/chat';
 import imageCompression from 'browser-image-compression';
 import { logger } from '@/lib/logger';
 
+// Storage hosts whose objects we treat as displayable image assets.
+const IMAGE_STORAGE_HOSTS = new Set([
+    'storage.googleapis.com',
+    'firebasestorage.googleapis.com',
+]);
+
+/**
+ * True if a markdown URL points to a displayable image: either a known storage
+ * host, or a path with an image extension. Parses the URL and inspects
+ * hostname/pathname instead of substring-matching the whole string, so a host
+ * like `storage.googleapis.com.evil.tld` (or `.png` in a query string) is not
+ * mistaken for a trusted asset.
+ */
+function isImageAssetUrl(rawUrl: string): boolean {
+    try {
+        const parsed = new URL(rawUrl);
+        const host = parsed.hostname.toLowerCase();
+        if (IMAGE_STORAGE_HOSTS.has(host) || host.endsWith('.firebasestorage.app')) {
+            return true;
+        }
+        return /\.(jpe?g|png|webp|gif)$/i.test(parsed.pathname);
+    } catch {
+        return false;
+    }
+}
+
 export interface MediaAsset {
     id: string;
     type: 'image' | 'render' | 'quote' | 'video';
@@ -63,7 +89,7 @@ export function extractMediaFromMessages(messages: Message[]): MediaAsset[] {
             let match;
             while ((match = imageRegex.exec(msg.content)) !== null) {
                 const [, alt, url] = match;
-                if (url.includes('storage.googleapis.com') || url.includes('.jpg') || url.includes('.png')) {
+                if (isImageAssetUrl(url)) {
                     assets.push({
                         id: `${msg.id}-md-image-${assets.length}`,
                         type: url.includes('render') ? 'render' : 'image',

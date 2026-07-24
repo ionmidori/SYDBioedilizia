@@ -19,11 +19,24 @@ interface ActionResult {
  * @param formData - FormData from the client form
  * @returns ActionResult with success status and message
  */
+// Session/project IDs are alphanumeric with hyphens/underscores, matching the
+// backend contract (main.py ChatRequest.session_id / quote_routes _PROJECT_ID).
+// Validating here prevents request forgery: without it, the raw value is
+// interpolated into the backend URL path and could redirect the request
+// elsewhere or inject extra path segments.
+const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
+
 export async function updateProjectDetails(
     sessionId: string,
     formData: FormData
 ): Promise<ActionResult> {
     try {
+        if (!SESSION_ID_PATTERN.test(sessionId)) {
+            return {
+                success: false,
+                message: "Invalid project identifier.",
+            };
+        }
         // Parse and validate FormData
         const rawData = {
             id: sessionId,
@@ -73,7 +86,7 @@ export async function updateProjectDetails(
 
         // Proxy request to Python backend
         const backendUrl = process.env.PYTHON_BACKEND_URL || "http://localhost:8080";
-        const response = await fetch(`${backendUrl}/api/projects/${sessionId}/details`, {
+        const response = await fetch(`${backendUrl}/api/projects/${encodeURIComponent(sessionId)}/details`, {
             method: "PATCH",
             headers: {
                 "Content-Type": "application/json",

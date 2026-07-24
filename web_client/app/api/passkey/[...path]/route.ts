@@ -7,6 +7,18 @@ export const dynamic = 'force-dynamic';
 
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8080';
 
+// Exact set of passkey sub-paths the backend exposes (backend passkey.py router).
+// Restricting to this allowlist prevents request forgery / path traversal: the
+// catch-all segments are user-controlled and must never be interpolated raw into
+// the backend URL.
+const ALLOWED_PASSKEY_PATHS = new Set([
+    'register/options',
+    'register/verify',
+    'authenticate/options',
+    'authenticate/verify',
+    'check',
+]);
+
 async function handler(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
     // Await params as per Next.js 15+ requirements
     const resolvedParams = await params;
@@ -14,6 +26,10 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
     // 1. Construct the target URL
     // Join the path segments: e.g. ["register", "options"] -> "register/options"
     const path = resolvedParams.path.join('/');
+    if (!ALLOWED_PASSKEY_PATHS.has(path)) {
+        logger.warn(`[Passkey Proxy] Rejected non-allowlisted path: ${path}`);
+        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
     const targetUrl = `${PYTHON_BACKEND_URL}/api/passkey/${path}`;
 
     logger.debug(`[Passkey Proxy] Forwarding ${req.method} request to: ${targetUrl}`);
