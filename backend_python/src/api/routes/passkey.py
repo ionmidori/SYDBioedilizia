@@ -254,8 +254,8 @@ async def verify_registration(
             credential
         )
     except Exception as e:
-        logger.error(f"Registration verification failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Registration failed: {str(e)}")
+        logger.error(f"Registration verification failed: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Passkey registration failed.")
 
     # register_complete populates credential_data on success; guard for typing/safety.
     cred_data = auth_data.credential_data
@@ -394,8 +394,8 @@ async def verify_authentication(
             assertion
         )
     except Exception as e:
-        logger.error(f"Authentication verification failed: {e}")
-        raise HTTPException(status_code=400, detail=f"Authentication failed: {str(e)}")
+        logger.error(f"Authentication verification failed: {e}", exc_info=True)
+        raise HTTPException(status_code=400, detail="Passkey authentication failed.")
 
     # SECURITY (F-11): enforce a monotonically increasing signature counter to
     # detect cloned authenticators, then persist the new value. Per WebAuthn
