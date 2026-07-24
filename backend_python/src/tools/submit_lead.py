@@ -1,8 +1,12 @@
+import logging
 from typing import Optional
 
 from pydantic import BaseModel, Field
+from src.core.exceptions import ServiceError
 from src.db.leads import save_lead
 from src.models.lead import LeadData
+
+logger = logging.getLogger(__name__)
 
 
 class SubmitLeadInput(BaseModel):
@@ -42,7 +46,15 @@ async def submit_lead_wrapper(
         result = await save_lead(lead_data, uid, session_id)
         return f"Lead saved successfully! ID: {result['lead_id']}"
     except Exception as e:
-        return f"Error saving lead: {str(e)}"
+        # Log the full internal detail server-side, but surface a generic,
+        # non-leaking error to the caller. Raising (instead of returning an
+        # error string) also stops the /api/submit-lead endpoint from reporting
+        # a failure as {"status": "success", ...}.
+        logger.error(f"[submit_lead] Failed to save lead: {e}", exc_info=True)
+        raise ServiceError(
+            message="Unable to save your request right now. Please try again later.",
+            error_code="LEAD_SAVE_FAILED",
+        ) from e
 
 # Define the tool but note: 'uid' and 'session_id' need to be injected at runtime
 # We will partial this function in the graph construction when we have the request context

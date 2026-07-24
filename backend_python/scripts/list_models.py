@@ -11,7 +11,7 @@ if not api_key:
     print("❌ GEMINI_API_KEY not found in .env")
     exit(1)
 
-print(f"🔑 Using API Key: {api_key[:5]}...{api_key[-3:]}")
+print("🔑 API Key loaded.")
 
 try:
     client = genai.Client(api_key=api_key)
