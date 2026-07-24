@@ -226,20 +226,35 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
                 # Validate and rebuild with an allowlisted constant host, so the
                 # request can only reach an allowlisted host (redirects included).
                 safe_url = _build_allowlisted_request_url(current_url)
-                resp = await client.get(safe_url, headers=headers)
 
-                if resp.status_code in _REDIRECT_STATUS:
-                    location = resp.headers.get("location")
-                    if not location:
-                        raise Exception("Redirect response without Location header")
-                    current_url = urljoin(current_url, location)
-                    continue
+                # Stream the response so the size cap is enforced as bytes
+                # arrive, instead of buffering the full body via client.get()
+                # and only checking its length afterwards (which would let a
+                # malicious/compromised allowlisted origin exhaust memory).
+                async with client.stream("GET", safe_url, headers=headers) as resp:
+                    if resp.status_code in _REDIRECT_STATUS:
+                        location = resp.headers.get("location")
+                        if not location:
+                            raise Exception("Redirect response without Location header")
+                        current_url = urljoin(current_url, location)
+                        continue
 
-                resp.raise_for_status()
+                    resp.raise_for_status()
 
-                file_bytes = resp.content
-                if len(file_bytes) > _MAX_DOWNLOAD_BYTES:
-                    raise Exception(f"Downloaded body exceeds size cap ({len(file_bytes)} bytes)")
+                    content_length = resp.headers.get("content-length")
+                    if content_length and int(content_length) > _MAX_DOWNLOAD_BYTES:
+                        raise Exception(
+                            f"Declared content-length ({content_length} bytes) exceeds size cap"
+                        )
+
+                    chunks: list[bytes] = []
+                    total_bytes = 0
+                    async for chunk in resp.aiter_bytes():
+                        total_bytes += len(chunk)
+                        if total_bytes > _MAX_DOWNLOAD_BYTES:
+                            raise Exception(f"Downloaded body exceeds size cap (>{_MAX_DOWNLOAD_BYTES} bytes)")
+                        chunks.append(chunk)
+                    file_bytes = b"".join(chunks)
 
                 content_type = resp.headers.get("content-type")
                 if not content_type or (

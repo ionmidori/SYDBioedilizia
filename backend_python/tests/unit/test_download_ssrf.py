@@ -99,20 +99,37 @@ class TestParseFirebaseUrl:
         assert result is not None
 
 
+def _make_stream_response(status_code, headers, body=b""):
+    """Build a mocked httpx streaming response usable as `async with client.stream(...)`."""
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.headers = headers
+    resp.raise_for_status = MagicMock()
+
+    async def aiter_bytes():
+        if body:
+            yield body
+
+    resp.aiter_bytes = aiter_bytes
+
+    stream_cm = AsyncMock()
+    stream_cm.__aenter__ = AsyncMock(return_value=resp)
+    stream_cm.__aexit__ = AsyncMock(return_value=False)
+    return stream_cm
+
+
 class TestRedirectSsrf:
-    async def _client_returning(self, responses):
-        """Build a mocked httpx AsyncClient yielding `responses` in order."""
+    async def _client_returning(self, stream_responses):
+        """Build a mocked httpx AsyncClient whose .stream() yields `stream_responses` in order."""
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=responses)
+        mock_client.stream = MagicMock(side_effect=stream_responses)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
         return mock_client
 
     @patch("src.utils.download.httpx.AsyncClient")
     async def test_redirect_to_internal_ip_blocked(self, mock_httpx_cls):
-        redirect = MagicMock()
-        redirect.status_code = 302
-        redirect.headers = {"location": "http://169.254.169.254/latest/"}
+        redirect = _make_stream_response(302, {"location": "http://169.254.169.254/latest/"})
         mock_httpx_cls.return_value = await self._client_returning([redirect])
 
         with pytest.raises(Exception, match="Failed to download"):
@@ -120,16 +137,32 @@ class TestRedirectSsrf:
 
     @patch("src.utils.download.httpx.AsyncClient")
     async def test_valid_redirect_followed(self, mock_httpx_cls):
-        redirect = MagicMock()
-        redirect.status_code = 302
-        redirect.headers = {"location": "https://storage.googleapis.com/bucket/final.png"}
-        final = MagicMock()
-        final.status_code = 200
-        final.content = b"\x89PNG"
-        final.headers = {"content-type": "image/png"}
-        final.raise_for_status = MagicMock()
+        redirect = _make_stream_response(
+            302, {"location": "https://storage.googleapis.com/bucket/final.png"}
+        )
+        final = _make_stream_response(200, {"content-type": "image/png"}, body=b"\x89PNG")
         mock_httpx_cls.return_value = await self._client_returning([redirect, final])
 
         content, mime = await download_image_smart("https://replicate.delivery/legit/img.png")
         assert content == b"\x89PNG"
         assert mime == "image/png"
+
+    @patch("src.utils.download.httpx.AsyncClient")
+    async def test_oversized_body_rejected_mid_stream(self, mock_httpx_cls):
+        # No content-length header, so the cap must be enforced while
+        # iterating chunks rather than upfront.
+        big_chunk = b"x" * (10 * 1024 * 1024)
+        response = _make_stream_response(200, {"content-type": "image/png"})
+
+        async def aiter_bytes():
+            for _ in range(6):  # 60MB total, over the 50MB cap
+                yield big_chunk
+
+        # Same mocked resp object is returned on every __aenter__ call.
+        streamed = await response.__aenter__()
+        streamed.aiter_bytes = aiter_bytes
+
+        mock_httpx_cls.return_value = await self._client_returning([response])
+
+        with pytest.raises(Exception, match="Failed to download"):
+            await download_image_smart("https://replicate.delivery/legit/img.png")
