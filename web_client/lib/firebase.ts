@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, Auth, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { getAuth, Auth, setPersistence, browserLocalPersistence, connectAuthEmulator } from 'firebase/auth';
 import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
 import { logger } from '@/lib/logger';
 
@@ -17,10 +17,38 @@ const firebaseConfig = {
     appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+/**
+ * Firebase Emulator Suite wiring — E2E only.
+ *
+ * `NEXT_PUBLIC_FIREBASE_EMULATOR` is set exclusively by the authenticated
+ * Playwright build (`npm run build:e2e`) and is never defined in Vercel, so in
+ * production this compares to `undefined` and the whole branch is statically
+ * false. Keeping the flag first in every `&&` chain lets the minifier drop the
+ * branch — and the emulator ports — from the production bundle entirely.
+ *
+ * Ports match the `emulators` block in the repo-root `firebase.json`. Firestore
+ * uses 8085 rather than the CLI default 8080 because the local Python backend
+ * already owns 8080 (see `next.config.ts` dev rewrites).
+ */
+const USE_EMULATORS = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === 'true';
+const EMULATOR_HOST = '127.0.0.1';
+const AUTH_EMULATOR_PORT = 9099;
+const FIRESTORE_EMULATOR_PORT = 8085;
+
 // Initialize Firebase (singleton pattern)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 const auth = getAuth(app);
+
+// MUST run before setPersistence() and before any getIdToken() call, otherwise
+// the SDK has already talked to the live Auth backend and refuses to switch.
+if (USE_EMULATORS && typeof window !== 'undefined') {
+    try {
+        connectAuthEmulator(auth, `http://${EMULATOR_HOST}:${AUTH_EMULATOR_PORT}`, { disableWarnings: true });
+    } catch {
+        // Already connected (Fast Refresh re-evaluates this module) — harmless.
+    }
+}
 
 // Configure persistence (localStorage for reliability)
 let authReadyResolve: () => void = () => { };
@@ -50,21 +78,34 @@ if (typeof window !== 'undefined') {
 export const waitForAuth = (): Promise<void> => authReadyPromise;
 
 // Initialize Firestore with modern persistence
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 let db: ReturnType<typeof getFirestore>;
 
 try {
-    // Attempt to initialize with persistence and polling fallback
-    db = initializeFirestore(app, {
-        localCache: persistentLocalCache({
-            tabManager: persistentMultipleTabManager()
-        }),
-        experimentalAutoDetectLongPolling: true
-    });
+    // Attempt to initialize with persistence and polling fallback.
+    // Under the emulator we use an in-memory cache instead: IndexedDB
+    // persistence emits an empty cached snapshot before the server snapshot,
+    // which makes message-count assertions in the E2E suite flap.
+    db = initializeFirestore(app, USE_EMULATORS
+        ? { localCache: memoryLocalCache() }
+        : {
+            localCache: persistentLocalCache({
+                tabManager: persistentMultipleTabManager()
+            }),
+            experimentalAutoDetectLongPolling: true
+        });
 } catch {
     // If already initialized (e.g., during Next.js Fast Refresh), retrieve the existing instance
     db = getFirestore(app);
+}
+
+if (USE_EMULATORS && typeof window !== 'undefined') {
+    try {
+        connectFirestoreEmulator(db, EMULATOR_HOST, FIRESTORE_EMULATOR_PORT);
+    } catch {
+        // Already connected — harmless.
+    }
 }
 
 // Initialize Storage

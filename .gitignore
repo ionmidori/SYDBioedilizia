@@ -13,6 +13,11 @@
 # testing
 /coverage
 
+# Playwright auth state: contains a live emulator ID token. The blanket *.json
+# rule below already covers user.json, but this is explicit (and covers uid.txt).
+web_client/e2e/**/.auth/
+**/playwright-report-authed/
+
 # playwright (e2e artifacts)
 **/playwright-report/
 **/test-results/
@@ -21,6 +26,8 @@
 
 # next.js
 **/.next/
+# Separate build artifact for the authenticated E2E suite (NEXT_DIST_DIR)
+**/.next-e2e/
 /out/
 
 # production
@@ -77,6 +84,10 @@ next-env.d.ts
 !jsconfig.json
 !vercel.json
 !firestore.indexes.json
+# Firebase CLI config: declares the rules/indexes files AND the emulator ports
+# used by the authenticated E2E suite. Without it tracked, `firebase
+# emulators:exec` has nothing to read on a fresh CI checkout.
+!firebase.json
 # ADK eval fixtures (test data, no secrets) — required by tests/evals/test_eval_infrastructure.py in CI
 !backend_python/tests/evals/*.test.json
 !backend_python/tests/evals/test_config.json

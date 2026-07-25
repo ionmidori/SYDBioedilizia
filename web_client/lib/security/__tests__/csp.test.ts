@@ -89,3 +89,24 @@ describe('buildCspHeader — directives shared by both policies', () => {
     expect(buildCspHeader({ nonce: 'abc' })).toContain(directive);
   });
 });
+
+describe('buildCspHeader — emulator origins never leak into production', () => {
+  // The E2E build widens connect-src to the loopback Firebase emulators and
+  // drops upgrade-insecure-requests. That is gated on
+  // NEXT_PUBLIC_FIREBASE_EMULATOR, which is never set in production — these
+  // tests pin that so a refactor cannot silently ship a weakened policy.
+  it.each([
+    ['127.0.0.1'],
+    ['localhost'],
+    ['ws://'],
+    ['http://'],
+  ])('production policies never contain %s', (needle) => {
+    expect(buildCspHeader()).not.toContain(needle);
+    expect(buildCspHeader({ nonce: 'abc' })).not.toContain(needle);
+  });
+
+  it('production policies keep upgrade-insecure-requests', () => {
+    expect(buildCspHeader()).toContain('upgrade-insecure-requests');
+    expect(buildCspHeader({ nonce: 'abc' })).toContain('upgrade-insecure-requests');
+  });
+});

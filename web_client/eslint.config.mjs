@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Build artifact of the authenticated E2E suite (NEXT_DIST_DIR=.next-e2e).
+    ".next-e2e/**",
     // Generated coverage report (gitignored): its bundled JS trips
     // unused-eslint-disable warnings when linting after `npm run test:coverage`.
     "coverage/**",
@@ -34,6 +36,13 @@ const eslintConfig = defineConfig([
     // The logger itself is the one place where console.log IS the implementation.
     files: ["lib/logger.ts"],
     rules: { "no-console": "off" },
+  },
+  {
+    // Playwright fixtures take a callback named `use` ({ page }, use) => ....
+    // The React lint rule matches it by name and reports a false "React Hook
+    // called outside a component" — there is no React in the E2E suite at all.
+    files: ["e2e/**"],
+    rules: { "react-hooks/rules-of-hooks": "off" },
   },
 ]);
 

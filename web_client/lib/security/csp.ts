@@ -23,6 +23,32 @@
 const SCRIPT_FALLBACK_ORIGINS =
   'https://www.google.com https://www.gstatic.com https://apis.google.com';
 
+const CONNECT_ORIGINS =
+  "'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com " +
+  'https://vitals.vercel-insights.com https://*.vercel-insights.com ' +
+  'https://syd-brain-w6yrkh3gfa-ew.a.run.app https://www.google.com https://www.gstatic.com ' +
+  'wss://*.firebaseio.com';
+
+/**
+ * Firebase emulator origins, added to connect-src ONLY in the E2E build.
+ *
+ * The emulators listen on loopback ports (9099 auth, 8085 firestore) which are
+ * *different origins* from the app's own — `'self'` does not cover them — so
+ * without this every emulator call is CSP-blocked and the authenticated suite
+ * cannot log in at all. `upgrade-insecure-requests` is also dropped in this
+ * mode: browsers exempt loopback from the upgrade, but relying on that is a
+ * bet a CI job shouldn't take.
+ *
+ * NEXT_PUBLIC_FIREBASE_EMULATOR is never set in production (Vercel), so this
+ * compares to `undefined` there and the branch is statically false.
+ */
+const EMULATOR_CONNECT_ORIGINS =
+  'http://127.0.0.1:9099 http://127.0.0.1:8085 ' +
+  'http://localhost:9099 http://localhost:8085 ' +
+  'ws://127.0.0.1:8085 ws://localhost:8085';
+
+const USE_EMULATORS = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === 'true';
+
 /** Routes rendered dynamically (force-dynamic) that receive the strict CSP. */
 export function isStrictCspPath(pathname: string): boolean {
   return pathname === '/dashboard' || pathname.startsWith('/dashboard/');
@@ -56,14 +82,14 @@ export function buildCspHeader({ nonce, isDev = false }: BuildCspOptions = {}): 
     style-src 'self' 'unsafe-inline';
     img-src 'self' blob: data: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com https://images.unsplash.com https://replicate.delivery;
     font-src 'self' data:;
-    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com https://vitals.vercel-insights.com https://*.vercel-insights.com https://syd-brain-w6yrkh3gfa-ew.a.run.app https://www.google.com https://www.gstatic.com wss://*.firebaseio.com;
+    connect-src ${CONNECT_ORIGINS}${USE_EMULATORS ? ` ${EMULATOR_CONNECT_ORIGINS}` : ''};
     media-src 'self' blob: https://firebasestorage.googleapis.com https://storage.googleapis.com;
     object-src 'none';
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
     frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com https://www.google.com https://recaptcha.google.com;
-    upgrade-insecure-requests;
+    ${USE_EMULATORS ? '' : 'upgrade-insecure-requests;'}
   `
     .replace(/\s{2,}/g, ' ')
     .trim();
