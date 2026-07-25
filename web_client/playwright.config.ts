@@ -22,6 +22,10 @@ const CI_PUBLIC_ENV = {
 
 export default defineConfig({
   testDir: './e2e',
+  // The authenticated suite lives in e2e/authed and needs the Firebase
+  // emulators plus its own build — it runs from playwright.emulator.config.ts.
+  // Without this it would be collected here and fail against the public build.
+  testIgnore: '**/authed/**',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

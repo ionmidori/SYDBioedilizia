@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 import createBundleAnalyzer from '@next/bundle-analyzer';
 
 const nextConfig: NextConfig = {
+  // The authenticated E2E suite needs its own build (NEXT_PUBLIC_* are inlined
+  // at build time, so emulator mode cannot be toggled on an existing artifact).
+  // An overridable distDir lets that build live alongside the real one instead
+  // of clobbering `.next` on every run.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
+
   // Enable verbose logging in development
   logging: {
     fetches: {
