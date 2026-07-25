@@ -288,6 +288,9 @@ export function ChatInput({
                     accept="image/*"
                     onChange={handleFileChange}
                     multiple
+                    // aria-hidden + tabIndex=-1 means there is no accessible selector
+                    // for this input; the E2E suite drives it via setInputFiles.
+                    data-testid="chat-file-input"
                     aria-hidden="true"
                     tabIndex={-1}
                 />

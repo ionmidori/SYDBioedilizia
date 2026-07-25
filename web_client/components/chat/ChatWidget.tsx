@@ -450,6 +450,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         {isInline ? (
                             <div
                                 ref={chatContainerRef}
+                                data-testid="chat-window"
                                 style={{
                                     // Push content up when keyboard is open (respecting M3 easing)
                                     paddingBottom: isMobile && keyboardHeight > 0 ? `${keyboardHeight}px` : undefined,
@@ -470,6 +471,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         ) : (
                             <motion.div
                                 key="chat-window"
+                                data-testid="chat-window"
                                 drag="y"
                                 dragControls={dragControls}
                                 dragListener={false} // Only drag via controls attached to header
