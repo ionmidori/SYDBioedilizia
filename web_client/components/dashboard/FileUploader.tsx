@@ -397,6 +397,8 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
                     {files.map(fileData => (
                         <div
                             key={fileData.id}
+                            data-testid="file-row"
+                            data-file-status={fileData.status}
                             className="glass-premium border-luxury-gold/10 p-4 rounded-xl flex items-center gap-4"
                         >
                             {/* File Icon/Preview */}
@@ -435,7 +437,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
 
                                 {/* Error Message */}
                                 {fileData.error && (
-                                    <p className="text-xs text-red-400 mt-1">{fileData.error}</p>
+                                    <p data-testid="file-error" className="text-xs text-red-400 mt-1">{fileData.error}</p>
                                 )}
                             </div>
 

@@ -77,6 +77,9 @@ export function ProjectCard({ project, index, selectable, selected, onToggleSele
     return (
         <motion.div
             onClick={handleCardClick}
+            data-testid="project-card"
+            data-project-id={project.session_id}
+            data-has-quote={hasQuote ? 'true' : 'false'}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             whileHover={{

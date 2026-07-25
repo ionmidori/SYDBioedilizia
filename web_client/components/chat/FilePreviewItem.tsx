@@ -107,6 +107,10 @@ export function FilePreviewItem({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
             transition={{ duration: 0.2 }}
+            // Upload state is otherwise conveyed only by a spinner/overlay colour;
+            // exposing it lets E2E await a state instead of racing an animation.
+            data-testid="file-preview"
+            data-upload-status={item.status}
             className={cn(
                 'relative group rounded-lg overflow-hidden border shadow-lg',
                 sizeClasses[size],

@@ -203,6 +203,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
             initial="hidden"
             animate="visible"
             exit="exit"
+            // E2E hooks: the message id is load-bearing for the id-stability test
+            // (it must survive the Firestore round-trip on reload — see #125/#127/#128).
+            data-testid="chat-message"
+            data-message-id={message.id}
+            data-message-role={message.role}
             className={cn(
                 "flex gap-3 max-w-[90%] group/msg",
                 message.role === 'user' ? "ml-auto flex-row-reverse" : "items-start"
