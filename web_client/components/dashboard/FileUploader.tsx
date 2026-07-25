@@ -407,7 +407,6 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
                                     <img
                                         src={fileData.preview}
                                         alt={fileData.file.name}
-                                        data-testid="file-preview"
                                         className="w-12 h-12 rounded-lg object-cover border border-luxury-gold/20"
                                     />
                                 ) : (
