@@ -84,7 +84,7 @@ async def submit_testimonial(
         return {"status": "ok", "message": "Recensione inviata. Sarà visibile dopo l'approvazione."}
     except Exception as e:
         logger.error(f"[testimonials] Submit failed: {e}")
-        raise HTTPException(status_code=500, detail="Errore durante l'invio della recensione.")
+        raise HTTPException(status_code=500, detail="Errore durante l'invio della recensione.") from e
 
 
 # ── Portfolio ────────────────────────────────────────────────────────────────

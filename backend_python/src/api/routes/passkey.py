@@ -235,7 +235,7 @@ async def verify_registration(
         challenge_b64 = client_data.get("challenge").rstrip("=")
     except Exception as e:
         logger.error(f"Invalid clientDataJSON: {e}")
-        raise HTTPException(status_code=400, detail="Invalid clientDataJSON")
+        raise HTTPException(status_code=400, detail="Invalid clientDataJSON") from e
 
     challenge_data = _challenge_store.pop(challenge_b64, None)
     if not challenge_data:
@@ -254,7 +254,7 @@ async def verify_registration(
         )
     except Exception as e:
         logger.error(f"Registration verification failed: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Passkey registration failed.")
+        raise HTTPException(status_code=400, detail="Passkey registration failed.") from e
 
     # register_complete populates credential_data on success; guard for typing/safety.
     cred_data = auth_data.credential_data
@@ -341,8 +341,8 @@ async def verify_authentication(
         import json
         client_data = json.loads(client_data_json)
         challenge_b64 = client_data.get("challenge").rstrip("=")
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid clientDataJSON")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid clientDataJSON") from e
 
     challenge_data = _challenge_store.pop(challenge_b64, None)
     if not challenge_data:
@@ -356,8 +356,8 @@ async def verify_authentication(
         try:
             padding = "==" if len(user_handle_b64) % 4 else ""
             user_id = base64.urlsafe_b64decode(user_handle_b64 + padding).decode('utf-8')
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid userHandle")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Invalid userHandle") from e
     else:
         user_id = challenge_data.get("user_id")
 
@@ -381,7 +381,7 @@ async def verify_authentication(
         cred_obj = AttestedCredentialData(websafe_decode(stored_cred_data))
     except Exception as e:
         logger.error(f"Failed to reconstruct credential: {e}")
-        raise HTTPException(status_code=500, detail="Corrupted credential data")
+        raise HTTPException(status_code=500, detail="Corrupted credential data") from e
 
     rp_id = _resolve_rp_id(request)
     server = _get_fido2_server(rp_id)
@@ -394,7 +394,7 @@ async def verify_authentication(
         )
     except Exception as e:
         logger.error(f"Authentication verification failed: {e}", exc_info=True)
-        raise HTTPException(status_code=400, detail="Passkey authentication failed.")
+        raise HTTPException(status_code=400, detail="Passkey authentication failed.") from e
 
     # SECURITY (F-11): enforce a monotonically increasing signature counter to
     # detect cloned authenticators, then persist the new value. Per WebAuthn
@@ -435,7 +435,7 @@ async def verify_authentication(
         token = custom_token_bytes.decode('utf-8')
     except Exception as e:
         logger.error(f"Error creating custom token: {e}")
-        raise HTTPException(status_code=500, detail="Token generation failed")
+        raise HTTPException(status_code=500, detail="Token generation failed") from e
 
     logger.info(f"Passkey authentication successful for user {user_id}")
 

@@ -88,7 +88,7 @@ def upload_base64_image(
 
     except Exception as e:
         logger.error(f"Upload failed: {str(e)}", exc_info=True)
-        raise Exception(f"Failed to upload image: {str(e)}")
+        raise Exception(f"Failed to upload image: {str(e)}") from e
 
 def upload_file_bytes(
     file_bytes: bytes,
@@ -127,4 +127,4 @@ def upload_file_bytes(
 
     except Exception as e:
         logger.error(f"File upload failed: {str(e)}", exc_info=True)
-        raise Exception(f"Failed to upload file: {str(e)}")
+        raise Exception(f"Failed to upload file: {str(e)}") from e

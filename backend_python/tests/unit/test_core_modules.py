@@ -291,7 +291,7 @@ class TestTraceSpanAsync:
             raise Exception("crash")
 
         with caplog.at_level(logging.INFO, logger="src.core.telemetry"):
-            with pytest.raises(Exception):
+            with pytest.raises(Exception, match="crash"):
                 await crash()
         assert "Span End" in caplog.text
 

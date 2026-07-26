@@ -28,8 +28,8 @@ def get_storage_client() -> storage.Client:
     # Get the Firebase Admin app instance
     try:
         app = firebase_admin.get_app()
-    except ValueError:
-        raise ValueError("Firebase Admin app not initialized. Call init_firebase() first.")
+    except ValueError as e:
+        raise ValueError("Firebase Admin app not initialized. Call init_firebase() first.") from e
 
     # Create Storage client using Firebase Admin credentials
     # This ensures Storage and Firestore use the same authentication

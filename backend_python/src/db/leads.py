@@ -43,4 +43,4 @@ async def save_lead(
 
     except Exception as e:
         logger.error(f"Failed to save lead: {str(e)}", exc_info=True)
-        raise Exception(f"Database error: {str(e)}")
+        raise Exception(f"Database error: {str(e)}") from e

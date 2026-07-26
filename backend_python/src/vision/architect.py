@@ -169,7 +169,7 @@ Respond with ONLY valid JSON. No markdown, no explanations:
 
     except Exception as error:
         logger.error(f"[Architect] Generation Error: {error}")
-        raise Exception(f"Architect generation failed: {str(error)}")
+        raise Exception(f"Architect generation failed: {str(error)}") from error
 
 
 def _create_fallback_output(target_style: str, preservation_list: str) -> ArchitectOutput:

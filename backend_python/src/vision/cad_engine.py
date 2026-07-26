@@ -105,7 +105,7 @@ async def analyze_floorplan_vector(image_bytes: bytes) -> CadVectorData:
 
     except Exception as e:
         logger.error(f"[CadEngine] Analysis failed: {e}")
-        raise ValueError(f"Failed to analyze floorplan: {e}")
+        raise ValueError(f"Failed to analyze floorplan: {e}") from e
 
 # --- 3. GENERAZIONE DXF (ezdxf) ---
 
@@ -151,4 +151,4 @@ def generate_dxf_bytes(vector_data: CadVectorData) -> bytes:
 
     except Exception as e:
         logger.error(f"[CadEngine] DXF Generation failed: {e}")
-        raise ValueError(f"Failed to generate DXF: {e}")
+        raise ValueError(f"Failed to generate DXF: {e}") from e

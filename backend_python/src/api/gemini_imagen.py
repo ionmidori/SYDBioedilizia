@@ -24,7 +24,7 @@ def _get_client():
             api_key = settings.api_key
             _client = genai.Client(api_key=api_key)
         except ValueError as e:
-            raise Exception(f"Configuration Error: {e}")
+            raise Exception(f"Configuration Error: {e}") from e
     return _client
 
 # Models for image generation
@@ -113,13 +113,13 @@ async def generate_image_t2i(
 
     except google_exceptions.InvalidArgument as e:
         logger.error(f"[Gemini] ❌ Invalid Argument (400): {e}")
-        raise Exception("Errore nell'immagine o nel prompt. Riprova con parametri diversi.")
+        raise Exception("Errore nell'immagine o nel prompt. Riprova con parametri diversi.") from e
     except google_exceptions.ResourceExhausted as e:
         logger.error(f"[Gemini] ❌ Quota Exceeded (429): {e}")
-        raise Exception("Il sistema è molto carico. Riprova tra qualcche minuto.")
+        raise Exception("Il sistema è molto carico. Riprova tra qualcche minuto.") from e
     except Exception as e:
         logger.error(f"[Gemini] ❌ T2I generation failed: {str(e)}", exc_info=True)
-        raise Exception(f"Errore di sistema nella generazione immagine: {str(e)}")
+        raise Exception(f"Errore di sistema nella generazione immagine: {str(e)}") from e
 
 
 async def generate_image_i2i(
@@ -196,9 +196,9 @@ async def generate_image_i2i(
                 ),
                 timeout=90.0  # Generative tasks can be slow, 90s is safe
             )
-        except TimeoutError:
+        except TimeoutError as e:
             logger.error("[Gemini] ❌ I2I Request timed out after 90s")
-            raise Exception("La generazione dell'immagine ha impiegato troppo tempo. Riprova.")
+            raise Exception("La generazione dell'immagine ha impiegato troppo tempo. Riprova.") from e
 
         logger.info("[Gemini] ✅ API Response received!")
 
@@ -243,10 +243,10 @@ async def generate_image_i2i(
 
     except google_exceptions.InvalidArgument as e:
         logger.error(f"[Gemini] ❌ Invalid Argument (400): {e}")
-        raise Exception("L'immagine caricata non è valida o il prompt è incorretto.")
+        raise Exception("L'immagine caricata non è valida o il prompt è incorretto.") from e
     except google_exceptions.ResourceExhausted as e:
         logger.error(f"[Gemini] ❌ Quota Exceeded (429): {e}")
-        raise Exception("Server sovraccarico. Riprova tra poco.")
+        raise Exception("Server sovraccarico. Riprova tra poco.") from e
     except Exception as e:
         logger.error(f"[Gemini] ❌ I2I generation failed: {str(e)}", exc_info=True)
-        raise Exception(f"Errore imprevisto durante la generazione: {str(e)}")
+        raise Exception(f"Errore imprevisto durante la generazione: {str(e)}") from e

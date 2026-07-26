@@ -175,7 +175,7 @@ async def create_batch(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=e.message,
-        )
+        ) from e
 
     return CreateBatchResponse(
         batch_id=summary.batch_id,
@@ -297,16 +297,16 @@ async def submit_batch(
             batch_id=batch_id,
             is_admin=user_session.claims.get("role") == "admin",
         )
-    except PermissionDenied:
+    except PermissionDenied as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied.",
-        )
+        ) from e
     except BatchNotSubmittableError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=e.message,
-        )
+        ) from e
 
     return CreateBatchResponse(
         batch_id=summary.batch_id,

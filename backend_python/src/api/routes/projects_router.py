@@ -54,7 +54,7 @@ async def list_projects(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Impossibile caricare i progetti"
-        )
+        ) from e
 
 
 @router.get("/{session_id}", response_model=ProjectDocument)
@@ -129,7 +129,7 @@ async def create_project(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Impossibile creare il progetto"
-        )
+        ) from e
 
 
 @router.patch("/{session_id}", response_model=dict)

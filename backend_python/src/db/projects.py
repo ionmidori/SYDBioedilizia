@@ -268,7 +268,7 @@ async def create_project(user_id: str, data: ProjectCreate) -> str:
 
     except Exception as e:
         logger.error(f"[Projects] Error creating project: {str(e)}", exc_info=True)
-        raise Exception(f"Failed to create project: {str(e)}")
+        raise Exception(f"Failed to create project: {str(e)}") from e
 
 
 async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> bool:

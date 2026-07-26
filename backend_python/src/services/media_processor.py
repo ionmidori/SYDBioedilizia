@@ -71,7 +71,7 @@ class MediaProcessor:
 
         except Exception as e:
             logger.error(f"❌ Upload failed: {str(e)}", exc_info=True)
-            raise VideoProcessingError(f"Video upload failed: {str(e)}")
+            raise VideoProcessingError(f"Video upload failed: {str(e)}") from e
 
     async def wait_for_processing(self, file_name: str, timeout_seconds: int = 30) -> types.File:
         """
