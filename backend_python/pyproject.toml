@@ -81,7 +81,9 @@ extend-exclude = ["scripts"]
 # lookup swallowed permission/index errors with `except Exception: pass`, and the GDPR hard purge
 # reported success while orphaned blobs survived on GCS. All three now fail closed, with
 # regression tests in tests/unit/test_projects.py::TestProjectsFailClosed.
-# 75 sites remain baselined. RULE: do not add a new `# noqa: BLE001` — narrow the caught
+# 75 sites are baselined here; with the one directive that predates this PR
+# (src/utils/stream_protocol.py:203) that leaves 76 blind-except handlers still suppressed.
+# RULE: do not add a new `# noqa: BLE001` — narrow the caught
 # exception, or make the handler observable and justify the directive inline (see projects.py).
 # Clearing a module means deleting its directives, not moving them.
 select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B", "BLE001"]
