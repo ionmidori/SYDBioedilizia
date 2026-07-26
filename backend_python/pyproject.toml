@@ -65,8 +65,22 @@ extend-exclude = ["scripts"]
 # PropertyType and _State to StrEnum (safe because all four model_config carry
 # use_enum_values=True, so Firestore already persists .value, and no call-site formats a member
 # with str()/f-string), and UP047 moved parse_enum/run_blocking to PEP 695 generics.
-# Follow-up candidates: B (bugbear), BLE001 (blind-except).
-select = ["E4", "E7", "E9", "F", "W", "I", "UP"]
+#
+# B (bugbear): RATCHETED (2026-07-26) in PR #252. B008 (51 findings, all Depends()/File()/
+# Security() in FastAPI signature defaults — the framework's own recommended pattern, not the
+# shared-mutable-default bug B008 looks for) closed via extend-immutable-calls below, zero code
+# changes. B904 (69 findings) fixed with `raise ... from e`/`from None` per call-site. B017
+# (1 finding, tests/unit/test_core_modules.py) narrowed to the concrete exception type.
+# Follow-up candidate: BLE001 (blind-except).
+select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency injection: Depends()/File()/Security()/etc. in argument defaults is the
+# framework-recommended pattern, not the shared-mutable-default bug B008 targets.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.File", "fastapi.Security", "fastapi.Query",
+    "fastapi.Form", "fastapi.Body", "fastapi.Header", "fastapi.Path",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # load_dotenv(".env") MUST run before google-adk/google-genai imports (see CLAUDE.md)

@@ -120,7 +120,7 @@ CRITICAL RULES:
 
     except (json.JSONDecodeError, ValueError) as e:
         logger.error(f"[Vision] JSON Parse Error: {e}")
-        raise ValueError(f"Failed to parse analysis JSON: {e}")
+        raise ValueError(f"Failed to parse analysis JSON: {e}") from e
     except Exception as error:
         logger.error(f"[Vision] Error during analysis: {error}")
-        raise Exception(f"Room analysis failed: {str(error)}")
+        raise Exception(f"Room analysis failed: {str(error)}") from error

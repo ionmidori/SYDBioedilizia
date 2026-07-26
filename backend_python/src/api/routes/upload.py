@@ -239,7 +239,7 @@ async def upload_image(
         raise HTTPException(
             status_code=500,
             detail="Upload failed. Please try again."
-        )
+        ) from e
 
 
 @router.post("/video", response_model=VideoMediaAsset)
@@ -330,7 +330,7 @@ async def upload_video(
             raise HTTPException(
                 status_code=502,
                 detail="Video processing failed. Please try a different format or smaller file.",
-            )
+            ) from e
 
     except HTTPException:
         raise
@@ -339,4 +339,4 @@ async def upload_video(
         raise HTTPException(
             status_code=500,
             detail="Upload failed. Please try again."
-        )
+        ) from e

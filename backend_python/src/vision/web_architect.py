@@ -87,4 +87,4 @@ async def analyze_web_mockup(
 
     except Exception as e:
         logger.error(f"[WebArchitect] Analysis failed: {e}")
-        raise ValueError(f"Web mockup analysis failed: {str(e)}")
+        raise ValueError(f"Web mockup analysis failed: {str(e)}") from e

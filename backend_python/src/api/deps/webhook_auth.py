@@ -64,7 +64,7 @@ async def verify_n8n_webhook(request: Request) -> dict:
     # 3. Validate timestamp format and replay window
     try:
         ts_int = int(timestamp)
-    except ValueError:
+    except ValueError as e:
         logger.warning(
             "[n8n webhook] Invalid timestamp format, sig=%s",
             signature[:12],
@@ -72,7 +72,7 @@ async def verify_n8n_webhook(request: Request) -> dict:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid timestamp format",
-        )
+        ) from e
 
     if abs(time.time() - ts_int) > 300:
         logger.warning(
@@ -114,11 +114,11 @@ async def verify_n8n_webhook(request: Request) -> dict:
     # 6. Parse JSON body
     try:
         payload = json.loads(body_str)
-    except (json.JSONDecodeError, ValueError):
+    except (json.JSONDecodeError, ValueError) as e:
         logger.warning("[n8n webhook] Invalid JSON payload, sig=%s", signature[:12])
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid JSON payload",
-        )
+        ) from e
 
     return payload

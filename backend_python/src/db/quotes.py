@@ -116,4 +116,4 @@ async def save_quote_draft(
 
     except Exception as e:
         logger.error(f"[QuoteSystem] Error saving quote draft: {e}")
-        raise Exception(f"Failed to save quote draft: {str(e)}")
+        raise Exception(f"Failed to save quote draft: {str(e)}") from e

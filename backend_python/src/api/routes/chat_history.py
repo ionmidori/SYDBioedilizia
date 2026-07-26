@@ -182,4 +182,4 @@ async def get_chat_history(
         raise
     except Exception as e:
         logger.error(f"[ChatHistory] Error fetching history: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to fetch chat history")
+        raise HTTPException(status_code=500, detail="Failed to fetch chat history") from e

@@ -71,7 +71,7 @@ async def receive_n8n_webhook(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid webhook payload",
-        )
+        ) from exc
 
     db = get_async_firestore_client()
 

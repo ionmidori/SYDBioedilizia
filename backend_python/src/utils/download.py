@@ -274,4 +274,4 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
 
         except Exception as e:
             logger.error(f"[SmartDownload] ❌ HTTP download failed: {e}")
-            raise Exception(f"Failed to download image: {str(e)}")
+            raise Exception(f"Failed to download image: {str(e)}") from e

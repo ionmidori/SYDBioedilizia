@@ -370,7 +370,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                         )
                                 except Exception as recovery_err:
                                     logger.error(f"[ADK] Session recovery failed: {recovery_err}")
-                                    raise run_err  # surface original error
+                                    raise run_err from None  # surface original error, not the recovery failure
                                 # retry loop continues (attempt=1)
                             else:
                                 raise  # second attempt or non-session error

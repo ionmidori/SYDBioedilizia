@@ -127,7 +127,7 @@ async def validate_video_magic_bytes(file: UploadFile, max_header_size: int = 20
         raise HTTPException(
             status_code=500,
             detail="File validation failed. Please try again."
-        )
+        ) from e
 
 
 async def validate_image_magic_bytes(file: UploadFile, max_header_size: int = 16) -> str:
@@ -213,7 +213,7 @@ async def validate_image_magic_bytes(file: UploadFile, max_header_size: int = 16
         raise HTTPException(
             status_code=500,
             detail="Image validation failed. Please try again."
-        )
+        ) from e
 
 
 async def sanitize_filename(filename: str, max_length: int = 255) -> str:

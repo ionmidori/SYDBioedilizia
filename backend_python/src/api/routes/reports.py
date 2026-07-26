@@ -59,7 +59,7 @@ async def get_dashboard_stats(
         }
     except Exception as e:
         logger.error(f"[Reports] Error fetching dashboard stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Impossibile caricare le statistiche")
+        raise HTTPException(status_code=500, detail="Impossibile caricare le statistiche") from e
 
 @router.get("/gallery", response_model=GalleryResponse)
 async def get_gallery_assets(
@@ -78,5 +78,5 @@ async def get_gallery_assets(
         return await gallery_service.get_all_assets(user_id, limit, last_id)
     except Exception as e:
         logger.error(f"[Reports] Error fetching gallery: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Impossibile caricare la galleria")
+        raise HTTPException(status_code=500, detail="Impossibile caricare la galleria") from e
 

@@ -111,4 +111,4 @@ async def update_file_metadata(
         raise
     except Exception as e:
         logger.error(f"[UpdateMetadata] Failed: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to update metadata")
+        raise HTTPException(status_code=500, detail="Failed to update metadata") from e

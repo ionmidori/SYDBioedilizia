@@ -247,23 +247,23 @@ async def start_quote_flow(
     try:
         from src.adk.hitl import start_quote_hitl
         await start_quote_hitl(project_id=project_id, user_id=user_session.uid)
-    except QuoteAlreadyApprovedError:
+    except QuoteAlreadyApprovedError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Quote for project '{project_id}' is already approved.",
-        )
+        ) from e
     except CheckpointError as e:
         logger.error(f"Checkpoint error: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Quote checkpoint service is temporarily unavailable.",
-        )
-    except Exception:
+        ) from e
+    except Exception as e:
         logger.exception("Unexpected error in start_quote_flow.", extra={"project_id": project_id})
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error_code": "INTERNAL_ERROR", "project_id": project_id},
-        )
+        ) from e
 
     return StartQuoteResponse(
         project_id=project_id,
@@ -304,23 +304,23 @@ async def _run_quote_approval(
             notes=notes,
             admin_uid=actor_uid,
         )
-    except QuoteNotFoundError:
+    except QuoteNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No pending quote found for project '{project_id}'. Run /start first.",
-        )
+        ) from e
     except CheckpointError as e:
         logger.error(f"Checkpoint error during approve: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Quote checkpoint service is temporarily unavailable.",
-        )
-    except Exception:
+        ) from e
+    except Exception as e:
         logger.exception("Unexpected error in approve_quote.", extra={"project_id": project_id})
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error_code": "INTERNAL_ERROR", "project_id": project_id},
-        )
+        ) from e
 
     result_status = "completed" if decision == "approve" else "rejected"
     audit_action = AuditAction.QUOTE_APPROVE if decision == "approve" else AuditAction.QUOTE_REJECT
@@ -561,12 +561,12 @@ async def get_quote_pdf_url(
             )
 
         pdf_url = await run_in_threadpool(_generate_url)
-    except Exception:
+    except Exception as e:
         logger.exception("Error generating PDF URL.", extra={"project_id": project_id})
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to generate PDF URL.",
-        )
+        ) from e
 
     if pdf_url is None:
         raise HTTPException(

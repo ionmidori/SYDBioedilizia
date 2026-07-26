@@ -18,7 +18,7 @@ class StorageService:
         try:
             self.bucket = storage.bucket(self.bucket_name)
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize Firebase Storage bucket: {e}")
+            raise RuntimeError(f"Failed to initialize Firebase Storage bucket: {e}") from e
 
     async def generate_upload_url(self, request: SignedUrlRequest) -> SignedUrlResponse:
         """

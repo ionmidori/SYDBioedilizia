@@ -37,7 +37,7 @@ async def get_preferences(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Impossibile caricare le preferenze"
-        )
+        ) from e
 
 @router.patch("/preferences", response_model=dict)
 async def update_preferences(
@@ -88,4 +88,4 @@ async def erase_my_account(
             message="Account deletion failed. Please contact support.",
             error_code="GDPR_ERASURE_FAILED",
             status_code=500,
-        )
+        ) from e

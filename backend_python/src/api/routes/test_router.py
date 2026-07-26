@@ -17,7 +17,7 @@ async def test_market_prices(
         return await get_market_prices_wrapper(query=query)
     except Exception as e:
         logger.error(f"Test Market Prices failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Market prices tool failed.")
+        raise HTTPException(status_code=500, detail="Market prices tool failed.") from e
 
 @router.post("/tools/analyze-room")
 async def test_analyze_room(
@@ -33,7 +33,7 @@ async def test_analyze_room(
         )
     except Exception as e:
         logger.error(f"Test Analyze Room failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Analyze room tool failed.")
+        raise HTTPException(status_code=500, detail="Analyze room tool failed.") from e
 
 @router.post("/tools/generate-render")
 async def test_generate_render(
@@ -55,7 +55,7 @@ async def test_generate_render(
         )
     except Exception as e:
         logger.error(f"Test Generate Render failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Generate render tool failed.")
+        raise HTTPException(status_code=500, detail="Generate render tool failed.") from e
 
 @router.post("/tools/generate-cad")
 async def test_generate_cad(
@@ -85,4 +85,4 @@ async def test_generate_cad(
         raise
     except Exception as e:
         logger.error(f"Test Generate CAD failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Generate CAD tool failed.")
+        raise HTTPException(status_code=500, detail="Generate CAD tool failed.") from e

@@ -68,7 +68,7 @@ async def fetch_market_prices(query: str) -> dict[str, Any]:
 
     except httpx.HTTPStatusError as e:
         logger.error(f"Perplexity API HTTP error: {e.response.status_code} - {e.response.text}")
-        raise Exception(f"API request failed: {e.response.status_code}")
+        raise Exception(f"API request failed: {e.response.status_code}") from e
     except Exception as e:
         # Log the detail; raise a generic message so upstream callers can't
         # surface internal error text to end users.

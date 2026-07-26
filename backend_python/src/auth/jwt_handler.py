@@ -129,20 +129,20 @@ async def verify_token(req: Request) -> UserSession:
 
         return session
 
-    except auth.RevokedIdTokenError:
+    except auth.RevokedIdTokenError as e:
         logger.warning(f"Revoked Firebase ID token provided from {client_host}")
-        raise AuthError("Token revoked", detail={"reason": "revoked"})
-    except auth.ExpiredIdTokenError:
+        raise AuthError("Token revoked", detail={"reason": "revoked"}) from e
+    except auth.ExpiredIdTokenError as e:
         logger.warning(f"Expired Firebase ID token provided from {client_host}")
-        raise AuthError("Token expired", detail={"reason": "expired"})
+        raise AuthError("Token expired", detail={"reason": "expired"}) from e
     except auth.InvalidIdTokenError as e:
         logger.warning(f"Invalid Firebase ID token from {client_host}: {str(e)}")
-        raise AuthError("Invalid token", detail={"reason": "Token validation failed"})
+        raise AuthError("Invalid token", detail={"reason": "Token validation failed"}) from e
     except Exception as e:
         if isinstance(e, AuthError):
-            raise e
+            raise
         logger.error(f"Unexpected Authentication error: {str(e)}", exc_info=True)
-        raise AuthError("Authentication failed", detail={"reason": "internal_error"})
+        raise AuthError("Authentication failed", detail={"reason": "internal_error"}) from e
 
 def get_current_user(session: UserSession = Security(verify_token)) -> str:
     """Helper to extract user email from validated session."""

@@ -43,4 +43,4 @@ async def generate_signed_url(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not generate signed URL."
-        )
+        ) from e
