@@ -1,7 +1,7 @@
 
 import unittest
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from src.utils.serialization import parse_enum, parse_firestore_datetime
 
@@ -12,7 +12,7 @@ class MockDatetimeWithNanoseconds:
     def to_datetime(self):
         return self._dt
 
-class SampleEnum(str, Enum):
+class SampleEnum(StrEnum):
     A = "a"
     B = "b"
 

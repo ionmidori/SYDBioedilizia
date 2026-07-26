@@ -1,12 +1,11 @@
 import functools
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any
 
 from starlette.concurrency import run_in_threadpool
 
-T = TypeVar("T")
 
-async def run_blocking(func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+async def run_blocking[T](func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """
     Run a blocking (synchronous) function in a separate thread.
     Use this for heavy I/O or CPU bound tasks (regex, image processing)
