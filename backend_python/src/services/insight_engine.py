@@ -12,7 +12,7 @@ Features:
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 from google import genai
 from google.genai import types as genai_types
@@ -52,7 +52,7 @@ class SKUItemSuggestion(BaseModel):
 class InsightAnalysis(BaseModel):
     """Structured output produced by InsightEngine.analyze_project_for_quote()."""
     # NO extra="forbid" — see SKUItemSuggestion (used as Gemini response_schema).
-    suggestions: List[SKUItemSuggestion] = Field(
+    suggestions: list[SKUItemSuggestion] = Field(
         default_factory=list,
         description="List of suggested SKU items derived from the conversation."
     )
@@ -66,25 +66,25 @@ class InsightAnalysis(BaseModel):
             "< 0.7 means the chatbot should ask more questions before finalizing."
         ),
     )
-    missing_info: List[str] = Field(
+    missing_info: list[str] = Field(
         default_factory=list,
         description=(
             "Naturale Italian questions the chatbot must ask the user before finalizing the quote. "
             "Empty if completeness_score >= 0.7."
         ),
     )
-    price_range_low: Optional[float] = Field(
+    price_range_low: float | None = Field(
         None,
         description="Lower bound of estimated total (EUR, excl. VAT). Set when completeness_score < 0.85.",
     )
-    price_range_high: Optional[float] = Field(
+    price_range_high: float | None = Field(
         None,
         description="Upper bound of estimated total (EUR, excl. VAT). Set when completeness_score < 0.85.",
     )
     # Multi-room metadata (Optional — backward-compatible with single-room flow)
-    room_id: Optional[str] = Field(None, description="UUID of the room being analyzed (multi-room flow)")
-    room_type: Optional[str] = Field(None, description="bagno | cucina | soggiorno | camera | altro")
-    room_label: Optional[str] = Field(None, description="Human-readable room label")
+    room_id: str | None = Field(None, description="UUID of the room being analyzed (multi-room flow)")
+    room_type: str | None = Field(None, description="bagno | cucina | soggiorno | camera | altro")
+    room_label: str | None = Field(None, description="Human-readable room label")
 
 
 # ── Domain Exception ───────────────────────────────────────────────────────────
@@ -111,10 +111,10 @@ class InsightEngine:
 
     _ASSEMBLIES_PATH = Path(__file__).parent.parent / "data" / "renovation_assemblies.json"
 
-    def __init__(self, model_name: Optional[str] = None) -> None:
+    def __init__(self, model_name: str | None = None) -> None:
         self.model_name = model_name or settings.CHAT_MODEL_VERSION
         self.client = genai.Client(api_key=settings.api_key)
-        self._assemblies: Optional[Dict[str, Any]] = None
+        self._assemblies: dict[str, Any] | None = None
 
     def _build_price_book_prompt(self) -> str:
         """
@@ -156,7 +156,7 @@ class InsightEngine:
 
         return "\n".join(lines)
 
-    def _load_assemblies(self) -> Dict[str, Any]:
+    def _load_assemblies(self) -> dict[str, Any]:
         """Loads renovation_assemblies.json (cached after first load)."""
         if self._assemblies is None:
             try:
@@ -343,8 +343,8 @@ Analizza la conversazione e produci la risposta strutturata.
 
     async def analyze_project_for_quote(
         self,
-        chat_history: List[Dict[str, Any]],
-        media_urls: Optional[List[str]] = None,
+        chat_history: list[dict[str, Any]],
+        media_urls: list[str] | None = None,
     ) -> InsightAnalysis:
         """
         Analyzes chat history and optional media to suggest renovation SKUs.
@@ -470,7 +470,7 @@ Analizza la conversazione e produci la risposta strutturata.
 
 # ── Singleton Factory ──────────────────────────────────────────────────────────
 
-_insight_engine: Optional[InsightEngine] = None
+_insight_engine: InsightEngine | None = None
 
 
 def get_insight_engine() -> InsightEngine:

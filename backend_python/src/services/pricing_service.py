@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
 from src.utils.datetime_utils import utc_now
@@ -16,7 +16,7 @@ class PricingService:
         if cls._master_price_book is None:
             data_path = os.path.join(os.path.dirname(__file__), "..", "data", "master_price_book.json")
             try:
-                with open(data_path, "r", encoding="utf-8") as f:
+                with open(data_path, encoding="utf-8") as f:
                     cls._master_price_book = json.load(f)["items"]
             except Exception as e:
                 logger.error(f"[PricingService] Error loading price book: {e}")
@@ -24,7 +24,7 @@ class PricingService:
         return cls._master_price_book
 
     @classmethod
-    def get_item_by_sku(cls, sku: str) -> Optional[Dict[str, Any]]:
+    def get_item_by_sku(cls, sku: str) -> dict[str, Any] | None:
         price_book = cls.load_price_book()
         for item in price_book:
             if item["sku"] == sku:
@@ -36,7 +36,7 @@ class PricingService:
         return round(item.qty * item.unit_price, 2)
 
     @classmethod
-    def calculate_financials(cls, items: List[QuoteItem], vat_rate: float = 0.22) -> QuoteFinancials:
+    def calculate_financials(cls, items: list[QuoteItem], vat_rate: float = 0.22) -> QuoteFinancials:
         subtotal = sum(item.total for item in items)
         vat_amount = round(subtotal * vat_rate, 2)
         grand_total = round(subtotal + vat_amount, 2)
@@ -48,7 +48,7 @@ class PricingService:
         )
 
     @classmethod
-    def create_quote_from_skus(cls, project_id: str, user_id: str, sku_list: List[Dict[str, Any]]) -> QuoteSchema:
+    def create_quote_from_skus(cls, project_id: str, user_id: str, sku_list: list[dict[str, Any]]) -> QuoteSchema:
         """
         sku_list: List of dicts with {"sku": str, "qty": float, "ai_reasoning": Optional[str]}
         """

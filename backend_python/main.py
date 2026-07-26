@@ -432,6 +432,8 @@ from src.api.routes.lifecycle_routes import router as lifecycle_router
 app.include_router(lifecycle_router)
 
 # Register internal quote approval route (Streamlit admin console, shared secret)
+from datetime import UTC
+
 from src.api.routes.internal_quote_routes import router as internal_quote_router
 
 app.include_router(internal_quote_router)
@@ -564,7 +566,7 @@ async def readiness_check():
             timeout=5.0,
         )
         checks["firestore"] = "ok"
-    except _asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("[/ready] Firestore ping timed out (>5s)")
         checks["firestore"] = "timeout"
     except Exception as _e:
@@ -650,11 +652,11 @@ async def chat_stream(
         # Reuse the client's AI SDK message id as the Firestore doc id (stable identity).
         user_msg_id = body.messages[-1].id
 
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from src.repositories.conversation_repository import get_conversation_repository
     # Anchor timestamp: 100ms in the past guarantees user message sorts before assistant
-    anchor_timestamp = datetime.now(timezone.utc) - timedelta(milliseconds=100)
+    anchor_timestamp = datetime.now(UTC) - timedelta(milliseconds=100)
 
     # Extract attachments for persistence
     attachments = None

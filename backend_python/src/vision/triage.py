@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from google import genai
 from google.genai import types
@@ -50,7 +50,7 @@ Provide your analysis:
 ```
 """
 
-async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
+async def analyze_image_triage(image_data: bytes) -> dict[str, Any]:
     """
     Perform initial triage analysis on an interior space image.
     Uses google-genai SDK with Gemini 3 Flash.
@@ -111,7 +111,7 @@ async def analyze_image_triage(image_data: bytes) -> Dict[str, Any]:
         }
 
 
-async def analyze_media_triage(media_data: bytes, mime_type: str, metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+async def analyze_media_triage(media_data: bytes, mime_type: str, metadata: dict[str, Any] | None = None) -> dict[str, Any]:
     """
     Unified entry point for media triage analysis.
 

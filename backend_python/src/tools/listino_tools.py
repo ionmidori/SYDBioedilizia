@@ -10,7 +10,7 @@ detailed/formal quote.
 import logging
 import re
 import unicodedata
-from typing import Any, Dict, List
+from typing import Any
 
 from src.services.pricing_service import PricingService
 
@@ -29,7 +29,7 @@ _STOPWORDS = {
 }
 
 
-def _normalize(text: str) -> List[str]:
+def _normalize(text: str) -> list[str]:
     """Lowercase, strip accents/punctuation, drop short words and stopwords."""
     text = unicodedata.normalize("NFKD", text.lower())
     text = "".join(c for c in text if not unicodedata.combining(c))
@@ -37,7 +37,7 @@ def _normalize(text: str) -> List[str]:
     return [t for t in tokens if len(t) > 2 and t not in _STOPWORDS]
 
 
-def _searchable(item: Dict[str, Any]) -> str:
+def _searchable(item: dict[str, Any]) -> str:
     parts = [
         item.get("description", ""),
         item.get("category", ""),
@@ -74,7 +74,7 @@ async def search_listino(query: str, top_k: int = 4) -> str:
         logger.error("[Listino] master price book is empty/unavailable.")
         return NO_LISTINO_MATCH
 
-    scored: List[tuple[int, Dict[str, Any]]] = []
+    scored: list[tuple[int, dict[str, Any]]] = []
     for item in items:
         item_tokens = set(_normalize(_searchable(item)))
         if not item_tokens:

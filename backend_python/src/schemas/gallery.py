@@ -1,12 +1,11 @@
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel
 
 
 class GalleryAssetMetadata(BaseModel):
     model_config = {"extra": "forbid"}
-    size: Optional[int] = None
+    size: int | None = None
     uploadedBy: str
     projectId: str
     projectName: str
@@ -16,7 +15,7 @@ class GalleryAsset(BaseModel):
     id: str
     type: str # 'image' | 'video' | 'quote' | 'unknown'
     url: str
-    thumbnail: Optional[str] = None
+    thumbnail: str | None = None
     title: str
     createdAt: datetime
     timestamp: datetime
@@ -24,6 +23,6 @@ class GalleryAsset(BaseModel):
 
 class GalleryResponse(BaseModel):
     model_config = {"extra": "ignore"}
-    assets: List[GalleryAsset]
+    assets: list[GalleryAsset]
     hasMore: bool
-    lastVisibleId: Optional[str] = None
+    lastVisibleId: str | None = None

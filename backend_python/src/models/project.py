@@ -6,10 +6,9 @@ which is an extension of the existing Firestore "sessions" collection.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from datetime import datetime as _datetime_type
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
@@ -53,7 +52,7 @@ class ProjectDetails(BaseModel):
     property_type: PropertyType = Field(..., description="Type of property")
     address: Address = Field(..., description="Construction site address")
     budget_cap: float = Field(..., gt=0, description="Maximum budget in EUR")
-    technical_notes: Optional[str] = Field(None, max_length=1000, description="Additional technical notes")
+    technical_notes: str | None = Field(None, max_length=1000, description="Additional technical notes")
     renovation_constraints: list[str] = Field(default_factory=list, description="List of renovation constraints")
 
     @field_serializer('property_type')
@@ -78,10 +77,10 @@ class ProjectCreate(ProjectBase):
 class ProjectUpdate(BaseModel):
     """Request body for updating project metadata."""
     model_config = {"extra": "forbid"}
-    title: Optional[str] = Field(None, max_length=100)
-    status: Optional[ProjectStatus] = None
-    thumbnail_url: Optional[str] = None
-    original_image_url: Optional[str] = None
+    title: str | None = Field(None, max_length=100)
+    status: ProjectStatus | None = None
+    thumbnail_url: str | None = None
+    original_image_url: str | None = None
 
 
 class ProjectDocument(ProjectBase):
@@ -92,12 +91,12 @@ class ProjectDocument(ProjectBase):
     session_id: str = Field(..., description="Firestore document ID")
     user_id: str = Field(..., description="Owner Firebase UID or guest_* prefix")
     status: ProjectStatus = Field(default=ProjectStatus.DRAFT)
-    thumbnail_url: Optional[str] = Field(None, description="First uploaded image URL")
-    original_image_url: Optional[str] = Field(None, description="Source image URL for transformation")
+    thumbnail_url: str | None = Field(None, description="First uploaded image URL")
+    original_image_url: str | None = Field(None, description="Source image URL for transformation")
     message_count: int = Field(default=0)
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last activity timestamp")
-    construction_details: Optional[ProjectDetails] = Field(None, description="Construction site details")
+    construction_details: ProjectDetails | None = Field(None, description="Construction site details")
 
     @field_serializer('updated_at', 'created_at')
     def serialize_datetime_fields(self, dt: _datetime_type, _info) -> str:
@@ -107,7 +106,7 @@ class ProjectDocument(ProjectBase):
         Output is always compatible with Zod .datetime({ offset: true }).
         """
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.isoformat().replace("+00:00", "Z")
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
@@ -121,8 +120,8 @@ class ProjectListItem(BaseModel):
     session_id: str
     title: str
     status: ProjectStatus
-    thumbnail_url: Optional[str] = None
-    original_image_url: Optional[str] = None
+    thumbnail_url: str | None = None
+    original_image_url: str | None = None
     updated_at: datetime
     message_count: int = 0
     has_quote: bool = Field(False, description="Whether this project has completed the quote generation flow")
@@ -135,7 +134,7 @@ class ProjectListItem(BaseModel):
         Output is always compatible with Zod .datetime({ offset: true }).
         """
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=UTC)
         return dt.isoformat().replace("+00:00", "Z")
 
     model_config = ConfigDict(extra="forbid", from_attributes=True, use_enum_values=True)

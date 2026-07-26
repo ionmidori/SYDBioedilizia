@@ -1,4 +1,4 @@
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -12,9 +12,9 @@ class MediaAttachment(BaseModel):
     url: str
     media_type: Literal['image', 'video', 'document'] = 'image'
     mime_type: str = "image/jpeg"
-    file_uri: Optional[str] = None # For internal Gemini File API refs
-    width: Optional[int] = None
-    height: Optional[int] = None
+    file_uri: str | None = None # For internal Gemini File API refs
+    width: int | None = None
+    height: int | None = None
 
     def to_firestore(self) -> dict:
         return self.model_dump(exclude_none=True)

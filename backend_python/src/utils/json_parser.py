@@ -7,12 +7,12 @@ code execution traces, and final JSON blocks.
 import json
 import logging
 import re
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-def extract_json_response(text: str) -> Optional[Dict[str, Any]]:
+def extract_json_response(text: str) -> dict[str, Any] | None:
     """
     Extract JSON from LLM response with CoT/Code Execution artifacts.
 

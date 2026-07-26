@@ -1,12 +1,11 @@
 import logging
-from typing import Optional
 
 from firebase_admin import firestore, storage
 from src.utils.context import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
-def list_project_files(session_id: str, category: Optional[str] = None, limit: int = 20) -> str:
+def list_project_files(session_id: str, category: str | None = None, limit: int = 20) -> str:
     """
     Lists the files available in the current project (images, documents, videos).
 

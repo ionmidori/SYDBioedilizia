@@ -23,7 +23,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import timedelta
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from fastapi.concurrency import run_in_threadpool
@@ -93,8 +93,8 @@ class ApproveQuoteResponse(BaseModel):
 class QuoteUpdateBody(BaseModel):
     model_config = {"extra": "forbid"}
 
-    items: Optional[list[QuoteItem]] = None
-    admin_notes: Optional[str] = Field(None, max_length=2000)
+    items: list[QuoteItem] | None = None
+    admin_notes: str | None = Field(None, max_length=2000)
 
 
 class QuoteListItemResponse(BaseModel):

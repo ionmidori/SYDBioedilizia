@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from starlette.requests import Request
 
 
-def _client_key(request: "Request") -> str:
+def _client_key(request: Request) -> str:
     """Rate-limit key resolver (hardened — L-1).
 
     Priority:

@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -25,17 +25,17 @@ class ReasoningStep(BaseModel):
         description="The determined next step based on the analysis."
     )
 
-    tool_name: Optional[str] = Field(
+    tool_name: str | None = Field(
         None,
         description="The exact name of the tool to call (must be enabled)."
     )
 
-    tool_args: Optional[dict] = Field(
+    tool_args: dict | None = Field(
         None,
         description="Arguments for the tool call. MUST be a valid dictionary."
     )
 
-    target_data: Optional[str] = Field(
+    target_data: str | None = Field(
         None,
         description="Specific data point being extracted or processed (e.g., 'image_url')."
     )
@@ -53,7 +53,7 @@ class ReasoningStep(BaseModel):
         description="Current status of the protocol sequence (e.g., pause if interruptions occur)."
     )
 
-    missing_info: List[str] = Field(
+    missing_info: list[str] = Field(
         default_factory=list,
         description="List of specific information pieces currently missing (e.g., ['lighting_preferences', 'budget'])."
     )
@@ -61,7 +61,7 @@ class ReasoningStep(BaseModel):
     # 🧠 CoT 2.0: Advanced Cognition Fields
     # Defaults ensure backward compatibility with existing sessions
 
-    criticism: Optional[str] = Field(
+    criticism: str | None = Field(
         default=None,
         description="Constructive self-criticism. REQUIRED if action is 'call_tool'. What could go wrong?"
     )
@@ -84,7 +84,7 @@ class ReasoningStep(BaseModel):
 
     @field_validator('tool_name')
     @classmethod
-    def validate_tool_access(cls, v: Optional[str]) -> Optional[str]:
+    def validate_tool_access(cls, v: str | None) -> str | None:
         """
         Prevents LLM hallucinations by strictly validating tool names against an allowed list.
         Auto-corrects common aliases.
@@ -152,7 +152,7 @@ class ReasoningStep(BaseModel):
 
     @field_validator('target_data')
     @classmethod
-    def security_scan(cls, v: Optional[str]) -> Optional[str]:
+    def security_scan(cls, v: str | None) -> str | None:
         """
         Basic Input Sanitization Scanner.
         Detects potential injection attacks or malicious payloads in reasoning data.

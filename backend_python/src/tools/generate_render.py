@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 from src.api.gemini_imagen import generate_image_i2i, generate_image_t2i
@@ -30,11 +30,11 @@ class GenerateRenderInput(BaseModel):
         default="creation",
         description="creation (new design) or modification (transform existing photo)"
     )
-    source_image_url: Optional[str] = Field(
+    source_image_url: str | None = Field(
         None,
         description="URL of user's room photo (required for modification mode)"
     )
-    keep_elements: Optional[list[str]] = Field(
+    keep_elements: list[str] | None = Field(
         default_factory=list,
         description="Elements to preserve in modification mode"
     )
@@ -45,9 +45,9 @@ async def generate_render_wrapper(
     style: str,
     session_id: str,
     mode: str = "creation",
-    source_image_url: Optional[str] = None,
-    keep_elements: Optional[list[str]] = None
-) -> Dict[str, Any]:
+    source_image_url: str | None = None,
+    keep_elements: list[str] | None = None
+) -> dict[str, Any]:
     """
     Generate a photorealistic interior design rendering.
     Supports both creation (T2I) and modification (I2I) modes.

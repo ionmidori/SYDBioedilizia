@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import List
 
 from google import genai
 from google.genai import types as genai_types
@@ -13,7 +12,7 @@ class WebComponent(BaseModel):
     model_config = {"extra": "forbid"}
     name: str = Field(..., description="Shadcn/UI component name (e.g., Button, Card, DataTable)")
     purpose: str = Field(..., description="What this component does in the UI")
-    styling_suggestions: List[str] = Field(default_factory=list, description="Tailwind CSS classes or glassmorphism tips")
+    styling_suggestions: list[str] = Field(default_factory=list, description="Tailwind CSS classes or glassmorphism tips")
 
 class WebMockupAnalysis(BaseModel):
     """
@@ -21,11 +20,11 @@ class WebMockupAnalysis(BaseModel):
     """
     model_config = {"extra": "forbid"}
     layout_type: str = Field(..., description="Bento Grid, Sidebar + Content, Multi-column, etc.")
-    color_palette: List[str] = Field(..., description="Primary hex codes and semantic roles")
+    color_palette: list[str] = Field(..., description="Primary hex codes and semantic roles")
     typography_suggested: str = Field(..., description="Font pairings (Serif/Sans pairings)")
-    components_identified: List[WebComponent] = Field(default_factory=list)
+    components_identified: list[WebComponent] = Field(default_factory=list)
     visual_style_notes: str = Field(..., description="Glassmorphism, Flat, Brutalist, etc.")
-    tailwind_globals: List[str] = Field(default_factory=list, description="Suggested configuration for tailwind.config.js")
+    tailwind_globals: list[str] = Field(default_factory=list, description="Suggested configuration for tailwind.config.js")
 
 async def analyze_web_mockup(
     image_bytes: bytes,

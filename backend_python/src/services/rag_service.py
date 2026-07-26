@@ -10,7 +10,7 @@ import asyncio
 import hashlib
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pinecone import AwsRegion, CloudProvider, EmbedModel, IndexEmbed, Pinecone, SearchQuery
 
@@ -28,7 +28,7 @@ class RAGService:
     Integrated Inference with multilingual-e5-large."""
 
     def __init__(self):
-        self.pc: Optional[Pinecone] = None
+        self.pc: Pinecone | None = None
         self.index = None
         self._initialize()
 
@@ -69,11 +69,11 @@ class RAGService:
         self,
         query: str,
         top_k: int = 5,
-        filter_dict: Optional[Dict[str, Any]] = None,
+        filter_dict: dict[str, Any] | None = None,
         namespace: str = NAMESPACE_NORMATIVE,
-        rerank: Optional[bool] = None,
-        min_score: Optional[float] = None,
-    ) -> List[Dict[str, Any]]:
+        rerank: bool | None = None,
+        min_score: float | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Searches the Pinecone database using Integrated Inference.
 
@@ -103,14 +103,14 @@ class RAGService:
             # Over-fetch candidates when reranking so the cross-encoder has a
             # meaningful pool to re-order; otherwise fetch exactly top_k.
             fetch_k = top_k * max(1, settings.RAG_RERANK_OVERFETCH) if use_rerank else top_k
-            query_kwargs: Dict[str, Any] = {
+            query_kwargs: dict[str, Any] = {
                 "inputs": {"text": query},
                 "top_k": fetch_k,
             }
             if filter_dict:
                 query_kwargs["filter"] = filter_dict
 
-            search_kwargs: Dict[str, Any] = {
+            search_kwargs: dict[str, Any] = {
                 "namespace": namespace,
                 "query": SearchQuery(**query_kwargs),
             }
@@ -163,10 +163,10 @@ class RAGService:
     async def search_multi_namespace(
         self,
         query: str,
-        namespaces: Optional[List[str]] = None,
+        namespaces: list[str] | None = None,
         top_k: int = 5,
-        filter_dict: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filter_dict: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Search across multiple namespaces and merge results by score.
         Useful when the agent needs both pricing and regulatory info.
@@ -183,7 +183,7 @@ class RAGService:
         if namespaces is None:
             namespaces = [NAMESPACE_PREZZARIO, NAMESPACE_NORMATIVE]
 
-        all_results: List[Dict[str, Any]] = []
+        all_results: list[dict[str, Any]] = []
         for ns in namespaces:
             ns_results = await self.search(
                 query=query,
@@ -204,7 +204,7 @@ class RAGService:
 
     async def upsert_documents(
         self,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
         namespace: str = NAMESPACE_NORMATIVE,
     ) -> bool:
         """
@@ -275,7 +275,7 @@ class RAGService:
             logger.error(f"Failed to wipe namespace {namespace}: {e}")
             return False
 
-    def get_stats(self) -> Optional[Dict[str, Any]]:
+    def get_stats(self) -> dict[str, Any] | None:
         """Returns index statistics (namespaces, vector counts)."""
         if not self.index:
             return None

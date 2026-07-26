@@ -2,7 +2,7 @@
 Shared helpers for quote generation (chat history, SKU validation, media extraction).
 """
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 from src.services.pricing_service import PricingService
 
@@ -13,7 +13,7 @@ _MIN_QTY = 0.01
 _MAX_QTY = 10_000
 
 
-def build_chat_summary(history: List[Dict[str, Any]], limit_chars: int = 500) -> str:
+def build_chat_summary(history: list[dict[str, Any]], limit_chars: int = 500) -> str:
     """Extracts a readable summary from chat history, truncating long messages."""
     lines = []
     for msg in history:
@@ -25,7 +25,7 @@ def build_chat_summary(history: List[Dict[str, Any]], limit_chars: int = 500) ->
     return "\n".join(lines)
 
 
-def validate_sku_suggestions(suggestions: List[Any]) -> List[str]:
+def validate_sku_suggestions(suggestions: list[Any]) -> list[str]:
     """Verifies that suggested SKUs exist in the Price Book. Returns unknown SKUs."""
     price_book = PricingService.load_price_book()
     valid_skus = {i["sku"] for i in price_book}
@@ -39,7 +39,7 @@ def validate_sku_suggestions(suggestions: List[Any]) -> List[str]:
     return unknown_skus
 
 
-def validate_qty_bounds(suggestions: List[Any]) -> tuple[List[Any], List[str]]:
+def validate_qty_bounds(suggestions: list[Any]) -> tuple[list[Any], list[str]]:
     """
     Filters out suggestions with quantities outside safe bounds.
     Returns (valid_suggestions, list_of_warning_messages).
@@ -57,7 +57,7 @@ def validate_qty_bounds(suggestions: List[Any]) -> tuple[List[Any], List[str]]:
     return valid, warnings
 
 
-def extract_media_urls(history: List[Dict[str, Any]]) -> List[str]:
+def extract_media_urls(history: list[dict[str, Any]]) -> list[str]:
     """
     Extracts all media URLs from chat history attachments.
 
@@ -65,7 +65,7 @@ def extract_media_urls(history: List[Dict[str, Any]]) -> List[str]:
     - Structured: {"images": [...], "videos": [...]}
     - Legacy list: [{"url": "...", "type": "image"}, ...]
     """
-    urls: List[str] = []
+    urls: list[str] = []
     for msg in history:
         raw = msg.get("attachments")
         if not raw:
@@ -84,14 +84,14 @@ def extract_media_urls(history: List[Dict[str, Any]]) -> List[str]:
     return urls
 
 
-def extract_vision_context(history: List[Dict[str, Any]]) -> str:
+def extract_vision_context(history: list[dict[str, Any]]) -> str:
     """
     Extracts the structured vision analysis of the original room photo from chat history.
 
     The Designer agent writes a structured Italian analysis with fields like
     "Tipo stanza", "Stile attuale", etc.
     """
-    vision_block_lines: List[str] = []
+    vision_block_lines: list[str] = []
     for msg in history:
         if msg.get("role") != "assistant":
             continue

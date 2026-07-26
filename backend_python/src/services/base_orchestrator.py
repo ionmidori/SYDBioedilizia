@@ -8,7 +8,8 @@ OrchestratorFactory returns the ADKOrchestrator singleton directly.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from typing import Any
 
 
 class BaseOrchestrator(ABC):

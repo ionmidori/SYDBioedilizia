@@ -18,7 +18,6 @@ References:
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.llm_request import LlmRequest
@@ -80,7 +79,7 @@ def _make_blocked_response(message: str) -> LlmResponse:
 def model_armor_before_model(
     callback_context: CallbackContext,
     llm_request: LlmRequest,
-) -> Optional[LlmResponse]:
+) -> LlmResponse | None:
     """Input guardrail: blocks prompt injection and harmful input.
 
     ADK calls this BEFORE sending the request to the LLM.
@@ -134,7 +133,7 @@ def model_armor_after_model(
     callback_context: CallbackContext,
     llm_response: LlmResponse,
     **kwargs,
-) -> Optional[LlmResponse]:
+) -> LlmResponse | None:
     """Output guardrail: catches PII/sensitive data leaks in model responses.
 
     ADK calls this AFTER receiving a response from the LLM.

@@ -9,7 +9,6 @@ Provides REST endpoints for project management:
 - Claim guest project (Deferred Auth)
 """
 import logging
-from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from src.auth.jwt_handler import verify_token
@@ -31,10 +30,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
-@router.get("", response_model=List[ProjectListItem])
+@router.get("", response_model=list[ProjectListItem])
 async def list_projects(
     user_session: UserSession = Depends(verify_token)
-) -> List[ProjectListItem]:
+) -> list[ProjectListItem]:
     """
     List all projects for the authenticated user.
 

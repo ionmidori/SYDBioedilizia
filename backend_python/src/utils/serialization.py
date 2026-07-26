@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from enum import Enum
-from typing import Any, Type, TypeVar
+from typing import Any, TypeVar
 
 from dateutil import parser
 from src.utils.datetime_utils import utc_now
@@ -43,7 +43,7 @@ def parse_firestore_datetime(value: Any) -> datetime:
     return utc_now()
 
 
-def parse_enum(enum_cls: Type[T], value: Any, default: T) -> T:
+def parse_enum(enum_cls: type[T], value: Any, default: T) -> T:
     """
     Robustly parses a value into an Enum member.
     Handles:

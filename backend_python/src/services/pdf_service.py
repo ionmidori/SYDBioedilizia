@@ -92,7 +92,7 @@ class PdfService:
         info_data = [
             ["Progetto:", quote_data.get("project_id", "N/D")],
             ["Cliente:", quote_data.get("client_name", quote_data.get("user_id", "N/D"))],
-            ["Data:", datetime.datetime.now(datetime.timezone.utc).strftime("%d/%m/%Y")],
+            ["Data:", datetime.datetime.now(datetime.UTC).strftime("%d/%m/%Y")],
         ]
         if quote_data.get("quote_number"):
             info_data.append(["N° Preventivo:", quote_data["quote_number"]])
@@ -274,7 +274,7 @@ class PdfService:
         Call via asyncio.to_thread() from async context.
         """
         bucket = storage.bucket()
-        ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+        ts = int(datetime.datetime.now(datetime.UTC).timestamp())
         blob_path = f"projects/{project_id}/quotes/quote_{ts}.pdf"
         blob = bucket.blob(blob_path)
         blob.upload_from_string(pdf_bytes, content_type="application/pdf")

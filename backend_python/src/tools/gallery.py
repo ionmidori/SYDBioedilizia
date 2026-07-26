@@ -1,14 +1,13 @@
 import json
 import logging
 from datetime import timedelta
-from typing import Optional
 
 from firebase_admin import firestore, storage
 from src.utils.context import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
-def show_project_gallery(session_id: str, room: Optional[str] = None, status: Optional[str] = None) -> str:
+def show_project_gallery(session_id: str, room: str | None = None, status: str | None = None) -> str:
     """
     Displays a visual gallery of project photos and renderings in the chat.
     Use this tool when the user asks to see photos, renderings, or specific rooms.

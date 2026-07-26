@@ -6,7 +6,6 @@ beyond simple MIME type checks, including Magic Bytes validation.
 """
 
 import logging
-from typing import Optional
 
 from fastapi import HTTPException, UploadFile
 
@@ -89,7 +88,7 @@ async def validate_video_magic_bytes(file: UploadFile, max_header_size: int = 20
             )
 
         # Check against known video signatures
-        detected_type: Optional[str] = None
+        detected_type: str | None = None
 
         for mime_type, signatures in VIDEO_SIGNATURES.items():
             for signature in signatures:
@@ -158,7 +157,7 @@ async def validate_image_magic_bytes(file: UploadFile, max_header_size: int = 16
                 detail="File too small or corrupted. Minimum 4 bytes required."
             )
 
-        detected_type: Optional[str] = None
+        detected_type: str | None = None
 
         for mime_type, signatures in IMAGE_SIGNATURES.items():
             for signature in signatures:

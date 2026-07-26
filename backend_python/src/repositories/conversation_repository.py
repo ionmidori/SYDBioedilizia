@@ -1,6 +1,6 @@
 import logging
-from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from google.cloud import firestore as async_firestore
 from pydantic import BaseModel
@@ -37,14 +37,14 @@ class ConversationRepository:
         session_id: str,
         role: str,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        tool_calls: Optional[List[Dict[str, Any]]] = None,
-        tool_call_id: Optional[str] = None,
-        attachments: Optional[Any] = None,
-        timestamp: Optional[datetime] = None,
-        room_id: Optional[str] = None,
-        message_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        metadata: dict[str, Any] | None = None,
+        tool_calls: list[dict[str, Any]] | None = None,
+        tool_call_id: str | None = None,
+        attachments: Any | None = None,
+        timestamp: datetime | None = None,
+        room_id: str | None = None,
+        message_id: str | None = None,
+        user_id: str | None = None,
     ) -> None:
         """Save a message to Firestore with tool support and media attachments.
 
@@ -72,7 +72,7 @@ class ConversationRepository:
             # 🚀 Use correct sentinel for Async Client
 
             # Calculate expireAt for TTL (30 days from now)
-            expire_at = datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS)
+            expire_at = datetime.now(UTC) + timedelta(days=SESSION_TTL_DAYS)
 
             message_data = {
                 'role': role,
@@ -141,8 +141,8 @@ class ConversationRepository:
         self,
         session_id: str,
         limit: int = 10,
-        room_id: Optional[str] = None,
-    ) -> List[Dict[str, Any]]:
+        room_id: str | None = None,
+    ) -> list[dict[str, Any]]:
         """Retrieve conversation history including tool data and attachments.
 
         Args:
@@ -199,7 +199,7 @@ class ConversationRepository:
             logger.error(f"[Repo] Error retrieving messages: {str(e)}", exc_info=True)
             return []
 
-    async def ensure_session(self, session_id: str, user_id: Optional[str] = None) -> None:
+    async def ensure_session(self, session_id: str, user_id: str | None = None) -> None:
         """
         Ensure session document exists in Firestore.
         If user_id is provided and the session doesn't exist, it's created with that owner.
@@ -210,7 +210,7 @@ class ConversationRepository:
             session_ref = db.collection('sessions').document(session_id)
             doc = await session_ref.get()
 
-            expire_at = datetime.now(timezone.utc) + timedelta(days=SESSION_TTL_DAYS)
+            expire_at = datetime.now(UTC) + timedelta(days=SESSION_TTL_DAYS)
 
             if not doc.exists:
                 # Determine owner
@@ -285,7 +285,7 @@ class ConversationRepository:
     async def save_file_metadata(
         self,
         project_id: str,
-        file_data: Dict[str, Any]
+        file_data: dict[str, Any]
     ) -> None:
         """
         Save file metadata to the project's 'files' subcollection.
@@ -322,7 +322,7 @@ class ConversationRepository:
         except Exception as e:
             logger.error(f"[Repo] Error saving file metadata: {str(e)}", exc_info=True)
 
-    def get_history_sync(self, session_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_history_sync(self, session_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """
         SYNCHRONOUS retrieval for legacy wrappers.
         """

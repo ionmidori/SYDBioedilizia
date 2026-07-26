@@ -12,7 +12,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from google import genai
 from google.genai import types
@@ -121,7 +121,7 @@ def get_video_metadata(video_path: str) -> VideoMetadata:
         )
 
 
-def optimize_video(input_path: str, max_duration: float = 30.0, trim_start: Optional[float] = None, trim_end: Optional[float] = None) -> str:
+def optimize_video(input_path: str, max_duration: float = 30.0, trim_start: float | None = None, trim_end: float | None = None) -> str:
     """
     Optimize video for Gemini analysis using FFmpeg.
 
@@ -208,7 +208,7 @@ def optimize_video(input_path: str, max_duration: float = 30.0, trim_start: Opti
         raise
 
 
-async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
+async def analyze_video_with_gemini(video_path: str) -> dict[str, Any]:
     """
     Analyze video using Gemini 3 Flash multimodal capabilities.
 
@@ -312,7 +312,7 @@ async def analyze_video_with_gemini(video_path: str) -> Dict[str, Any]:
         client.close()
 
 
-async def analyze_video_triage(video_data: bytes, metadata: Optional[Dict[str, Any]] = None) -> VideoTriageResult:
+async def analyze_video_triage(video_data: bytes, metadata: dict[str, Any] | None = None) -> VideoTriageResult:
     """
     Main entry point for video triage analysis.
 

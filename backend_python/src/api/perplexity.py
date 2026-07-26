@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any
 
 import httpx
 from src.core.config import settings
@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 PERPLEXITY_API_KEY = settings.PERPLEXITY_API_KEY
 PERPLEXITY_API_URL = "https://api.perplexity.ai/chat/completions"
 
-async def fetch_market_prices(query: str) -> Dict[str, Any]:
+async def fetch_market_prices(query: str) -> dict[str, Any]:
     """
     Fetch market price information using Perplexity API.
 

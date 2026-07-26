@@ -4,7 +4,7 @@ Tests for ConversationRepository — Firestore-backed conversation storage.
 Patches are applied at the IMPORT SITE (conversation_repository module),
 not at the definition site, to correctly intercept already-bound names.
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -141,7 +141,7 @@ class TestSaveMessage:
     @pytest.mark.asyncio
     async def test_timestamp_used_when_provided(self, repo, mock_db, mock_fs):
         self._setup_db(mock_db)
-        ts = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        ts = datetime(2024, 1, 1, tzinfo=UTC)
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \

@@ -1,7 +1,6 @@
 import json
 import logging
 import time
-from typing import List
 
 from google import genai
 from google.genai import types as genai_types
@@ -27,13 +26,13 @@ class RoomAnalysis(BaseModel):
     model_config = {"extra": "forbid"}
     room_type: str = Field(..., description="living_room, bedroom, kitchen, etc.")
     approximate_size_sqm: int = Field(..., description="Estimated room size in square meters")
-    architectural_features: List[str] = Field(..., description="List of visible fixed features")
+    architectural_features: list[str] = Field(..., description="List of visible fixed features")
     flooring_type: str = Field(..., description="Material of the floor")
     wall_color: str = Field(..., description="Dominant wall color")
     ceiling_type: str = Field(..., description="flat, sloped, vaulted, exposed_beams")
-    windows: List[RoomWindow] = Field(default_factory=list, description="List of windows")
-    doors: List[RoomDoor] = Field(default_factory=list, description="List of doors")
-    special_features: List[str] = Field(default_factory=list, description="fireplace, staircase, etc.")
+    windows: list[RoomWindow] = Field(default_factory=list, description="List of windows")
+    doors: list[RoomDoor] = Field(default_factory=list, description="List of doors")
+    special_features: list[str] = Field(default_factory=list, description="fireplace, staircase, etc.")
 
 
 async def analyze_room_structure(image_bytes: bytes) -> RoomAnalysis:

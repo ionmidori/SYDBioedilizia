@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -14,7 +14,7 @@ class MockDatetime(datetime):
 @pytest.fixture
 def mock_datetime():
     # Use timezone-aware datetime for utc_now
-    fixed_now = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    fixed_now = datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC)
     with patch("src.tools.quota.utc_now", return_value=fixed_now):
         # Also patch datetime for other usages if necessary, but importantly utc_now
         yield
@@ -49,7 +49,7 @@ async def test_check_quota_bypass(mock_datetime, mock_async_firestore, mock_sett
     mock_doc.exists = True
     mock_doc.to_dict.return_value = {
         "bypass_quota": True,
-        "window_start": datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc) # Valid start
+        "window_start": datetime(2023, 1, 1, 10, 0, 0, tzinfo=UTC) # Valid start
     }
     mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_doc
 
@@ -68,7 +68,7 @@ async def test_check_quota_override(mock_datetime, mock_async_firestore, mock_se
     mock_doc.to_dict.return_value = {
         "override_limit": 10,
         "count": 5,
-        "window_start": datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc) # Valid start
+        "window_start": datetime(2023, 1, 1, 10, 0, 0, tzinfo=UTC) # Valid start
     }
     mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_doc
 
@@ -87,7 +87,7 @@ async def test_check_quota_weekly_limit_exceeded(mock_datetime, mock_async_fires
     mock_daily.exists = True
     mock_daily.to_dict.return_value = {
         "count": 0,
-        "window_start": datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+        "window_start": datetime(2023, 1, 1, 10, 0, 0, tzinfo=UTC)
     }
 
     # Weekly quota doc (exists, exceeded)
@@ -96,7 +96,7 @@ async def test_check_quota_weekly_limit_exceeded(mock_datetime, mock_async_fires
     # Limit is 7, count is 7
     mock_weekly.to_dict.return_value = {
         "count": 7,
-        "window_start": datetime(2023, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+        "window_start": datetime(2023, 1, 1, 10, 0, 0, tzinfo=UTC)
     }
 
     # Mock return values for calls

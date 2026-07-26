@@ -7,8 +7,7 @@ Fields: message_id, rating, comment, created_at, user_id
 Pattern: repositories/conversation_repository.py (same Firestore client singleton).
 """
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from src.db.firebase_client import get_async_firestore_client
 
@@ -23,8 +22,8 @@ class FeedbackRepository:
         session_id: str,
         message_id: str,
         rating: int,
-        user_id: Optional[str] = None,
-        comment: Optional[str] = None,
+        user_id: str | None = None,
+        comment: str | None = None,
     ) -> str:
         """
         Save a feedback document to Firestore.
@@ -40,7 +39,7 @@ class FeedbackRepository:
             "rating": rating,
             "comment": comment or "",
             "user_id": user_id or "",
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.now(UTC),
         }
 
         feedback_ref = (
