@@ -21,7 +21,7 @@ import asyncio
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Ensure backend_python is on sys.path
@@ -56,7 +56,7 @@ def _build_run_meta(
 ) -> dict:
     """Build metadata dict for this eval run."""
     return {
-        "run_at": datetime.now(timezone.utc).isoformat(),
+        "run_at": datetime.now(UTC).isoformat(),
         "agent_module": AGENT_MODULE,
         "file_filter": file_filter or "all",
         "agent_name": agent_name or "root",
@@ -98,7 +98,7 @@ async def run_all(
     # Persist results to JSON if output_dir is specified
     if output_dir is not None:
         meta = _build_run_meta(file_filter, agent_name, num_runs)
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         suffix = f"_{file_filter.replace('.test.json', '')}" if file_filter else ""
         suffix += f"_{agent_name}" if agent_name else ""
         output_file = output_dir / f"eval_{timestamp}{suffix}.json"

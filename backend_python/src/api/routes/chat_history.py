@@ -5,7 +5,6 @@ Provides endpoints for fetching chat message history from sessions.
 """
 import json
 import logging
-from typing import List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 
@@ -28,24 +27,24 @@ class MessageResponse(BaseModel):
     id: str
     role: str
     content: str
-    timestamp: Optional[str] = None
-    attachments: Optional[Union[list, dict]] = None  # Supports both list (legacy) and dict (structured)
-    tool_calls: Optional[list] = None
+    timestamp: str | None = None
+    attachments: list | dict | None = None  # Supports both list (legacy) and dict (structured)
+    tool_calls: list | None = None
 
 
 class ChatHistoryResponse(BaseModel):
     """Response model for chat history."""
     model_config = {"extra": "ignore"}
-    messages: List[MessageResponse]
+    messages: list[MessageResponse]
     has_more: bool
-    next_cursor: Optional[str] = None
+    next_cursor: str | None = None
 
 
 @router.get("/{session_id}/messages", response_model=ChatHistoryResponse)
 async def get_chat_history(
     session_id: str = Path(..., min_length=1, max_length=128, pattern=r"^[a-zA-Z0-9_-]+$"),
     limit: int = Query(default=50, ge=1, le=100),
-    cursor: Optional[str] = Query(default=None),
+    cursor: str | None = Query(default=None),
     user_session: UserSession = Depends(verify_token),
 ) -> ChatHistoryResponse:
     """

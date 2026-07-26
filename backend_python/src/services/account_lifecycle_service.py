@@ -19,7 +19,6 @@ import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
 
 from src.core.config import settings
 from src.db.firebase_client import get_async_firestore_client
@@ -264,7 +263,7 @@ def _delete_firebase_auth(uid: str) -> None:
 
 # ── Singleton factory ─────────────────────────────────────────────────────────
 
-_service: Optional[AccountLifecycleService] = None
+_service: AccountLifecycleService | None = None
 
 
 def get_account_lifecycle_service() -> AccountLifecycleService:

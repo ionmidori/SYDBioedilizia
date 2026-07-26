@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from pydantic import BaseModel, Field
 from src.core.exceptions import ServiceError
@@ -14,10 +13,10 @@ class SubmitLeadInput(BaseModel):
     model_config = {"extra": "forbid"}
     name: str = Field(..., description="Customer name from the chat context")
     email: str = Field(..., description="Customer email address")
-    phone: Optional[str] = Field(None, description="Customer phone number (optional)")
+    phone: str | None = Field(None, description="Customer phone number (optional)")
     project_details: str = Field(..., description="Detailed project description provided by the user")
-    room_type: Optional[str] = Field(None, description="Type of room being renovated (e.g. kitchen, bathroom)")
-    style: Optional[str] = Field(None, description="Preferred design style (e.g. modern, rustic)")
+    room_type: str | None = Field(None, description="Type of room being renovated (e.g. kitchen, bathroom)")
+    style: str | None = Field(None, description="Preferred design style (e.g. modern, rustic)")
 
 async def submit_lead_wrapper(
     name: str,
@@ -25,9 +24,9 @@ async def submit_lead_wrapper(
     project_details: str,
     uid: str,
     session_id: str,
-    phone: Optional[str] = None,
-    room_type: Optional[str] = None,
-    style: Optional[str] = None,
+    phone: str | None = None,
+    room_type: str | None = None,
+    style: str | None = None,
 ) -> str:
     """
     Saves a new customer lead to the database.

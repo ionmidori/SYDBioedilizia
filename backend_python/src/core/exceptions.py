@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class AppException(Exception):
@@ -9,10 +9,10 @@ class AppException(Exception):
 
     def __init__(
         self,
-        message: Optional[str] = None,
-        error_code: Optional[str] = None,
-        status_code: Optional[int] = None,
-        detail: Optional[Dict[str, Any]] = None
+        message: str | None = None,
+        error_code: str | None = None,
+        status_code: int | None = None,
+        detail: dict[str, Any] | None = None
     ):
         if message:
             self.message = message
@@ -160,7 +160,7 @@ class DeliveryError(ServiceError):
     """All tenacity retry attempts to the n8n webhook were exhausted."""
     error_code = "DELIVERY_ERROR"
 
-    def __init__(self, project_id: str, http_status: Optional[int] = None) -> None:
+    def __init__(self, project_id: str, http_status: int | None = None) -> None:
         super().__init__(
             message=f"Quote delivery webhook failed for project '{project_id}'.",
             detail={"project_id": project_id, "http_status": http_status},

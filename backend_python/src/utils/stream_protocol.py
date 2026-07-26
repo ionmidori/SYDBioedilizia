@@ -1,7 +1,8 @@
 
 import json
 import logging
-from typing import Any, AsyncGenerator, AsyncIterator, Dict, List, Union
+from collections.abc import AsyncGenerator, AsyncIterator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,18 +41,18 @@ TEXT_PART_ID = "0"
 _DONE = "data: [DONE]\n\n"
 
 
-def _sse(chunk: Dict[str, Any]) -> str:
+def _sse(chunk: dict[str, Any]) -> str:
     """Serialize one UI message chunk as an SSE `data:` event."""
     return f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
 
 
-async def stream_text(text: str) -> AsyncGenerator[Dict[str, Any], None]:
+async def stream_text(text: str) -> AsyncGenerator[dict[str, Any], None]:
     """Yield a v6 `text-delta` chunk (lifecycle handled by `to_ui_message_stream`)."""
     if text:
         yield {"type": "text-delta", "id": TEXT_PART_ID, "delta": text}
 
 
-async def stream_error(error: str) -> AsyncGenerator[Dict[str, Any], None]:
+async def stream_error(error: str) -> AsyncGenerator[dict[str, Any], None]:
     """Yield a v6 `error` chunk."""
     yield {"type": "error", "errorText": error}
 
@@ -59,8 +60,8 @@ async def stream_error(error: str) -> AsyncGenerator[Dict[str, Any], None]:
 async def stream_tool_call(
     tool_call_id: str,
     tool_name: str,
-    args: Dict[str, Any],
-) -> AsyncGenerator[Dict[str, Any], None]:
+    args: dict[str, Any],
+) -> AsyncGenerator[dict[str, Any], None]:
     """
     Tool invocation, emitted as a transient data part.
 
@@ -78,7 +79,7 @@ async def stream_tool_call(
 async def stream_tool_result(
     tool_call_id: str,
     result: Any,
-) -> AsyncGenerator[Dict[str, Any], None]:
+) -> AsyncGenerator[dict[str, Any], None]:
     """Tool result, emitted as a transient data part (see `stream_tool_call`)."""
     yield {
         "type": "data-tool_result",
@@ -88,8 +89,8 @@ async def stream_tool_result(
 
 
 async def stream_data(
-    data: Union[Dict[str, Any], List[Any], str, int, float, bool],
-) -> AsyncGenerator[Dict[str, Any], None]:
+    data: dict[str, Any] | list[Any] | str | int | float | bool,
+) -> AsyncGenerator[dict[str, Any], None]:
     """
     Arbitrary ADK event payload (e.g. HITL interrupts) as a transient data part.
 
@@ -100,7 +101,7 @@ async def stream_data(
     yield {"type": "data-event", "data": data, "transient": True}
 
 
-async def stream_status(message: str) -> AsyncGenerator[Dict[str, Any], None]:
+async def stream_status(message: str) -> AsyncGenerator[dict[str, Any], None]:
     """Status update as a transient `data-status` chunk."""
     yield {
         "type": "data-status",
@@ -109,7 +110,7 @@ async def stream_status(message: str) -> AsyncGenerator[Dict[str, Any], None]:
     }
 
 
-async def stream_ui_widget(widget_data: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
+async def stream_ui_widget(widget_data: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
     """
     UiWidget event (ADK 1.27+ `render_ui_widget`) as a transient `data-ui_widget` chunk.
     """
@@ -125,7 +126,7 @@ async def stream_ui_widget(widget_data: Dict[str, Any]) -> AsyncGenerator[Dict[s
     }
 
 
-async def stream_artifact_event(artifact_data: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
+async def stream_artifact_event(artifact_data: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
     """
     Artifact delta event (ADK 1.27+ `save_artifact`) as a transient `data-artifact` chunk.
     """
@@ -140,7 +141,7 @@ async def stream_artifact_event(artifact_data: Dict[str, Any]) -> AsyncGenerator
     }
 
 
-async def stream_reasoning(step_data: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
+async def stream_reasoning(step_data: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
     """
     Reasoning step (CoT) as a transient `data-reasoning` chunk.
 
@@ -158,7 +159,7 @@ async def stream_reasoning(step_data: Dict[str, Any]) -> AsyncGenerator[Dict[str
 
 
 async def to_ui_message_stream(
-    source: AsyncIterator[Dict[str, Any]],
+    source: AsyncIterator[dict[str, Any]],
     message_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """
@@ -177,7 +178,7 @@ async def to_ui_message_stream(
     avoiding "async generator ignored GeneratorExit" runtime errors.
     """
     text_open = False
-    start_chunk: Dict[str, Any] = {"type": "start"}
+    start_chunk: dict[str, Any] = {"type": "start"}
     if message_id:
         start_chunk["messageId"] = message_id
     yield _sse(start_chunk)

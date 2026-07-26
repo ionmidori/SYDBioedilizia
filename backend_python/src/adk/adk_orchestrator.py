@@ -10,8 +10,9 @@ import json
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
-from typing import Any, AsyncIterator
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -503,7 +504,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                                     role="tool",
                                                     content=content_str,
                                                     tool_call_id=call_id,
-                                                    timestamp=datetime.now(timezone.utc),
+                                                    timestamp=datetime.now(UTC),
                                                     user_id=user_id,
                                                 )
                                                 logger.info(f"[Repo] Saved tool result for call_id {call_id}")
@@ -577,7 +578,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     # Generator completed without exception — record success
                     await vertex_ai_breaker.on_success()
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     await vertex_ai_breaker.on_failure(
                         TimeoutError("run_async timed out after 180s")
                     )
@@ -589,7 +590,7 @@ class ADKOrchestrator(BaseOrchestrator):
                 if full_response or accumulated_tool_calls:
                     try:
                         repo = get_conversation_repository()
-                        assistant_timestamp = datetime.now(timezone.utc)
+                        assistant_timestamp = datetime.now(UTC)
                         await repo.save_message(
                             session_id=session_id,
                             role="assistant",

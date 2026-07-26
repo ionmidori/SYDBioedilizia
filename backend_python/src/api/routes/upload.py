@@ -12,7 +12,6 @@ import io
 import re
 import uuid
 from datetime import timedelta
-from typing import Tuple
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -97,7 +96,7 @@ def _firebase_upload(
     content: bytes,
     content_type: str,
     safe_filename: str,
-) -> Tuple[str, str]:
+) -> tuple[str, str]:
     """Synchronous Firebase Storage upload — runs in threadpool to avoid blocking the event loop."""
     bucket = fb_storage.bucket()
     blob = bucket.blob(file_path)

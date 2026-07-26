@@ -7,14 +7,13 @@ thread-safe context propagation.
 """
 
 from contextvars import ContextVar
-from typing import Optional
 
 # Context variable for the current user's ID
 # Used by tools to access user identity for quota tracking
 current_user_id: ContextVar[str] = ContextVar("current_user_id", default="default")
 
 # Context variable for media metadata (e.g. video trim ranges)
-current_media_metadata: ContextVar[Optional[dict]] = ContextVar("current_media_metadata", default=None)
+current_media_metadata: ContextVar[dict | None] = ContextVar("current_media_metadata", default=None)
 
 # Context variable for auth status (Guest vs Authenticated)
 current_is_anonymous: ContextVar[bool] = ContextVar("current_is_anonymous", default=True)
@@ -37,7 +36,7 @@ def set_current_user_id(user_id: str) -> None:
     current_user_id.set(user_id)
 
 
-def get_current_media_metadata() -> Optional[dict]:
+def get_current_media_metadata() -> dict | None:
     """Get current media metadata (e.g. trim ranges)."""
     return current_media_metadata.get()
 

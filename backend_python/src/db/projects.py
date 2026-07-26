@@ -7,7 +7,7 @@ Projects are stored in the `sessions` collection with extended schema.
 import logging
 import uuid
 from datetime import timedelta
-from typing import Any, List, Optional
+from typing import Any
 
 from google.cloud.firestore_v1 import FieldFilter
 from src.db.firebase_client import get_async_firestore_client, get_storage_client
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 PROJECTS_COLLECTION = "sessions"
 
 
-async def get_user_projects(user_id: str, limit: int = 50) -> List[ProjectListItem]:
+async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListItem]:
     """
     Retrieve all projects for a user, ordered by last activity.
 
@@ -154,7 +154,7 @@ async def count_user_projects(user_id: str) -> int:
             return 0
 
 
-async def get_project(session_id: str, user_id: str) -> Optional[ProjectDocument]:
+async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:
     """
     Retrieve a single project by ID with ownership verification.
 

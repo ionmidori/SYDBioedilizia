@@ -17,19 +17,19 @@ _SECURITY_HEADERS: list[tuple[bytes, bytes]] = [
     (b"x-xss-protection", b"1; mode=block"),
     (b"strict-transport-security", b"max-age=31536000; includeSubDomains; preload"),
     (b"content-security-policy", (
-        "default-src 'none'; "
-        "img-src 'self' data: blob: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com; "
-        "script-src 'self'; "
-        "style-src 'self'; "
-        "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com; "
-        "frame-ancestors 'none'; "
-        "base-uri 'self'; "
-        "form-action 'self';"
-    ).encode()),
+        b"default-src 'none'; "
+        b"img-src 'self' data: blob: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com; "
+        b"script-src 'self'; "
+        b"style-src 'self'; "
+        b"connect-src 'self' https://*.googleapis.com https://*.firebaseio.com; "
+        b"frame-ancestors 'none'; "
+        b"base-uri 'self'; "
+        b"form-action 'self';"
+    )),
     (b"permissions-policy", (
-        "camera=(), microphone=(), geolocation=(), "
-        "payment=(), usb=(), magnetometer=(), gyroscope=()"
-    ).encode()),
+        b"camera=(), microphone=(), geolocation=(), "
+        b"payment=(), usb=(), magnetometer=(), gyroscope=()"
+    )),
     (b"referrer-policy", b"strict-origin-when-cross-origin"),
 ]
 

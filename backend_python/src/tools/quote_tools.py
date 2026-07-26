@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -24,10 +24,10 @@ _MAX_QTY = 10_000  # Hard cap — anything above is almost certainly an AI hallu
 class SuggestQuoteItemsInput(BaseModel):
     model_config = {"extra": "forbid"}
     session_id: str = Field(..., description="The ID of the current chat session")
-    project_id: Optional[str] = Field(None, description="Optional: ID of the project associated with the session")
-    user_id: Optional[str] = Field(None, description="Optional: UID of the user")
+    project_id: str | None = Field(None, description="Optional: ID of the project associated with the session")
+    user_id: str | None = Field(None, description="Optional: UID of the user")
 
-def build_chat_summary(history: List[Dict[str, Any]], limit_chars: int = 500) -> str:
+def build_chat_summary(history: list[dict[str, Any]], limit_chars: int = 500) -> str:
     """
     Extracts a readable summary from chat history, truncating long messages.
     Pattern: QUANTITY_SURVEYOR.md
@@ -41,7 +41,7 @@ def build_chat_summary(history: List[Dict[str, Any]], limit_chars: int = 500) ->
         lines.append(f"{role.upper()}: {content}")
     return "\n".join(lines)
 
-def validate_sku_suggestions(suggestions: List[Any]) -> List[str]:
+def validate_sku_suggestions(suggestions: list[Any]) -> list[str]:
     """
     Verifies that suggested SKUs exist in the Price Book.
     Pattern: QUANTITY_SURVEYOR.md
@@ -58,7 +58,7 @@ def validate_sku_suggestions(suggestions: List[Any]) -> List[str]:
     return unknown_skus
 
 
-def _validate_qty_bounds(suggestions: List[Any]) -> tuple[List[Any], List[str]]:
+def _validate_qty_bounds(suggestions: list[Any]) -> tuple[list[Any], list[str]]:
     """
     Filters out suggestions with quantities outside safe bounds (_MIN_QTY .. _MAX_QTY).
     Returns (valid_suggestions, list_of_warning_messages).
@@ -76,7 +76,7 @@ def _validate_qty_bounds(suggestions: List[Any]) -> tuple[List[Any], List[str]]:
             valid.append(s)
     return valid, warnings
 
-def _extract_media_urls(history: List[Dict[str, Any]]) -> List[str]:
+def _extract_media_urls(history: list[dict[str, Any]]) -> list[str]:
     """
     Extracts all media URLs from chat history attachments.
 
@@ -84,7 +84,7 @@ def _extract_media_urls(history: List[Dict[str, Any]]) -> List[str]:
     - Structured: {"images": [...], "videos": [...]}  ← current format
     - Legacy list: [{"url": "...", "type": "image"}, ...]
     """
-    urls: List[str] = []
+    urls: list[str] = []
     for msg in history:
         raw = msg.get("attachments")
         if not raw:
@@ -105,7 +105,7 @@ def _extract_media_urls(history: List[Dict[str, Any]]) -> List[str]:
     return urls
 
 
-def _extract_vision_context(history: List[Dict[str, Any]]) -> str:
+def _extract_vision_context(history: list[dict[str, Any]]) -> str:
     """
     Extracts the structured vision analysis of the original room photo from chat history.
 
@@ -114,7 +114,7 @@ def _extract_vision_context(history: List[Dict[str, Any]]) -> str:
     We surface this as a dedicated context block so InsightEngine can use it to
     determine the current state of the room (materials, condition, existing systems).
     """
-    vision_block_lines: List[str] = []
+    vision_block_lines: list[str] = []
     for msg in history:
         if msg.get("role") != "assistant":
             continue
@@ -135,7 +135,7 @@ def _extract_vision_context(history: List[Dict[str, Any]]) -> str:
     return ""
 
 
-async def _run_measurement_vision(media_urls: List[str]) -> str:
+async def _run_measurement_vision(media_urls: list[str]) -> str:
     """
     Downloads the first accessible image and runs the RoomMeasurementAgent on it.
 
@@ -206,8 +206,8 @@ _STRUCTURAL_VISION_PROMPT = (
 
 
 async def _run_render_structural_vision(
-    media_urls: List[str],
-    history: List[Dict[str, Any]],
+    media_urls: list[str],
+    history: list[dict[str, Any]],
 ) -> str:
     """
     Visually compares the original room photo with the generated render using Gemini
@@ -232,7 +232,7 @@ async def _run_render_structural_vision(
         )
 
     # Find render URL from media_urls or from history text hints
-    render_url: Optional[str] = None
+    render_url: str | None = None
     for url in media_urls:
         if _is_allowed_url(url) and "/renders/" in url:
             render_url = url
@@ -257,7 +257,7 @@ async def _run_render_structural_vision(
         return ""
 
     # Find original photo URL (user upload, not a render)
-    photo_url: Optional[str] = None
+    photo_url: str | None = None
     for url in media_urls:
         if _is_allowed_url(url) and "/renders/" not in url:
             photo_url = url
@@ -329,7 +329,7 @@ async def _run_render_structural_vision(
         return ""
 
 
-async def suggest_quote_items_wrapper(session_id: str, project_id: Optional[str] = None, user_id: Optional[str] = None) -> str:
+async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = None, user_id: str | None = None) -> str:
     """
     Analyzes the current chat session and suggests a list of quote items based on the Master Price Book.
     Use this when the user asks for a preliminary quote, cost estimation, or 'what needs to be done'.

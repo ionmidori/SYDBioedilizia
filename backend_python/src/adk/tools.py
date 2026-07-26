@@ -7,7 +7,7 @@ Name comes from the function name; description from the docstring.
 Type hints on parameters define the input schema.
 Pydantic validation is enforced via the function's argument types.
 """
-from typing import Any, Dict
+from typing import Any
 
 from google.adk.tools import FunctionTool
 
@@ -16,7 +16,7 @@ from src.core.telemetry import instrumented_tool
 # ─── Pricing Engine ──────────────────────────────────────────────────────────
 
 @instrumented_tool("pricing_engine")
-async def pricing_engine_tool(sku: str, qty: float) -> Dict[str, Any]:
+async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
     """Calculates project line-item price from the master price book.
 
     Looks up a SKU and returns unit price, description, and total cost.
@@ -289,7 +289,7 @@ async def suggest_quote_items(
 # ─── n8n Webhook ─────────────────────────────────────────────────────────────
 
 @instrumented_tool("n8n_webhook")
-async def trigger_n8n_webhook(workflow_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+async def trigger_n8n_webhook(workflow_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     """Triggers an n8n automation workflow via signed HMAC webhook.
 
     Delegates to the production-hardened n8n implementation that includes:

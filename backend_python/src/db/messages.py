@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # Firestore sentinels/classes (SERVER_TIMESTAMP, Increment, Query) come from the
 # typed google.cloud.firestore — firebase_admin.firestore re-exports them at
@@ -15,11 +15,11 @@ async def save_message(
     session_id: str,
     role: str,  # 'user', 'assistant', or 'tool'
     content: str,
-    metadata: Optional[Dict[str, Any]] = None,
-    tool_calls: Optional[List[Dict[str, Any]]] = None,
-    tool_call_id: Optional[str] = None,
-    attachments: Optional[List[Dict[str, Any]]] = None, # 🔥 New: Structured Media
-    user_id: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
+    tool_call_id: str | None = None,
+    attachments: list[dict[str, Any]] | None = None, # 🔥 New: Structured Media
+    user_id: str | None = None,
 ) -> None:
     """Save a message to Firestore with tool support and media attachments."""
     try:
@@ -80,7 +80,7 @@ async def save_message(
 async def get_conversation_context(
     session_id: str,
     limit: int = 10
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Retrieve conversation history including tool data and attachments."""
     try:
         db = get_firestore_client()
@@ -119,7 +119,7 @@ async def get_conversation_context(
         return []
 
 
-def get_messages(session_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+def get_messages(session_id: str, limit: int = 20) -> list[dict[str, Any]]:
     """
     SYNCHRONOUS version of get_conversation_context.
     Used by sync_wrappers.py for fallback image URL recovery.
@@ -153,7 +153,7 @@ def get_messages(session_id: str, limit: int = 20) -> List[Dict[str, Any]]:
         return []
 
 
-async def ensure_session(session_id: str, user_id: Optional[str] = None) -> None:
+async def ensure_session(session_id: str, user_id: str | None = None) -> None:
     """
     Ensure session document exists in Firestore.
 
@@ -222,7 +222,7 @@ async def ensure_session(session_id: str, user_id: Optional[str] = None) -> None
 
 async def save_file_metadata(
     project_id: str,
-    file_data: Dict[str, Any]
+    file_data: dict[str, Any]
 ) -> None:
     """
     Save file metadata to the project's 'files' subcollection.

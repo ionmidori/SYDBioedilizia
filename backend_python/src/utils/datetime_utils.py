@@ -9,7 +9,7 @@ Usage:
     timestamp = utc_now()
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def utc_now() -> datetime:
@@ -20,4 +20,4 @@ def utc_now() -> datetime:
     datetime that can silently produce incorrect comparisons with
     timezone-aware datetimes from Firestore or other sources.
     """
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

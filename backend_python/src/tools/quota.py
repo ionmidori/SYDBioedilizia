@@ -12,8 +12,7 @@ S3 FIX: Quota is now tracked per-project (not per-user) to match business rules.
 
 import logging
 import re
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Tuple
+from datetime import UTC, datetime, timedelta
 
 from google.cloud.firestore_v1 import Increment, async_transactional
 from src.core.config import settings
@@ -91,7 +90,7 @@ class QuotaExceededError(_AppQuotaExceeded):
         )
 
 
-def _build_quota_doc_id(user_id: str, tool_name: str, project_id: Optional[str] = None) -> str:
+def _build_quota_doc_id(user_id: str, tool_name: str, project_id: str | None = None) -> str:
     """
     S3 FIX: Build quota document ID. Uses project_id when available
     for per-project quota tracking (matching business rules).
@@ -104,8 +103,8 @@ def _build_quota_doc_id(user_id: str, tool_name: str, project_id: Optional[str] 
 async def check_quota(
     user_id: str,
     tool_name: str,
-    project_id: Optional[str] = None
-) -> Tuple[bool, int, datetime]:
+    project_id: str | None = None
+) -> tuple[bool, int, datetime]:
     """
     Check if the user has remaining quota for the specified tool.
     Supports Daily + Weekly limits and Administrator Overrides.
@@ -172,7 +171,7 @@ async def check_quota(
                 w_count = w_data.get("count", 0)
                 w_start = w_data.get("window_start")
                 if w_start is not None and hasattr(w_start, 'timestamp'):
-                    w_start = datetime.fromtimestamp(w_start.timestamp(), tz=timezone.utc)
+                    w_start = datetime.fromtimestamp(w_start.timestamp(), tz=UTC)
 
                 # A malformed doc may lack window_start; skip the weekly check then
                 # (mirrors the daily-path `if not window_start` handling below).
@@ -197,7 +196,7 @@ async def check_quota(
             return True, daily_limit - 1, reset_at
 
         if hasattr(window_start, 'timestamp'):
-            window_start = datetime.fromtimestamp(window_start.timestamp(), tz=timezone.utc)
+            window_start = datetime.fromtimestamp(window_start.timestamp(), tz=UTC)
 
         if now >= window_start + timedelta(hours=QUOTA_WINDOW_HOURS):
             allowed = daily_limit > 0
@@ -226,7 +225,7 @@ async def check_quota(
 async def increment_quota(
     user_id: str,
     tool_name: str,
-    project_id: Optional[str] = None
+    project_id: str | None = None
 ) -> None:
     """
     Increment the quota counter (Daily + Weekly).
@@ -253,7 +252,7 @@ async def _increment_counter(
     user_id: str,
     tool_name: str,
     window_hours: int,
-    project_id: Optional[str] = None
+    project_id: str | None = None
 ) -> None:
     """
     Atomic counter increment using Firestore server-side Increment + transactions.
@@ -274,7 +273,7 @@ async def _increment_counter(
             data = snapshot.to_dict()
             window_start = data.get("window_start")
             if hasattr(window_start, 'timestamp'):
-                window_start = datetime.fromtimestamp(window_start.timestamp(), tz=timezone.utc)
+                window_start = datetime.fromtimestamp(window_start.timestamp(), tz=UTC)
             if window_start and now < window_start + timedelta(hours=window_hours):
                 await doc_ref.update({"count": Increment(1), "last_used": now})
                 return
@@ -298,7 +297,7 @@ async def _increment_counter(
             d = snap.to_dict()
             ws = d.get("window_start")
             if hasattr(ws, 'timestamp'):
-                ws = datetime.fromtimestamp(ws.timestamp(), tz=timezone.utc)
+                ws = datetime.fromtimestamp(ws.timestamp(), tz=UTC)
             if ws and now < ws + timedelta(hours=window_hours):
                 # A concurrent request already reset the window — just increment
                 transaction.update(doc_ref, {"count": Increment(1), "last_used": now})

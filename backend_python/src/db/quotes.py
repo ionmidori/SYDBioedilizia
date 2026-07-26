@@ -10,7 +10,7 @@ Kept for backward compatibility with existing production data.
 """
 import logging
 from datetime import datetime
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from src.db.firebase_client import get_async_firestore_client
@@ -23,22 +23,22 @@ logger = logging.getLogger(__name__)
 
 class LogisticsData(BaseModel):
     model_config = {"extra": "forbid"}
-    floor: Optional[str] = None
-    elevator: Optional[bool] = None
-    yearOfConstruction: Optional[str] = None
-    ceilingHeight: Optional[str] = None
+    floor: str | None = None
+    elevator: bool | None = None
+    yearOfConstruction: str | None = None
+    ceilingHeight: str | None = None
 
 class ScopeOfWorkData(BaseModel):
     model_config = {"extra": "forbid"}
-    demolitions: Optional[bool] = None
-    electrical: Optional[str] = None
-    plumbing: Optional[str] = None
-    fixtures: Optional[str] = None
+    demolitions: bool | None = None
+    electrical: str | None = None
+    plumbing: str | None = None
+    fixtures: str | None = None
 
 class QuantitiesData(BaseModel):
     model_config = {"extra": "forbid"}
-    sqm: Optional[int] = None
-    points: Optional[int] = None
+    sqm: int | None = None
+    points: int | None = None
 
 class QuoteDraftData(BaseModel):
     """
@@ -46,16 +46,16 @@ class QuoteDraftData(BaseModel):
     """
     model_config = {"extra": "forbid"}
     # Technical Data (The Convergence Protocol)
-    logistics: Optional[LogisticsData] = None
-    scopeOfWork: Optional[ScopeOfWorkData] = None
-    quantities: Optional[QuantitiesData] = None
+    logistics: LogisticsData | None = None
+    scopeOfWork: ScopeOfWorkData | None = None
+    quantities: QuantitiesData | None = None
 
     # Context
-    roomType: Optional[str] = None
-    style: Optional[str] = None
+    roomType: str | None = None
+    style: str | None = None
 
     # Generated Visuals
-    renderUrl: Optional[str] = None
+    renderUrl: str | None = None
 
     # Metadata
     clientId: str
@@ -64,13 +64,13 @@ class QuoteDraftData(BaseModel):
     updatedAt: datetime = Field(default_factory=utc_now)
     schemaVersion: int = 1
 
-    def to_firestore(self) -> Dict[str, Any]:
+    def to_firestore(self) -> dict[str, Any]:
         """Convert to dictionary for Firestore storage, handling datetimes."""
         data = self.model_dump(exclude_none=True)
         return data
 
     @classmethod
-    def from_firestore(cls, data: Dict[str, Any]) -> "QuoteDraftData":
+    def from_firestore(cls, data: dict[str, Any]) -> "QuoteDraftData":
         """Robustly create instance from Firestore dict."""
         data["createdAt"] = parse_firestore_datetime(data.get("createdAt"))
         data["updatedAt"] = parse_firestore_datetime(data.get("updatedAt"))
@@ -78,8 +78,8 @@ class QuoteDraftData(BaseModel):
 
 async def save_quote_draft(
     user_id: str,
-    image_url: Optional[str],
-    ai_data: Dict[str, Any]
+    image_url: str | None,
+    ai_data: dict[str, Any]
 ) -> str:
     """
     Saves a new quote draft to the 'quotes' collection in Firestore.

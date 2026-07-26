@@ -1,4 +1,3 @@
-from typing import Dict
 
 from .builder import SYSTEM_INSTRUCTION
 
@@ -10,7 +9,7 @@ class SystemPrompts:
     """
 
     # Store variations here (could be loaded from DB/Config later)
-    _VERSIONS: Dict[str, str] = {
+    _VERSIONS: dict[str, str] = {
         "default": SYSTEM_INSTRUCTION,
         "v1": SYSTEM_INSTRUCTION, # Alias
         # "v2_experimental": ... (Example)

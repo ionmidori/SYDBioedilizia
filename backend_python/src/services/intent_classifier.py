@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +10,7 @@ class IntentClassifier:
     """
 
     @staticmethod
-    async def classify_intent(messages: List[Union[Dict[str, Any], Any]]) -> str:
+    async def classify_intent(messages: list[dict[str, Any] | Any]) -> str:
         """
         Determines if the request should go to 'reasoning' (slow/methodical)
         or 'execution' (fast/direct).

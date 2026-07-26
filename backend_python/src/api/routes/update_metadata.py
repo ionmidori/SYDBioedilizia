@@ -4,7 +4,6 @@ Allows users to correct AI-assigned metadata (room type, status).
 """
 import logging
 import re
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
@@ -25,8 +24,8 @@ class UpdateMetadataRequest(BaseModel):
 
     project_id: str = Field(..., min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     file_path: str = Field(..., min_length=1, max_length=512)
-    room: Optional[str] = Field(None, max_length=100)
-    status: Optional[str] = Field(None, max_length=50)
+    room: str | None = Field(None, max_length=100)
+    status: str | None = Field(None, max_length=50)
 
     @field_validator('file_path')
     @classmethod

@@ -15,7 +15,7 @@ import logging
 import math
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from src.schemas.quote import AggregationAdjustment, QuoteItem
 
@@ -66,7 +66,7 @@ class BatchAggregationEngine:
     """
 
     def __init__(self) -> None:
-        self._rules: Optional[dict[str, Any]] = None
+        self._rules: dict[str, Any] | None = None
 
     def _load_rules(self) -> dict[str, Any]:
         if self._rules is None:
@@ -267,7 +267,7 @@ class BatchAggregationEngine:
 
 # ── Singleton Factory ─────────────────────────────────────────────────────────
 
-_batch_aggregation_engine: Optional[BatchAggregationEngine] = None
+_batch_aggregation_engine: BatchAggregationEngine | None = None
 
 
 def get_batch_aggregation_engine() -> BatchAggregationEngine:

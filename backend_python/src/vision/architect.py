@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import List, Optional
 
 from google import genai
 from google.genai import types as genai_types
@@ -31,7 +30,7 @@ class ArchitectOutput(BaseModel):
 async def generate_architectural_prompt(
     image_bytes: bytes,
     target_style: str,
-    keep_elements: Optional[List[str]] = None,
+    keep_elements: list[str] | None = None,
     mime_type: str = "image/jpeg",
     user_instructions: str = ""
 ) -> ArchitectOutput:

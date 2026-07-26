@@ -11,7 +11,6 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from typing import Optional
 
 import aiosmtplib
 
@@ -99,7 +98,7 @@ class NotificationService:
         pdf_url: str,
         client_email: str,
         quote_total: float,
-        pdf_bytes: Optional[bytes] = None,
+        pdf_bytes: bytes | None = None,
     ) -> str:
         """
         Deliver the approved quote PDF to the client.
@@ -262,9 +261,9 @@ class NotificationService:
         to: str,
         subject: str,
         body: str,
-        html: Optional[str] = None,
-        attachments: Optional[list[tuple[str, bytes]]] = None,
-        list_unsubscribe_email: Optional[str] = None,
+        html: str | None = None,
+        attachments: list[tuple[str, bytes]] | None = None,
+        list_unsubscribe_email: str | None = None,
     ) -> None:
         """
         Send an email via SMTP (async, non-blocking).
@@ -319,7 +318,7 @@ class NotificationService:
         self,
         event_type: str,
         project_id: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> str:
         """
         Last-resort notification: writes a flag document to Firestore

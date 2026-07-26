@@ -1,7 +1,6 @@
 import io
 import json
 import logging
-from typing import List, Optional
 
 from ezdxf.filemanagement import new as ezdxf_new
 from google import genai
@@ -41,9 +40,9 @@ class ScaleReference(BaseModel):
 class CadVectorData(BaseModel):
     """Output strutturato dall'analisi AI della planimetria"""
     model_config = {"extra": "forbid"}
-    scale_reference: Optional[ScaleReference] = None
-    walls: List[CadWall]
-    openings: List[CadOpening]
+    scale_reference: ScaleReference | None = None
+    walls: list[CadWall]
+    openings: list[CadOpening]
 
 # --- 2. LOGICA VISION (Gemini) ---
 

@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import logging
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 from google import genai
 from google.api_core import exceptions as google_exceptions
@@ -34,10 +34,10 @@ I2I_MODEL = "gemini-3.1-flash-image-preview"  # Gemini 3.1 Flash Image (Multimod
 
 async def generate_image_t2i(
     prompt: str,
-    negative_prompt: Optional[str] = None,
+    negative_prompt: str | None = None,
     model: str = T2I_MODEL,
     aspect_ratio: str = "9:16",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate an interior design image from text using Gemini 2.0 Flash.
 
@@ -125,12 +125,12 @@ async def generate_image_t2i(
 async def generate_image_i2i(
     source_image_bytes: bytes,
     prompt: str,
-    keep_elements: Optional[List[str]] = None,
-    negative_prompt: Optional[str] = None,
+    keep_elements: list[str] | None = None,
+    negative_prompt: str | None = None,
     mime_type: str = "image/jpeg",
     model: str = I2I_MODEL,
     aspect_ratio: str = "9:16",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Generate an interior design image from an existing image using Gemini (I2I mode).
 
@@ -196,7 +196,7 @@ async def generate_image_i2i(
                 ),
                 timeout=90.0  # Generative tasks can be slow, 90s is safe
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("[Gemini] ❌ I2I Request timed out after 90s")
             raise Exception("La generazione dell'immagine ha impiegato troppo tempo. Riprova.")
 

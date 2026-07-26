@@ -10,7 +10,7 @@ No TTL on audit_logs — records are retained indefinitely for compliance.
 import asyncio
 import logging
 from enum import StrEnum
-from typing import Any, Optional
+from typing import Any
 
 from src.core.context import get_request_id, get_session_id, get_user_id
 from src.db.firebase_client import get_async_firestore_client
@@ -65,8 +65,8 @@ def emit_audit_event(
     resource_type: AuditResourceType,
     resource_id: str,
     status: str = "success",
-    user_id: Optional[str] = None,
-    metadata: Optional[dict[str, Any]] = None,
+    user_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """
     Fire-and-forget audit event emission.

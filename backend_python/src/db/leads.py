@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from src.db.firebase_client import get_async_firestore_client
 from src.models.lead import LeadData, LeadDocument
@@ -10,7 +10,7 @@ async def save_lead(
     lead_data: LeadData,
     uid: str,
     session_id: str
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Save a customer lead to Firestore (Async).
     """

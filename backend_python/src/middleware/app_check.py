@@ -12,7 +12,6 @@ Security Features:
 """
 
 import logging
-from typing import Optional
 
 from fastapi import Request
 from firebase_admin import app_check
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 ENABLE_APP_CHECK = settings.ENABLE_APP_CHECK
 
 
-async def validate_app_check_token(request: Request) -> Optional[dict]:
+async def validate_app_check_token(request: Request) -> dict | None:
     """
     Validate App Check token from request headers.
 

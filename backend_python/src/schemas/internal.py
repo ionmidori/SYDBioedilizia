@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -14,4 +14,4 @@ class UserSession(BaseModel):
     is_authenticated: bool = False
     is_anonymous: bool = False # 🔥 Added for Guest Mode
     is_debug_user: bool = False
-    claims: Dict[str, Any] = Field(default_factory=dict)
+    claims: dict[str, Any] = Field(default_factory=dict)

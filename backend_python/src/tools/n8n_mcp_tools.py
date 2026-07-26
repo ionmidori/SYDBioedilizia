@@ -30,7 +30,6 @@ import json
 import logging
 import time
 import uuid
-from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -128,7 +127,7 @@ class NotifyAdminInput(BaseModel):
     model_config = {"extra": "forbid"}
     project_id: str = Field(..., description="ID of the project with the draft quote")
     estimated_value: float = Field(..., ge=0, description="Estimated grand total in EUR (VAT included)")
-    client_name: Optional[str] = Field(None, description="Name of the client for the notification")
+    client_name: str | None = Field(None, description="Name of the client for the notification")
     urgency: str = Field(
         default="normal",
         description="Urgency level: 'low', 'normal', 'high'",
@@ -162,7 +161,7 @@ async def _call_n8n_webhook(url: str, payload: dict) -> dict:
 async def notify_admin_wrapper(
     project_id: str,
     estimated_value: float,
-    client_name: Optional[str] = None,
+    client_name: str | None = None,
     urgency: str = "normal"
 ) -> str:
     """

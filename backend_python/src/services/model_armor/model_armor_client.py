@@ -18,7 +18,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional
 
 from google.api_core.client_options import ClientOptions
 from google.api_core.exceptions import GoogleAPIError
@@ -79,7 +78,7 @@ class ModelArmorService:
         )
 
     @staticmethod
-    def _error_verdict(state: str) -> "SanitizationVerdict":
+    def _error_verdict(state: str) -> SanitizationVerdict:
         """Verdict returned when a Model Armor call fails (F-02).
 
         Fail-open (is_blocked=False) by default to preserve availability; set
@@ -213,7 +212,7 @@ class ModelArmorService:
 
 
 @lru_cache(maxsize=1)
-def get_model_armor_service() -> Optional[ModelArmorService]:
+def get_model_armor_service() -> ModelArmorService | None:
     """Factory/singleton for ModelArmorService.
 
     Returns None if Model Armor is disabled or misconfigured.

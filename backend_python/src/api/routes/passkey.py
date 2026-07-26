@@ -11,7 +11,6 @@ import base64
 import logging
 import re
 import time
-from typing import Optional
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -132,7 +131,7 @@ class PasskeyRegistrationRequest(BaseModel):
     user_id: str = Field(..., description="Firebase User ID")
 
 class PasskeyAuthenticationRequest(BaseModel):
-    user_id: Optional[str] = None
+    user_id: str | None = None
 
 
 def _challenge_key(state_challenge) -> str:

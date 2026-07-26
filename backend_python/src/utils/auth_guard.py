@@ -1,6 +1,7 @@
 import functools
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from src.utils.context import get_current_user_id, get_is_anonymous
 
