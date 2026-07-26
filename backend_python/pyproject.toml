@@ -59,8 +59,9 @@ extend-exclude = ["scripts"]
 # Base set: pyflakes (F), pycodestyle errors/warnings (E/W), import sorting (I).
 #
 # UP (pyupgrade): RATCHETED (2026-07-26). 414 findings cleared in two passes — 408 mechanical
-# (Optional[X] -> X | None, Dict/List -> dict/list, typing -> collections.abc, timezone.utc ->
-# datetime.UTC), then the 6 that change runtime semantics: UP042 converted ProjectStatus,
+# in PR #250 (Optional[X] -> X | None, Dict/List -> dict/list, typing -> collections.abc,
+# timezone.utc -> datetime.UTC; baseline measured on 2cb61b4, the commit before it), then in
+# PR #251 the 6 that change runtime semantics: UP042 converted ProjectStatus,
 # PropertyType and _State to StrEnum (safe because all four model_config carry
 # use_enum_values=True, so Firestore already persists .value, and no call-site formats a member
 # with str()/f-string), and UP047 moved parse_enum/run_blocking to PEP 695 generics.
