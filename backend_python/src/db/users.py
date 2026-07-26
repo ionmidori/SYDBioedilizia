@@ -101,7 +101,7 @@ async def delete_user_data(uid: str) -> dict[str, int | str]:
     try:
         await asyncio.get_event_loop().run_in_executor(None, _delete_auth_account)
         summary["auth_account"] = "deleted"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         # Non-fatal: Firestore data is already gone; log for manual follow-up
         logger.warning(f"[GDPR] Auth account deletion failed for uid={uid}: {e}")
         summary["auth_account"] = "error"

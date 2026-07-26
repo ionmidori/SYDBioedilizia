@@ -71,8 +71,20 @@ extend-exclude = ["scripts"]
 # shared-mutable-default bug B008 looks for) closed via extend-immutable-calls below, zero code
 # changes. B904 (69 findings) fixed with `raise ... from e`/`from None` per call-site. B017
 # (1 finding, tests/unit/test_core_modules.py) narrowed to the concrete exception type.
-# Follow-up candidate: BLE001 (blind-except).
-select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B"]
+#
+# BLE001 (blind-except): RATCHETED (2026-07-26) in PR #253, baselined with per-line noqa rather
+# than per-file-ignores — a per-file baseline would keep waving through NEW blind-excepts in the
+# 45 files already listed, whereas per-line directives protect new code from day one.
+# src/db/projects.py was cleared for real instead of baselined, because that is where the rule
+# was hiding actual fail-open bugs: count_user_projects returned 0 when Firestore was down
+# (silently lifting the 5-project quota in projects_router.create_project), the per-project quote
+# lookup swallowed permission/index errors with `except Exception: pass`, and the GDPR hard purge
+# reported success while orphaned blobs survived on GCS. All three now fail closed, with
+# regression tests in tests/unit/test_projects.py::TestProjectsFailClosed.
+# 75 sites remain baselined. RULE: do not add a new `# noqa: BLE001` — narrow the caught
+# exception, or make the handler observable and justify the directive inline (see projects.py).
+# Clearing a module means deleting its directives, not moving them.
+select = ["E4", "E7", "E9", "F", "W", "I", "UP", "B", "BLE001"]
 
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI dependency injection: Depends()/File()/Security()/etc. in argument defaults is the

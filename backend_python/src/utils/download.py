@@ -203,7 +203,7 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
 
             logger.info(f"[SmartDownload] ✅ Direct access SUCCESS: {len(file_bytes)} bytes, Type: {content_type}")
             return file_bytes, content_type
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"[SmartDownload] ⚠️ Direct access failed (will fallback to HTTP): {e}")
             # Continue to Strategy 2
 

@@ -107,7 +107,7 @@ async def create_batch(user_id: str, project_ids: list[str]) -> BatchSummary:
         for raw in raw_items:
             try:
                 parsed_items.append(QuoteItem(**raw))
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass  # Skip malformed items
         if parsed_items:
             quote_summaries.append(ProjectQuoteSummary(pid, project_name, parsed_items))
@@ -186,7 +186,7 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
             )
             try:
                 await quote_ref.update({"status": "pending_review", "updated_at": now})
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.warning("Failed to update project quote status.", extra={"project_id": pid})
 
     # Update batch status
@@ -206,7 +206,7 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
                 user_id=user_id,
             )
         )
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning("Admin notification failed (non-fatal).", exc_info=True)
 
     logger.info(

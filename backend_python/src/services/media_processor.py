@@ -33,7 +33,7 @@ class MediaProcessor:
         # Best effort cleanup
         try:
             self.client.close()
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass
 
     async def upload_video_for_analysis(self, file_stream: IO[bytes], mime_type: str, display_name: str) -> types.File:
@@ -111,7 +111,7 @@ class MediaProcessor:
 
             except VideoProcessingError:
                 raise
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning(f"⚠️ Error during polling (retrying): {str(e)}")
                 await asyncio.sleep(1.0)
 

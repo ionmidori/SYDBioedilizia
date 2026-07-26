@@ -267,7 +267,7 @@ class RAGService:
             await asyncio.to_thread(self.index.delete, delete_all=True, namespace=namespace)
             logger.info(f"Successfully wiped namespace '{namespace}'.")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # Swallow 404 Namespace not found, it just means it's already empty
             if 'Namespace not found' in str(e) or '(404)' in str(e):
                 logger.info(f"Namespace '{namespace}' already empty or not found.")

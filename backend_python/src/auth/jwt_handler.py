@@ -66,7 +66,7 @@ async def verify_token(req: Request) -> UserSession:
             email = payload.get("email") or "dev@local"
             provider = payload.get("firebase", {}).get("sign_in_provider", "anonymous")
             is_anonymous = (provider == "anonymous")
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass  # Non-standard token format (DUMMY_TOKEN etc.) — use defaults
 
         logger.warning(

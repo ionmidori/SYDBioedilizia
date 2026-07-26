@@ -113,7 +113,7 @@ async def run_all(
                     payload["results"] = vars(eval_result)
                 else:
                     payload["results"] = eval_result
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning(f"Could not serialize eval result: {e}")
                 payload["results"] = str(eval_result)
 

@@ -52,7 +52,7 @@ async def get_approved_testimonials():
             )
             for doc in docs
         ]
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"[testimonials] Firestore query failed: {e}")
         return []
 
@@ -136,6 +136,6 @@ async def get_portfolio_projects():
                 ),
             ))
         return results
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"[portfolio] Firestore query failed: {e}")
         return []

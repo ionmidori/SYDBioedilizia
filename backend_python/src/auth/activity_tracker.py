@@ -43,7 +43,7 @@ async def touch_last_active(uid: str) -> None:
         _last_touch[uid] = now
         logger.debug("[ActivityTracker] Touched last_active_at for uid=%s", uid)
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         # Non-fatal: activity tracking must never block a user request
         logger.warning("[ActivityTracker] Failed to update last_active_at for uid=%s: %s", uid, exc)
 

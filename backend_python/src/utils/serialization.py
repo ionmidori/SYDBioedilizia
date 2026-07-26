@@ -35,7 +35,7 @@ def parse_firestore_datetime(value: Any) -> datetime:
     if isinstance(value, str):
         try:
             return parser.parse(value)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to parse datetime string '{value}': {e}")
             return utc_now()
 

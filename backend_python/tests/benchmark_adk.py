@@ -57,7 +57,7 @@ async def test_adk_first_token_latency():
     try:
         # We wrap in asyncio.wait_for to prevent infinite hangs in CI
         first_chunk = await asyncio.wait_for(stream.__anext__(), timeout=5.0)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         pytest.fail(f"Failed to fetch first token: {e}")
 
     latency = time.time() - start_time

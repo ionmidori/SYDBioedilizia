@@ -156,7 +156,7 @@ class ADKOrchestrator(BaseOrchestrator):
                 _db = get_async_firestore_client()
                 _user_doc = await _db.collection("users").document(user_id).get()
                 phone_on_file = bool((_user_doc.to_dict() or {}).get("phone")) if _user_doc.exists else False
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass  # Non-fatal: agent will ask for phone if lookup fails
 
         logger.info(f"[ADK] Auth injection: is_guest={is_guest}, uid={user_id}, phone_on_file={phone_on_file}")
@@ -204,7 +204,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     img_part = types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
                     hint_part = types.Part(text=f"\n[URL Immagine Caricata per riferimento o tool: {url}]\n")
                     return [img_part, hint_part]
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.error(f"Failed to fetch media {url}: {e}")
                 return None
 
@@ -214,7 +214,7 @@ class ADKOrchestrator(BaseOrchestrator):
                 parsed_uri = urlparse(uri)
                 if parsed_uri.scheme == "gs" and parsed_uri.netloc == settings.FIREBASE_STORAGE_BUCKET:
                     content_parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type="video/mp4")))
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass
 
         # Execute parallel fetch using TaskGroup (Python 3.12+): auto-cancels on exception
@@ -288,7 +288,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             f"[ADK] Injected {len(events_to_inject)} history events into restored session",
                             extra={"session_id": session_id},
                         )
-                except Exception as hist_err:
+                except Exception as hist_err:  # noqa: BLE001
                     # Non-fatal: agent starts fresh if history injection fails
                     logger.warning(f"[ADK] History injection failed (session starts fresh): {hist_err}")
 
@@ -368,7 +368,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                             f"[ADK] Recovery: injected {len(_events)} history events",
                                             extra={"session_id": session_id},
                                         )
-                                except Exception as recovery_err:
+                                except Exception as recovery_err:  # noqa: BLE001
                                     logger.error(f"[ADK] Session recovery failed: {recovery_err}")
                                     raise run_err from None  # surface original error, not the recovery failure
                                 # retry loop continues (attempt=1)
@@ -508,7 +508,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                                     user_id=user_id,
                                                 )
                                                 logger.info(f"[Repo] Saved tool result for call_id {call_id}")
-                                            except Exception as e:
+                                            except Exception as e:  # noqa: BLE001
                                                 logger.error(f"Failed to persist tool result: {e}")
 
                                     # ── UiWidget Events (ADK 1.27+) ──
@@ -601,7 +601,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             user_id=user_id,
                         )
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001
                         logger.error(f"Failed to persist assistant message: {e}")
             except Exception as _inner_exc:
                 await vertex_ai_breaker.on_failure(_inner_exc)
@@ -622,6 +622,6 @@ class ADKOrchestrator(BaseOrchestrator):
             # Attempt a lightweight Firestore read to verify connectivity
             await session_service.list_sessions(user_id="__healthcheck__", app_name="syd_orchestrator")
             return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"[ADKOrchestrator] Health check failed: {e}")
             return False

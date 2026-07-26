@@ -162,7 +162,7 @@ class InsightEngine:
             try:
                 with open(self._ASSEMBLIES_PATH, encoding="utf-8") as f:
                     self._assemblies = json.load(f)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.error("[InsightEngine] Failed to load assemblies.", extra={"error": str(exc)})
                 self._assemblies = {"assemblies": [], "dependency_rules": []}
         # Set in both branches above; narrow away the Optional for the return type.
@@ -417,7 +417,7 @@ Analizza la conversazione e produci la risposta strutturata.
                             )
                         )
                         logger.debug("[InsightEngine] Media attached.", extra={"url": url})
-                    except Exception as exc:
+                    except Exception as exc:  # noqa: BLE001
                         # Graceful degradation: skip broken media, continue analysis
                         logger.error(
                             "[InsightEngine] Failed to fetch media.",
