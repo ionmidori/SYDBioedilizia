@@ -24,12 +24,12 @@ Usage:
 import asyncio
 import logging
 import time
-from enum import Enum
+from enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
 
-class _State(str, Enum):
+class _State(StrEnum):
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"

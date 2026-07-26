@@ -54,9 +54,18 @@ src = ["src"]
 extend-exclude = ["scripts"]
 
 [tool.ruff.lint]
-# Initial pragmatic set: pyflakes (F), pycodestyle errors/warnings (E/W), import sorting (I).
-# Follow-up candidates: B (bugbear), UP (pyupgrade) — ~400 findings, need manual review.
-select = ["E4", "E7", "E9", "F", "W", "I"]
+# Incremental adoption (ratchet), same convention as pyrightconfig.json: a rule family is
+# enabled here only once its whole backlog is at zero, so the CI gate blocks NEW findings.
+# Base set: pyflakes (F), pycodestyle errors/warnings (E/W), import sorting (I).
+#
+# UP (pyupgrade): RATCHETED (2026-07-26). 414 findings cleared in two passes — 408 mechanical
+# (Optional[X] -> X | None, Dict/List -> dict/list, typing -> collections.abc, timezone.utc ->
+# datetime.UTC), then the 6 that change runtime semantics: UP042 converted ProjectStatus,
+# PropertyType and _State to StrEnum (safe because all four model_config carry
+# use_enum_values=True, so Firestore already persists .value, and no call-site formats a member
+# with str()/f-string), and UP047 moved parse_enum/run_blocking to PEP 695 generics.
+# Follow-up candidates: B (bugbear), BLE001 (blind-except).
+select = ["E4", "E7", "E9", "F", "W", "I", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 # load_dotenv(".env") MUST run before google-adk/google-genai imports (see CLAUDE.md)

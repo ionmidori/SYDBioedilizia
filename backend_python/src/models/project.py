@@ -8,12 +8,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from datetime import datetime as _datetime_type
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
-class ProjectStatus(str, Enum):
+class ProjectStatus(StrEnum):
     """Status values for a renovation project."""
     DRAFT = "draft"
     ANALYZING = "analyzing"
@@ -26,7 +26,7 @@ class ProjectStatus(str, Enum):
         return cls.DRAFT
 
 
-class PropertyType(str, Enum):
+class PropertyType(StrEnum):
     """Property type classification for construction projects."""
     APARTMENT = "apartment"
     VILLA = "villa"
