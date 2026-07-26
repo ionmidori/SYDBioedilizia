@@ -3,9 +3,11 @@ Unit Tests - Projects Module
 =============================
 Tests for project CRUD operations and API endpoints.
 """
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 from src.models.project import (
     ProjectCreate,
     ProjectDocument,
@@ -248,4 +250,161 @@ class TestProjectDbOperations:
 
         # Only active projects should be counted
         assert count == 3, f"Expected 3 active projects, got {count}"
+
+
+class TestProjectsFailClosed:
+    """Regression tests for the blind-except fail-open bugs (BLE001 ratchet).
+
+    Each test here pins a behaviour that a `except Exception: return <neutral>` used to
+    swallow, silently turning an infrastructure outage into an apparent success.
+    """
+
+    @pytest.mark.asyncio
+    async def test_count_user_projects_raises_when_both_attempts_fail(self):
+        """GIVEN Firestore is down (both the aggregation and the fallback stream fail)
+        WHEN count_user_projects is called
+        THEN it must raise, NOT return 0.
+
+        Returning 0 would report "this user owns no projects" to the quota check in
+        projects_router.create_project, silently disabling the 5-project limit.
+        """
+        from src.db import projects as projects_db
+
+        mock_agg_query = MagicMock()
+        mock_agg_query.get = AsyncMock(side_effect=Exception("index not ready"))
+
+        mock_fallback_col = MagicMock()
+        mock_fallback_col.where.return_value = mock_fallback_col
+        mock_fallback_col.select.return_value = mock_fallback_col
+        mock_fallback_col.stream.side_effect = Exception("firestore unavailable")
+
+        mock_filtered_col = MagicMock()
+        mock_filtered_col.count.return_value = mock_agg_query
+        mock_filtered_col.where.return_value = mock_fallback_col
+
+        mock_db = MagicMock()
+        mock_db.collection.return_value = mock_filtered_col
+
+        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+            with pytest.raises(Exception, match="firestore unavailable"):
+                await projects_db.count_user_projects("user-123")
+
+    @pytest.mark.asyncio
+    async def test_create_project_endpoint_fails_closed_when_count_unavailable(self):
+        """GIVEN the project count cannot be determined (Firestore down)
+        WHEN POST /projects is handled
+        THEN it must answer 500 and must NOT create the project.
+
+        This is the end-to-end regression of the quota fail-open: with the old
+        `return 0` the endpoint happily created a 6th, 7th, ... project.
+        """
+        from src.api.routes import projects_router
+
+        with (
+            patch.object(
+                projects_router.projects_db,
+                'count_user_projects',
+                AsyncMock(side_effect=Exception("firestore unavailable")),
+            ),
+            patch.object(projects_router.projects_db, 'create_project', AsyncMock()) as mock_create,
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await projects_router.create_project(
+                    data=ProjectCreate(title="Nuovo Progetto"),
+                    user_session=MagicMock(uid="user-123"),
+                )
+
+        assert exc_info.value.status_code == 500
+        mock_create.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_get_user_projects_warns_when_quote_lookup_fails(self, caplog):
+        """GIVEN the per-project quote lookup fails (missing index / denied read)
+        WHEN get_user_projects is called
+        THEN the project is still listed with has_quote=False AND a warning is logged.
+
+        The fail-safe default is correct here — a missing quote must not break the
+        dashboard — but it must be observable instead of `except Exception: pass`.
+        """
+        from src.db import projects as projects_db
+
+        mock_doc = MagicMock()
+        mock_doc.id = "project-abc"
+        mock_doc.to_dict.return_value = {
+            "title": "Villa",
+            "status": "draft",
+            "updatedAt": utc_now(),
+            "messageCount": 2,
+        }
+
+        async def mock_stream():
+            yield mock_doc
+
+        mock_col = MagicMock()
+        mock_col.where.return_value = mock_col
+        mock_col.order_by.return_value = mock_col
+        mock_col.limit.return_value = mock_col
+        mock_col.stream.side_effect = mock_stream
+
+        # The quote sub-document read blows up
+        mock_quote_ref = MagicMock()
+        mock_quote_ref.get = AsyncMock(side_effect=Exception("permission denied"))
+        mock_col.document.return_value.collection.return_value.document.return_value = mock_quote_ref
+
+        mock_db = MagicMock()
+        mock_db.collection.return_value = mock_col
+
+        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+            with caplog.at_level(logging.WARNING, logger="src.db.projects"):
+                projects = await projects_db.get_user_projects("user-123")
+
+        assert len(projects) == 1
+        assert projects[0].has_quote is False
+        assert any(
+            record.levelno == logging.WARNING and "project-abc" in record.getMessage()
+            for record in caplog.records
+        ), "Expected a warning naming the project whose quote lookup failed"
+
+    @pytest.mark.asyncio
+    async def test_delete_project_fails_closed_when_storage_cleanup_fails(self):
+        """GIVEN the Storage blob cleanup fails during a hard delete
+        WHEN delete_project is called
+        THEN it must return False AND leave the project document in place.
+
+        Reporting True would mark a GDPR erasure as complete while orphaned blobs
+        survive on GCS; keeping the document makes the purge retryable.
+        """
+        from src.db import projects as projects_db
+
+        mock_doc = MagicMock()
+        mock_doc.exists = True
+        mock_doc.to_dict.return_value = {"userId": "user-123"}
+
+        mock_doc_ref = MagicMock()
+        mock_doc_ref.get = AsyncMock(return_value=mock_doc)
+        mock_doc_ref.delete = AsyncMock()
+
+        mock_frontend_ref = MagicMock()
+        mock_frontend_ref.delete = AsyncMock()
+
+        mock_sessions_col = MagicMock()
+        mock_sessions_col.document.return_value = mock_doc_ref
+        mock_frontend_col = MagicMock()
+        mock_frontend_col.document.return_value = mock_frontend_ref
+
+        mock_db = MagicMock()
+        mock_db.collection.side_effect = lambda name: (
+            mock_frontend_col if name == "projects" else mock_sessions_col
+        )
+
+        with (
+            patch('src.db.projects.get_async_firestore_client', return_value=mock_db),
+            patch('src.db.projects._delete_collection_batch', AsyncMock()),
+            patch('src.db.projects.get_storage_client', side_effect=Exception("storage down")),
+        ):
+            result = await projects_db.delete_project("project-abc", "user-123")
+
+        assert result is False, "A partial hard-delete must not report success"
+        # The project doc must survive so the purge can be retried
+        mock_doc_ref.delete.assert_not_awaited()
 
