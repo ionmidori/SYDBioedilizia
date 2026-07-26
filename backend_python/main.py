@@ -56,7 +56,7 @@ async def lifespan(_app: FastAPI):
         try:
             await run_in_threadpool(warm_up_orchestrator)
             logger.info("ADKOrchestrator warm-up complete.")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"ADKOrchestrator warm-up failed (will retry lazily): {e}")
 
     warmup_task = asyncio.create_task(_background_warmup())
@@ -80,7 +80,7 @@ async def lifespan(_app: FastAPI):
             # channel was never actually closed on shutdown.
             client.close()
             logger.info("Async Firestore gRPC channel closed.")
-    except Exception as _e:
+    except Exception as _e:  # noqa: BLE001
         logger.warning(f"Non-fatal error during shutdown cleanup: {_e}")
     logger.info("SYD Brain API shutdown complete.")
 
@@ -569,7 +569,7 @@ async def readiness_check():
     except TimeoutError:
         logger.warning("[/ready] Firestore ping timed out (>5s)")
         checks["firestore"] = "timeout"
-    except Exception as _e:
+    except Exception as _e:  # noqa: BLE001
         logger.warning(f"[/ready] Firestore check failed: {type(_e).__name__}")
         checks["firestore"] = "error"
 
@@ -630,7 +630,7 @@ async def chat_stream(
         except RateLimitExceeded as e:
             logger.warning(f"Rate limit exceeded due to multimodal penalty for {get_remote_address(request)}")
             raise e
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to apply multimodal rate limit penalty: {e}")
             # Non-blocking: we continue even if penalty fails to avoid crashing the whole stream
 
@@ -677,7 +677,7 @@ async def chat_stream(
     repo = get_conversation_repository()
     try:
         await repo.ensure_session(body.session_id, user_session.uid)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to ensure session before stream: {e}")
 
     async def _persist_user_message():
@@ -693,7 +693,7 @@ async def chat_stream(
                 message_id=user_msg_id,
             )
             logger.info(f"[Anchor] User message persisted for session {body.session_id}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Failed to pre-persist user message in route: {e}")
 
     background_tasks.add_task(_persist_user_message)

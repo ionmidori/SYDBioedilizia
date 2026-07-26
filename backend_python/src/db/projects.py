@@ -75,8 +75,14 @@ async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListIt
                     qdata = quote_doc.to_dict() or {}
                     # A quote is considered valid if it has at least one item
                     has_quote = len(qdata.get("items", [])) > 0
-            except Exception:
-                pass  # Fail-safe: default to no quote
+            except Exception as quote_error:  # noqa: BLE001 — fail-safe per project, see below
+                # A missing/unreadable quote must NOT break the whole dashboard listing, so we
+                # keep has_quote=False. It must still be observable: a denied read or a missing
+                # index degrades EVERY row here (this .get() runs once per project), and the
+                # previous `except Exception: pass` made that outage invisible.
+                logger.warning(
+                    f"[Projects] Quote lookup failed for project {doc.id}: {quote_error}"
+                )
 
             try:
                 projects.append(ProjectListItem(
@@ -89,7 +95,7 @@ async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListIt
                     message_count=data.get("messageCount") or 0,
                     has_quote=has_quote,
                 ))
-            except Exception as item_error:
+            except Exception as item_error:  # noqa: BLE001 — one malformed doc must not hide the rest
                 logger.error(f"[Projects] Skipping Invalid Project {doc.id}: {item_error}")
                 continue
 
@@ -128,7 +134,7 @@ async def count_user_projects(user_id: str) -> int:
         results = await aggregate_query.get()
         return results[0][0].value
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — expected on a missing composite index, hence the fallback
         logger.warning(
             f"[Projects] Aggregation count failed for {user_id} (may lack composite index): {str(e)}. "
             "Falling back to stream-based count."
@@ -150,8 +156,13 @@ async def count_user_projects(user_id: str) -> int:
                 count += 1
             return count
         except Exception as e2:
-            logger.error(f"[Projects] Fallback count failed: {str(e2)}")
-            return 0
+            # FAIL CLOSED. This count feeds the 5-project quota check in
+            # projects_router.create_project; returning 0 here would report "no projects
+            # owned" and silently lift the limit for the whole duration of a Firestore
+            # outage. Propagating turns that into a 500, which is the correct answer when
+            # the quota is unknowable.
+            logger.error(f"[Projects] Fallback count failed for {user_id}: {str(e2)}", exc_info=True)
+            raise
 
 
 async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:
@@ -206,7 +217,7 @@ async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:
                     technical_notes=details_data.get("technical_notes"),
                     renovation_constraints=details_data.get("renovation_constraints", []),
                 )
-            except Exception as parse_error:
+            except Exception as parse_error:  # noqa: BLE001 — legacy docs may hold any shape here
                 logger.warning(f"[Projects] Error parsing construction details: {str(parse_error)}")
 
         return ProjectDocument(
@@ -637,8 +648,16 @@ async def delete_project(session_id: str, user_id: str) -> bool:
 
             logger.info(f"[Projects] Deep delete: Storage cleaned for {session_id}")
 
-        except Exception as storage_e:
-            logger.error(f"[Projects] Storage cleanup warning for {session_id}: {storage_e}")
+        except Exception as storage_e:  # noqa: BLE001 — any storage failure aborts the purge
+            # FAIL CLOSED. This is the GDPR hard purge: reporting success while blobs
+            # survive on GCS would mark the erasure as complete and stop anyone retrying.
+            # We deliberately leave the project document in place so the purge stays
+            # discoverable and re-runnable (every step above is idempotent).
+            logger.error(
+                f"[Projects] Storage cleanup FAILED for {session_id}, aborting purge: {storage_e}",
+                exc_info=True,
+            )
+            return False
 
         # 3. Delete Project Document (Backend)
         await doc_ref.delete()

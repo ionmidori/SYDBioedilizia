@@ -225,7 +225,7 @@ async def generate_render(
                 _logger.info(
                     f"[ADK Tool] generate_render: artifact saved '{artifact_filename}' v{version}"
                 )
-            except Exception as art_err:
+            except Exception as art_err:  # noqa: BLE001
                 # Non-fatal: image is already in Firebase Storage
                 _logger.warning(f"[ADK Tool] generate_render: artifact save skipped ({art_err})")
 
@@ -375,7 +375,7 @@ async def request_login(tool_context) -> str:
         )
         tool_context.render_ui_widget(widget)
         _logger.info("[ADK Tool] request_login: UiWidget rendered via tool_context")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         # Graceful fallback: frontend still handles the plain string signal
         _logger.warning(f"[ADK Tool] request_login: UiWidget render failed ({e}), falling back to plain signal")
 
@@ -415,7 +415,7 @@ async def save_contact_phone(phone: str, session_id: str) -> str:
             {"phone": phone}, merge=True
         )
         return f"✅ Numero salvato. Userò {phone} per inviarti aggiornamenti via WhatsApp."
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         import logging as _logging
         _logging.getLogger(__name__).error(f"[save_contact_phone] Failed: {e}")
         return "Numero ricevuto. Procedo con il preventivo."

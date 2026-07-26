@@ -78,7 +78,7 @@ async def generate_render_wrapper(
                 analysis = await analyze_image_triage(source_bytes)
                 if analysis.get("success"):
                     room_type = analysis.get("roomType", room_type)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 pass  # Continue without analysis
 
             # 🎨 USE ARCHITECT FOR ENHANCED PROMPT GENERATION
@@ -99,7 +99,7 @@ async def generate_render_wrapper(
                 # ✍️ DEBUG LOG: Log full prompt for verification
                 logger.info(f"[Render] 📝 FULL PROMPT (I2I):\n{'-'*40}\n{full_prompt}\n{'-'*40}")
 
-            except Exception as arch_error:
+            except Exception as arch_error:  # noqa: BLE001
                 # Fallback to simple prompt if Architect fails
                 logger.warning(f"[Render] Architect failed, using fallback: {arch_error}")
                 full_prompt = f"Transform this {room_type} to {style} style. {prompt}"
@@ -163,7 +163,7 @@ async def generate_render_wrapper(
             await save_file_metadata(session_id, file_meta)
             logger.info(f"[Render] 📂 Registered render file in project {session_id}")
 
-        except Exception as file_error:
+        except Exception as file_error:  # noqa: BLE001
              logger.warning(f"[Render] Failed to register file metadata: {file_error}")
 
         # Return structured object for Frontend (ToolStatus.tsx)

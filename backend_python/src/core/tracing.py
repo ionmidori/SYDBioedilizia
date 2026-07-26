@@ -73,7 +73,7 @@ def init_tracing() -> None:
                     "region": settings.ADK_LOCATION,
                 },
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # Non-fatal: fall back to console if Cloud Trace exporter fails
             logger.warning(f"[Tracing] Cloud Trace exporter failed, falling back to console: {e}")
             _provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))

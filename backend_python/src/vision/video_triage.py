@@ -108,7 +108,7 @@ def get_video_metadata(video_path: str) -> VideoMetadata:
             has_audio=has_audio
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to extract video metadata: {str(e)}")
         # Return minimal metadata
         size_bytes = os.path.getsize(video_path) if os.path.exists(video_path) else 0
@@ -272,7 +272,7 @@ async def analyze_video_with_gemini(video_path: str) -> dict[str, Any]:
         # Clean up uploaded file
         try:
             await client.aio.files.delete(name=file_name)
-        except Exception:
+        except Exception:  # noqa: BLE001
             pass  # Non-critical
 
         if not response.text:
@@ -375,5 +375,5 @@ async def analyze_video_triage(video_data: bytes, metadata: dict[str, Any] | Non
             if path and os.path.exists(path):
                 try:
                     os.unlink(path)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     pass

@@ -199,7 +199,7 @@ async def _get_user_profile(uid: str) -> dict:
         user_record = await run_in_threadpool(fb_auth.get_user, uid)
         email = user_record.email or ""
         name = user_record.display_name or ""
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning("[UserProfile] Firebase Auth lookup failed for uid=%s", uid)
 
     # 2. Firestore users/{uid}: phone (saved during quote flow) + name fallback
@@ -212,7 +212,7 @@ async def _get_user_profile(uid: str) -> dict:
             name = data.get("displayName") or data.get("name", "")
         if not email:
             email = data.get("email", "")
-    except Exception:
+    except Exception:  # noqa: BLE001
         logger.warning("[UserProfile] Firestore lookup failed for uid=%s", uid)
 
     return {"name": name, "email": email, "phone": phone}

@@ -121,7 +121,7 @@ class AccountLifecycleService:
                 await doc.reference.update({"lifecycle_warned_at": utc_now()})
                 result.warned += 1
                 logger.info("[Lifecycle/Warn] Warning sent to uid=%s", uid)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.error("[Lifecycle/Warn] Failed for uid=%s: %s", uid, exc)
                 result.errors.append(f"warn:{uid}:{exc}")
 
@@ -151,7 +151,7 @@ class AccountLifecycleService:
                 await doc.reference.update({"lifecycle_disabled_at": utc_now()})
                 result.disabled += 1
                 logger.info("[Lifecycle/Disable] Firebase Auth disabled for uid=%s", uid)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.error("[Lifecycle/Disable] Failed for uid=%s: %s", uid, exc)
                 result.errors.append(f"disable:{uid}:{exc}")
 
@@ -192,7 +192,7 @@ class AccountLifecycleService:
                 await self._anonymize_user(uid, data, db)
                 result.anonymized += 1
                 logger.info("[Lifecycle/Anonymize] PII anonymized for uid=%s", uid)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.error("[Lifecycle/Anonymize] Failed for uid=%s: %s", uid, exc)
                 result.errors.append(f"anonymize:{uid}:{exc}")
 
@@ -236,7 +236,7 @@ class AccountLifecycleService:
             await asyncio.get_event_loop().run_in_executor(
                 None, _delete_firebase_auth, uid
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             # Non-fatal: profile is already anonymized; log for manual cleanup
             logger.warning("[Lifecycle/Anonymize] Auth deletion failed for uid=%s: %s", uid, exc)
 

@@ -186,7 +186,7 @@ async def get_registration_options(
             if data and "credential_data" in data:
                 # Basic representation to exclude
                 existing_creds.append({"id": websafe_decode(pk.id), "type": "public-key"})
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error fetching existing credentials: {e}")
 
     user_entity = PublicKeyCredentialUserEntity(
@@ -406,7 +406,7 @@ async def verify_authentication(
     try:
         raw_auth_data = websafe_decode(assertion["response"]["authenticatorData"])
         new_sign_count = AuthenticatorData(raw_auth_data).counter
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"[Passkey] Could not parse signature counter: {e}")
         new_sign_count = None
 
@@ -427,7 +427,7 @@ async def verify_authentication(
             db.collection("users").document(user_id).collection("passkeys").document(
                 assertion["id"]
             ).update({"sign_count": new_sign_count})
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"[Passkey] Failed to persist signature counter: {e}")
 
     try:
@@ -453,6 +453,6 @@ async def check_has_passkeys(uid: str = Depends(get_current_user_id)):
         db = get_firestore_client()
         docs = list(db.collection("users").document(uid).collection("passkeys").limit(1).stream())
         return {"has_passkeys": len(docs) > 0}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"[passkey/check] Firestore query failed for {uid}: {e}")
         return {"has_passkeys": False}

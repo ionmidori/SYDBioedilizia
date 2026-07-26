@@ -59,7 +59,7 @@ class NotificationService:
                 if "✅" in result:
                     return result
                 logger.warning("[Notification] n8n notify returned non-success: %s", result)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.warning("[Notification] n8n admin notify failed, falling back to SMTP.", exc_info=True)
 
         # 2. Try SMTP email
@@ -80,7 +80,7 @@ class NotificationService:
                     body=body,
                 )
                 return f"✅ Notifica admin inviata via email a {settings.ADMIN_EMAIL}"
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.warning("[Notification] SMTP admin notify failed, falling back to Firestore flag.", exc_info=True)
 
         # 3. Firestore flag + structured log (always works)
@@ -123,7 +123,7 @@ class NotificationService:
                 if "✅" in result:
                     return result
                 logger.warning("[Notification] n8n delivery returned non-success: %s", result)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.warning("[Notification] n8n delivery failed, falling back to SMTP.", exc_info=True)
 
         # 2. SMTP email with PDF link
@@ -158,7 +158,7 @@ class NotificationService:
                     list_unsubscribe_email="privacy@sydbioedilizia.com",
                 )
                 return f"✅ Preventivo inviato a {client_email} via email"
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.warning("[Notification] SMTP delivery failed, falling back to Firestore flag.", exc_info=True)
 
         # 3. Firestore flag
@@ -212,7 +212,7 @@ class NotificationService:
                     list_unsubscribe_email="privacy@sydbioedilizia.com",
                 )
                 return f"✅ Inactivity warning sent to {email}"
-            except Exception:
+            except Exception:  # noqa: BLE001
                 logger.warning("[Notification] SMTP inactivity warning failed.", exc_info=True)
 
         # Firestore flag fallback

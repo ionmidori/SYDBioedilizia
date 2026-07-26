@@ -53,7 +53,7 @@ class GalleryService:
                             projectName=project.title
                         )
                     ))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.warning(f"[GalleryService] Error fetching files for project {p_id}: {e}")
             return p_files
 

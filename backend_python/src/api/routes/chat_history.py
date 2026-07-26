@@ -156,7 +156,7 @@ async def get_chat_history(
                 # Ideally we'd have a schema for this, but to prevent 500s we cast to str
                 try:
                     content_val = json.dumps(content_val)
-                except Exception:
+                except Exception:  # noqa: BLE001
                     content_val = str(content_val)
             elif content_val is None:
                 content_val = ""

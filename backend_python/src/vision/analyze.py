@@ -85,7 +85,7 @@ CRITICAL RULES:
                 image_part = genai_types.Part(file_data=genai_types.FileData(file_uri=candidate_str))
             else:
                 raise ValueError("not a URI")
-        except Exception:
+        except Exception:  # noqa: BLE001
             image_part = genai_types.Part(
                 inline_data=genai_types.Blob(
                     mime_type="image/jpeg",

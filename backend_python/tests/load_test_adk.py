@@ -56,7 +56,7 @@ async def simulate_session(orchestrator: ADKOrchestrator, session_id: int):
         latency = time.time() - start_time
         logger.info(f"Session {session_id} completed in {latency:.3f}s with {len(chunks)} chunks.")
         return True
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Session {session_id} failed: {e}")
         return False
 

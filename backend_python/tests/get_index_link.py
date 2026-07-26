@@ -25,7 +25,7 @@ async def trigger_index_error():
         print(f"Querying projects for user: {user_id}")
         projects = await get_user_projects(user_id)
         print(f"Success? Retrieved {len(projects)} projects (Unexpected if index missing)")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"\nCaught Expected Error:\n{e}")
         if "The query requires an index" in str(e):
              print("\n✅ SUCCESS: Index Missing Error Caught.")

@@ -313,5 +313,5 @@ async def _increment_counter(
 
         await _atomic_reset_or_create(db.transaction())
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"[Quota] Error incrementing {tool_name} for {user_id}: {e}")

@@ -73,7 +73,7 @@ class BatchAggregationEngine:
             try:
                 with open(_RULES_PATH, encoding="utf-8") as f:
                     self._rules = json.load(f)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001
                 logger.error("[BatchAggregation] Failed to load rules.", extra={"error": str(exc)})
                 self._rules = {
                     "project_singleton_skus": {"skus": []},

@@ -20,7 +20,7 @@ async def test_firebase_init():
         print("First init success")
         init_firebase()
         print("Second init success (Idempotent)")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"FAILED: {e}")
 
 async def test_pydantic_model():
@@ -38,7 +38,7 @@ async def test_pydantic_model():
                 timestamp="2023-01-01"
             )
             print("Direct List Validation: PASSED (Unexpected if field is str)")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
              print(f"Direct List Validation: CAUGHT EXPECTED ERROR: {e}")
 
         # Test 2: Simulating the logic in chat_history.py
@@ -55,7 +55,7 @@ async def test_pydantic_model():
         )
         print(f"Sanitized Validation: PASSED. Content: {m2.content[:20]}...")
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"FAILED: {e}")
 
 async def main():

@@ -59,7 +59,7 @@ class FeedbackRepository:
         )
         try:
             await message_ref.set({"rating": rating}, merge=True)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.warning(f"[Feedback] Failed to update rating on message {message_id}: {e}")
 
         logger.info(

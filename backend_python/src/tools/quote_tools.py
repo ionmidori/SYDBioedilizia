@@ -173,7 +173,7 @@ async def _run_measurement_vision(media_urls: list[str]) -> str:
             measurements = await measure_room_from_photo(resp.content, mime_type)
             return format_measurements_for_insight(measurements)
 
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             logger.warning("[MeasureRoom] Measurement failed for %s: %s", url, exc)
             continue
 
@@ -324,7 +324,7 @@ async def _run_render_structural_vision(
             "NON quotare arredi, mobili o complementi visibili nel render."
         )
 
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         logger.warning("[StructuralVision] Structural delta failed: %s", exc)
         return ""
 

@@ -18,7 +18,7 @@ class PricingService:
             try:
                 with open(data_path, encoding="utf-8") as f:
                     cls._master_price_book = json.load(f)["items"]
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 logger.error(f"[PricingService] Error loading price book: {e}")
                 cls._master_price_book = []
         return cls._master_price_book

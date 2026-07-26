@@ -19,7 +19,7 @@ async def save_resumption_token(project_id: str, nonce: str) -> None:
         quote_ref = db.collection("projects").document(project_id).collection("quotes").document("active")
         await quote_ref.set({"resumption_token": nonce}, merge=True)
         logger.info(f"Saved resumption token for project {project_id}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to save resumption token for {project_id}: {e}")
 
 async def verify_resumption_token(project_id: str, provided_token: str) -> bool:
@@ -37,7 +37,7 @@ async def verify_resumption_token(project_id: str, provided_token: str) -> bool:
             return True
 
         return False
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to verify resumption token for {project_id}: {e}")
         return False
 
