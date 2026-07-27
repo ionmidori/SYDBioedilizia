@@ -106,7 +106,7 @@ jobs:
         # supply-chain pinning policy (Phase 92m) that every other action in
         # this repo follows. A v3 exists; bumping to it is a separate decision
         # that Dependabot's github-actions ecosystem will raise on its own.
-        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
         with:
           github-token: '${{ secrets.GITHUB_TOKEN }}'
 
