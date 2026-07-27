@@ -5,7 +5,7 @@
 
 streamlit>=1.60.0
 firebase-admin>=7.5.0
-pandas>=3.0.3
+pandas>=3.0.5
 plotly>=6.9.0
 pydantic>=2.13.4
 python-dotenv>=1.2.2
