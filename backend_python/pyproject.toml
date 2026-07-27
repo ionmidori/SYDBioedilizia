@@ -31,7 +31,7 @@ dependencies = [
     # Transitive of the google-cloud / vertex / firestore stack. Pinned above the
     # YANKED 1.78.1 ("caused major outage with gcloud serverless environments"),
     # which uv would otherwise keep resolving on Cloud Run.
-    "grpcio>=1.82.1",
+    "grpcio>=1.83.0",
     # Cloud Trace span exporter used by src/core/tracing.py in production. Was
     # imported but never declared, so the prod try/except silently fell back to
     # the console exporter and traces never reached GCP Cloud Trace.
