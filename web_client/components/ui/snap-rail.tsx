@@ -29,8 +29,11 @@ interface SnapRailProps {
 /**
  * Horizontal scroll-snap rail.
  *
- * Extracted from the carousel in `components/dashboard/ProjectsCarousel.tsx`, which
- * had been tuned in production. The non-obvious bits are load-bearing:
+ * The scroll mechanics below are copied from the carousel in
+ * `components/dashboard/ProjectsCarousel.tsx`, which had been tuned in
+ * production — that file has not been migrated to this primitive yet, so the
+ * two implementations currently need to be kept in sync by hand. The
+ * non-obvious bits are load-bearing:
  *
  * - `overscrollBehaviorX: contain` stops the swipe from triggering browser back-nav
  *   or bubbling into the page scroll at the ends of the rail.
@@ -154,9 +157,13 @@ export function SnapRail({
             </div>
 
             {showDots && totalDots > 1 && (
+                // Plain nav buttons, not a tablist: there is no associated tabpanel
+                // and no arrow-key roving focus, so role="tab" would announce a
+                // widget contract this doesn't fulfill. group + aria-pressed
+                // describes what's actually here — a set of position shortcuts.
                 <div
                     className={cn('flex items-center justify-center gap-1 mt-4', dotsClassName)}
-                    role="tablist"
+                    role="group"
                     aria-label={`Naviga: ${ariaLabel}`}
                 >
                     {Array.from({ length: totalDots }, (_, index) => {
@@ -165,8 +172,7 @@ export function SnapRail({
                             <button
                                 key={index}
                                 type="button"
-                                role="tab"
-                                aria-selected={isActive}
+                                aria-pressed={isActive}
                                 aria-label={`Vai all'elemento ${index + 1} di ${totalDots}`}
                                 onClick={() => scrollToIndex(index)}
                                 // 44x44 hit area (WCAG); the visible dot inside stays small.

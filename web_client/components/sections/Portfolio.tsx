@@ -89,6 +89,13 @@ export function Portfolio() {
                         <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
                     ) : (
                         <>
+                            {/* Screen-reader-only progress announcement — the visible sticky
+                                title below is aria-hidden, so this is the only spoken signal
+                                that the swipe moved to a different card. */}
+                            <p className="sr-only" aria-live="polite">
+                                Progetto {activeRailIndex + 1} di {railProjects.length}: {activeProject?.title}
+                            </p>
+
                             {/* Decorative: each card carries its own accessible name. */}
                             <div className="mb-5 h-[4.5rem] overflow-hidden" aria-hidden="true">
                                 <AnimatePresence mode="popLayout" initial={false}>

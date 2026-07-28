@@ -98,9 +98,9 @@ describe('SnapRail', () => {
 
         reportIntersection([{ index: 1, ratio: 0.9 }]);
 
-        const tabs = screen.getAllByRole('tab');
-        expect(tabs[0]).toHaveAttribute('aria-selected', 'false');
-        expect(tabs[1]).toHaveAttribute('aria-selected', 'true');
+        const dots = screen.getAllByRole('button', { name: /Vai all'elemento/ });
+        expect(dots[0]).toHaveAttribute('aria-pressed', 'false');
+        expect(dots[1]).toHaveAttribute('aria-pressed', 'true');
     });
 
     it('limits the dots to dotCount so a trailing card gets none', () => {
@@ -112,7 +112,7 @@ describe('SnapRail', () => {
             </SnapRail>,
         );
 
-        expect(screen.getAllByRole('tab')).toHaveLength(2);
+        expect(screen.getAllByRole('button', { name: /Vai all'elemento/ })).toHaveLength(2);
     });
 
     it('hides the dots when there is nothing to navigate', () => {
@@ -122,7 +122,7 @@ describe('SnapRail', () => {
             </SnapRail>,
         );
 
-        expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Vai all'elemento/ })).not.toBeInTheDocument();
     });
 
     it('scrolls to the requested item when a dot is pressed', () => {
@@ -133,7 +133,7 @@ describe('SnapRail', () => {
             </SnapRail>,
         );
 
-        fireEvent.click(screen.getAllByRole('tab')[1]);
+        fireEvent.click(screen.getAllByRole('button', { name: /Vai all'elemento/ })[1]);
 
         expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
             behavior: 'smooth',
@@ -157,7 +157,7 @@ describe('SnapRail', () => {
             </SnapRail>,
         );
 
-        fireEvent.click(screen.getAllByRole('tab')[1]);
+        fireEvent.click(screen.getAllByRole('button', { name: /Vai all'elemento/ })[1]);
 
         expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith(
             expect.objectContaining({ behavior: 'auto' }),

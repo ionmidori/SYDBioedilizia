@@ -97,9 +97,15 @@ describe('filterByCategory', () => {
 
 describe('fetchPortfolio', () => {
     const originalFetch = global.fetch;
+    let errorSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+        errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
 
     afterEach(() => {
         global.fetch = originalFetch;
+        errorSpy.mockRestore();
     });
 
     it('returns backend projects when the call succeeds', async () => {
@@ -110,28 +116,33 @@ describe('fetchPortfolio', () => {
         });
 
         await expect(fetchPortfolio()).resolves.toEqual(backendProjects);
+        expect(errorSpy).not.toHaveBeenCalled();
     });
 
-    it('falls back to defaults when the backend returns an empty list', async () => {
-        // The empty case is real: it is what a missing Firestore composite index
-        // looks like from the client, since the route swallows the error.
+    it('falls back to defaults when the backend returns an empty list, without logging', async () => {
+        // An empty collection is an expected state today (see project memory),
+        // not a failure — it must not be logged as one.
         global.fetch = jest.fn().mockResolvedValue({
             ok: true,
             json: async () => [],
         });
 
         await expect(fetchPortfolio()).resolves.toEqual(defaultProjects);
+        expect(errorSpy).not.toHaveBeenCalled();
     });
 
-    it('falls back to defaults on a non-ok response', async () => {
-        global.fetch = jest.fn().mockResolvedValue({ ok: false });
+    it('falls back to defaults and logs on a non-ok response', async () => {
+        global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
 
         await expect(fetchPortfolio()).resolves.toEqual(defaultProjects);
+        expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('500'));
     });
 
-    it('falls back to defaults when the network throws', async () => {
-        global.fetch = jest.fn().mockRejectedValue(new Error('offline'));
+    it('falls back to defaults and logs when the network throws', async () => {
+        const networkError = new Error('offline');
+        global.fetch = jest.fn().mockRejectedValue(networkError);
 
         await expect(fetchPortfolio()).resolves.toEqual(defaultProjects);
+        expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('threw'), networkError);
     });
 });

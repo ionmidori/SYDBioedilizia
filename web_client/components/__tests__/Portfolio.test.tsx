@@ -96,7 +96,7 @@ describe('Portfolio', () => {
 
         await waitFor(() => {
             // 8 rail cards get a dot; the trailing archive card does not.
-            expect(screen.getAllByRole('tab')).toHaveLength(8);
+            expect(screen.getAllByRole('button', { name: /Vai all'elemento/ })).toHaveLength(8);
         });
 
         const archiveLinks = screen.getAllByRole('link', { name: /Vedi tutti i progetti/ });

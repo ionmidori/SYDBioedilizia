@@ -125,14 +125,24 @@ export function filterByCategory(
 /**
  * Fetches the portfolio from the backend (3-Tier: never Firestore directly).
  * Returns `defaultProjects` on any failure or empty response.
+ *
+ * A genuinely empty collection and a broken request produce the same fallback
+ * by design — the stock photos are meant to fill the section either way. But
+ * only the failure paths are logged: an empty response is an expected state
+ * today, while a non-ok status or a thrown request is not, and without a log
+ * line the two are indistinguishable from the outside.
  */
 export async function fetchPortfolio(baseUrl = ''): Promise<PortfolioItem[]> {
     try {
         const res = await fetch(`${baseUrl}/api/py/content/portfolio`);
-        if (!res.ok) return defaultProjects;
+        if (!res.ok) {
+            console.error(`[portfolio] fetch failed with status ${res.status}`);
+            return defaultProjects;
+        }
         const items: PortfolioItem[] = await res.json();
         return items.length > 0 ? items : defaultProjects;
-    } catch {
+    } catch (error) {
+        console.error('[portfolio] fetch threw', error);
         return defaultProjects;
     }
 }
