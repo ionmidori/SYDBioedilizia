@@ -126,6 +126,34 @@ global.ResizeObserver = class ResizeObserver {
     disconnect() {}
 };
 
+// Mock IntersectionObserver (not implemented in JSDOM).
+// Live instances are tracked so tests can drive intersection callbacks by hand —
+// JSDOM never lays out or scrolls, so nothing fires on its own.
+global.__intersectionObservers = [];
+global.IntersectionObserver = class IntersectionObserver {
+    constructor(callback, options) {
+        this.callback = callback;
+        this.options = options;
+        this.elements = new Set();
+        global.__intersectionObservers.push(this);
+    }
+    observe(element) {
+        this.elements.add(element);
+    }
+    unobserve(element) {
+        this.elements.delete(element);
+    }
+    disconnect() {
+        this.elements.clear();
+        global.__intersectionObservers = global.__intersectionObservers.filter(
+            (observer) => observer !== this,
+        );
+    }
+    takeRecords() {
+        return [];
+    }
+};
+
 // Mock window.matchMedia (not implemented in JSDOM)
 Object.defineProperty(window, 'matchMedia', {
     writable: true,
