@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import {
     Wand2,
     Ruler,
     LayoutDashboard,
     Calculator,
     HardHat,
-    Home
+    Home,
+    type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AuthDialog } from '@/components/auth/AuthDialog';
@@ -18,83 +21,132 @@ import { triggerHaptic } from '@/lib/haptics';
 import { M3Transition } from '@/lib/m3-motion';
 import { useStaggerReveal } from '@/hooks/use-scroll-animation';
 
-const services = [
+interface Service {
+    icon: LucideIcon;
+    title: string;
+    description: string;
+    iconColor: string;
+}
+
+const services: Service[] = [
     {
         icon: LayoutDashboard,
         title: 'Area personale',
         description: 'Controlla ogni aspetto del cantiere dalla tua area personale: avanzamento lavori, documenti, fatture e comunicazioni con il team.',
-        gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },
     {
         icon: Wand2,
         title: 'Design Generativo AI',
         description: 'Genera centinaia di varianti di design per la tua casa in pochi secondi. Dal minimalismo moderno al classico, visualizza ogni stile.',
-        gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },
     {
         icon: Calculator,
         title: 'Preventivi Veloci',
         description: 'Niente più attese di settimane. Ottieni una stima dettagliata dei costi revisionata dal nostro team tecnico in tempi record.',
-        gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },
     {
         icon: Ruler,
         title: 'Rilievi Precisi',
         description: 'Trasforma le foto del tuo smartphone in planimetrie CAD accurate. La nostra tecnologia elimina gli errori di misurazione manuale.',
-        gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },
     {
         icon: HardHat,
         title: 'Direzione Lavori',
         description: 'I nostri architetti partner seguono il tuo cantiere passo dopo passo, garantendo che l\'esecuzione rispecchi perfettamente il progetto.',
-        gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     },
     {
         icon: Home,
         title: 'Chiavi in Mano',
         description: 'Rilassati e goditi il risultato. Gestiamo tutto noi, dalla burocrazia alle pulizie finali, consegnandoti una casa pronta da vivere.',
-        gradient: 'from-luxury-teal/20 to-luxury-bg/20',
         iconColor: 'text-luxury-teal'
     }
 ];
+
+/** Vertical offset added per card so the stack shows the edge of the ones below. */
+const STACK_STEP_PX = 12;
+/** Where the first card comes to rest, clearing the fixed navbar. */
+const STACK_TOP_PX = 88;
+/**
+ * Height of both the slot and the card it holds.
+ *
+ * These must match. Making the slot shorter than the card looks like it buys
+ * scroll length, but the difference is clipped off the bottom of every card
+ * permanently — the last line of each description disappears under the next
+ * card and is never readable. The pile-up comes from the sticky offsets below,
+ * not from a size mismatch.
+ */
+const STACK_SLOT_PX = 260;
 
 export function Services() {
     const { user } = useAuth();
     const router = useRouter();
     const [authDialogOpen, setAuthDialogOpen] = useState(false);
     const [hoveredService, setHoveredService] = useState<number | null>(null);
-    const [isMobile, setIsMobile] = useState(false);
+    const stackRef = useRef<HTMLDivElement>(null);
 
-    // ── ADK 1.27 Phase 3: Bold/Premium stagger reveal on Services cards ──
-    // scale: 0.95 entrance + y: 30px slide + 0.15s stagger = premium effect
+    // Desktop-only stagger reveal — the mobile stack drives its own motion.
     const gridRef = useStaggerReveal<HTMLDivElement>(
         '[role="article"]',
-        {
-            y: 30,
-            stagger: 0.15,
-            start: "top 80%"
-        }
+        { y: 30, stagger: 0.15, start: 'top 80%' }
     );
 
-    // Mobile detection for hover states
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        const timerId = setTimeout(handleResize, 0);
-        window.addEventListener('resize', handleResize);
-        return () => {
-            clearTimeout(timerId);
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
+    // ── Mobile "stratigrafia": covered cards recede as the next one slides over ──
+    useGSAP(
+        () => {
+            const mm = gsap.matchMedia();
+
+            // Scoped to mobile and to users who have not asked for reduced motion;
+            // the sticky stacking itself is pure CSS and survives both.
+            mm.add('(max-width: 767px) and (prefers-reduced-motion: no-preference)', () => {
+                const slots = gsap.utils.toArray<HTMLElement>('[data-stack-slot]');
+
+                slots.forEach((slot, index) => {
+                    // The last card is never covered, so it never recedes.
+                    if (index === slots.length - 1) return;
+
+                    const card = slot.querySelector<HTMLElement>('[data-stack-card]');
+                    if (!card) return;
+
+                    // Transform lives on the inner card, never on the sticky slot:
+                    // a transform on the sticky element's ancestor would break stickiness.
+                    // fromTo with an explicit starting filter: interpolating from
+                    // `none` gives GSAP no function list to match against and the
+                    // card lands almost black instead of gently dimmed.
+                    //
+                    // No opacity either — fading a covered card would let the cards
+                    // beneath it show through, which is exactly what the opaque
+                    // surface is there to prevent.
+                    gsap.fromTo(
+                        card,
+                        { scale: 1, filter: 'saturate(1) brightness(1)' },
+                        {
+                            scale: 0.96,
+                            filter: 'saturate(0.8) brightness(0.88)',
+                            ease: 'none',
+                            scrollTrigger: {
+                                trigger: slot,
+                                start: `top top+=${STACK_TOP_PX}`,
+                                end: `bottom top+=${STACK_TOP_PX}`,
+                                scrub: true,
+                            },
+                        },
+                    );
+                });
+            });
+
+            return () => mm.revert();
+        },
+        { scope: stackRef, dependencies: [] },
+    );
 
     const handleCardClick = (serviceTitle: string) => {
         triggerHaptic();
-        
+
         if (serviceTitle === 'Area personale') {
             if (user && !user.isAnonymous) {
                 router.push('/dashboard');
@@ -109,7 +161,9 @@ export function Services() {
     };
 
     return (
-        <section id="services" className="py-20 relative bg-luxury-bg overflow-hidden">
+        // overflow-clip rather than -hidden: `hidden` would make this section a
+        // scroll container and silently kill the sticky stack below.
+        <section id="services" className="py-20 relative bg-luxury-bg overflow-clip">
             {/* Section Background Decoration */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-7xl opacity-30 pointer-events-none">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-luxury-teal/10 rounded-full blur-[100px]" />
@@ -118,7 +172,7 @@ export function Services() {
 
             <div className="container mx-auto px-4 md:px-6 relative z-10">
                 {/* Header */}
-                <div className="text-center max-w-3xl mx-auto mb-16">
+                <div className="text-center max-w-3xl mx-auto mb-12 md:mb-16">
                     <motion.h2
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -138,22 +192,41 @@ export function Services() {
                     </motion.p>
                 </div>
 
-                {/* Orchestrated Staggered Grid with Scroll Reveal */}
+                {/* ── Mobile: sticky stack ── */}
+                <div ref={stackRef} className="md:hidden relative">
+                    {services.map((service, index) => (
+                        <div
+                            key={service.title}
+                            data-stack-slot
+                            className="sticky"
+                            style={{
+                                height: `${STACK_SLOT_PX}px`,
+                                top: `${STACK_TOP_PX + index * STACK_STEP_PX}px`,
+                            }}
+                        >
+                            <ServiceCard
+                                service={service}
+                                onClick={() => handleCardClick(service.title)}
+                                stacked
+                            />
+                        </div>
+                    ))}
+                </div>
+
+                {/* ── Desktop: unchanged grid ── */}
                 <motion.div
                     ref={gridRef}
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6"
                 >
                     {services.map((service, index) => (
                         <motion.div
-                            key={index}
+                            key={service.title}
                             role="article"
                             whileHover={{ y: -4, transition: M3Transition.containerTransform }}
                             whileTap={{ scale: 0.98, transition: M3Transition.buttonPress }}
-                            onViewportEnter={() => isMobile && setHoveredService(index)}
-                            onViewportLeave={() => isMobile && setHoveredService(prev => prev === index ? null : prev)}
                             onClick={() => handleCardClick(service.title)}
-                            onMouseEnter={() => !isMobile && setHoveredService(index)}
-                            onMouseLeave={() => !isMobile && setHoveredService(null)}
+                            onMouseEnter={() => setHoveredService(index)}
+                            onMouseLeave={() => setHoveredService(null)}
                             className={cn(
                                 "group relative p-6 md:p-8 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer transition-all duration-500",
                                 "bg-white/5 border border-luxury-gold/10 backdrop-blur-md",
@@ -162,47 +235,24 @@ export function Services() {
                                     : "shadow-elevation-low"
                             )}
                         >
-                            {/* M3 Expressive State Layer (Hover/Active feedback) */}
-                            <motion.div 
-                                className="absolute inset-0 m3-shape-xl bg-luxury-gold/0 pointer-events-none"
-                                animate={{ 
-                                    backgroundColor: hoveredService === index ? "rgba(233, 196, 106, 0.03)" : "rgba(233, 196, 106, 0)",
-                                    scale: hoveredService === index ? 1 : 0.95,
-                                    opacity: hoveredService === index ? 1 : 0
-                                }}
-                                transition={M3Transition.gentleReveal}
-                            />
-
-                            {/* Card Gradient Background */}
                             <div className={cn(
-                                "absolute inset-0 m3-shape-xl bg-gradient-to-br opacity-0 transition-opacity duration-500",
-                                service.gradient,
-                                hoveredService === index && "opacity-10"
-                            )} />
-
-                            <div className="relative z-10">
-                                <div className={cn(
-                                    "w-14 h-14 rounded-xl flex items-center justify-center mb-6 bg-luxury-bg/50 border border-luxury-gold/10 transition-transform duration-500",
-                                    service.iconColor,
-                                    hoveredService === index && "scale-110 shadow-premium"
-                                )}>
-                                    <service.icon className="w-7 h-7" />
-                                </div>
-
-                                <h3 className={cn(
-                                    "font-serif text-xl md:text-2xl font-semibold text-luxury-text mb-3 transition-colors duration-300",
-                                    hoveredService === index && "text-luxury-gold"
-                                )}>
-                                    {service.title}
-                                </h3>
-
-                                <motion.p 
-                                    className="text-luxury-text/60 text-sm md:text-base leading-relaxed font-light transition-colors duration-300"
-                                    animate={{ color: hoveredService === index ? "rgba(244, 241, 222, 0.85)" : "rgba(244, 241, 222, 0.6)" }}
-                                >
-                                    {service.description}
-                                </motion.p>
+                                "w-14 h-14 rounded-xl flex items-center justify-center mb-6 bg-luxury-bg/50 border border-luxury-gold/10 transition-transform duration-500",
+                                service.iconColor,
+                                hoveredService === index && "scale-110 shadow-premium"
+                            )}>
+                                <service.icon className="w-7 h-7" />
                             </div>
+
+                            <h3 className={cn(
+                                "font-serif text-xl md:text-2xl font-semibold text-luxury-text mb-3 transition-colors duration-300",
+                                hoveredService === index && "text-luxury-gold"
+                            )}>
+                                {service.title}
+                            </h3>
+
+                            <p className="text-luxury-text/60 text-sm md:text-base leading-relaxed font-light">
+                                {service.description}
+                            </p>
                         </motion.div>
                     ))}
                 </motion.div>
@@ -210,5 +260,47 @@ export function Services() {
 
             <AuthDialog open={authDialogOpen} onOpenChange={setAuthDialogOpen} />
         </section>
+    );
+}
+
+function ServiceCard({
+    service,
+    onClick,
+    stacked = false,
+}: {
+    service: Service;
+    onClick: () => void;
+    stacked?: boolean;
+}) {
+    return (
+        <button
+            type="button"
+            data-stack-card={stacked ? '' : undefined}
+            onClick={onClick}
+            className={cn(
+                'group relative flex h-full w-full flex-col justify-center p-6 text-left m3-shape-xl cinematic-focus',
+                // Fully opaque, not `surface-container-high` (85% alpha) and not
+                // glassmorphism: at anything below 100% the text of three stacked
+                // cards shows through at once. A hair lighter than the #264653 page
+                // background so the card still reads as an elevated surface.
+                'bg-[#2e5464] border border-luxury-gold/25 shadow-elevation-high',
+                'transition-transform duration-200 active:scale-[0.98]',
+            )}
+        >
+            <div className={cn(
+                'w-14 h-14 rounded-xl flex items-center justify-center mb-5 bg-luxury-bg/60 border border-luxury-gold/10',
+                service.iconColor,
+            )}>
+                <service.icon className="w-7 h-7" />
+            </div>
+
+            <h3 className="font-serif text-xl font-semibold text-luxury-text mb-3">
+                {service.title}
+            </h3>
+
+            <p className="text-luxury-text/70 text-sm leading-relaxed font-light">
+                {service.description}
+            </p>
+        </button>
     );
 }

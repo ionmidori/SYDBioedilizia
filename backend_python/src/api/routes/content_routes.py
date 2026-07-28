@@ -100,7 +100,9 @@ class PortfolioOut(BaseModel):
     title: str
     category: str
     location: str
-    image: str
+    # None when the document has no image yet — lets the client render an explicit
+    # placeholder instead of handing an empty string to next/image.
+    image: str | None
     description: str
     stats: PortfolioStats
 
@@ -127,7 +129,7 @@ async def get_portfolio_projects():
                 title=d.get("title", ""),
                 category=d.get("category", ""),
                 location=d.get("location", ""),
-                image=d.get("image_url", ""),
+                image=d.get("image_url") or None,
                 description=d.get("description", ""),
                 stats=PortfolioStats(
                     area=d.get("stats", {}).get("area", ""),
@@ -135,7 +137,12 @@ async def get_portfolio_projects():
                     budget=d.get("stats", {}).get("budget", ""),
                 ),
             ))
+        if not results:
+            logger.info("[portfolio] Query succeeded but no active projects found")
         return results
     except Exception as e:  # noqa: BLE001
-        logger.warning(f"[portfolio] Firestore query failed: {e}")
+        # The exception type matters: FailedPrecondition means the composite index on
+        # (active, order) is missing, which is indistinguishable from an empty
+        # collection at the HTTP layer — both return [].
+        logger.warning(f"[portfolio] Firestore query failed [{type(e).__name__}]: {e}")
         return []

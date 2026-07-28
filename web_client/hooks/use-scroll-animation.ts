@@ -10,7 +10,7 @@ gsap.registerPlugin(ScrollTrigger);
 // ─── Device / Motion Utilities ────────────────────────────────────────────────
 
 /** True when the OS/browser has requested reduced motion. */
-const prefersReducedMotion = (): boolean =>
+export const prefersReducedMotion = (): boolean =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

@@ -2,121 +2,55 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { ArrowUpRight, ArrowRight, ImageOff } from 'lucide-react';
+import Link from 'next/link';
 import Image from 'next/image';
-
-interface PortfolioItem {
-    id: string | number;
-    title: string;
-    category: string;
-    location: string;
-    image: string;
-    description: string;
-    stats: { area: string; duration: string; budget: string };
-}
-
-const defaultProjects: PortfolioItem[] = [
-    {
-        id: 1,
-        title: 'Villa Moderna',
-        category: 'Soggiorno',
-        location: 'Milano, City Life',
-        image: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1974&auto=format&fit=crop',
-        description: 'Ristrutturazione completa di un penthous con vista panoramica. Stile minimalista con tocchi caldi in legno.',
-        stats: { area: '120 mq', duration: '3 mesi', budget: '€85k' }
-    },
-    {
-        id: 2,
-        title: 'Cucina Minimal',
-        category: 'Cucina',
-        location: 'Roma, Parioli',
-        image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=2070&auto=format&fit=crop',
-        description: 'Design open space con isola centrale in marmo Calacatta e illuminazione LED integrata.',
-        stats: { area: '45 mq', duration: '4 settimane', budget: '€32k' }
-    },
-    {
-        id: 3,
-        title: 'Luxury Spa',
-        category: 'Bagno',
-        location: 'Firenze, Centro',
-        image: 'https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?q=80&w=1974&auto=format&fit=crop',
-        description: 'Trasformazione di un bagno padronale in una spa privata con vasca freestanding e finiture in pietra.',
-        stats: { area: '18 mq', duration: '3 settimane', budget: '€22k' }
-    },
-    {
-        id: 4,
-        title: 'Loft Industriale',
-        category: 'Intero Appartamento',
-        location: 'Torino, Docks',
-        image: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?q=80&w=2070&auto=format&fit=crop',
-        description: 'Recupero di uno spazio industriale convertito in loft residenziale. Soppalchi in ferro e mattoni a vista.',
-        stats: { area: '150 mq', duration: '5 mesi', budget: '€110k' }
-    },
-    {
-        id: 5,
-        title: 'Camera Zen',
-        category: 'Camera da letto',
-        location: 'Como, Vista lago',
-        image: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?q=80&w=2070&auto=format&fit=crop',
-        description: 'Design ispirato al Japandi per una camera da letto che concilia il riposo. Toni neutri e materiali naturali.',
-        stats: { area: '25 mq', duration: '2 settimane', budget: '€15k' }
-    },
-    {
-        id: 6,
-        title: 'Home Office Tech',
-        category: 'Ufficio',
-        location: 'Milano, Isola',
-        image: 'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=2042&auto=format&fit=crop',
-        description: 'Studio professionale domestico ottimizzato per lo smart working, con insonorizzazione e cablaggio avanzato.',
-        stats: { area: '20 mq', duration: '2 settimane', budget: '€12k' }
-    }
-];
-
-const categories = ['Tutti', 'Soggiorno', 'Cucina', 'Bagno', 'Esterni'];
+import { Button } from '@/components/ui/button';
+import { SnapRail } from '@/components/ui/snap-rail';
+import { cn } from '@/lib/utils';
+import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
+import { triggerHaptic } from '@/lib/haptics';
+import {
+    ALL_CATEGORIES,
+    PORTFOLIO_RAIL_LIMIT,
+    defaultProjects,
+    deriveCategories,
+    fetchPortfolio,
+    filterByCategory,
+    type PortfolioItem,
+} from '@/lib/portfolio';
 
 export function Portfolio() {
-    const [activeCategory, setActiveCategory] = useState('Tutti');
-    const [hoveredProject, setHoveredProject] = useState<string | number | null>(null);
-    const [isMobile, setIsMobile] = useState(false);
+    const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
+    const [hoveredProject, setHoveredProject] = useState<string | null>(null);
     const [projects, setProjects] = useState<PortfolioItem[]>(defaultProjects);
-
-    // Mobile detection
-    useEffect(() => {
-        // Run only once on mount to avoid cascading renders
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        handleResize(); // Initial check
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    const [activeRailIndex, setActiveRailIndex] = useState(0);
+    const [expandedId, setExpandedId] = useState<string | null>(null);
 
     // Load from backend API (3-Tier: no direct Firestore)
     useEffect(() => {
-        const loadPortfolio = async () => {
-            try {
-                const res = await fetch('/api/py/content/portfolio');
-                if (!res.ok) return;
-                const items: PortfolioItem[] = await res.json();
-                if (items.length > 0) {
-                    setProjects(items);
-                }
-            } catch {
-                // Silent fallback — defaultProjects remain in state
-            }
-        };
-        loadPortfolio();
+        fetchPortfolio().then(setProjects);
     }, []);
 
-    const filteredProjects = activeCategory === 'Tutti'
-        ? projects
-        : projects.filter(p => p.category === activeCategory);
+    const categories = deriveCategories(projects);
+    const filteredProjects = filterByCategory(projects, activeCategory);
+    const railProjects = filteredProjects.slice(0, PORTFOLIO_RAIL_LIMIT);
+    // Clamped: a category change can leave the index pointing past the shorter list
+    // for the render that happens before the rail remounts.
+    const activeProject = railProjects[Math.min(activeRailIndex, railProjects.length - 1)];
+
+    // Swiping to another card collapses whatever was open — no effect needed,
+    // the rail tells us when the active card changes.
+    const handleActiveChange = (index: number) => {
+        setActiveRailIndex(index);
+        setExpandedId(null);
+    };
 
     return (
         <section id="portfolio" className="py-24 bg-luxury-bg relative overflow-hidden border-t border-luxury-gold/5">
             <div className="container mx-auto px-4 md:px-6 relative z-10">
 
-                <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-8">
+                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-6 md:gap-8">
                     <div>
                         <h2 className="text-3xl md:text-5xl font-serif font-bold text-luxury-text mb-4">
                             I Nostri <span className="text-luxury-gold italic">Capolavori</span>
@@ -126,13 +60,18 @@ export function Portfolio() {
                         </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div
+                        className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap"
+                        role="group"
+                        aria-label="Filtra per categoria"
+                    >
                         {categories.map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => setActiveCategory(cat)}
+                                aria-pressed={activeCategory === cat}
                                 className={cn(
-                                    "px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 border",
+                                    "shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border",
                                     activeCategory === cat
                                         ? "bg-luxury-gold text-luxury-bg border-luxury-gold"
                                         : "bg-transparent text-luxury-text/60 border-luxury-gold/20 hover:border-luxury-gold/50 hover:text-luxury-text"
@@ -144,9 +83,67 @@ export function Portfolio() {
                     </div>
                 </div>
 
+                {/* ── Mobile: horizontal snap rail with a sticky title reveal ── */}
+                <div className="md:hidden">
+                    {railProjects.length === 0 ? (
+                        <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
+                    ) : (
+                        <>
+                            {/* Decorative: each card carries its own accessible name. */}
+                            <div className="mb-5 h-[4.5rem] overflow-hidden" aria-hidden="true">
+                                <AnimatePresence mode="popLayout" initial={false}>
+                                    <motion.div
+                                        key={activeProject?.id ?? 'none'}
+                                        initial={{ y: '100%', opacity: 0 }}
+                                        animate={{ y: 0, opacity: 1 }}
+                                        exit={{ y: '-100%', opacity: 0 }}
+                                        transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
+                                    >
+                                        <h3 className="text-2xl font-serif font-bold text-luxury-text truncate">
+                                            {activeProject?.title}
+                                        </h3>
+                                        <p className="text-sm text-luxury-gold/80 font-light truncate">
+                                            {activeProject?.location}
+                                        </p>
+                                    </motion.div>
+                                </AnimatePresence>
+                            </div>
+
+                            <SnapRail
+                                // Remounting on category change resets both the scroll
+                                // position and the active index to the new first card.
+                                key={activeCategory}
+                                ariaLabel="Progetti in evidenza"
+                                itemWidth="85vw"
+                                align="center"
+                                showDots
+                                dotCount={railProjects.length}
+                                onActiveChange={handleActiveChange}
+                                className="-mx-4 px-4"
+                            >
+                                {railProjects.map((project, index) => (
+                                    <MobileProjectCard
+                                        key={project.id}
+                                        project={project}
+                                        isActive={index === activeRailIndex}
+                                        isExpanded={expandedId === project.id}
+                                        onToggle={() =>
+                                            setExpandedId((prev) =>
+                                                prev === project.id ? null : project.id,
+                                            )
+                                        }
+                                    />
+                                ))}
+                                <ArchiveCard key="archive" />
+                            </SnapRail>
+                        </>
+                    )}
+                </div>
+
+                {/* ── Desktop: unchanged grid ── */}
                 <motion.div
                     layout
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                    className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8"
                 >
                     <AnimatePresence>
                         {filteredProjects.map((project, idx) => (
@@ -158,84 +155,45 @@ export function Portfolio() {
                                 exit={{ opacity: 0, scale: 0.9 }}
                                 transition={{ duration: 0.5, delay: idx * 0.1, ease: 'easeOut' }}
                                 viewport={{ once: true, margin: "-30% 0px -30% 0px" }}
-                                onViewportEnter={() => isMobile && setHoveredProject(project.id)}
-                                onViewportLeave={() => isMobile && setHoveredProject(prev => prev === project.id ? null : prev)}
                                 className={cn(
-                                    "relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors snap-center scroll-mt-32",
+                                    "group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
                                     hoveredProject === project.id && "border-luxury-gold/50"
                                 )}
-                                onMouseEnter={() => !isMobile && setHoveredProject(project.id)}
-                                onMouseLeave={() => !isMobile && setHoveredProject(null)}
+                                onMouseEnter={() => setHoveredProject(project.id)}
+                                onMouseLeave={() => setHoveredProject(null)}
                             >
-                                {/* Image wrapper — no parallax on mobile (performance) */}
-                                <div
-                                    className="absolute inset-0"
-                                >
-                                    <Image
-                                        src={project.image}
-                                        alt={project.title}
-                                        fill
-                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                        className={cn(
-                                            "object-cover transition-transform duration-700 group-hover:scale-110",
-                                            hoveredProject === project.id && "scale-110"
-                                        )}
-                                    />
-                                </div>
+                                <ProjectImage
+                                    project={project}
+                                    sizes="(max-width: 1200px) 50vw, 33vw"
+                                    className={cn(
+                                        "object-cover transition-transform duration-700 group-hover:scale-110",
+                                        hoveredProject === project.id && "scale-110"
+                                    )}
+                                />
 
-                                {/* Overlay Gradient */}
-                                <div className={cn(
-                                    "absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500",
-                                    hoveredProject === project.id && "opacity-80"
-                                )} />
+                                <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
 
-                                {/* Content */}
-                                <div className={cn(
-                                    "absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300",
-                                    hoveredProject === project.id && "translate-y-0"
-                                )}>
+                                <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                                     <div className="relative z-20">
-                                        <p className={cn(
-                                            "text-white text-sm font-medium mb-2 transform -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75",
-                                            hoveredProject === project.id && "translate-y-0 opacity-100"
-                                        )}>
+                                        <p className="text-white text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
                                             {project.category}
                                         </p>
 
                                         <h3 className="text-2xl font-bold text-luxury-text mb-2">{project.title}</h3>
 
-                                        <p className={cn(
-                                            "text-luxury-text/80 text-sm line-clamp-2 max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 delay-100 mb-4 font-light",
-                                            hoveredProject === project.id && "max-h-20 opacity-100"
-                                        )}>
-                                            {project.description}
-                                        </p>
-
-                                        <div className={cn(
-                                            "flex gap-4 border-t border-luxury-text/10 pt-4 mt-2 max-h-0 opacity-0 group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 delay-150",
-                                            hoveredProject === project.id && "max-h-20 opacity-100"
-                                        )}>
-                                            <div>
-                                                <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">Area</p>
-                                                <p className="text-xs text-luxury-text font-medium">{project.stats.area}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">Tempo</p>
-                                                <p className="text-xs text-luxury-text font-medium">{project.stats.duration}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">Budget</p>
-                                                <p className="text-xs text-luxury-text font-medium">{project.stats.budget}</p>
+                                        {/* grid-rows trick: animates height without touching layout-triggering properties */}
+                                        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">
+                                            <div className="overflow-hidden">
+                                                <p className="text-luxury-text/80 text-sm mb-4 font-light">
+                                                    {project.description}
+                                                </p>
+                                                <ProjectStats stats={project.stats} />
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Corner Button */}
-                                <div className={cn(
-                                    "absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200",
-                                    hoveredProject === project.id && "opacity-100"
-                                )}>
+                                <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
                                     <div className="w-10 h-10 rounded-full bg-luxury-teal/20 backdrop-blur-md flex items-center justify-center border border-luxury-teal/50 text-luxury-text hover:bg-luxury-teal hover:text-white transition-colors">
                                         <ArrowUpRight className="w-5 h-5" />
                                     </div>
@@ -245,16 +203,183 @@ export function Portfolio() {
                     </AnimatePresence>
                 </motion.div>
 
-                <div className="mt-16 text-center">
+                {filteredProjects.length === 0 && (
+                    <div className="hidden md:block">
+                        <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
+                    </div>
+                )}
+
+                <div className="mt-12 md:mt-16 text-center">
                     <Button
+                        asChild
                         size="lg"
                         className="px-10 h-14 text-base bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all hover:scale-[1.02]"
                     >
-                        Visualizza tutti i progetti
+                        <Link href="/progetti">Visualizza tutti i progetti</Link>
                     </Button>
                 </div>
 
             </div>
         </section>
+    );
+}
+
+// ── Mobile card ──────────────────────────────────────────────────────────────
+
+function MobileProjectCard({
+    project,
+    isActive,
+    isExpanded,
+    onToggle,
+}: {
+    project: PortfolioItem;
+    isActive: boolean;
+    isExpanded: boolean;
+    onToggle: () => void;
+}) {
+    const handleToggle = () => {
+        triggerHaptic();
+        onToggle();
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={handleToggle}
+            aria-expanded={isExpanded}
+            className={cn(
+                "relative block w-full aspect-[3/4] rounded-2xl overflow-hidden text-left bg-slate-950 border transition-colors duration-300 cinematic-focus",
+                isActive ? "border-luxury-gold/50" : "border-luxury-gold/10"
+            )}
+        >
+            <ProjectImage
+                project={project}
+                sizes="85vw"
+                className={cn(
+                    "object-cover transition-transform duration-700",
+                    isActive ? "scale-105" : "scale-100"
+                )}
+            />
+
+            {/* Scrim confined to the lower third, where the chip, hint and stats sit.
+                Renovation shots are often near-white there, so it has to be opaque
+                enough to carry text — but it clears by 60% so the upper half of the
+                photo, which is the actual product, stays untouched. */}
+            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg from-30% to-transparent to-60%" />
+
+            <div className="absolute inset-0 p-5 flex flex-col justify-end">
+                <span className="inline-flex self-start px-3 py-1 mb-3 rounded-full text-xs font-medium bg-luxury-bg/70 backdrop-blur-sm border border-luxury-gold/20 text-luxury-gold">
+                    {project.category}
+                </span>
+
+                {/* The reveal follows the user's swipe, not the page scroll. */}
+                <motion.div
+                    animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 12 }}
+                    transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
+                >
+                    {/* grid-rows 0fr→1fr animates height without touching layout-triggering
+                        properties — the CLS-safe replacement for animating max-height. */}
+                    <div
+                        className={cn(
+                            "grid transition-[grid-template-rows] duration-300",
+                            isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                        )}
+                    >
+                        <div className="overflow-hidden">
+                            <p className="text-luxury-text/85 text-sm font-light pb-3">
+                                {project.description}
+                            </p>
+                        </div>
+                    </div>
+
+                    <span className="block text-xs text-luxury-gold/70 font-medium pb-3">
+                        {isExpanded ? 'Tocca per ridurre' : 'Tocca per leggere'}
+                    </span>
+
+                    <ProjectStats stats={project.stats} />
+                </motion.div>
+            </div>
+
+            <span className="sr-only">
+                {project.title}, {project.location}. Tocca per {isExpanded ? 'ridurre' : 'leggere'} la descrizione completa.
+            </span>
+        </button>
+    );
+}
+
+function ArchiveCard() {
+    return (
+        <Link
+            href="/progetti"
+            className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-luxury-gold/25 bg-luxury-bg/40 transition-colors hover:border-luxury-gold/50 cinematic-focus"
+        >
+            <span className="p-4 rounded-full bg-luxury-gold/10">
+                <ArrowRight className="w-6 h-6 text-luxury-gold" />
+            </span>
+            <span className="text-sm font-medium text-luxury-text/80">Vedi tutti i progetti</span>
+        </Link>
+    );
+}
+
+// ── Shared bits ──────────────────────────────────────────────────────────────
+
+function ProjectImage({
+    project,
+    sizes,
+    className,
+}: {
+    project: PortfolioItem;
+    sizes: string;
+    className?: string;
+}) {
+    if (!project.image) {
+        return (
+            <div className="absolute inset-0 flex items-center justify-center bg-luxury-bg/80">
+                <ImageOff className="w-8 h-8 text-luxury-text/20" aria-hidden="true" />
+            </div>
+        );
+    }
+
+    return (
+        <Image
+            src={project.image}
+            alt={project.title}
+            fill
+            sizes={sizes}
+            className={className}
+        />
+    );
+}
+
+function ProjectStats({ stats }: { stats: PortfolioItem['stats'] }) {
+    return (
+        <div className="flex gap-4 border-t border-luxury-text/10 pt-3">
+            {([
+                ['Area', stats.area],
+                ['Tempo', stats.duration],
+                ['Budget', stats.budget],
+            ] as const).map(([label, value]) => (
+                <div key={label}>
+                    <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">{label}</p>
+                    <p className="text-xs text-luxury-text font-medium">{value || '—'}</p>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function EmptyState({ category, onReset }: { category: string; onReset: () => void }) {
+    return (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-luxury-text/10 bg-luxury-bg/20 py-12 px-6 text-center">
+            <p className="text-luxury-text/60 text-sm mb-4">
+                Nessun progetto nella categoria &laquo;{category}&raquo;.
+            </p>
+            <button
+                onClick={onReset}
+                className="min-h-[44px] px-5 rounded-full bg-luxury-gold text-luxury-bg text-sm font-bold transition-colors hover:bg-luxury-gold/90"
+            >
+                Mostra tutti
+            </button>
+        </div>
     );
 }

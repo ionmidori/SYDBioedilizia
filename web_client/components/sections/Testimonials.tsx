@@ -6,6 +6,7 @@ import { Star, Quote, Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useStaggerReveal } from '@/hooks/use-scroll-animation';
+import { SnapRail } from '@/components/ui/snap-rail';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -74,7 +75,7 @@ const defaultTestimonials: TestimonialItem[] = [
 
 export function Testimonials() {
     const [hoveredTestimonial, setHoveredTestimonial] = useState<string | number | null>(null);
-    const [isMobile, setIsMobile] = useState(false);
+    const [activeIndex, setActiveIndex] = useState(0);
     const [testimonials, setTestimonials] = useState<TestimonialItem[]>(defaultTestimonials);
     const { user } = useAuth();
 
@@ -120,6 +121,7 @@ export function Testimonials() {
     });
 
     // ── ADK 1.27 Phase 5: Testimonials stagger reveal (Bold/Premium) ──
+    // Desktop only — the mobile rail drives its own motion.
     const testGridRef = useStaggerReveal<HTMLDivElement>(
         '[data-testimonial-card="true"]',
         {
@@ -128,14 +130,6 @@ export function Testimonials() {
             start: "top 80%"
         }
     );
-
-    // Mobile detection
-    useEffect(() => {
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-        handleResize(); // Initial check
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
 
     const isRegisteredUser = user && !user.isAnonymous;
 
@@ -300,46 +294,46 @@ export function Testimonials() {
                     </AnimatePresence>
                 </div>
 
+                {/* ── Mobile: one testimonial at a time ── */}
+                <div className="md:hidden">
+                    <p className="text-center text-sm text-luxury-text/50 mb-4" aria-live="polite">
+                        {activeIndex + 1} di {testimonials.length}
+                    </p>
+                    <SnapRail
+                        ariaLabel="Recensioni dei clienti"
+                        itemWidth="92vw"
+                        align="center"
+                        showDots
+                        onActiveChange={setActiveIndex}
+                        className="-mx-4 px-4"
+                    >
+                        {testimonials.map((t) => (
+                            <TestimonialCard key={t.id} testimonial={t} expandable />
+                        ))}
+                    </SnapRail>
+                </div>
+
+                {/* ── Desktop: unchanged grid ── */}
                 <motion.div
                     ref={testGridRef}
-                    className="grid grid-cols-1 md:grid-cols-3 gap-8"
+                    className="hidden md:grid md:grid-cols-3 gap-8"
                 >
                     {testimonials.map((t) => (
                         <motion.div
                             key={t.id}
                             data-testimonial-card="true"
                             whileHover={{ scale: 1.02 }}
-                            onViewportEnter={() => isMobile && setHoveredTestimonial(t.id)}
-                            onViewportLeave={() => isMobile && setHoveredTestimonial(prev => prev === t.id ? null : prev)}
-                            onMouseEnter={() => !isMobile && setHoveredTestimonial(t.id)}
-                            onMouseLeave={() => !isMobile && setHoveredTestimonial(null)}
+                            onMouseEnter={() => setHoveredTestimonial(t.id)}
+                            onMouseLeave={() => setHoveredTestimonial(null)}
                             className={cn(
-                                "relative p-8 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl group hover:border-luxury-gold/30 transition-all backdrop-blur-sm hover:scale-[1.02]",
-                                hoveredTestimonial === t.id && "border-luxury-gold/30 scale-[1.02]"
+                                "relative p-8 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl group hover:border-luxury-gold/30 transition-all backdrop-blur-sm",
+                                hoveredTestimonial === t.id && "border-luxury-gold/30"
                             )}
                         >
-                            <Quote className={cn(
-                                "absolute top-8 right-8 w-12 h-12 text-luxury-gold/10 group-hover:text-luxury-gold/20 transition-colors",
-                                hoveredTestimonial === t.id && "text-luxury-gold/20"
-                            )} />
+                            <Quote className="absolute top-8 right-8 w-12 h-12 text-luxury-gold/10 group-hover:text-luxury-gold/20 transition-colors" />
 
                             <div className="relative z-10">
-                                <div className="flex items-center gap-4 mb-6">
-                                    <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${t.gradient} flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg border border-white/10`}>
-                                        {t.initials}
-                                    </div>
-                                    <div>
-                                        <h4 className="text-luxury-text font-bold text-lg leading-tight">{t.name}</h4>
-                                        <p className="text-luxury-text/60 text-sm font-light">{t.role} • {t.location}</p>
-                                    </div>
-                                </div>
-
-                                <div className="flex gap-1 text-luxury-gold mb-4">
-                                    {[...Array(t.rating)].map((_, i) => (
-                                        <Star key={i} className="w-4 h-4 fill-current" />
-                                    ))}
-                                </div>
-
+                                <TestimonialHeader testimonial={t} />
                                 <p className="text-luxury-text/80 leading-relaxed italic font-light">
                                     &quot;{t.text}&quot;
                                 </p>
@@ -349,5 +343,78 @@ export function Testimonials() {
                 </motion.div>
             </div>
         </section>
+    );
+}
+
+function TestimonialHeader({ testimonial: t }: { testimonial: TestimonialItem }) {
+    return (
+        <>
+            <div className="flex items-center gap-4 mb-6">
+                <div className={`w-14 h-14 shrink-0 rounded-full bg-gradient-to-br ${t.gradient} flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg border border-white/10`}>
+                    {t.initials}
+                </div>
+                <div className="min-w-0">
+                    <h4 className="text-luxury-text font-bold text-lg leading-tight truncate">{t.name}</h4>
+                    <p className="text-luxury-text/60 text-sm font-light truncate">
+                        {t.location ? `${t.role} • ${t.location}` : t.role}
+                    </p>
+                </div>
+            </div>
+
+            <div className="flex gap-1 text-luxury-gold mb-4" aria-label={`Valutazione: ${t.rating} su 5`}>
+                {[...Array(t.rating)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-current" aria-hidden="true" />
+                ))}
+            </div>
+        </>
+    );
+}
+
+function TestimonialCard({
+    testimonial: t,
+    expandable = false,
+}: {
+    testimonial: TestimonialItem;
+    expandable?: boolean;
+}) {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    return (
+        <div className="relative h-full p-6 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl backdrop-blur-sm">
+            <Quote className="absolute top-6 right-6 w-10 h-10 text-luxury-gold/10" aria-hidden="true" />
+
+            <div className="relative z-10">
+                <TestimonialHeader testimonial={t} />
+
+                {expandable ? (
+                    <>
+                        {/* One copy of the text, clamped or not. Rendering a second,
+                            visually-hidden copy to animate the height would make screen
+                            readers announce the testimonial twice. */}
+                        <p
+                            className={cn(
+                                'text-luxury-text/80 leading-relaxed italic font-light',
+                                !isExpanded && 'line-clamp-4',
+                            )}
+                        >
+                            &quot;{t.text}&quot;
+                        </p>
+
+                        <button
+                            type="button"
+                            onClick={() => setIsExpanded((prev) => !prev)}
+                            aria-expanded={isExpanded}
+                            className="mt-2 min-h-[44px] text-sm font-medium text-luxury-gold transition-colors hover:text-luxury-gold/80"
+                        >
+                            {isExpanded ? 'Riduci' : 'Leggi tutto'}
+                        </button>
+                    </>
+                ) : (
+                    <p className="text-luxury-text/80 leading-relaxed italic font-light">
+                        &quot;{t.text}&quot;
+                    </p>
+                )}
+            </div>
+        </div>
     );
 }
