@@ -200,6 +200,21 @@ export function SnapRail({
         return () => clearTimeout(timer);
     }, [autoPlay, hasInteracted, isRailVisible, activeIndex, items.length, autoPlayDelayMs, scrollToIndex]);
 
+    // For a centered rail, the item at rest (scrollLeft: 0, before any swipe) can only
+    // be truly centered if there is enough side padding to scroll it there — a fixed
+    // inset shorter than this leaves the first (and last) card visibly closer to one
+    // edge, even though `snap-center` centers every card reached by scrolling.
+    //
+    // This is expressed in `vw`, not `%`: percentage padding resolves against the
+    // *containing block* (the caller's wrapper), never against the rail's own box —
+    // so it silently breaks the moment a caller applies a margin (both real callers do,
+    // to cancel the section's own side padding for edge-to-edge dragging). `vw` is
+    // viewport-relative and sidesteps that entirely, which is also why `itemWidth` on
+    // this component is documented as a viewport-relative length in the first place.
+    const centeringPadding = align === 'center'
+        ? `calc((100vw - ${itemWidth}) / 2)`
+        : undefined;
+
     return (
         <div className="relative w-full">
             <div
@@ -207,10 +222,18 @@ export function SnapRail({
                 role="region"
                 aria-label={ariaLabel}
                 data-no-swipe
-                className={cn('flex snap-x snap-mandatory scrollbar-hide w-full', className)}
+                // No `w-full`: a fixed `width: 100%` is pinned to the containing block and
+                // does not grow to reclaim the space a negative margin (e.g. `-mx-4` in
+                // Portfolio/Testimonials, for edge-to-edge dragging) opens up — the rail
+                // would render short of the true screen edge on the side the margin
+                // uncovers. Leaving width unset lets the block-layout `auto` width fill
+                // whatever space the margin actually leaves available, same as `w-full`
+                // for callers that pass no margin at all.
+                className={cn('flex snap-x snap-mandatory scrollbar-hide', className)}
                 style={{
                     overflowX: 'auto',
                     gap,
+                    paddingInline: centeringPadding,
                     touchAction: 'pan-x pan-y',
                     WebkitOverflowScrolling: 'touch',
                     overscrollBehaviorX: 'contain',
