@@ -126,7 +126,10 @@ export function Portfolio() {
                                 showDots
                                 autoPlay
                                 onActiveChange={handleActiveChange}
-                                className="-mx-4 px-4"
+                                // Cancels the section container's px-4 so the rail's own
+                                // centering padding (computed from itemWidth) is what
+                                // determines the inset, not a fixed one stacked on top of it.
+                                className="-mx-4"
                             >
                                 {railProjects.map((project, index) => (
                                     <MobileProjectCard

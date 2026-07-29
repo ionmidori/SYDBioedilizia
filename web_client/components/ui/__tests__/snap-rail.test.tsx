@@ -90,6 +90,30 @@ describe('SnapRail', () => {
         expect(container.querySelector('[data-rail-item]')).toHaveClass('snap-start');
     });
 
+    it('pads a centered rail enough to actually center the resting card', () => {
+        // A fixed inset shorter than (rail width - item width) / 2 leaves the card at
+        // scrollLeft: 0 unable to reach center — this is the bug being guarded against.
+        const { getByRole, rerender } = render(
+            <SnapRail ariaLabel="Rail" align="center" itemWidth="85vw">
+                <div>Uno</div>
+            </SnapRail>,
+        );
+        expect(getByRole('region', { name: 'Rail' })).toHaveStyle({
+            paddingInline: 'calc((100vw - 85vw) / 2)',
+        });
+
+        // A start-aligned rail is meant to sit flush against the edge — it must not
+        // pick up the same padding.
+        rerender(
+            <SnapRail ariaLabel="Rail" align="start" itemWidth="85vw">
+                <div>Uno</div>
+            </SnapRail>,
+        );
+        expect(getByRole('region', { name: 'Rail' })).not.toHaveStyle({
+            paddingInline: 'calc((100vw - 85vw) / 2)',
+        });
+    });
+
     it('reports the most visible item as active, not the last one seen', () => {
         const onActiveChange = jest.fn();
         render(
