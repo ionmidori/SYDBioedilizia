@@ -5,6 +5,7 @@ import { motion, useInView } from 'framer-motion';
 import { M3Spring } from '@/lib/m3-motion';
 import { useScrollParallax } from '@/hooks/use-scroll-animation';
 import { Button } from '@/components/ui/button';
+import { StatCounter } from '@/components/ui/stat-counter';
 import { PlayCircle, Zap, Palette, FileText } from 'lucide-react';
 import { SlideShowModal } from './SlideShowModal';
 
@@ -152,15 +153,6 @@ export function Hero() {
                                 Richiedi Preventivo Gratuito
                                 <FileText className="ml-2 w-5 h-5" />
                             </Button>
-                            <Button
-                                variant="outline"
-                                size="lg"
-                                className="h-14 px-8 text-base min-w-[300px] border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold/10 hover:border-luxury-gold rounded-lg transition-all duration-200 active:scale-95 active:bg-luxury-gold/20"
-                                onClick={() => setIsSlideShowOpen(true)}
-                            >
-                                <PlayCircle className="mr-2 w-5 h-5" />
-                                Guarda come funziona
-                            </Button>
                         </div>
 
                         {/* Secondary CTA - Rendering */}
@@ -191,15 +183,21 @@ export function Hero() {
                     {/* Stats - Luxury Style */}
                     <div className="grid grid-cols-3 gap-6 border-t border-luxury-gold/20 pt-8">
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-luxury-text">100+</h4>
+                            <h4 className="text-2xl font-bold text-luxury-text">
+                                <StatCounter value={100} suffix="+" />
+                            </h4>
                             <p className="text-sm text-luxury-text/60">Progetti Completati</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-luxury-text">24h</h4>
+                            <h4 className="text-2xl font-bold text-luxury-text">
+                                <StatCounter value={24} suffix="h" />
+                            </h4>
                             <p className="text-sm text-luxury-text/60">Tempo Preventivo</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-luxury-text">4.9/5</h4>
+                            <h4 className="text-2xl font-bold text-luxury-text">
+                                <StatCounter value={4.9} decimals={1} suffix="/5" />
+                            </h4>
                             <p className="text-sm text-luxury-text/60">Soddisfazione Clienti</p>
                         </div>
                     </div>

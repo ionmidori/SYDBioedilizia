@@ -24,6 +24,16 @@ interface SnapRailProps {
     onActiveChange?: (index: number) => void;
     className?: string;
     dotsClassName?: string;
+    /**
+     * Advances the rail on its own, one card at a time, until the user touches it.
+     *
+     * Deliberately narrow: it stops for good on the first interaction (never resumes),
+     * never loops back to the first card, only runs while the rail is actually on
+     * screen, and is skipped entirely under `prefers-reduced-motion`.
+     */
+    autoPlay?: boolean;
+    /** Time each card stays put before auto-play advances to the next one. */
+    autoPlayDelayMs?: number;
 }
 
 /**
@@ -58,9 +68,13 @@ export function SnapRail({
     onActiveChange,
     className,
     dotsClassName,
+    autoPlay = false,
+    autoPlayDelayMs = 4000,
 }: SnapRailProps) {
     const railRef = useRef<HTMLDivElement>(null);
     const [activeIndex, setActiveIndex] = useState(0);
+    const [hasInteracted, setHasInteracted] = useState(false);
+    const [isRailVisible, setIsRailVisible] = useState(false);
 
     const items = Children.toArray(children);
     const totalDots = dotCount ?? items.length;
@@ -104,16 +118,6 @@ export function SnapRail({
         return () => observer.disconnect();
     }, [items.length]);
 
-    // ── Gesture isolation from the dashboard swipe navigator ────────────────
-    useEffect(() => {
-        const rail = railRef.current;
-        if (!rail) return;
-
-        const stop = (event: TouchEvent) => event.stopPropagation();
-        rail.addEventListener('touchstart', stop, { passive: true });
-        return () => rail.removeEventListener('touchstart', stop);
-    }, []);
-
     const scrollToIndex = useCallback((index: number) => {
         const rail = railRef.current;
         if (!rail) return;
@@ -125,6 +129,76 @@ export function SnapRail({
             block: 'nearest',
         });
     }, [align]);
+
+    // ── Gesture isolation from the dashboard swipe navigator ────────────────
+    // Doubles as the auto-play interaction cutoff for touch: a swipe both isolates
+    // from the parent gesture handler and permanently stops auto-advancing.
+    useEffect(() => {
+        const rail = railRef.current;
+        if (!rail) return;
+
+        const stop = (event: TouchEvent) => {
+            event.stopPropagation();
+            if (autoPlay) setHasInteracted(true);
+        };
+        rail.addEventListener('touchstart', stop, { passive: true });
+        return () => rail.removeEventListener('touchstart', stop);
+    }, [autoPlay]);
+
+    // ── Auto-play: interaction cutoff for non-touch input ────────────────────
+    // pointerdown covers mouse/pen drag-scroll, wheel covers trackpad/shift-scroll,
+    // keydown covers tabbing into a card and using arrow keys. Once any of these
+    // fires, auto-play never resumes for the life of this rail instance.
+    useEffect(() => {
+        if (!autoPlay) return;
+        const rail = railRef.current;
+        if (!rail) return;
+
+        const stop = () => setHasInteracted(true);
+        rail.addEventListener('pointerdown', stop, { passive: true });
+        rail.addEventListener('wheel', stop, { passive: true });
+        rail.addEventListener('keydown', stop);
+
+        return () => {
+            rail.removeEventListener('pointerdown', stop);
+            rail.removeEventListener('wheel', stop);
+            rail.removeEventListener('keydown', stop);
+        };
+    }, [autoPlay]);
+
+    // ── Auto-play: only run while the rail is actually on screen ────────────
+    // Separate from the active-item observer above: that one is rooted on the rail
+    // itself to compare cards against each other, this one is rooted on the
+    // viewport to know whether the rail is visible at all.
+    useEffect(() => {
+        if (!autoPlay) return;
+        const rail = railRef.current;
+        if (!rail || typeof IntersectionObserver === 'undefined') return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => setIsRailVisible(entry?.isIntersecting ?? false),
+            { threshold: 0.5 },
+        );
+        observer.observe(rail);
+        return () => observer.disconnect();
+    }, [autoPlay]);
+
+    // ── Auto-play: advance one card at a time ────────────────────────────────
+    // Re-arms every time the active card changes, so this doubles as the loop: each
+    // successful advance schedules the next one. Stops on the last card rather than
+    // wrapping back to the first — an auto-play carousel that runs forever is the
+    // anti-pattern (WCAG 2.2.2), a bounded one that settles is not.
+    useEffect(() => {
+        if (!autoPlay || hasInteracted || !isRailVisible) return;
+        if (prefersReducedMotion()) return;
+        if (activeIndex >= items.length - 1) return;
+
+        const timer = setTimeout(() => {
+            scrollToIndex(activeIndex + 1);
+        }, autoPlayDelayMs);
+
+        return () => clearTimeout(timer);
+    }, [autoPlay, hasInteracted, isRailVisible, activeIndex, items.length, autoPlayDelayMs, scrollToIndex]);
 
     return (
         <div className="relative w-full">
@@ -174,7 +248,10 @@ export function SnapRail({
                                 type="button"
                                 aria-pressed={isActive}
                                 aria-label={`Vai all'elemento ${index + 1} di ${totalDots}`}
-                                onClick={() => scrollToIndex(index)}
+                                onClick={() => {
+                                    if (autoPlay) setHasInteracted(true);
+                                    scrollToIndex(index);
+                                }}
                                 // 44x44 hit area (WCAG); the visible dot inside stays small.
                                 className="flex h-11 w-11 items-center justify-center"
                             >

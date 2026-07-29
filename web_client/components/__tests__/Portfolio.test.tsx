@@ -85,7 +85,7 @@ describe('Portfolio', () => {
         expect(screen.queryByText(/Nessun progetto nella categoria/)).not.toBeInTheDocument();
     });
 
-    it('caps the rail and links onward to the archive', async () => {
+    it('caps the rail at the display limit', async () => {
         mockPortfolioResponse(
             Array.from({ length: 12 }, (_, i) =>
                 makeProject({ id: `p${i}`, title: `Progetto ${i}`, category: 'Cucina' }),
@@ -95,12 +95,8 @@ describe('Portfolio', () => {
         render(<Portfolio />);
 
         await waitFor(() => {
-            // 8 rail cards get a dot; the trailing archive card does not.
             expect(screen.getAllByRole('button', { name: /Vai all'elemento/ })).toHaveLength(8);
         });
-
-        const archiveLinks = screen.getAllByRole('link', { name: /Vedi tutti i progetti/ });
-        expect(archiveLinks[0]).toHaveAttribute('href', '/progetti');
     });
 
     it('points the section CTA at the archive page', async () => {

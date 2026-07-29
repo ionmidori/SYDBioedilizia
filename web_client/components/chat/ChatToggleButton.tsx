@@ -41,8 +41,11 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
             const margin = isMobile ? 16 : 24;
             
             // L'offset visivo (trasparenza) che possiamo spingere "fuori" dallo schermo.
-            // Permettiamo di spostarlo più a sinistra (es. 48px in più su mobile)
-            const visualOffsetLeft = isMobile ? 48 : 32;
+            // Deve corrispondere alla translate-x applicata al wrapper interno a chat
+            // chiusa (translate-x-6 = 24px su mobile, md:translate-x-8 = 32px su desktop):
+            // è la stessa quantità, qui riespressa per i limiti di drag. Se le due
+            // divergono, il pulsante si trascina oltre il bordo.
+            const visualOffsetLeft = isMobile ? 24 : 32;
             
             // Permettiamo di spostarlo molto più in basso prima di bloccarlo
             // poichè la base dell'immagine trasparente tocca in basso
@@ -123,15 +126,21 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                 scale: 1.1,
             }}
         >
-            {/* 
+            {/*
               Inner wrapper handles the dynamic translation.
-              When closed (!isOpen), it translates right by 48px (12 units) to compensate 
-              for the avatar's transparent padding, bringing it right to the edge.
+              When closed (!isOpen), it translates right to compensate for the avatar's
+              transparent padding. On mobile the shift is deliberately kept short (24px)
+              so the bubble keeps a visible margin from the screen edge instead of
+              sitting flush against it.
               When open (isOpen), it resets so the 'X' button stays safely inside the screen.
+
+              Keep in sync with `visualOffsetLeft` above: it is the same shift, expressed
+              again for the drag bounds. Changing one without the other lets the button be
+              dragged past the edge.
             */}
             <div className={cn(
                 "flex items-center justify-end gap-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] relative",
-                isOpen ? "translate-x-0" : "translate-x-12 md:translate-x-8"
+                isOpen ? "translate-x-0" : "translate-x-6 md:translate-x-8"
             )}>
                 <div className="pointer-events-auto -mr-16 md:-mr-24 -translate-y-20 md:-translate-y-24 z-10">
                     <WelcomeBadge isOpen={isOpen} onOpenChat={onClick} />
