@@ -66,12 +66,16 @@ export const metadata: Metadata = {
     siteName: "SYD BIOEDILIZIA",
     locale: "it_IT",
     type: "website",
+    // One of the Portfolio section's example project photos (see
+    // lib/portfolio.ts `defaultProjects[0]`), cropped to the standard OG
+    // 1200x630 via Unsplash's own URL params — a real ristrutturazione shot
+    // reads better as a link preview than a generic marketing slide.
     images: [
       {
-        url: "/slides/slide-5.jpg",
+        url: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1200&h=630&fit=crop&auto=format",
         width: 1200,
         height: 630,
-        alt: "SYD BIOEDILIZIA - Ristrutturazioni Roma e Provincia",
+        alt: "Esempio di ristrutturazione SYD BIOEDILIZIA - soggiorno moderno",
       },
     ],
   },
@@ -79,7 +83,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "SYD BIOEDILIZIA - Ristrutturazioni e Bioedilizia a Roma",
     description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
-    images: ["/slides/slide-5.jpg"],
+    images: ["https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1200&h=630&fit=crop&auto=format"],
   },
   robots: {
     index: true,
