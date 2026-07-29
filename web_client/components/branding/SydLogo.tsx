@@ -11,13 +11,17 @@ export function SydLogo({ className = "" }: { className?: string, showSubtitle?:
                 <div className="h-1 w-9 rounded-sm bg-gradient-to-r from-black via-gray-900 to-black" />
             </div>
 
-            {/* Text clean */}
+            {/* Text clean. Not an <h1>: this renders inside a home link in the Navbar,
+                Footer and dashboard header on every page — a heading here would give
+                each page 2-3 <h1>s (one per place this component mounts) on top of
+                the page's own content heading, which is what a screen reader or
+                crawler should treat as the actual page title. */}
             <div className="flex flex-col">
-                <h1 className="text-2xl font-bold leading-none tracking-tight font-trajan whitespace-nowrap">
+                <p className="text-2xl font-bold leading-none tracking-tight font-trajan whitespace-nowrap">
                     <span className="text-luxury-gold">
                         SYD BIOEDILIZIA
                     </span>
-                </h1>
+                </p>
             </div>
         </div>
     );
