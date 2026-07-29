@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { useLayoutEffect } from 'react';
 import gsap from 'gsap';
 import { StatCounter } from '@/components/ui/stat-counter';
@@ -48,16 +49,15 @@ beforeEach(() => {
 });
 
 describe('StatCounter', () => {
-    it('renders the final value on the server so crawlers never see a zero', () => {
-        // Rendering without running effects is what a crawler or a no-JS visitor gets.
-        const { container } = render(<StatCounter value={100} suffix="+" />, {
-            hydrate: false,
-        });
+    it('renders the final value in server output, not zero', () => {
+        // renderToStaticMarkup never runs effects — this is the actual SSR/no-JS
+        // payload, not a client render with effects skipped.
+        const html = renderToStaticMarkup(<StatCounter value={100} suffix="+" />);
 
-        // The effect has run by now and swapped in the zero state, but the value React
-        // itself committed — the SSR payload — is the real number.
-        expect(container.innerHTML).toContain('tabular-nums');
-        expect(mockedTo).toHaveBeenCalled();
+        // Match the element's exact text content, not a bare substring — "100+" itself
+        // ends in "0+", so a naive `not.toContain('0+')` would fail even on correct output.
+        expect(html).toContain('>100+<');
+        expect(html).not.toContain('>0+<');
     });
 
     it('starts the count from zero, keeping the suffix', () => {
