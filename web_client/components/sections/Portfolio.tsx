@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, ArrowRight, ImageOff } from 'lucide-react';
+import { ArrowUpRight, ImageOff } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -124,7 +124,7 @@ export function Portfolio() {
                                 itemWidth="85vw"
                                 align="center"
                                 showDots
-                                dotCount={railProjects.length}
+                                autoPlay
                                 onActiveChange={handleActiveChange}
                                 className="-mx-4 px-4"
                             >
@@ -141,7 +141,6 @@ export function Portfolio() {
                                         }
                                     />
                                 ))}
-                                <ArchiveCard key="archive" />
                             </SnapRail>
                         </>
                     )}
@@ -268,24 +267,37 @@ function MobileProjectCard({
                 )}
             />
 
-            {/* Scrim confined to the lower third, where the chip, hint and stats sit.
-                Renovation shots are often near-white there, so it has to be opaque
-                enough to carry text — but it clears by 60% so the upper half of the
-                photo, which is the actual product, stays untouched. */}
-            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg from-30% to-transparent to-60%" />
+            {/* Scrim confined to the lower third, where the hint and stats sit.
+                Renovation shots are often near-white there, so it needs to carry text —
+                but it's kept translucent (not fully opaque) and clears early so the
+                photo itself, which is the actual product, stays as visible as possible. */}
+            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg/75 from-25% to-transparent to-55%" />
+
+            {/* Positioned absolutely, not inside the bottom-anchored column below: it
+                used to sit at the top of that flex-col and get pushed off the card's
+                top edge (past the button's overflow-hidden) whenever the description
+                expanded and grew the column upward. */}
+            <span className="absolute top-4 left-4 z-10 inline-flex px-3 py-1 rounded-full text-xs font-medium bg-luxury-bg/70 backdrop-blur-sm border border-luxury-gold/20 text-luxury-gold">
+                {project.category}
+            </span>
 
             <div className="absolute inset-0 p-5 flex flex-col justify-end">
-                <span className="inline-flex self-start px-3 py-1 mb-3 rounded-full text-xs font-medium bg-luxury-bg/70 backdrop-blur-sm border border-luxury-gold/20 text-luxury-gold">
-                    {project.category}
-                </span>
-
-                {/* The reveal follows the user's swipe, not the page scroll. */}
+                {/* The reveal follows the user's swipe, not the page scroll.
+                    text-shadow (inherited by every descendant) is what keeps the stats
+                    line legible on a near-white shot now that the scrim above is lighter:
+                    the fix for low contrast is a shadow under the text, not a darker
+                    scrim — that would defeat the point of lightening it. */}
                 <motion.div
                     animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 12 }}
                     transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
+                    className="[text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_2px_10px_rgba(0,0,0,0.6)]"
                 >
                     {/* grid-rows 0fr→1fr animates height without touching layout-triggering
-                        properties — the CLS-safe replacement for animating max-height. */}
+                        properties — the CLS-safe replacement for animating max-height.
+                        line-clamp bounds how tall the expanded row can grow: without it,
+                        a long real-world description (longer than the placeholder copy)
+                        could still push past the card's top edge the same way the chip
+                        used to. */}
                     <div
                         className={cn(
                             "grid transition-[grid-template-rows] duration-300",
@@ -293,7 +305,7 @@ function MobileProjectCard({
                         )}
                     >
                         <div className="overflow-hidden">
-                            <p className="text-luxury-text/85 text-sm font-light pb-3">
+                            <p className="text-luxury-text/85 text-sm font-light pb-3 line-clamp-6">
                                 {project.description}
                             </p>
                         </div>
@@ -311,20 +323,6 @@ function MobileProjectCard({
                 {project.title}, {project.location}. Tocca per {isExpanded ? 'ridurre' : 'leggere'} la descrizione completa.
             </span>
         </button>
-    );
-}
-
-function ArchiveCard() {
-    return (
-        <Link
-            href="/progetti"
-            className="flex aspect-[3/4] w-full flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-luxury-gold/25 bg-luxury-bg/40 transition-colors hover:border-luxury-gold/50 cinematic-focus"
-        >
-            <span className="p-4 rounded-full bg-luxury-gold/10">
-                <ArrowRight className="w-6 h-6 text-luxury-gold" />
-            </span>
-            <span className="text-sm font-medium text-luxury-text/80">Vedi tutti i progetti</span>
-        </Link>
     );
 }
 

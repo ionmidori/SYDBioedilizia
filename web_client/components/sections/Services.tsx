@@ -7,9 +7,7 @@ import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import {
     Wand2,
-    Ruler,
     LayoutDashboard,
-    Calculator,
     HardHat,
     Home,
     type LucideIcon
@@ -37,20 +35,8 @@ const services: Service[] = [
     },
     {
         icon: Wand2,
-        title: 'Design Generativo AI',
-        description: 'Genera centinaia di varianti di design per la tua casa in pochi secondi. Dal minimalismo moderno al classico, visualizza ogni stile.',
-        iconColor: 'text-luxury-teal'
-    },
-    {
-        icon: Calculator,
-        title: 'Preventivi Veloci',
-        description: 'Niente più attese di settimane. Ottieni una stima dettagliata dei costi revisionata dal nostro team tecnico in tempi record.',
-        iconColor: 'text-luxury-teal'
-    },
-    {
-        icon: Ruler,
-        title: 'Rilievi Precisi',
-        description: 'Trasforma le foto del tuo smartphone in planimetrie CAD accurate. La nostra tecnologia elimina gli errori di misurazione manuale.',
+        title: 'Design AI e Preventivi Veloci',
+        description: 'Genera centinaia di varianti di design per la tua casa in pochi secondi e ottieni subito una stima dettagliata dei costi, revisionata dal nostro team tecnico in tempi record.',
         iconColor: 'text-luxury-teal'
     },
     {
@@ -68,19 +54,22 @@ const services: Service[] = [
 ];
 
 /** Vertical offset added per card so the stack shows the edge of the ones below. */
-const STACK_STEP_PX = 12;
+const STACK_STEP_PX = 16;
 /** Where the first card comes to rest, clearing the fixed navbar. */
 const STACK_TOP_PX = 88;
-/**
- * Height of both the slot and the card it holds.
- *
- * These must match. Making the slot shorter than the card looks like it buys
- * scroll length, but the difference is clipped off the bottom of every card
- * permanently — the last line of each description disappears under the next
- * card and is never readable. The pile-up comes from the sticky offsets below,
- * not from a size mismatch.
- */
+/** Height of the card itself — the content box, not the slot. */
 const STACK_SLOT_PX = 260;
+/**
+ * Breathing room between stacked card edges, added as the slot's bottom padding.
+ *
+ * The card's own height must never shrink to make room for this — that clips the
+ * last line of every description under the next card, permanently. So the slot
+ * grows instead: `height: STACK_SLOT_PX + STACK_GAP_PX`, `paddingBottom:
+ * STACK_GAP_PX`, `boxSizing: border-box`. The content box the card actually fills
+ * is still exactly STACK_SLOT_PX — `ServiceCard`'s `h-full` resolves the same as
+ * before — while the gap opens up as dead space below it.
+ */
+const STACK_GAP_PX = 14;
 
 export function Services() {
     const { user } = useAuth();
@@ -198,9 +187,10 @@ export function Services() {
                         <div
                             key={service.title}
                             data-stack-slot
-                            className="sticky"
+                            className="sticky box-border"
                             style={{
-                                height: `${STACK_SLOT_PX}px`,
+                                height: `${STACK_SLOT_PX + STACK_GAP_PX}px`,
+                                paddingBottom: `${STACK_GAP_PX}px`,
                                 top: `${STACK_TOP_PX + index * STACK_STEP_PX}px`,
                             }}
                         >
@@ -216,7 +206,7 @@ export function Services() {
                 {/* ── Desktop: unchanged grid ── */}
                 <motion.div
                     ref={gridRef}
-                    className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    className="hidden md:grid md:grid-cols-2 gap-6"
                 >
                     {services.map((service, index) => (
                         <motion.div
