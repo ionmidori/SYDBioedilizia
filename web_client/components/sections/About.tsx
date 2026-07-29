@@ -13,16 +13,17 @@ export function About() {
 
             <div className="container mx-auto px-4 md:px-6 relative z-10">
 
-                {/* Header */}
+                {/* Header. h1: this is /chi-siamo's only section, and its own page
+                    heading — SydLogo (Navbar/Footer) is no longer marked up as one. */}
                 <div className="text-center mb-16 space-y-4">
-                    <motion.h2
+                    <motion.h1
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         className="text-3xl md:text-5xl font-serif font-bold text-luxury-gold"
                     >
                         Chi Siamo
-                    </motion.h2>
+                    </motion.h1>
                     <motion.div
                         initial={{ opacity: 0, width: 0 }}
                         whileInView={{ opacity: 1, width: '100px' }}
