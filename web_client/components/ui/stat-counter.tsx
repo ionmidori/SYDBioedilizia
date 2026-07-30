@@ -20,7 +20,7 @@ interface StatCounterProps {
 }
 
 /**
- * A number that counts up from zero the first time it scrolls into view.
+ * A number that counts up from zero every time it scrolls into view.
  *
  * The formatting is parameterised rather than baked in because the stats it renders
  * are not homogeneous: "100+", "24h" and "4.9/5" differ in both suffix and precision.
@@ -31,9 +31,6 @@ interface StatCounterProps {
  *   the real number, and there is no layout shift when the count starts.
  * - **The zero state is written in a layout effect** (`useGSAP` runs before paint), so
  *   the swap from the server-rendered value never reaches the screen.
- *
- * `once: true` is what makes it fire on the first downward pass only — scrolling back
- * up and down again does not replay it.
  */
 export function StatCounter({
     value,
@@ -65,7 +62,13 @@ export function StatCounter({
                 scrollTrigger: {
                     trigger: el,
                     start: 'top 85%',
-                    once: true,
+                    // GSAP's order is onEnter/onLeave/onEnterBack/onLeaveBack. `restart`
+                    // sits on the two *entering* events (scrolling down into view, and
+                    // scrolling back up into view) — `none` on both *leaving* events
+                    // means the number is left resting on its final value while off
+                    // screen, never caught mid-count while actually scrolling away.
+                    // (`once: true` here would fire once ever, for the page's lifetime.)
+                    toggleActions: 'restart none restart none',
                 },
             });
         },

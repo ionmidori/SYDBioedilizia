@@ -132,8 +132,6 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
                 <dl className="flex gap-4 border-t border-luxury-text/10 pt-3">
                     {([
                         ['Area', project.stats.area],
-                        ['Tempo', project.stats.duration],
-                        ['Budget', project.stats.budget],
                     ] as const).map(([label, value]) => (
                         <div key={label}>
                             <dt className="text-[10px] uppercase tracking-wider text-luxury-gold/80">

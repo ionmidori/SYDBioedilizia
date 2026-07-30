@@ -25,7 +25,9 @@ export function Portfolio() {
     const [hoveredProject, setHoveredProject] = useState<string | null>(null);
     const [projects, setProjects] = useState<PortfolioItem[]>(defaultProjects);
     const [activeRailIndex, setActiveRailIndex] = useState(0);
-    const [expandedId, setExpandedId] = useState<string | null>(null);
+    // Descriptions are visible by default; this tracks which one (if any) the user has
+    // chosen to hide. null means "none hidden" — i.e. everything showing.
+    const [hiddenId, setHiddenId] = useState<string | null>(null);
 
     // Load from backend API (3-Tier: no direct Firestore)
     useEffect(() => {
@@ -39,15 +41,18 @@ export function Portfolio() {
     // for the render that happens before the rail remounts.
     const activeProject = railProjects[Math.min(activeRailIndex, railProjects.length - 1)];
 
-    // Swiping to another card collapses whatever was open — no effect needed,
-    // the rail tells us when the active card changes.
+    // Swiping to another card resets to the default (description visible) — no effect
+    // needed, the rail tells us when the active card changes.
     const handleActiveChange = (index: number) => {
         setActiveRailIndex(index);
-        setExpandedId(null);
+        setHiddenId(null);
     };
 
     return (
-        <section id="portfolio" className="py-24 bg-luxury-bg relative overflow-hidden border-t border-luxury-gold/5">
+        // Asymmetric padding: the bottom is trimmed so "Dicono di Noi" sits close to
+        // the archive CTA instead of a full section gap away from it. Testimonials
+        // trims its own top to match.
+        <section id="portfolio" className="pt-24 pb-12 md:pb-16 bg-luxury-bg relative overflow-hidden border-t border-luxury-gold/5">
             <div className="container mx-auto px-4 md:px-6 relative z-10">
 
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-6 md:gap-8">
@@ -136,9 +141,9 @@ export function Portfolio() {
                                         key={project.id}
                                         project={project}
                                         isActive={index === activeRailIndex}
-                                        isExpanded={expandedId === project.id}
+                                        isHidden={hiddenId === project.id}
                                         onToggle={() =>
-                                            setExpandedId((prev) =>
+                                            setHiddenId((prev) =>
                                                 prev === project.id ? null : project.id,
                                             )
                                         }
@@ -238,12 +243,12 @@ export function Portfolio() {
 function MobileProjectCard({
     project,
     isActive,
-    isExpanded,
+    isHidden,
     onToggle,
 }: {
     project: PortfolioItem;
     isActive: boolean;
-    isExpanded: boolean;
+    isHidden: boolean;
     onToggle: () => void;
 }) {
     const handleToggle = () => {
@@ -255,7 +260,7 @@ function MobileProjectCard({
         <button
             type="button"
             onClick={handleToggle}
-            aria-expanded={isExpanded}
+            aria-expanded={!isHidden}
             className={cn(
                 "relative block w-full aspect-[3/4] rounded-2xl overflow-hidden text-left bg-slate-950 border transition-colors duration-300 cinematic-focus",
                 isActive ? "border-luxury-gold/50" : "border-luxury-gold/10"
@@ -270,11 +275,13 @@ function MobileProjectCard({
                 )}
             />
 
-            {/* Scrim confined to the lower third, where the hint and stats sit.
+            {/* Scrim reaches higher than before (to-70%, was to-55%): the description is
+                now visible by default rather than hidden until tapped, so it needs
+                coverage further up the card at rest, not just when expanded.
                 Renovation shots are often near-white there, so it needs to carry text —
                 but it's kept translucent (not fully opaque) and clears early so the
                 photo itself, which is the actual product, stays as visible as possible. */}
-            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg/75 from-25% to-transparent to-55%" />
+            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg/75 from-25% to-transparent to-70%" />
 
             {/* Positioned absolutely, not inside the bottom-anchored column below: it
                 used to sit at the top of that flex-col and get pushed off the card's
@@ -295,27 +302,28 @@ function MobileProjectCard({
                     transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
                     className="[text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_2px_10px_rgba(0,0,0,0.6)]"
                 >
-                    {/* grid-rows 0fr→1fr animates height without touching layout-triggering
+                    {/* grid-rows 1fr→0fr animates height without touching layout-triggering
                         properties — the CLS-safe replacement for animating max-height.
-                        line-clamp bounds how tall the expanded row can grow: without it,
-                        a long real-world description (longer than the placeholder copy)
-                        could still push past the card's top edge the same way the chip
-                        used to. */}
+                        Visible by default (isHidden false ⇒ 1fr): the description reads
+                        as part of the card, not a hidden extra. line-clamp-4 bounds how
+                        tall it can grow at rest — without it a long real-world
+                        description (longer than the placeholder copy) could push past
+                        the card's top edge the same way the chip used to. */}
                     <div
                         className={cn(
                             "grid transition-[grid-template-rows] duration-300",
-                            isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                            isHidden ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
                         )}
                     >
                         <div className="overflow-hidden">
-                            <p className="text-luxury-text/85 text-sm font-light pb-3 line-clamp-6">
+                            <p className="text-luxury-text/85 text-sm font-light pb-3 line-clamp-4">
                                 {project.description}
                             </p>
                         </div>
                     </div>
 
                     <span className="block text-xs text-luxury-gold/70 font-medium pb-3">
-                        {isExpanded ? 'Tocca per ridurre' : 'Tocca per leggere'}
+                        {isHidden ? 'Mostra descrizione' : 'Nascondi descrizione'}
                     </span>
 
                     <ProjectStats stats={project.stats} />
@@ -323,7 +331,7 @@ function MobileProjectCard({
             </div>
 
             <span className="sr-only">
-                {project.title}, {project.location}. Tocca per {isExpanded ? 'ridurre' : 'leggere'} la descrizione completa.
+                {project.title}, {project.location}. Tocca per {isHidden ? 'mostrare' : 'nascondere'} la descrizione.
             </span>
         </button>
     );
@@ -359,13 +367,17 @@ function ProjectImage({
     );
 }
 
+/**
+ * Area only. `duration` and `budget` are still carried by `PortfolioItem` and still
+ * written by the admin tool — they are deliberately not surfaced here, because the card
+ * reads as a photo of the work rather than a spec sheet. The loop shape is kept so
+ * restoring a stat is a one-line change.
+ */
 function ProjectStats({ stats }: { stats: PortfolioItem['stats'] }) {
     return (
         <div className="flex gap-4 border-t border-luxury-text/10 pt-3">
             {([
                 ['Area', stats.area],
-                ['Tempo', stats.duration],
-                ['Budget', stats.budget],
             ] as const).map(([label, value]) => (
                 <div key={label}>
                     <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">{label}</p>
