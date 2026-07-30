@@ -284,9 +284,9 @@ describe('SnapRail', () => {
             expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
         });
 
-        it('stops for good after a pointerdown, even once visible again', () => {
+        it('pauses after a pointerdown, then resumes once the quiet period elapses', () => {
             render(
-                <SnapRail ariaLabel="Rail" autoPlay autoPlayDelayMs={1000}>
+                <SnapRail ariaLabel="Rail" autoPlay autoPlayDelayMs={1000} autoPlayResumeDelayMs={2000}>
                     <div>Uno</div>
                     <div>Due</div>
                 </SnapRail>,
@@ -295,16 +295,24 @@ describe('SnapRail', () => {
             reportRailVisibility(true);
             fireEvent.pointerDown(screen.getByRole('region', { name: 'Rail' }));
 
+            // Quiet period elapses on its own act() boundary — this is what actually
+            // flips isPaused back to false and lets the advance effect re-arm with a
+            // fresh timer, rather than relying on a timer-scheduled-during-a-timer to
+            // fire within the same advanceTimersByTime call.
             act(() => {
-                jest.advanceTimersByTime(5000);
+                jest.advanceTimersByTime(2000);
             });
-
             expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+
+            act(() => {
+                jest.advanceTimersByTime(1000);
+            });
+            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
         });
 
-        it('stops for good after a swipe (touchstart)', () => {
+        it('pauses after a swipe (touchstart), then resumes once the quiet period elapses', () => {
             render(
-                <SnapRail ariaLabel="Rail" autoPlay autoPlayDelayMs={1000}>
+                <SnapRail ariaLabel="Rail" autoPlay autoPlayDelayMs={1000} autoPlayResumeDelayMs={2000}>
                     <div>Uno</div>
                     <div>Due</div>
                 </SnapRail>,
@@ -314,15 +322,19 @@ describe('SnapRail', () => {
             fireEvent.touchStart(screen.getByRole('region', { name: 'Rail' }));
 
             act(() => {
-                jest.advanceTimersByTime(5000);
+                jest.advanceTimersByTime(2000);
             });
-
             expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+
+            act(() => {
+                jest.advanceTimersByTime(1000);
+            });
+            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
         });
 
-        it('stops for good after a dot is pressed', () => {
+        it('pauses after a dot is pressed, then resumes once the quiet period elapses', () => {
             render(
-                <SnapRail ariaLabel="Rail" showDots autoPlay autoPlayDelayMs={1000}>
+                <SnapRail ariaLabel="Rail" showDots autoPlay autoPlayDelayMs={1000} autoPlayResumeDelayMs={2000}>
                     <div>Uno</div>
                     <div>Due</div>
                     <div>Tre</div>
@@ -334,10 +346,44 @@ describe('SnapRail', () => {
             const callsFromTheClick = (Element.prototype.scrollIntoView as jest.Mock).mock.calls.length;
 
             act(() => {
-                jest.advanceTimersByTime(5000);
+                jest.advanceTimersByTime(2000);
             });
-
             expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(callsFromTheClick);
+
+            act(() => {
+                jest.advanceTimersByTime(1000);
+            });
+            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(callsFromTheClick + 1);
+        });
+
+        it('pushes the resume back out on a fresh interaction during the quiet period', () => {
+            render(
+                <SnapRail ariaLabel="Rail" autoPlay autoPlayDelayMs={1000} autoPlayResumeDelayMs={2000}>
+                    <div>Uno</div>
+                    <div>Due</div>
+                </SnapRail>,
+            );
+
+            reportRailVisibility(true);
+            const rail = screen.getByRole('region', { name: 'Rail' });
+            fireEvent.pointerDown(rail);
+
+            // A second interaction just before the first quiet period would have
+            // elapsed restarts the clock — it must not resume at the original time.
+            act(() => {
+                jest.advanceTimersByTime(1999);
+            });
+            fireEvent.pointerDown(rail);
+
+            act(() => {
+                jest.advanceTimersByTime(2000);
+            });
+            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+
+            act(() => {
+                jest.advanceTimersByTime(1000);
+            });
+            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
         });
 
         it('pauses while scrolled out of view and resumes when back on screen', () => {
