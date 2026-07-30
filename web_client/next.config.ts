@@ -8,6 +8,13 @@ const nextConfig: NextConfig = {
   // of clobbering `.next` on every run.
   distDir: process.env.NEXT_DIST_DIR || '.next',
 
+  // Next's dev-origin protection treats `127.0.0.1` as a different origin from
+  // `localhost` and silently blocks its HMR/RSC dev requests otherwise — the
+  // page still renders (SSR HTML is unaffected) but client hydration never
+  // completes, so every 'use client' effect (scroll listeners, timers, state)
+  // stays dead with no console error. Ignored outside `next dev`.
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
+
   // Enable verbose logging in development
   logging: {
     fetches: {
