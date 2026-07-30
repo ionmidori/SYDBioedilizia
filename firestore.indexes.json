@@ -41,6 +41,56 @@
                     "order": "ASCENDING"
                 }
             ]
+        },
+        {
+            "collectionGroup": "users",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "lifecycle_warned_at",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "last_active_at",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "users",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "lifecycle_anonymized_at",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "last_active_at",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "lifecycle_disabled_at",
+                    "order": "ASCENDING"
+                }
+            ]
+        },
+        {
+            "collectionGroup": "users",
+            "queryScope": "COLLECTION",
+            "fields": [
+                {
+                    "fieldPath": "lifecycle_disabled_at",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "last_active_at",
+                    "order": "ASCENDING"
+                },
+                {
+                    "fieldPath": "lifecycle_warned_at",
+                    "order": "ASCENDING"
+                }
+            ]
         }
     ],
     "fieldOverrides": [
