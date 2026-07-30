@@ -216,9 +216,11 @@ export function Services() {
                             onMouseLeave={() => setHoveredService(null)}
                             className={cn(
                                 "group relative p-6 md:p-8 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer transition-all duration-500",
-                                "bg-white/5 border border-luxury-gold/10 backdrop-blur-md",
+                                // Gold gradient border and specular highlight ride on the
+                                // class's own pseudo-elements, so no Tailwind `border` here.
+                                "glass-services-card",
                                 hoveredService === index
-                                    ? "border-luxury-gold/30 shadow-elevation-high shadow-luxury-teal/20"
+                                    ? "shadow-elevation-high shadow-luxury-teal/20"
                                     : "shadow-elevation-low"
                             )}
                         >
@@ -227,7 +229,8 @@ export function Services() {
                                 transform — it never nudges the title beside it. */}
                             <div className="flex items-center gap-4 mb-4">
                                 <div className={cn(
-                                    "w-12 h-12 lg:w-14 lg:h-14 shrink-0 rounded-xl flex items-center justify-center bg-luxury-bg/50 border border-luxury-gold/10 transition-transform duration-500",
+                                    "w-12 h-12 lg:w-14 lg:h-14 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/10 transition-transform duration-500",
+                                    "bg-[radial-gradient(circle_at_30%_20%,rgba(233,196,106,0.14),rgba(38,70,83,0.55)_70%)]",
                                     service.iconColor,
                                     hoveredService === index && "scale-110 shadow-premium"
                                 )}>
@@ -242,7 +245,9 @@ export function Services() {
                                 </h3>
                             </div>
 
-                            <p className="text-luxury-text/60 text-sm md:text-base leading-relaxed font-light">
+                            {/* /70 rather than /60: at font-light 14–16px over the glass
+                                backdrop, /60 measures 3.8:1 — short of WCAG AA. */}
+                            <p className="text-luxury-text/70 text-sm md:text-base leading-relaxed font-light">
                                 {service.description}
                             </p>
                         </motion.div>
@@ -273,9 +278,10 @@ function ServiceCard({
                 'group relative flex h-full w-full flex-col justify-center p-6 text-left m3-shape-xl cinematic-focus',
                 // Fully opaque, not `surface-container-high` (85% alpha) and not
                 // glassmorphism: at anything below 100% the text of three stacked
-                // cards shows through at once. A hair lighter than the #264653 page
-                // background so the card still reads as an elevated surface.
-                'bg-[#2e5464] border border-luxury-gold/25 shadow-elevation-high',
+                // cards shows through at once. `.elevated-service-card` keeps that
+                // rule (alpha-free gradient stops, a hair lighter than the #264653
+                // page background) and layers shadows for the elevated look.
+                'elevated-service-card',
                 'transition-transform duration-200 active:scale-[0.98]',
             )}
         >
@@ -283,7 +289,10 @@ function ServiceCard({
                 title wraps to a second line. */}
             <div className="flex items-center gap-4 mb-4">
                 <div className={cn(
-                    'w-12 h-12 shrink-0 rounded-xl flex items-center justify-center bg-luxury-bg/60 border border-luxury-gold/10',
+                    'w-12 h-12 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/15',
+                    // Alpha is safe here: the chip sits inside an already-opaque
+                    // card, so it only blends with its own parent, not the stack.
+                    'bg-gradient-to-br from-luxury-bg/70 to-luxury-bg/40',
                     service.iconColor,
                 )}>
                     <service.icon className="w-6 h-6" />
@@ -294,7 +303,9 @@ function ServiceCard({
                 </h3>
             </div>
 
-            <p className="text-luxury-text/70 text-sm leading-relaxed font-light">
+            {/* /75 rather than /70: /70 measures 4.47:1 against the card
+                gradient, just short of WCAG AA for this text size. */}
+            <p className="text-luxury-text/75 text-sm leading-relaxed font-light">
                 {service.description}
             </p>
         </button>
