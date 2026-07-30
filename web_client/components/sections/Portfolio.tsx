@@ -49,10 +49,11 @@ export function Portfolio() {
     };
 
     return (
-        // Asymmetric padding: the bottom is trimmed so "Dicono di Noi" sits close to
-        // the archive CTA instead of a full section gap away from it. Testimonials
-        // trims its own top to match.
-        <section id="portfolio" className="pt-24 pb-12 md:pb-16 bg-luxury-bg relative overflow-hidden border-t border-luxury-gold/5">
+        // Asymmetric padding on both ends: the top is trimmed to match Services'
+        // trimmed bottom (so "I Nostri Capolavori" follows the last service card
+        // closely), and the bottom is trimmed so "Dicono di Noi" sits close to the
+        // archive CTA — Testimonials trims its own top to match that side.
+        <section id="portfolio" className="pt-12 md:pt-16 pb-12 md:pb-16 bg-luxury-bg relative overflow-hidden border-t border-luxury-gold/5">
             <div className="container mx-auto px-4 md:px-6 relative z-10">
 
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-6 md:gap-8">

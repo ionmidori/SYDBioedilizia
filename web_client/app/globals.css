@@ -202,6 +202,16 @@
   background-color: rgb(var(--luxury-bg-rgb) / 0.95);
 }
 
+/* A horizontal scroll-snap rail (SnapRail) is forced by the CSS spec to also clip
+   vertically the moment it scrolls horizontally (overflow-x other than visible always
+   coerces overflow-y to auto too — there is no way to opt out of that). Any card inside
+   one that grows on focus therefore gets its top/bottom silently cut off. Strip just the
+   transform here — the border/shadow/background feedback above is unaffected and still
+   plays, since none of those change the box's own geometry. */
+[data-rail-item] .cinematic-focus:focus-within {
+  transform: none;
+}
+
 /* Utilities for hiding scrollbars if needed */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;

@@ -145,7 +145,9 @@ export function Services() {
     return (
         // overflow-clip rather than -hidden: `hidden` would make this section a
         // scroll container and silently kill the sticky stack below.
-        <section id="services" className="py-20 relative bg-luxury-bg overflow-clip">
+        // Bottom trimmed (paired with Portfolio's trimmed top) so "I Nostri Capolavori"
+        // follows on from the last service card instead of a full section gap away.
+        <section id="services" className="pt-20 pb-8 md:pb-10 relative bg-luxury-bg overflow-clip">
             {/* Section Background Decoration */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-7xl opacity-30 pointer-events-none">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-luxury-teal/10 rounded-full blur-[100px]" />

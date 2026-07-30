@@ -25,15 +25,18 @@ interface SnapRailProps {
     className?: string;
     dotsClassName?: string;
     /**
-     * Advances the rail on its own, one card at a time, until the user touches it.
+     * Advances the rail on its own, one card at a time, pausing on any user interaction
+     * and resuming automatically after `autoPlayResumeDelayMs` of no further interaction.
      *
-     * Deliberately narrow: it stops for good on the first interaction (never resumes),
-     * never loops back to the first card, only runs while the rail is actually on
-     * screen, and is skipped entirely under `prefers-reduced-motion`.
+     * Never loops back to the first card once it reaches the last one, only runs while
+     * the rail is actually on screen, and is skipped entirely under
+     * `prefers-reduced-motion`.
      */
     autoPlay?: boolean;
     /** Time each card stays put before auto-play advances to the next one. */
     autoPlayDelayMs?: number;
+    /** Quiet period after the last interaction before auto-play resumes. */
+    autoPlayResumeDelayMs?: number;
 }
 
 /**
@@ -70,11 +73,13 @@ export function SnapRail({
     dotsClassName,
     autoPlay = false,
     autoPlayDelayMs = 4000,
+    autoPlayResumeDelayMs = 4500,
 }: SnapRailProps) {
     const railRef = useRef<HTMLDivElement>(null);
     const [activeIndex, setActiveIndex] = useState(0);
-    const [hasInteracted, setHasInteracted] = useState(false);
+    const [isPaused, setIsPaused] = useState(false);
     const [isRailVisible, setIsRailVisible] = useState(false);
+    const resumeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const items = Children.toArray(children);
     const totalDots = dotCount ?? items.length;
@@ -130,41 +135,58 @@ export function SnapRail({
         });
     }, [align]);
 
+    // Pauses auto-play and (re)starts the quiet-period timer that resumes it. Called
+    // from every interaction handler below, so it doubles as the debounce: a fresh
+    // interaction during the quiet period pushes the resume back out, rather than
+    // resuming mid-interaction.
+    const pauseAndScheduleResume = useCallback(() => {
+        if (!autoPlay) return;
+        setIsPaused(true);
+        if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+        resumeTimerRef.current = setTimeout(() => {
+            setIsPaused(false);
+        }, autoPlayResumeDelayMs);
+    }, [autoPlay, autoPlayResumeDelayMs]);
+
+    useEffect(() => {
+        return () => {
+            if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
+        };
+    }, []);
+
     // ── Gesture isolation from the dashboard swipe navigator ────────────────
-    // Doubles as the auto-play interaction cutoff for touch: a swipe both isolates
-    // from the parent gesture handler and permanently stops auto-advancing.
+    // Doubles as the auto-play pause trigger for touch: a swipe both isolates from
+    // the parent gesture handler and pauses auto-advancing.
     useEffect(() => {
         const rail = railRef.current;
         if (!rail) return;
 
         const stop = (event: TouchEvent) => {
             event.stopPropagation();
-            if (autoPlay) setHasInteracted(true);
+            pauseAndScheduleResume();
         };
         rail.addEventListener('touchstart', stop, { passive: true });
         return () => rail.removeEventListener('touchstart', stop);
-    }, [autoPlay]);
+    }, [pauseAndScheduleResume]);
 
-    // ── Auto-play: interaction cutoff for non-touch input ────────────────────
+    // ── Auto-play: pause trigger for non-touch input ─────────────────────────
     // pointerdown covers mouse/pen drag-scroll, wheel covers trackpad/shift-scroll,
-    // keydown covers tabbing into a card and using arrow keys. Once any of these
-    // fires, auto-play never resumes for the life of this rail instance.
+    // keydown covers tabbing into a card and using arrow keys.
     useEffect(() => {
         if (!autoPlay) return;
         const rail = railRef.current;
         if (!rail) return;
 
-        const stop = () => setHasInteracted(true);
-        rail.addEventListener('pointerdown', stop, { passive: true });
-        rail.addEventListener('wheel', stop, { passive: true });
-        rail.addEventListener('keydown', stop);
+        rail.addEventListener('pointerdown', pauseAndScheduleResume, { passive: true });
+        rail.addEventListener('wheel', pauseAndScheduleResume, { passive: true });
+        rail.addEventListener('keydown', pauseAndScheduleResume);
 
         return () => {
-            rail.removeEventListener('pointerdown', stop);
-            rail.removeEventListener('wheel', stop);
-            rail.removeEventListener('keydown', stop);
+            rail.removeEventListener('pointerdown', pauseAndScheduleResume);
+            rail.removeEventListener('wheel', pauseAndScheduleResume);
+            rail.removeEventListener('keydown', pauseAndScheduleResume);
         };
-    }, [autoPlay]);
+    }, [autoPlay, pauseAndScheduleResume]);
 
     // ── Auto-play: only run while the rail is actually on screen ────────────
     // Separate from the active-item observer above: that one is rooted on the rail
@@ -187,9 +209,10 @@ export function SnapRail({
     // Re-arms every time the active card changes, so this doubles as the loop: each
     // successful advance schedules the next one. Stops on the last card rather than
     // wrapping back to the first — an auto-play carousel that runs forever is the
-    // anti-pattern (WCAG 2.2.2), a bounded one that settles is not.
+    // anti-pattern (WCAG 2.2.2), a bounded one that settles is not. `isPaused` clearing
+    // (after the quiet period in `pauseAndScheduleResume`) re-arms this the same way.
     useEffect(() => {
-        if (!autoPlay || hasInteracted || !isRailVisible) return;
+        if (!autoPlay || isPaused || !isRailVisible) return;
         if (prefersReducedMotion()) return;
         if (activeIndex >= items.length - 1) return;
 
@@ -198,7 +221,7 @@ export function SnapRail({
         }, autoPlayDelayMs);
 
         return () => clearTimeout(timer);
-    }, [autoPlay, hasInteracted, isRailVisible, activeIndex, items.length, autoPlayDelayMs, scrollToIndex]);
+    }, [autoPlay, isPaused, isRailVisible, activeIndex, items.length, autoPlayDelayMs, scrollToIndex]);
 
     // For a centered rail, the item at rest (scrollLeft: 0, before any swipe) can only
     // be truly centered if there is enough side padding to scroll it there — a fixed
@@ -231,6 +254,11 @@ export function SnapRail({
                 // for callers that pass no margin at all.
                 className={cn('flex snap-x snap-mandatory scrollbar-hide', className)}
                 style={{
+                    // overflow-x: auto forces the computed overflow-y to auto too, per
+                    // spec — there is no way to keep it visible while this scrolls
+                    // horizontally. See globals.css: `[data-rail-item] .cinematic-focus`
+                    // strips the focus scale transform for exactly this reason, so a
+                    // card growing 2% on tap never has its top clipped by this.
                     overflowX: 'auto',
                     gap,
                     paddingInline: centeringPadding,
@@ -272,7 +300,7 @@ export function SnapRail({
                                 aria-pressed={isActive}
                                 aria-label={`Vai all'elemento ${index + 1} di ${totalDots}`}
                                 onClick={() => {
-                                    if (autoPlay) setHasInteracted(true);
+                                    pauseAndScheduleResume();
                                     scrollToIndex(index);
                                 }}
                                 // 44x44 hit area (WCAG); the visible dot inside stays small.
