@@ -65,8 +65,19 @@ export function useChatHistory(
         async function setupListener() {
             if (!shouldFetch) {
                 // Determine if we should be loading or just waiting
-                if (authLoading && isMounted) setIsLoading(true);
-                else if (isMounted) setIsLoading(false); // 🔥 Fix: Guest mode = loaded (empty)
+                if (authLoading && isMounted) {
+                    setIsLoading(true);
+                } else if (isMounted) {
+                    // Guest mode (no Firebase user yet, e.g. unauthenticated visitor
+                    // before their first message triggers anonymous sign-in): treat
+                    // history as loaded-and-empty. Without recording `loadedForSessionId`
+                    // here, `planHistorySync`'s `sessionMatches` guard (loadedForSessionId
+                    // === sessionId) never passes for guests, permanently blocking the
+                    // cold-start welcome message injection.
+                    setIsLoading(false);
+                    setHistoryMessages([]);
+                    setLoadedForSessionId(sessionId);
+                }
                 return;
             }
 
