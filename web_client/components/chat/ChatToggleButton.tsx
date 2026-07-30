@@ -12,6 +12,38 @@ interface ChatToggleButtonProps {
     onClick: () => void;
 }
 
+// ── Closed-state shift: single source of truth ──────────────────────────────
+//
+// Measured from public/assets/syd_final_v9.png: natural size 1024×564, opaque
+// content (Syd + speech bubble) spans x:[232, 848] — 17.09% of the width is
+// transparent padding on the right edge. The button renders it `object-contain`
+// in a 158×158 (mobile) / 208×192 (desktop) box; the image's own aspect ratio
+// (1.816) exceeds both box aspect ratios, so in both cases the render is
+// width-constrained — it always fills the box's full width — and that fraction
+// converts directly to rendered pixels without needing to know the runtime
+// viewport size.
+const IMAGE_RIGHT_PADDING_FRACTION = 0.1709;
+const BUTTON_SIZE_PX = { mobile: 158, desktop: 208 } as const;
+// Distance of the button's own box from the viewport edge (`right-4` / `md:right-6`).
+// `env(safe-area-inset-right)` only ever adds to this at runtime, never subtracts.
+const EDGE_INSET_PX = { mobile: 16, desktop: 24 } as const;
+// Breathing room so the artwork's opaque edge never touches the viewport edge exactly.
+const EDGE_SAFETY_MARGIN_PX = 3;
+
+function closedShiftPx(variant: keyof typeof BUTTON_SIZE_PX): number {
+    const transparentPadding = BUTTON_SIZE_PX[variant] * IMAGE_RIGHT_PADDING_FRACTION;
+    return EDGE_INSET_PX[variant] + transparentPadding - EDGE_SAFETY_MARGIN_PX;
+}
+
+/**
+ * How far the closed-state wrapper translates right to compensate for the avatar's
+ * transparent padding — flush with the screen edge without ever crossing it. Fed into
+ * both the rendered translate (via CSS custom properties) and the drag-bounds
+ * calculation below, so there is exactly one place that can go out of sync: nowhere.
+ */
+const CLOSED_SHIFT_MOBILE_PX = closedShiftPx('mobile');
+const CLOSED_SHIFT_DESKTOP_PX = closedShiftPx('desktop');
+
 /**
  * Floating toggle button component with drag functionality
  * 
@@ -39,13 +71,11 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
             
             const elementSize = isMobile ? 158 : 208;
             const margin = isMobile ? 16 : 24;
-            
-            // L'offset visivo (trasparenza) che possiamo spingere "fuori" dallo schermo.
-            // Deve corrispondere alla translate-x applicata al wrapper interno a chat
-            // chiusa (translate-x-6 = 24px su mobile, md:translate-x-8 = 32px su desktop):
-            // è la stessa quantità, qui riespressa per i limiti di drag. Se le due
-            // divergono, il pulsante si trascina oltre il bordo.
-            const visualOffsetLeft = isMobile ? 24 : 32;
+
+            // Same shift the closed-state wrapper renders below (CLOSED_SHIFT_*_PX),
+            // re-expressed here for the drag bounds. Both read the one calculated
+            // constant, so there is nothing left to keep in sync by hand.
+            const visualOffsetLeft = isMobile ? CLOSED_SHIFT_MOBILE_PX : CLOSED_SHIFT_DESKTOP_PX;
             
             // Permettiamo di spostarlo molto più in basso prima di bloccarlo
             // poichè la base dell'immagine trasparente tocca in basso
@@ -104,11 +134,14 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
 
             // Base position via CSS - pinned to safe area to avoid notch/home indicator overlap
             className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50"
-            style={{ 
-                backfaceVisibility: 'hidden', 
+            style={{
+                backfaceVisibility: 'hidden',
                 transform: 'translateZ(0)',
                 paddingBottom: 'env(safe-area-inset-bottom)',
-                paddingRight: 'env(safe-area-inset-right)'
+                paddingRight: 'env(safe-area-inset-right)',
+                // Feeds the closed-state translate below — see CLOSED_SHIFT_*_PX.
+                ['--syd-closed-shift-mobile' as string]: `${CLOSED_SHIFT_MOBILE_PX}px`,
+                ['--syd-closed-shift-desktop' as string]: `${CLOSED_SHIFT_DESKTOP_PX}px`,
             }}
 
             // Drag configuration
@@ -128,19 +161,15 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
         >
             {/*
               Inner wrapper handles the dynamic translation.
-              When closed (!isOpen), it translates right to compensate for the avatar's
-              transparent padding. On mobile the shift is deliberately kept short (24px)
-              so the bubble keeps a visible margin from the screen edge instead of
-              sitting flush against it.
+              When closed (!isOpen), it translates right by CLOSED_SHIFT_*_PX to bring
+              the avatar's opaque artwork flush with the screen edge without crossing it
+              — the exact amount is derived above from the image's own transparent
+              padding, not a hand-picked number.
               When open (isOpen), it resets so the 'X' button stays safely inside the screen.
-
-              Keep in sync with `visualOffsetLeft` above: it is the same shift, expressed
-              again for the drag bounds. Changing one without the other lets the button be
-              dragged past the edge.
             */}
             <div className={cn(
                 "flex items-center justify-end gap-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] relative",
-                isOpen ? "translate-x-0" : "translate-x-6 md:translate-x-8"
+                isOpen ? "translate-x-0" : "translate-x-[var(--syd-closed-shift-mobile)] md:translate-x-[var(--syd-closed-shift-desktop)]"
             )}>
                 <div className="pointer-events-auto -mr-16 md:-mr-24 -translate-y-20 md:-translate-y-24 z-10">
                     <WelcomeBadge isOpen={isOpen} onOpenChat={onClick} />

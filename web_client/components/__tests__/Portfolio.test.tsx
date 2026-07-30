@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { Portfolio } from '@/components/sections/Portfolio';
 import type { PortfolioItem } from '@/lib/portfolio';
 
@@ -116,5 +116,32 @@ describe('Portfolio', () => {
         await waitFor(() => {
             expect(screen.queryByAltText('Senza foto')).not.toBeInTheDocument();
         });
+    });
+
+    it('shows only Area, not Tempo or Budget, on the project stats', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a' })]);
+
+        render(<Portfolio />);
+
+        await waitFor(() => {
+            expect(screen.getAllByText('Area').length).toBeGreaterThan(0);
+        });
+        expect(screen.queryByText('Tempo')).not.toBeInTheDocument();
+        expect(screen.queryByText('Budget')).not.toBeInTheDocument();
+    });
+
+    it('shows the description by default and lets the user hide it', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a', description: 'Descrizione del progetto' })]);
+
+        render(<Portfolio />);
+
+        const card = await screen.findByRole('button', { expanded: true });
+        expect(within(card).getByText('Descrizione del progetto')).toBeVisible();
+        expect(within(card).getByText('Nascondi descrizione')).toBeInTheDocument();
+
+        fireEvent.click(card);
+
+        expect(screen.getByRole('button', { expanded: false })).toBe(card);
+        expect(within(card).getByText('Mostra descrizione')).toBeInTheDocument();
     });
 });

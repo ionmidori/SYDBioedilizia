@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Quote, Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { useStaggerReveal } from '@/hooks/use-scroll-animation';
 import { SnapRail } from '@/components/ui/snap-rail';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { fetchWithAuth } from '@/lib/api-client';
 
@@ -20,6 +21,7 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 
@@ -85,7 +87,7 @@ export function Testimonials() {
             try {
                 const res = await fetch('/api/py/content/testimonials');
                 if (!res.ok) return;
-                const items: { id: string; name: string; text: string; rating: number }[] = await res.json();
+                const items: { id: string; name: string; location?: string; text: string; rating: number }[] = await res.json();
                 if (items.length > 0) {
                     setTestimonials(items.map((d, idx) => {
                         const initials = d.name.split(' ').slice(0, 2).map((w: string) => w[0] ?? '').join('').toUpperCase();
@@ -93,7 +95,7 @@ export function Testimonials() {
                             id: d.id,
                             name: d.name,
                             role: 'Cliente SYD',
-                            location: '',
+                            location: d.location ?? '',
                             text: d.text,
                             rating: d.rating,
                             initials,
@@ -107,18 +109,52 @@ export function Testimonials() {
         };
         loadApproved();
     }, []);
-    
+
     // Review Form State
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    // Guards the success panel's auto-close: without this, closing the dialog inside the
+    // 2s window still fires setState on an unmounted/reset form.
+    const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const form = useForm<TestimonialFormValues>({
         resolver: zodResolver(testimonialFormSchema),
         defaultValues: {
+            name: '',
+            location: '',
             rating: 5,
-            text: "",
+            text: '',
         },
     });
+
+    useEffect(() => {
+        return () => {
+            if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
+        };
+    }, []);
+
+    // Re-primes the form every time the dialog opens: prefills the name from the
+    // account, and clears out both a stale success panel and any error from a
+    // previous failed attempt — the three bugs shared one root cause, a form that
+    // was only ever initialized once.
+    const handleDialogOpenChange = (open: boolean) => {
+        setIsDialogOpen(open);
+        if (open) {
+            if (successTimeoutRef.current) {
+                clearTimeout(successTimeoutRef.current);
+                successTimeoutRef.current = null;
+            }
+            setSubmitSuccess(false);
+            setSubmitError(null);
+            form.reset({
+                name: user?.displayName ?? '',
+                location: '',
+                rating: 5,
+                text: '',
+            });
+        }
+    };
 
     // ── ADK 1.27 Phase 5: Testimonials stagger reveal (Bold/Premium) ──
     // Desktop only — the mobile rail drives its own motion.
@@ -134,28 +170,41 @@ export function Testimonials() {
     const isRegisteredUser = user && !user.isAnonymous;
 
     async function onSubmit(data: TestimonialFormValues) {
-        if (!user) return;
+        setSubmitError(null);
+
+        if (!user) {
+            setSubmitError('Devi accedere per inviare una recensione.');
+            return;
+        }
 
         try {
             const res = await fetchWithAuth('/api/py/content/testimonials', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: data.text.trim(), rating: data.rating }),
+                body: JSON.stringify({
+                    name: data.name.trim(),
+                    location: data.location.trim(),
+                    text: data.text.trim(),
+                    rating: data.rating,
+                }),
             });
             if (!res.ok) throw new Error('Submit failed');
             setSubmitSuccess(true);
-            setTimeout(() => {
+            successTimeoutRef.current = setTimeout(() => {
                 setIsDialogOpen(false);
                 setSubmitSuccess(false);
                 form.reset();
             }, 2000);
         } catch (error) {
-            console.error("Error submitting review:", error);
+            console.error('Error submitting review:', error);
+            setSubmitError('Invio non riuscito. Riprova tra qualche istante.');
         }
     }
 
     return (
-        <section id="testimonials" className="py-24 relative bg-luxury-bg overflow-hidden">
+        // Trimmed top padding — paired with Portfolio's trimmed bottom so this section
+        // follows on from the archive CTA rather than reading as a distant block.
+        <section id="testimonials" className="pt-10 md:pt-12 pb-24 relative bg-luxury-bg overflow-hidden">
 
             {/* Background Decor */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none opacity-20">
@@ -195,7 +244,7 @@ export function Testimonials() {
                                 animate={{ opacity: 1, y: 0 }}
                                 className="mt-2"
                             >
-                                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                                <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
                                     <DialogTrigger asChild>
                                         <Button variant="outline" className="rounded-full border-white/10 bg-white/5 backdrop-blur-sm text-white hover:bg-white/10 gap-2 px-6 h-12 transition-all duration-300 hover:scale-105">
                                             <Plus className="w-4 h-4" /> Lascia una recensione
@@ -223,12 +272,60 @@ export function Testimonials() {
                                                 </motion.div>
                                             ) : (
                                                 <Form {...form}>
-                                                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                                                    {/* Wrapped in an inline handler rather than passed directly: onSubmit
+                                                        closes over successTimeoutRef, and handing it straight to
+                                                        form.handleSubmit() reads that ref while building the JSX tree
+                                                        (a render-time ref read) instead of at actual submit time. */}
+                                                    <form
+                                                        onSubmit={(e) => {
+                                                            void form.handleSubmit(onSubmit)(e);
+                                                        }}
+                                                        className="space-y-6 py-4"
+                                                    >
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                            <FormField
+                                                                control={form.control}
+                                                                name="name"
+                                                                render={({ field }) => (
+                                                                    <FormItem className="space-y-2">
+                                                                        <FormLabel className="text-white/70 font-light">Nome</FormLabel>
+                                                                        <FormControl>
+                                                                            <Input
+                                                                                {...field}
+                                                                                placeholder="Il tuo nome"
+                                                                                className="bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/30 focus-visible:ring-white/20"
+                                                                            />
+                                                                        </FormControl>
+                                                                        <FormMessage />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+
+                                                            <FormField
+                                                                control={form.control}
+                                                                name="location"
+                                                                render={({ field }) => (
+                                                                    <FormItem className="space-y-2">
+                                                                        <FormLabel className="text-white/70 font-light">Località</FormLabel>
+                                                                        <FormControl>
+                                                                            <Input
+                                                                                {...field}
+                                                                                placeholder="Es. Roma"
+                                                                                className="bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/30 focus-visible:ring-white/20"
+                                                                            />
+                                                                        </FormControl>
+                                                                        <FormMessage />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+                                                        </div>
+
                                                         <FormField
                                                             control={form.control}
                                                             name="rating"
                                                             render={({ field }) => (
                                                                 <FormItem className="space-y-4 flex flex-col items-center">
+                                                                    <FormLabel className="text-white/70 font-light">La tua valutazione</FormLabel>
                                                                     <FormControl>
                                                                         <div className="flex gap-2">
                                                                             {[1, 2, 3, 4, 5].map((star) => (
@@ -258,8 +355,9 @@ export function Testimonials() {
                                                             name="text"
                                                             render={({ field }) => (
                                                                 <FormItem className="space-y-2">
+                                                                    <FormLabel className="text-white/70 font-light">La tua recensione</FormLabel>
                                                                     <FormControl>
-                                                                        <Textarea 
+                                                                        <Textarea
                                                                             {...field}
                                                                             placeholder="Racconta la tua esperienza con noi..."
                                                                             className="min-h-[140px] resize-none bg-white/5 border-white/10 rounded-2xl focus-visible:ring-white/20 text-base p-5 placeholder:text-white/30 font-light backdrop-blur-md transition-all"
@@ -270,9 +368,15 @@ export function Testimonials() {
                                                             )}
                                                         />
 
+                                                        {submitError && (
+                                                            <p role="alert" className="text-center text-sm text-red-400">
+                                                                {submitError}
+                                                            </p>
+                                                        )}
+
                                                         <div className="pt-4 flex justify-center">
-                                                            <Button 
-                                                                type="submit" 
+                                                            <Button
+                                                                type="submit"
                                                                 disabled={form.formState.isSubmitting}
                                                                 className="w-full sm:w-auto min-w-[200px] h-14 bg-white hover:bg-white/90 text-black rounded-full font-medium text-base transition-all duration-300 hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:hover:scale-100"
                                                             >

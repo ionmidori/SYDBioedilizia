@@ -21,11 +21,16 @@ router = APIRouter(prefix="/api/content", tags=["Content"])
 class TestimonialOut(BaseModel):
     id: str
     name: str
+    location: str = ""
     text: str
     rating: int = 5
 
 
 class TestimonialSubmit(BaseModel):
+    # Optional: the form requires both, but the API stays permissive so the existing
+    # text+rating-only client (and its regression test) keeps working unchanged.
+    name: str | None = Field(None, max_length=80)
+    location: str | None = Field(None, max_length=80)
     text: str = Field(..., min_length=10, max_length=2000)
     rating: int = Field(..., ge=1, le=5)
 
@@ -47,6 +52,7 @@ async def get_approved_testimonials():
             TestimonialOut(
                 id=doc.id,
                 name=((doc.to_dict() or {}).get("name") or "Cliente SYD"),
+                location=((doc.to_dict() or {}).get("location") or ""),
                 text=((doc.to_dict() or {}).get("text") or ""),
                 rating=((doc.to_dict() or {}).get("rating") or 5),
             )
@@ -72,7 +78,8 @@ async def submit_testimonial(
         db = get_firestore_client()
         db.collection("testimonials").add({
             "userId": user_session.uid,
-            "name": user_session.claims.get("name") or "Utente SYD",
+            "name": (body.name or "").strip() or user_session.claims.get("name") or "Utente SYD",
+            "location": (body.location or "").strip(),
             "text": body.text.strip(),
             "rating": body.rating,
             "createdAt": SERVER_TIMESTAMP,

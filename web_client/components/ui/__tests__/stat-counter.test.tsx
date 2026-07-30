@@ -66,14 +66,18 @@ describe('StatCounter', () => {
         expect(screen.getByText('0+')).toBeInTheDocument();
     });
 
-    it('counts once on the first downward pass, with a decelerating ease', () => {
+    it('replays the count on every entry, with a decelerating ease', () => {
         render(<StatCounter value={100} suffix="+" />);
 
         const vars = lastTweenVars();
         expect(vars.n).toBe(100);
         expect(vars.ease).toBe('power2.out');
-        // `once` is what stops the number replaying every time it re-enters the viewport.
-        expect(vars.scrollTrigger.once).toBe(true);
+        // restart on onEnter and on onEnterBack — the count runs again every time the
+        // number comes back into view, scrolling down or back up.
+        expect(vars.scrollTrigger.toggleActions).toBe('restart none restart none');
+        // `once` would cap it at a single run for the life of the page, which is the
+        // behaviour this replaced.
+        expect(vars.scrollTrigger.once).toBeUndefined();
     });
 
     it('formats each frame with the requested precision and suffix', () => {

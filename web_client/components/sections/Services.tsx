@@ -9,7 +9,6 @@ import {
     Wand2,
     LayoutDashboard,
     HardHat,
-    Home,
     type LucideIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -41,14 +40,8 @@ const services: Service[] = [
     },
     {
         icon: HardHat,
-        title: 'Direzione Lavori',
-        description: 'I nostri architetti partner seguono il tuo cantiere passo dopo passo, garantendo che l\'esecuzione rispecchi perfettamente il progetto.',
-        iconColor: 'text-luxury-teal'
-    },
-    {
-        icon: Home,
-        title: 'Chiavi in Mano',
-        description: 'Rilassati e goditi il risultato. Gestiamo tutto noi, dalla burocrazia alle pulizie finali, consegnandoti una casa pronta da vivere.',
+        title: 'Direzione Lavori e Consegna',
+        description: 'I nostri architetti partner seguono il cantiere passo dopo passo e gestiamo tutto noi, dalla burocrazia alle pulizie finali: ti consegniamo una casa pronta da vivere.',
         iconColor: 'text-luxury-teal'
     }
 ];
@@ -206,7 +199,9 @@ export function Services() {
                 {/* ── Desktop: unchanged grid ── */}
                 <motion.div
                     ref={gridRef}
-                    className="hidden md:grid md:grid-cols-2 gap-6"
+                    // 3 columns for 3 cards: md:grid-cols-2 would leave an orphan
+                    // second row with a single card in it.
+                    className="hidden md:grid md:grid-cols-3 gap-6"
                 >
                     {services.map((service, index) => (
                         <motion.div
@@ -225,20 +220,25 @@ export function Services() {
                                     : "shadow-elevation-low"
                             )}
                         >
-                            <div className={cn(
-                                "w-14 h-14 rounded-xl flex items-center justify-center mb-6 bg-luxury-bg/50 border border-luxury-gold/10 transition-transform duration-500",
-                                service.iconColor,
-                                hoveredService === index && "scale-110 shadow-premium"
-                            )}>
-                                <service.icon className="w-7 h-7" />
-                            </div>
+                            {/* Icon and title share a row. The icon keeps shrink-0 so a
+                                two-line title cannot squeeze it, and its hover scale is a
+                                transform — it never nudges the title beside it. */}
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className={cn(
+                                    "w-12 h-12 lg:w-14 lg:h-14 shrink-0 rounded-xl flex items-center justify-center bg-luxury-bg/50 border border-luxury-gold/10 transition-transform duration-500",
+                                    service.iconColor,
+                                    hoveredService === index && "scale-110 shadow-premium"
+                                )}>
+                                    <service.icon className="w-6 h-6 lg:w-7 lg:h-7" />
+                                </div>
 
-                            <h3 className={cn(
-                                "font-serif text-xl md:text-2xl font-semibold text-luxury-text mb-3 transition-colors duration-300",
-                                hoveredService === index && "text-luxury-gold"
-                            )}>
-                                {service.title}
-                            </h3>
+                                <h3 className={cn(
+                                    "font-serif text-lg lg:text-2xl font-semibold text-luxury-text transition-colors duration-300",
+                                    hoveredService === index && "text-luxury-gold"
+                                )}>
+                                    {service.title}
+                                </h3>
+                            </div>
 
                             <p className="text-luxury-text/60 text-sm md:text-base leading-relaxed font-light">
                                 {service.description}
@@ -277,16 +277,20 @@ function ServiceCard({
                 'transition-transform duration-200 active:scale-[0.98]',
             )}
         >
-            <div className={cn(
-                'w-14 h-14 rounded-xl flex items-center justify-center mb-5 bg-luxury-bg/60 border border-luxury-gold/10',
-                service.iconColor,
-            )}>
-                <service.icon className="w-7 h-7" />
-            </div>
+            {/* Icon and title on one row — shrink-0 keeps the icon square when a long
+                title wraps to a second line. */}
+            <div className="flex items-center gap-4 mb-4">
+                <div className={cn(
+                    'w-12 h-12 shrink-0 rounded-xl flex items-center justify-center bg-luxury-bg/60 border border-luxury-gold/10',
+                    service.iconColor,
+                )}>
+                    <service.icon className="w-6 h-6" />
+                </div>
 
-            <h3 className="font-serif text-xl font-semibold text-luxury-text mb-3">
-                {service.title}
-            </h3>
+                <h3 className="font-serif text-lg font-semibold text-luxury-text">
+                    {service.title}
+                </h3>
+            </div>
 
             <p className="text-luxury-text/70 text-sm leading-relaxed font-light">
                 {service.description}
