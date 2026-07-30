@@ -404,10 +404,14 @@
     rgba(233, 196, 106, 0.08) 45%,
     rgba(233, 196, 106, 0.35) 100%
   );
-  -webkit-mask:
+  /* Standard `mask`/`mask-composite` only — same rule as the backdrop-filter
+     fix above: hand-write the unprefixed property and let Lightning CSS add
+     `-webkit-mask-*` itself. A hand-written `-webkit-mask` here previously
+     had no unprefixed counterpart, so Lightning CSS only ever emitted the
+     prefixed form — invisible to any engine without -webkit-mask aliases. */
+  mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
   opacity: 0.55;
@@ -419,8 +423,15 @@
 }
 
 /* Specular highlight — the glass catching light from the top left. Negative
-   z-index (contained by `isolation: isolate` above) keeps it between the glass
-   background and the card text, so it never washes out contrast on hover. */
+   z-index (contained by `isolation: isolate` above) puts it behind the card's
+   in-flow content, same as any background layer — z-index alone does NOT
+   protect text contrast, it only controls paint order. What actually keeps
+   the paragraph text at WCAG AA through hover is that the gradient's falloff
+   (`60%` of a `120% 60%` ellipse anchored at the top) goes fully transparent
+   well above where the paragraph starts (measured: ~89px into a ~248px-tall
+   card vs. the paragraph beginning at ~104px). If the card's padding/icon
+   size shrinks, or this gradient grows, re-check contrast on hover — it is
+   not guaranteed by the CSS structure, only by today's proportions. */
 .glass-services-card::after {
   content: "";
   position: absolute;
