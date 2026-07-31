@@ -22,6 +22,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
 import { logger } from '@/lib/logger';
+import { mapErrorToMessage } from '@/lib/chat/error-messages';
 
 /**
  * ChatWidget Component
@@ -264,21 +265,9 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     useEffect(() => {
         if (error) {
             const timerId = setTimeout(() => {
-                const msg = error.message || '';
-                // Detect quota/rate-limit errors and show friendly message
-                if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('rate limit')) {
-                    setErrorMessage('Hai raggiunto il limite di richieste. Riprova tra qualche minuto.');
-                    setIsRetryableError(false);
-                } else if (msg.includes('401') || msg.toLowerCase().includes('auth')) {
-                    setErrorMessage('Sessione scaduta. Ricarica la pagina per continuare.');
-                    setIsRetryableError(false);
-                } else if (msg.includes('503') || msg.includes('502')) {
-                    setErrorMessage('Il servizio è temporaneamente non disponibile. Riprova tra poco.');
-                    setIsRetryableError(true);
-                } else {
-                    setErrorMessage(msg || 'Si è verificato un errore. Riprova.');
-                    setIsRetryableError(true);
-                }
+                const { message, retryable } = mapErrorToMessage(error.message);
+                setErrorMessage(message);
+                setIsRetryableError(retryable);
             }, 0);
             return () => clearTimeout(timerId);
         }
