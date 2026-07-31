@@ -40,6 +40,7 @@ interface AuthContextValue {
     sendMagicLink: (email: string) => Promise<void>;
     completeMagicLink: (emailLink: string, email?: string) => Promise<void>;
     refreshToken: () => Promise<string | null>;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -314,6 +315,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [user]);
 
+    /**
+     * Re-fetches the current user's profile from Firebase Auth (e.g. after an
+     * avatar/displayName update via the Admin SDK) and pushes it into context.
+     *
+     * `reload()` mutates the existing `User` instance in place, so passing
+     * `auth.currentUser` straight to `setUser` would be the same object
+     * reference already in state — React bails out via `Object.is` and no
+     * consumer (sidebar, chat, profile page) re-renders. Cloning onto the
+     * same prototype keeps methods like `getIdToken` while giving React a
+     * new reference to diff against.
+     */
+    const refreshUser = useCallback(async (): Promise<void> => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        try {
+            await currentUser.reload();
+            const refreshed = Object.assign(
+                Object.create(Object.getPrototypeOf(currentUser)),
+                currentUser
+            );
+            setUser(refreshed);
+        } catch (err) {
+            console.error('[AuthProvider] Failed to refresh user:', err);
+        }
+    }, []);
+
     const value: AuthContextValue = {
         user,
         loading,
@@ -328,6 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sendMagicLink,
         completeMagicLink,
         refreshToken,
+        refreshUser,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

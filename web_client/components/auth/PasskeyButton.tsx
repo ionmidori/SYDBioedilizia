@@ -17,6 +17,35 @@ interface PasskeyButtonProps {
 }
 
 /**
+ * Maps errors thrown by usePasskey to a readable Italian message. Unexpected
+ * errors (e.g. a raw TypeError from a malformed backend response) are not
+ * shown verbatim to the user — only the messages usePasskey explicitly
+ * raises for known conditions (cancellation, auth required, backend detail)
+ * are passed through as-is.
+ */
+function toReadableMessage(err: unknown): string {
+    if (!(err instanceof Error)) {
+        return 'Errore sconosciuto durante l\'operazione.';
+    }
+    const knownMessages = [
+        'Registrazione annullata',
+        'Autenticazione annullata',
+        'Devi essere autenticato per registrare una passkey',
+        'User must be authenticated to register passkey',
+        'No credential created',
+        'No assertion returned',
+    ];
+    if (knownMessages.includes(err.message) || err.name === 'NotAllowedError') {
+        return err.message;
+    }
+    // Backend-provided `detail` messages also pass through unchanged.
+    if (err.message && !(err instanceof TypeError)) {
+        return err.message;
+    }
+    return 'Impossibile completare l\'operazione biometrica. Riprova o contatta l\'assistenza.';
+}
+
+/**
  * Passkey authentication button.
  * 
  * Modes:
@@ -38,7 +67,13 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
     }, [checkSupport]);
 
     if (!isSupported) {
-        return null; 
+        return mode === 'register' ? (
+            <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
+                <p className="text-sm text-luxury-text/50 text-center">
+                    Il tuo dispositivo o browser non supporta l&apos;accesso biometrico (WebAuthn).
+                </p>
+            </div>
+        ) : null;
     }
 
     const handleClick = async () => {
@@ -59,16 +94,16 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
             }
         } catch (err) {
             console.error('[PasskeyButton] Error:', err);
-            const message = err instanceof Error ? err.message : 'Errore sconosciuto';
-            
+            const message = toReadableMessage(err);
+
             if (mode === 'login') {
-                // In login mode, any error (user not found, cancelled, etc) 
+                // In login mode, any error (user not found, cancelled, etc)
                 // suggests the user might not have set it up or it failed.
                 // We show the guidance dialog.
                 setShowGuidanceDialog(true);
             } else {
                 // In register mode, show inline error
-                setError(message || 'Errore durante l\'operazione');
+                setError(message);
             }
         }
     };

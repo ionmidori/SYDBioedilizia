@@ -94,7 +94,12 @@ export function usePasskey() {
                 throw new Error(errData.detail || 'Failed to get registration options');
             }
 
-            const options = await optionsRes.json();
+            const json = await optionsRes.json();
+            // Backend (python-fido2) returns options wrapped as { publicKey: {...} }
+            // (see backend_python/src/api/routes/passkey.py — dict(options) on a
+            // CredentialCreationOptions). Fall back to the raw payload defensively
+            // in case the shape changes again.
+            const options = json.publicKey ?? json;
 
             // Convert base64url to ArrayBuffer for WebAuthn
             const publicKey = {
@@ -103,7 +108,15 @@ export function usePasskey() {
                 user: {
                     ...options.user,
                     id: base64urlToBuffer(options.user.id)
-                }
+                },
+                // Populated once the user already has ≥1 passkey — must be
+                // converted or navigator.credentials.create() rejects silently.
+                excludeCredentials: options.excludeCredentials?.length > 0
+                    ? options.excludeCredentials.map((cred: { id: string; [key: string]: unknown }) => ({
+                        ...cred,
+                        id: base64urlToBuffer(cred.id)
+                    }))
+                    : undefined
             };
 
             // Create credential
@@ -136,7 +149,8 @@ export function usePasskey() {
             });
 
             if (!verifyRes.ok) {
-                throw new Error('Failed to verify credential');
+                const errData = await verifyRes.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Failed to verify credential');
             }
 
             const result = await verifyRes.json();
@@ -190,7 +204,9 @@ export function usePasskey() {
                 throw new Error(errData.detail || 'Failed to get authentication options');
             }
 
-            const options = await optionsRes.json();
+            const json = await optionsRes.json();
+            // See registerPasskey() above: backend wraps options under `publicKey`.
+            const options = json.publicKey ?? json;
 
             // Convert challenge
             const publicKey = {

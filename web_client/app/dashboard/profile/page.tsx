@@ -1,98 +1,166 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
-import { User, Mail, Lock, Bell, Camera, Save, AlertTriangle, Fingerprint, CheckCircle2 } from "lucide-react";
+import { User, Lock, Bell, Camera, Save, AlertTriangle, CheckCircle2 } from "lucide-react";
 import NextImage from "next/image";
 import { updateUserProfile, uploadUserAvatar } from "@/app/actions/profile";
+import { compressImage } from "@/lib/media-utils";
 import { PasskeyButton } from "@/components/auth/PasskeyButton";
 import { SydLoader } from "@/components/ui/SydLoader";
 import { usePasskey } from "@/hooks/usePasskey";
+import { cn } from "@/lib/utils";
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 export default function ProfilePage() {
-    const { user } = useAuth();
-    const { preferences, updatePreferences } = useUserPreferences();
+    const { user, refreshUser } = useAuth();
+    const { preferences, updatePreferences, error: preferencesError } = useUserPreferences();
     const { checkHasPasskeys, hasPasskeys } = usePasskey();
-    const [isLoading, setIsLoading] = useState(false);
+    const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [displayName, setDisplayName] = useState('');
+    const [nameError, setNameError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+    const avatarPreviewRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (user) {
             checkHasPasskeys();
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: seed the editable field from the loaded/refreshed user, not on every keystroke
+            setDisplayName(user.displayName ?? '');
         }
     }, [user, checkHasPasskeys]);
+
+    // Clear any pending success-message timers on unmount.
+    useEffect(() => {
+        const timers = timersRef.current;
+        return () => {
+            timers.forEach(clearTimeout);
+        };
+    }, []);
+
+    // Revoke the last blob: preview URL on unmount to avoid leaking it.
+    useEffect(() => {
+        avatarPreviewRef.current = avatarPreview;
+    }, [avatarPreview]);
+    useEffect(() => {
+        return () => {
+            if (avatarPreviewRef.current) {
+                URL.revokeObjectURL(avatarPreviewRef.current);
+            }
+        };
+    }, []);
+
+    // Surface a notifications-save failure through the same banner as everything else.
+    useEffect(() => {
+        if (preferencesError) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: surface a hook-internal failure in the page's shared banner
+            setErrorMessage(preferencesError);
+        }
+    }, [preferencesError]);
 
     const initials = user?.displayName
         ? user.displayName.split(' ').map(n => n[0]).join('').toUpperCase()
         : user?.email?.charAt(0).toUpperCase() || 'U';
 
+    const showSuccess = useCallback((message: string) => {
+        setErrorMessage(null);
+        setSuccessMessage(message);
+        const timer = setTimeout(() => setSuccessMessage(null), 3000);
+        timersRef.current.push(timer);
+    }, []);
+
     const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Preview locally
-        const previewUrl = URL.createObjectURL(file);
-        setAvatarPreview(previewUrl);
-
-        setIsUploadingAvatar(true);
+        setSuccessMessage(null);
         setErrorMessage(null);
+        setIsUploadingAvatar(true);
 
         try {
+            const compressed = await compressImage(file);
+
+            if (compressed.size > MAX_AVATAR_BYTES) {
+                setErrorMessage("Il file non può superare i 5MB, anche dopo la compressione.");
+                return;
+            }
+
+            if (avatarPreviewRef.current) {
+                URL.revokeObjectURL(avatarPreviewRef.current);
+            }
+            setAvatarPreview(URL.createObjectURL(compressed));
+
             const formData = new FormData();
-            formData.append('avatar', file);
+            formData.append('avatar', compressed, 'avatar.webp');
             const result = await uploadUserAvatar(formData);
-            
+
             if (result.success) {
-                setSuccessMessage("Foto profilo aggiornata!");
-                setTimeout(() => setSuccessMessage(null), 3000);
+                await refreshUser();
+                // The client SDK user now carries the persisted photoURL, so
+                // drop the local blob preview and let it take over.
+                if (avatarPreviewRef.current) {
+                    URL.revokeObjectURL(avatarPreviewRef.current);
+                }
+                setAvatarPreview(null);
+                showSuccess(result.message || "Foto profilo aggiornata!");
             } else {
-                setErrorMessage(result.message || "Errore durante l'upload.");
+                setErrorMessage(result.message || "Errore durante il caricamento della foto.");
             }
         } catch (error) {
-            setErrorMessage("Errore di connessione.");
+            console.error('[ProfilePage] Avatar upload failed:', error);
+            setErrorMessage("Errore di connessione. Riprova.");
         } finally {
             setIsUploadingAvatar(false);
+            // Reset so re-selecting the same file re-fires onChange.
+            e.target.value = '';
         }
     };
 
     const handleSaveProfile = async () => {
-        setIsLoading(true);
+        setIsSavingProfile(true);
         setSuccessMessage(null);
         setErrorMessage(null);
+        setNameError(null);
 
         try {
-            // Mock save for now as preferences are handled by hook
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setSuccessMessage("Profilo salvato correttamente.");
-            setTimeout(() => setSuccessMessage(null), 3000);
+            const formData = new FormData();
+            formData.append('displayName', displayName);
+            const result = await updateUserProfile(formData);
+
+            if (result.success) {
+                await refreshUser();
+                showSuccess(result.message || "Profilo salvato correttamente.");
+            } else {
+                setNameError(result.errors?.displayName?.[0] ?? null);
+                setErrorMessage(result.message || "Errore durante il salvataggio.");
+            }
         } catch (error) {
+            console.error('[ProfilePage] Save profile failed:', error);
             setErrorMessage("Errore durante il salvataggio.");
         } finally {
-            setIsLoading(false);
+            setIsSavingProfile(false);
         }
     };
 
     const toggleQuoteNotifications = async () => {
         if (!preferences) return;
-        
-        try {
-            await updatePreferences({
-                notifications: {
-                    ...preferences.notifications,
-                    quoteReady: !preferences.notifications?.quoteReady
-                }
-            });
-        } catch (error) {
-            console.error("Failed to update preferences:", error);
-            // Revert will be handled by the hook itself on failure if optimistic update fails
-        }
+
+        await updatePreferences({
+            notifications: {
+                ...preferences.notifications,
+                quoteReady: !preferences.notifications?.quoteReady
+            }
+        });
+        // Failure (if any) surfaces via the `preferencesError` effect above —
+        // useUserPreferences.updatePreferences() never rejects, it records
+        // the failure on its own `error` state instead.
     };
 
     return (
@@ -103,14 +171,43 @@ export default function ProfilePage() {
                 <p className="text-luxury-text/50">Gestisci le tue informazioni personali e le preferenze dell&apos;account.</p>
             </div>
 
+            {/* Feedback banner */}
+            {(errorMessage || successMessage) && (
+                <div
+                    role={errorMessage ? "alert" : "status"}
+                    className={cn(
+                        "flex items-center gap-3 p-4 rounded-2xl border text-sm font-medium",
+                        errorMessage
+                            ? "bg-red-500/10 border-red-500/20 text-red-400"
+                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    )}
+                >
+                    {errorMessage ? (
+                        <AlertTriangle className="w-5 h-5 shrink-0" />
+                    ) : (
+                        <CheckCircle2 className="w-5 h-5 shrink-0" />
+                    )}
+                    <p>{errorMessage || successMessage}</p>
+                </div>
+            )}
+
             {/* Profile Section */}
             <div className="flex flex-col md:flex-row items-center gap-8 p-8 glass-premium border border-luxury-gold/10 rounded-3xl relative overflow-hidden">
                 <div className="absolute -top-24 -right-24 w-64 h-64 bg-luxury-gold/5 rounded-full blur-3xl pointer-events-none" />
-                
+
                 <div className="relative">
-                    {avatarPreview || user?.photoURL ? (
+                    {avatarPreview ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- blob: preview URLs cannot be validated by next/image's remotePatterns check
+                        <img
+                            src={avatarPreview}
+                            alt="Avatar"
+                            width={100}
+                            height={100}
+                            className="w-24 h-24 object-cover rounded-full border-4 border-luxury-gold/20 shadow-xl"
+                        />
+                    ) : user?.photoURL ? (
                         <NextImage
-                            src={avatarPreview || user?.photoURL || ''}
+                            src={user.photoURL}
                             alt="Avatar"
                             width={100}
                             height={100}
@@ -155,8 +252,16 @@ export default function ProfilePage() {
                     </div>
                     <div className="space-y-4">
                         <div className="space-y-1">
-                            <label className="text-[10px] uppercase font-bold text-luxury-text/30">Nome Visualizzato</label>
-                            <p className="text-luxury-text font-medium">{user?.displayName || 'Non impostato'}</p>
+                            <label htmlFor="displayName" className="text-[10px] uppercase font-bold text-luxury-text/30">Nome Visualizzato</label>
+                            <input
+                                id="displayName"
+                                type="text"
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                placeholder="Il tuo nome"
+                                className="w-full bg-transparent border-b border-white/10 focus:border-luxury-gold outline-none text-luxury-text font-medium py-1 transition-colors"
+                            />
+                            {nameError && <p className="text-xs text-red-400">{nameError}</p>}
                         </div>
                         <div className="space-y-1">
                             <label className="text-[10px] uppercase font-bold text-luxury-text/30">Email</label>
@@ -180,12 +285,12 @@ export default function ProfilePage() {
                     </div>
                     <div className="space-y-4">
                         <p className="text-sm text-luxury-text/60 leading-relaxed">
-                            {hasPasskeys 
+                            {hasPasskeys
                                 ? "Hai configurato l'accesso biometrico per questo account. Puoi usare FaceID o TouchID per accedere rapidamente."
                                 : "Accedi istantaneamente senza password usando FaceID o TouchID sul tuo dispositivo."
                             }
                         </p>
-                        
+
                         <div className="pt-2">
                             <PasskeyButton mode="register" />
                         </div>
@@ -228,10 +333,10 @@ export default function ProfilePage() {
             <div className="flex justify-end">
                 <button
                     onClick={handleSaveProfile}
-                    disabled={isLoading}
+                    disabled={isSavingProfile}
                     className="px-8 py-4 bg-luxury-gold text-luxury-bg font-bold rounded-xl hover:bg-luxury-gold/90 transition-all shadow-lg shadow-luxury-gold/20 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {isLoading ? (
+                    {isSavingProfile ? (
                         <SydLoader size="sm" />
                     ) : (
                         <Save className="w-5 h-5" />

@@ -151,28 +151,44 @@ export async function uploadUserAvatar(
         const bucket = getFirebaseStorage().bucket();
         const fileName = `users/${uid}/avatar.webp`;
         const fileRef = bucket.file(fileName);
+        let publicUrl: string;
 
-        await fileRef.save(buffer, {
-            metadata: {
-                contentType: file.type,
+        try {
+            await fileRef.save(buffer, {
                 metadata: {
-                    uploadedBy: uid,
-                    uploadedAt: new Date().toISOString(),
-                }
-            },
-            public: false,
-        });
+                    contentType: file.type,
+                    metadata: {
+                        uploadedBy: uid,
+                        uploadedAt: new Date().toISOString(),
+                    }
+                },
+                public: false,
+            });
 
-        // Make file accessible to authenticated users
-        await fileRef.makePublic();
+            // Make file accessible to authenticated users
+            await fileRef.makePublic();
 
-        // Get public URL
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+            publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+        } catch (uploadError) {
+            console.error("[Server Action] Avatar storage upload failed:", uploadError);
+            return {
+                success: false,
+                message: "Errore durante il caricamento della foto. Riprova.",
+            };
+        }
 
-        // Update user photoURL in Firebase Auth
-        await getFirebaseAuth().updateUser(uid, {
-            photoURL: publicUrl,
-        });
+        try {
+            // Update user photoURL in Firebase Auth
+            await getFirebaseAuth().updateUser(uid, {
+                photoURL: publicUrl,
+            });
+        } catch (authError) {
+            console.error("[Server Action] Failed to update photoURL on user record:", authError);
+            return {
+                success: false,
+                message: "Foto caricata ma non è stato possibile aggiornare il profilo. Riprova.",
+            };
+        }
 
         // Revalidate profile page
         revalidatePath("/dashboard/profile");
