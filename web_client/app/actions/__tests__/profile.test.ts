@@ -40,7 +40,10 @@ const mockFile = jest.fn(() => ({ save: mockSave, makePublic: mockMakePublic }))
 const mockBucket = jest.fn(() => ({ name: 'test-bucket', file: mockFile }));
 
 jest.mock('@/lib/firebase-admin', () => ({
-    getFirebaseAuth: () => ({ verifyIdToken: mockVerifyIdToken, updateUser: mockUpdateUser }),
+    // async: getFirebaseAuth loads firebase-admin/auth dynamically and returns a
+    // Promise. Awaiting a plain object would also pass, so mirroring the real
+    // signature here is what keeps this mock honest.
+    getFirebaseAuth: async () => ({ verifyIdToken: mockVerifyIdToken, updateUser: mockUpdateUser }),
     getFirebaseStorage: () => ({ bucket: mockBucket }),
 }));
 
