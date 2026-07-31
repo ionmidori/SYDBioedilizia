@@ -26,6 +26,7 @@ import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
 import { useUrlContextSync } from '@/hooks/useUrlContextSync';
 import { useCadIntent } from '@/hooks/useCadIntent';
+import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
 
 /**
  * ChatWidget Component
@@ -222,25 +223,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     });
 
     // 9. Event Listeners for External Triggers (Navbar, Hero, etc.)
-    useEffect(() => {
-        const handleOpenChat = () => setIsOpen(true);
-
-        const handleOpenChatWithMessage = (e: Event) => {
-            setIsOpen(true);
-            const customEvent = e as CustomEvent;
-            if (customEvent.detail?.message) {
-                setInput(customEvent.detail.message);
-            }
-        };
-
-        window.addEventListener('OPEN_CHAT', handleOpenChat);
-        window.addEventListener('OPEN_CHAT_WITH_MESSAGE', handleOpenChatWithMessage);
-
-        return () => {
-            window.removeEventListener('OPEN_CHAT', handleOpenChat);
-            window.removeEventListener('OPEN_CHAT_WITH_MESSAGE', handleOpenChatWithMessage);
-        };
-    }, [setInput]);
+    useOpenChatEvents({ setIsOpen, setInput });
 
     // Drag-to-close handler
     const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
