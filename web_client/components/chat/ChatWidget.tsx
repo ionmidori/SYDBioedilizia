@@ -2,7 +2,7 @@
 
 // Components
 import { ChatHeader } from '@/components/chat/ChatHeader';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatToggleButton } from '@/components/chat/ChatToggleButton';
@@ -24,6 +24,7 @@ import { useStatusQueue } from '@/hooks/useStatusQueue';
 import { logger } from '@/lib/logger';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
+import { useUrlContextSync } from '@/hooks/useUrlContextSync';
 
 /**
  * ChatWidget Component
@@ -88,48 +89,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // 3. Sync Props/URL to Context State
     //    If props.projectId changes, or URL changes, we update the Global Context.
-
-    // 3a. Sync Prop
-    useEffect(() => {
-        if (typeof projectId !== 'undefined' && projectId !== contextProjectId) {
-            setProjectId(projectId);
-        }
-    }, [projectId, contextProjectId, setProjectId]);
-
-    // 3b. Sync URL (when in Global Mode / Landing Page)
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-
-    useEffect(() => {
-        // Only if not explicitly controlled by prop (standard Dashboard/Global behavior)
-        if (projectId) return;
-
-        if (!pathname) return;
-
-        // Dashboard Route: /dashboard/[id]
-        const match = pathname.match(/\/dashboard\/([^\/]+)/);
-        if (match && match[1]) {
-            const pathId = match[1];
-            if (pathId !== contextProjectId && pathId !== 'new') {
-                setProjectId(pathId);
-            }
-        }
-        // Query Param: ?projectId=... (Landing Page)
-        else {
-            const queryId = searchParams?.get('projectId');
-            // If query param exists, sync it. If null, we might be global (null).
-            // Only sync if different.
-            if (queryId !== contextProjectId) {
-                // If queryId is null, and we are not on dashboard, we might want to set to null (Global)
-                // But avoid overwriting if we just set it manually. State driven.
-                if (queryId) {
-                    if (queryId) {
-                        setProjectId(queryId);
-                    }
-                }
-            }
-        }
-    }, [pathname, searchParams, contextProjectId, setProjectId, projectId]);
+    const { pathname, searchParams } = useUrlContextSync({ projectId, contextProjectId, setProjectId });
 
     // 4. Status Queue (Visuals)
     const { currentStatus, addStatus, clearQueue } = useStatusQueue();
