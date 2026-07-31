@@ -25,6 +25,7 @@ import { logger } from '@/lib/logger';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
 import { useUrlContextSync } from '@/hooks/useUrlContextSync';
+import { useCadIntent } from '@/hooks/useCadIntent';
 
 /**
  * ChatWidget Component
@@ -210,26 +211,15 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // 8. Intent Handling (CAD Flow Trigger)
     //    Moved from old Widget, preserving logic.
-    const { historyLoaded } = { historyLoaded: !isRestoringHistory }; // Mapping concept
+    const historyLoaded = !isRestoringHistory;
 
-    useEffect(() => {
-        const intent = searchParams?.get('intent');
-        if (intent === 'cad' && historyLoaded && !isLoading && messages.length <= 2) {
-            const timeoutId = setTimeout(async () => {
-                try {
-                    await sendMessage("Vorrei effettuare un rilievo CAD di questa stanza. Mi aiuti a estrarre le misure?");
-                    // Cleanup URL
-                    const params = new URLSearchParams(window.location.search);
-                    params.delete('intent');
-                    const newUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
-                    window.history.replaceState({}, '', newUrl);
-                } catch (err) {
-                    console.error('Failed to trigger auto-msg', err);
-                }
-            }, 1000);
-            return () => clearTimeout(timeoutId);
-        }
-    }, [searchParams, historyLoaded, isLoading, messages.length, sendMessage]);
+    useCadIntent({
+        searchParams,
+        historyLoaded,
+        isLoading,
+        messagesLength: messages.length,
+        sendMessage,
+    });
 
     // 9. Event Listeners for External Triggers (Navbar, Hero, etc.)
     useEffect(() => {
