@@ -23,6 +23,7 @@ import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion
 import { useStatusQueue } from '@/hooks/useStatusQueue';
 import { logger } from '@/lib/logger';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
+import { buildMediaPayload } from '@/lib/chat/message-media';
 
 /**
  * ChatWidget Component
@@ -213,33 +214,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             url: u.serverData?.url?.substring(0, 60),
         })));
 
-        const mediaUrls = completedUploads
-            .filter(u => u.serverData?.asset_type === 'image')
-            .map(u => u.serverData!.url);
-
-        const videoFileUris = completedUploads
-            .filter(u => u.serverData?.asset_type === 'video')
-            .map(u => (u.serverData as { file_uri: string }).file_uri);
-
-        // Metadata
-        const mediaMetadata: Record<string, unknown> = {};
-        completedUploads.forEach(u => {
-            if (u.serverData) {
-                mediaMetadata[u.serverData.url] = {
-                    mimeType: u.serverData.mime_type,
-                    fileSize: u.serverData.size_bytes,
-                    originalFileName: u.serverData.filename,
-                };
-            }
-        });
-
-        const dataBody = {
-            mediaUrls,
-            // mediaTypes, // Provider/Backend might re-derive or we can send invalid mime types?
-            // Simplest is to pass what we have.
-            mediaMetadata,
-            videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined
-        };
+        const dataBody = buildMediaPayload(completedUploads);
 
         // UI Optimistic Clear
         clearAll();
@@ -251,7 +226,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         if (isOpen) scrollToBottom();
 
         try {
-            await sendMessage(input, mediaUrls, dataBody);
+            await sendMessage(input, dataBody.mediaUrls, dataBody);
         } catch (err: unknown) {
             const error = err as Error;
             setErrorMessage(error.message || "Invio fallito.");
