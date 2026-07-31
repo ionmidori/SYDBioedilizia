@@ -177,15 +177,42 @@ export function getFirebaseStorage(): Storage {
     return storageInstance;
 }
 
-import { getAuth, Auth } from 'firebase-admin/auth';
+// Type-only: erased at compile time, so it emits no runtime require. The real
+// module is pulled in lazily below — see getFirebaseAuth().
+import type { Auth } from 'firebase-admin/auth';
 
 let authInstance: Auth | undefined;
 
 /**
- * Get Firebase Auth instance (singleton)
+ * Get Firebase Auth instance (singleton).
+ *
+ * `firebase-admin/auth` is imported dynamically, not at module scope, because
+ * it is the only firebase-admin entry point that pulls in jwks-rsa -> jose@6.
+ * jose 6 is ESM-only and jwks-rsa require()s it, so on a runtime without
+ * `require(esm)` support (< Node 20.19 / 22.12) that load throws
+ * ERR_REQUIRE_ESM. As a static import it took down the entire route at
+ * module-load time, surfacing as an opaque 500 with only a digest — the
+ * caller never got to run, so nothing could be logged or reported.
+ *
+ * Loading it here keeps the failure inside our own code, where it can be
+ * logged with the runtime version and turned into a readable message. It also
+ * keeps the heaviest dependency out of the cold-start path of every request
+ * that never touches auth.
  */
-export function getFirebaseAuth(): Auth {
+export async function getFirebaseAuth(): Promise<Auth> {
     if (!authInstance) {
+        let getAuth: typeof import('firebase-admin/auth').getAuth;
+        try {
+            ({ getAuth } = await import('firebase-admin/auth'));
+        } catch (error) {
+            // process.version is the whole point of this log: the deployed
+            // runtime is the one variable we cannot read from the outside.
+            console.error(
+                `[Firebase] Failed to load firebase-admin/auth on node ${process.version}:`,
+                error
+            );
+            throw error;
+        }
         const app = initializeFirebase();
         authInstance = getAuth(app);
     }

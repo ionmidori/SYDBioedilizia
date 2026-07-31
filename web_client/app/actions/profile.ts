@@ -35,7 +35,7 @@ export async function updateUserProfile(
         }
 
         // Verify token and get user
-        const decodedToken = await getFirebaseAuth().verifyIdToken(token);
+        const decodedToken = await (await getFirebaseAuth()).verifyIdToken(token);
         const uid = decodedToken.uid;
 
         // Parse and validate form data
@@ -71,7 +71,7 @@ export async function updateUserProfile(
 
         // Update user record in Firebase Auth
         if (Object.keys(updateData).length > 0) {
-            await getFirebaseAuth().updateUser(uid, updateData);
+            await (await getFirebaseAuth()).updateUser(uid, updateData);
         }
 
         // Revalidate profile page
@@ -113,7 +113,7 @@ export async function uploadUserAvatar(
         }
 
         // Verify token and get user
-        const decodedToken = await getFirebaseAuth().verifyIdToken(token);
+        const decodedToken = await (await getFirebaseAuth()).verifyIdToken(token);
         const uid = decodedToken.uid;
 
         // Get file from form data
@@ -179,7 +179,7 @@ export async function uploadUserAvatar(
 
         try {
             // Update user photoURL in Firebase Auth
-            await getFirebaseAuth().updateUser(uid, {
+            await (await getFirebaseAuth()).updateUser(uid, {
                 photoURL: publicUrl,
             });
         } catch (authError) {
