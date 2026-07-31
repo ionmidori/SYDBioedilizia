@@ -27,6 +27,7 @@ Frontend -> Backend -> ADK Orchestrator is the ONLY flow. Never bypass tiers.
 - **Errors**: Raise `AppException` (from `core/exceptions.py`) with error codes
 - **Async**: Prefer `async def` for I/O. Wrap sync Firebase SDK calls in `run_in_threadpool()` or `asyncio.to_thread()`
 - **No inline imports**: All imports at module top-level unless resolving circular deps
+- **BLE001 ratchet**: never add a new `# noqa: BLE001`; narrow existing ones when touching a module (canonical policy: `pyproject.toml`, ruff section)
 
 ## Firebase Schema ("Golden Sync")
 MUST maintain 1:1 parity between Pydantic (Python) and TypeScript interfaces.
