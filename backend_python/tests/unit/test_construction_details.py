@@ -89,7 +89,7 @@ class TestConstructionDetailsDbOperations:
             renovation_constraints=[]
         )
 
-        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+        with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
             result = await projects_db.update_project_details("session-abc", "user-123", details)
 
         assert result is True
@@ -126,7 +126,7 @@ class TestConstructionDetailsDbOperations:
             renovation_constraints=[]
         )
 
-        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+        with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
             result = await projects_db.update_project_details("session-abc", "user-123", details)
 
         assert result is False

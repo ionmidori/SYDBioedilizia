@@ -101,7 +101,7 @@ class TestProjectDbOperations:
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
 
-        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+        with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
             session_id = await projects_db.create_project(
                 user_id="test-user-123",
                 data=ProjectCreate(title="My Kitchen")
@@ -141,7 +141,7 @@ class TestProjectDbOperations:
         mock_db = MagicMock()
         mock_db.collection.return_value.document.return_value = mock_doc_ref
 
-        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+        with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
             result = await projects_db.claim_project("session-xyz", "new-user-456")
 
         # Assert: Should NOT update
@@ -185,7 +185,7 @@ class TestProjectDbOperations:
         mock_db.batch.return_value = mock_batch
         mock_db.collection.return_value.document.return_value = mock_doc_ref
 
-        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+        with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
             result = await projects_db.claim_project("session-xyz", "new-user-456")
 
         # Assert: Should return True
@@ -245,7 +245,7 @@ class TestProjectDbOperations:
         mock_db.collection.return_value = mock_filtered_col
         mock_filtered_col.where.return_value = mock_fallback_col
 
-        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+        with patch('src.db.projects.queries.get_async_firestore_client', return_value=mock_db):
             count = await projects_db.count_user_projects("user-with-mixed-projects")
 
         # Only active projects should be counted
@@ -285,7 +285,7 @@ class TestProjectsFailClosed:
         mock_db = MagicMock()
         mock_db.collection.return_value = mock_filtered_col
 
-        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+        with patch('src.db.projects.queries.get_async_firestore_client', return_value=mock_db):
             with pytest.raises(Exception, match="firestore unavailable"):
                 await projects_db.count_user_projects("user-123")
 
@@ -354,7 +354,7 @@ class TestProjectsFailClosed:
         mock_db = MagicMock()
         mock_db.collection.return_value = mock_col
 
-        with patch('src.db.projects.get_async_firestore_client', return_value=mock_db):
+        with patch('src.db.projects.queries.get_async_firestore_client', return_value=mock_db):
             with caplog.at_level(logging.WARNING, logger="src.db.projects"):
                 projects = await projects_db.get_user_projects("user-123")
 
@@ -398,9 +398,9 @@ class TestProjectsFailClosed:
         )
 
         with (
-            patch('src.db.projects.get_async_firestore_client', return_value=mock_db),
-            patch('src.db.projects._delete_collection_batch', AsyncMock()),
-            patch('src.db.projects.get_storage_client', side_effect=Exception("storage down")),
+            patch('src.db.projects.deletion.get_async_firestore_client', return_value=mock_db),
+            patch('src.db.projects.deletion._delete_collection_batch', AsyncMock()),
+            patch('src.db.projects.deletion.get_storage_client', side_effect=Exception("storage down")),
         ):
             result = await projects_db.delete_project("project-abc", "user-123")
 
