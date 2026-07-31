@@ -14,6 +14,22 @@ import { cn } from "@/lib/utils";
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
+/**
+ * Guards the local avatar preview: only a browser-minted object URL may reach
+ * the <img src> below.
+ *
+ * `avatarPreview` is currently assigned only from `URL.createObjectURL`, which
+ * can never yield anything but `blob:<origin>/<uuid>` — so today this is
+ * belt-and-braces. It is kept because the sibling render branch shows
+ * `user.photoURL`, a server-provided string: a future refactor that funnels
+ * that (or any other remote value) through the same state would silently turn
+ * this into a real `javascript:`-URL sink. It also pins the invariant for
+ * CodeQL's js/xss-through-dom, which flags the raw sink (alert #20).
+ */
+function isObjectUrl(url: string): boolean {
+    return url.startsWith('blob:');
+}
+
 export default function ProfilePage() {
     const { user, refreshUser } = useAuth();
     const { preferences, updatePreferences, error: preferencesError } = useUserPreferences();
@@ -196,7 +212,7 @@ export default function ProfilePage() {
                 <div className="absolute -top-24 -right-24 w-64 h-64 bg-luxury-gold/5 rounded-full blur-3xl pointer-events-none" />
 
                 <div className="relative">
-                    {avatarPreview ? (
+                    {avatarPreview && isObjectUrl(avatarPreview) ? (
                         // eslint-disable-next-line @next/next/no-img-element -- blob: preview URLs cannot be validated by next/image's remotePatterns check
                         <img
                             src={avatarPreview}

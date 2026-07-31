@@ -160,6 +160,33 @@ describe('ProfilePage', () => {
         expect(screen.getByRole('alert')).toHaveTextContent('Validazione fallita. Controlla i campi inseriti.');
     });
 
+    it('never renders an avatar preview that is not a browser object URL', async () => {
+        // Simulates the regression the isObjectUrl guard exists for: a remote or
+        // server-provided string funnelled into the preview state must not reach
+        // the <img src> sink (CodeQL js/xss-through-dom, alert #20).
+        (URL.createObjectURL as jest.Mock).mockReturnValue('javascript:alert(1)');
+        mockUploadUserAvatar.mockResolvedValue({ success: false, message: 'Upload non riuscito.' });
+        render(<ProfilePage />);
+
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+        fireEvent.change(input, { target: { files: [makeFile('photo.jpg', 'image/jpeg', 1024)] } });
+
+        await waitFor(() => expect(mockUploadUserAvatar).toHaveBeenCalled());
+        expect(document.querySelector('img[src^="javascript:"]')).toBeNull();
+    });
+
+    it('renders the avatar preview when it is a blob: object URL', async () => {
+        mockUploadUserAvatar.mockResolvedValue({ success: false, message: 'Upload non riuscito.' });
+        render(<ProfilePage />);
+
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+        fireEvent.change(input, { target: { files: [makeFile('photo.jpg', 'image/jpeg', 1024)] } });
+
+        await waitFor(() => {
+            expect(document.querySelector('img[src="blob:mock-preview"]')).not.toBeNull();
+        });
+    });
+
     it('surfaces a notifications-toggle failure in the shared banner', async () => {
         mockPreferencesError = 'Errore nel salvataggio delle preferenze';
         render(<ProfilePage />);

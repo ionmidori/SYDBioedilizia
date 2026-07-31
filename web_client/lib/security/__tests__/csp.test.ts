@@ -38,7 +38,7 @@ describe('buildCspHeader — fallback policy (static routes)', () => {
 
   it("keeps script-src 'self' 'unsafe-inline' + trusted Google origins", () => {
     expect(header).toContain(
-      "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://apis.google.com;"
+      "script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://apis.google.com https://vercel.live;"
     );
   });
 
@@ -87,6 +87,36 @@ describe('buildCspHeader — directives shared by both policies', () => {
   ])('both policies contain %s', (directive) => {
     expect(buildCspHeader()).toContain(directive);
     expect(buildCspHeader({ nonce: 'abc' })).toContain(directive);
+  });
+});
+
+describe('buildCspHeader — Vercel Toolbar (vercel.live)', () => {
+  // Without these the browser blocks the toolbar and logs
+  // "Framing 'https://vercel.live/' violates … frame-src". The set is the one
+  // Vercel documents; see the comment on TOOLBAR_* in csp.ts.
+  const directiveOf = (header: string, name: string) =>
+    header.split(';').find((d) => d.trim().startsWith(`${name} `));
+
+  it.each([
+    ['script-src', 'https://vercel.live'],
+    ['style-src', 'https://vercel.live'],
+    ['frame-src', 'https://vercel.live'],
+    ['img-src', 'https://vercel.live'],
+    ['img-src', 'https://vercel.com'],
+    ['connect-src', 'https://vercel.live'],
+    ['connect-src', 'wss://ws-us3.pusher.com'],
+  ])('both policies allow %s %s', (directive, origin) => {
+    expect(directiveOf(buildCspHeader(), directive)).toContain(origin);
+    expect(directiveOf(buildCspHeader({ nonce: 'abc' }), directive)).toContain(origin);
+  });
+
+  it('does not widen font-src (toolbar fonts load inside its own iframe)', () => {
+    expect(directiveOf(buildCspHeader(), 'font-src')).toBe(" font-src 'self' data:");
+  });
+
+  it('does not weaken frame-ancestors — the toolbar frames us, not the reverse', () => {
+    expect(buildCspHeader()).toContain("frame-ancestors 'none'");
+    expect(buildCspHeader({ nonce: 'abc' })).toContain("frame-ancestors 'none'");
   });
 });
 

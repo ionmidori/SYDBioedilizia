@@ -20,14 +20,43 @@
  * 'strict-dynamic' (CSP3) is required by spec to ignore them.
  */
 
+/**
+ * Vercel Toolbar (vercel.live) origins.
+ *
+ * Vercel injects the toolbar into deployments it serves; without these the
+ * browser blocks it and logs "Framing 'https://vercel.live/' violates the
+ * following Content Security Policy directive: frame-src …". The exact set is
+ * the one Vercel documents (script-src, style-src, connect-src, frame-src,
+ * img-src) — see vercel.com/docs/vercel-toolbar/managing-toolbar. font-src is
+ * deliberately NOT widened: the toolbar's fonts load inside its own
+ * vercel.live iframe, which is governed by that frame's CSP, not this one.
+ *
+ * Trust level matches the Google origins already allow-listed above: these are
+ * first-party Vercel hosts, not third-party CDNs. They are added in every
+ * environment — gating them on VERCEL_ENV would leave the violation unfixed on
+ * production, which is where it was actually observed. If the toolbar is ever
+ * disabled for production in the project settings, these can be narrowed to
+ * `process.env.VERCEL_ENV !== 'production'`.
+ *
+ * Note for the strict policy: 'strict-dynamic' makes CSP3 browsers ignore host
+ * allow-lists in script-src entirely, so TOOLBAR_SCRIPT is only a CSP2 fallback
+ * on /dashboard/* — exactly like the Google origins. The other four directives
+ * are unaffected by 'strict-dynamic' and do apply there.
+ */
+const TOOLBAR_SCRIPT_ORIGIN = 'https://vercel.live';
+const TOOLBAR_STYLE_ORIGIN = 'https://vercel.live';
+const TOOLBAR_FRAME_ORIGIN = 'https://vercel.live';
+const TOOLBAR_IMG_ORIGINS = 'https://vercel.live https://vercel.com';
+const TOOLBAR_CONNECT_ORIGINS = 'https://vercel.live wss://ws-us3.pusher.com';
+
 const SCRIPT_FALLBACK_ORIGINS =
-  'https://www.google.com https://www.gstatic.com https://apis.google.com';
+  `https://www.google.com https://www.gstatic.com https://apis.google.com ${TOOLBAR_SCRIPT_ORIGIN}`;
 
 const CONNECT_ORIGINS =
   "'self' https://*.googleapis.com https://*.firebaseio.com https://*.google-analytics.com " +
   'https://vitals.vercel-insights.com https://*.vercel-insights.com ' +
   'https://syd-brain-w6yrkh3gfa-ew.a.run.app https://www.google.com https://www.gstatic.com ' +
-  'wss://*.firebaseio.com';
+  `wss://*.firebaseio.com ${TOOLBAR_CONNECT_ORIGINS}`;
 
 /**
  * Firebase emulator origins, added to connect-src ONLY in the E2E build.
@@ -79,8 +108,8 @@ export function buildCspHeader({ nonce, isDev = false }: BuildCspOptions = {}): 
   return `
     default-src 'self';
     script-src ${scriptSrc};
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' blob: data: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com https://images.unsplash.com https://replicate.delivery;
+    style-src 'self' 'unsafe-inline' ${TOOLBAR_STYLE_ORIGIN};
+    img-src 'self' blob: data: https://firebasestorage.googleapis.com https://storage.googleapis.com https://*.googleusercontent.com https://images.unsplash.com https://replicate.delivery ${TOOLBAR_IMG_ORIGINS};
     font-src 'self' data:;
     connect-src ${CONNECT_ORIGINS}${USE_EMULATORS ? ` ${EMULATOR_CONNECT_ORIGINS}` : ''};
     media-src 'self' blob: https://firebasestorage.googleapis.com https://storage.googleapis.com;
@@ -88,7 +117,7 @@ export function buildCspHeader({ nonce, isDev = false }: BuildCspOptions = {}): 
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
-    frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com https://www.google.com https://recaptcha.google.com;
+    frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com https://www.google.com https://recaptcha.google.com ${TOOLBAR_FRAME_ORIGIN};
     ${USE_EMULATORS ? '' : 'upgrade-insecure-requests;'}
   `
     .replace(/\s{2,}/g, ' ')
