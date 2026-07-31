@@ -22,6 +22,17 @@ const nextConfig: NextConfig = {
     },
   },
 
+  // firebase-admin pulls in jwks-rsa@4.x, which requires jose@6 (ESM-only)
+  // via a plain CommonJS require(). Turbopack's own externalization check
+  // can't safely externalize that nested ESM file, and its fallback bundling
+  // path doesn't rewrite the raw require() either — so any Server Action
+  // that verifies a Firebase ID token crashes at module-load time with
+  // "Failed to load external module firebase-admin.../auth: ERR_REQUIRE_ESM".
+  // Declaring the package here makes Next.js load it via native Node
+  // require/import instead of Turbopack's bundler, which resolves this
+  // ESM/CJS interop correctly. See github.com/auth0/node-jwks-rsa/issues/493.
+  serverExternalPackages: ['firebase-admin'],
+
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
