@@ -14,8 +14,11 @@ interface UseCadIntentOptions {
  * `?intent=cad` (e.g. from a "misura la stanza" CTA), then strips the
  * query param so a refresh doesn't retrigger it.
  *
- * Only fires on a fresh conversation (<=2 messages) once history has
- * settled, and only once (the `?intent=cad` cleanup prevents re-entry).
+ * Re-entry is gated by `!isLoading && messagesLength <= 2`, not by the URL
+ * cleanup: `history.replaceState` doesn't notify the router, so `searchParams`
+ * keeps reporting `intent=cad` for the rest of the mount. There is a narrow
+ * window, after `sendMessage` resolves and before the assistant reply lands,
+ * where the effect could re-run — pre-existing behavior, not introduced here.
  */
 export function useCadIntent({
     searchParams,

@@ -8,14 +8,15 @@ import type { UploadItem } from '@/types/media';
  * Pure — no React, no upload hook — so image/video/mixed/empty cases are
  * unit-tested without mounting ChatWidget.
  */
-export interface ChatMediaPayload {
-    // Index signature so this satisfies the `sendMessage(text, urls, body: Record<string, unknown>)`
-    // body parameter without a cast at the call site.
-    [key: string]: unknown;
+// A `type` alias (not `interface`) gets an implicit index signature for object
+// literal types, so this satisfies `sendMessage`'s `body: Record<string, unknown>`
+// parameter without a cast — while keeping property-name typo checking, which an
+// explicit `[key: string]: unknown` index signature would silently disable.
+export type ChatMediaPayload = {
     mediaUrls: string[];
     mediaMetadata: Record<string, { mimeType: string; fileSize: number; originalFileName: string }>;
     videoFileUris?: string[];
-}
+};
 
 export function buildMediaPayload(completedUploads: UploadItem[]): ChatMediaPayload {
     const mediaUrls = completedUploads
