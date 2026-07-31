@@ -2,7 +2,7 @@
 
 // Components
 import { ChatHeader } from '@/components/chat/ChatHeader';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { ChatToggleButton } from '@/components/chat/ChatToggleButton';
@@ -22,6 +22,11 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
 import { logger } from '@/lib/logger';
+import { mapErrorToMessage } from '@/lib/chat/error-messages';
+import { buildMediaPayload } from '@/lib/chat/message-media';
+import { useUrlContextSync } from '@/hooks/useUrlContextSync';
+import { useCadIntent } from '@/hooks/useCadIntent';
+import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
 
 /**
  * ChatWidget Component
@@ -86,48 +91,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // 3. Sync Props/URL to Context State
     //    If props.projectId changes, or URL changes, we update the Global Context.
-
-    // 3a. Sync Prop
-    useEffect(() => {
-        if (typeof projectId !== 'undefined' && projectId !== contextProjectId) {
-            setProjectId(projectId);
-        }
-    }, [projectId, contextProjectId, setProjectId]);
-
-    // 3b. Sync URL (when in Global Mode / Landing Page)
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-
-    useEffect(() => {
-        // Only if not explicitly controlled by prop (standard Dashboard/Global behavior)
-        if (projectId) return;
-
-        if (!pathname) return;
-
-        // Dashboard Route: /dashboard/[id]
-        const match = pathname.match(/\/dashboard\/([^\/]+)/);
-        if (match && match[1]) {
-            const pathId = match[1];
-            if (pathId !== contextProjectId && pathId !== 'new') {
-                setProjectId(pathId);
-            }
-        }
-        // Query Param: ?projectId=... (Landing Page)
-        else {
-            const queryId = searchParams?.get('projectId');
-            // If query param exists, sync it. If null, we might be global (null).
-            // Only sync if different.
-            if (queryId !== contextProjectId) {
-                // If queryId is null, and we are not on dashboard, we might want to set to null (Global)
-                // But avoid overwriting if we just set it manually. State driven.
-                if (queryId) {
-                    if (queryId) {
-                        setProjectId(queryId);
-                    }
-                }
-            }
-        }
-    }, [pathname, searchParams, contextProjectId, setProjectId, projectId]);
+    const { pathname, searchParams } = useUrlContextSync({ projectId, contextProjectId, setProjectId });
 
     // 4. Status Queue (Visuals)
     const { currentStatus, addStatus, clearQueue } = useStatusQueue();
@@ -212,33 +176,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             url: u.serverData?.url?.substring(0, 60),
         })));
 
-        const mediaUrls = completedUploads
-            .filter(u => u.serverData?.asset_type === 'image')
-            .map(u => u.serverData!.url);
-
-        const videoFileUris = completedUploads
-            .filter(u => u.serverData?.asset_type === 'video')
-            .map(u => (u.serverData as { file_uri: string }).file_uri);
-
-        // Metadata
-        const mediaMetadata: Record<string, unknown> = {};
-        completedUploads.forEach(u => {
-            if (u.serverData) {
-                mediaMetadata[u.serverData.url] = {
-                    mimeType: u.serverData.mime_type,
-                    fileSize: u.serverData.size_bytes,
-                    originalFileName: u.serverData.filename,
-                };
-            }
-        });
-
-        const dataBody = {
-            mediaUrls,
-            // mediaTypes, // Provider/Backend might re-derive or we can send invalid mime types?
-            // Simplest is to pass what we have.
-            mediaMetadata,
-            videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined
-        };
+        const dataBody = buildMediaPayload(completedUploads);
 
         // UI Optimistic Clear
         clearAll();
@@ -250,7 +188,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         if (isOpen) scrollToBottom();
 
         try {
-            await sendMessage(input, mediaUrls, dataBody);
+            await sendMessage(input, dataBody.mediaUrls, dataBody);
         } catch (err: unknown) {
             const error = err as Error;
             setErrorMessage(error.message || "Invio fallito.");
@@ -264,21 +202,9 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     useEffect(() => {
         if (error) {
             const timerId = setTimeout(() => {
-                const msg = error.message || '';
-                // Detect quota/rate-limit errors and show friendly message
-                if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.toLowerCase().includes('rate limit')) {
-                    setErrorMessage('Hai raggiunto il limite di richieste. Riprova tra qualche minuto.');
-                    setIsRetryableError(false);
-                } else if (msg.includes('401') || msg.toLowerCase().includes('auth')) {
-                    setErrorMessage('Sessione scaduta. Ricarica la pagina per continuare.');
-                    setIsRetryableError(false);
-                } else if (msg.includes('503') || msg.includes('502')) {
-                    setErrorMessage('Il servizio è temporaneamente non disponibile. Riprova tra poco.');
-                    setIsRetryableError(true);
-                } else {
-                    setErrorMessage(msg || 'Si è verificato un errore. Riprova.');
-                    setIsRetryableError(true);
-                }
+                const { message, retryable } = mapErrorToMessage(error.message);
+                setErrorMessage(message);
+                setIsRetryableError(retryable);
             }, 0);
             return () => clearTimeout(timerId);
         }
@@ -286,47 +212,18 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // 8. Intent Handling (CAD Flow Trigger)
     //    Moved from old Widget, preserving logic.
-    const { historyLoaded } = { historyLoaded: !isRestoringHistory }; // Mapping concept
+    const historyLoaded = !isRestoringHistory;
 
-    useEffect(() => {
-        const intent = searchParams?.get('intent');
-        if (intent === 'cad' && historyLoaded && !isLoading && messages.length <= 2) {
-            const timeoutId = setTimeout(async () => {
-                try {
-                    await sendMessage("Vorrei effettuare un rilievo CAD di questa stanza. Mi aiuti a estrarre le misure?");
-                    // Cleanup URL
-                    const params = new URLSearchParams(window.location.search);
-                    params.delete('intent');
-                    const newUrl = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
-                    window.history.replaceState({}, '', newUrl);
-                } catch (err) {
-                    console.error('Failed to trigger auto-msg', err);
-                }
-            }, 1000);
-            return () => clearTimeout(timeoutId);
-        }
-    }, [searchParams, historyLoaded, isLoading, messages.length, sendMessage]);
+    useCadIntent({
+        searchParams,
+        historyLoaded,
+        isLoading,
+        messagesLength: messages.length,
+        sendMessage,
+    });
 
     // 9. Event Listeners for External Triggers (Navbar, Hero, etc.)
-    useEffect(() => {
-        const handleOpenChat = () => setIsOpen(true);
-
-        const handleOpenChatWithMessage = (e: Event) => {
-            setIsOpen(true);
-            const customEvent = e as CustomEvent;
-            if (customEvent.detail?.message) {
-                setInput(customEvent.detail.message);
-            }
-        };
-
-        window.addEventListener('OPEN_CHAT', handleOpenChat);
-        window.addEventListener('OPEN_CHAT_WITH_MESSAGE', handleOpenChatWithMessage);
-
-        return () => {
-            window.removeEventListener('OPEN_CHAT', handleOpenChat);
-            window.removeEventListener('OPEN_CHAT_WITH_MESSAGE', handleOpenChatWithMessage);
-        };
-    }, [setInput]);
+    useOpenChatEvents({ setIsOpen, setInput });
 
     // Drag-to-close handler
     const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
