@@ -59,7 +59,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
+          # Tracks the base image in admin_tool/Dockerfile: pip-audit resolves
+          # against the interpreter it runs on, so auditing 3.12 wheels while
+          # Cloud Run ships 3.14 would audit a tree that is not deployed.
+          python-version: '3.14'
       - name: 'Install pip-audit'
         run: pip install pip-audit
       - name: 'Audit admin_tool requirements'
