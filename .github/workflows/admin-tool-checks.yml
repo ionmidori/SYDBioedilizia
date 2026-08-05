@@ -48,7 +48,10 @@ jobs:
       - name: 'Set up Python'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
+          # Tracks the base image in admin_tool/Dockerfile. The AppTest smoke
+          # exists to catch breakage before the (manual) deploy, so running it
+          # on a different interpreter than the image would blunt exactly that.
+          python-version: '3.14'
 
       - name: 'Install dependencies'
         run: 'pip install -r requirements.txt pytest'

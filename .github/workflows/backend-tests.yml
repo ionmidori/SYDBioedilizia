@@ -117,14 +117,8 @@ jobs:
       - name: 'Checkout code'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: 'Set up Buildx'
-        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-
-      - name: 'Build image (no push)'
-        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
-        with:
-          context: './backend_python'
-          push: false
-          load: false
-          cache-from: 'type=gha'
-          cache-to: 'type=gha,mode=max'
+      - name: 'Build image (validates Dockerfile only -- not pushed)'
+        # Same shape as the admin_tool job in admin-tool-checks.yml: plain
+        # `docker build`, no buildx actions, so this adds no new pinned
+        # dependency to the supply chain.
+        run: 'docker build -t syd-brain-ci-check ./backend_python'
