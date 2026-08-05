@@ -10,7 +10,14 @@ version: 2
 
 updates:
   # ── Backend (Python / uv) ────────────────────────────────────────────────
-  - package-ecosystem: "pip"
+  # MUST be "uv", not "pip". backend_python is uv-managed and its Dockerfile
+  # installs from uv.lock, but the "pip" ecosystem only rewrites the floors in
+  # pyproject.toml -- it never touches uv.lock. Those PRs therefore merge green
+  # and change nothing that ships, while the lock drifts out of sync in silence.
+  # Real case: #282..#288 raised fastapi/google-adk/ruff/... floors and left
+  # production on the old resolution, including cryptography 49.0.0 (Dependabot
+  # alert GHSA-g6cj-pr64-35w5), until #291 -- a "uv" ecosystem PR -- re-locked.
+  - package-ecosystem: "uv"
     directory: "/backend_python"
     schedule:
       interval: "weekly"
