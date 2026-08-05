@@ -20,15 +20,22 @@ ENV UV_COMPILE_BYTECODE=1
 COPY pyproject.toml uv.lock ./
 
 # Install runtime dependencies only (no dev group: pytest/ruff/pyright/pip-audit
-# are not shipped in the production image). --frozen fails the build if uv.lock
-# is out of sync with pyproject.toml, so Cloud Run never builds from a stale lock.
-RUN uv sync --no-install-project --no-dev --frozen
+# are not shipped in the production image).
+#
+# --locked, NOT --frozen: `--frozen` only means "do not update uv.lock", it does
+# NOT check the lock against pyproject.toml, so a stale lock installs silently.
+# That is not theoretical -- the Dependabot pip PRs raise the floors in
+# pyproject.toml without re-locking, so between #282..#288 (merged) and #291
+# (the re-lock) this image kept installing cryptography 49.0.0, the version
+# Dependabot alert GHSA-g6cj-pr64-35w5 flags. `--locked` asserts the lock is in
+# sync and fails the build instead, so Cloud Run never builds from a stale lock.
+RUN uv sync --no-install-project --no-dev --locked
 
 # Copy remaining application code
 COPY . .
 
-# Final sync to include project code (still runtime-only, still frozen)
-RUN uv sync --no-dev --frozen
+# Final sync to include project code (still runtime-only, still lock-asserted)
+RUN uv sync --no-dev --locked
 
 # Place the virtual environment in the PATH
 ENV PATH="/app/.venv/bin:$PATH"

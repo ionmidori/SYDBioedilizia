@@ -40,6 +40,17 @@ MUST maintain 1:1 parity between Pydantic (Python) and TypeScript interfaces.
 - Markers: `integration` for live API tests
 - ALWAYS mock in `jest.setup.js` for frontend tests — JSDOM cannot run real Firebase SDK
 
+## Dependencies (uv — read before touching pyproject.toml)
+- `backend_python` is **uv-managed**: `pyproject.toml` declares floors, `uv.lock` is
+  what the Docker image installs. **A floor bump without a re-lock ships nothing.**
+- Always `uv lock` after editing `pyproject.toml`, and commit `uv.lock` in the same PR.
+  CI enforces this (`uv lock --check` in `backend-tests.yml`).
+- `--locked` ≠ `--frozen`. `--frozen` only means "do not update the lock" and accepts a
+  stale one **silently**; `--locked` asserts lock/pyproject are in sync and fails otherwise.
+  Use `--locked` everywhere (Dockerfile, CI) — see PR #291 for the incident this prevents.
+- Dependabot must use `package-ecosystem: "uv"` for this directory, never `"pip"`
+  (`pip` rewrites only the floors and leaves `uv.lock` untouched).
+
 ## Security
 - JWT via `src/auth/jwt_handler.py`
 - Firebase App Check on all routes except `/health`

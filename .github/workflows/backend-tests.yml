@@ -54,8 +54,19 @@ jobs:
         with:
           version: 'latest'
 
+      - name: 'Verify uv.lock is in sync with pyproject.toml'
+        # Without this, a PR that raises a floor in pyproject.toml without
+        # re-locking looks green here and then ships nothing: the Dockerfile
+        # installs from uv.lock, so the old version stays in production. That
+        # is what happened to cryptography 49.0.0 (GHSA-g6cj-pr64-35w5) across
+        # PRs #282..#288 -- merged, green, and inert until the re-lock in #291.
+        run: 'uv lock --check'
+
       - name: 'Install dependencies'
-        run: 'uv sync --all-extras'
+        # --locked so the suite runs against the resolution the image ships.
+        # A bare `uv sync` re-resolves and rewrites uv.lock in place, which
+        # means CI would silently test something other than the locked set.
+        run: 'uv sync --all-extras --locked'
 
       - name: 'Lint (ruff)'
         run: 'uv run ruff check src/ main.py tests/'
