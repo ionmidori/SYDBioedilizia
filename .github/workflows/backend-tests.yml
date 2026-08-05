@@ -47,7 +47,10 @@ jobs:
       - name: 'Set up Python'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.12'
+          # MUST track the base image in backend_python/Dockerfile. pyproject
+          # allows >=3.12, so CI on an older interpreter than Cloud Run runs
+          # would still pass while production hits 3.14-only behaviour.
+          python-version: '3.14'
 
       - name: 'Install uv'
         uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
@@ -99,3 +102,23 @@ jobs:
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: '${{ secrets.CODECOV_TOKEN }}'
+
+  docker-build:
+    name: 'Docker image build'
+    runs-on: 'ubuntu-latest'
+
+    # The image is what Cloud Run actually runs, and nothing in CI built it
+    # before: a base-image bump or a lockfile that resolves on the runner but
+    # has no wheel for the image's interpreter would only surface in Cloud
+    # Build, after the merge that auto-deploys it. This job builds the image
+    # exactly as Cloud Build does -- including `uv sync --locked`, which fails
+    # on a stale uv.lock -- and pushes nothing.
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: 'Build image (validates Dockerfile only -- not pushed)'
+        # Same shape as the admin_tool job in admin-tool-checks.yml: plain
+        # `docker build`, no buildx actions, so this adds no new pinned
+        # dependency to the supply chain.
+        run: 'docker build -t syd-brain-ci-check ./backend_python'
