@@ -27,7 +27,7 @@ dependencies = [
     "google-cloud-modelarmor>=0.7.1",
     "fido2>=2.2.1",
     "pypdf>=6.14.2",
-    "cryptography>=49.0.0",
+    "cryptography>=50.0.0",
     # Transitive of the google-cloud / vertex / firestore stack. Pinned above the
     # YANKED 1.78.1 ("caused major outage with gcloud serverless environments"),
     # which uv would otherwise keep resolving on Cloud Run.
