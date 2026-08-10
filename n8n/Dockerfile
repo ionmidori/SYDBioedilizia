@@ -2,7 +2,7 @@
 # Uses the official n8n image. Cloud Run injects PORT=8080 automatically.
 # n8n >= 0.235 respects the PORT env var natively.
 # Version pinned for reproducible builds — bumped by Dependabot (docker ecosystem).
-FROM n8nio/n8n:2.33.3
+FROM n8nio/n8n:2.33.5
 
 # Cloud Run requires the container to listen on $PORT (default 8080)
 ENV N8N_PORT=8080
