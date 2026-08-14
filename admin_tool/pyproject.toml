@@ -1,0 +1,35 @@
+[project]
+name = "admin-tool"
+version = "1.0.0"
+requires-python = ">=3.14"
+description = "SYD Bioedilizia admin console (Streamlit)."
+dependencies = [
+    # Bumped from >=1.60.0 -- Dependabot PR #300 (superseded here: it
+    # riscrivevano solo la floor in requirements.txt, mai un lockfile reale).
+    "streamlit>=1.61.1",
+    "firebase-admin>=7.5.0",
+    "pandas>=3.0.5",
+    "plotly>=6.9.0",
+    "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
+    # Bumped from >=2.28.0 -- Dependabot PR #301 (superseded here, same reason).
+    "google-cloud-firestore>=2.28.1",
+    "reportlab>=5.0.0",
+    "jinja2>=3.1.6",
+    "httpx>=0.28.1",
+    "tenacity>=9.1.4",
+    # Exact pin, deliberate: streamlit-authenticator's API changed between
+    # 0.2.x and 0.4.x (config / login() signature). admin_tool has no
+    # automated deploy (see Dockerfile / CI comments) -- a Dependabot bump
+    # here would sit merged and unexercised until the next manual deploy,
+    # exactly what happened with the 0.2.3 -> 0.4.x migration itself
+    # (PR #101, broke login() for ~4 months before anyone noticed). Bump
+    # only with manual login testing against the real Cloud Run deploy.
+    "streamlit-authenticator==0.4.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pip-audit>=2.7.0",
+]

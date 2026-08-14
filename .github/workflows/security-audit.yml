@@ -12,14 +12,16 @@ on:
     paths:
       - 'package-lock.json'
       - 'package.json'
-      - 'admin_tool/requirements.txt'
+      - 'admin_tool/pyproject.toml'
+      - 'admin_tool/uv.lock'
       - '.github/workflows/security-audit.yml'
   pull_request:
     branches: ['main', 'develop']
     paths:
       - 'package-lock.json'
       - 'package.json'
-      - 'admin_tool/requirements.txt'
+      - 'admin_tool/pyproject.toml'
+      - 'admin_tool/uv.lock'
       - '.github/workflows/security-audit.yml'
   schedule:
     # Weekly safety net — catches newly-published advisories even when no
@@ -66,7 +68,12 @@ jobs:
           # against the interpreter it runs on, so auditing 3.12 wheels while
           # Cloud Run ships 3.14 would audit a tree that is not deployed.
           python-version: '3.14'
-      - name: 'Install pip-audit'
-        run: pip install pip-audit
-      - name: 'Audit admin_tool requirements'
-        run: pip-audit -r requirements.txt --desc
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: 'latest'
+      - name: 'Install locked dependencies'
+        # --locked: audit the resolution the Dockerfile actually ships, not a
+        # fresh re-resolve of the floors in pyproject.toml.
+        run: uv sync --locked
+      - name: 'Audit admin_tool dependencies'
+        run: uv run pip-audit --strict --desc
