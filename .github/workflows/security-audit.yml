@@ -27,6 +27,7 @@ on:
     # Weekly safety net — catches newly-published advisories even when no
     # manifest changed.
     - cron: '0 6 * * 1'
+  workflow_dispatch: {}
 
 # Least privilege: audit jobs only read the repo.
 permissions:
@@ -77,3 +78,63 @@ jobs:
         run: uv sync --locked
       - name: 'Audit admin_tool dependencies'
         run: uv run pip-audit --strict --desc
+
+  dependabot-alert-freshness:
+    name: 'Dependabot alert freshness'
+    # Scheduled only, not on push/PR: this checks repo-wide state, not the
+    # diff of a specific change, so it belongs on the same weekly cadence as
+    # the "newly-published advisories" safety net above, not on every commit.
+    #
+    # Why this job exists: a high/critical Dependabot alert can end up with
+    # NO associated PR at all if Dependabot itself cannot resolve a fix (a
+    # pinned transitive range, a workspace conflict, etc -- see the
+    # `Dependabot Updates` workflow's own run history, which fails silently
+    # with `conflicting-dependencies` in that case). Every other gate in this
+    # repo watches PRs; none of them notice an alert that never got one. That
+    # gap sat unnoticed for js-yaml (alert #190/#191) and nanoid (#186) until
+    # a manual audit found it days later -- this job is the automated version
+    # of that audit.
+    if: "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'"
+    runs-on: 'ubuntu-latest'
+    permissions:
+      contents: read
+      # Required to call the Dependabot alerts API with the built-in token.
+      security-events: read
+    env:
+      GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+      REPO: '${{ github.repository }}'
+      # Generous relative to the weekly cron: a fresh alert should get a
+      # Dependabot PR (or a human fix) well within one cadence cycle. Stale
+      # past that means something -- Dependabot failing silently, or a human
+      # PR stuck -- and is worth a red build, not another silent week.
+      MAX_AGE_DAYS: '10'
+    steps:
+      - name: 'Fail on stale high/critical open alerts'
+        run: |
+          set -euo pipefail
+
+          alerts="$(gh api "repos/$REPO/dependabot/alerts" --paginate \
+            -q '[.[] | select(.state == "open") | select(.security_advisory.severity == "high" or .security_advisory.severity == "critical")]')"
+
+          now_epoch="$(date -u +%s)"
+          stale="$(printf '%s' "$alerts" | jq --argjson now "$now_epoch" --argjson maxAge "$MAX_AGE_DAYS" '
+            [.[] | . as $a
+             | (($now - (($a.created_at | fromdateiso8601))) / 86400 | floor) as $ageDays
+             | select($ageDays >= $maxAge)
+             | {number: $a.number, package: $a.dependency.package.name, severity: $a.security_advisory.severity, ageDays: $ageDays, url: $a.html_url}]')"
+
+          count="$(printf '%s' "$stale" | jq 'length')"
+
+          if [ "$count" -gt 0 ]; then
+            echo "::error::$count high/critical Dependabot alert(s) have been open for >= ${MAX_AGE_DAYS} days with no resolution:"
+            printf '%s' "$stale" | jq -r '.[] | "  - #\(.number) \(.package) (\(.severity), \(.ageDays)d open) -> \(.url)"'
+            echo ""
+            echo "If Dependabot could not generate a fix PR on its own (check the"
+            echo "'Dependabot Updates' workflow runs for 'conflicting-dependencies'"
+            echo "errors), a manual override/patch is required -- see PR #307 for"
+            echo "the pattern (js-yaml/nanoid version overrides + surgical lockfile"
+            echo "edit) used the last time this happened."
+            exit 1
+          fi
+
+          echo "No stale high/critical Dependabot alerts (threshold: ${MAX_AGE_DAYS} days)."
