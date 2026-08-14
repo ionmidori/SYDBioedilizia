@@ -29,8 +29,12 @@ updates:
         update-types: ["minor", "patch"]
     labels: ["dependencies", "backend"]
 
-  # ── Admin tool (Python / pip) ────────────────────────────────────────────
-  - package-ecosystem: "pip"
+  # ── Admin tool (Python / uv) ─────────────────────────────────────────────
+  # MUST be "uv", not "pip" -- same reasoning as /backend_python above.
+  # admin_tool used to be a bare requirements.txt (no lockfile); migrated to
+  # a pyproject.toml + uv.lock pair (see Dockerfile/CI), so "pip" would once
+  # again only rewrite floors and never touch the lock the image ships from.
+  - package-ecosystem: "uv"
     directory: "/admin_tool"
     schedule:
       interval: "weekly"
