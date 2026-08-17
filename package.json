@@ -20,7 +20,7 @@
         "form-data": "^4.0.6",
         "minimatch": "10.2.6",
         "next": "^16.2.6",
-        "opencode-ai": "^1.18.16",
+        "opencode-ai": "^1.18.18",
         "react": "19.2.8",
         "react-dom": "19.2.8"
     },
