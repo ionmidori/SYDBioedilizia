@@ -96,31 +96,51 @@ jobs:
     # of that audit.
     if: "github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'"
     runs-on: 'ubuntu-latest'
-    permissions:
-      contents: read
+    # Confinamento del secret. `DEPENDABOT_ALERTS_TOKEN` e' un ENVIRONMENT
+    # secret, non un repository secret: un repository secret sarebbe leggibile
+    # da qualunque workflow su qualunque ref, e questo repo e' PUBBLICO
+    # (chiunque puo' aprire una PR; chi ha write puo' pushare un branch e
+    # lanciarlo via workflow_dispatch). L'environment `dependabot-alerts` ha
+    # una deployment branch policy che ammette solo `main`, quindi un job che
+    # gira da un altro ref non ottiene il token nemmeno dichiarando
+    # l'environment. Gli eventi `schedule` girano sempre sul default branch,
+    # quindi la restrizione non limita l'uso legittimo.
+    environment: 'dependabot-alerts'
+    # Il GITHUB_TOKEN integrato non serve a questo job: non fa checkout, non
+    # legge il repo, non scrive nulla. Zero permessi = zero da rubare.
+    permissions: {}
     env:
-      # NON e' `secrets.GITHUB_TOKEN`. Il token integrato di Actions NON puo'
-      # leggere l'API Dependabot alerts: risponde sempre
-      # `Resource not accessible by integration (HTTP 403)`, anche con
-      # `permissions: security-events: read` (provato -- questo job e' andato
-      # in failure per quel motivo ad ogni run schedulato dal 17 al 31 Ago
-      # 2026, cioe' da quando e' stato introdotto in PR #313 fino alla PR che
-      # aggiunge questo commento: l'allarme era morto alla nascita e non ha
-      # mai valutato un solo alert).
-      #
-      # `repos/{repo}/dependabot/alerts` accetta solo un PAT classic con scope
-      # `security_events` (repo privati) o un token fine-grained con il
-      # permesso repository "Dependabot alerts: read". Va messo nel secret
-      # `DEPENDABOT_ALERTS_TOKEN`.
-      GH_TOKEN: '${{ secrets.DEPENDABOT_ALERTS_TOKEN }}'
       REPO: '${{ github.repository }}'
       # Generous relative to the weekly cron: a fresh alert should get a
       # Dependabot PR (or a human fix) well within one cadence cycle. Stale
       # past that means something -- Dependabot failing silently, or a human
       # PR stuck -- and is worth a red build, not another silent week.
       MAX_AGE_DAYS: '10'
+    # NB: questo job non deve MAI acquisire un `actions/checkout` o una action
+    # di terze parti. Cosi' com'e', il token non condivide il runner con
+    # codice che non sia questo `run:` -- e' la ragione principale per cui il
+    # raggio d'azione di una compromissione qui e' nullo. Se un giorno serve
+    # del codice dal repo, spostarlo in un job separato SENZA il token.
     steps:
       - name: 'Fail on stale high/critical open alerts'
+        env:
+          # A livello di step, non di job: nessun altro step erediterebbe il
+          # token se qualcuno ne aggiungesse uno.
+          #
+          # NON e' `secrets.GITHUB_TOKEN`. Il token integrato di Actions NON
+          # puo' leggere l'API Dependabot alerts: risponde sempre
+          # `Resource not accessible by integration (HTTP 403)`, anche con
+          # `permissions: security-events: read` (provato -- questo job e'
+          # andato in failure per quel motivo ad ogni run schedulato dal 17 al
+          # 31 Ago 2026, cioe' da quando e' stato introdotto in PR #313 fino
+          # alla PR che lo ha corretto: l'allarme era morto alla nascita e non
+          # ha mai valutato un solo alert).
+          #
+          # Il token atteso e' un PAT **fine-grained** con un solo permesso
+          # repository, "Dependabot alerts: Read-only", e accesso al solo
+          # `SYDBioedilizia`. Un PAT classic con `security_events` funziona ma
+          # e' un permesso di ACCOUNT, non di repo: non usarlo.
+          GH_TOKEN: '${{ secrets.DEPENDABOT_ALERTS_TOKEN }}'
         run: |
           set -euo pipefail
 
@@ -129,44 +149,86 @@ jobs:
           # *perche'*, altrimenti si finisce a ignorarlo (che e' esattamente
           # quello che e' successo per due settimane).
           if [ -z "${GH_TOKEN:-}" ]; then
-            echo "::error::Secret DEPENDABOT_ALERTS_TOKEN mancante -- questo job non puo' girare."
+            echo "::error::Secret DEPENDABOT_ALERTS_TOKEN mancante o non visibile -- questo job non puo' girare."
             echo ""
             echo "L'API Dependabot alerts non e' accessibile al GITHUB_TOKEN integrato."
-            echo "Crea un PAT (classic con scope 'security_events', oppure fine-grained"
-            echo "con permesso repository 'Dependabot alerts: read' su questo repo) e"
-            echo "salvalo come secret di repository DEPENDABOT_ALERTS_TOKEN:"
+            echo "Serve un PAT fine-grained con accesso al solo ${REPO} e un solo"
+            echo "permesso repository: 'Dependabot alerts: Read-only'."
             echo ""
-            echo "  gh secret set DEPENDABOT_ALERTS_TOKEN --repo $REPO"
+            echo "Va salvato come ENVIRONMENT secret dell'environment 'dependabot-alerts'"
+            echo "(non come repository secret):"
+            echo ""
+            echo "  gh secret set DEPENDABOT_ALERTS_TOKEN --repo ${REPO} --env dependabot-alerts"
+            echo ""
+            echo "Se il secret esiste ma il job lo vede vuoto, il run non parte da 'main':"
+            echo "l'environment ha una deployment branch policy che ammette solo main."
             exit 1
           fi
 
+          # Nessun `--jq`/`-q` su questa chiamata, ed e' deliberato: con
+          # `--paginate`, gh applica il filtro A OGNI PAGINA e ne concatena i
+          # risultati, producendo piu' documenti JSON (`[...]` `[...]`).
+          # La versione originale del job faceva proprio cosi', e su piu' di
+          # una pagina il `jq 'length'` a valle avrebbe emesso due numeri,
+          # facendo esplodere il `[ "$count" -gt 0 ]` con "integer expression
+          # expected". Non si era mai visto perche' il job non e' mai arrivato
+          # a questa riga (moriva prima sul 403), ma il caso e' reale: questo
+          # repo ha gia' superato le 100 alert storiche, quindi l'endpoint
+          # pagina davvero.
+          #
+          # Senza filtro, invece, gh FONDE le pagine in un unico array valido
+          # (verificato: 178 elementi in un solo documento), che e' quello che
+          # il jq successivo si aspetta.
           http_status=0
           alerts_raw="$(gh api "repos/$REPO/dependabot/alerts" --paginate 2>"$RUNNER_TEMP/gh_err")" || http_status=$?
 
           if [ "$http_status" -ne 0 ]; then
             echo "::error::Chiamata all'API Dependabot alerts fallita -- il gate non ha valutato nulla."
-            cat "$RUNNER_TEMP/gh_err"
+            # Solo la prima riga: e' quella con lo stato HTTP, ed evita di
+            # riversare in un log pubblico un corpo di risposta arbitrario.
+            # (Actions maschera comunque i valori dei secret, ma non e' una
+            # ragione per stampare piu' del necessario.)
+            head -n 1 "$RUNNER_TEMP/gh_err" || true
             echo ""
-            echo "Se l'errore e' 'Resource not accessible by integration (HTTP 403)',"
-            echo "il token in DEPENDABOT_ALERTS_TOKEN e' scaduto o non ha lo scope"
-            echo "'security_events' / il permesso 'Dependabot alerts: read'."
+            echo "Cause tipiche, in ordine di probabilita':"
+            echo "  - HTTP 401: il PAT fine-grained e' SCADUTO. Rigenerarlo e"
+            echo "    riscrivere il secret; la scadenza e' obbligatoria per questo"
+            echo "    tipo di token, quindi succedera' di nuovo -- e' voluto."
+            echo "  - HTTP 403: al token manca il permesso repository"
+            echo "    'Dependabot alerts: Read-only', oppure non include ${REPO}."
+            echo "  - HTTP 404: il token e' valido ma non vede il repo (resource"
+            echo "    owner sbagliato in fase di creazione)."
             exit 1
           fi
 
           alerts="$(printf '%s' "$alerts_raw" | jq '[.[] | select(.state == "open") | select(.security_advisory.severity == "high" or .security_advisory.severity == "critical")]')"
 
+          # Si calcola SOLO il conteggio: i dettagli non servono a nulla qui
+          # (vedi il commento sotto sui log pubblici), e cio' che non viene
+          # estratto non puo' finire per sbaglio in un `echo`.
           now_epoch="$(date -u +%s)"
-          stale="$(printf '%s' "$alerts" | jq --argjson now "$now_epoch" --argjson maxAge "$MAX_AGE_DAYS" '
-            [.[] | . as $a
-             | (($now - (($a.created_at | fromdateiso8601))) / 86400 | floor) as $ageDays
-             | select($ageDays >= $maxAge)
-             | {number: $a.number, package: $a.dependency.package.name, severity: $a.security_advisory.severity, ageDays: $ageDays, url: $a.html_url}]')"
-
-          count="$(printf '%s' "$stale" | jq 'length')"
+          count="$(printf '%s' "$alerts" | jq --argjson now "$now_epoch" --argjson maxAge "$MAX_AGE_DAYS" '
+            [.[]
+             | (($now - (.created_at | fromdateiso8601)) / 86400 | floor)
+             | select(. >= $maxAge)] | length')"
 
           if [ "$count" -gt 0 ]; then
-            echo "::error::$count high/critical Dependabot alert(s) have been open for >= ${MAX_AGE_DAYS} days with no resolution:"
-            printf '%s' "$stale" | jq -r '.[] | "  - #\(.number) \(.package) (\(.severity), \(.ageDays)d open) -> \(.url)"'
+            # I dettagli (pacchetto, severita', advisory) NON vanno stampati.
+            # Questo repo e' pubblico, quindi i log delle Actions sono
+            # leggibili da chiunque -- mentre gli alert Dependabot sono
+            # visibili solo a chi ha write. Stampare l'elenco significherebbe
+            # pubblicare una lista curata di vulnerabilita' high/critical
+            # ancora NON corrette: esattamente il materiale che serve a chi
+            # cerca un bersaglio. I manifest sono pubblici e un attaccante
+            # potrebbe ricostruire buona parte da solo, ma confermargliele e
+            # ordinargliele per anzianita' e' un regalo gratuito.
+            #
+            # Il conteggio basta a far fallire il build; i dettagli stanno a
+            # un click, dietro autenticazione.
+            echo "::error::$count high/critical Dependabot alert(s) have been open for >= ${MAX_AGE_DAYS} days with no resolution."
+            echo ""
+            echo "Dettagli deliberatamente non stampati (log pubblici). Elenco completo:"
+            echo "  https://github.com/${REPO}/security/dependabot?q=is%3Aopen"
             echo ""
             echo "If Dependabot could not generate a fix PR on its own (check the"
             echo "'Dependabot Updates' workflow runs for 'conflicting-dependencies'"
