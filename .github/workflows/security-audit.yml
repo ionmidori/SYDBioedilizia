@@ -98,10 +98,21 @@ jobs:
     runs-on: 'ubuntu-latest'
     permissions:
       contents: read
-      # Required to call the Dependabot alerts API with the built-in token.
-      security-events: read
     env:
-      GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+      # NON e' `secrets.GITHUB_TOKEN`. Il token integrato di Actions NON puo'
+      # leggere l'API Dependabot alerts: risponde sempre
+      # `Resource not accessible by integration (HTTP 403)`, anche con
+      # `permissions: security-events: read` (provato -- questo job e' andato
+      # in failure per quel motivo ad ogni run schedulato dal 17 al 31 Ago
+      # 2026, cioe' da quando e' stato introdotto in PR #313 fino alla PR che
+      # aggiunge questo commento: l'allarme era morto alla nascita e non ha
+      # mai valutato un solo alert).
+      #
+      # `repos/{repo}/dependabot/alerts` accetta solo un PAT classic con scope
+      # `security_events` (repo privati) o un token fine-grained con il
+      # permesso repository "Dependabot alerts: read". Va messo nel secret
+      # `DEPENDABOT_ALERTS_TOKEN`.
+      GH_TOKEN: '${{ secrets.DEPENDABOT_ALERTS_TOKEN }}'
       REPO: '${{ github.repository }}'
       # Generous relative to the weekly cron: a fresh alert should get a
       # Dependabot PR (or a human fix) well within one cadence cycle. Stale
@@ -113,8 +124,36 @@ jobs:
         run: |
           set -euo pipefail
 
-          alerts="$(gh api "repos/$REPO/dependabot/alerts" --paginate \
-            -q '[.[] | select(.state == "open") | select(.security_advisory.severity == "high" or .security_advisory.severity == "critical")]')"
+          # Diagnostica esplicita invece di un 403 opaco. Un gate di sicurezza
+          # che non riesce a girare deve essere rosso -- ma rosso con scritto
+          # *perche'*, altrimenti si finisce a ignorarlo (che e' esattamente
+          # quello che e' successo per due settimane).
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::Secret DEPENDABOT_ALERTS_TOKEN mancante -- questo job non puo' girare."
+            echo ""
+            echo "L'API Dependabot alerts non e' accessibile al GITHUB_TOKEN integrato."
+            echo "Crea un PAT (classic con scope 'security_events', oppure fine-grained"
+            echo "con permesso repository 'Dependabot alerts: read' su questo repo) e"
+            echo "salvalo come secret di repository DEPENDABOT_ALERTS_TOKEN:"
+            echo ""
+            echo "  gh secret set DEPENDABOT_ALERTS_TOKEN --repo $REPO"
+            exit 1
+          fi
+
+          http_status=0
+          alerts_raw="$(gh api "repos/$REPO/dependabot/alerts" --paginate 2>"$RUNNER_TEMP/gh_err")" || http_status=$?
+
+          if [ "$http_status" -ne 0 ]; then
+            echo "::error::Chiamata all'API Dependabot alerts fallita -- il gate non ha valutato nulla."
+            cat "$RUNNER_TEMP/gh_err"
+            echo ""
+            echo "Se l'errore e' 'Resource not accessible by integration (HTTP 403)',"
+            echo "il token in DEPENDABOT_ALERTS_TOKEN e' scaduto o non ha lo scope"
+            echo "'security_events' / il permesso 'Dependabot alerts: read'."
+            exit 1
+          fi
+
+          alerts="$(printf '%s' "$alerts_raw" | jq '[.[] | select(.state == "open") | select(.security_advisory.severity == "high" or .security_advisory.severity == "critical")]')"
 
           now_epoch="$(date -u +%s)"
           stale="$(printf '%s' "$alerts" | jq --argjson now "$now_epoch" --argjson maxAge "$MAX_AGE_DAYS" '
@@ -134,6 +173,11 @@ jobs:
             echo "errors), a manual override/patch is required -- see PR #307 for"
             echo "the pattern (js-yaml/nanoid version overrides + surgical lockfile"
             echo "edit) used the last time this happened."
+            echo ""
+            echo "Se invece Dependabot HA aperto le PR ma sono tutte rosse su"
+            echo "pip-audit/npm audit, e' il deadlock incrociato: ogni PR fallisce"
+            echo "sulle vulnerabilita' che le altre correggono -- serve un branch"
+            echo "consolidato che le unisca (vedi PR #308 e #336)."
             exit 1
           fi
 
