@@ -9,7 +9,7 @@ dependencies = [
     "firebase-admin>=7.5.0",
     "google-cloud-aiplatform>=2.1.0",
     "google-cloud-firestore>=2.29.0",
-    "google-genai>=2.20.0",
+    "google-genai>=2.23.0",
     "httpx>=0.28.1",
     "pillow>=12.3.0",
     "pinecone>=10.0.0",
@@ -21,12 +21,12 @@ dependencies = [
     "ezdxf>=1.4.4",
     "python-dateutil>=2.9.0.post0",
     "slowapi>=0.1.10",
-    "google-adk>=2.8.0",
-    "aiosmtplib>=5.1.2",
+    "google-adk>=2.9.0",
+    "aiosmtplib>=5.1.3",
     "reportlab>=5.0.1",
     "google-cloud-modelarmor>=0.7.1",
     "fido2>=2.2.1",
-    "pypdf>=6.16.2",
+    "pypdf>=6.18.0",
     "cryptography>=50.0.1",
     # Transitive of the google-cloud / vertex / firestore stack. Pinned above the
     # YANKED 1.78.1 ("caused major outage with gcloud serverless environments"),
@@ -133,6 +133,6 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "pip-audit>=2.10.1",
-    "ruff>=0.16.5",
-    "pyright>=1.1.411",
+    "ruff>=0.16.7",
+    "pyright>=1.1.414",
 ]
