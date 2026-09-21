@@ -95,7 +95,7 @@ jobs:
           uv run pytest -v --tb=short --cov=src --cov-report=term-missing --cov-report=xml --cov-fail-under=55 -m "not integration"
 
       - name: 'Upload coverage'
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           files: 'backend_python/coverage.xml'
           flags: 'backend-python'
