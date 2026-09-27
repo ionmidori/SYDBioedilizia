@@ -118,6 +118,8 @@ directives/
 docs/
 gemini.md
 CLAUDE.md
+# generated and re-added by `next dev` (Next.js 16.3+)
+AGENTS.md
 SECURITY_AUDIT_P*.md
 architecture_analysis.md
 backend_python/docs/chain_of_thought_analysis.md
