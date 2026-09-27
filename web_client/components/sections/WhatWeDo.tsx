@@ -60,16 +60,20 @@ export function WhatWeDo() {
                                     index % 2 === 0 ? 'lg:justify-start' : 'lg:justify-end',
                                 )}
                             >
-                                {/* --sd-dir picks the side the card glides in from: always the
-                                    left below lg, alternating with the zig-zag from lg up. */}
+                                {/* --sd-dir picks the side the card glides in from: left, right,
+                                    left… at every width. Phones stack the cards in one column,
+                                    but they still enter in a zig-zag; from lg they also rest on
+                                    alternating sides. */}
                                 <div
                                     data-activity-slot
                                     className={cn(
-                                        'w-full max-w-md lg:w-[44%] h-[212px] max-[359px]:h-[236px] md:h-[188px] [perspective:1200px]',
-                                        index % 2 === 1 && 'lg:[--sd-dir:1]',
+                                        // Heights fit the longest description, unclamped, at the
+                                        // narrowest width of each range (measured in Chromium).
+                                        'w-full max-w-md lg:w-[44%] h-[236px] max-[359px]:h-[262px] md:h-[212px] lg:h-[228px] [perspective:1200px]',
+                                        index % 2 === 1 && '[--sd-dir:1]',
                                     )}
                                 >
-                                    <ActivityCard activity={activity} index={index} />
+                                    <ActivityCard activity={activity} />
                                 </div>
                             </div>
 
@@ -82,7 +86,7 @@ export function WhatWeDo() {
     );
 }
 
-function ActivityCard({ activity, index }: { activity: Activity; index: number }) {
+function ActivityCard({ activity }: { activity: Activity }) {
     const Icon = activity.icon;
 
     return (
@@ -95,15 +99,7 @@ function ActivityCard({ activity, index }: { activity: Activity; index: number }
                 'elevated-service-card',
             )}
         >
-            {/* Decorative ordinal — the <ol> already conveys the order to assistive tech. */}
-            <span
-                aria-hidden="true"
-                className="absolute top-4 right-5 font-serif italic text-2xl md:text-3xl text-luxury-gold/40 select-none"
-            >
-                {String(index + 1).padStart(2, '0')}
-            </span>
-
-            <div className="flex items-center gap-4 mb-3 pr-10">
+            <div className="flex items-center gap-4 mb-3">
                 <div
                     className={cn(
                         'w-11 h-11 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/15 text-luxury-teal',
@@ -113,13 +109,13 @@ function ActivityCard({ activity, index }: { activity: Activity; index: number }
                     <Icon className="w-5 h-5" aria-hidden="true" />
                 </div>
 
-                <h3 className="font-serif text-lg md:text-xl font-semibold leading-tight text-luxury-text">
+                <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-text">
                     {activity.title}
                 </h3>
             </div>
 
             {/* /75 for WCAG AA against the card gradient (see ServiceCard). */}
-            <p className="text-luxury-text/75 text-sm leading-relaxed font-light line-clamp-4 max-[359px]:line-clamp-5 md:line-clamp-3">
+            <p className="text-luxury-text/75 text-base leading-relaxed font-light">
                 {activity.description}
             </p>
         </article>
