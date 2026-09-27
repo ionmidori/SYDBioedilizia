@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { ChatToggleButton } from '../ChatToggleButton';
+import { ChatToggleButton, CLOSED_SHIFT_PX } from '../ChatToggleButton';
 
 describe('ChatToggleButton', () => {
     const defaultProps = {
@@ -58,5 +58,39 @@ describe('ChatToggleButton', () => {
 
         const button = screen.getByRole('button');
         expect(button).toHaveAttribute('aria-label');
+    });
+});
+
+describe('ChatToggleButton closed-state position', () => {
+    // syd_final_v9.png is 1024×564 with its opaque artwork ending at y=541, and it
+    // renders width-constrained and vertically centred in its box. These are the
+    // distances from the bottom of the button box to the artwork's lowest pixel.
+    const transparentBelow = (width: number, height: number) => {
+        const rendered = (width * 564) / 1024;
+        return (height - rendered) / 2 + (rendered * 23) / 564;
+    };
+
+    it('drops the avatar down to 3px above the bottom edge, like the right edge', () => {
+        // Box offset from the edge (bottom-4 / md:bottom-6) plus the transparent band,
+        // minus the 3px safety margin.
+        expect(CLOSED_SHIFT_PX.mobile.y).toBeCloseTo(16 + transparentBelow(158, 158) - 3, 5);
+        expect(CLOSED_SHIFT_PX.desktop.y).toBeCloseTo(24 + transparentBelow(208, 192) - 3, 5);
+        // Sanity: a real move of several dozen pixels, never past the edge.
+        expect(CLOSED_SHIFT_PX.mobile.y).toBeGreaterThan(40);
+        expect(CLOSED_SHIFT_PX.desktop.y).toBeGreaterThan(50);
+    });
+
+    it('applies the drop only while closed, so the open X stays inside the screen', () => {
+        const { container, rerender } = render(<ChatToggleButton isOpen={false} onClick={jest.fn()} />);
+
+        const root = container.firstElementChild as HTMLElement;
+        const wrapper = root.firstElementChild as HTMLElement;
+        expect(root.style.getPropertyValue('--syd-closed-drop-mobile')).toBe(`${CLOSED_SHIFT_PX.mobile.y}px`);
+        expect(root.style.getPropertyValue('--syd-closed-drop-desktop')).toBe(`${CLOSED_SHIFT_PX.desktop.y}px`);
+        expect(wrapper).toHaveClass('translate-y-[var(--syd-closed-drop-mobile)]', 'md:translate-y-[var(--syd-closed-drop-desktop)]');
+
+        rerender(<ChatToggleButton isOpen={true} onClick={jest.fn()} />);
+        expect(wrapper).toHaveClass('translate-y-0');
+        expect(wrapper).not.toHaveClass('translate-y-[var(--syd-closed-drop-mobile)]');
     });
 });
