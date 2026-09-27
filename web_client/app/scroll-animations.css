@@ -17,8 +17,9 @@
   @media (prefers-reduced-motion: no-preference) {
 
     /* ── "Cosa facciamo": cards glide in from the side they sit on ──
-       `--sd-dir` is -1 (from the left) or 1 (from the right); the zig-zag
-       layout flips it per card from lg up. The distance clears the card's
+       `--sd-dir` is -1 (from the left) or 1 (from the right), alternating card
+       by card at every width — a zig-zag entrance even when phones stack the
+       cards in one column. The distance clears the card's
        own width plus half the viewport, so it starts fully off screen at any
        width (the section clips the overflow). Range: the card's slot moving
        from 95% to 55% of the viewport height, as the GSAP version did. */

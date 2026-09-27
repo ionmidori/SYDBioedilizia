@@ -31,6 +31,32 @@ describe('WhatWeDo', () => {
         expect(lastItem?.querySelector('[data-activity-connector]')).toBeNull();
     });
 
+    it('shows no ordinal numbers on the cards', () => {
+        const { container } = render(<WhatWeDo />);
+
+        // The <ol> alone conveys the order; the cards carry icon, title and text.
+        // Looks for an element whose whole text is a number like "01" — the text
+        // itself may legitimately cite one, e.g. "DM 37/08".
+        cards(container).forEach((card) => {
+            const ordinals = Array.from(card.querySelectorAll('*')).filter((el) =>
+                /^\s*\d{1,2}\s*$/.test(el.textContent ?? ''),
+            );
+            expect(ordinals).toHaveLength(0);
+        });
+    });
+
+    it('never truncates a description', () => {
+        const { container } = render(<WhatWeDo />);
+
+        // The slot heights are sized to fit the longest text at every width, so no
+        // line clamp is needed — and none may come back to cut a description short.
+        cards(container).forEach((card) => {
+            const description = card.querySelector('p');
+            expect(description).not.toBeNull();
+            expect(description?.className ?? '').not.toMatch(/line-clamp/);
+        });
+    });
+
     it('keeps the cards informational — no interactive elements', () => {
         render(<WhatWeDo />);
 
@@ -50,14 +76,16 @@ describe('WhatWeDo', () => {
             slots.forEach((slot) => expect(slot.querySelector('[data-activity-card]')).not.toBeNull());
         });
 
-        it('flips the entry side for every other card from lg up, matching the zig-zag', () => {
+        it('alternates the entry side card by card at every width, in a zig-zag', () => {
             const { container } = render(<WhatWeDo />);
 
             const slots = Array.from(container.querySelectorAll<HTMLElement>('[data-activity-slot]'));
             slots.forEach((slot, index) => {
-                // Even cards sit on the left and come from the left (the CSS default);
-                // odd cards sit on the right from lg up and come from the right.
-                expect(slot.classList.contains('lg:[--sd-dir:1]')).toBe(index % 2 === 1);
+                // Even cards come from the left (the CSS default), odd ones from the
+                // right — on phones too, where the cards are stacked in one column.
+                // Only the resting position is lg-only; the direction never is.
+                expect(slot.classList.contains('[--sd-dir:1]')).toBe(index % 2 === 1);
+                expect(Array.from(slot.classList).some((c) => /^\w+:\[--sd-dir/.test(c))).toBe(false);
             });
         });
 
