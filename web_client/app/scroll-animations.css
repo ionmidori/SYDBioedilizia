@@ -1,0 +1,144 @@
+/* ─── Scroll-driven animations (CSS `animation-timeline`) ─────────────────────
+   Effects whose progress IS the scroll position live here, not in JS. The
+   browser runs them on the compositor thread next to the scroll itself, so
+   they cannot stutter when the main thread is busy — they only animate
+   `translate` / `rotate` / `scale` / `opacity` for that reason.
+
+   Every rule is gated twice:
+   - `@supports (animation-timeline: view())` — without support nothing is
+     registered and elements simply render in their final, readable state;
+   - `prefers-reduced-motion: no-preference` — same outcome for users who
+     asked for less motion.
+
+   One-shot reveals (play once when something enters the viewport) are NOT
+   here: those stay time-based, with Motion's `whileInView`. */
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+
+    /* ── "Cosa facciamo": cards glide in from the side they sit on ──
+       `--sd-dir` is -1 (from the left) or 1 (from the right); the zig-zag
+       layout flips it per card from lg up. The distance clears the card's
+       own width plus half the viewport, so it starts fully off screen at any
+       width (the section clips the overflow). Range: the card's slot moving
+       from 95% to 55% of the viewport height, as the GSAP version did. */
+    [data-activity-card] {
+      animation: sd-slide-in linear both;
+      animation-timing-function: cubic-bezier(0.5, 1, 0.89, 1); /* power2.out */
+      animation-timeline: --sd-activity-slot;
+      animation-range: cover 5vh cover 45vh;
+    }
+
+    [data-activity-slot] {
+      view-timeline-name: --sd-activity-slot;
+    }
+
+    /* ── Connector between two activity cards: the line draws down, then the
+       dot pops with a small overshoot. Range: connector top at 85% of the
+       viewport → its bottom at 60%. */
+    [data-activity-connector] {
+      view-timeline-name: --sd-connector;
+    }
+
+    [data-connector-line] {
+      animation: sd-grow-line linear both;
+      animation-timeline: --sd-connector;
+      animation-range: cover 15vh contain 40vh;
+    }
+
+    [data-connector-dot] {
+      animation: sd-pop-dot linear both;
+      animation-timeline: --sd-connector;
+      animation-range: cover 15vh contain 40vh;
+    }
+
+    /* ── Services, mobile sticky stack: a covered card recedes and dims while
+       the next one slides over it. A sticky element barely moves while it is
+       stuck, so the timeline comes from a zero-height marker placed where the
+       covered card's slot ends in normal flow. The inset moves the "top" of
+       the viewport down to where cards come to rest (88px, below the navbar):
+       the effect runs over the last slot-height (274px) before the marker
+       reaches that line — exactly while the next card covers this one.
+       The marker is a sibling of the card, not an ancestor, so each pair
+       shares a unique timeline name (`--stack-<index>`) set inline by
+       Services.tsx, with `timeline-scope` on the stack to expose it. */
+    [data-stack-marker] {
+      view-timeline-inset: 88px 0px;
+    }
+
+    [data-stack-card] {
+      animation: sd-recede linear both;
+    }
+
+    [data-stack-shade] {
+      animation: sd-shade linear both;
+    }
+
+    [data-stack-card],
+    [data-stack-shade] {
+      animation-range: cover calc(100% - 274px) cover 100%;
+    }
+  }
+}
+
+@keyframes sd-slide-in {
+  from {
+    translate: calc(var(--sd-dir, -1) * (50vw + 100%)) 0;
+    rotate: y calc(var(--sd-dir, -1) * -14deg);
+    opacity: 0;
+  }
+
+  to {
+    translate: 0 0;
+    rotate: y 0deg;
+    opacity: 1;
+  }
+}
+
+/* The dot's slice of the shared timeline starts a third of the way in, as the
+   GSAP timeline did ('<0.35'); the line has finished by three quarters. */
+@keyframes sd-grow-line {
+  0% {
+    scale: 1 0;
+  }
+
+  74%,
+  100% {
+    scale: 1 1;
+  }
+}
+
+@keyframes sd-pop-dot {
+  0%,
+  26% {
+    scale: 0;
+    animation-timing-function: cubic-bezier(0.34, 1.8, 0.64, 1); /* ≈ back.out */
+  }
+
+  100% {
+    scale: 1;
+  }
+}
+
+@keyframes sd-recede {
+  from {
+    scale: 1;
+  }
+
+  to {
+    scale: 0.96;
+  }
+}
+
+/* Replaces the old `filter: saturate(0.8) brightness(0.88)`, which had to be
+   repainted every frame; a black layer at 12% gives the same dimming for the
+   price of an opacity change. */
+@keyframes sd-shade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0.12;
+  }
+}

@@ -1,122 +1,23 @@
 'use client';
 
-import { useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useGSAP } from '@gsap/react';
 import { cn } from '@/lib/utils';
 import { activities, type Activity } from '@/lib/activities-data';
-
-gsap.registerPlugin(ScrollTrigger);
-
-/** Extra distance past the viewport edge, so the card's shadow is off-screen too. */
-const OFFSCREEN_MARGIN_PX = 48;
 
 /** Header reveal — skipped entirely (rendered in place) under reduced motion. */
 const HEADER_HIDDEN = { opacity: 0, y: 20 };
 const HEADER_SHOWN = { opacity: 1, y: 0 };
 
 export function WhatWeDo() {
-    const sectionRef = useRef<HTMLElement>(null);
     const reduceMotion = useReducedMotion();
 
-    useGSAP(
-        () => {
-            const mm = gsap.matchMedia();
-
-            // Conditions object: GSAP re-runs the callback (reverting the previous
-            // run) whenever either query flips, e.g. on a resize across lg.
-            mm.add(
-                {
-                    allowMotion: '(prefers-reduced-motion: no-preference)',
-                    desktop: '(min-width: 1024px)',
-                },
-                (context) => {
-                    const { allowMotion, desktop } = context.conditions ?? {};
-
-                    // Reduced motion: nothing is registered, so every card and
-                    // connector simply renders in place at full opacity.
-                    if (!allowMotion) return;
-
-                    // The blur is repainted on every scrubbed frame on top of a
-                    // three-layer shadow: fine on desktop, jank on low-end phones.
-                    const blurFrom = desktop ? { filter: 'blur(6px)' } : {};
-                    const blurTo = desktop ? { filter: 'blur(0px)' } : {};
-
-                    const slots = gsap.utils.toArray<HTMLElement>('[data-activity-slot]');
-
-                    slots.forEach((slot, index) => {
-                        const card = slot.querySelector<HTMLElement>('[data-activity-card]');
-                        if (!card) return;
-
-                        // Alternating sides, matching the zig-zag layout (lg and up).
-                        const fromLeft = index % 2 === 0;
-
-                        // The transform lives on the inner card; the slot never moves, so
-                        // its rect is a stable measure of how far "off-screen" is.
-                        // Function values + invalidateOnRefresh recompute it on resize.
-                        gsap.fromTo(
-                            card,
-                            {
-                                x: () => {
-                                    const rect = slot.getBoundingClientRect();
-                                    return fromLeft
-                                        ? -(rect.right + OFFSCREEN_MARGIN_PX)
-                                        : window.innerWidth - rect.left + OFFSCREEN_MARGIN_PX;
-                                },
-                                rotateY: fromLeft ? 14 : -14,
-                                opacity: 0,
-                                ...blurFrom,
-                            },
-                            {
-                                x: 0,
-                                rotateY: 0,
-                                opacity: 1,
-                                ...blurTo,
-                                ease: 'power2.out',
-                                // Scrubbed, not toggled: the card's position is a function of
-                                // scroll, so scrolling back up slides it out the way it came.
-                                scrollTrigger: {
-                                    trigger: slot,
-                                    start: 'top 95%',
-                                    end: 'top 55%',
-                                    scrub: 0.6,
-                                    invalidateOnRefresh: true,
-                                },
-                            },
-                        );
-                    });
-
-                    gsap.utils.toArray<HTMLElement>('[data-activity-connector]').forEach((connector) => {
-                        const line = connector.querySelector<HTMLElement>('[data-connector-line]');
-                        const dot = connector.querySelector<HTMLElement>('[data-connector-dot]');
-                        if (!line || !dot) return;
-
-                        gsap.timeline({
-                            scrollTrigger: {
-                                trigger: connector,
-                                start: 'top 85%',
-                                end: 'bottom 60%',
-                                scrub: 0.6,
-                            },
-                        })
-                            .fromTo(line, { scaleY: 0 }, { scaleY: 1, ease: 'none' })
-                            .fromTo(dot, { scale: 0 }, { scale: 1, ease: 'back.out(3)' }, '<0.35');
-                    });
-                },
-            );
-
-            return () => mm.revert();
-        },
-        { scope: sectionRef, dependencies: [] },
-    );
-
+    // The cards and connectors are animated by CSS scroll timelines, not here —
+    // see app/scroll-animations.css. They run on the compositor thread and, under
+    // reduced motion or without browser support, simply render in place.
     return (
         // overflow-x-clip, not -hidden: the cards start fully outside the viewport,
         // and `hidden` would also turn the section into a scroll container.
         <section
-            ref={sectionRef}
             id="cosa-facciamo"
             aria-labelledby="cosa-facciamo-title"
             className="pt-12 md:pt-16 pb-12 md:pb-16 relative bg-luxury-bg overflow-x-clip border-t border-luxury-gold/5"
@@ -159,9 +60,14 @@ export function WhatWeDo() {
                                     index % 2 === 0 ? 'lg:justify-start' : 'lg:justify-end',
                                 )}
                             >
+                                {/* --sd-dir picks the side the card glides in from: always the
+                                    left below lg, alternating with the zig-zag from lg up. */}
                                 <div
                                     data-activity-slot
-                                    className="w-full max-w-md lg:w-[44%] h-[212px] max-[359px]:h-[236px] md:h-[188px] [perspective:1200px]"
+                                    className={cn(
+                                        'w-full max-w-md lg:w-[44%] h-[212px] max-[359px]:h-[236px] md:h-[188px] [perspective:1200px]',
+                                        index % 2 === 1 && 'lg:[--sd-dir:1]',
+                                    )}
                                 >
                                     <ActivityCard activity={activity} index={index} />
                                 </div>

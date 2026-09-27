@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
 import { resetPasswordSchema, type ResetPasswordValues } from '@/lib/validation/auth-schema';
 import { triggerHaptic } from '@/utils/haptics';
-import { useScrollReveal } from '@/hooks/use-scroll-animation';
+import { M3EasingFM } from '@/lib/m3-motion';
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
@@ -21,12 +21,8 @@ export function Footer() {
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [message, setMessage] = useState('');
 
-    // ── ADK 1.27 Phase 6: Footer scroll reveal (Minimal/Elegant) ──
-    const footerRef = useScrollReveal<HTMLElement>({
-        y: 20,
-        duration: 0.6,
-        start: "top 90%" // Modified from "bottom 90%" to ensure trigger when scrolling down
-    });
+    // Footer reveal, once, as its top crosses 90% of the viewport.
+    const reduceMotion = useReducedMotion();
 
     const {
         register,
@@ -62,7 +58,10 @@ export function Footer() {
 
     return (
         <motion.footer
-            ref={footerRef}
+            initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '0px 0px -10% 0px' }}
+            transition={{ duration: 0.6, ease: M3EasingFM.decelerate }}
             className="bg-luxury-bg border-t border-luxury-gold/10 pt-20 pb-10 relative overflow-hidden"
         >
 

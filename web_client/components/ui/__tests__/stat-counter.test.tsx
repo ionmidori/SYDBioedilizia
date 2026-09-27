@@ -1,51 +1,38 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { useLayoutEffect } from 'react';
-import gsap from 'gsap';
+import { animate, useInView } from 'framer-motion';
 import { StatCounter } from '@/components/ui/stat-counter';
 
-// GSAP is mocked rather than exercised: JSDOM never lays out or scrolls, so a real
-// ScrollTrigger would fire on unpredictable coordinates. What matters here is the
-// contract handed to GSAP — count from zero, once, decelerating — plus the states the
-// user can actually see before the tween takes over.
-jest.mock('gsap', () => {
-    const to = jest.fn();
-    return { __esModule: true, default: { registerPlugin: jest.fn(), to } };
-});
-
-jest.mock('gsap/ScrollTrigger', () => ({ ScrollTrigger: { name: 'ScrollTrigger' } }));
-
-jest.mock('@gsap/react', () => ({
-    useGSAP: (callback: () => void, config: { dependencies?: unknown[] }) => {
-        // Mirrors the real hook: a layout effect, so the DOM it writes is never painted
-        // in its pre-tween state.
-         
-        useLayoutEffect(() => {
-            callback();
-        }, config?.dependencies ?? []);
-    },
+// Motion's `animate` and `useInView` are mocked rather than exercised: JSDOM never
+// lays out or scrolls, so a real IntersectionObserver would never report an entry.
+// What matters is the contract handed to Motion — count from zero, on every entry,
+// decelerating — plus the states the user can actually see before it takes over.
+jest.mock('framer-motion', () => ({
+    animate: jest.fn(() => ({ stop: jest.fn() })),
+    useInView: jest.fn(() => false),
 }));
 
-const mockedTo = gsap.to as jest.Mock;
+const mockedAnimate = animate as unknown as jest.Mock;
+const mockedInView = useInView as jest.Mock;
 
-/** The tween vars GSAP was handed on the most recent render. */
-function lastTweenVars() {
-    return mockedTo.mock.calls[mockedTo.mock.calls.length - 1][1];
+/** The options Motion was handed on the most recent count. */
+function lastCountOptions() {
+    return mockedAnimate.mock.calls[mockedAnimate.mock.calls.length - 1][2];
 }
 
-/** The proxy object GSAP was asked to tween. */
-function lastTweenTarget() {
-    return mockedTo.mock.calls[mockedTo.mock.calls.length - 1][0];
-}
-
-beforeEach(() => {
-    mockedTo.mockClear();
+function mockReducedMotion(reduce: boolean) {
     (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
-        matches: false,
+        matches: reduce && query.includes('prefers-reduced-motion'),
         media: query,
         addEventListener: jest.fn(),
         removeEventListener: jest.fn(),
     }));
+}
+
+beforeEach(() => {
+    mockedAnimate.mockClear();
+    mockedInView.mockReturnValue(false);
+    mockReducedMotion(false);
 });
 
 describe('StatCounter', () => {
@@ -60,51 +47,71 @@ describe('StatCounter', () => {
         expect(html).not.toContain('>0+<');
     });
 
-    it('starts the count from zero, keeping the suffix', () => {
+    it('starts from zero, keeping the suffix, and waits for the viewport', () => {
         render(<StatCounter value={100} suffix="+" />);
 
         expect(screen.getByText('0+')).toBeInTheDocument();
+        expect(mockedAnimate).not.toHaveBeenCalled();
     });
 
-    it('replays the count on every entry, with a decelerating ease', () => {
+    it('counts from zero to the value with a decelerating ease once in view', () => {
+        mockedInView.mockReturnValue(true);
         render(<StatCounter value={100} suffix="+" />);
 
-        const vars = lastTweenVars();
-        expect(vars.n).toBe(100);
-        expect(vars.ease).toBe('power2.out');
-        // restart on onEnter and on onEnterBack — the count runs again every time the
-        // number comes back into view, scrolling down or back up.
-        expect(vars.scrollTrigger.toggleActions).toBe('restart none restart none');
-        // `once` would cap it at a single run for the life of the page, which is the
-        // behaviour this replaced.
-        expect(vars.scrollTrigger.once).toBeUndefined();
+        expect(mockedAnimate).toHaveBeenCalledTimes(1);
+        const [from, to, options] = mockedAnimate.mock.calls[0];
+        expect(from).toBe(0);
+        expect(to).toBe(100);
+        expect(options.duration).toBe(1.4);
+        // power2.out as a cubic-bezier: decelerating, never overshooting.
+        expect(options.ease).toEqual([0.5, 1, 0.89, 1]);
+    });
+
+    it('replays the count on every entry, not just the first', () => {
+        const { rerender } = render(<StatCounter value={100} suffix="+" />);
+
+        mockedInView.mockReturnValue(true);
+        rerender(<StatCounter value={100} suffix="+" />);
+        mockedInView.mockReturnValue(false);
+        rerender(<StatCounter value={100} suffix="+" />);
+        mockedInView.mockReturnValue(true);
+        rerender(<StatCounter value={100} suffix="+" />);
+
+        // Leaving does not start (or reset) anything; each entry does.
+        expect(mockedAnimate).toHaveBeenCalledTimes(2);
     });
 
     it('formats each frame with the requested precision and suffix', () => {
+        mockedInView.mockReturnValue(true);
         render(<StatCounter value={4.9} decimals={1} suffix="/5" />);
 
         expect(screen.getByText('0.0/5')).toBeInTheDocument();
 
-        // Drive one frame the way GSAP would, mid-tween.
-        const target = lastTweenTarget();
-        target.n = 3.14159;
-        lastTweenVars().onUpdate();
+        // Drive one frame the way Motion would, mid-count.
+        act(() => lastCountOptions().onUpdate(3.14159));
 
         expect(screen.getByText('3.1/5')).toBeInTheDocument();
     });
 
+    it('stops a running count when unmounted', () => {
+        const stop = jest.fn();
+        mockedAnimate.mockReturnValueOnce({ stop });
+        mockedInView.mockReturnValue(true);
+
+        const { unmount } = render(<StatCounter value={100} suffix="+" />);
+        unmount();
+
+        expect(stop).toHaveBeenCalled();
+    });
+
     it('leaves the final value alone when reduced motion is requested', () => {
-        (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
-            matches: query.includes('prefers-reduced-motion'),
-            media: query,
-            addEventListener: jest.fn(),
-            removeEventListener: jest.fn(),
-        }));
+        mockReducedMotion(true);
+        mockedInView.mockReturnValue(true);
 
         render(<StatCounter value={24} suffix="h" />);
 
-        // No zero state, no tween — the number is simply there.
+        // No zero state, no count — the number is simply there.
         expect(screen.getByText('24h')).toBeInTheDocument();
-        expect(mockedTo).not.toHaveBeenCalled();
+        expect(mockedAnimate).not.toHaveBeenCalled();
     });
 });
