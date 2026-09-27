@@ -1,9 +1,9 @@
 /**
  * Portfolio domain model and helpers.
  *
- * Shared between the homepage rail (`components/sections/Portfolio.tsx`) and the
- * archive page (`app/progetti/`), so both render the same data with the same
- * category vocabulary.
+ * Shared between the homepage gallery (`components/sections/Portfolio.tsx`, shown
+ * inside the Hero) and the archive page (`app/progetti/`), so both render the same
+ * data with the same category vocabulary.
  *
  * Golden Sync: `PortfolioItem` mirrors `PortfolioOut` in
  * `backend_python/src/api/routes/content_routes.py`. Update both together.
