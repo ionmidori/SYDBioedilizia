@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
@@ -13,77 +13,99 @@ gsap.registerPlugin(ScrollTrigger);
 /** Extra distance past the viewport edge, so the card's shadow is off-screen too. */
 const OFFSCREEN_MARGIN_PX = 48;
 
+/** Header reveal — skipped entirely (rendered in place) under reduced motion. */
+const HEADER_HIDDEN = { opacity: 0, y: 20 };
+const HEADER_SHOWN = { opacity: 1, y: 0 };
+
 export function WhatWeDo() {
     const sectionRef = useRef<HTMLElement>(null);
+    const reduceMotion = useReducedMotion();
 
     useGSAP(
         () => {
             const mm = gsap.matchMedia();
 
-            // Reduced motion: nothing is registered, so every card and connector
-            // simply renders in place at full opacity.
-            mm.add('(prefers-reduced-motion: no-preference)', () => {
-                const slots = gsap.utils.toArray<HTMLElement>('[data-activity-slot]');
+            // Conditions object: GSAP re-runs the callback (reverting the previous
+            // run) whenever either query flips, e.g. on a resize across lg.
+            mm.add(
+                {
+                    allowMotion: '(prefers-reduced-motion: no-preference)',
+                    desktop: '(min-width: 1024px)',
+                },
+                (context) => {
+                    const { allowMotion, desktop } = context.conditions ?? {};
 
-                slots.forEach((slot, index) => {
-                    const card = slot.querySelector<HTMLElement>('[data-activity-card]');
-                    if (!card) return;
+                    // Reduced motion: nothing is registered, so every card and
+                    // connector simply renders in place at full opacity.
+                    if (!allowMotion) return;
 
-                    // Alternating sides, matching the zig-zag layout (lg and up).
-                    const fromLeft = index % 2 === 0;
+                    // The blur is repainted on every scrubbed frame on top of a
+                    // three-layer shadow: fine on desktop, jank on low-end phones.
+                    const blurFrom = desktop ? { filter: 'blur(6px)' } : {};
+                    const blurTo = desktop ? { filter: 'blur(0px)' } : {};
 
-                    // The transform lives on the inner card; the slot never moves, so
-                    // its rect is a stable measure of how far "off-screen" is.
-                    // Function values + invalidateOnRefresh recompute it on resize.
-                    gsap.fromTo(
-                        card,
-                        {
-                            x: () => {
-                                const rect = slot.getBoundingClientRect();
-                                return fromLeft
-                                    ? -(rect.right + OFFSCREEN_MARGIN_PX)
-                                    : window.innerWidth - rect.left + OFFSCREEN_MARGIN_PX;
+                    const slots = gsap.utils.toArray<HTMLElement>('[data-activity-slot]');
+
+                    slots.forEach((slot, index) => {
+                        const card = slot.querySelector<HTMLElement>('[data-activity-card]');
+                        if (!card) return;
+
+                        // Alternating sides, matching the zig-zag layout (lg and up).
+                        const fromLeft = index % 2 === 0;
+
+                        // The transform lives on the inner card; the slot never moves, so
+                        // its rect is a stable measure of how far "off-screen" is.
+                        // Function values + invalidateOnRefresh recompute it on resize.
+                        gsap.fromTo(
+                            card,
+                            {
+                                x: () => {
+                                    const rect = slot.getBoundingClientRect();
+                                    return fromLeft
+                                        ? -(rect.right + OFFSCREEN_MARGIN_PX)
+                                        : window.innerWidth - rect.left + OFFSCREEN_MARGIN_PX;
+                                },
+                                rotateY: fromLeft ? 14 : -14,
+                                opacity: 0,
+                                ...blurFrom,
                             },
-                            rotateY: fromLeft ? 14 : -14,
-                            opacity: 0,
-                            filter: 'blur(6px)',
-                        },
-                        {
-                            x: 0,
-                            rotateY: 0,
-                            opacity: 1,
-                            filter: 'blur(0px)',
-                            ease: 'power2.out',
-                            // Scrubbed, not toggled: the card's position is a function of
-                            // scroll, so scrolling back up slides it out the way it came.
+                            {
+                                x: 0,
+                                rotateY: 0,
+                                opacity: 1,
+                                ...blurTo,
+                                ease: 'power2.out',
+                                // Scrubbed, not toggled: the card's position is a function of
+                                // scroll, so scrolling back up slides it out the way it came.
+                                scrollTrigger: {
+                                    trigger: slot,
+                                    start: 'top 95%',
+                                    end: 'top 55%',
+                                    scrub: 0.6,
+                                    invalidateOnRefresh: true,
+                                },
+                            },
+                        );
+                    });
+
+                    gsap.utils.toArray<HTMLElement>('[data-activity-connector]').forEach((connector) => {
+                        const line = connector.querySelector<HTMLElement>('[data-connector-line]');
+                        const dot = connector.querySelector<HTMLElement>('[data-connector-dot]');
+                        if (!line || !dot) return;
+
+                        gsap.timeline({
                             scrollTrigger: {
-                                trigger: slot,
-                                start: 'top 95%',
-                                end: 'top 55%',
+                                trigger: connector,
+                                start: 'top 85%',
+                                end: 'bottom 60%',
                                 scrub: 0.6,
-                                invalidateOnRefresh: true,
                             },
-                        },
-                    );
-                });
-
-                gsap.utils.toArray<HTMLElement>('[data-activity-connector]').forEach((connector) => {
-                    const line = connector.querySelector<HTMLElement>('[data-connector-line]');
-                    const dot = connector.querySelector<HTMLElement>('[data-connector-dot]');
-                    if (!line || !dot) return;
-
-                    gsap.timeline({
-                        scrollTrigger: {
-                            trigger: connector,
-                            start: 'top 85%',
-                            end: 'bottom 60%',
-                            scrub: 0.6,
-                        },
-                    })
-                        .fromTo(line, { scaleY: 0 }, { scaleY: 1, ease: 'none' })
-                        .fromTo(dot, { scale: 0 }, { scale: 1, ease: 'back.out(3)' }, '<0.35');
-                });
-            });
+                        })
+                            .fromTo(line, { scaleY: 0 }, { scaleY: 1, ease: 'none' })
+                            .fromTo(dot, { scale: 0 }, { scale: 1, ease: 'back.out(3)' }, '<0.35');
+                    });
+                },
+            );
 
             return () => mm.revert();
         },
@@ -109,16 +131,16 @@ export function WhatWeDo() {
                 <div className="text-center max-w-3xl mx-auto mb-10 md:mb-14">
                     <motion.h2
                         id="cosa-facciamo-title"
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={reduceMotion ? false : HEADER_HIDDEN}
+                        whileInView={HEADER_SHOWN}
                         viewport={{ once: true }}
                         className="text-3xl md:text-5xl font-serif font-bold text-luxury-text mb-4 tracking-tight"
                     >
                         Cosa <span className="text-luxury-gold italic">facciamo</span>
                     </motion.h2>
                     <motion.p
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={reduceMotion ? false : HEADER_HIDDEN}
+                        whileInView={HEADER_SHOWN}
                         viewport={{ once: true }}
                         transition={{ delay: 0.2 }}
                         className="text-luxury-text/70 text-lg font-light"
