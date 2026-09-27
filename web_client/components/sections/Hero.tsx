@@ -19,11 +19,9 @@ export function Hero() {
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-luxury-teal/10 rounded-full atmospheric-blur-optimized -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-luxury-gold/5 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
-            {/* Three grid items so the portfolio can sit between the intro and the CTAs
-                below lg, and in its own right-hand column spanning both from lg up.
-                auto/1fr rows: the portfolio is the tallest item, and the extra height goes
-                under the CTAs rather than between them and the intro. */}
-            <div className="container mx-auto px-4 md:px-6 relative z-10 grid lg:grid-cols-2 lg:grid-rows-[auto_1fr] gap-x-12 gap-y-10 items-start">
+            {/* Intro → portfolio gallery → CTAs, stacked at every width: on desktop the
+                gallery runs as a full-width horizontal row under the title. */}
+            <div className="container mx-auto px-4 md:px-6 relative z-10 grid gap-y-10">
 
                 {/* Intro */}
                 <motion.div
@@ -59,7 +57,7 @@ export function Hero() {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.15, ...M3Spring.standard }}
-                    className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2"
+                    className="min-w-0"
                 >
                     <Portfolio />
                 </motion.div>
@@ -69,9 +67,10 @@ export function Hero() {
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1, ...M3Spring.gentle }}
-                    className="lg:col-start-1 lg:row-start-2"
+                    // From lg the CTAs and the stats sit side by side under the gallery.
+                    className="lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
                 >
-                    <div className="flex flex-col gap-6 mb-12">
+                    <div className="flex flex-col gap-6 mb-12 lg:mb-0">
                         {/* Primary CTA - Quote */}
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Button
@@ -113,7 +112,7 @@ export function Hero() {
                     </div>
 
                     {/* Stats - Luxury Style */}
-                    <div className="grid grid-cols-3 gap-6 border-t border-luxury-gold/20 pt-8">
+                    <div className="grid grid-cols-3 gap-6 border-t border-luxury-gold/20 pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
                         <div className="flex flex-col gap-1">
                             <h4 className="text-2xl font-bold text-luxury-text">
                                 <StatCounter value={100} suffix="+" />

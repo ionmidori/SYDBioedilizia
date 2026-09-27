@@ -1,27 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, ImageOff } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { SnapRail } from '@/components/ui/snap-rail';
 import { cn } from '@/lib/utils';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
+import { prefersReducedMotion } from '@/hooks/use-scroll-animation';
 import { triggerHaptic } from '@/lib/haptics';
 import {
-    ALL_CATEGORIES,
     PORTFOLIO_RAIL_LIMIT,
     defaultProjects,
-    deriveCategories,
     fetchPortfolio,
-    filterByCategory,
     type PortfolioItem,
 } from '@/lib/portfolio';
 
 export function Portfolio({ className }: { className?: string }) {
-    const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
     const [hoveredProject, setHoveredProject] = useState<string | null>(null);
     const [projects, setProjects] = useState<PortfolioItem[]>(defaultProjects);
     const [activeRailIndex, setActiveRailIndex] = useState(0);
@@ -34,12 +31,40 @@ export function Portfolio({ className }: { className?: string }) {
         fetchPortfolio().then(setProjects);
     }, []);
 
-    const categories = deriveCategories(projects);
-    const filteredProjects = filterByCategory(projects, activeCategory);
-    const railProjects = filteredProjects.slice(0, PORTFOLIO_RAIL_LIMIT);
-    // Clamped: a category change can leave the index pointing past the shorter list
-    // for the render that happens before the rail remounts.
+    // No category filters here — they live on the archive page (`/progetti`), which
+    // the CTA below links to. `fetchPortfolio` never resolves to an empty list.
+    const railProjects = projects.slice(0, PORTFOLIO_RAIL_LIMIT);
+    // Clamped: the backend response can be shorter than the fallback it replaces.
     const activeProject = railProjects[Math.min(activeRailIndex, railProjects.length - 1)];
+
+    // ── Desktop row (lg+): horizontal scroll driven by the arrow buttons ──
+    const rowRef = useRef<HTMLDivElement>(null);
+    const [canScrollPrev, setCanScrollPrev] = useState(false);
+    const [canScrollNext, setCanScrollNext] = useState(false);
+
+    const updateRowEdges = useCallback(() => {
+        const row = rowRef.current;
+        if (!row) return;
+        // 1px tolerance: fractional card widths leave scrollLeft a hair short of the end.
+        setCanScrollPrev(row.scrollLeft > 1);
+        setCanScrollNext(row.scrollLeft + row.clientWidth < row.scrollWidth - 1);
+    }, []);
+
+    useEffect(() => {
+        updateRowEdges();
+        window.addEventListener('resize', updateRowEdges);
+        return () => window.removeEventListener('resize', updateRowEdges);
+    }, [updateRowEdges, projects.length]);
+
+    // One "page" of cards per click; snap-start then lands on a card edge.
+    const scrollRow = (direction: 1 | -1) => {
+        const row = rowRef.current;
+        if (!row) return;
+        row.scrollBy({
+            left: direction * row.clientWidth,
+            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+        });
+    };
 
     // Swiping to another card resets to the default (description visible) — no effect
     // needed, the rail tells us when the active card changes.
@@ -57,164 +82,136 @@ export function Portfolio({ className }: { className?: string }) {
             aria-label="I nostri capolavori"
             className={cn('relative scroll-mt-24', className)}
         >
-            <div
-                className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap mb-6"
-                role="group"
-                aria-label="Filtra per categoria"
-            >
-                {categories.map((cat) => (
-                    <button
-                        key={cat}
-                        onClick={() => setActiveCategory(cat)}
-                        aria-pressed={activeCategory === cat}
-                        className={cn(
-                            "shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border",
-                            activeCategory === cat
-                                ? "bg-luxury-gold text-luxury-bg border-luxury-gold"
-                                : "bg-transparent text-luxury-text/60 border-luxury-gold/20 hover:border-luxury-gold/50 hover:text-luxury-text"
-                        )}
-                    >
-                        {cat}
-                    </button>
-                ))}
+            {/* Row controls — desktop only, where the gallery is a horizontal row. */}
+            <div className="hidden lg:flex justify-end gap-2 mb-4">
+                <RowArrow direction="prev" disabled={!canScrollPrev} onClick={() => scrollRow(-1)} />
+                <RowArrow direction="next" disabled={!canScrollNext} onClick={() => scrollRow(1)} />
             </div>
 
             {/* ── Mobile: horizontal snap rail with a sticky title reveal ── */}
             <div className="md:hidden">
-                {railProjects.length === 0 ? (
-                    <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
-                ) : (
-                    <>
-                        {/* Screen-reader-only progress announcement — the visible sticky
-                            title below is aria-hidden, so this is the only spoken signal
-                            that the swipe moved to a different card. */}
-                        <p className="sr-only" aria-live="polite">
-                            Progetto {activeRailIndex + 1} di {railProjects.length}: {activeProject?.title}
-                        </p>
+                {/* Screen-reader-only progress announcement — the visible sticky
+                    title below is aria-hidden, so this is the only spoken signal
+                    that the swipe moved to a different card. */}
+                <p className="sr-only" aria-live="polite">
+                    Progetto {activeRailIndex + 1} di {railProjects.length}: {activeProject?.title}
+                </p>
 
-                        {/* Decorative: each card carries its own accessible name. */}
-                        <div className="mb-5 h-[4.5rem] overflow-hidden" aria-hidden="true">
-                            <AnimatePresence mode="popLayout" initial={false}>
-                                <motion.div
-                                    key={activeProject?.id ?? 'none'}
-                                    initial={{ y: '100%', opacity: 0 }}
-                                    animate={{ y: 0, opacity: 1 }}
-                                    exit={{ y: '-100%', opacity: 0 }}
-                                    transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
-                                >
-                                    <h3 className="text-2xl font-serif font-bold text-luxury-text truncate">
-                                        {activeProject?.title}
-                                    </h3>
-                                    <p className="text-sm text-luxury-gold/80 font-light truncate">
-                                        {activeProject?.location}
-                                    </p>
-                                </motion.div>
-                            </AnimatePresence>
-                        </div>
-
-                        <SnapRail
-                            // Remounting on category change resets both the scroll
-                            // position and the active index to the new first card.
-                            key={activeCategory}
-                            ariaLabel="Progetti in evidenza"
-                            itemWidth="85vw"
-                            align="center"
-                            showDots
-                            autoPlay
-                            onActiveChange={handleActiveChange}
-                            // Cancels the section container's px-4 so the rail's own
-                            // centering padding (computed from itemWidth) is what
-                            // determines the inset, not a fixed one stacked on top of it.
-                            className="-mx-4"
+                {/* Decorative: each card carries its own accessible name. */}
+                <div className="mb-5 h-[4.5rem] overflow-hidden" aria-hidden="true">
+                    <AnimatePresence mode="popLayout" initial={false}>
+                        <motion.div
+                            key={activeProject?.id ?? 'none'}
+                            initial={{ y: '100%', opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: '-100%', opacity: 0 }}
+                            transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
                         >
-                            {railProjects.map((project, index) => (
-                                <MobileProjectCard
-                                    key={project.id}
-                                    project={project}
-                                    eager={index === 0}
-                                    isActive={index === activeRailIndex}
-                                    isHidden={hiddenId === project.id}
-                                    onToggle={() =>
-                                        setHiddenId((prev) =>
-                                            prev === project.id ? null : project.id,
-                                        )
-                                    }
-                                />
-                            ))}
-                        </SnapRail>
-                    </>
-                )}
+                            <h3 className="text-2xl font-serif font-bold text-luxury-text truncate">
+                                {activeProject?.title}
+                            </h3>
+                            <p className="text-sm text-luxury-gold/80 font-light truncate">
+                                {activeProject?.location}
+                            </p>
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
+
+                <SnapRail
+                    ariaLabel="Progetti in evidenza"
+                    itemWidth="85vw"
+                    align="center"
+                    showDots
+                    autoPlay
+                    onActiveChange={handleActiveChange}
+                    // Cancels the section container's px-4 so the rail's own
+                    // centering padding (computed from itemWidth) is what
+                    // determines the inset, not a fixed one stacked on top of it.
+                    className="-mx-4"
+                >
+                    {railProjects.map((project, index) => (
+                        <MobileProjectCard
+                            key={project.id}
+                            project={project}
+                            eager={index === 0}
+                            isActive={index === activeRailIndex}
+                            isHidden={hiddenId === project.id}
+                            onToggle={() =>
+                                setHiddenId((prev) =>
+                                    prev === project.id ? null : project.id,
+                                )
+                            }
+                        />
+                    ))}
+                </SnapRail>
             </div>
 
-            {/* ── Tablet/desktop: two columns — from lg this sits in the hero's half-width column ── */}
-            <motion.div
-                layout
-                className="hidden md:grid md:grid-cols-2 gap-6"
+            {/* ── Tablet: two-column grid. Desktop (lg+): one horizontal row, four cards
+                per view, scrolled with the arrows above (or shift/trackpad). ── */}
+            <div
+                ref={rowRef}
+                data-portfolio-row
+                onScroll={updateRowEdges}
+                className="hidden md:grid md:grid-cols-2 gap-6 lg:flex lg:overflow-x-auto lg:snap-x lg:snap-mandatory lg:overscroll-x-contain scrollbar-hide"
             >
-                <AnimatePresence>
-                    {filteredProjects.map((project, idx) => (
-                        <motion.div
-                            layout
-                            key={project.id}
-                            initial={{ opacity: 0, y: 40 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.5, delay: idx * 0.1, ease: 'easeOut' }}
-                            viewport={{ once: true, margin: "-30% 0px -30% 0px" }}
+                {projects.map((project, idx) => (
+                    <motion.div
+                        key={project.id}
+                        initial={{ opacity: 0, y: 40 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        // Capped: cards further along the row reveal as they are scrolled in,
+                        // and shouldn't then wait a second for their turn.
+                        transition={{ duration: 0.5, delay: Math.min(idx, 3) * 0.1, ease: 'easeOut' }}
+                        // No negative margin: the row sits in the hero, partly above the
+                        // fold, and must not wait for a scroll to show its first cards.
+                        viewport={{ once: true, amount: 0.2 }}
+                        className={cn(
+                            "group relative aspect-[4/5] lg:shrink-0 lg:snap-start lg:w-[calc((100%-4.5rem)/4)] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
+                            hoveredProject === project.id && "border-luxury-gold/50"
+                        )}
+                        onMouseEnter={() => setHoveredProject(project.id)}
+                        onMouseLeave={() => setHoveredProject(null)}
+                    >
+                        <ProjectImage
+                            project={project}
+                            sizes="(max-width: 1024px) 50vw, 25vw"
+                            eager={idx < 4}
                             className={cn(
-                                "group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
-                                hoveredProject === project.id && "border-luxury-gold/50"
+                                "object-cover transition-transform duration-700 group-hover:scale-110",
+                                hoveredProject === project.id && "scale-110"
                             )}
-                            onMouseEnter={() => setHoveredProject(project.id)}
-                            onMouseLeave={() => setHoveredProject(null)}
-                        >
-                            <ProjectImage
-                                project={project}
-                                sizes="(max-width: 1024px) 50vw, 25vw"
-                                eager={idx < 2}
-                                className={cn(
-                                    "object-cover transition-transform duration-700 group-hover:scale-110",
-                                    hoveredProject === project.id && "scale-110"
-                                )}
-                            />
+                        />
 
-                            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
 
-                            <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                                <div className="relative z-20">
-                                    <p className="text-white text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
-                                        {project.category}
-                                    </p>
+                        <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                            <div className="relative z-20">
+                                <p className="text-white text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
+                                    {project.category}
+                                </p>
 
-                                    <h3 className="text-2xl font-bold text-luxury-text mb-2">{project.title}</h3>
+                                <h3 className="text-2xl font-bold text-luxury-text mb-2">{project.title}</h3>
 
-                                    {/* grid-rows trick: animates height without touching layout-triggering properties */}
-                                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">
-                                        <div className="overflow-hidden">
-                                            <p className="text-luxury-text/80 text-sm mb-4 font-light">
-                                                {project.description}
-                                            </p>
-                                            <ProjectStats stats={project.stats} />
-                                        </div>
+                                {/* grid-rows trick: animates height without touching layout-triggering properties */}
+                                <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">
+                                    <div className="overflow-hidden">
+                                        <p className="text-luxury-text/80 text-sm mb-4 font-light">
+                                            {project.description}
+                                        </p>
+                                        <ProjectStats stats={project.stats} />
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
-                                <div className="w-10 h-10 rounded-full bg-luxury-teal/20 backdrop-blur-md flex items-center justify-center border border-luxury-teal/50 text-luxury-text hover:bg-luxury-teal hover:text-white transition-colors">
-                                    <ArrowUpRight className="w-5 h-5" />
-                                </div>
+                        <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
+                            <div className="w-10 h-10 rounded-full bg-luxury-teal/20 backdrop-blur-md flex items-center justify-center border border-luxury-teal/50 text-luxury-text hover:bg-luxury-teal hover:text-white transition-colors">
+                                <ArrowUpRight className="w-5 h-5" />
                             </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-            </motion.div>
-
-            {filteredProjects.length === 0 && (
-                <div className="hidden md:block">
-                    <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
-                </div>
-            )}
+                        </div>
+                    </motion.div>
+                ))}
+            </div>
 
             <div className="mt-8 text-center">
                 <Button
@@ -332,6 +329,32 @@ function MobileProjectCard({
     );
 }
 
+// ── Desktop row arrow ────────────────────────────────────────────────────────
+
+function RowArrow({
+    direction,
+    disabled,
+    onClick,
+}: {
+    direction: 'prev' | 'next';
+    disabled: boolean;
+    onClick: () => void;
+}) {
+    const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={direction === 'prev' ? 'Progetti precedenti' : 'Progetti successivi'}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-luxury-gold/30 text-luxury-gold transition-colors hover:bg-luxury-gold/10 hover:border-luxury-gold disabled:opacity-30 disabled:pointer-events-none"
+        >
+            <Icon className="w-5 h-5" aria-hidden="true" />
+        </button>
+    );
+}
+
 // ── Shared bits ──────────────────────────────────────────────────────────────
 
 function ProjectImage({
@@ -383,22 +406,6 @@ function ProjectStats({ stats }: { stats: PortfolioItem['stats'] }) {
                     <p className="text-xs text-luxury-text font-medium">{value || '—'}</p>
                 </div>
             ))}
-        </div>
-    );
-}
-
-function EmptyState({ category, onReset }: { category: string; onReset: () => void }) {
-    return (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-luxury-text/10 bg-luxury-bg/20 py-12 px-6 text-center">
-            <p className="text-luxury-text/60 text-sm mb-4">
-                Nessun progetto nella categoria &laquo;{category}&raquo;.
-            </p>
-            <button
-                onClick={onReset}
-                className="min-h-[44px] px-5 rounded-full bg-luxury-gold text-luxury-bg text-sm font-bold transition-colors hover:bg-luxury-gold/90"
-            >
-                Mostra tutti
-            </button>
         </div>
     );
 }

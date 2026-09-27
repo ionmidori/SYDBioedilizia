@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { Portfolio } from '@/components/sections/Portfolio';
 import type { PortfolioItem } from '@/lib/portfolio';
 
@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 describe('Portfolio', () => {
-    it('builds the filter chips from the loaded projects', async () => {
+    it('has no category filters — those live on the /progetti archive', async () => {
         mockPortfolioResponse([
             makeProject({ id: 'a', category: 'Cucina' }),
             makeProject({ id: 'b', category: 'Bagno' }),
@@ -37,52 +37,10 @@ describe('Portfolio', () => {
 
         render(<Portfolio />);
 
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: 'Cucina' })).toBeInTheDocument();
-        });
-        expect(screen.getByRole('button', { name: 'Bagno' })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Tutti' })).toBeInTheDocument();
-
-        // Regression guard: the old hardcoded list offered a category that matched
-        // nothing and rendered a blank grid.
-        expect(screen.queryByRole('button', { name: 'Esterni' })).not.toBeInTheDocument();
-    });
-
-    it('gives every filter chip a 44px touch target', async () => {
-        mockPortfolioResponse([makeProject({ id: 'a', category: 'Cucina' })]);
-
-        render(<Portfolio />);
-
-        await waitFor(() => {
-            expect(screen.getByRole('button', { name: 'Cucina' })).toHaveClass('min-h-[44px]');
-        });
-    });
-
-    it('shows an empty state when new data no longer has the selected category', async () => {
-        // Reachable race: the user picks a category from the fallback data, then the
-        // backend response arrives without it. The fetch is held open so the click
-        // lands while the fallback categories are still on screen.
-        let deliverProjects: (projects: PortfolioItem[]) => void = () => {};
-        const pending = new Promise<PortfolioItem[]>((resolve) => {
-            deliverProjects = resolve;
-        });
-        global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => pending });
-
-        render(<Portfolio />);
-
-        // "Bagno" comes from the fallback data rendered before the fetch resolves.
-        fireEvent.click(screen.getByRole('button', { name: 'Bagno' }));
-
-        await act(async () => {
-            deliverProjects([makeProject({ id: 'a', category: 'Cucina' })]);
-        });
-
-        expect(screen.getAllByText(/Nessun progetto nella categoria/)[0]).toBeInTheDocument();
-        expect(screen.queryByRole('button', { name: 'Bagno' })).not.toBeInTheDocument();
-
-        fireEvent.click(screen.getAllByRole('button', { name: 'Mostra tutti' })[0]);
-
-        expect(screen.queryByText(/Nessun progetto nella categoria/)).not.toBeInTheDocument();
+        await screen.findAllByText('Area');
+        expect(screen.queryByRole('group', { name: 'Filtra per categoria' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Tutti' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Cucina' })).not.toBeInTheDocument();
     });
 
     it('caps the rail at the display limit', async () => {
@@ -143,5 +101,39 @@ describe('Portfolio', () => {
 
         expect(screen.getByRole('button', { expanded: false })).toBe(card);
         expect(within(card).getByText('Mostra descrizione')).toBeInTheDocument();
+    });
+
+    describe('desktop row controls', () => {
+        const originalScrollBy = HTMLElement.prototype.scrollBy;
+
+        afterEach(() => {
+            HTMLElement.prototype.scrollBy = originalScrollBy;
+        });
+
+        it('enables the arrows from the row overflow and pages by its visible width', async () => {
+            const scrollBy = jest.fn();
+            HTMLElement.prototype.scrollBy = scrollBy;
+            mockPortfolioResponse([makeProject({ id: 'a' }), makeProject({ id: 'b' })]);
+
+            render(<Portfolio />);
+
+            const next = await screen.findByRole('button', { name: 'Progetti successivi' });
+            const prev = screen.getByRole('button', { name: 'Progetti precedenti' });
+            // jsdom has no layout: nothing overflows, so both arrows start disabled.
+            expect(next).toBeDisabled();
+            expect(prev).toBeDisabled();
+
+            // Give the row (the scroll container) a real overflow, then let it re-measure.
+            const row = document.querySelector('[data-portfolio-row]') as HTMLElement;
+            Object.defineProperty(row, 'clientWidth', { configurable: true, value: 1000 });
+            Object.defineProperty(row, 'scrollWidth', { configurable: true, value: 2500 });
+            fireEvent.scroll(row);
+
+            expect(next).toBeEnabled();
+            expect(prev).toBeDisabled();
+
+            fireEvent.click(next);
+            expect(scrollBy).toHaveBeenCalledWith(expect.objectContaining({ left: 1000 }));
+        });
     });
 });
