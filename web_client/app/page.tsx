@@ -2,6 +2,7 @@ import { Navbar } from '@/components/sections/Navbar';
 import { Hero } from '@/components/sections/Hero';
 import { Services } from '@/components/sections/Services';
 import { Portfolio } from '@/components/sections/Portfolio';
+import { WhatWeDo } from '@/components/sections/WhatWeDo';
 import { Testimonials } from '@/components/sections/Testimonials';
 import { Footer } from '@/components/sections/Footer';
 import ChatWidget from '@/components/chat/ChatWidget';
@@ -38,7 +39,13 @@ export default function Home() {
       "Ristrutturazioni Tradizionali",
       "Bioedilizia",
       "Design d'Interni",
-      "Efficientamento Energetico"
+      "Efficientamento Energetico",
+      "Rifacimento Bagni",
+      "Ristrutturazione Completa Appartamenti",
+      "Sostituzione Infissi",
+      "Installazione Climatizzatori",
+      "Rifacimento Impianti Elettrici",
+      "Posa Piastrelle"
     ],
     "priceRange": "€€€"
   };
@@ -56,6 +63,7 @@ export default function Home() {
       <Hero />
       <Services />
       <Portfolio />
+      <WhatWeDo />
       <Testimonials />
       <Footer />
       <Suspense fallback={null}>
