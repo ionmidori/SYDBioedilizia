@@ -69,7 +69,7 @@ jobs:
           # against the interpreter it runs on, so auditing 3.12 wheels while
           # Cloud Run ships 3.14 would audit a tree that is not deployed.
           python-version: '3.14'
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: 'latest'
       - name: 'Install locked dependencies'
