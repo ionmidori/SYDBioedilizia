@@ -155,8 +155,8 @@ export function Services() {
         <section id="services" className="pt-20 pb-8 md:pb-10 relative bg-luxury-bg overflow-clip">
             {/* Section Background Decoration */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-7xl opacity-30 pointer-events-none">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-luxury-teal/10 rounded-full blur-[100px]" />
-                <div className="absolute bottom-0 left-0 w-96 h-96 bg-luxury-gold/5 rounded-full blur-[100px]" />
+                <div className="absolute top-0 right-0 w-96 h-96 ambient-glow ambient-glow-teal" />
+                <div className="absolute bottom-0 left-0 w-96 h-96 ambient-glow ambient-glow-gold" />
             </div>
 
             <div className="container mx-auto px-4 md:px-6 relative z-10">
@@ -220,7 +220,7 @@ export function Services() {
                             onMouseEnter={() => setHoveredService(index)}
                             onMouseLeave={() => setHoveredService(null)}
                             className={cn(
-                                "group relative p-6 md:p-8 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer transition-all duration-500",
+                                "group relative p-6 md:p-8 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer transition-shadow duration-500",
                                 // Gold gradient border and specular highlight ride on the
                                 // class's own pseudo-elements, so no Tailwind `border` here.
                                 "glass-services-card",

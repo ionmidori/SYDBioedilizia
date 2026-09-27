@@ -16,8 +16,8 @@ export function Hero() {
         <section className="relative min-h-[100dvh] flex items-center pt-20 pb-12 md:pb-16 overflow-hidden bg-luxury-bg">
             {/* Background Elements - Luxury Tech */}
             <div className="absolute inset-0 bg-luxury-bg z-0" />
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-luxury-teal/10 rounded-full atmospheric-blur-optimized -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-luxury-gold/5 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] ambient-glow ambient-glow-teal [--glow-blur:60px] md:[--glow-blur:120px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] ambient-glow ambient-glow-gold translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
             {/* Intro → portfolio gallery → CTAs, stacked at every width: on desktop the
                 gallery runs as a full-width horizontal row under the title. */}

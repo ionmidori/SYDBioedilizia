@@ -123,8 +123,8 @@ export function WhatWeDo() {
         >
             {/* Section Background Decoration */}
             <div className="absolute inset-0 pointer-events-none opacity-30" aria-hidden="true">
-                <div className="absolute top-1/4 left-0 w-80 h-80 bg-luxury-teal/10 rounded-full blur-[100px]" />
-                <div className="absolute bottom-1/4 right-0 w-80 h-80 bg-luxury-gold/5 rounded-full blur-[100px]" />
+                <div className="absolute top-1/4 left-0 w-80 h-80 ambient-glow ambient-glow-teal" />
+                <div className="absolute bottom-1/4 right-0 w-80 h-80 ambient-glow ambient-glow-gold" />
             </div>
 
             <div className="container mx-auto px-4 md:px-6 relative z-10">
