@@ -1,111 +1,31 @@
 'use client';
 
-import { useRef, useState, useEffect } from 'react';
-import { motion, useInView } from 'framer-motion';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { M3Spring } from '@/lib/m3-motion';
-import { useScrollParallax } from '@/hooks/use-scroll-animation';
 import { Button } from '@/components/ui/button';
 import { StatCounter } from '@/components/ui/stat-counter';
-import { PlayCircle, Zap, Palette, FileText } from 'lucide-react';
+import { PlayCircle, Palette, FileText } from 'lucide-react';
+import { Portfolio } from './Portfolio';
 import { SlideShowModal } from './SlideShowModal';
-
-/**
- * Internal Hero Video Component
- * Handles auto-restart on mobile when entering viewport
- */
-function HeroVideo({ className = '', isMobile = false }: { className?: string; isMobile?: boolean }) {
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const loopCountRef = useRef(0);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const inView = useInView(containerRef, { margin: "-20% 0px -20% 0px" });
-
-    // Auto-restart video when entering viewport on mobile
-    useEffect(() => {
-        if (isMobile && inView && videoRef.current) {
-            videoRef.current.currentTime = 0;
-            videoRef.current.play().catch(() => {
-                // Autoplay might be blocked, ignore
-            });
-        }
-    }, [isMobile, inView]);
-
-    return (
-        <div
-            ref={containerRef}
-            className={`relative rounded-2xl overflow-hidden border-2 border-luxury-gold shadow-[0_0_40px_rgba(42,157,143,0.3)] group cursor-pointer bg-slate-950 ${className}`}
-            onClick={() => {
-                const event = new CustomEvent('OPEN_CHAT_WITH_MESSAGE', {
-                    detail: {}
-                });
-                window.dispatchEvent(event);
-            }}
-        >
-            <div className="aspect-[4/3] md:aspect-video relative">
-                <video
-                    ref={videoRef}
-                    autoPlay
-                    muted
-                    playsInline
-                    preload="auto"
-                    crossOrigin="anonymous"
-                    onEnded={(e) => {
-                        if (loopCountRef.current < 1) {
-                            e.currentTarget.play();
-                            loopCountRef.current++;
-                        }
-                    }}
-                    className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105 opacity-90 group-hover:opacity-100"
-                >
-                    <source src="/videos/ai-interior-design.mp4" type="video/mp4" />
-                </video>
-
-                <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg/40 via-transparent to-transparent pointer-events-none" />
-
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-luxury-bg/20 backdrop-blur-[2px]">
-                    <div className="w-20 h-20 rounded-full bg-luxury-teal/20 backdrop-blur-xl flex items-center justify-center border border-luxury-teal/50 shadow-2xl">
-                        <Zap className="w-8 h-8 text-luxury-text fill-luxury-text drop-shadow-[0_0_10px_rgba(42,157,143,0.8)]" />
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
 
 export function Hero() {
     const [isSlideShowOpen, setIsSlideShowOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
-
-    // ── ADK 1.27 Phase 2: Parallax effect on hero video (speed: 0.25 — premium depth) ──
-    const videoContainerRef = useScrollParallax<HTMLDivElement>({
-        speed: 0.25,
-        direction: 'y'
-    });
-
-    // Mobile detection
-    useEffect(() => {
-        // Run only once on mount to avoid cascading renders
-        const handleResize = () => setIsMobile(window.innerWidth < 768);
-
-        // Wrap in timeout to avoid sync setState warning in effect body
-        const timerId = setTimeout(handleResize, 0);
-
-        window.addEventListener('resize', handleResize);
-        return () => {
-            clearTimeout(timerId);
-            window.removeEventListener('resize', handleResize);
-        };
-    }, []);
 
     return (
-        <section className="relative min-h-[100dvh] flex items-center pt-20 overflow-hidden bg-luxury-bg">
+        <section className="relative min-h-[100dvh] flex items-center pt-20 pb-12 md:pb-16 overflow-hidden bg-luxury-bg">
             {/* Background Elements - Luxury Tech */}
             <div className="absolute inset-0 bg-luxury-bg z-0" />
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-luxury-teal/10 rounded-full atmospheric-blur-optimized -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-luxury-gold/5 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
-            <div className="container mx-auto px-4 md:px-6 relative z-10 grid lg:grid-cols-2 gap-12 items-center lg:items-start">
+            {/* Three grid items so the portfolio can sit between the intro and the CTAs
+                below lg, and in its own right-hand column spanning both from lg up.
+                auto/1fr rows: the portfolio is the tallest item, and the extra height goes
+                under the CTAs rather than between them and the intro. */}
+            <div className="container mx-auto px-4 md:px-6 relative z-10 grid lg:grid-cols-2 lg:grid-rows-[auto_1fr] gap-x-12 gap-y-10 items-start">
 
-                {/* Text Content */}
+                {/* Intro */}
                 <motion.div
                     initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -130,15 +50,27 @@ export function Hero() {
                         <br /> con <span className="font-trajan tracking-tight">SYD BIOEDILIZIA</span>
                     </h1>
 
-                    <p className="text-lg md:text-xl text-luxury-text/80 mb-10 max-w-xl leading-relaxed font-light">
+                    <p className="text-lg md:text-xl text-luxury-text/80 max-w-xl leading-relaxed font-light">
                         Ristruttura il tuo appartamento in maniera tradizionale o in bioedilizia. Dall&apos;idea alla realtà in pochi click. Ottieni preventivi veloci, visualizzazioni 3D fotorealistiche e un team di esperti pronto a realizzare il tuo progetto.
                     </p>
+                </motion.div>
 
-                    {/* Mobile Video - Between Text and Buttons */}
-                    <div className="md:hidden mb-8">
-                        <HeroVideo isMobile={isMobile} />
-                    </div>
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.15, ...M3Spring.standard }}
+                    className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2"
+                >
+                    <Portfolio />
+                </motion.div>
 
+                {/* CTAs + stats */}
+                <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1, ...M3Spring.gentle }}
+                    className="lg:col-start-1 lg:row-start-2"
+                >
                     <div className="flex flex-col gap-6 mb-12">
                         {/* Primary CTA - Quote */}
                         <div className="flex flex-col sm:flex-row gap-4">
@@ -203,16 +135,6 @@ export function Hero() {
                     </div>
                 </motion.div>
 
-                {/* Desktop Video - Right Column with Parallax */}
-                <motion.div
-                    ref={videoContainerRef}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.15, ...M3Spring.standard }}
-                    className="relative hidden md:block lg:mt-20"
-                >
-                    <HeroVideo />
-                </motion.div>
             </div>
 
             {/* Modal */}

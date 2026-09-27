@@ -20,7 +20,7 @@ import {
     type PortfolioItem,
 } from '@/lib/portfolio';
 
-export function Portfolio() {
+export function Portfolio({ className }: { className?: string }) {
     const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
     const [hoveredProject, setHoveredProject] = useState<string | null>(null);
     const [projects, setProjects] = useState<PortfolioItem[]>(defaultProjects);
@@ -49,192 +49,183 @@ export function Portfolio() {
     };
 
     return (
-        // Asymmetric padding on both ends: the top is trimmed to match Services'
-        // trimmed bottom (so "I Nostri Capolavori" follows the last service card
-        // closely), and the bottom is trimmed so "Cosa facciamo" (WhatWeDo) follows
-        // the archive CTA closely — WhatWeDo uses the same trimmed top.
-        <section id="portfolio" className="pt-12 md:pt-16 pb-12 md:pb-16 bg-luxury-bg relative overflow-hidden border-t border-luxury-gold/5">
-            <div className="container mx-auto px-4 md:px-6 relative z-10">
-
-                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 md:mb-12 gap-6 md:gap-8">
-                    <div>
-                        <h2 className="text-3xl md:text-5xl font-serif font-bold text-luxury-text mb-4">
-                            I Nostri <span className="text-luxury-gold italic">Capolavori</span>
-                        </h2>
-                        <p className="text-luxury-text/70 max-w-lg text-lg font-light">
-                            Esplora una selezione delle nostre migliori ristrutturazioni. Ogni progetto è unico, proprio come chi lo abita.
-                        </p>
-                    </div>
-
-                    <div
-                        className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap"
-                        role="group"
-                        aria-label="Filtra per categoria"
+        // Rendered inside the Hero, where the intro video used to be: no heading of
+        // its own (the hero's h1 introduces the page), so the region is labelled
+        // directly. `id="portfolio"` keeps the Navbar/Footer anchors working.
+        <section
+            id="portfolio"
+            aria-label="I nostri capolavori"
+            className={cn('relative scroll-mt-24', className)}
+        >
+            <div
+                className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap mb-6"
+                role="group"
+                aria-label="Filtra per categoria"
+            >
+                {categories.map((cat) => (
+                    <button
+                        key={cat}
+                        onClick={() => setActiveCategory(cat)}
+                        aria-pressed={activeCategory === cat}
+                        className={cn(
+                            "shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border",
+                            activeCategory === cat
+                                ? "bg-luxury-gold text-luxury-bg border-luxury-gold"
+                                : "bg-transparent text-luxury-text/60 border-luxury-gold/20 hover:border-luxury-gold/50 hover:text-luxury-text"
+                        )}
                     >
-                        {categories.map((cat) => (
-                            <button
-                                key={cat}
-                                onClick={() => setActiveCategory(cat)}
-                                aria-pressed={activeCategory === cat}
-                                className={cn(
-                                    "shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border",
-                                    activeCategory === cat
-                                        ? "bg-luxury-gold text-luxury-bg border-luxury-gold"
-                                        : "bg-transparent text-luxury-text/60 border-luxury-gold/20 hover:border-luxury-gold/50 hover:text-luxury-text"
-                                )}
-                            >
-                                {cat}
-                            </button>
-                        ))}
-                    </div>
-                </div>
+                        {cat}
+                    </button>
+                ))}
+            </div>
 
-                {/* ── Mobile: horizontal snap rail with a sticky title reveal ── */}
-                <div className="md:hidden">
-                    {railProjects.length === 0 ? (
-                        <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
-                    ) : (
-                        <>
-                            {/* Screen-reader-only progress announcement — the visible sticky
-                                title below is aria-hidden, so this is the only spoken signal
-                                that the swipe moved to a different card. */}
-                            <p className="sr-only" aria-live="polite">
-                                Progetto {activeRailIndex + 1} di {railProjects.length}: {activeProject?.title}
-                            </p>
+            {/* ── Mobile: horizontal snap rail with a sticky title reveal ── */}
+            <div className="md:hidden">
+                {railProjects.length === 0 ? (
+                    <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
+                ) : (
+                    <>
+                        {/* Screen-reader-only progress announcement — the visible sticky
+                            title below is aria-hidden, so this is the only spoken signal
+                            that the swipe moved to a different card. */}
+                        <p className="sr-only" aria-live="polite">
+                            Progetto {activeRailIndex + 1} di {railProjects.length}: {activeProject?.title}
+                        </p>
 
-                            {/* Decorative: each card carries its own accessible name. */}
-                            <div className="mb-5 h-[4.5rem] overflow-hidden" aria-hidden="true">
-                                <AnimatePresence mode="popLayout" initial={false}>
-                                    <motion.div
-                                        key={activeProject?.id ?? 'none'}
-                                        initial={{ y: '100%', opacity: 0 }}
-                                        animate={{ y: 0, opacity: 1 }}
-                                        exit={{ y: '-100%', opacity: 0 }}
-                                        transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
-                                    >
-                                        <h3 className="text-2xl font-serif font-bold text-luxury-text truncate">
-                                            {activeProject?.title}
-                                        </h3>
-                                        <p className="text-sm text-luxury-gold/80 font-light truncate">
-                                            {activeProject?.location}
-                                        </p>
-                                    </motion.div>
-                                </AnimatePresence>
-                            </div>
+                        {/* Decorative: each card carries its own accessible name. */}
+                        <div className="mb-5 h-[4.5rem] overflow-hidden" aria-hidden="true">
+                            <AnimatePresence mode="popLayout" initial={false}>
+                                <motion.div
+                                    key={activeProject?.id ?? 'none'}
+                                    initial={{ y: '100%', opacity: 0 }}
+                                    animate={{ y: 0, opacity: 1 }}
+                                    exit={{ y: '-100%', opacity: 0 }}
+                                    transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
+                                >
+                                    <h3 className="text-2xl font-serif font-bold text-luxury-text truncate">
+                                        {activeProject?.title}
+                                    </h3>
+                                    <p className="text-sm text-luxury-gold/80 font-light truncate">
+                                        {activeProject?.location}
+                                    </p>
+                                </motion.div>
+                            </AnimatePresence>
+                        </div>
 
-                            <SnapRail
-                                // Remounting on category change resets both the scroll
-                                // position and the active index to the new first card.
-                                key={activeCategory}
-                                ariaLabel="Progetti in evidenza"
-                                itemWidth="85vw"
-                                align="center"
-                                showDots
-                                autoPlay
-                                onActiveChange={handleActiveChange}
-                                // Cancels the section container's px-4 so the rail's own
-                                // centering padding (computed from itemWidth) is what
-                                // determines the inset, not a fixed one stacked on top of it.
-                                className="-mx-4"
-                            >
-                                {railProjects.map((project, index) => (
-                                    <MobileProjectCard
-                                        key={project.id}
-                                        project={project}
-                                        isActive={index === activeRailIndex}
-                                        isHidden={hiddenId === project.id}
-                                        onToggle={() =>
-                                            setHiddenId((prev) =>
-                                                prev === project.id ? null : project.id,
-                                            )
-                                        }
-                                    />
-                                ))}
-                            </SnapRail>
-                        </>
-                    )}
-                </div>
-
-                {/* ── Desktop: unchanged grid ── */}
-                <motion.div
-                    layout
-                    className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-8"
-                >
-                    <AnimatePresence>
-                        {filteredProjects.map((project, idx) => (
-                            <motion.div
-                                layout
-                                key={project.id}
-                                initial={{ opacity: 0, y: 40 }}
-                                whileInView={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                transition={{ duration: 0.5, delay: idx * 0.1, ease: 'easeOut' }}
-                                viewport={{ once: true, margin: "-30% 0px -30% 0px" }}
-                                className={cn(
-                                    "group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
-                                    hoveredProject === project.id && "border-luxury-gold/50"
-                                )}
-                                onMouseEnter={() => setHoveredProject(project.id)}
-                                onMouseLeave={() => setHoveredProject(null)}
-                            >
-                                <ProjectImage
+                        <SnapRail
+                            // Remounting on category change resets both the scroll
+                            // position and the active index to the new first card.
+                            key={activeCategory}
+                            ariaLabel="Progetti in evidenza"
+                            itemWidth="85vw"
+                            align="center"
+                            showDots
+                            autoPlay
+                            onActiveChange={handleActiveChange}
+                            // Cancels the section container's px-4 so the rail's own
+                            // centering padding (computed from itemWidth) is what
+                            // determines the inset, not a fixed one stacked on top of it.
+                            className="-mx-4"
+                        >
+                            {railProjects.map((project, index) => (
+                                <MobileProjectCard
+                                    key={project.id}
                                     project={project}
-                                    sizes="(max-width: 1200px) 50vw, 33vw"
-                                    className={cn(
-                                        "object-cover transition-transform duration-700 group-hover:scale-110",
-                                        hoveredProject === project.id && "scale-110"
-                                    )}
+                                    eager={index === 0}
+                                    isActive={index === activeRailIndex}
+                                    isHidden={hiddenId === project.id}
+                                    onToggle={() =>
+                                        setHiddenId((prev) =>
+                                            prev === project.id ? null : project.id,
+                                        )
+                                    }
                                 />
+                            ))}
+                        </SnapRail>
+                    </>
+                )}
+            </div>
 
-                                <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
+            {/* ── Tablet/desktop: two columns — from lg this sits in the hero's half-width column ── */}
+            <motion.div
+                layout
+                className="hidden md:grid md:grid-cols-2 gap-6"
+            >
+                <AnimatePresence>
+                    {filteredProjects.map((project, idx) => (
+                        <motion.div
+                            layout
+                            key={project.id}
+                            initial={{ opacity: 0, y: 40 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9 }}
+                            transition={{ duration: 0.5, delay: idx * 0.1, ease: 'easeOut' }}
+                            viewport={{ once: true, margin: "-30% 0px -30% 0px" }}
+                            className={cn(
+                                "group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
+                                hoveredProject === project.id && "border-luxury-gold/50"
+                            )}
+                            onMouseEnter={() => setHoveredProject(project.id)}
+                            onMouseLeave={() => setHoveredProject(null)}
+                        >
+                            <ProjectImage
+                                project={project}
+                                sizes="(max-width: 1024px) 50vw, 25vw"
+                                eager={idx < 2}
+                                className={cn(
+                                    "object-cover transition-transform duration-700 group-hover:scale-110",
+                                    hoveredProject === project.id && "scale-110"
+                                )}
+                            />
 
-                                <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                                    <div className="relative z-20">
-                                        <p className="text-white text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
-                                            {project.category}
-                                        </p>
+                            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
 
-                                        <h3 className="text-2xl font-bold text-luxury-text mb-2">{project.title}</h3>
+                            <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                <div className="relative z-20">
+                                    <p className="text-white text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
+                                        {project.category}
+                                    </p>
 
-                                        {/* grid-rows trick: animates height without touching layout-triggering properties */}
-                                        <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">
-                                            <div className="overflow-hidden">
-                                                <p className="text-luxury-text/80 text-sm mb-4 font-light">
-                                                    {project.description}
-                                                </p>
-                                                <ProjectStats stats={project.stats} />
-                                            </div>
+                                    <h3 className="text-2xl font-bold text-luxury-text mb-2">{project.title}</h3>
+
+                                    {/* grid-rows trick: animates height without touching layout-triggering properties */}
+                                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">
+                                        <div className="overflow-hidden">
+                                            <p className="text-luxury-text/80 text-sm mb-4 font-light">
+                                                {project.description}
+                                            </p>
+                                            <ProjectStats stats={project.stats} />
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
-                                    <div className="w-10 h-10 rounded-full bg-luxury-teal/20 backdrop-blur-md flex items-center justify-center border border-luxury-teal/50 text-luxury-text hover:bg-luxury-teal hover:text-white transition-colors">
-                                        <ArrowUpRight className="w-5 h-5" />
-                                    </div>
+                            <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
+                                <div className="w-10 h-10 rounded-full bg-luxury-teal/20 backdrop-blur-md flex items-center justify-center border border-luxury-teal/50 text-luxury-text hover:bg-luxury-teal hover:text-white transition-colors">
+                                    <ArrowUpRight className="w-5 h-5" />
                                 </div>
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                </motion.div>
+                            </div>
+                        </motion.div>
+                    ))}
+                </AnimatePresence>
+            </motion.div>
 
-                {filteredProjects.length === 0 && (
-                    <div className="hidden md:block">
-                        <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
-                    </div>
-                )}
-
-                <div className="mt-12 md:mt-16 text-center">
-                    <Button
-                        asChild
-                        size="lg"
-                        className="px-10 h-14 text-base bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all hover:scale-[1.02]"
-                    >
-                        <Link href="/progetti">Visualizza tutti i progetti</Link>
-                    </Button>
+            {filteredProjects.length === 0 && (
+                <div className="hidden md:block">
+                    <EmptyState category={activeCategory} onReset={() => setActiveCategory(ALL_CATEGORIES)} />
                 </div>
+            )}
 
+            <div className="mt-8 text-center">
+                <Button
+                    asChild
+                    size="lg"
+                    className="px-10 h-14 text-base bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all hover:scale-[1.02]"
+                >
+                    <Link href="/progetti">Visualizza tutti i progetti</Link>
+                </Button>
             </div>
+
         </section>
     );
 }
@@ -243,11 +234,13 @@ export function Portfolio() {
 
 function MobileProjectCard({
     project,
+    eager,
     isActive,
     isHidden,
     onToggle,
 }: {
     project: PortfolioItem;
+    eager: boolean;
     isActive: boolean;
     isHidden: boolean;
     onToggle: () => void;
@@ -270,6 +263,7 @@ function MobileProjectCard({
             <ProjectImage
                 project={project}
                 sizes="85vw"
+                eager={eager}
                 className={cn(
                     "object-cover transition-transform duration-700",
                     isActive ? "scale-105" : "scale-100"
@@ -343,10 +337,13 @@ function MobileProjectCard({
 function ProjectImage({
     project,
     sizes,
+    eager = false,
     className,
 }: {
     project: PortfolioItem;
     sizes: string;
+    /** The gallery sits in the hero, so its first photos are above the fold (and the LCP). */
+    eager?: boolean;
     className?: string;
 }) {
     if (!project.image) {
@@ -363,6 +360,7 @@ function ProjectImage({
             alt={project.title}
             fill
             sizes={sizes}
+            loading={eager ? 'eager' : 'lazy'}
             className={className}
         />
     );
