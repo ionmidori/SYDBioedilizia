@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, ImageOff } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { SnapRail } from '@/components/ui/snap-rail';
 import { cn } from '@/lib/utils';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
+import { prefersReducedMotion } from '@/hooks/use-scroll-animation';
 import { triggerHaptic } from '@/lib/haptics';
 import {
     ALL_CATEGORIES,
@@ -41,6 +42,35 @@ export function Portfolio({ className }: { className?: string }) {
     // for the render that happens before the rail remounts.
     const activeProject = railProjects[Math.min(activeRailIndex, railProjects.length - 1)];
 
+    // ── Desktop row (lg+): horizontal scroll driven by the arrow buttons ──
+    const rowRef = useRef<HTMLDivElement>(null);
+    const [canScrollPrev, setCanScrollPrev] = useState(false);
+    const [canScrollNext, setCanScrollNext] = useState(false);
+
+    const updateRowEdges = useCallback(() => {
+        const row = rowRef.current;
+        if (!row) return;
+        // 1px tolerance: fractional card widths leave scrollLeft a hair short of the end.
+        setCanScrollPrev(row.scrollLeft > 1);
+        setCanScrollNext(row.scrollLeft + row.clientWidth < row.scrollWidth - 1);
+    }, []);
+
+    useEffect(() => {
+        updateRowEdges();
+        window.addEventListener('resize', updateRowEdges);
+        return () => window.removeEventListener('resize', updateRowEdges);
+    }, [updateRowEdges, filteredProjects.length]);
+
+    // One "page" of cards per click; snap-start then lands on a card edge.
+    const scrollRow = (direction: 1 | -1) => {
+        const row = rowRef.current;
+        if (!row) return;
+        row.scrollBy({
+            left: direction * row.clientWidth,
+            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+        });
+    };
+
     // Swiping to another card resets to the default (description visible) — no effect
     // needed, the rail tells us when the active card changes.
     const handleActiveChange = (index: number) => {
@@ -57,26 +87,36 @@ export function Portfolio({ className }: { className?: string }) {
             aria-label="I nostri capolavori"
             className={cn('relative scroll-mt-24', className)}
         >
-            <div
-                className="flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap mb-6"
-                role="group"
-                aria-label="Filtra per categoria"
-            >
-                {categories.map((cat) => (
-                    <button
-                        key={cat}
-                        onClick={() => setActiveCategory(cat)}
-                        aria-pressed={activeCategory === cat}
-                        className={cn(
-                            "shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border",
-                            activeCategory === cat
-                                ? "bg-luxury-gold text-luxury-bg border-luxury-gold"
-                                : "bg-transparent text-luxury-text/60 border-luxury-gold/20 hover:border-luxury-gold/50 hover:text-luxury-text"
-                        )}
-                    >
-                        {cat}
-                    </button>
-                ))}
+            <div className="flex items-start justify-between gap-6 mb-6">
+                <div
+                    className="min-w-0 flex gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:flex-wrap"
+                    role="group"
+                    aria-label="Filtra per categoria"
+                >
+                    {categories.map((cat) => (
+                        <button
+                            key={cat}
+                            onClick={() => setActiveCategory(cat)}
+                            aria-pressed={activeCategory === cat}
+                            className={cn(
+                                "shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border",
+                                activeCategory === cat
+                                    ? "bg-luxury-gold text-luxury-bg border-luxury-gold"
+                                    : "bg-transparent text-luxury-text/60 border-luxury-gold/20 hover:border-luxury-gold/50 hover:text-luxury-text"
+                            )}
+                        >
+                            {cat}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Row controls — desktop only, where the gallery is a horizontal row. */}
+                {filteredProjects.length > 0 && (
+                    <div className="hidden lg:flex shrink-0 gap-2">
+                        <RowArrow direction="prev" disabled={!canScrollPrev} onClick={() => scrollRow(-1)} />
+                        <RowArrow direction="next" disabled={!canScrollNext} onClick={() => scrollRow(1)} />
+                    </div>
+                )}
             </div>
 
             {/* ── Mobile: horizontal snap rail with a sticky title reveal ── */}
@@ -146,10 +186,15 @@ export function Portfolio({ className }: { className?: string }) {
                 )}
             </div>
 
-            {/* ── Tablet/desktop: two columns — from lg this sits in the hero's half-width column ── */}
+            {/* ── Tablet: two-column grid. Desktop (lg+): one horizontal row, four cards
+                per view, scrolled with the arrows above (or shift/trackpad). ── */}
             <motion.div
+                ref={rowRef}
+                data-portfolio-row
                 layout
-                className="hidden md:grid md:grid-cols-2 gap-6"
+                layoutScroll
+                onScroll={updateRowEdges}
+                className="hidden md:grid md:grid-cols-2 gap-6 lg:flex lg:overflow-x-auto lg:snap-x lg:snap-mandatory lg:overscroll-x-contain scrollbar-hide"
             >
                 <AnimatePresence>
                     {filteredProjects.map((project, idx) => (
@@ -159,10 +204,14 @@ export function Portfolio({ className }: { className?: string }) {
                             initial={{ opacity: 0, y: 40 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9 }}
-                            transition={{ duration: 0.5, delay: idx * 0.1, ease: 'easeOut' }}
-                            viewport={{ once: true, margin: "-30% 0px -30% 0px" }}
+                            // Capped: cards further along the row reveal as they are scrolled in,
+                            // and shouldn't then wait a second for their turn.
+                            transition={{ duration: 0.5, delay: Math.min(idx, 3) * 0.1, ease: 'easeOut' }}
+                            // No negative margin: the row sits in the hero, partly above the
+                            // fold, and must not wait for a scroll to show its first cards.
+                            viewport={{ once: true, amount: 0.2 }}
                             className={cn(
-                                "group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
+                                "group relative aspect-[4/5] lg:shrink-0 lg:snap-start lg:w-[calc((100%-4.5rem)/4)] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
                                 hoveredProject === project.id && "border-luxury-gold/50"
                             )}
                             onMouseEnter={() => setHoveredProject(project.id)}
@@ -171,7 +220,7 @@ export function Portfolio({ className }: { className?: string }) {
                             <ProjectImage
                                 project={project}
                                 sizes="(max-width: 1024px) 50vw, 25vw"
-                                eager={idx < 2}
+                                eager={idx < 4}
                                 className={cn(
                                     "object-cover transition-transform duration-700 group-hover:scale-110",
                                     hoveredProject === project.id && "scale-110"
@@ -328,6 +377,32 @@ function MobileProjectCard({
             <span className="sr-only">
                 {project.title}, {project.location}. Tocca per {isHidden ? 'mostrare' : 'nascondere'} la descrizione.
             </span>
+        </button>
+    );
+}
+
+// ── Desktop row arrow ────────────────────────────────────────────────────────
+
+function RowArrow({
+    direction,
+    disabled,
+    onClick,
+}: {
+    direction: 'prev' | 'next';
+    disabled: boolean;
+    onClick: () => void;
+}) {
+    const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={direction === 'prev' ? 'Progetti precedenti' : 'Progetti successivi'}
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-luxury-gold/30 text-luxury-gold transition-colors hover:bg-luxury-gold/10 hover:border-luxury-gold disabled:opacity-30 disabled:pointer-events-none"
+        >
+            <Icon className="w-5 h-5" aria-hidden="true" />
         </button>
     );
 }

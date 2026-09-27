@@ -144,4 +144,54 @@ describe('Portfolio', () => {
         expect(screen.getByRole('button', { expanded: false })).toBe(card);
         expect(within(card).getByText('Mostra descrizione')).toBeInTheDocument();
     });
+
+    describe('desktop row controls', () => {
+        const originalScrollBy = HTMLElement.prototype.scrollBy;
+
+        afterEach(() => {
+            HTMLElement.prototype.scrollBy = originalScrollBy;
+        });
+
+        it('enables the arrows from the row overflow and pages by its visible width', async () => {
+            const scrollBy = jest.fn();
+            HTMLElement.prototype.scrollBy = scrollBy;
+            mockPortfolioResponse([makeProject({ id: 'a' }), makeProject({ id: 'b' })]);
+
+            render(<Portfolio />);
+
+            const next = await screen.findByRole('button', { name: 'Progetti successivi' });
+            const prev = screen.getByRole('button', { name: 'Progetti precedenti' });
+            // jsdom has no layout: nothing overflows, so both arrows start disabled.
+            expect(next).toBeDisabled();
+            expect(prev).toBeDisabled();
+
+            // Give the row (the scroll container) a real overflow, then let it re-measure.
+            const row = document.querySelector('[data-portfolio-row]') as HTMLElement;
+            Object.defineProperty(row, 'clientWidth', { configurable: true, value: 1000 });
+            Object.defineProperty(row, 'scrollWidth', { configurable: true, value: 2500 });
+            fireEvent.scroll(row);
+
+            expect(next).toBeEnabled();
+            expect(prev).toBeDisabled();
+
+            fireEvent.click(next);
+            expect(scrollBy).toHaveBeenCalledWith(expect.objectContaining({ left: 1000 }));
+        });
+
+        it('hides the arrows when the selected category is empty', async () => {
+            let deliverProjects: (projects: PortfolioItem[]) => void = () => {};
+            const pending = new Promise<PortfolioItem[]>((resolve) => {
+                deliverProjects = resolve;
+            });
+            global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => pending });
+
+            render(<Portfolio />);
+            fireEvent.click(screen.getByRole('button', { name: 'Bagno' }));
+            await act(async () => {
+                deliverProjects([makeProject({ id: 'a', category: 'Cucina' })]);
+            });
+
+            expect(screen.queryByRole('button', { name: 'Progetti successivi' })).not.toBeInTheDocument();
+        });
+    });
 });
