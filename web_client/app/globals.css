@@ -134,9 +134,20 @@
   }
 
   html {
-    /* scroll-behavior handled by Lenis — native smooth conflicts with it */
-    scroll-padding-top: 80px;
     /* Prevent sticky header occlusion */
+    scroll-padding-top: 80px;
+    /* The chat locks page scroll with `overflow: hidden` (useMobileViewport);
+       reserving the gutter keeps the page from shifting sideways when it does. */
+    scrollbar-gutter: stable;
+  }
+
+  /* Native scrolling only — no JS smooth-scroll library. The wheel stays on the
+     compositor thread; anchor jumps glide unless the user asked for less motion
+     (the global reduced-motion block below forces `auto` back). */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 
   /* Optical Sizing for Headers */
