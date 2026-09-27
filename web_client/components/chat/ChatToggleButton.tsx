@@ -15,34 +15,53 @@ interface ChatToggleButtonProps {
 // ── Closed-state shift: single source of truth ──────────────────────────────
 //
 // Measured from public/assets/syd_final_v9.png: natural size 1024×564, opaque
-// content (Syd + speech bubble) spans x:[232, 848] — 17.09% of the width is
-// transparent padding on the right edge. The button renders it `object-contain`
-// in a 158×158 (mobile) / 208×192 (desktop) box; the image's own aspect ratio
-// (1.816) exceeds both box aspect ratios, so in both cases the render is
-// width-constrained — it always fills the box's full width — and that fraction
-// converts directly to rendered pixels without needing to know the runtime
-// viewport size.
+// content (Syd + speech bubble) spans x:[232, 848], y:[9, 541] — 17.09% of the
+// width is transparent padding on the right edge, 23/564 of the height at the
+// bottom. The button renders it `object-contain` in a 158×158 (mobile) / 208×192
+// (desktop) box; the image's own aspect ratio (1.816) exceeds both box aspect
+// ratios, so in both cases the render is width-constrained — it always fills the
+// box's full width and is centred vertically with transparent bands above and
+// below — and these fractions convert directly to rendered pixels without
+// needing to know the runtime viewport size.
+const IMAGE_ASPECT = 564 / 1024;
 const IMAGE_RIGHT_PADDING_FRACTION = 0.1709;
-const BUTTON_SIZE_PX = { mobile: 158, desktop: 208 } as const;
-// Distance of the button's own box from the viewport edge (`right-4` / `md:right-6`).
-// `env(safe-area-inset-right)` only ever adds to this at runtime, never subtracts.
+const IMAGE_BOTTOM_PADDING_FRACTION = 23 / 564;
+const BUTTON_SIZE_PX = {
+    mobile: { width: 158, height: 158 },
+    desktop: { width: 208, height: 192 },
+} as const;
+type Variant = keyof typeof BUTTON_SIZE_PX;
+// Distance of the button's own box from the viewport edges (`right-4 bottom-4` /
+// `md:right-6 md:bottom-6`). The `env(safe-area-inset-*)` padding only ever adds
+// to this at runtime, never subtracts — the home indicator stays clear.
 const EDGE_INSET_PX = { mobile: 16, desktop: 24 } as const;
 // Breathing room so the artwork's opaque edge never touches the viewport edge exactly.
 const EDGE_SAFETY_MARGIN_PX = 3;
 
-function closedShiftPx(variant: keyof typeof BUTTON_SIZE_PX): number {
-    const transparentPadding = BUTTON_SIZE_PX[variant] * IMAGE_RIGHT_PADDING_FRACTION;
+function closedShiftXPx(variant: Variant): number {
+    const transparentPadding = BUTTON_SIZE_PX[variant].width * IMAGE_RIGHT_PADDING_FRACTION;
+    return EDGE_INSET_PX[variant] + transparentPadding - EDGE_SAFETY_MARGIN_PX;
+}
+
+function closedShiftYPx(variant: Variant): number {
+    const { width, height } = BUTTON_SIZE_PX[variant];
+    const renderedHeight = width * IMAGE_ASPECT;
+    const letterbox = (height - renderedHeight) / 2;
+    const transparentPadding = letterbox + renderedHeight * IMAGE_BOTTOM_PADDING_FRACTION;
     return EDGE_INSET_PX[variant] + transparentPadding - EDGE_SAFETY_MARGIN_PX;
 }
 
 /**
- * How far the closed-state wrapper translates right to compensate for the avatar's
- * transparent padding — flush with the screen edge without ever crossing it. Fed into
- * both the rendered translate (via CSS custom properties) and the drag-bounds
- * calculation below, so there is exactly one place that can go out of sync: nowhere.
+ * How far the closed-state wrapper translates right and down to compensate for the
+ * avatar's transparent padding — flush with the screen's bottom-right corner without
+ * ever crossing it. Fed into both the rendered translate (via CSS custom properties)
+ * and the drag-bounds calculation below, so there is exactly one place that can go
+ * out of sync: nowhere.
  */
-const CLOSED_SHIFT_MOBILE_PX = closedShiftPx('mobile');
-const CLOSED_SHIFT_DESKTOP_PX = closedShiftPx('desktop');
+export const CLOSED_SHIFT_PX = {
+    mobile: { x: closedShiftXPx('mobile'), y: closedShiftYPx('mobile') },
+    desktop: { x: closedShiftXPx('desktop'), y: closedShiftYPx('desktop') },
+} as const;
 
 /**
  * Floating toggle button component with drag functionality
@@ -69,30 +88,25 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
             // Pertanto, permettiamo al drag di sforare le dimensioni fisiche classiche
             // permettendo valori più estremi a sinistra e in basso per allinearlo visivamente al bordo.
             
-            const elementSize = isMobile ? 158 : 208;
+            const { width, height } = BUTTON_SIZE_PX[isMobile ? 'mobile' : 'desktop'];
             const margin = isMobile ? 16 : 24;
 
-            // Same shift the closed-state wrapper renders below (CLOSED_SHIFT_*_PX),
+            // Same shift the closed-state wrapper renders below (CLOSED_SHIFT_PX),
             // re-expressed here for the drag bounds. Both read the one calculated
             // constant, so there is nothing left to keep in sync by hand.
-            const visualOffsetLeft = isMobile ? CLOSED_SHIFT_MOBILE_PX : CLOSED_SHIFT_DESKTOP_PX;
-            
-            // Permettiamo di spostarlo molto più in basso prima di bloccarlo
-            // poichè la base dell'immagine trasparente tocca in basso
-            const visualOffsetBottom = isMobile ? 24 : 32;
+            const shift = CLOSED_SHIFT_PX[isMobile ? 'mobile' : 'desktop'];
 
             // Calcoliamo la distanza massima in negativo (da destra verso sinistra, dal basso verso l'alto)
-            const maxLeftDrag = -(window.innerWidth - elementSize - margin) - visualOffsetLeft;
-            const maxTopDrag = -(window.innerHeight - elementSize - margin);
-            
-            // Permettiamo di scendere leggermente più in basso rispetto al punto di partenza (bottom 0)
-            const maxBottomDrag = visualOffsetBottom;
+            const maxLeftDrag = -(window.innerWidth - width - margin) - shift.x;
+            const maxTopDrag = -(window.innerHeight - height - margin) - shift.y;
 
+            // The resting position is already flush with the bottom-right corner,
+            // so the avatar cannot be dragged further right or down.
             setConstraints({
                 top: maxTopDrag,
                 left: maxLeftDrag,
                 right: 0,
-                bottom: maxBottomDrag
+                bottom: 0
             });
         };
 
@@ -139,9 +153,11 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                 transform: 'translateZ(0)',
                 paddingBottom: 'env(safe-area-inset-bottom)',
                 paddingRight: 'env(safe-area-inset-right)',
-                // Feeds the closed-state translate below — see CLOSED_SHIFT_*_PX.
-                ['--syd-closed-shift-mobile' as string]: `${CLOSED_SHIFT_MOBILE_PX}px`,
-                ['--syd-closed-shift-desktop' as string]: `${CLOSED_SHIFT_DESKTOP_PX}px`,
+                // Feeds the closed-state translate below — see CLOSED_SHIFT_PX.
+                ['--syd-closed-shift-mobile' as string]: `${CLOSED_SHIFT_PX.mobile.x}px`,
+                ['--syd-closed-shift-desktop' as string]: `${CLOSED_SHIFT_PX.desktop.x}px`,
+                ['--syd-closed-drop-mobile' as string]: `${CLOSED_SHIFT_PX.mobile.y}px`,
+                ['--syd-closed-drop-desktop' as string]: `${CLOSED_SHIFT_PX.desktop.y}px`,
             }}
 
             // Drag configuration
@@ -161,15 +177,17 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
         >
             {/*
               Inner wrapper handles the dynamic translation.
-              When closed (!isOpen), it translates right by CLOSED_SHIFT_*_PX to bring
-              the avatar's opaque artwork flush with the screen edge without crossing it
-              — the exact amount is derived above from the image's own transparent
-              padding, not a hand-picked number.
+              When closed (!isOpen), it translates right and down by CLOSED_SHIFT_PX to
+              bring the avatar's opaque artwork flush with the bottom-right corner without
+              crossing it — the exact amounts are derived above from the image's own
+              transparent padding, not hand-picked numbers.
               When open (isOpen), it resets so the 'X' button stays safely inside the screen.
             */}
             <div className={cn(
                 "flex items-center justify-end gap-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0,0,1)] relative",
-                isOpen ? "translate-x-0" : "translate-x-[var(--syd-closed-shift-mobile)] md:translate-x-[var(--syd-closed-shift-desktop)]"
+                isOpen
+                    ? "translate-x-0 translate-y-0"
+                    : "translate-x-[var(--syd-closed-shift-mobile)] translate-y-[var(--syd-closed-drop-mobile)] md:translate-x-[var(--syd-closed-shift-desktop)] md:translate-y-[var(--syd-closed-drop-desktop)]"
             )}>
                 <div className="pointer-events-auto -mr-16 md:-mr-24 -translate-y-20 md:-translate-y-24 z-10">
                     <WelcomeBadge isOpen={isOpen} onOpenChat={onClick} />
