@@ -202,8 +202,8 @@ export function Testimonials() {
     }
 
     return (
-        // Trimmed top padding — paired with Portfolio's trimmed bottom so this section
-        // follows on from the archive CTA rather than reading as a distant block.
+        // Trimmed top padding — paired with WhatWeDo's trimmed bottom so this section
+        // follows on from the last activity card rather than reading as a distant block.
         <section id="testimonials" className="pt-10 md:pt-12 pb-24 relative bg-luxury-bg overflow-hidden">
 
             {/* Background Decor */}

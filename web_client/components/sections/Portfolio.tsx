@@ -51,8 +51,8 @@ export function Portfolio() {
     return (
         // Asymmetric padding on both ends: the top is trimmed to match Services'
         // trimmed bottom (so "I Nostri Capolavori" follows the last service card
-        // closely), and the bottom is trimmed so "Dicono di Noi" sits close to the
-        // archive CTA — Testimonials trims its own top to match that side.
+        // closely), and the bottom is trimmed so "Cosa facciamo" (WhatWeDo) follows
+        // the archive CTA closely — WhatWeDo uses the same trimmed top.
         <section id="portfolio" className="pt-12 md:pt-16 pb-12 md:pb-16 bg-luxury-bg relative overflow-hidden border-t border-luxury-gold/5">
             <div className="container mx-auto px-4 md:px-6 relative z-10">
 
