@@ -1,0 +1,41 @@
+# Files NOT uploaded to Cloud Build by `gcloud builds submit` (run from admin_tool/).
+# gcloud reads this file, not .dockerignore: without it the whole directory is
+# uploaded -- local .venv (~450 MB) and secrets included -- and kept in the
+# Cloud Build source bucket.
+#
+# Do NOT add config.yaml: it is gitignored but the Dockerfile COPYs it, so it
+# must reach the build context. Do NOT use `#!include:.gitignore` for the same
+# reason.
+
+# Secrets (runtime credentials come from the Cloud Run service identity/env)
+.env
+.env.*
+firebase-service-account.json
+*service-account*.json
+
+# Local virtual environments
+.venv/
+venv/
+
+# Python / test caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Tests and one-off scripts (never COPYed by the Dockerfile)
+test_*.py
+hash_password.py
+seed_batch.py
+scripts/
+
+# IDE, OS, Git
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.git/
+.gitignore
+.gcloudignore
