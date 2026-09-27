@@ -391,7 +391,6 @@ export function ChatInput({
                         )}
                     >
                         <textarea
-                            data-lenis-prevent="true"
                             value={inputValue}
                             onChange={(e) => setInputValue(e.target.value)}
                             onKeyDown={handleKeyDown}

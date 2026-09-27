@@ -118,7 +118,6 @@ import { ChatProvider } from "@/components/chat/ChatProvider";
 import { CookieConsent } from "@/components/CookieConsent";
 import { BackendWarmup } from "@/components/BackendWarmup";
 import QueryProvider from "@/components/providers/QueryProvider";
-import { SmoothScrollProvider } from "@/lib/smooth-scroll";
 
 export default async function RootLayout({
   children,
@@ -132,8 +131,10 @@ export default async function RootLayout({
   //   const nonce = headersList.get("x-nonce") ?? undefined;
   // Vercel Analytics/SpeedInsights v1.x don't accept nonce props yet.
 
+  // data-scroll-behavior: globals.css makes scrolling smooth for in-page anchors;
+  // this tells Next.js to switch it off while it jumps to the top of a new route.
   return (
-    <html lang="it" className="dark" suppressHydrationWarning>
+    <html lang="it" className="dark" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
         className={`${outfit.variable} ${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
         suppressHydrationWarning
@@ -142,11 +143,9 @@ export default async function RootLayout({
           <AuthProvider>
             <QueryProvider>
               <ChatProvider>
-                <SmoothScrollProvider>
-                  {children}
-                  <BackendWarmup />
-                  <CookieConsent />
-                </SmoothScrollProvider>
+                {children}
+                <BackendWarmup />
+                <CookieConsent />
               </ChatProvider>
             </QueryProvider>
           </AuthProvider>
