@@ -10,8 +10,8 @@ export default function PrivacyPage() {
         <div className="min-h-screen bg-luxury-bg text-luxury-text selection:bg-luxury-gold/30 selection:text-luxury-gold">
             {/* Background Atmosphere */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-luxury-teal/5 rounded-full atmospheric-blur-optimized" />
-                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-luxury-gold/5 rounded-full atmospheric-blur-optimized" />
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] ambient-glow ambient-glow-teal [--glow-alpha:5%] [--glow-blur:60px] md:[--glow-blur:120px]" />
+                <div className="absolute bottom-0 left-0 w-[500px] h-[500px] ambient-glow ambient-glow-gold [--glow-blur:60px] md:[--glow-blur:120px]" />
             </div>
 
             {/* Navigation */}

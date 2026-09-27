@@ -130,9 +130,12 @@ export function Navbar() {
             <motion.nav
                 ref={navRef}
                 className={cn(
-                    'fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent',
+                    // The only backdrop-filter that stays on screen while the homepage scrolls: a
+                    // full-width blur costs a pass every frame, so it stays light (md = 12px) over a
+                    // mostly opaque fill. Nothing inside the bar blurs again on top of it.
+                    'fixed top-0 left-0 right-0 z-50 transition-[background-color,border-color,padding,box-shadow] duration-500 border-b border-transparent',
                     isScrolled
-                        ? 'bg-luxury-bg/70 backdrop-blur-lg border-luxury-gold/20 py-3 shadow-elevation-mid'
+                        ? 'bg-luxury-bg/80 backdrop-blur-md border-luxury-gold/20 py-3 shadow-elevation-mid'
                         : 'bg-transparent py-5'
                 )}
                 initial={{ y: -100 }}
@@ -153,7 +156,7 @@ export function Navbar() {
                             >
                                 <button
                                     className={cn(
-                                        "relative flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)] whitespace-nowrap backdrop-blur-md border",
+                                        "relative flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)] whitespace-nowrap border",
                                         contactMenuOpenDesktop
                                             ? "bg-luxury-gold/15 border-luxury-gold/40 text-luxury-gold"
                                             : "bg-luxury-gold/5 hover:bg-luxury-gold/15 border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold/80 hover:text-luxury-gold"
@@ -179,7 +182,7 @@ export function Navbar() {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                         transition={M3Spring.bouncy}
-                                        className="absolute top-14 left-0 bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
+                                        className="absolute top-14 left-0 bg-luxury-bg/95 border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
                                     >
                                         <div className="absolute -top-2 left-6 w-4 h-4 bg-luxury-bg/95 border-t border-l border-luxury-gold/20 rotate-45 transform" />
 
@@ -223,7 +226,7 @@ export function Navbar() {
                                     href={link.href}
                                     onClick={() => triggerHaptic()}
                                     className={cn(
-                                        "relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)] whitespace-nowrap backdrop-blur-md border",
+                                        "relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-300 group shadow-[0_4px_15px_-3px_rgba(233,196,106,0.1)] hover:shadow-[0_4px_20px_-3px_rgba(233,196,106,0.25)] whitespace-nowrap border",
                                         pathname === link.href
                                             ? "bg-luxury-gold/15 border-luxury-gold/40 text-luxury-gold"
                                             : "bg-luxury-gold/5 hover:bg-luxury-gold/15 border-luxury-gold/20 hover:border-luxury-gold/40 text-luxury-gold/80 hover:text-luxury-gold"
@@ -273,7 +276,7 @@ export function Navbar() {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                         transition={M3Spring.bouncy}
-                                        className="absolute top-12 right-0 bg-luxury-bg/95 backdrop-blur-xl border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[200px] rounded-[24px_4px_24px_24px] origin-top-right z-50"
+                                        className="absolute top-12 right-0 bg-luxury-bg/95 border border-luxury-gold/20 shadow-elevation-high p-2 flex flex-col gap-1 min-w-[200px] rounded-[24px_4px_24px_24px] origin-top-right z-50"
                                     >
                                         <div className="absolute -top-2 right-3 w-4 h-4 bg-luxury-bg/95 border-t border-l border-luxury-gold/20 rotate-45 transform" />
 

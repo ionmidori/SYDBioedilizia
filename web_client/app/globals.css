@@ -397,7 +397,9 @@
 .glass-services-card {
   position: relative;
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
-  backdrop-filter: blur(14px) saturate(150%);
+  /* No backdrop-filter: behind the cards there is only the flat page colour and
+     the ambient glows, which are already soft gradients — blurring them again
+     changed nothing visible and cost a backdrop pass per card per scroll frame. */
   isolation: isolate;
 }
 
@@ -508,10 +510,37 @@
   }
 }
 
-/* Atmospheric Blur */
-.atmospheric-blur-optimized {
-  @apply blur-[60px] md:blur-[120px];
-  will-change: transform;
+/* Ambient glow — the soft coloured halo behind a section.
+   It used to be a filled circle under `filter: blur(80–120px)`: one huge GPU
+   layer per halo, re-rasterised as the page scrolled. The same falloff is now a
+   radial gradient, painted once. The element keeps the size and position the
+   circle had; the gradient spills past it on a pseudo-element by twice the old
+   blur radius, which is where a blurred edge visibly fades out.
+
+   Usage: `absolute w-96 h-96 ambient-glow ambient-glow-teal [--glow-alpha:10%]`
+   (`--glow-blur` defaults to the old 100px). */
+.ambient-glow {
+  pointer-events: none;
+}
+
+.ambient-glow::before {
+  content: "";
+  position: absolute;
+  inset: calc(-2 * var(--glow-blur, 100px));
+  border-radius: 9999px;
+  /* Full strength at the centre, half at the old circle's edge, gone 2σ out. */
+  background: radial-gradient(closest-side,
+      var(--glow) 0%,
+      color-mix(in oklab, var(--glow) 50%, transparent) 50%,
+      transparent 100%);
+}
+
+.ambient-glow-teal {
+  --glow: color-mix(in oklab, var(--color-luxury-teal) var(--glow-alpha, 10%), transparent);
+}
+
+.ambient-glow-gold {
+  --glow: color-mix(in oklab, var(--color-luxury-gold) var(--glow-alpha, 5%), transparent);
 }
 
 /* Shimmer Effect */

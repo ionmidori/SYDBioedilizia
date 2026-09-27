@@ -78,8 +78,8 @@ export default function FAQPage() {
       <Navbar />
       <main className="min-h-screen bg-luxury-bg text-luxury-text relative overflow-hidden">
         {/* Background orbs */}
-        <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-luxury-teal/5 rounded-full blur-[100px]" />
-        <div className="absolute bottom-1/3 left-0 w-1/4 h-1/4 bg-luxury-gold/5 rounded-full blur-[100px]" />
+        <div className="absolute top-0 right-0 w-1/3 h-1/3 ambient-glow ambient-glow-teal [--glow-alpha:5%]" />
+        <div className="absolute bottom-1/3 left-0 w-1/4 h-1/4 ambient-glow ambient-glow-gold" />
 
         {/* JSON-LD */}
         <script

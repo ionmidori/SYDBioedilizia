@@ -208,8 +208,8 @@ export function Testimonials() {
 
             {/* Background Decor */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none opacity-20">
-                <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-luxury-teal/20 rounded-full blur-[80px]" />
-                <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-luxury-gold/20 rounded-full blur-[80px]" />
+                <div className="absolute top-1/4 left-1/4 w-64 h-64 ambient-glow ambient-glow-teal [--glow-alpha:20%] [--glow-blur:80px]" />
+                <div className="absolute bottom-1/4 right-1/4 w-64 h-64 ambient-glow ambient-glow-gold [--glow-alpha:20%] [--glow-blur:80px]" />
             </div>
 
             <div className="container mx-auto px-4 md:px-6 relative z-10">
@@ -219,7 +219,7 @@ export function Testimonials() {
                         initial={{ opacity: 0, scale: 0.9 }}
                         whileInView={{ opacity: 1, scale: 1 }}
                         viewport={{ once: true }}
-                        className="inline-flex items-center justify-center p-3 mb-6 bg-luxury-bg/50 rounded-full border border-luxury-gold/20 backdrop-blur-sm"
+                        className="inline-flex items-center justify-center p-3 mb-6 bg-luxury-bg/50 rounded-full border border-luxury-gold/20"
                     >
                         <div className="flex gap-1 text-luxury-gold">
                             {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
@@ -246,7 +246,7 @@ export function Testimonials() {
                             >
                                 <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
                                     <DialogTrigger asChild>
-                                        <Button variant="outline" className="rounded-full border-white/10 bg-white/5 backdrop-blur-sm text-white hover:bg-white/10 gap-2 px-6 h-12 transition-all duration-300 hover:scale-105">
+                                        <Button variant="outline" className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 gap-2 px-6 h-12 transition-all duration-300 hover:scale-105">
                                             <Plus className="w-4 h-4" /> Lascia una recensione
                                         </Button>
                                     </DialogTrigger>
@@ -433,7 +433,7 @@ export function Testimonials() {
                             onMouseEnter={() => setHoveredTestimonial(t.id)}
                             onMouseLeave={() => setHoveredTestimonial(null)}
                             className={cn(
-                                "relative p-8 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl group hover:border-luxury-gold/30 transition-all backdrop-blur-sm",
+                                "relative p-8 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl group hover:border-luxury-gold/30 transition-colors",
                                 hoveredTestimonial === t.id && "border-luxury-gold/30"
                             )}
                         >
@@ -487,7 +487,7 @@ function TestimonialCard({
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <div className="relative h-full p-6 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl backdrop-blur-sm">
+        <div className="relative h-full p-6 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl">
             <Quote className="absolute top-6 right-6 w-10 h-10 text-luxury-gold/10" aria-hidden="true" />
 
             <div className="relative z-10">
