@@ -19,17 +19,17 @@
     "dependencies": {
         "form-data": "^4.0.6",
         "minimatch": "10.2.6",
-        "next": "^16.2.6",
-        "opencode-ai": "^1.18.27",
-        "react": "19.2.8",
-        "react-dom": "19.2.8"
+        "next": "^16.3.6",
+        "opencode-ai": "^1.18.31",
+        "react": "19.3.0",
+        "react-dom": "19.3.0"
     },
     "overrides": {
         "gray-matter": {
-            "js-yaml": "^3.15.1"
+            "js-yaml": "^3.15.2"
         },
         "@istanbuljs/load-nyc-config": {
-            "js-yaml": "^3.15.1"
+            "js-yaml": "^3.15.2"
         },
         "nanoid": "^3.3.18",
         "fast-xml-parser": "^5.7.0",
@@ -45,7 +45,7 @@
         "uuid": "^11.1.1",
         "postcss": "^8.5.10",
         "@tootallnate/once": "^2.0.1",
-        "next": "^16.2.6",
+        "next": "^16.3.6",
         "minimatch": "$minimatch",
         "eslint": {
             "minimatch": "$minimatch"
