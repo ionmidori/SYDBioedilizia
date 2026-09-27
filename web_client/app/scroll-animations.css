@@ -56,14 +56,15 @@
        the next one slides over it. A sticky element barely moves while it is
        stuck, so the timeline comes from a zero-height marker placed where the
        covered card's slot ends in normal flow. The inset moves the "top" of
-       the viewport down to where cards come to rest (88px, below the navbar):
-       the effect runs over the last slot-height (274px) before the marker
-       reaches that line — exactly while the next card covers this one.
+       the viewport down to where cards come to rest (`--stack-top`, below the
+       navbar): the effect runs over the last slot-height (`--stack-slot`)
+       before the marker reaches that line — exactly while the next card
+       covers this one. Both come from Services.tsx, where the layout uses them.
        The marker is a sibling of the card, not an ancestor, so each pair
        shares a unique timeline name (`--stack-<index>`) set inline by
        Services.tsx, with `timeline-scope` on the stack to expose it. */
     [data-stack-marker] {
-      view-timeline-inset: 88px 0px;
+      view-timeline-inset: var(--stack-top) 0px;
     }
 
     [data-stack-card] {
@@ -76,7 +77,7 @@
 
     [data-stack-card],
     [data-stack-shade] {
-      animation-range: cover calc(100% - 274px) cover 100%;
+      animation-range: cover calc(100% - var(--stack-slot)) cover 100%;
     }
   }
 }

@@ -139,10 +139,14 @@ export function Services() {
                 {/* ── Mobile: sticky stack ── */}
                 <div
                     className="md:hidden relative"
-                    // Exposes each marker's timeline to its card, which is a sibling
-                    // of the marker's, not a descendant.
+                    // timelineScope exposes each marker's timeline to its card, which is
+                    // a sibling of the marker's, not a descendant. The two lengths feed
+                    // the same timeline in app/scroll-animations.css, so layout and
+                    // animation cannot drift apart.
                     style={{
                         timelineScope: services.slice(0, -1).map((_, i) => stackTimeline(i)).join(', '),
+                        '--stack-top': `${STACK_TOP_PX}px`,
+                        '--stack-slot': `${STACK_SLOT_PX + STACK_GAP_PX}px`,
                     } as CSSProperties}
                 >
                     {services.map((service, index) => {

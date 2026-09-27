@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useInView, useReducedMotion } from 'framer-motion';
 import { Star, Quote, Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -160,7 +160,14 @@ export function Testimonials() {
     };
 
     // Desktop grid reveal, once — the mobile rail drives its own motion.
+    // Driven by `animate`, not `whileInView`: the approved testimonials can arrive
+    // after the grid was revealed (backend cold start), and their fresh card
+    // elements inherit an `animate` variant from the grid, whereas `whileInView`
+    // only ever reaches the cards that existed when it fired — late ones stayed
+    // at opacity 0. Under reduced motion the grid is simply always "visible".
     const reduceMotion = useReducedMotion();
+    const gridRef = useRef<HTMLDivElement>(null);
+    const gridInView = useInView(gridRef, { once: true, margin: '0px 0px -20% 0px' });
 
     const isRegisteredUser = user && !user.isAnonymous;
 
@@ -417,10 +424,10 @@ export function Testimonials() {
 
                 {/* ── Desktop: unchanged grid ── */}
                 <motion.div
+                    ref={gridRef}
                     variants={GRID_REVEAL.container}
                     initial={reduceMotion ? false : 'hidden'}
-                    whileInView="visible"
-                    viewport={{ once: true, margin: '0px 0px -20% 0px' }}
+                    animate={reduceMotion || gridInView ? 'visible' : 'hidden'}
                     className="hidden md:grid md:grid-cols-3 gap-8"
                 >
                     {testimonials.map((t) => (
