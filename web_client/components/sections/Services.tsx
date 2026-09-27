@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import {
@@ -64,12 +64,17 @@ const STACK_SLOT_PX = 260;
  */
 const STACK_GAP_PX = 14;
 
+/** Header reveal — skipped entirely (rendered in place) under reduced motion. */
+const HEADER_HIDDEN = { opacity: 0, y: 20 };
+const HEADER_SHOWN = { opacity: 1, y: 0 };
+
 export function Services() {
     const { user } = useAuth();
     const router = useRouter();
     const [authDialogOpen, setAuthDialogOpen] = useState(false);
     const [hoveredService, setHoveredService] = useState<number | null>(null);
     const stackRef = useRef<HTMLDivElement>(null);
+    const reduceMotion = useReducedMotion();
 
     // Desktop-only stagger reveal — the mobile stack drives its own motion.
     const gridRef = useStaggerReveal<HTMLDivElement>(
@@ -158,16 +163,16 @@ export function Services() {
                 {/* Header */}
                 <div className="text-center max-w-3xl mx-auto mb-12 md:mb-16">
                     <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={reduceMotion ? false : HEADER_HIDDEN}
+                        whileInView={HEADER_SHOWN}
                         viewport={{ once: true }}
                         className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-luxury-text mb-4 tracking-tight"
                     >
                         Tecnologia al servizio del <span className="text-luxury-gold italic">Design</span>
                     </motion.h2>
                     <motion.p
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        initial={reduceMotion ? false : HEADER_HIDDEN}
+                        whileInView={HEADER_SHOWN}
                         viewport={{ once: true }}
                         transition={{ delay: 0.2 }}
                         className="text-luxury-text/70 text-lg md:text-xl font-light"
