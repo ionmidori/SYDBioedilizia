@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useInView, useReducedMotion } from 'framer-motion';
 import { Star, Quote, Plus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { useStaggerReveal } from '@/hooks/use-scroll-animation';
+import { createStaggerVariants } from '@/lib/m3-motion';
 import { SnapRail } from '@/components/ui/snap-rail';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -24,6 +24,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+
+/** Desktop grid: the cards rise in one after another the first time it is seen. */
+const GRID_REVEAL = createStaggerVariants({ y: 35 }, 0.15);
 
 type TestimonialItem = {
     id: string | number;
@@ -156,16 +159,15 @@ export function Testimonials() {
         }
     };
 
-    // ── ADK 1.27 Phase 5: Testimonials stagger reveal (Bold/Premium) ──
-    // Desktop only — the mobile rail drives its own motion.
-    const testGridRef = useStaggerReveal<HTMLDivElement>(
-        '[data-testimonial-card="true"]',
-        {
-            y: 35,
-            stagger: 0.15,
-            start: "top 80%"
-        }
-    );
+    // Desktop grid reveal, once — the mobile rail drives its own motion.
+    // Driven by `animate`, not `whileInView`: the approved testimonials can arrive
+    // after the grid was revealed (backend cold start), and their fresh card
+    // elements inherit an `animate` variant from the grid, whereas `whileInView`
+    // only ever reaches the cards that existed when it fired — late ones stayed
+    // at opacity 0. Under reduced motion the grid is simply always "visible".
+    const reduceMotion = useReducedMotion();
+    const gridRef = useRef<HTMLDivElement>(null);
+    const gridInView = useInView(gridRef, { once: true, margin: '0px 0px -20% 0px' });
 
     const isRegisteredUser = user && !user.isAnonymous;
 
@@ -422,13 +424,17 @@ export function Testimonials() {
 
                 {/* ── Desktop: unchanged grid ── */}
                 <motion.div
-                    ref={testGridRef}
+                    ref={gridRef}
+                    variants={GRID_REVEAL.container}
+                    initial={reduceMotion ? false : 'hidden'}
+                    animate={reduceMotion || gridInView ? 'visible' : 'hidden'}
                     className="hidden md:grid md:grid-cols-3 gap-8"
                 >
                     {testimonials.map((t) => (
                         <motion.div
                             key={t.id}
                             data-testimonial-card="true"
+                            variants={GRID_REVEAL.item}
                             whileHover={{ scale: 1.02 }}
                             onMouseEnter={() => setHoveredTestimonial(t.id)}
                             onMouseLeave={() => setHoveredTestimonial(null)}

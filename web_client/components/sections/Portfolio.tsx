@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { SnapRail } from '@/components/ui/snap-rail';
 import { cn } from '@/lib/utils';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
-import { prefersReducedMotion } from '@/hooks/use-scroll-animation';
+import { prefersReducedMotion } from '@/lib/reduced-motion';
 import { triggerHaptic } from '@/lib/haptics';
 import {
     PORTFOLIO_RAIL_LIMIT,

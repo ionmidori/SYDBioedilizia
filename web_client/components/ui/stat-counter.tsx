@@ -1,13 +1,13 @@
 'use client';
 
-import { useRef } from 'react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { useGSAP } from '@gsap/react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
+import { animate, useInView, type AnimationPlaybackControls } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { prefersReducedMotion } from '@/hooks/use-scroll-animation';
+import { prefersReducedMotion } from '@/lib/reduced-motion';
 
-gsap.registerPlugin(ScrollTrigger);
+/** `power2.out`: fast off the mark, settling onto the final number. */
+const COUNT_EASE: [number, number, number, number] = [0.5, 1, 0.89, 1];
+const COUNT_DURATION_S = 1.4;
 
 interface StatCounterProps {
     /** Final number to count up to. */
@@ -29,7 +29,7 @@ interface StatCounterProps {
  *
  * - **The server renders the final value**, not zero. Crawlers and no-JS visitors get
  *   the real number, and there is no layout shift when the count starts.
- * - **The zero state is written in a layout effect** (`useGSAP` runs before paint), so
+ * - **The zero state is written in a layout effect**, before the browser paints, so
  *   the swap from the server-rendered value never reaches the screen.
  */
 export function StatCounter({
@@ -39,41 +39,39 @@ export function StatCounter({
     className,
 }: StatCounterProps) {
     const ref = useRef<HTMLSpanElement>(null);
+    const countRef = useRef<AnimationPlaybackControls | null>(null);
+    // Enters when the number crosses 85% of the viewport height, like the old
+    // ScrollTrigger `start: 'top 85%'`.
+    const inView = useInView(ref, { margin: '0px 0px -15% 0px' });
     const format = (n: number) => `${n.toFixed(decimals)}${suffix}`;
 
-    useGSAP(
-        () => {
-            const el = ref.current;
-            // Reduced motion keeps the server-rendered final value untouched.
-            if (!el || prefersReducedMotion()) return;
+    // Reduced motion keeps the server-rendered final value untouched.
+    useLayoutEffect(() => {
+        const el = ref.current;
+        if (!el || prefersReducedMotion()) return;
+        el.textContent = format(0);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- format derives from these
+    }, [value, suffix, decimals]);
 
-            const proxy = { n: 0 };
-            el.textContent = format(0);
+    // Restart on every entry — scrolling down into view and scrolling back up into
+    // it. Leaving is deliberately a no-op: a count still running when the number
+    // scrolls away finishes on its final value instead of freezing half-way.
+    useEffect(() => {
+        const el = ref.current;
+        if (!el || !inView || prefersReducedMotion()) return;
 
-            gsap.to(proxy, {
-                n: value,
-                duration: 1.4,
-                // Decelerating ease: fast off the mark, settling onto the final number
-                // rather than crawling the last stretch at constant speed.
-                ease: 'power2.out',
-                onUpdate: () => {
-                    el.textContent = format(proxy.n);
-                },
-                scrollTrigger: {
-                    trigger: el,
-                    start: 'top 85%',
-                    // GSAP's order is onEnter/onLeave/onEnterBack/onLeaveBack. `restart`
-                    // sits on the two *entering* events (scrolling down into view, and
-                    // scrolling back up into view) — `none` on both *leaving* events
-                    // means the number is left resting on its final value while off
-                    // screen, never caught mid-count while actually scrolling away.
-                    // (`once: true` here would fire once ever, for the page's lifetime.)
-                    toggleActions: 'restart none restart none',
-                },
-            });
-        },
-        { scope: ref, dependencies: [value, suffix, decimals] },
-    );
+        countRef.current?.stop();
+        countRef.current = animate(0, value, {
+            duration: COUNT_DURATION_S,
+            ease: COUNT_EASE,
+            onUpdate: (n) => {
+                el.textContent = format(n);
+            },
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- format derives from these
+    }, [inView, value, suffix, decimals]);
+
+    useEffect(() => () => countRef.current?.stop(), []);
 
     // tabular-nums keeps every digit the same width, so the number does not jitter
     // sideways while it counts.

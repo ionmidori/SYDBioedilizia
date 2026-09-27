@@ -1,25 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
-import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { WhatWeDo } from '@/components/sections/WhatWeDo';
 import { activities } from '@/lib/activities-data';
-
-/** Makes `matchMedia` answer as a browser with the given preferences would. */
-function mockMedia({ reducedMotion, desktop }: { reducedMotion: boolean; desktop: boolean }) {
-    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
-        matches:
-            (query.includes('prefers-reduced-motion: no-preference') && !reducedMotion) ||
-            (query.includes('prefers-reduced-motion: reduce') && reducedMotion) ||
-            (query.includes('min-width: 1024px') && desktop),
-        media: query,
-        onchange: null,
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        dispatchEvent: jest.fn(),
-    }));
-}
 
 const cards = (container: HTMLElement) =>
     Array.from(container.querySelectorAll<HTMLElement>('[data-activity-card]'));
@@ -57,48 +38,48 @@ describe('WhatWeDo', () => {
         expect(screen.queryAllByRole('link')).toHaveLength(0);
     });
 
-    describe('scroll animation', () => {
-        const defaultMatchMedia = (window.matchMedia as jest.Mock).getMockImplementation();
-
-        afterEach(() => {
-            (window.matchMedia as jest.Mock).mockImplementation(defaultMatchMedia);
-        });
-
-        it('registers one scrubbed trigger per card and per connector', () => {
-            mockMedia({ reducedMotion: false, desktop: true });
-            const { unmount } = render(<WhatWeDo />);
-
-            // 6 cards + 5 connectors.
-            expect(ScrollTrigger.getAll()).toHaveLength(activities.length * 2 - 1);
-
-            // Everything is reverted on unmount — no triggers leak across pages.
-            unmount();
-            expect(ScrollTrigger.getAll()).toHaveLength(0);
-        });
-
-        // jsdom has no layout, so every trigger is already past its end and the
-        // rendered style is the final state — assert on the tween itself instead.
-        it('blurs the cards on desktop only', () => {
-            mockMedia({ reducedMotion: false, desktop: true });
-            const desktop = render(<WhatWeDo />);
-            const [desktopTween] = gsap.getTweensOf(cards(desktop.container)[0]);
-            expect(desktopTween.vars.filter).toBe('blur(0px)');
-            desktop.unmount();
-
-            mockMedia({ reducedMotion: false, desktop: false });
-            const mobile = render(<WhatWeDo />);
-            const [mobileTween] = gsap.getTweensOf(cards(mobile.container)[0]);
-            // Still animated on mobile — only the blur is dropped.
-            expect(mobileTween.vars).toMatchObject({ x: 0, opacity: 1 });
-            expect(mobileTween.vars.filter).toBeUndefined();
-        });
-
-        it('registers nothing under reduced motion', () => {
-            mockMedia({ reducedMotion: true, desktop: true });
+    // The motion itself is CSS (app/scroll-animations.css) and JSDOM runs no scroll
+    // timelines, so these pin the hooks that CSS relies on — and that nothing in the
+    // markup hides a card when the browser cannot animate it.
+    describe('scroll animation hooks', () => {
+        it('puts every card inside its own timeline slot', () => {
             const { container } = render(<WhatWeDo />);
 
-            expect(ScrollTrigger.getAll()).toHaveLength(0);
-            expect(cards(container).every((card) => gsap.getTweensOf(card).length === 0)).toBe(true);
+            const slots = Array.from(container.querySelectorAll<HTMLElement>('[data-activity-slot]'));
+            expect(slots).toHaveLength(activities.length);
+            slots.forEach((slot) => expect(slot.querySelector('[data-activity-card]')).not.toBeNull());
+        });
+
+        it('flips the entry side for every other card from lg up, matching the zig-zag', () => {
+            const { container } = render(<WhatWeDo />);
+
+            const slots = Array.from(container.querySelectorAll<HTMLElement>('[data-activity-slot]'));
+            slots.forEach((slot, index) => {
+                // Even cards sit on the left and come from the left (the CSS default);
+                // odd cards sit on the right from lg up and come from the right.
+                expect(slot.classList.contains('lg:[--sd-dir:1]')).toBe(index % 2 === 1);
+            });
+        });
+
+        it('gives each connector a line and a dot to animate', () => {
+            const { container } = render(<WhatWeDo />);
+
+            container.querySelectorAll('[data-activity-connector]').forEach((connector) => {
+                expect(connector.querySelector('[data-connector-line]')).not.toBeNull();
+                expect(connector.querySelector('[data-connector-dot]')).not.toBeNull();
+            });
+        });
+
+        it('renders the cards readable with no script-set hidden state', () => {
+            const { container } = render(<WhatWeDo />);
+
+            // Without scroll-timeline support (or under reduced motion) the CSS
+            // registers nothing, so the markup alone must show the final state.
+            cards(container).forEach((card) => {
+                expect(card.style.opacity).toBe('');
+                expect(card.style.transform).toBe('');
+                expect(card.style.translate).toBe('');
+            });
         });
     });
 });

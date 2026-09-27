@@ -2,7 +2,7 @@
 
 import { Children, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { prefersReducedMotion } from '@/hooks/use-scroll-animation';
+import { prefersReducedMotion } from '@/lib/reduced-motion';
 
 interface SnapRailProps {
     children: ReactNode;

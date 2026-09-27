@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { Fragment, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
 import {
     Wand2,
     LayoutDashboard,
@@ -15,8 +13,7 @@ import { cn } from '@/lib/utils';
 import { AuthDialog } from '@/components/auth/AuthDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerHaptic } from '@/lib/haptics';
-import { M3Transition } from '@/lib/m3-motion';
-import { useStaggerReveal } from '@/hooks/use-scroll-animation';
+import { M3Transition, createStaggerVariants } from '@/lib/m3-motion';
 
 interface Service {
     icon: LucideIcon;
@@ -68,68 +65,26 @@ const STACK_GAP_PX = 14;
 const HEADER_HIDDEN = { opacity: 0, y: 20 };
 const HEADER_SHOWN = { opacity: 1, y: 0 };
 
+/** Desktop grid: the cards rise in one after another the first time it is seen. */
+const GRID_REVEAL = createStaggerVariants({ y: 30 }, 0.15);
+
+/**
+ * Timeline name shared by a covered card and the marker that drives it — see
+ * `[data-stack-marker]` in app/scroll-animations.css.
+ */
+const stackTimeline = (index: number) => `--stack-${index}`;
+
 export function Services() {
     const { user } = useAuth();
     const router = useRouter();
     const [authDialogOpen, setAuthDialogOpen] = useState(false);
     const [hoveredService, setHoveredService] = useState<number | null>(null);
-    const stackRef = useRef<HTMLDivElement>(null);
     const reduceMotion = useReducedMotion();
 
-    // Desktop-only stagger reveal — the mobile stack drives its own motion.
-    const gridRef = useStaggerReveal<HTMLDivElement>(
-        '[role="article"]',
-        { y: 30, stagger: 0.15, start: 'top 80%' }
-    );
-
-    // ── Mobile "stratigrafia": covered cards recede as the next one slides over ──
-    useGSAP(
-        () => {
-            const mm = gsap.matchMedia();
-
-            // Scoped to mobile and to users who have not asked for reduced motion;
-            // the sticky stacking itself is pure CSS and survives both.
-            mm.add('(max-width: 767px) and (prefers-reduced-motion: no-preference)', () => {
-                const slots = gsap.utils.toArray<HTMLElement>('[data-stack-slot]');
-
-                slots.forEach((slot, index) => {
-                    // The last card is never covered, so it never recedes.
-                    if (index === slots.length - 1) return;
-
-                    const card = slot.querySelector<HTMLElement>('[data-stack-card]');
-                    if (!card) return;
-
-                    // Transform lives on the inner card, never on the sticky slot:
-                    // a transform on the sticky element's ancestor would break stickiness.
-                    // fromTo with an explicit starting filter: interpolating from
-                    // `none` gives GSAP no function list to match against and the
-                    // card lands almost black instead of gently dimmed.
-                    //
-                    // No opacity either — fading a covered card would let the cards
-                    // beneath it show through, which is exactly what the opaque
-                    // surface is there to prevent.
-                    gsap.fromTo(
-                        card,
-                        { scale: 1, filter: 'saturate(1) brightness(1)' },
-                        {
-                            scale: 0.96,
-                            filter: 'saturate(0.8) brightness(0.88)',
-                            ease: 'none',
-                            scrollTrigger: {
-                                trigger: slot,
-                                start: `top top+=${STACK_TOP_PX}`,
-                                end: `bottom top+=${STACK_TOP_PX}`,
-                                scrub: true,
-                            },
-                        },
-                    );
-                });
-            });
-
-            return () => mm.revert();
-        },
-        { scope: stackRef, dependencies: [] },
-    );
+    // The mobile "stratigrafia" (covered cards recede as the next one slides over)
+    // is a CSS scroll timeline — see app/scroll-animations.css — so it runs on the
+    // compositor. The sticky stacking itself is plain CSS and survives both
+    // reduced motion and browsers without scroll timelines.
 
     const handleCardClick = (serviceTitle: string) => {
         triggerHaptic();
@@ -182,30 +137,76 @@ export function Services() {
                 </div>
 
                 {/* ── Mobile: sticky stack ── */}
-                <div ref={stackRef} className="md:hidden relative">
-                    {services.map((service, index) => (
-                        <div
-                            key={service.title}
-                            data-stack-slot
-                            className="sticky box-border"
-                            style={{
-                                height: `${STACK_SLOT_PX + STACK_GAP_PX}px`,
-                                paddingBottom: `${STACK_GAP_PX}px`,
-                                top: `${STACK_TOP_PX + index * STACK_STEP_PX}px`,
-                            }}
-                        >
-                            <ServiceCard
-                                service={service}
-                                onClick={() => handleCardClick(service.title)}
-                                stacked
-                            />
-                        </div>
-                    ))}
+                <div
+                    className="md:hidden relative"
+                    // timelineScope exposes each marker's timeline to its card, which is
+                    // a sibling of the marker's, not a descendant. The two lengths feed
+                    // the same timeline in app/scroll-animations.css, so layout and
+                    // animation cannot drift apart.
+                    style={{
+                        timelineScope: services.slice(0, -1).map((_, i) => stackTimeline(i)).join(', '),
+                        '--stack-top': `${STACK_TOP_PX}px`,
+                        '--stack-slot': `${STACK_SLOT_PX + STACK_GAP_PX}px`,
+                    } as CSSProperties}
+                >
+                    {services.map((service, index) => {
+                        // The last card is never covered, so it never recedes.
+                        const covered = index < services.length - 1;
+                        return (
+                            <Fragment key={service.title}>
+                                <div
+                                    data-stack-slot
+                                    className="sticky box-border"
+                                    style={{
+                                        height: `${STACK_SLOT_PX + STACK_GAP_PX}px`,
+                                        paddingBottom: `${STACK_GAP_PX}px`,
+                                        top: `${STACK_TOP_PX + index * STACK_STEP_PX}px`,
+                                    }}
+                                >
+                                    {/* The recede runs on this wrapper, never on the sticky
+                                        slot (a transform there would break stickiness) and never
+                                        on the button, whose own `scale` is its press feedback. */}
+                                    <div
+                                        data-stack-card={covered ? '' : undefined}
+                                        className="relative h-full"
+                                        style={covered ? ({ animationTimeline: stackTimeline(index) } as CSSProperties) : undefined}
+                                    >
+                                        <ServiceCard
+                                            service={service}
+                                            onClick={() => handleCardClick(service.title)}
+                                        />
+                                        {covered && (
+                                            // Dims the covered card: an opacity change
+                                            // instead of a per-frame filter repaint.
+                                            <span
+                                                data-stack-shade
+                                                aria-hidden="true"
+                                                className="pointer-events-none absolute inset-0 m3-shape-xl bg-black opacity-0"
+                                                style={{ animationTimeline: stackTimeline(index) } as CSSProperties}
+                                            />
+                                        )}
+                                    </div>
+                                </div>
+                                {/* Zero-height and in normal flow: it sits where this slot
+                                    ends and scrolls with the page while the slot is stuck. */}
+                                {covered && (
+                                    <div
+                                        data-stack-marker
+                                        aria-hidden="true"
+                                        style={{ viewTimelineName: stackTimeline(index) } as CSSProperties}
+                                    />
+                                )}
+                            </Fragment>
+                        );
+                    })}
                 </div>
 
                 {/* ── Desktop: unchanged grid ── */}
                 <motion.div
-                    ref={gridRef}
+                    variants={GRID_REVEAL.container}
+                    initial={reduceMotion ? false : 'hidden'}
+                    whileInView="visible"
+                    viewport={{ once: true, margin: '0px 0px -20% 0px' }}
                     // 3 columns for 3 cards: md:grid-cols-2 would leave an orphan
                     // second row with a single card in it.
                     className="hidden md:grid md:grid-cols-3 gap-6"
@@ -214,6 +215,7 @@ export function Services() {
                         <motion.div
                             key={service.title}
                             role="article"
+                            variants={GRID_REVEAL.item}
                             whileHover={{ y: -4, transition: M3Transition.containerTransform }}
                             whileTap={{ scale: 0.98, transition: M3Transition.buttonPress }}
                             onClick={() => handleCardClick(service.title)}
@@ -268,16 +270,13 @@ export function Services() {
 function ServiceCard({
     service,
     onClick,
-    stacked = false,
 }: {
     service: Service;
     onClick: () => void;
-    stacked?: boolean;
 }) {
     return (
         <button
             type="button"
-            data-stack-card={stacked ? '' : undefined}
             onClick={onClick}
             className={cn(
                 'group relative flex h-full w-full flex-col justify-center p-6 text-left m3-shape-xl cinematic-focus',
