@@ -2,7 +2,8 @@
  * "Cosa facciamo" content model — the trades SYD carries out, in display order.
  *
  * Descriptions are kept to a similar length on purpose: every card in the
- * section has the same fixed size, and the text is clamped to three lines.
+ * section has the same fixed size, and the text is clamped (five lines below
+ * 360px, four on mobile, three from `md`).
  */
 import {
     AirVent,

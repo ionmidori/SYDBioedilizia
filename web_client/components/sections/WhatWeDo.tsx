@@ -139,7 +139,7 @@ export function WhatWeDo() {
                             >
                                 <div
                                     data-activity-slot
-                                    className="w-full max-w-md lg:w-[44%] h-[212px] md:h-[188px] [perspective:1200px]"
+                                    className="w-full max-w-md lg:w-[44%] h-[212px] max-[359px]:h-[236px] md:h-[188px] [perspective:1200px]"
                                 >
                                     <ActivityCard activity={activity} index={index} />
                                 </div>
@@ -161,7 +161,7 @@ function ActivityCard({ activity, index }: { activity: Activity; index: number }
         <article
             data-activity-card
             className={cn(
-                'relative flex h-full w-full flex-col p-5 md:p-6 m3-shape-xl will-change-transform',
+                'relative flex h-full w-full flex-col p-5 md:p-6 m3-shape-xl',
                 // Opaque surface shared with the Services stack: at partial alpha the
                 // cards would show the decoration blobs through them mid-flight.
                 'elevated-service-card',
@@ -191,7 +191,7 @@ function ActivityCard({ activity, index }: { activity: Activity; index: number }
             </div>
 
             {/* /75 for WCAG AA against the card gradient (see ServiceCard). */}
-            <p className="text-luxury-text/75 text-sm leading-relaxed font-light line-clamp-4 md:line-clamp-3">
+            <p className="text-luxury-text/75 text-sm leading-relaxed font-light line-clamp-4 max-[359px]:line-clamp-5 md:line-clamp-3">
                 {activity.description}
             </p>
         </article>
