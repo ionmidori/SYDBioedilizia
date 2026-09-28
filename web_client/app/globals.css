@@ -211,7 +211,9 @@
   box-shadow: 0 10px 40px -10px rgba(42, 157, 143, 0.2),
     0 0 20px rgba(233, 196, 106, 0.1);
   border-color: rgba(233, 196, 106, 0.6);
-  background-color: rgb(var(--luxury-bg-rgb) / 0.95);
+  /* Derived from the theme token: `--luxury-bg-rgb`, used here before, was never
+     defined, so browsers dropped the whole declaration. */
+  background-color: color-mix(in srgb, var(--color-luxury-bg) 95%, transparent);
 }
 
 /* A horizontal scroll-snap rail (SnapRail) is forced by the CSS spec to also clip
