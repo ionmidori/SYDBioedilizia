@@ -1,10 +1,15 @@
 /**
  * "Cosa facciamo" content model — the trades SYD carries out, in display order.
  *
- * Descriptions are kept to a similar length on purpose: every card in the
- * section has the same fixed size, and the text is clamped (five lines below
- * 360px, four on mobile, three from `md`).
+ * Descriptions are kept to a similar length on purpose: every card shares one
+ * aspect ratio and grows only if its text needs more room, so a much longer
+ * description makes its card taller than the others.
+ *
+ * Photos are static imports from `assets/activities/`: Next reads their size and
+ * builds the blur placeholder at build time, and a missing file fails the build.
+ * Sources are pre-sized to 1600px on the long side with metadata stripped.
  */
+import type { StaticImageData } from 'next/image';
 import {
     AirVent,
     AppWindow,
@@ -14,12 +19,18 @@ import {
     Zap,
     type LucideIcon,
 } from 'lucide-react';
+import appartamentoPhoto from '@/assets/activities/appartamento.jpg';
+import bagnoPhoto from '@/assets/activities/bagno.jpg';
 
 export interface Activity {
     id: string;
     title: string;
     description: string;
     icon: LucideIcon;
+    /** Card background. Without one the card keeps its plain surface. */
+    image?: StaticImageData;
+    /** Focal point as a CSS `object-position` (e.g. '50% 30%'); defaults to centre. */
+    focus?: string;
 }
 
 export const activities: Activity[] = [
@@ -29,6 +40,8 @@ export const activities: Activity[] = [
         description:
             'Demolizione e smaltimento, rifacimento impianto idrico-sanitario e scarichi, impermeabilizzazione, posa di rivestimenti, sanitari sospesi e piatti doccia a filo pavimento.',
         icon: Bath,
+        image: bagnoPhoto,
+        focus: '62% 40%',
     },
     {
         id: 'appartamento',
@@ -36,6 +49,8 @@ export const activities: Activity[] = [
         description:
             'Chiavi in mano: progettazione, pratiche edilizie (CILA/SCIA), demolizioni e tramezzature, impianti a norma, massetti, finiture e direzione lavori.',
         icon: Building2,
+        image: appartamentoPhoto,
+        focus: '60% 35%',
     },
     {
         id: 'infissi',

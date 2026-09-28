@@ -57,6 +57,37 @@ describe('WhatWeDo', () => {
         });
     });
 
+    describe('photos', () => {
+        it('shows each activity photo as a decorative background, under a scrim', () => {
+            const { container } = render(<WhatWeDo />);
+
+            cards(container).forEach((card, index) => {
+                const img = card.querySelector('img');
+                const body = card.querySelector('[data-activity-body]');
+
+                if (activities[index].image) {
+                    // alt="" — the title and text already say what the photo shows.
+                    expect(img).toHaveAttribute('alt', '');
+                    expect(body).toHaveClass('activity-photo-scrim');
+                } else {
+                    expect(img).toBeNull();
+                    expect(body).not.toHaveClass('activity-photo-scrim');
+                }
+            });
+        });
+
+        it('sizes cards by aspect ratio, never by hand-measured pixel heights', () => {
+            const { container } = render(<WhatWeDo />);
+
+            const pixelHeight = /(^|:)h-\[\d+px\]$/;
+            container.querySelectorAll('[data-activity-slot], [data-activity-card]').forEach((el) => {
+                expect(Array.from(el.classList).filter((c) => pixelHeight.test(c))).toEqual([]);
+            });
+            // overflow-hidden would stop an aspect-ratio box from growing to fit its text.
+            cards(container).forEach((card) => expect(card).not.toHaveClass('overflow-hidden'));
+        });
+    });
+
     it('keeps the cards informational — no interactive elements', () => {
         render(<WhatWeDo />);
 
