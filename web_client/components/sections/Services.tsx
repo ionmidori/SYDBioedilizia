@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { triggerHaptic } from '@/lib/haptics';
 import { M3Transition, createStaggerVariants } from '@/lib/m3-motion';
 import { services, type Service, type ServiceAction } from '@/lib/services-data';
+import { openChat } from '@/lib/chat-events';
 
 /** Vertical offset added per card so the stack shows the edge of the ones below. */
 const STACK_STEP_PX = 16;
@@ -65,7 +66,7 @@ export function Services() {
                 }
                 break;
             case 'chat':
-                window.dispatchEvent(new CustomEvent('OPEN_CHAT'));
+                openChat();
                 break;
         }
     };
