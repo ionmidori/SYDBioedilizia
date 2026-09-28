@@ -29,7 +29,7 @@ jest.mock('@/lib/services-data', () => {
 const mobileCard = (id: string) => {
     const service = services.find((s) => s.id === id);
     if (!service) throw new Error(`no service ${id}`);
-    return screen.getByRole('button', { name: new RegExp(service.title.replace(/[()]/g, '\\$&')) });
+    return screen.getByRole('button', { name: new RegExp(service.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
 };
 
 describe('Services — click actions', () => {
