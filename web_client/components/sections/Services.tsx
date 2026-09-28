@@ -3,45 +3,12 @@
 import { Fragment, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
-import {
-    Wand2,
-    LayoutDashboard,
-    HardHat,
-    type LucideIcon
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AuthDialog } from '@/components/auth/AuthDialog';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerHaptic } from '@/lib/haptics';
 import { M3Transition, createStaggerVariants } from '@/lib/m3-motion';
-
-interface Service {
-    icon: LucideIcon;
-    title: string;
-    description: string;
-    iconColor: string;
-}
-
-const services: Service[] = [
-    {
-        icon: LayoutDashboard,
-        title: 'Area personale',
-        description: 'Controlla ogni aspetto del cantiere dalla tua area personale: avanzamento lavori, documenti, fatture e comunicazioni con il team.',
-        iconColor: 'text-luxury-teal'
-    },
-    {
-        icon: Wand2,
-        title: 'Design AI e Preventivi Veloci',
-        description: 'Genera centinaia di varianti di design per la tua casa in pochi secondi e ottieni subito una stima dettagliata dei costi, revisionata dal nostro team tecnico in tempi record.',
-        iconColor: 'text-luxury-teal'
-    },
-    {
-        icon: HardHat,
-        title: 'Direzione Lavori e Consegna',
-        description: 'I nostri architetti partner seguono il cantiere passo dopo passo e gestiamo tutto noi, dalla burocrazia alle pulizie finali: ti consegniamo una casa pronta da vivere.',
-        iconColor: 'text-luxury-teal'
-    }
-];
+import { services, type Service, type ServiceAction } from '@/lib/services-data';
 
 /** Vertical offset added per card so the stack shows the edge of the ones below. */
 const STACK_STEP_PX = 16;
@@ -86,19 +53,20 @@ export function Services() {
     // compositor. The sticky stacking itself is plain CSS and survives both
     // reduced motion and browsers without scroll timelines.
 
-    const handleCardClick = (serviceTitle: string) => {
+    const handleCardClick = (action: ServiceAction) => {
         triggerHaptic();
 
-        if (serviceTitle === 'Area personale') {
-            if (user && !user.isAnonymous) {
-                router.push('/dashboard');
-            } else {
-                setAuthDialogOpen(true);
-            }
-        } else {
-            // Tutte le altre schede attivano l'IA
-            const event = new CustomEvent('OPEN_CHAT');
-            window.dispatchEvent(event);
+        switch (action) {
+            case 'dashboard':
+                if (user && !user.isAnonymous) {
+                    router.push('/dashboard');
+                } else {
+                    setAuthDialogOpen(true);
+                }
+                break;
+            case 'chat':
+                window.dispatchEvent(new CustomEvent('OPEN_CHAT'));
+                break;
         }
     };
 
@@ -153,7 +121,7 @@ export function Services() {
                         // The last card is never covered, so it never recedes.
                         const covered = index < services.length - 1;
                         return (
-                            <Fragment key={service.title}>
+                            <Fragment key={service.id}>
                                 <div
                                     data-stack-slot
                                     className="sticky box-border"
@@ -173,7 +141,7 @@ export function Services() {
                                     >
                                         <ServiceCard
                                             service={service}
-                                            onClick={() => handleCardClick(service.title)}
+                                            onClick={() => handleCardClick(service.action)}
                                         />
                                         {covered && (
                                             // Dims the covered card: an opacity change
@@ -213,12 +181,12 @@ export function Services() {
                 >
                     {services.map((service, index) => (
                         <motion.div
-                            key={service.title}
+                            key={service.id}
                             role="article"
                             variants={GRID_REVEAL.item}
                             whileHover={{ y: -4, transition: M3Transition.containerTransform }}
                             whileTap={{ scale: 0.98, transition: M3Transition.buttonPress }}
-                            onClick={() => handleCardClick(service.title)}
+                            onClick={() => handleCardClick(service.action)}
                             onMouseEnter={() => setHoveredService(index)}
                             onMouseLeave={() => setHoveredService(null)}
                             className={cn(
@@ -237,8 +205,7 @@ export function Services() {
                             <div className="flex items-center gap-4 mb-4">
                                 <div className={cn(
                                     "w-12 h-12 lg:w-14 lg:h-14 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/10 transition-transform duration-500",
-                                    "bg-[radial-gradient(circle_at_30%_20%,rgba(233,196,106,0.14),rgba(38,70,83,0.55)_70%)]",
-                                    service.iconColor,
+                                    "bg-[radial-gradient(circle_at_30%_20%,rgba(233,196,106,0.14),rgba(38,70,83,0.55)_70%)] text-luxury-teal",
                                     hoveredService === index && "scale-110 shadow-premium"
                                 )}>
                                     <service.icon className="w-6 h-6 lg:w-7 lg:h-7" />
@@ -296,8 +263,7 @@ function ServiceCard({
                     'w-12 h-12 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/15',
                     // Alpha is safe here: the chip sits inside an already-opaque
                     // card, so it only blends with its own parent, not the stack.
-                    'bg-gradient-to-br from-luxury-bg/70 to-luxury-bg/40',
-                    service.iconColor,
+                    'bg-gradient-to-br from-luxury-bg/70 to-luxury-bg/40 text-luxury-teal',
                 )}>
                     <service.icon className="w-6 h-6" />
                 </div>
