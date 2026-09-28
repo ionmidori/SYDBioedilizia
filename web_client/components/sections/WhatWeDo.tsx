@@ -144,8 +144,12 @@ function ActivityCard({ activity }: { activity: Activity }) {
                     </h3>
                 </div>
 
-                {/* /90: AA (≥4.5:1) against the scrim even over a white photo. */}
-                <p className="text-luxury-text/90 text-base leading-relaxed font-light">
+                {/* Full opacity over a photo (the scrim is sized for it); /75 is AA
+                    against the plain card gradient. */}
+                <p className={cn(
+                    'text-base leading-relaxed font-light',
+                    image ? 'text-luxury-text' : 'text-luxury-text/75',
+                )}>
                     {activity.description}
                 </p>
             </div>
