@@ -55,9 +55,13 @@ export function WhatWeDo() {
                     </motion.p>
                 </div>
 
-                <ol className="max-w-5xl mx-auto">
+                {/* Equal card heights with no measured numbers: rows alternate card /
+                    connector, and every card row is 1fr — in an auto-height grid that is the
+                    tallest card's content height, so all cards match the one with the most
+                    text. Each <li> spans its two rows through a subgrid. */}
+                <ol className="max-w-5xl mx-auto grid auto-rows-[1fr_auto]">
                     {activities.map((activity, index) => (
-                        <li key={activity.id}>
+                        <li key={activity.id} className="row-span-2 grid grid-rows-subgrid">
                             <div
                                 className={cn(
                                     'flex justify-center',
@@ -71,7 +75,7 @@ export function WhatWeDo() {
                                 <div
                                     data-activity-slot
                                     className={cn(
-                                        // No height here: the card sets it from its aspect ratio.
+                                        // No height here: the grid row sets it.
                                         'w-full max-w-md lg:w-[44%] [perspective:1200px]',
                                         index % 2 === 1 && '[--sd-dir:1]',
                                     )}
@@ -97,11 +101,9 @@ function ActivityCard({ activity }: { activity: Activity }) {
         <article
             data-activity-card
             className={cn(
-                // The aspect ratio is a floor, not a cap: a box with an aspect ratio still
-                // grows to fit its content, so text is never cut. That only holds while the
-                // card is not a scroll container — hence overflow-clip, never -hidden.
-                'relative flex w-full flex-col overflow-clip m3-shape-xl aspect-[4/5] sm:aspect-square',
-                image ? 'justify-end' : 'justify-center',
+                // Height comes from the grid row (the longest text), so nothing is cut.
+                // overflow-clip keeps the photo inside the rounded corners.
+                'relative flex h-full w-full flex-col overflow-clip m3-shape-xl',
                 // Opaque surface shared with the Services stack: at partial alpha the
                 // cards would show the decoration blobs through them mid-flight. With a
                 // photo it is also what shows while the image loads.
@@ -121,14 +123,11 @@ function ActivityCard({ activity }: { activity: Activity }) {
                 />
             )}
 
-            {/* With a photo, the scrim is this block's own background, so it always
-                covers exactly the text, however many lines it wraps to. */}
+            {/* The card is as tall as its text, so the photo sits behind the text:
+                the scrim is this block's background and fills the whole card. */}
             <div
                 data-activity-body
-                className={cn(
-                    'relative px-5 pb-5 md:px-6 md:pb-6',
-                    image ? 'activity-photo-scrim pt-16' : 'pt-5 md:pt-6',
-                )}
+                className={cn('relative flex-1 p-5 md:p-6', image && 'activity-photo-scrim')}
             >
                 <div className="flex items-center gap-4 mb-3">
                     <div
@@ -145,8 +144,8 @@ function ActivityCard({ activity }: { activity: Activity }) {
                     </h3>
                 </div>
 
-                {/* /80 for WCAG AA against the card gradient and the photo scrim alike. */}
-                <p className="text-luxury-text/80 text-base leading-relaxed font-light">
+                {/* /90: AA (≥4.5:1) against the scrim even over a white photo. */}
+                <p className="text-luxury-text/90 text-base leading-relaxed font-light">
                     {activity.description}
                 </p>
             </div>

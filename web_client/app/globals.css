@@ -475,18 +475,17 @@
     0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
-/* Photo scrim for the "Cosa facciamo" cards (WhatWeDo.tsx). It is the text
-   block's own background: near-opaque behind the text whatever the photo, fading
-   to clear over the block's top padding. Contrast therefore never depends on the
-   image. A static gradient — nothing here is animated or filtered. */
+/* Photo scrim for the "Cosa facciamo" cards (WhatWeDo.tsx). The card is only as
+   tall as its text, so the veil covers the whole photo: lighter at the top, where
+   the title is large text (AA 3:1), denser from mid-card down behind the
+   description (AA 4.5:1 at /90 even over a white photo). A static gradient —
+   nothing here is animated or filtered. */
 .activity-photo-scrim {
-  --scrim: color-mix(in srgb, var(--color-luxury-bg) 94%, transparent);
   background: linear-gradient(
     to top,
-    var(--scrim) 0%,
-    var(--scrim) calc(100% - 4rem),
-    color-mix(in srgb, var(--color-luxury-bg) 60%, transparent) calc(100% - 2rem),
-    transparent 100%
+    color-mix(in srgb, var(--color-luxury-bg) 86%, transparent) 0%,
+    color-mix(in srgb, var(--color-luxury-bg) 82%, transparent) 55%,
+    color-mix(in srgb, var(--color-luxury-bg) 70%, transparent) 100%
   );
 }
 
