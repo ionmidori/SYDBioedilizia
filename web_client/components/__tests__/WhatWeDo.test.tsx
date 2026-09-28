@@ -76,15 +76,13 @@ describe('WhatWeDo', () => {
             });
         });
 
-        it('sizes cards by aspect ratio, never by hand-measured pixel heights', () => {
+        it('sizes cards from their text, never by hand-measured pixel heights or ratios', () => {
             const { container } = render(<WhatWeDo />);
 
-            const pixelHeight = /(^|:)h-\[\d+px\]$/;
+            const fixedSize = /(^|:)(h-\[\d+px\]|aspect-)/;
             container.querySelectorAll('[data-activity-slot], [data-activity-card]').forEach((el) => {
-                expect(Array.from(el.classList).filter((c) => pixelHeight.test(c))).toEqual([]);
+                expect(Array.from(el.classList).filter((c) => fixedSize.test(c))).toEqual([]);
             });
-            // overflow-hidden would stop an aspect-ratio box from growing to fit its text.
-            cards(container).forEach((card) => expect(card).not.toHaveClass('overflow-hidden'));
         });
     });
 
