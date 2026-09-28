@@ -21,6 +21,10 @@ import {
 } from 'lucide-react';
 import appartamentoPhoto from '@/assets/activities/appartamento.jpg';
 import bagnoPhoto from '@/assets/activities/bagno.jpg';
+import climatizzazionePhoto from '@/assets/activities/climatizzazione.jpg';
+import impiantoElettricoPhoto from '@/assets/activities/impianto-elettrico.jpg';
+import infissiPhoto from '@/assets/activities/infissi.jpg';
+import piastrellePhoto from '@/assets/activities/piastrelle.jpg';
 
 export interface Activity {
     id: string;
@@ -58,6 +62,8 @@ export const activities: Activity[] = [
         description:
             'Serramenti a taglio termico in PVC, alluminio o legno-alluminio con vetrocamera basso-emissivo, posa qualificata secondo UNI 11673 e accesso alle detrazioni fiscali.',
         icon: AppWindow,
+        image: infissiPhoto,
+        focus: '60% 45%',
     },
     {
         id: 'climatizzazione',
@@ -65,6 +71,8 @@ export const activities: Activity[] = [
         description:
             'Fornitura e installazione di sistemi mono e multi-split a pompa di calore ad alta efficienza, sostituzione di impianti esistenti e installazione certificata F-Gas.',
         icon: AirVent,
+        image: climatizzazionePhoto,
+        focus: '50% 22%',
     },
     {
         id: 'impianto-elettrico',
@@ -72,6 +80,8 @@ export const activities: Activity[] = [
         description:
             'Impianto conforme alla norma CEI 64-8, nuovo quadro con protezioni differenziali e magnetotermiche, predisposizione domotica e Dichiarazione di Conformità (DM 37/08).',
         icon: Zap,
+        image: impiantoElettricoPhoto,
+        focus: '62% 40%',
     },
     {
         id: 'piastrelle',
@@ -79,5 +89,7 @@ export const activities: Activity[] = [
         description:
             "Posa a regola d'arte di gres porcellanato, grandi formati e mosaici: preparazione e livellamento del sottofondo, fughe e sigillature epossidiche.",
         icon: Grid3x3,
+        image: piastrellePhoto,
+        focus: '58% 40%',
     },
 ];
