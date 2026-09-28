@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { activities, type Activity } from '@/lib/activities-data';
@@ -7,6 +8,9 @@ import { activities, type Activity } from '@/lib/activities-data';
 /** Header reveal — skipped entirely (rendered in place) under reduced motion. */
 const HEADER_HIDDEN = { opacity: 0, y: 20 };
 const HEADER_SHOWN = { opacity: 1, y: 0 };
+
+/** Rendered card width: the viewport minus gutters, capped by `max-w-md` (448px) at every breakpoint. */
+const CARD_IMAGE_SIZES = '(min-width: 480px) 448px, 100vw';
 
 export function WhatWeDo() {
     const reduceMotion = useReducedMotion();
@@ -67,9 +71,8 @@ export function WhatWeDo() {
                                 <div
                                     data-activity-slot
                                     className={cn(
-                                        // Heights fit the longest description, unclamped, at the
-                                        // narrowest width of each range (measured in Chromium).
-                                        'w-full max-w-md lg:w-[44%] h-[236px] max-[359px]:h-[262px] md:h-[212px] lg:h-[228px] [perspective:1200px]',
+                                        // No height here: the card sets it from its aspect ratio.
+                                        'w-full max-w-md lg:w-[44%] [perspective:1200px]',
                                         index % 2 === 1 && '[--sd-dir:1]',
                                     )}
                                 >
@@ -88,36 +91,65 @@ export function WhatWeDo() {
 
 function ActivityCard({ activity }: { activity: Activity }) {
     const Icon = activity.icon;
+    const { image } = activity;
 
     return (
         <article
             data-activity-card
             className={cn(
-                'relative flex h-full w-full flex-col p-5 md:p-6 m3-shape-xl',
+                // The aspect ratio is a floor, not a cap: a box with an aspect ratio still
+                // grows to fit its content, so text is never cut. That only holds while the
+                // card is not a scroll container — hence overflow-clip, never -hidden.
+                'relative flex w-full flex-col overflow-clip m3-shape-xl aspect-[4/5] sm:aspect-square',
+                image ? 'justify-end' : 'justify-center',
                 // Opaque surface shared with the Services stack: at partial alpha the
-                // cards would show the decoration blobs through them mid-flight.
+                // cards would show the decoration blobs through them mid-flight. With a
+                // photo it is also what shows while the image loads.
                 'elevated-service-card',
             )}
         >
-            <div className="flex items-center gap-4 mb-3">
-                <div
-                    className={cn(
-                        'w-11 h-11 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/15 text-luxury-teal',
-                        'bg-gradient-to-br from-luxury-bg/70 to-luxury-bg/40',
-                    )}
-                >
-                    <Icon className="w-5 h-5" aria-hidden="true" />
+            {image && (
+                // Decorative: the title and text already say what the photo shows.
+                <Image
+                    src={image}
+                    alt=""
+                    fill
+                    placeholder="blur"
+                    sizes={CARD_IMAGE_SIZES}
+                    className="object-cover"
+                    style={activity.focus ? { objectPosition: activity.focus } : undefined}
+                />
+            )}
+
+            {/* With a photo, the scrim is this block's own background, so it always
+                covers exactly the text, however many lines it wraps to. */}
+            <div
+                data-activity-body
+                className={cn(
+                    'relative px-5 pb-5 md:px-6 md:pb-6',
+                    image ? 'activity-photo-scrim pt-16' : 'pt-5 md:pt-6',
+                )}
+            >
+                <div className="flex items-center gap-4 mb-3">
+                    <div
+                        className={cn(
+                            'w-11 h-11 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/15 text-luxury-teal',
+                            'bg-gradient-to-br from-luxury-bg/70 to-luxury-bg/40',
+                        )}
+                    >
+                        <Icon className="w-5 h-5" aria-hidden="true" />
+                    </div>
+
+                    <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-text">
+                        {activity.title}
+                    </h3>
                 </div>
 
-                <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-text">
-                    {activity.title}
-                </h3>
+                {/* /80 for WCAG AA against the card gradient and the photo scrim alike. */}
+                <p className="text-luxury-text/80 text-base leading-relaxed font-light">
+                    {activity.description}
+                </p>
             </div>
-
-            {/* /75 for WCAG AA against the card gradient (see ServiceCard). */}
-            <p className="text-luxury-text/75 text-base leading-relaxed font-light">
-                {activity.description}
-            </p>
         </article>
     );
 }

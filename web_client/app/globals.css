@@ -475,6 +475,21 @@
     0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
+/* Photo scrim for the "Cosa facciamo" cards (WhatWeDo.tsx). It is the text
+   block's own background: near-opaque behind the text whatever the photo, fading
+   to clear over the block's top padding. Contrast therefore never depends on the
+   image. A static gradient — nothing here is animated or filtered. */
+.activity-photo-scrim {
+  --scrim: color-mix(in srgb, var(--color-luxury-bg) 94%, transparent);
+  background: linear-gradient(
+    to top,
+    var(--scrim) 0%,
+    var(--scrim) calc(100% - 4rem),
+    color-mix(in srgb, var(--color-luxury-bg) 60%, transparent) calc(100% - 2rem),
+    transparent 100%
+  );
+}
+
 /* Bento Grid Layout */
 .bento-grid {
   display: grid;
