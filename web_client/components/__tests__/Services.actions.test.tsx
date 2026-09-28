@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Services } from '@/components/sections/Services';
 import { services } from '@/lib/services-data';
+import { CHAT_EVENTS } from '@/lib/chat-events';
 
 const push = jest.fn();
 jest.mock('next/navigation', () => ({
@@ -64,7 +65,7 @@ describe('Services — click actions', () => {
 
     it('opens the chat from every chat card', () => {
         const onOpen = jest.fn();
-        window.addEventListener('OPEN_CHAT', onOpen);
+        window.addEventListener(CHAT_EVENTS.open, onOpen);
         render(<Services />);
 
         const chatCards = services.filter((s) => s.action === 'chat');
@@ -72,6 +73,6 @@ describe('Services — click actions', () => {
 
         expect(onOpen).toHaveBeenCalledTimes(chatCards.length);
         expect(push).not.toHaveBeenCalled();
-        window.removeEventListener('OPEN_CHAT', onOpen);
+        window.removeEventListener(CHAT_EVENTS.open, onOpen);
     });
 });

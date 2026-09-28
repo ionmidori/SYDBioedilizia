@@ -8,6 +8,7 @@ import { StatCounter } from '@/components/ui/stat-counter';
 import { PlayCircle, Palette, FileText } from 'lucide-react';
 import { Portfolio } from './Portfolio';
 import { SlideShowModal } from './SlideShowModal';
+import { openChat } from '@/lib/chat-events';
 
 export function Hero() {
     const [isSlideShowOpen, setIsSlideShowOpen] = useState(false);
@@ -76,10 +77,7 @@ export function Hero() {
                             <Button
                                 size="lg"
                                 className="h-14 px-8 text-base min-w-[300px] bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
-                                onClick={() => {
-                                    const event = new CustomEvent('OPEN_CHAT');
-                                    window.dispatchEvent(event);
-                                }}
+                                onClick={() => openChat()}
                             >
                                 Richiedi Preventivo Gratuito
                                 <FileText className="ml-2 w-5 h-5" />
@@ -91,10 +89,7 @@ export function Hero() {
                             <Button
                                 size="lg"
                                 className="h-14 px-8 text-base min-w-[300px] bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
-                                onClick={() => {
-                                    const event = new CustomEvent('OPEN_CHAT');
-                                    window.dispatchEvent(event);
-                                }}
+                                onClick={() => openChat()}
                             >
                                 Crea Rendering Gratuito
                                 <Palette className="ml-2 w-5 h-5" />
