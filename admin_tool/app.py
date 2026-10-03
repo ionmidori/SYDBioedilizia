@@ -7,6 +7,7 @@ native multipage system (pages/ folder).
 Skill: building-admin-dashboards — §Authentication (streamlit-authenticator)
 """
 import logging
+import os
 from pathlib import Path
 
 import streamlit as st
@@ -44,7 +45,10 @@ st.markdown(
 )
 
 # ─── Config (CWD-independent path resolution) ─────────────────────────────────
-_CONFIG_PATH = Path(__file__).parent / "config.yaml"
+# On Cloud Run the file is mounted from Secret Manager and ADMIN_CONFIG_PATH
+# points at it; it is never baked into the image. Locally: admin_tool/config.yaml
+# (gitignored).
+_CONFIG_PATH = Path(os.environ.get("ADMIN_CONFIG_PATH") or Path(__file__).parent / "config.yaml")
 with _CONFIG_PATH.open("r", encoding="utf-8") as _f:
     _config = yaml.load(_f, Loader=SafeLoader)
 

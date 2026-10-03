@@ -23,9 +23,10 @@ COPY pyproject.toml uv.lock ./
 # the old, vulnerable resolution with a green build.
 RUN uv sync --no-install-project --no-dev --locked
 
-# Application files (no .env, no firebase-service-account.json)
+# Application files (no .env, no firebase-service-account.json, no config.yaml:
+# the credentials file is mounted at runtime from Secret Manager, see
+# ADMIN_CONFIG_PATH in app.py)
 COPY app.py .
-COPY config.yaml .
 COPY pages/ pages/
 COPY src/ src/
 COPY .streamlit/ .streamlit/
