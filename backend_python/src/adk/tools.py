@@ -33,10 +33,8 @@ def _trusted_session_id(tool_context: Any, claimed: str) -> str:
     """
     trusted: str = tool_context.session.id
     if claimed and claimed != trusted:
-        logger.warning(
-            "[ADK Tool] session_id from the model ignored (does not match the verified session)",
-            extra={"claimed_session_id": claimed, "session_id": trusted},
-        )
+        # No ids in the log: a session id is an access token (CodeQL py/clear-text-logging).
+        logger.warning("[ADK Tool] session_id from the model ignored (does not match the verified session)")
     return trusted
 
 # ─── Pricing Engine ──────────────────────────────────────────────────────────
@@ -231,12 +229,12 @@ async def generate_render(
     from src.core.config import settings
     dev_bypass = settings.ENV == "development" and settings.ALLOW_AUTH_BYPASS
     if not dev_bypass and await is_anonymous_user(user_id):
-        _logger.warning("[ADK Tool] generate_render blocked: anonymous user", extra={"session_id": session_id})
+        _logger.warning("[ADK Tool] generate_render blocked: anonymous user")
         return {"status": "error", "error": _RENDER_LOGIN_REQUIRED}
 
     allowed, _remaining, reset_at = await check_quota(user_id, "generate_render")
     if not allowed:
-        _logger.warning("[ADK Tool] generate_render blocked: quota exhausted", extra={"session_id": session_id})
+        _logger.warning("[ADK Tool] generate_render blocked: quota exhausted")
         return {
             "status": "error",
             "error": f"Hai raggiunto il limite di render disponibili. Riprova dopo le {reset_at:%H:%M} UTC.",
