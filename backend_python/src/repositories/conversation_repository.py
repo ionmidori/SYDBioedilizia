@@ -5,6 +5,7 @@ from typing import Any
 from google.cloud import firestore as async_firestore
 from pydantic import BaseModel
 
+from src.core.exceptions import PermissionDenied
 from src.db.firebase_client import get_async_firestore_client, get_firestore_client
 from src.db.projects import sync_project_cover
 
@@ -12,6 +13,13 @@ logger = logging.getLogger(__name__)
 
 # TTL for sessions and messages in days
 SESSION_TTL_DAYS = 30
+
+
+def _check_session_owner(session_id: str, current_owner: str, user_id: str | None) -> None:
+    """🛡️ A session owned by another real user is never shared (guest_* stays claimable)."""
+    if user_id and current_owner and not current_owner.startswith('guest_') and current_owner != user_id:
+        logger.warning(f"[Repo] ⛔ Session {session_id} owned by another user — access denied for {user_id}")
+        raise PermissionDenied("Questa sessione appartiene a un altro utente.")
 
 class ConversationRepository:
     """
@@ -199,6 +207,16 @@ class ConversationRepository:
             logger.error(f"[Repo] Error retrieving messages: {str(e)}", exc_info=True)
             return []
 
+    async def assert_session_access(self, session_id: str, user_id: str) -> None:
+        """Raise PermissionDenied if the session exists and belongs to another user.
+
+        Read-only: a missing session is allowed (the caller is about to create it).
+        """
+        db = self._get_async_db()
+        doc = await db.collection('sessions').document(session_id).get()
+        if doc.exists:
+            _check_session_owner(session_id, (doc.to_dict() or {}).get('userId', ''), user_id)
+
     async def ensure_session(self, session_id: str, user_id: str | None = None) -> None:
         """
         Ensure session document exists in Firestore.
@@ -248,6 +266,8 @@ class ConversationRepository:
                 session_data = doc.to_dict() or {}
                 current_owner = session_data.get('userId', '')
 
+                _check_session_owner(session_id, current_owner, user_id)
+
                 update_data: dict[str, Any] = {'expireAt': expire_at}
 
                 if user_id and (not current_owner or current_owner.startswith('guest_')):
@@ -279,6 +299,8 @@ class ConversationRepository:
                     })
                      logger.info(f"[Repo] 🚀 Sync: Backfilled missing project {session_id}")
 
+        except PermissionDenied:
+            raise
         except Exception as e:
             logger.error(f"[Repo] Error ensuring session: {str(e)}", exc_info=True)
 
