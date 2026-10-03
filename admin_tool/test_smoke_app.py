@@ -66,3 +66,11 @@ def test_page_imports_without_exception(page_path):
     assert not at.exception, (
         f"{Path(page_path).name} raised an unhandled exception on a clean run: {at.exception}"
     )
+
+
+def test_config_path_comes_from_env(monkeypatch: pytest.MonkeyPatch):
+    """On Cloud Run config.yaml is mounted from Secret Manager at ADMIN_CONFIG_PATH."""
+    monkeypatch.setenv("ADMIN_CONFIG_PATH", str(_ROOT / "missing-config.yaml"))
+    at = AppTest.from_file(str(_ROOT / "app.py"))
+    at.run(timeout=15)
+    assert at.exception, "app.py ignored ADMIN_CONFIG_PATH and read the local config.yaml"
