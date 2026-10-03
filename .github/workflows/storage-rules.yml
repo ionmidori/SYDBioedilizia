@@ -42,7 +42,8 @@ jobs:
 
     env:
       # Pinned so an upstream release cannot change emulator behaviour silently.
-      FIREBASE_TOOLS_VERSION: '15.6.0'
+      # Same as e2e-smoke.yml: 15.x needs Java 21, ubuntu-latest ships Java 17.
+      FIREBASE_TOOLS_VERSION: '14.27.0'
 
     steps:
       - name: 'Checkout code'
