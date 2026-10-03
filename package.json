@@ -40,7 +40,7 @@
         "@protobufjs/utf8": "^1.1.1",
         "node-forge": "^1.4.0",
         "lodash": "^4.18.0",
-        "brace-expansion": "^5.0.9",
+        "brace-expansion": "^5.0.12",
         "picomatch": "^4.0.4",
         "uuid": "^11.1.1",
         "postcss": "^8.5.10",
