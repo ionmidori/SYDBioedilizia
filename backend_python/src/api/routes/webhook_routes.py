@@ -11,8 +11,11 @@ Event types handled:
 """
 
 import logging
+from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from google.api_core.exceptions import AlreadyExists
 from pydantic import BaseModel, Field, ValidationError
 from src.api.deps.webhook_auth import verify_n8n_webhook
 from src.core.rate_limit import limiter
@@ -75,10 +78,19 @@ async def receive_n8n_webhook(
 
     db = get_async_firestore_client()
 
-    # ── Idempotency check ────────────────────────────────────────────────
+    # ── Idempotency claim ────────────────────────────────────────────────
+    # create() fails if the document exists, so two concurrent deliveries of the
+    # same event cannot both pass (get-then-set could; audit 2026-10-03, L2).
+    now = utc_now()
     idem_ref = db.collection("webhook_events").document(event.idempotency_key)
-    idem_doc = await idem_ref.get()
-    if idem_doc.exists:
+    try:
+        await idem_ref.create({
+            "processed_at": now,
+            "event_type": event.event_type,
+            "project_id": event.project_id,
+            "execution_id": event.execution_id,
+        })
+    except AlreadyExists:
         logger.info(
             "[n8n callback] Duplicate event skipped",
             extra={
@@ -92,9 +104,30 @@ async def receive_n8n_webhook(
             project_id=event.project_id,
         )
 
-    # ── Route by event_type ──────────────────────────────────────────────
-    now = utc_now()
+    try:
+        await _apply_event(db, event, now)
+    except Exception:
+        await idem_ref.delete()  # release the claim so n8n can retry
+        raise
 
+    logger.info(
+        "[n8n callback] Processed",
+        extra={
+            "event_type": event.event_type,
+            "project_id": event.project_id,
+            "idempotency_key": event.idempotency_key,
+        },
+    )
+
+    return WebhookResponse(
+        status="ok",
+        event_type=event.event_type,
+        project_id=event.project_id,
+    )
+
+
+async def _apply_event(db: Any, event: N8NWebhookEvent, now: datetime) -> None:
+    """Route by event_type."""
     if event.event_type == "quote_delivered":
         quote_ref = (
             db.collection("projects")
@@ -124,26 +157,3 @@ async def receive_n8n_webhook(
         logger.info(
             "[n8n callback] Unknown event_type: %s", event.event_type
         )
-
-    # ── Write idempotency record ─────────────────────────────────────────
-    await idem_ref.set({
-        "processed_at": now,
-        "event_type": event.event_type,
-        "project_id": event.project_id,
-        "execution_id": event.execution_id,
-    })
-
-    logger.info(
-        "[n8n callback] Processed",
-        extra={
-            "event_type": event.event_type,
-            "project_id": event.project_id,
-            "idempotency_key": event.idempotency_key,
-        },
-    )
-
-    return WebhookResponse(
-        status="ok",
-        event_type=event.event_type,
-        project_id=event.project_id,
-    )

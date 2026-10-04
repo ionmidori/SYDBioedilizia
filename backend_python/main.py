@@ -17,7 +17,7 @@ from src.core.config import settings
 from src.core.context import set_request_id
 from src.core.exceptions import AppException, PermissionDenied
 from src.core.logger import get_logger, setup_logging
-from src.core.rate_limit import limiter
+from src.core.rate_limit import charge_extra, limiter
 from src.core.schemas import APIErrorResponse
 from src.schemas.internal import UserSession
 from src.services.base_orchestrator import BaseOrchestrator
@@ -614,22 +614,13 @@ async def chat_stream(
     # per compensare l'alto costo computazionale di Gemini 2.5/3.0 Vision.
     has_media = bool(body.media_urls or body.video_file_uris)
     if has_media:
-        from slowapi.errors import RateLimitExceeded
-        from slowapi.util import get_remote_address
-
-        # slowapi exposes the underlying limits.Limiter via list of limits
-        # We manually consume extra tokens for this specific limit
+        # Il decorator ha già consumato 1 token. Consumiamone altri 4, sullo stesso
+        # bucket dell'utente (security audit 2026-10-03, L9).
         try:
-            # Il decorator ha già consumato 1 token. Consumiamone altri 4.
-            # Fix: Avoid KeyError if the route is not correctly registered in _route_limits
-            # SlowAPI might use different keys depending on how the route was defined.
-            route_limits = getattr(limiter, "_route_limits", {}).get(request.url.path, [])
-            for limit in route_limits:
-                if not limiter._limiter.hit(limit.limit, get_remote_address(request), cost=4):
-                    raise RateLimitExceeded(limit)
-        except RateLimitExceeded as e:
-            logger.warning(f"Rate limit exceeded due to multimodal penalty for {get_remote_address(request)}")
-            raise e
+            charge_extra(request, f"{chat_stream.__module__}.{chat_stream.__name__}", cost=4)
+        except RateLimitExceeded:
+            logger.warning("Rate limit exceeded due to multimodal penalty.")
+            raise
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to apply multimodal rate limit penalty: {e}")
             # Non-blocking: we continue even if penalty fails to avoid crashing the whole stream

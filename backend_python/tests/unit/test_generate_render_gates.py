@@ -92,3 +92,27 @@ async def test_is_anonymous_user_fails_closed_on_lookup_error():
     with patch.object(user_lookup, "init_firebase"), \
          patch.object(user_lookup.auth, "get_user", side_effect=RuntimeError("network")):
         assert await user_lookup.is_anonymous_user("uid-1") is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_name", ["suggest_quote_items", "submit_quote_request"])
+async def test_quote_tools_block_anonymous_users(tool_context, tool_name):
+    """The quote tools are premium too: an anonymous user gets LOGIN_REQUIRED
+    and nothing is generated or sent to the team."""
+    wrapper = AsyncMock(return_value="ok")
+    module = "quote_tools" if tool_name == "suggest_quote_items" else "batch_tools"
+    with patch(f"src.tools.{module}.{tool_name}_wrapper", new=wrapper), \
+         patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=True)):
+        out = await getattr(tools, tool_name)(session_id="sess-1", tool_context=tool_context)
+    assert out.startswith("LOGIN_REQUIRED")
+    wrapper.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_quote_tool_runs_for_registered_user(tool_context):
+    wrapper = AsyncMock(return_value="ok")
+    with patch("src.tools.quote_tools.suggest_quote_items_wrapper", new=wrapper), \
+         patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=False)):
+        out = await tools.suggest_quote_items(session_id="sess-1", tool_context=tool_context)
+    assert out == "ok"
+    wrapper.assert_awaited_once()

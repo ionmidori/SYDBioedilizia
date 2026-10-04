@@ -13,6 +13,7 @@ from typing import Any
 from google.adk.tools import FunctionTool
 
 from src.auth.user_lookup import is_anonymous_user
+from src.core.config import settings
 from src.core.telemetry import instrumented_tool
 from src.tools.quota import check_quota, increment_quota
 
@@ -22,6 +23,22 @@ _RENDER_LOGIN_REQUIRED = (
     "LOGIN_REQUIRED: i render sono riservati agli utenti registrati. "
     "Chiama request_login_adk e chiedi all'utente di accedere."
 )
+
+
+_QUOTE_LOGIN_REQUIRED = (
+    "LOGIN_REQUIRED: il preventivo è riservato agli utenti registrati. "
+    "Chiama request_login_adk e chiedi all'utente di accedere."
+)
+
+
+async def _is_guest(user_id: str) -> bool:
+    """🛡️ Server-side login gate for premium tools (security audit H3): the
+    AUTH_GATE in the prompt is not a control — a guest or a prompt injection can
+    still reach the tool. The dev auth bypass (validator-guarded) has no real
+    Firebase accounts, so it is never treated as a guest."""
+    if settings.ENV == "development" and settings.ALLOW_AUTH_BYPASS:
+        return False
+    return await is_anonymous_user(user_id)
 
 
 def _trusted_session_id(tool_context: Any, claimed: str) -> str:
@@ -105,6 +122,9 @@ async def submit_quote_request(session_id: str, tool_context, project_ids: list[
         project_ids: Project IDs to submit. Empty → the current session's project.
     """
     from src.tools.batch_tools import submit_quote_request_wrapper
+    if await _is_guest(tool_context.user_id):
+        logger.warning("[ADK Tool] submit_quote_request blocked: anonymous user")
+        return _QUOTE_LOGIN_REQUIRED
     return await submit_quote_request_wrapper(
         session_id=_trusted_session_id(tool_context, session_id),
         project_ids=project_ids or None,
@@ -223,12 +243,7 @@ async def generate_render(
     session_id = _trusted_session_id(tool_context, session_id)
     user_id: str = tool_context.user_id
 
-    # 🛡️ Server-side gates (security audit H3): the AUTH_GATE in the prompt is
-    # not a control — a guest or a prompt injection can still reach this tool.
-    # The dev auth bypass (validator-guarded) has no real Firebase accounts.
-    from src.core.config import settings
-    dev_bypass = settings.ENV == "development" and settings.ALLOW_AUTH_BYPASS
-    if not dev_bypass and await is_anonymous_user(user_id):
+    if await _is_guest(user_id):
         _logger.warning("[ADK Tool] generate_render blocked: anonymous user")
         return {"status": "error", "error": _RENDER_LOGIN_REQUIRED}
 
@@ -327,6 +342,9 @@ async def suggest_quote_items(session_id: str, tool_context) -> str:
     # 1 session = 1 project: project and owner come from the verified session,
     # never from model-supplied arguments.
     session_id = _trusted_session_id(tool_context, session_id)
+    if await _is_guest(tool_context.user_id):
+        logger.warning("[ADK Tool] suggest_quote_items blocked: anonymous user")
+        return _QUOTE_LOGIN_REQUIRED
     return await suggest_quote_items_wrapper(
         session_id=session_id,
         project_id=session_id,
@@ -356,7 +374,6 @@ async def trigger_n8n_webhook(workflow_id: str, payload: dict[str, Any]) -> dict
     """
     import logging
 
-    from src.core.config import settings
     from src.tools.n8n_mcp_tools import _call_n8n_webhook, _validate_webhook_url
 
     _logger = logging.getLogger(__name__)

@@ -105,4 +105,4 @@ def list_project_files(session_id: str, category: str | None = None, limit: int 
 
     except Exception as e:  # noqa: BLE001
         logger.error(f"❌ [Tool] Error listing files: {str(e)}")
-        return f"System Error: Unable to list files. ({str(e)})"
+        return "System Error: Unable to list files."
