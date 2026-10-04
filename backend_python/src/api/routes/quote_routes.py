@@ -119,6 +119,17 @@ class QuotePdfUrlResponse(BaseModel):
 
 # ─── Security Helpers ─────────────────────────────────────────────────────────
 
+def _is_admin(user_session: UserSession) -> bool:
+    return user_session.claims.get("role") == "admin"
+
+
+def _mask_draft_prices(data: dict) -> dict:
+    """🛡️ The draft is confidential until admin approval: hide every price."""
+    data["items"] = [{**item, "unit_price": 0.0, "total": 0.0} for item in data.get("items", [])]
+    data["financials"] = {}
+    return data
+
+
 def _require_admin(user_session: UserSession) -> None:
     """Raise 403 if caller does not have the 'admin' Firebase custom claim."""
     if user_session.claims.get("role") != "admin":
@@ -513,6 +524,8 @@ async def get_quote(
             detail=f"No quote found for project '{project_id}'.",
         )
     data["id"] = doc.id
+    if not _is_admin(user_session) and data.get("status") != "approved":
+        data = _mask_draft_prices(data)
     return QuoteSchema(**data)
 
 
@@ -592,9 +605,10 @@ async def update_quote(
     """
     Partial update of a quote. If items are changed, financials are recalculated
     deterministically via PricingService.
-    Caller must own the project or be admin.
+    ADMIN ONLY: items carry unit prices and admin_notes end up in the PDF, so a
+    project owner must never set them (security audit 2026-10-03, M2).
     """
-    await _verify_project_ownership(project_id, user_session)
+    _require_admin(user_session)
 
     ref = _quote_doc_ref(project_id)
     doc = await ref.get()

@@ -146,3 +146,78 @@ class TestQuotePdfUrl:
         ):
             resp = _make_client().get("/api/quote/p1/pdf")
         assert resp.status_code == 404
+
+
+def _full_quote_doc(status_: str):
+    doc = MagicMock()
+    doc.exists = True
+    doc.id = "quote"
+    doc.to_dict.return_value = {
+        "project_id": "p1",
+        "user_id": OWNER_UID,
+        "status": status_,
+        "items": [{
+            "sku": "A1", "description": "Demolizione", "unit": "mq",
+            "qty": 10, "unit_price": 25.0, "total": 250.0,
+        }],
+        "financials": {"subtotal": 250.0, "vat_rate": 0.22, "vat_amount": 55.0, "grand_total": 305.0},
+    }
+    return doc
+
+
+class TestGetQuoteConfidentiality:
+    """Security audit 2026-10-03, M2: GET must not leak draft prices."""
+
+    def _get(self, status_: str, role: str | None = None):
+        quote_ref = MagicMock()
+        quote_ref.get = AsyncMock(return_value=_full_quote_doc(status_))
+        with (
+            patch("src.api.routes.quote_routes._verify_project_ownership", new=AsyncMock()),
+            patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
+        ):
+            return _make_client(role=role).get("/api/quote/p1")
+
+    def test_owner_sees_draft_without_prices(self):
+        resp = self._get("pending_review")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["items"][0]["sku"] == "A1"
+        assert body["items"][0]["unit_price"] == 0.0
+        assert body["items"][0]["total"] == 0.0
+        assert body["financials"]["grand_total"] == 0.0
+
+    def test_owner_sees_prices_once_approved(self):
+        body = self._get("approved").json()
+        assert body["items"][0]["unit_price"] == 25.0
+        assert body["financials"]["grand_total"] == 305.0
+
+    def test_admin_sees_draft_prices(self):
+        body = self._get("draft", role="admin").json()
+        assert body["financials"]["grand_total"] == 305.0
+
+
+class TestUpdateQuoteAdminOnly:
+    """Security audit 2026-10-03, M2: the owner must not rewrite prices or admin notes."""
+
+    def test_owner_cannot_patch_prices(self):
+        quote_ref = MagicMock()
+        quote_ref.get = AsyncMock(return_value=_full_quote_doc("draft"))
+        quote_ref.update = AsyncMock()
+        with (
+            patch("src.api.routes.quote_routes._verify_project_ownership", new=AsyncMock()),
+            patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
+        ):
+            resp = _make_client().patch("/api/quote/p1", json={"admin_notes": "sconto 90%"})
+        assert resp.status_code == 403
+        quote_ref.update.assert_not_called()
+
+    def test_admin_can_patch(self):
+        quote_ref = MagicMock()
+        quote_ref.get = AsyncMock(return_value=_full_quote_doc("draft"))
+        quote_ref.update = AsyncMock()
+        with patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref):
+            resp = _make_client(role="admin", uid="admin-uid").patch(
+                "/api/quote/p1", json={"admin_notes": "ok"}
+            )
+        assert resp.status_code == 200
+        quote_ref.update.assert_awaited_once()
