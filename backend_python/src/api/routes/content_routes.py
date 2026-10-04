@@ -4,10 +4,11 @@ Public Content API — Testimonials & Portfolio.
 These endpoints replace direct Firestore reads from the frontend,
 enforcing the 3-Tier architecture boundary.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from src.auth.jwt_handler import verify_token
 from src.core.logger import get_logger
+from src.core.rate_limit import limiter
 from src.db.firebase_client import get_firestore_client
 from src.schemas.internal import UserSession
 from starlette.concurrency import run_in_threadpool
@@ -36,7 +37,10 @@ class TestimonialSubmit(BaseModel):
 
 
 @router.get("/testimonials", response_model=list[TestimonialOut])
-async def get_approved_testimonials():
+@limiter.limit("60/minute")  # no App Check on this public GET (see AppCheckMiddleware)
+async def get_approved_testimonials(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+):
     """Return all approved testimonials (public, no auth required)."""
     def _query():
         db = get_firestore_client()
@@ -115,7 +119,10 @@ class PortfolioOut(BaseModel):
 
 
 @router.get("/portfolio", response_model=list[PortfolioOut])
-async def get_portfolio_projects():
+@limiter.limit("60/minute")  # no App Check on this public GET (see AppCheckMiddleware)
+async def get_portfolio_projects(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+):
     """Return all active portfolio projects (public, no auth required)."""
     def _query():
         db = get_firestore_client()
