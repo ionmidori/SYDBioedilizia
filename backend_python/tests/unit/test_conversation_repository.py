@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
+from src.core.exceptions import PermissionDenied
 
 _MODULE = "src.repositories.conversation_repository"
 
@@ -431,6 +432,28 @@ class TestEnsureSession:
         sess_ref.update.assert_called_once()
         update = sess_ref.update.call_args[0][0]
         assert update["userId"] == "real-uid"
+
+    @pytest.mark.asyncio
+    async def test_rejects_session_owned_by_another_user(self, repo, mock_db, mock_fs):
+        sess_doc = _doc({"userId": "victim-uid"}, exists=True)
+        sess_ref, proj_ref = self._build_collections(mock_db, sess_doc, _doc({}, exists=True))
+
+        with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db),              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db),              patch(f"{_MODULE}.async_firestore", mock_fs),              pytest.raises(PermissionDenied):
+            await repo.ensure_session("sess1", user_id="attacker-uid")
+
+        sess_ref.update.assert_not_called()
+        proj_ref.update.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_owner_keeps_access_to_own_session(self, repo, mock_db, mock_fs):
+        sess_doc = _doc({"userId": "owner-uid"}, exists=True)
+        sess_ref, _ = self._build_collections(mock_db, sess_doc, _doc({}, exists=True))
+
+        with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db),              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db),              patch(f"{_MODULE}.async_firestore", mock_fs):
+            await repo.ensure_session("sess1", user_id="owner-uid")
+
+        update = sess_ref.update.call_args[0][0]
+        assert "userId" not in update
 
     @pytest.mark.asyncio
     async def test_backfills_missing_project(self, repo, mock_db, mock_fs):

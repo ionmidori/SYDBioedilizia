@@ -7,11 +7,35 @@ Name comes from the function name; description from the docstring.
 Type hints on parameters define the input schema.
 Pydantic validation is enforced via the function's argument types.
 """
+import logging
 from typing import Any
 
 from google.adk.tools import FunctionTool
 
+from src.auth.user_lookup import is_anonymous_user
 from src.core.telemetry import instrumented_tool
+from src.tools.quota import check_quota, increment_quota
+
+logger = logging.getLogger(__name__)
+
+_RENDER_LOGIN_REQUIRED = (
+    "LOGIN_REQUIRED: i render sono riservati agli utenti registrati. "
+    "Chiama request_login_adk e chiedi all'utente di accedere."
+)
+
+
+def _trusted_session_id(tool_context: Any, claimed: str) -> str:
+    """Return the ADK session id instead of the one the model passed in.
+
+    The orchestrator opens the ADK session with the session_id that /chat/stream
+    has already verified as owned by the caller. The model-supplied argument is
+    never trusted: a prompt injection could point it at another user's session.
+    """
+    trusted: str = tool_context.session.id
+    if claimed and claimed != trusted:
+        # No ids in the log: a session id is an access token (CodeQL py/clear-text-logging).
+        logger.warning("[ADK Tool] session_id from the model ignored (does not match the verified session)")
+    return trusted
 
 # ─── Pricing Engine ──────────────────────────────────────────────────────────
 
@@ -48,7 +72,7 @@ async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
 # ─── Quote Submission (batch pipeline, shared with dashboard) ────────────────
 
 @instrumented_tool("list_ready_quotes")
-async def list_ready_quotes(session_id: str) -> str:
+async def list_ready_quotes(session_id: str, tool_context) -> str:
     """Lists the user's projects with a draft quote ready to be sent to the team.
 
     Call this BEFORE submit_quote_request when the user asks to send their
@@ -57,13 +81,14 @@ async def list_ready_quotes(session_id: str) -> str:
 
     Args:
         session_id: The current session identifier (used to resolve the user).
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
     from src.tools.batch_tools import list_ready_quotes_wrapper
-    return await list_ready_quotes_wrapper(session_id=session_id)
+    return await list_ready_quotes_wrapper(session_id=_trusted_session_id(tool_context, session_id))
 
 
 @instrumented_tool("submit_quote_request")
-async def submit_quote_request(session_id: str, project_ids: list[str] = []) -> str:  # noqa: B006
+async def submit_quote_request(session_id: str, tool_context, project_ids: list[str] = []) -> str:  # noqa: B006
     """Sends the user's quote request(s) to the admin team for review.
 
     Creates and submits a quote batch — the SAME pipeline as the dashboard
@@ -76,11 +101,12 @@ async def submit_quote_request(session_id: str, project_ids: list[str] = []) -> 
 
     Args:
         session_id: The current session identifier (used to resolve the user).
+        tool_context: ADK ToolContext injected automatically by the runner.
         project_ids: Project IDs to submit. Empty → the current session's project.
     """
     from src.tools.batch_tools import submit_quote_request_wrapper
     return await submit_quote_request_wrapper(
-        session_id=session_id,
+        session_id=_trusted_session_id(tool_context, session_id),
         project_ids=project_ids or None,
     )
 
@@ -194,6 +220,26 @@ async def generate_render(
     import logging as _logging
     _logger = _logging.getLogger(__name__)
 
+    session_id = _trusted_session_id(tool_context, session_id)
+    user_id: str = tool_context.user_id
+
+    # 🛡️ Server-side gates (security audit H3): the AUTH_GATE in the prompt is
+    # not a control — a guest or a prompt injection can still reach this tool.
+    # The dev auth bypass (validator-guarded) has no real Firebase accounts.
+    from src.core.config import settings
+    dev_bypass = settings.ENV == "development" and settings.ALLOW_AUTH_BYPASS
+    if not dev_bypass and await is_anonymous_user(user_id):
+        _logger.warning("[ADK Tool] generate_render blocked: anonymous user")
+        return {"status": "error", "error": _RENDER_LOGIN_REQUIRED}
+
+    allowed, _remaining, reset_at = await check_quota(user_id, "generate_render")
+    if not allowed:
+        _logger.warning("[ADK Tool] generate_render blocked: quota exhausted")
+        return {
+            "status": "error",
+            "error": f"Hai raggiunto il limite di render disponibili. Riprova dopo le {reset_at:%H:%M} UTC.",
+        }
+
     from src.tools.generate_render import generate_render_wrapper
     try:
         result = await generate_render_wrapper(
@@ -205,6 +251,8 @@ async def generate_render(
             source_image_url=source_image_url or None,
         )
         _logger.info(f"[ADK Tool] generate_render completed. Status: {result.get('status')}, session: {session_id}")
+        if result.get("status") == "success":
+            await increment_quota(user_id, "generate_render")
 
         # ADK 1.27 Artifact Service: register the render as an artifact so
         # other agents (e.g. quote_agent) can reference it cross-session.
@@ -237,52 +285,52 @@ async def generate_render(
 
 # ─── Project Gallery ─────────────────────────────────────────────────────────
 
-async def show_project_gallery(session_id: str) -> str:
+async def show_project_gallery(session_id: str, tool_context) -> str:
     """Displays the project gallery (past renders and uploaded photos).
 
     Args:
         session_id: The project/session identifier to load gallery for.
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
     from src.tools.gallery import show_project_gallery as _gallery
-    return _gallery(session_id=session_id)
+    return _gallery(session_id=_trusted_session_id(tool_context, session_id))
 
 
 # ─── Project Files ───────────────────────────────────────────────────────────
 
-async def list_project_files(session_id: str) -> str:
+async def list_project_files(session_id: str, tool_context) -> str:
     """Lists DXF/CAD files and images attached to a project in Firebase Storage.
 
     Args:
         session_id: The project identifier.
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
     from src.tools.project_files import list_project_files as _lp
-    return _lp(session_id)
+    return _lp(_trusted_session_id(tool_context, session_id))
 
 
 # ─── Quote Item Suggestions ──────────────────────────────────────────────────
 
 @instrumented_tool("suggest_quote_items")
-async def suggest_quote_items(
-    session_id: str,
-    project_id: str = "",
-    user_id: str = "",
-) -> str:
+async def suggest_quote_items(session_id: str, tool_context) -> str:
     """Suggests renovation line items for a quote based on conversation history.
 
     Analyzes the chat and proposes relevant SKUs (e.g. demolitions, flooring, painting).
     Validates all suggested SKUs against the Master Price Book before returning.
-    Saves a draft QuoteSchema to Firestore under projects/{project_id}/private_data/quote.
+    Saves a draft QuoteSchema to Firestore under projects/{session_id}/private_data/quote.
 
     Args:
         session_id: The project/session identifier (required).
-        project_id: Optional. Project ID if different from session_id.
-        user_id: Optional. UID of the authenticated user (improves quote ownership tracking).
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
     from src.tools.quote_tools import suggest_quote_items_wrapper
+    # 1 session = 1 project: project and owner come from the verified session,
+    # never from model-supplied arguments.
+    session_id = _trusted_session_id(tool_context, session_id)
     return await suggest_quote_items_wrapper(
         session_id=session_id,
-        project_id=project_id or None,
-        user_id=user_id or None,
+        project_id=session_id,
+        user_id=tool_context.user_id,
     )
 
 
@@ -385,7 +433,7 @@ async def request_login(tool_context) -> str:
 # ─── Save Contact Phone ──────────────────────────────────────────────────────
 
 @instrumented_tool("save_contact_phone")
-async def save_contact_phone(phone: str, session_id: str) -> str:
+async def save_contact_phone(phone: str, session_id: str, tool_context) -> str:
     """Saves the user's phone number to their profile for future use.
 
     Call this ONCE after the user provides their phone number during the
@@ -395,6 +443,7 @@ async def save_contact_phone(phone: str, session_id: str) -> str:
     Args:
         phone: The user's phone number (e.g. '+393331234567').
         session_id: The current session ID (used to resolve the user UID).
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
     import re
 
@@ -404,6 +453,7 @@ async def save_contact_phone(phone: str, session_id: str) -> str:
     if not re.match(r"^\+?[0-9\s\-().]{7,20}$", phone):
         return "Numero di telefono non valido. Riprova (es. +393331234567)."
 
+    session_id = _trusted_session_id(tool_context, session_id)
     db = get_async_firestore_client()
     try:
         session_doc = await db.collection("sessions").document(session_id).get()

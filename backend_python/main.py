@@ -15,7 +15,7 @@ from slowapi.errors import RateLimitExceeded
 from src.auth.jwt_handler import verify_token
 from src.core.config import settings
 from src.core.context import set_request_id
-from src.core.exceptions import AppException
+from src.core.exceptions import AppException, PermissionDenied
 from src.core.logger import get_logger, setup_logging
 from src.core.rate_limit import limiter
 from src.core.schemas import APIErrorResponse
@@ -675,8 +675,12 @@ async def chat_stream(
     # save_message creates the doc first (without userId) and ensure_session
     # in the background task sees doc.exists=True and skips setting userId.
     repo = get_conversation_repository()
+    # 🛡️ PermissionDenied (session owned by another user) propagates as a 403
+    # BEFORE the stream starts — the orchestrator must never load a foreign history.
     try:
         await repo.ensure_session(body.session_id, user_session.uid)
+    except PermissionDenied:
+        raise
     except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to ensure session before stream: {e}")
 

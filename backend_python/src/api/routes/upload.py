@@ -150,6 +150,10 @@ async def upload_image(
     if not re.match(r'^[a-zA-Z0-9_-]+$', session_id) or len(session_id) > 128:
         raise HTTPException(status_code=422, detail="Invalid session_id format")
 
+    # 🛡️ Ownership (security audit M1): never attach files to another user's project.
+    # Outside the try below, so PermissionDenied reaches the handler as a 403.
+    await get_conversation_repository().assert_session_access(session_id, user_session.uid)
+
     try:
         # 1. Early rejection via Content-Length header (fast fail, advisory only)
         content_length = request.headers.get("content-length")

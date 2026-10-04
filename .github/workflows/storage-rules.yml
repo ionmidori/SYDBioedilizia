@@ -1,0 +1,76 @@
+name: 'Storage Rules'
+
+# storage.rules gate access on Firestore data (projects/{id}.userId) through
+# firestore.get(), so they can only be exercised against the Storage AND
+# Firestore emulators together. Before this workflow the rules had no test at
+# all: any registered user could list renders/ and read, overwrite or delete
+# other users' project files (security audit 2026-10-03, H2).
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+    paths:
+      - 'storage.rules'
+      - 'firestore.rules'
+      - 'firebase.json'
+      - 'tests/rules/**'
+      - '.github/workflows/storage-rules.yml'
+  pull_request:
+    branches:
+      - 'main'
+      - 'develop'
+    paths:
+      - 'storage.rules'
+      - 'firestore.rules'
+      - 'firebase.json'
+      - 'tests/rules/**'
+      - '.github/workflows/storage-rules.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: 'storage-rules-${{ github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  rules:
+    name: 'Storage rules (Firebase emulators)'
+    runs-on: 'ubuntu-latest'
+
+    env:
+      # Pinned so an upstream release cannot change emulator behaviour silently.
+      # Same as e2e-smoke.yml: 15.x needs Java 21, ubuntu-latest ships Java 17.
+      FIREBASE_TOOLS_VERSION: '14.27.0'
+
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: 'Set up Node.js'
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: 'tests/rules/package-lock.json'
+
+      # Both emulators are JVM binaries. ubuntu-latest ships a JDK; this
+      # asserts it is really there so a runner-image change fails loudly.
+      - name: 'Verify Java is available (emulator runtime)'
+        run: java -version
+
+      - name: 'Install test dependencies'
+        working-directory: './tests/rules'
+        run: npm ci
+
+      # Run from the repo root: firebase.json configures both emulators and
+      # emulators:exec exports their hosts to the test process.
+      - name: 'Run storage rules tests against the emulators'
+        run: >-
+          npx --yes firebase-tools@${{ env.FIREBASE_TOOLS_VERSION }}
+          emulators:exec
+          --project demo-syd-rules
+          --only storage,firestore
+          "npm --prefix tests/rules test"
