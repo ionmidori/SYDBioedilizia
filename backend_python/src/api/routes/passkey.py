@@ -10,7 +10,7 @@ Implements FIDO2/WebAuthn protocol for biometric authentication:
 import base64
 import logging
 import re
-import time
+from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -26,6 +26,7 @@ from fido2.webauthn import (
     UserVerificationRequirement,
 )
 from firebase_admin import auth
+from google.api_core.exceptions import FailedPrecondition, NotFound
 
 # firestore.SERVER_TIMESTAMP comes from the typed google.cloud.firestore
 # (firebase_admin's re-export is a dynamic runtime loop pyright can't resolve).
@@ -33,19 +34,24 @@ from google.cloud import firestore
 from pydantic import BaseModel, Field
 from src.auth.jwt_handler import get_current_user_id
 from src.core.config import settings
+from src.core.rate_limit import limiter
 from src.db.firebase_client import get_firestore_client
+from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/passkey", tags=["auth"])
 
 # No more webauthn_json_mapping.enabled = True in fido2 2.x
 
-# In-memory challenge store
-# Format: { "challenge_string": { "user_id": str | None, "expires_at": float, "state": dict } }
-_challenge_store: dict[str, dict] = {}
-
-# Maximum number of concurrent challenges to prevent memory exhaustion
-_MAX_CHALLENGES = 1000
+# 🛡️ Challenges live in Firestore, not in process memory (security audit
+# 2026-10-03, M7/L7). Cloud Run runs up to 20 instances without session
+# affinity, so the verify call could land on an instance that never saw the
+# challenge; and the per-process cap of 1000 let anyone lock every user out of
+# passkey login with ~1000 anonymous requests. Expired documents are rejected
+# on read; a Firestore TTL policy on `expires_at` can delete them.
+_CHALLENGES = "passkey_challenges"
+_CHALLENGE_TTL = timedelta(seconds=60)
+_CHALLENGE_KEY_RE = re.compile(r"^[A-Za-z0-9_-]{16,128}$")
 
 # Allowed RP_IDs - only these domains are valid for passkey operations
 _ALLOWED_RP_IDS = {
@@ -151,15 +157,53 @@ def _challenge_key(state_challenge) -> str:
     return state_challenge.rstrip("=")
 
 
-def _cleanup_challenges():
-    """Remove expired challenges."""
-    now = time.time()
-    expired = [k for k, v in _challenge_store.items() if v["expires_at"] < now]
-    for k in expired:
-        del _challenge_store[k]
+def _save_challenge_sync(key: str, user_id: str | None, state: dict) -> None:
+    uv = state.get("user_verification")
+    get_firestore_client().collection(_CHALLENGES).document(key).set({
+        "user_id": user_id,
+        "challenge": state["challenge"],
+        "user_verification": uv.value if uv else None,
+        "expires_at": datetime.now(UTC) + _CHALLENGE_TTL,
+    })
+
+
+def _pop_challenge_sync(key: str | None) -> dict | None:
+    """Single use: read, then delete only if nobody touched the document since,
+    so two concurrent verifies of the same challenge cannot both succeed."""
+    if not key or not _CHALLENGE_KEY_RE.match(key):
+        return None
+    db = get_firestore_client()
+    ref = db.collection(_CHALLENGES).document(key)
+    snap = ref.get()
+    if not snap.exists:
+        return None
+    try:
+        ref.delete(option=db.write_option(last_update_time=snap.update_time))
+    except (FailedPrecondition, NotFound):
+        return None
+    data = snap.to_dict() or {}
+    if data.get("expires_at") is None or data["expires_at"] < datetime.now(UTC):
+        return None
+    uv = data.get("user_verification")
+    return {
+        "user_id": data.get("user_id"),
+        "state": {
+            "challenge": data["challenge"],
+            "user_verification": UserVerificationRequirement(uv) if uv else None,
+        },
+    }
+
+
+async def _save_challenge(key: str, user_id: str | None, state: dict) -> None:
+    await run_in_threadpool(_save_challenge_sync, key, user_id, state)
+
+
+async def _pop_challenge(key: str | None) -> dict | None:
+    return await run_in_threadpool(_pop_challenge_sync, key)
 
 
 @router.post("/register/options")
+@limiter.limit("10/minute")
 async def get_registration_options(
     request: Request,
     body: PasskeyRegistrationRequest,
@@ -168,10 +212,6 @@ async def get_registration_options(
     """Generate WebAuthn registration options using python-fido2."""
     if user_id != body.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot register passkey for another user")
-
-    _cleanup_challenges()
-    if len(_challenge_store) >= _MAX_CHALLENGES:
-        raise HTTPException(status_code=503, detail="Too many pending challenges.")
 
     rp_id = _resolve_rp_id(request)
     server = _get_fido2_server(rp_id)
@@ -209,11 +249,7 @@ async def get_registration_options(
     # echo back in clientDataJSON (see _challenge_key).
     challenge_b64 = _challenge_key(state["challenge"])
 
-    _challenge_store[challenge_b64] = {
-        "user_id": user_id,
-        "state": state,
-        "expires_at": time.time() + 60
-    }
+    await _save_challenge(challenge_b64, user_id, state)
 
     logger.info(f"Generated passkey registration challenge for user {user_id} (RP_ID: {rp_id})")
 
@@ -221,6 +257,7 @@ async def get_registration_options(
 
 
 @router.post("/register/verify")
+@limiter.limit("10/minute")
 async def verify_registration(
     request: Request,
     credential: dict,  # Receive generic dict to pass to fido2
@@ -237,7 +274,7 @@ async def verify_registration(
         logger.error(f"Invalid clientDataJSON: {e}")
         raise HTTPException(status_code=400, detail="Invalid clientDataJSON") from e
 
-    challenge_data = _challenge_store.pop(challenge_b64, None)
+    challenge_data = await _pop_challenge(challenge_b64)
     if not challenge_data:
         raise HTTPException(status_code=400, detail="Challenge expired or invalid")
 
@@ -288,16 +325,13 @@ async def verify_registration(
 
 
 @router.post("/authenticate/options")
+@limiter.limit("20/minute")
 async def get_authentication_options(
     request: Request,
     body: PasskeyAuthenticationRequest
 ):
     """Generate WebAuthn authentication options using python-fido2."""
     user_id = body.user_id
-    _cleanup_challenges()
-
-    if len(_challenge_store) >= _MAX_CHALLENGES:
-        raise HTTPException(status_code=503, detail="Too many pending challenges.")
 
     rp_id = _resolve_rp_id(request)
     server = _get_fido2_server(rp_id)
@@ -309,8 +343,9 @@ async def get_authentication_options(
         for pk in passkeys:
              allow_credentials.append({"id": websafe_decode(pk.id), "type": "public-key"})
 
-        if not allow_credentials:
-             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nessuna passkey registrata per questo utente")
+        # No 404 when the user has none: it told anyone which accounts have a
+        # passkey (security audit 2026-10-03, L7). An empty list falls back to
+        # the discoverable-credential flow, and verify fails as for any unknown key.
 
     options, state = server.authenticate_begin(
         credentials=allow_credentials if allow_credentials else None,
@@ -320,17 +355,14 @@ async def get_authentication_options(
     # Key the anti-replay store by the same base64url challenge the browser will
     # echo back in clientDataJSON (see _challenge_key).
     challenge_b64 = _challenge_key(state["challenge"])
-    _challenge_store[challenge_b64] = {
-        "user_id": user_id,
-        "state": state,
-        "expires_at": time.time() + 60
-    }
+    await _save_challenge(challenge_b64, user_id, state)
 
     logger.info(f"Generated passkey authentication challenge (user_id={user_id}) RP_ID: {rp_id}")
     return dict(options)
 
 
 @router.post("/authenticate/verify")
+@limiter.limit("20/minute")
 async def verify_authentication(
     request: Request,
     assertion: dict
@@ -344,7 +376,7 @@ async def verify_authentication(
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid clientDataJSON") from e
 
-    challenge_data = _challenge_store.pop(challenge_b64, None)
+    challenge_data = await _pop_challenge(challenge_b64)
     if not challenge_data:
         raise HTTPException(status_code=400, detail="Challenge scaduta o invalida")
 

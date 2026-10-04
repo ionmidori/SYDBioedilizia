@@ -54,7 +54,7 @@ async def verify_n8n_webhook(request: Request) -> dict:
 
     # 2. Fail-secure: secret must be configured
     secret = settings.N8N_WEBHOOK_HMAC_SECRET
-    if secret is None:
+    if not secret:  # an empty string would sign with an empty key (audit 2026-10-03, L2)
         logger.warning("[n8n webhook] HMAC secret not configured — rejecting request")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -14,6 +14,13 @@ TRUSTED_UID = "owner-uid"
 FOREIGN_SESSION = "victim-session"
 
 
+@pytest.fixture(autouse=True)
+def _registered_user():
+    """These tests are about identity, not the login gate: the caller is registered."""
+    with patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=False)):
+        yield
+
+
 @pytest.fixture()
 def tool_context() -> MagicMock:
     ctx = MagicMock()

@@ -62,6 +62,14 @@ async function handler(req: NextRequest, { params }: { params: Promise<{ path: s
             headers.set('X-Forwarded-Host', host);
         }
 
+        // The backend rate-limits passkey calls per client IP. Without this every
+        // request would carry this function's IP and all users would share one
+        // bucket. Vercel sets x-forwarded-for itself, so the client cannot spoof it.
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+        if (clientIp) {
+            headers.set('X-Forwarded-For', clientIp);
+        }
+
         headers.set('Content-Type', 'application/json');
 
         // 3. Extract body (if present)

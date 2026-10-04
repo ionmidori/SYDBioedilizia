@@ -58,7 +58,9 @@ async def generate_render_wrapper(
         # MODE: MODIFICATION (I2I)
         if mode == "modification" and source_image_url:
             # Download source image (Smart Download)
-            source_bytes, source_mime_type = await download_image_smart(source_image_url)
+            source_bytes, source_mime_type = await download_image_smart(
+                source_image_url, owner_session_id=session_id
+            )
 
             # VALIDATION: Check if we got an actual image (not error XML/HTML)
             if not source_mime_type.startswith("image/"):
@@ -177,8 +179,9 @@ async def generate_render_wrapper(
 
     except Exception as e:
         logger.error(f"[Render] ❌ generate_render_wrapper EXCEPTION: {e}", exc_info=True)
+        # The exception text reaches the user through the tool result: keep it in the logs only.
         return {
-            "error": str(e),
+            "error": "Non sono riuscito a generare il render. Riprova tra poco.",
             "status": "error"
         }
 

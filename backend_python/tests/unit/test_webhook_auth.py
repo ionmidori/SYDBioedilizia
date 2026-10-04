@@ -11,6 +11,7 @@ import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import AlreadyExists
 from httpx import ASGITransport, AsyncClient
 from main import app
 
@@ -54,7 +55,8 @@ def _mock_firestore():
 
     mock_doc_ref = MagicMock()
     mock_doc_ref.get = AsyncMock(return_value=mock_doc)
-    mock_doc_ref.set = AsyncMock()
+    mock_doc_ref.create = AsyncMock()
+    mock_doc_ref.delete = AsyncMock()
     mock_doc_ref.update = AsyncMock()
 
     mock_collection = MagicMock()
@@ -81,6 +83,7 @@ def _mock_firestore_existing():
 
     mock_doc_ref = AsyncMock()
     mock_doc_ref.get = AsyncMock(return_value=mock_doc)
+    mock_doc_ref.create = AsyncMock(side_effect=AlreadyExists("claimed"))
 
     mock_collection = MagicMock()
     mock_collection.document = MagicMock(return_value=mock_doc_ref)
@@ -172,6 +175,32 @@ async def test_missing_secret_fails_secure(monkeypatch: pytest.MonkeyPatch):
     code, data = await _post_webhook(body, headers)
     assert code == 503
     assert "not configured" in data["detail"].lower()
+
+
+async def test_empty_secret_fails_secure(monkeypatch: pytest.MonkeyPatch):
+    """Audit 2026-10-03, L2: "" must not be accepted as an HMAC key."""
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "N8N_WEBHOOK_HMAC_SECRET", "")
+    monkeypatch.setattr(settings, "N8N_API_KEY", None)
+    monkeypatch.setattr(settings, "ENABLE_APP_CHECK", False)
+
+    body = json.dumps(_VALID_PAYLOAD)
+    code, _ = await _post_webhook(body, _make_valid_headers("", body))
+    assert code == 503
+
+
+@pytest.mark.usefixtures("_mock_settings")
+async def test_failed_processing_releases_the_claim(_mock_firestore):
+    """Audit 2026-10-03, L2: the claim is taken atomically with create(), and
+    released when processing fails so n8n can retry."""
+    doc_ref = _mock_firestore.collection.return_value.document.return_value
+    doc_ref.update.side_effect = RuntimeError("firestore down")
+    body = json.dumps(_VALID_PAYLOAD)
+    code, _ = await _post_webhook(body, _make_valid_headers(_TEST_SECRET, body))
+    assert code == 500
+    doc_ref.create.assert_awaited_once()
+    doc_ref.delete.assert_awaited_once()
 
 
 @pytest.mark.usefixtures("_mock_settings")

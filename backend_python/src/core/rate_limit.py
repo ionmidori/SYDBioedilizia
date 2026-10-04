@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 if TYPE_CHECKING:
@@ -41,3 +42,18 @@ def _client_key(request: Request) -> str:
 
 
 limiter = Limiter(key_func=_client_key)
+
+
+def charge_extra(request: Request, endpoint_key: str, cost: int) -> None:
+    """Consume `cost` extra hits of every limit declared on `endpoint_key`
+    ("module.function", the key slowapi registers routes under), with the same
+    key and scope slowapi uses, so the charge lands on the caller's own bucket.
+
+    Raises RateLimitExceeded when the bucket is exhausted.
+    """
+    for lim in limiter._route_limits.get(endpoint_key, []):
+        scope = lim.scope or endpoint_key
+        if lim.per_method:
+            scope += f":{request.method}"
+        if not limiter.limiter.hit(lim.limit, lim.key_func(request), scope, cost=cost):
+            raise RateLimitExceeded(lim)

@@ -145,14 +145,53 @@ class _FakeUsersCollection:
         return _FakeUserDoc(self._store)
 
 
+class _FakeChallengeDoc:
+    """passkey_challenges/{key}: get() carries update_time, delete() honours it."""
+
+    def __init__(self, store, doc_id):
+        self._store = store
+        self._id = doc_id
+
+    def set(self, data):
+        self._store[self._id] = (dict(data), object())
+
+    def get(self):
+        data, version = self._store.get(self._id, (None, None))
+        snap = _FakeSnapshot(self._id, data)
+        snap.update_time = version
+        return snap
+
+    def delete(self, option=None):
+        from google.api_core.exceptions import FailedPrecondition
+
+        current = self._store.get(self._id, (None, None))[1]
+        if option is not None and option != current:
+            raise FailedPrecondition("document changed")
+        self._store.pop(self._id, None)
+
+
+class _FakeChallengeCollection:
+    def __init__(self, store):
+        self._store = store
+
+    def document(self, doc_id):
+        return _FakeChallengeDoc(self._store, doc_id)
+
+
 class _FakeFirestore:
     """Single-user fake — the test only registers one user's passkeys."""
 
     def __init__(self):
         self.store: dict = {}
+        self.challenges: dict = {}
 
-    def collection(self, _name):
+    def collection(self, name):
+        if name == "passkey_challenges":
+            return _FakeChallengeCollection(self.challenges)
         return _FakeUsersCollection(self.store)
+
+    def write_option(self, last_update_time):
+        return last_update_time
 
 
 @pytest.fixture
@@ -290,3 +329,63 @@ def test_passkey_counter_regression_with_zero_is_rejected(passkey_client):
         assert r.status_code == 401, r.text
         # Stored counter must NOT be reset to 0.
         assert next(iter(fake_db.store.values()))["sign_count"] == 5
+
+
+def test_challenge_is_single_use_and_shared_across_instances(passkey_client):
+    """Security audit 2026-10-03, M7/L7: the challenge lives in Firestore (any
+    instance can verify it) and a second verify with the same one is rejected."""
+    app, pk_mod = passkey_client
+    fake_db = _FakeFirestore()
+    client = TestClient(app)
+    authenticator = SoftwareAuthenticator()
+
+    with patch.object(pk_mod, "get_firestore_client", return_value=fake_db), patch.object(
+        pk_mod.settings, "RP_ID", "localhost"
+    ), patch.object(pk_mod.auth, "create_custom_token", return_value=b"custom-token"):
+        r = client.post(
+            "/api/passkey/register/options", json={"user_id": UID}, headers={"origin": ORIGIN}
+        )
+        reg = authenticator.make_registration(r.json()["publicKey"]["challenge"])
+        assert client.post("/api/passkey/register/verify", json=reg, headers={"origin": ORIGIN}).status_code == 200
+        assert fake_db.challenges == {}  # consumed
+
+        r = client.post(
+            "/api/passkey/authenticate/options", json={"user_id": UID}, headers={"origin": ORIGIN}
+        )
+        assert len(fake_db.challenges) == 1
+        assertion = authenticator.make_assertion(r.json()["publicKey"]["challenge"], counter=1)
+        assert client.post("/api/passkey/authenticate/verify", json=assertion, headers={"origin": ORIGIN}).status_code == 200
+        replay = authenticator.make_assertion(r.json()["publicKey"]["challenge"], counter=2)
+        r = client.post("/api/passkey/authenticate/verify", json=replay, headers={"origin": ORIGIN})
+        assert r.status_code == 400
+
+
+def test_options_for_user_without_passkey_does_not_reveal_it(passkey_client):
+    """Security audit 2026-10-03, L7: no 404 that tells who has a passkey."""
+    app, pk_mod = passkey_client
+    fake_db = _FakeFirestore()
+    with patch.object(pk_mod, "get_firestore_client", return_value=fake_db), patch.object(
+        pk_mod.settings, "RP_ID", "localhost"
+    ):
+        r = TestClient(app).post(
+            "/api/passkey/authenticate/options", json={"user_id": "nobody"}, headers={"origin": ORIGIN}
+        )
+    assert r.status_code == 200
+    assert not r.json()["publicKey"].get("allowCredentials")
+
+
+def test_expired_or_malformed_challenge_is_rejected():
+    from datetime import UTC, datetime, timedelta
+
+    from src.api.routes import passkey as pk_mod
+
+    fake_db = _FakeFirestore()
+    with patch.object(pk_mod, "get_firestore_client", return_value=fake_db):
+        key = "A" * 43
+        fake_db.collection("passkey_challenges").document(key).set({
+            "user_id": UID, "challenge": key, "user_verification": "required",
+            "expires_at": datetime.now(UTC) - timedelta(seconds=1),
+        })
+        assert pk_mod._pop_challenge_sync(key) is None
+        assert pk_mod._pop_challenge_sync("../users/x") is None
+        assert pk_mod._pop_challenge_sync(None) is None

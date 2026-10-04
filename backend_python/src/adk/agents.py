@@ -267,11 +267,20 @@ QUOTE_AGENT_INSTRUCTION = "\n\n".join([
 
 # ── Agent Definitions ─────────────────────────────────────────────────────────
 
+# Model Armor guardrails (OWASP LLM01/LLM02) on EVERY agent, not only the router:
+# after a transfer ADK sends the next user turns straight to the active sub-agent,
+# so a router-only filter would let them through (security audit 2026-10-03, M5).
+_GUARDRAILS = {
+    "before_model_callback": model_armor_before_model,
+    "after_model_callback": model_armor_after_model,
+}
+
 triage_agent = Agent(
     name="triage",
     model="gemini-3.1-flash-lite-preview",
     tools=[show_project_gallery_adk, retrieve_knowledge_adk],
     instruction=TRIAGE_AGENT_INSTRUCTION,
+    **_GUARDRAILS,
 )
 
 design_agent = Agent(
@@ -279,6 +288,7 @@ design_agent = Agent(
     model="gemini-3.1-flash-lite-preview",
     tools=[generate_render_adk, list_project_files_adk, market_prices_adk, request_login_adk, retrieve_knowledge_adk],
     instruction=DESIGN_AGENT_INSTRUCTION,
+    **_GUARDRAILS,
 )
 
 quote_agent = Agent(
@@ -298,6 +308,7 @@ quote_agent = Agent(
         save_contact_phone_adk,
     ],
     instruction=QUOTE_AGENT_INSTRUCTION,
+    **_GUARDRAILS,
 )
 
 syd_orchestrator = Agent(
@@ -306,9 +317,7 @@ syd_orchestrator = Agent(
     sub_agents=[triage_agent, design_agent, quote_agent],
     tools=[request_login_adk, search_listino_adk, search_prezzario_adk, retrieve_price_by_code_adk],
     instruction=SYD_ORCHESTRATOR_INSTRUCTION,
-    # Model Armor guardrails (OWASP LLM01/LLM02)
-    before_model_callback=model_armor_before_model,
-    after_model_callback=model_armor_after_model,
+    **_GUARDRAILS,
 )
 
 # ADK AgentEvaluator convention: module must expose `root_agent`

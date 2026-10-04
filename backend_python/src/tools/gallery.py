@@ -101,4 +101,4 @@ def show_project_gallery(session_id: str, room: str | None = None, status: str |
 
     except Exception as e:  # noqa: BLE001
         logger.error(f"❌ [Tool] Gallery Error: {str(e)}")
-        return f"Error loading gallery: {str(e)}"
+        return "Error loading gallery."

@@ -5,6 +5,18 @@ import { profileUpdateSchema } from "@/lib/validation/profile-schema";
 import { getFirebaseAuth, getFirebaseStorage } from "@/lib/firebase-admin";
 import { cookies } from "next/headers";
 
+/**
+ * Real image type from the file's first bytes. `File.type` is whatever the
+ * client declared, so it is never trusted (security audit 2026-10-03, L5).
+ */
+function sniffImageType(b: Buffer): string | null {
+    if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+    if (b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+    if (b.length >= 12 && b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 8, 12) === "WEBP") return "image/webp";
+    if (b.length >= 12 && b.toString("latin1", 4, 8) === "ftyp" && ["heic", "heix", "mif1", "msf1", "heif"].includes(b.toString("latin1", 8, 12))) return "image/heic";
+    return null;
+}
+
 interface ActionResult {
     success: boolean;
     message: string;
@@ -35,7 +47,8 @@ export async function updateUserProfile(
         }
 
         // Verify token and get user
-        const decodedToken = await (await getFirebaseAuth()).verifyIdToken(token);
+        // checkRevoked: a token revoked on sign-out or password change is refused.
+        const decodedToken = await (await getFirebaseAuth()).verifyIdToken(token, true);
         const uid = decodedToken.uid;
 
         // Parse and validate form data
@@ -113,7 +126,8 @@ export async function uploadUserAvatar(
         }
 
         // Verify token and get user
-        const decodedToken = await (await getFirebaseAuth()).verifyIdToken(token);
+        // checkRevoked: a token revoked on sign-out or password change is refused.
+        const decodedToken = await (await getFirebaseAuth()).verifyIdToken(token, true);
         const uid = decodedToken.uid;
 
         // Get file from form data
@@ -146,6 +160,13 @@ export async function uploadUserAvatar(
         // Convert file to buffer
         const bytes = await file.arrayBuffer();
         const buffer = Buffer.from(bytes);
+        const contentType = sniffImageType(buffer);
+        if (!contentType) {
+            return {
+                success: false,
+                message: "Formato file non supportato. Usa JPG, PNG, WEBP o HEIC.",
+            };
+        }
 
         // Upload to Firebase Storage
         const bucket = getFirebaseStorage().bucket();
@@ -156,7 +177,7 @@ export async function uploadUserAvatar(
         try {
             await fileRef.save(buffer, {
                 metadata: {
-                    contentType: file.type,
+                    contentType,
                     metadata: {
                         uploadedBy: uid,
                         uploadedAt: new Date().toISOString(),
@@ -165,7 +186,8 @@ export async function uploadUserAvatar(
                 public: false,
             });
 
-            // Make file accessible to authenticated users
+            // Public on purpose: photoURL is shown wherever the user appears and a
+            // signed URL would expire. The content type comes from the bytes above.
             await fileRef.makePublic();
 
             publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;

@@ -189,7 +189,7 @@ async def notify_admin_wrapper(
         return f"✅ Admin notificato per il progetto {project_id} (valore stimato: €{estimated_value:.2f})"
     except ValueError as e:
         logger.error(f"[n8n] Admin notify blocked — config error: {e}")
-        return f"❌ Notifica admin bloccata (configurazione non valida): {e}"
+        return "❌ Notifica admin bloccata (configurazione non valida)."
     except httpx.HTTPStatusError as e:
         logger.error(f"[n8n] Admin notify failed — HTTP {e.response.status_code}: {e.response.text}")
         return f"❌ Notifica admin fallita (HTTP {e.response.status_code}). Ritentare."
@@ -268,7 +268,7 @@ async def deliver_quote_wrapper(
         )
     except ValueError as e:
         logger.error(f"[n8n] Quote delivery blocked — config error: {e}")
-        return f"❌ Consegna preventivo bloccata (configurazione non valida): {e}"
+        return "❌ Consegna preventivo bloccata (configurazione non valida)."
     except httpx.HTTPStatusError as e:
         logger.error(f"[n8n] Quote delivery failed — HTTP {e.response.status_code}: {e.response.text}")
         return f"❌ Consegna preventivo fallita (HTTP {e.response.status_code}). Riprovare."
