@@ -122,22 +122,10 @@ service cloud.firestore {
       allow read: if request.auth != null
         && resource.data.userId == request.auth.uid;
 
-      // Create: any authenticated user + schema validation
-      allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.userId is string
-        && request.resource.data.keys().hasAll(['userId'])
-        && request.resource.data.size() <= 50;
-
-      // Update: only owner + schema validation
-      allow update: if request.auth != null
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.size() <= 50;
-
-      // Delete: only owner
-      allow delete: if request.auth != null
-        && resource.data.userId == request.auth.uid;
+      // Writes go through the backend only (Admin SDK bypasses rules): a client
+      // write skipped the 5-project limit and could set any field, e.g. status
+      // (security audit 2026-10-03, L6). The web client never writes here.
+      allow write: if false;
     }
 
     // ==========================================
@@ -168,20 +156,10 @@ service cloud.firestore {
     // TESTIMONIALS COLLECTION
     // ==========================================
     match /testimonials/{testimonialId} {
-      // Public read only for approved testimonials (landing page display).
-      // pending/rejected are not accessible from the client.
-      allow read: if resource.data.status == 'approved';
-
-      // Only authenticated (registered, non-anonymous) users can submit.
-      allow create: if request.auth != null
-        && request.auth.token.firebase.sign_in_provider != 'anonymous'
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.text is string
-        && request.resource.data.rating is number
-        && request.resource.data.status == 'pending';
-
-      // Updates and deletes are admin-only (Admin SDK bypasses rules).
-      allow update, delete: if false;
+      // Backend only (/api/content/testimonials, Admin SDK). A public read
+      // exposed the author's userId, i.e. valid uids to target (security audit
+      // 2026-10-03, M3); the web client neither reads nor writes here.
+      allow read, write: if false;
     }
 
     // ==========================================
