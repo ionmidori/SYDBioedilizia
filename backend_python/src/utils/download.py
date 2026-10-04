@@ -152,7 +152,25 @@ def _parse_firebase_url(url: str) -> tuple[str, str] | None:
     return None
 
 
-async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, str]:
+def _session_prefixes(session_id: str) -> tuple[str, ...]:
+    """Storage prefixes that belong to one chat session (= project id)."""
+    return (f"user-uploads/{session_id}/", f"projects/{session_id}/", f"renders/{session_id}/")
+
+
+def _admin_read_allowed(bucket_name: str, blob_path: str, owner_session_id: str | None) -> bool:
+    """🛡️ The Admin SDK bypasses Storage rules, so it may only read this session's
+    files in the app bucket (security audit 2026-10-03, M4). Anything else goes
+    through plain HTTP, with no more access than the URL itself grants."""
+    if not owner_session_id or bucket_name != settings.FIREBASE_STORAGE_BUCKET:
+        return False
+    if ".." in blob_path.split("/"):
+        return False
+    return blob_path.startswith(_session_prefixes(owner_session_id))
+
+
+async def download_image_smart(
+    url: str, timeout: float = 30.0, *, owner_session_id: str | None = None
+) -> tuple[bytes, str]:
     """
     Download image from URL using the most robust method available.
 
@@ -163,6 +181,8 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
     Args:
         url: The image URL.
         timeout: Timeout in seconds for HTTP requests.
+        owner_session_id: Session whose files the Admin SDK may read. Without it
+            (or for any other bucket/path) only the HTTP strategy is used.
 
     Returns:
         tuple: (file_bytes, mime_type)
@@ -186,6 +206,9 @@ async def download_image_smart(url: str, timeout: float = 30.0) -> tuple[bytes, 
     # the two Google Storage hosts, so the bucket reached here is always accessed
     # through the GCS Admin SDK (not an SSRF-style HTTP request to an arbitrary host).
     firebase_parts = _parse_firebase_url(url)
+    if firebase_parts and not _admin_read_allowed(*firebase_parts, owner_session_id):
+        logger.warning("[SmartDownload] Storage URL outside the session's files: no Admin SDK access.")
+        firebase_parts = None
     if firebase_parts:
         bucket_name, blob_path = firebase_parts
 

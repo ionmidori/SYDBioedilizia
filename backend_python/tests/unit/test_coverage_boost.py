@@ -319,9 +319,11 @@ class TestDownloadImageSmart:
         mock_bucket.blob.return_value = mock_blob
         mock_storage.bucket.return_value = mock_bucket
 
-        content, mime = await download_image_smart(
-            "https://firebasestorage.googleapis.com/v0/b/my-bucket/o/images%2Fphoto.jpg?alt=media"
-        )
+        with patch("src.utils.download.settings.FIREBASE_STORAGE_BUCKET", "my-bucket"):
+            content, mime = await download_image_smart(
+                "https://firebasestorage.googleapis.com/v0/b/my-bucket/o/user-uploads%2Fs1%2Fphoto.jpg?alt=media",
+                owner_session_id="s1",
+            )
         assert content == b"\xff\xd8\xff\xe0"
         assert mime == "image/jpeg"
 
@@ -335,9 +337,11 @@ class TestDownloadImageSmart:
         mock_bucket.blob.return_value = mock_blob
         mock_storage.bucket.return_value = mock_bucket
 
-        content, mime = await download_image_smart(
-            "https://storage.googleapis.com/my-bucket/images/photo.png"
-        )
+        with patch("src.utils.download.settings.FIREBASE_STORAGE_BUCKET", "my-bucket"):
+            content, mime = await download_image_smart(
+                "https://storage.googleapis.com/my-bucket/renders/s1/photo.png",
+                owner_session_id="s1",
+            )
         assert content == b"\x89PNG"
         assert mime == "image/png"
 
@@ -353,9 +357,11 @@ class TestDownloadImageSmart:
             mock_httpx_cls, 200, {"content-type": "image/jpeg"}, body=b"\xff\xd8\xff\xe0"
         )
 
-        content, mime = await download_image_smart(
-            "https://firebasestorage.googleapis.com/v0/b/bucket/o/path?alt=media"
-        )
+        with patch("src.utils.download.settings.FIREBASE_STORAGE_BUCKET", "bucket"):
+            content, mime = await download_image_smart(
+                "https://firebasestorage.googleapis.com/v0/b/bucket/o/projects%2Fs1%2Fa.jpg?alt=media",
+                owner_session_id="s1",
+            )
         assert content == b"\xff\xd8\xff\xe0"
         assert mime == "image/jpeg"
 
@@ -408,9 +414,11 @@ class TestDownloadImageSmart:
         mock_bucket.blob.return_value = mock_blob
         mock_storage.bucket.return_value = mock_bucket
 
-        content, mime = await download_image_smart(
-            "https://firebasestorage.googleapis.com/v0/b/bucket/o/images%2Fphoto.jpg?alt=media"
-        )
+        with patch("src.utils.download.settings.FIREBASE_STORAGE_BUCKET", "bucket"):
+            content, mime = await download_image_smart(
+                "https://firebasestorage.googleapis.com/v0/b/bucket/o/user-uploads%2Fs1%2Fphoto.jpg?alt=media",
+                owner_session_id="s1",
+            )
         assert mime == "image/jpeg"  # guessed from path
 
 
