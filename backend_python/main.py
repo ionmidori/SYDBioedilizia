@@ -311,6 +311,11 @@ class AppCheckMiddleware:
         "/internal/lifecycle/run", "/internal/quote/approve",
     })
     _DEV_PATHS = frozenset({"/docs", "/openapi.json"})
+    # Public read-only homepage content. The landing page fetches it without an
+    # App Check token (loading reCAPTCHA first would delay the hero gallery), so
+    # it was answered 403 and the page always fell back to stock content. Only
+    # GET: POST /api/content/testimonials still needs App Check + a user token.
+    _PUBLIC_GET_PATHS = frozenset({"/api/content/testimonials", "/api/content/portfolio"})
 
     def __init__(self, app: ASGIApp):
         self.app = app
@@ -328,7 +333,7 @@ class AppCheckMiddleware:
         # Public endpoints whitelist
         path = scope.get("path", "")
         allowed = self._PUBLIC_PATHS | (self._DEV_PATHS if settings.ENV == "development" else frozenset())
-        if path in allowed:
+        if path in allowed or (scope.get("method") == "GET" and path in self._PUBLIC_GET_PATHS):
             await self.app(scope, receive, send)
             return
 
