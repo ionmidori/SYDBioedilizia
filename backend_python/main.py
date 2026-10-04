@@ -306,8 +306,10 @@ class AppCheckMiddleware:
     Uses raw ASGI __call__ instead of @app.middleware("http") / BaseHTTPMiddleware
     to avoid buffering StreamingResponse bodies (which breaks /chat/stream).
     """
+    # "/api/health" is the same liveness probe as "/health": the frontend warmup
+    # reaches it through the /api/py/* rewrite and was answered 403 on every visit.
     _PUBLIC_PATHS = frozenset({
-        "/health", "/ready", "/favicon.ico", "/webhooks/n8n",
+        "/health", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
         "/internal/lifecycle/run", "/internal/quote/approve",
     })
     _DEV_PATHS = frozenset({"/docs", "/openapi.json"})

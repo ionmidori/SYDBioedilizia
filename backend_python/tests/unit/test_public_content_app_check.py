@@ -46,3 +46,10 @@ async def test_submitting_a_testimonial_still_needs_app_check():
 async def test_other_routes_still_need_app_check():
     resp = await _request("GET", "/api/projects")
     assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("path", ["/health", "/api/health"])
+async def test_liveness_probe_needs_no_app_check(path):
+    """The frontend warmup pings /api/py/health, rewritten to /api/health."""
+    resp = await _request("GET", path)
+    assert resp.status_code == 200
