@@ -5,8 +5,12 @@ import { updateUserProfile, uploadUserAvatar } from '../profile';
 // itself supplied, tracked in a WeakMap — avoids depending on jsdom internals.
 const fileBytes = new WeakMap<File, Uint8Array>();
 
-function createTestFile(size: number, name: string, type: string): File {
-    const bytes = new Uint8Array(size).fill(1);
+// RIFF....WEBP: the action checks the real type from the first bytes.
+const WEBP_HEADER = [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50];
+
+function createTestFile(size: number, name: string, type: string, header: number[] = WEBP_HEADER): File {
+    const bytes = new Uint8Array(Math.max(size, header.length)).fill(1);
+    bytes.set(header);
     const file = new File([bytes], name, { type });
     fileBytes.set(file, bytes);
     return file;
@@ -145,6 +149,31 @@ describe('app/actions/profile.ts', () => {
 
             expect(result.success).toBe(false);
             expect(result.message).toMatch(/Formato file non supportato/);
+        });
+
+        it('rejects a file whose bytes are not an image, whatever type it declares', async () => {
+            const html = Array.from(Buffer.from('<html><script>'));
+            const formData = new FormData();
+            formData.append('avatar', createTestFile(20, 'avatar.png', 'image/png', html));
+
+            const result = await uploadUserAvatar(formData);
+
+            expect(result.success).toBe(false);
+            expect(result.message).toMatch(/Formato file non supportato/);
+            expect(mockSave).not.toHaveBeenCalled();
+        });
+
+        it('stores the sniffed content type and checks token revocation', async () => {
+            const formData = new FormData();
+            formData.append('avatar', createTestFile(20, 'avatar.png', 'image/png'));
+
+            await uploadUserAvatar(formData);
+
+            expect(mockVerifyIdToken).toHaveBeenCalledWith(expect.any(String), true);
+            expect(mockSave).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({ metadata: expect.objectContaining({ contentType: 'image/webp' }) })
+            );
         });
 
         it('returns a distinct message when the Storage upload itself fails', async () => {

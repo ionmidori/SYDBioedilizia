@@ -42,9 +42,18 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
+      // Only this project's buckets: without a pathname the optimizer would
+      // fetch and resize images from ANY Firebase bucket on our bill
+      // (security audit 2026-10-03, L8).
       {
         protocol: 'https',
         hostname: 'firebasestorage.googleapis.com',
+        pathname: '/v0/b/chatbotluca-a8a73.firebasestorage.app/o/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        pathname: '/v0/b/chatbotluca-a8a73.appspot.com/o/**',
       },
       {
         protocol: 'https',
