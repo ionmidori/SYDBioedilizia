@@ -17,6 +17,7 @@ References:
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 
 from google.adk.agents.callback_context import CallbackContext
@@ -41,6 +42,13 @@ _OUTPUT_BLOCKED_MESSAGE = (
     "ed è stata filtrata per la tua sicurezza. "
     "Per favore, riprova con una domanda diversa."
 )
+
+
+# The callbacks run on the orchestrator AND on every sub-agent, so one user turn
+# can reach several model calls (agent transfer, tool loops). A text already
+# found clean in this invocation is not sent to Model Armor again; "temp:" state
+# lives only for the current invocation.
+_CLEAN_INPUT_KEY = "temp:model_armor_clean_input"
 
 
 def _extract_last_user_text(llm_request: LlmRequest) -> str:
@@ -103,6 +111,10 @@ def model_armor_before_model(
         # No text to scan (e.g., image-only input)
         return None
 
+    digest = hashlib.sha256(user_text.encode("utf-8")).hexdigest()
+    if callback_context.state.get(_CLEAN_INPUT_KEY) == digest:
+        return None
+
     agent_name = callback_context.agent_name
     logger.info(
         "[ModelArmor] Scanning input for agent=%s text_len=%d",
@@ -126,6 +138,7 @@ def model_armor_before_model(
         agent_name,
         verdict.filter_match_state,
     )
+    callback_context.state[_CLEAN_INPUT_KEY] = digest
     return None
 
 
