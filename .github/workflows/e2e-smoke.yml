@@ -7,6 +7,10 @@ on:
       - 'develop'
     paths:
       - 'web_client/**'
+      # Workspace root: lockfile + npm config that resolve web_client deps.
+      - 'package.json'
+      - 'package-lock.json'
+      - '.npmrc'
       - '.github/workflows/e2e-smoke.yml'
       - 'firebase.json'
       - 'firestore.rules'
@@ -17,6 +21,10 @@ on:
       - 'develop'
     paths:
       - 'web_client/**'
+      # Workspace root: lockfile + npm config that resolve web_client deps.
+      - 'package.json'
+      - 'package-lock.json'
+      - '.npmrc'
       - '.github/workflows/e2e-smoke.yml'
       - 'firebase.json'
       - 'firestore.rules'
