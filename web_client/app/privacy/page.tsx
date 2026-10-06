@@ -4,6 +4,10 @@ import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
+import { COMPANY, COMPANY_FULL_ADDRESS, COMPANY_LEGAL_LINE } from '@/lib/company';
+
+const H3 = "text-lg font-bold text-luxury-text/90 uppercase tracking-widest text-sm border-l-2 border-luxury-gold pl-4";
+const MAIL_LINK = "text-luxury-gold hover:underline decoration-luxury-gold/30";
 
 export default function PrivacyPage() {
     return (
@@ -40,7 +44,7 @@ export default function PrivacyPage() {
                             Privacy <span className="text-luxury-gold italic">Policy</span>
                         </h1>
                         <p className="mt-6 text-luxury-text/40 font-medium tracking-[0.2em] uppercase text-xs">
-                            Ultimo aggiornamento: 30 Gennaio 2026
+                            Ultimo aggiornamento: 6 Ottobre 2026
                         </p>
                     </header>
 
@@ -52,22 +56,35 @@ export default function PrivacyPage() {
 
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Il Titolare del trattamento</h2>
-                            <p>I dati del Titolare del trattamento nonché i dati di contatto sono specificati all&apos;interno del Sito web.</p>
+                            <p>
+                                Titolare del trattamento è <strong>{COMPANY.name}</strong>, P.IVA {COMPANY.vatId}, con sede in {COMPANY_FULL_ADDRESS}.
+                                Per qualsiasi richiesta relativa ai dati personali puoi scrivere a{' '}
+                                <a href={`mailto:${COMPANY.email}`} className={MAIL_LINK}>{COMPANY.email}</a>{' '}
+                                o telefonare al {COMPANY.phone}.
+                            </p>
                         </section>
 
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Dati personali trattati</h2>
                             <div className="space-y-4">
-                                <h3 className="text-lg font-bold text-luxury-text/90 uppercase tracking-widest text-sm border-l-2 border-luxury-gold pl-4">a) Dati di navigazione</h3>
+                                <h3 className={H3}>a) Dati di navigazione</h3>
                                 <p>
-                                    I sistemi informatici e le procedure software preposte al funzionamento del Sito web possono acquisire, nel corso del loro normale esercizio, alcuni dati personali la cui trasmissione è implicita nell&apos;uso dei protocolli di comunicazione di Internet... Questi dati vengono utilizzati al solo fine di ricavare informazioni statistiche sull&apos;uso del Sito web e per controllarne il corretto funzionamento.
+                                    I sistemi che fanno funzionare il Sito web acquisiscono alcuni dati la cui trasmissione è implicita nell&apos;uso di Internet (indirizzo IP, tipo di browser e dispositivo, pagine visitate, data e ora della richiesta). Li usiamo per garantire il funzionamento e la sicurezza del Sito, prevenire abusi e ricavare statistiche aggregate sull&apos;uso.
                                 </p>
                                 <p className="p-4 bg-luxury-teal/5 rounded-2xl border border-luxury-teal/10 italic text-sm">
                                     Con riferimento ai dati personali raccolti tramite cookie, si prega di prendere visione della <Link href="/cookie-policy" className="text-luxury-gold hover:underline decoration-luxury-gold/30">Cookie Policy</Link>.
                                 </p>
-                                <h3 className="text-lg font-bold text-luxury-text/90 uppercase tracking-widest text-sm border-l-2 border-luxury-gold pl-4 mt-8">b) Altri dati volontariamente forniti dall&apos;utente</h3>
+                                <h3 className={`${H3} mt-8`}>b) Account utente</h3>
                                 <p>
-                                    Il Titolare del trattamento potrà trattare anche ulteriori dati personali quali ad esempio nome, cognome, indirizzo e-mail, numero di telefono, dati di pagamento ed eventuali ulteriori dati spontaneamente conferiti ad esempio durante la compilazione di form presenti nel Sito web.
+                                    Se crei un account: indirizzo e-mail, nome, eventuale foto profilo e, se scegli l&apos;accesso biometrico, la chiave pubblica della passkey. I dati biometrici restano sul tuo dispositivo e non ci vengono mai trasmessi.
+                                </p>
+                                <h3 className={`${H3} mt-8`}>c) Assistente virtuale, foto e preventivi</h3>
+                                <p>
+                                    I messaggi che scrivi all&apos;assistente virtuale, le foto e le planimetrie che carichi, i rendering generati e i dati delle richieste di preventivo: descrizione dei lavori, ambienti, metrature e i recapiti che decidi di lasciarci (nome, e-mail, telefono). Ti chiediamo di non inserire nella chat dati non necessari, in particolare dati sulla salute o dati di altre persone.
+                                </p>
+                                <h3 className={`${H3} mt-8`}>d) Recensioni</h3>
+                                <p>
+                                    Se lasci una recensione: nome, località, testo e valutazione. Vengono pubblicate sul Sito solo dopo la nostra approvazione.
                                 </p>
                             </div>
                         </section>
@@ -76,54 +93,69 @@ export default function PrivacyPage() {
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Finalità e basi giuridiche del trattamento</h2>
                             <div className="grid gap-6">
                                 {[
-                                    "consentire la navigazione sul Sito web ed erogare i servizi web e le funzionalità richieste;",
-                                    "gestire e rispondere alle richieste di informazione/assistenza (anche tramite AI/chatbot);",
-                                    "creare una area riservata all'interno del Sito web;",
-                                    "fornire preventivi e prenotazioni (anche tramite sistemi di intelligenza artificiale);",
-                                    "consentire la procedura di acquisto di prodotti e servizi."
+                                    { purpose: "consentire la navigazione sul Sito web e la gestione dell'account;", basis: "esecuzione di un contratto o di misure precontrattuali richieste dall'utente (art. 6.1.b GDPR)." },
+                                    { purpose: "rispondere alle richieste di informazioni e assistenza, anche tramite l'assistente virtuale basato su intelligenza artificiale;", basis: "misure precontrattuali richieste dall'utente (art. 6.1.b GDPR)." },
+                                    { purpose: "elaborare rendering e preventivi e ricontattare l'utente per i lavori richiesti;", basis: "misure precontrattuali richieste dall'utente (art. 6.1.b GDPR)." },
+                                    { purpose: "pubblicare le recensioni inviate dagli utenti;", basis: "consenso dell'utente, revocabile in qualsiasi momento (art. 6.1.a GDPR)." },
+                                    { purpose: "proteggere il Sito da abusi, accessi automatizzati e attacchi informatici;", basis: "legittimo interesse del Titolare alla sicurezza del servizio (art. 6.1.f GDPR)." },
+                                    { purpose: "misurare in forma aggregata l'uso e le prestazioni del Sito;", basis: "consenso dell'utente espresso tramite il banner cookie, ove richiesto (art. 6.1.a GDPR)." },
+                                    { purpose: "adempiere agli obblighi di legge, contabili e fiscali;", basis: "obbligo legale (art. 6.1.c GDPR)." },
                                 ].map((item, i) => (
                                     <div key={i} className="flex gap-4 items-start p-4 hover:bg-white/5 rounded-2xl transition-colors">
                                         <span className="text-luxury-gold font-serif italic text-xl">0{i + 1}.</span>
-                                        <p className="text-sm pt-1">{item}</p>
+                                        <div className="text-sm pt-1 space-y-1">
+                                            <p>{item.purpose}</p>
+                                            <p className="text-luxury-text/60">Base giuridica: {item.basis}</p>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
-                            <p className="text-sm border-t border-luxury-gold/10 pt-6 opacity-60">
-                                La base giuridica delle predette finalità è l&apos;esecuzione di un contratto di cui l&apos;utente è parte o l&apos;esecuzione di misure precontrattuali adottate su sua richiesta. Il conferimento dei dati personali in tali casi è necessario.
+                            <p className="text-sm border-t border-luxury-gold/10 pt-6 text-luxury-text/60">
+                                Il conferimento dei dati per account, assistente e preventivi è facoltativo, ma senza di essi non possiamo fornire il servizio richiesto. Non prendiamo decisioni basate unicamente su trattamenti automatizzati che producano effetti giuridici sull&apos;utente: i preventivi elaborati con l&apos;aiuto dell&apos;intelligenza artificiale sono stime indicative, verificate da una persona prima dell&apos;invio definitivo.
                             </p>
                         </section>
 
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Tempo di conservazione</h2>
-                            <p>
-                                Il Titolare del trattamento conserva i dati personali per il tempo necessario al conseguimento delle finalità per le quali sono stati raccolti... In generale per tutta la durata del rapporto contrattuale e per non oltre 10 anni successivi alla cessazione del medesimo.
-                            </p>
+                            <ul className="list-disc list-inside space-y-2 text-sm">
+                                <li><strong>Account, conversazioni, foto e rendering</strong>: finché l&apos;account è attivo. Dopo 12 mesi di inattività ti avvisiamo via e-mail; a 13 mesi l&apos;account viene disattivato; a 24 mesi conversazioni e dati personali vengono cancellati o resi anonimi e l&apos;account eliminato. Puoi chiederne la cancellazione in qualsiasi momento.</li>
+                                <li><strong>Richieste di preventivo</strong>: per il tempo necessario a gestire la richiesta e, se segue un contratto, per 10 anni come previsto dalla normativa civilistica e fiscale.</li>
+                                <li><strong>Recensioni</strong>: finché restano pubblicate o fino alla revoca del consenso.</li>
+                                <li><strong>Dati di navigazione e log di sicurezza</strong>: per il periodo strettamente necessario, di norma non oltre 12 mesi, salvo necessità di accertare illeciti.</li>
+                            </ul>
                         </section>
 
                         <section className="space-y-6">
-                            <h2 className="text-2xl font-serif text-luxury-gold italic">Categorie di destinatari dei dati</h2>
+                            <h2 className="text-2xl font-serif text-luxury-gold italic">Destinatari dei dati</h2>
                             <p>
-                                Il Titolare del trattamento può comunicare i dati personali a soggetti esterni che operano in qualità di titolari del trattamento oppure che trattano i dati personali in qualità di responsabili del trattamento (art. 28 GDPR). Tra i destinatari figurano:
+                                I dati sono trattati da personale autorizzato del Titolare e da fornitori che agiscono come responsabili del trattamento (art. 28 GDPR):
                             </p>
-                            <ul className="list-disc list-inside space-y-2 text-sm opacity-70">
-                                <li>Professionisti e studi di consulenza (contabile, legale, amministrativa);</li>
-                                <li>Banche e istituti di credito;</li>
-                                <li>Società terze di intelligenza artificiale per l&apos;erogazione dei servizi del Sito;</li>
-                                <li>Autorità ed enti pubblici in forza di disposizioni di legge.</li>
+                            <ul className="list-disc list-inside space-y-2 text-sm text-luxury-text/70">
+                                <li>Google (Firebase Authentication, Cloud Firestore, Cloud Storage, App Check e reCAPTCHA, Cloud Run, Vertex AI / Gemini per l&apos;assistente virtuale e i rendering, Model Armor per il filtro dei contenuti, Gmail per l&apos;invio delle e-mail);</li>
+                                <li>Vercel Inc. (hosting del Sito, Vercel Analytics e Speed Insights);</li>
+                                <li>Pinecone Systems Inc. (ricerca nel prezzario usato per i preventivi; non riceve dati personali dell&apos;utente);</li>
+                                <li>professionisti e consulenti (contabili, legali, amministrativi) e, se necessario, autorità ed enti pubblici in forza di legge.</li>
                             </ul>
+                            <p className="text-sm">I dati non sono venduti né ceduti a terzi per finalità di marketing.</p>
                         </section>
 
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Trasferimento dei dati all&apos;estero</h2>
                             <p>
-                                In caso di trasferimento dati fuori dall&apos;UE in paesi senza una Decisione di Adeguatezza, il Titolare si impegna ad adottare clausole contrattuali tipo (art. 46 GDPR) e misure supplementari tecniche e organizzative per garantire un livello di protezione equivalente a quello dell&apos;Unione Europea.
+                                Alcuni fornitori hanno sede negli Stati Uniti o possono trattare dati fuori dall&apos;Unione Europea. In questi casi il trasferimento si basa sulla decisione di adeguatezza EU-US Data Privacy Framework, per i fornitori certificati, oppure sulle clausole contrattuali tipo approvate dalla Commissione Europea (art. 46 GDPR).
                             </p>
                         </section>
 
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Diritti dell&apos;interessato</h2>
                             <p>
-                                Ai sensi degli artt. 15 - 22 del GDPR l&apos;interessato potrà in qualunque momento esercitare i suoi diritti (accesso, rettifica, cancellazione, limitazione, opposizione). Per esercitare tali diritti, è possibile inviare una richiesta all&apos;indirizzo e-mail del Titolare del trattamento.
+                                Ai sensi degli artt. 15–22 del GDPR puoi in qualsiasi momento chiedere l&apos;accesso ai tuoi dati, la rettifica, la cancellazione, la limitazione del trattamento e la portabilità, e opporti al trattamento basato sul legittimo interesse. Se il trattamento si basa sul consenso, puoi revocarlo in qualsiasi momento, senza effetti sulla liceità del trattamento precedente. Per esercitare i tuoi diritti scrivi a{' '}
+                                <a href={`mailto:${COMPANY.email}`} className={MAIL_LINK}>{COMPANY.email}</a>.
+                            </p>
+                            <p>
+                                Hai inoltre il diritto di proporre reclamo al Garante per la protezione dei dati personali (
+                                <a href="https://www.garanteprivacy.it" target="_blank" rel="noopener noreferrer" className={MAIL_LINK}>www.garanteprivacy.it</a>
+                                ) o all&apos;autorità di controllo del Paese UE in cui risiedi o lavori.
                             </p>
                         </section>
                     </div>
@@ -133,7 +165,7 @@ export default function PrivacyPage() {
                             <Link href="/cookie-policy" className="text-xs font-bold uppercase tracking-widest text-luxury-text/40 hover:text-luxury-gold transition-colors">Cookie Policy</Link>
                             <Link href="/terms" className="text-xs font-bold uppercase tracking-widest text-luxury-text/40 hover:text-luxury-gold transition-colors">Termini e Condizioni</Link>
                         </div>
-                        <p className="text-xs text-luxury-text/20">&copy; 2026 Syd Bioedilizia S.r.l. - P.IVA 12345678901</p>
+                        <p className="text-xs text-luxury-text/60">&copy; {new Date().getFullYear()} {COMPANY_LEGAL_LINE}</p>
                     </footer>
                 </motion.div>
             </main>

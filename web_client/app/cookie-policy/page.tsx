@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Cookie } from 'lucide-react';
+import { COMPANY_LEGAL_LINE } from '@/lib/company';
 
 export default function CookiePolicyPage() {
     return (
@@ -113,7 +114,7 @@ export default function CookiePolicyPage() {
                             <Link href="/privacy" className="text-xs font-bold uppercase tracking-widest text-luxury-text/40 hover:text-luxury-gold transition-colors">Privacy Policy</Link>
                             <Link href="/terms" className="text-xs font-bold uppercase tracking-widest text-luxury-text/40 hover:text-luxury-gold transition-colors">Termini e Condizioni</Link>
                         </div>
-                        <p className="text-xs text-luxury-text/20">&copy; 2026 Syd Bioedilizia S.r.l. - P.IVA 12345678901</p>
+                        <p className="text-xs text-luxury-text/60">&copy; {new Date().getFullYear()} {COMPANY_LEGAL_LINE}</p>
                     </footer>
                 </motion.div>
             </main>
