@@ -6,19 +6,28 @@ import { Testimonials } from '@/components/sections/Testimonials';
 import { Footer } from '@/components/sections/Footer';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { Suspense } from 'react';
+import { COMPANY } from '@/lib/company';
 
 export default function Home() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "GeneralContractor",
+    "@id": `${COMPANY.url}/#business`,
     "name": "SYD BIOEDILIZIA",
     "description": "Leader a Roma e Provincia: ristrutturazioni tradizionali e bioedilizia.",
-    "url": "https://sydbioedilizia.vercel.app",
+    "url": COMPANY.url,
+    "logo": `${COMPANY.url}/syd-logo-v2.png`,
+    "image": `${COMPANY.url}/syd-logo-v2.png`,
+    "telephone": COMPANY.phone,
+    "email": COMPANY.email,
+    "vatID": `IT${COMPANY.vatId}`,
     "address": {
       "@type": "PostalAddress",
-      "addressLocality": "Roma",
-      "addressRegion": "RM",
-      "addressCountry": "IT"
+      "streetAddress": COMPANY.address.street,
+      "postalCode": COMPANY.address.postalCode,
+      "addressLocality": COMPANY.address.city,
+      "addressRegion": COMPANY.address.region,
+      "addressCountry": COMPANY.address.country
     },
     "areaServed": [
       { "@type": "City", "name": "Roma" },
