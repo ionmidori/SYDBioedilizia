@@ -108,7 +108,7 @@ export function CreateProjectDialog({ open, onOpenChange, onProjectCreated }: Cr
                                                 {...field}
                                                 id="title"
                                                 placeholder="Es. Casa Rossi"
-                                                className={`w-full px-4 py-3 bg-transparent border-b outline-none transition-all placeholder:text-luxury-text/30 text-center text-xl font-medium text-luxury-text ${form.formState.errors.title
+                                                className={`w-full px-4 py-3 bg-transparent border-b outline-none transition-all placeholder:text-luxury-text/60 text-center text-xl font-medium text-luxury-text ${form.formState.errors.title
                                                     ? "border-red-500/50 focus:border-red-500"
                                                     : "border-luxury-gold/30 focus:border-luxury-gold"
                                                     }`}

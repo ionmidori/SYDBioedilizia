@@ -1,16 +1,10 @@
 import type { Metadata } from "next";
-import { Outfit, Playfair_Display, Lato, Cinzel } from "next/font/google";
+import { Playfair_Display, Lato, Cinzel } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { AppCheckProvider } from "@/components/providers/AppCheckProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import "./globals.css";
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-  display: "swap",
-});
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -26,7 +20,7 @@ const cinzel = Cinzel({
 
 const lato = Lato({
   subsets: ["latin"],
-  weight: ["100", "300", "400", "700", "900"],
+  weight: ["300", "400", "700", "900"],
   variable: "--font-sans",
   display: "swap",
 });
@@ -107,8 +101,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // No maximumScale/userScalable: pinch-zoom must stay available (WCAG 1.4.4).
+  // Form fields use 16px text on mobile so iOS doesn't auto-zoom on focus.
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
   themeColor: "#264653",
@@ -136,7 +130,7 @@ export default async function RootLayout({
   return (
     <html lang="it" className="dark" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
-        className={`${outfit.variable} ${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
+        className={`${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
         suppressHydrationWarning
       >
         <AppCheckProvider>

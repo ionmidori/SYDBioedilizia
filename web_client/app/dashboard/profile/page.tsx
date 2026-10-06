@@ -268,7 +268,7 @@ export default function ProfilePage() {
                     </div>
                     <div className="space-y-4">
                         <div className="space-y-1">
-                            <label htmlFor="displayName" className="text-[10px] uppercase font-bold text-luxury-text/30">Nome Visualizzato</label>
+                            <label htmlFor="displayName" className="text-[10px] uppercase font-bold text-luxury-text/60">Nome Visualizzato</label>
                             <input
                                 id="displayName"
                                 type="text"
@@ -280,7 +280,7 @@ export default function ProfilePage() {
                             {nameError && <p className="text-xs text-red-400">{nameError}</p>}
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[10px] uppercase font-bold text-luxury-text/30">Email</label>
+                            <label className="text-[10px] uppercase font-bold text-luxury-text/60">Email</label>
                             <p className="text-luxury-text font-medium">{user?.email}</p>
                         </div>
                     </div>

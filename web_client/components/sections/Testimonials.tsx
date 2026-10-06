@@ -295,7 +295,7 @@ export function Testimonials() {
                                                                             <Input
                                                                                 {...field}
                                                                                 placeholder="Il tuo nome"
-                                                                                className="bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/30 focus-visible:ring-white/20"
+                                                                                className="bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/60 focus-visible:ring-white/20"
                                                                             />
                                                                         </FormControl>
                                                                         <FormMessage />
@@ -313,7 +313,7 @@ export function Testimonials() {
                                                                             <Input
                                                                                 {...field}
                                                                                 placeholder="Es. Roma"
-                                                                                className="bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/30 focus-visible:ring-white/20"
+                                                                                className="bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/60 focus-visible:ring-white/20"
                                                                             />
                                                                         </FormControl>
                                                                         <FormMessage />
@@ -339,7 +339,7 @@ export function Testimonials() {
                                                                                         "p-2 transition-all duration-300 hover:scale-110",
                                                                                         star <= field.value 
                                                                                             ? "text-luxury-gold drop-shadow-[0_0_12px_rgba(212,175,55,0.4)]" 
-                                                                                            : "text-white/20 hover:text-white/40"
+                                                                                            : "text-white/50 hover:text-white/70"
                                                                                     )}
                                                                                 >
                                                                                     <Star className={cn("w-10 h-10", star <= field.value && "fill-current")} strokeWidth={1} />
@@ -362,7 +362,7 @@ export function Testimonials() {
                                                                         <Textarea
                                                                             {...field}
                                                                             placeholder="Racconta la tua esperienza con noi..."
-                                                                            className="min-h-[140px] resize-none bg-white/5 border-white/10 rounded-2xl focus-visible:ring-white/20 text-base p-5 placeholder:text-white/30 font-light backdrop-blur-md transition-all"
+                                                                            className="min-h-[140px] resize-none bg-white/5 border-white/10 rounded-2xl focus-visible:ring-white/20 text-base p-5 placeholder:text-white/60 font-light backdrop-blur-md transition-all"
                                                                         />
                                                                     </FormControl>
                                                                     <FormMessage />

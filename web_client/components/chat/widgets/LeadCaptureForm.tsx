@@ -96,7 +96,7 @@ export const LeadCaptureForm: React.FC<LeadFormProps> = ({
                             <Input
                                 {...register("name")}
                                 placeholder="Nome e Cognome"
-                                className={`pl-9 text-sm ${errors.name ? 'border-red-500' : ''}`}
+                                className={`pl-9 text-base md:text-sm ${errors.name ? 'border-red-500' : ''}`}
                             />
                         </div>
                         {errors.name && (
@@ -114,7 +114,7 @@ export const LeadCaptureForm: React.FC<LeadFormProps> = ({
                                 {...register("email")}
                                 type="email"
                                 placeholder="Indirizzo Email"
-                                className={`pl-9 text-sm ${errors.email ? 'border-red-500' : ''}`}
+                                className={`pl-9 text-base md:text-sm ${errors.email ? 'border-red-500' : ''}`}
                             />
                         </div>
                         {errors.email && (
@@ -132,7 +132,7 @@ export const LeadCaptureForm: React.FC<LeadFormProps> = ({
                                 {...register("contact")}
                                 type="tel"
                                 placeholder="Telefono"
-                                className={`pl-9 text-sm ${errors.contact ? 'border-red-500' : ''}`}
+                                className={`pl-9 text-base md:text-sm ${errors.contact ? 'border-red-500' : ''}`}
                             />
                         </div>
                         {errors.contact && (
@@ -149,7 +149,7 @@ export const LeadCaptureForm: React.FC<LeadFormProps> = ({
                             <Textarea
                                 {...register("scope")}
                                 placeholder="Descrivi brevemente la tua richiesta..."
-                                className={`pl-9 text-sm min-h-[80px] resize-none ${errors.scope ? 'border-red-500' : ''}`}
+                                className={`pl-9 text-base md:text-sm min-h-[80px] resize-none ${errors.scope ? 'border-red-500' : ''}`}
                             />
                         </div>
                         {errors.scope && (

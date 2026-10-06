@@ -156,7 +156,7 @@ export default function ConstructionDetailsForm({
                                 className="w-full px-5 py-4 border border-luxury-gold/20 rounded-xl bg-luxury-bg/50 text-luxury-text focus:ring-2 focus:ring-luxury-teal/50 focus:border-luxury-teal transition-all outline-none font-medium shadow-inner"
                                 placeholder="es. 120"
                             />
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-luxury-text/30 font-bold text-xs">SQM</div>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-luxury-text/60 font-bold text-xs">SQM</div>
                         </div>
                         {errors.footage_sqm && (
                             <p className="mt-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
