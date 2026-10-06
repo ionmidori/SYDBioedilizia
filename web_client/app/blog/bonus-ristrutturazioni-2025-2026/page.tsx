@@ -43,7 +43,7 @@ export default function BlogPostBonus() {
             }
         },
         "datePublished": "2026-02-21",
-        "dateModified": "2026-02-21",
+        "dateModified": "2026-10-06",
         "mainEntityOfPage": {
             "@type": "WebPage",
             "@id": "https://sydbioedilizia.it/blog/bonus-ristrutturazioni-2025-2026"
@@ -65,7 +65,7 @@ export default function BlogPostBonus() {
             "name": "Qual è il tetto massimo di spesa per il Bonus Ristrutturazioni 2026?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Per il 2026, il tetto di spesa detraibile è confermato a 96.000€ per unità immobiliare per le prime case, con una detrazione del 50%."
+              "text": "Per le spese pagate nel 2026 il tetto di spesa detraibile è di 96.000€ per unità immobiliare. La detrazione è del 50% sull'abitazione principale del proprietario (o titolare di un diritto reale) e del 36% negli altri casi. Dal 2027 le aliquote scendono al 36% e al 30%."
             }
           },
           {
@@ -125,7 +125,7 @@ export default function BlogPostBonus() {
                 <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
                 <div>
                   <strong className="block text-foreground text-sm">Aliquota 50%</strong>
-                  <span className="text-sm text-muted-foreground">Confermata per manutenzione straordinaria su prime case.</span>
+                  <span className="text-sm text-muted-foreground">Sull&apos;abitazione principale del proprietario; 36% sulle altre case. Dal 2027: 36% e 30%.</span>
                 </div>
               </div>
               <div className="flex gap-3">
@@ -160,7 +160,7 @@ export default function BlogPostBonus() {
 
           <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Cosa puoi detrarre esattamente?</h2>
           <p>
-            Il bonus copre il 50% delle spese sostenute per lavori di <strong>manutenzione straordinaria</strong>, restauro e risanamento conservativo sulle singole unità immobiliari residenziali.
+            Il bonus copre il 50% (abitazione principale) o il 36% (altri immobili) delle spese pagate nel 2026 per lavori di <strong>manutenzione straordinaria</strong>, restauro e risanamento conservativo sulle singole unità immobiliari residenziali.
             Rientrano in questa categoria:
           </p>
           <ul className="list-disc pl-6 mb-6 space-y-2">
@@ -183,7 +183,7 @@ export default function BlogPostBonus() {
           <h3 className="text-xl font-semibold mt-6 mb-3 text-primary">1. La CILA (o SCIA)</h3>
           <p>
             Non si può detrarre nulla senza un titolo abilitativo. La <strong>CILA (Comunicazione Inizio Lavori Asseverata)</strong> deve essere protocollata al Comune di Roma (tramite SUET) <strong>prima</strong> dell&apos;inizio dei lavori e prima del pagamento delle prime fatture.
-            La data della CILA fa fede per l&apos;inizio della detrazione.
+            Attenzione: per l&apos;aliquota conta la <strong>data del pagamento</strong>, non quella della CILA. Un bonifico fatto nel 2027 scende al 36% (abitazione principale) o al 30%, anche se il cantiere è iniziato nel 2026.
           </p>
 
           <h3 className="text-xl font-semibold mt-6 mb-3 text-primary">2. Il Bonifico &quot;Parlante&quot;</h3>
