@@ -57,7 +57,7 @@ export default function PrivacyPage() {
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-luxury-gold italic">Il Titolare del trattamento</h2>
                             <p>
-                                Titolare del trattamento è <strong>{COMPANY.name}</strong>, P.IVA {COMPANY.vatId}, con sede in {COMPANY_FULL_ADDRESS}.
+                                Titolare del trattamento è <strong>{COMPANY.legalName}</strong>, P.IVA {COMPANY.vatId}, con sede in {COMPANY_FULL_ADDRESS}.
                                 Per qualsiasi richiesta relativa ai dati personali puoi scrivere a{' '}
                                 <a href={`mailto:${COMPANY.email}`} className={MAIL_LINK}>{COMPANY.email}</a>{' '}
                                 o telefonare al {COMPANY.phone}.
