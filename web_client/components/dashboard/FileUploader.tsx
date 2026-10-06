@@ -385,7 +385,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
                     <p className="text-sm text-luxury-text/40 mt-4">
                         Immagini (JPG, PNG, WEBP) • PDF • Video (MP4, MOV)
                     </p>
-                    <p className="text-xs text-luxury-text/30 mt-2">
+                    <p className="text-xs text-luxury-text/60 mt-2">
                         Max {maxFiles} file • Immagini: 10MB • PDF: 25MB • Video: 100MB
                     </p>
                 </div>

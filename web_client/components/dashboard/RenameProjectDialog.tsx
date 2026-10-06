@@ -90,7 +90,7 @@ export function RenameProjectDialog({
                                         <input
                                             {...field}
                                             id="title"
-                                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border outline-none transition-all placeholder:text-white/20 ${form.formState.errors.title
+                                            className={`w-full px-4 py-3 rounded-xl bg-white/5 border outline-none transition-all placeholder:text-white/60 ${form.formState.errors.title
                                                     ? "border-red-500/50 focus:border-red-500 focus:ring-1 focus:ring-red-500/50"
                                                     : "border-white/10 focus:border-luxury-gold/50 focus:ring-1 focus:ring-luxury-gold/50"
                                                 }`}

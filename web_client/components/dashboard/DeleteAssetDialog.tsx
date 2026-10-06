@@ -80,7 +80,7 @@ export function DeleteAssetDialog({
                         value={confirmText}
                         onChange={(e) => setConfirmText(e.target.value)}
                         placeholder="elimina"
-                        className="bg-black/20 border-luxury-gold/10 text-white placeholder:text-luxury-text/30 focus:border-red-500"
+                        className="bg-black/20 border-luxury-gold/10 text-white placeholder:text-luxury-text/60 focus:border-red-500"
                         autoComplete="off"
                         disabled={isDeleting}
                     />

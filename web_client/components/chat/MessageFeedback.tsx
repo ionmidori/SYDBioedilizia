@@ -90,7 +90,7 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                     "min-h-[32px] min-w-[32px] flex items-center justify-center", // Enhanced tap target for mobile
                     rating === 1
                         ? "text-emerald-500 scale-110"
-                        : "text-luxury-text/30 hover:text-luxury-text/60"
+                        : "text-luxury-text/60 hover:text-luxury-text"
                 )}
             >
                 <ThumbsUp className="w-3.5 h-3.5" />
@@ -104,7 +104,7 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                     "min-h-[32px] min-w-[32px] flex items-center justify-center", // Enhanced tap target for mobile
                     rating === -1
                         ? "text-red-400 scale-110"
-                        : "text-luxury-text/30 hover:text-luxury-text/60"
+                        : "text-luxury-text/60 hover:text-luxury-text"
                 )}
             >
                 <ThumbsDown className="w-3.5 h-3.5" />

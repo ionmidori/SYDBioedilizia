@@ -402,7 +402,7 @@ export function ChatInput({
                             aria-label="Messaggio chat"
                             className={cn(
                                 'w-full bg-transparent text-luxury-text caret-luxury-gold',
-                                'placeholder:text-luxury-text/30 px-3 py-2',
+                                'placeholder:text-luxury-text/60 px-3 py-2',
                                 'text-base md:text-sm', // Mobile: 16px (no zoom), Desktop: 14px
                                 'max-h-24 min-h-[24px] focus:outline-none resize-none', // Reduced min-h to let wrapper control height
                                 'scrollbar-hide block opacity-100'

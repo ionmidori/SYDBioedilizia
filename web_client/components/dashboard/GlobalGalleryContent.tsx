@@ -168,13 +168,13 @@ export function GlobalGalleryContent() {
                 <div className="flex flex-row gap-3 w-full md:flex-1">
                     {/* Search */}
                     <div className="relative flex-1 group">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-luxury-text/30 group-focus-within:text-luxury-gold transition-colors" />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-luxury-text/60 group-focus-within:text-luxury-gold transition-colors" />
                         <input 
                             type="text"
                             placeholder="Cerca per nome o progetto..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-luxury-bg/40 border border-luxury-gold/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-luxury-text placeholder:text-luxury-text/30 focus:outline-none focus:border-luxury-gold/40 focus:bg-luxury-bg/60 transition-all"
+                            className="w-full bg-luxury-bg/40 border border-luxury-gold/10 rounded-2xl pl-11 pr-4 py-3 text-sm text-luxury-text placeholder:text-luxury-text/60 focus:outline-none focus:border-luxury-gold/40 focus:bg-luxury-bg/60 transition-all"
                         />
                     </div>
 
@@ -217,7 +217,7 @@ export function GlobalGalleryContent() {
                             <Filter className="w-4 h-4 text-luxury-gold" />
                             {filterOptions.find(o => o.value === selectedFilter)?.label}
                         </div>
-                        <ChevronDown className={cn("w-4 h-4 text-luxury-text/30 transition-transform", isFilterMenuOpen && "rotate-180")} />
+                        <ChevronDown className={cn("w-4 h-4 text-luxury-text/60 transition-transform", isFilterMenuOpen && "rotate-180")} />
                     </button>
 
                     <AnimatePresence>
@@ -283,7 +283,7 @@ export function GlobalGalleryContent() {
                                     {displayTitle}
                                 </h2>
                                 <div className="h-px flex-1 bg-gradient-to-r from-luxury-gold/30 to-transparent" />
-                                <span className="text-luxury-text/30 text-sm font-mono tracking-tighter">
+                                <span className="text-luxury-text/60 text-sm font-mono tracking-tighter">
                                     {groupAssets.length} files
                                 </span>
                             </div>
