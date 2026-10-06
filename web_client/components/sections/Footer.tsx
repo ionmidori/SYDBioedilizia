@@ -1,60 +1,20 @@
 'use client';
 
-import { useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Mail, MapPin, Phone, CheckCircle, XCircle } from 'lucide-react';
+import { Mail, MapPin, Phone } from 'lucide-react';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter } from 'react-icons/fa6';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { SydLogo } from '@/components/branding/SydLogo';
-import { resetPasswordSchema, type ResetPasswordValues } from '@/lib/validation/auth-schema';
-import { triggerHaptic } from '@/utils/haptics';
 import { M3EasingFM } from '@/lib/m3-motion';
+import { COMPANY } from '@/lib/company';
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
     const pathname = usePathname();
-    const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-    const [message, setMessage] = useState('');
 
     // Footer reveal, once, as its top crosses 90% of the viewport.
     const reduceMotion = useReducedMotion();
-
-    const {
-        register,
-        handleSubmit,
-        reset,
-        formState: { errors }
-    } = useForm<ResetPasswordValues>({
-        resolver: zodResolver(resetPasswordSchema),
-        defaultValues: {
-            email: ''
-        }
-    });
-
-    const onSubscribe = async () => {
-        if (status === 'loading') return;
-        
-        setStatus('loading');
-        triggerHaptic();
-
-        // Simulate API call
-        setTimeout(() => {
-            setStatus('success');
-            setMessage('Grazie per l\'iscrizione!');
-            reset();
-
-            // Reset status after 3 seconds
-            setTimeout(() => {
-                setStatus('idle');
-                setMessage('');
-            }, 3000);
-        }, 1500);
-    };
 
     return (
         <motion.footer
@@ -69,7 +29,7 @@ export function Footer() {
             <div className="absolute bottom-0 left-0 w-full h-[500px] bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
 
             <div className="container mx-auto px-4 md:px-6 relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 mb-16">
 
                     {/* Brand Column */}
                     <div className="space-y-6">
@@ -123,70 +83,17 @@ export function Footer() {
                         <ul className="space-y-4">
                             <li className="flex items-start gap-3 text-luxury-text/70 text-sm font-light">
                                 <MapPin className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>Via Quero, 132,<br />00123 Roma<br /><span className="text-luxury-gold/60 text-xs mt-1 block">P.IVA: 15714991005</span></span>
+                                <span>{COMPANY.address.street},<br />{COMPANY.address.postalCode} {COMPANY.address.city}<br /><span className="text-luxury-gold/60 text-xs mt-1 block">P.IVA: {COMPANY.vatId}</span></span>
                             </li>
                             <li className="flex items-center gap-3 text-luxury-text/70 text-sm font-light">
                                 <Phone className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>+39 375 5463599</span>
+                                <span>{COMPANY.phone}</span>
                             </li>
                             <li className="flex items-center gap-3 text-luxury-text/70 text-sm font-light">
                                 <Mail className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>sydbioedilizia@gmail.com</span>
+                                <span>{COMPANY.email}</span>
                             </li>
                         </ul>
-                    </div>
-
-                    {/* Newsletter */}
-                    <div>
-                        <h4 className="text-luxury-text font-serif font-bold mb-6 text-lg">Newsletter</h4>
-                        <p className="text-luxury-text/70 text-sm mb-4 font-light">
-                            Iscriviti per ricevere consigli di design e offerte esclusive.
-                        </p>
-                        <form className="space-y-3" onSubmit={handleSubmit(onSubscribe)}>
-                            <div className="relative">
-                                <label htmlFor="newsletter-email" className="sr-only">La tua email</label>
-                                <input
-                                    {...register('email')}
-                                    id="newsletter-email"
-                                    type="email"
-                                    placeholder="La tua email"
-                                    className={cn(
-                                        "w-full bg-black/20 border rounded-lg px-4 py-3 text-sm text-luxury-text focus:outline-none transition-colors",
-                                        errors.email || status === 'error' ? "border-red-500 focus:border-red-500" : "border-luxury-gold/10 focus:border-luxury-teal"
-                                    )}
-                                    disabled={status === 'loading' || status === 'success'}
-                                    aria-label="Email address for newsletter"
-                                />
-                            </div>
-
-                            <Button
-                                type="submit"
-                                variant="premium"
-                                className="w-full relative overflow-hidden bg-luxury-teal hover:bg-luxury-teal/90 text-white border-none"
-                                disabled={status === 'loading' || status === 'success'}
-                            >
-                                {status === 'loading' ? (
-                                    <span className="flex items-center gap-2">
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Attendi...
-                                    </span>
-                                ) : status === 'success' ? (
-                                    <span className="flex items-center gap-2 text-white">
-                                        <CheckCircle className="w-4 h-4" />
-                                        Iscritto!
-                                    </span>
-                                ) : (
-                                    'Iscriviti'
-                                )}
-                            </Button>
-
-                            {(errors.email || status === 'error') && (
-                                <p className="text-xs text-red-400 flex items-center gap-1 animate-in fade-in slide-in-from-top-1">
-                                    <XCircle className="w-3 h-3" />
-                                    {errors.email?.message || message}
-                                </p>
-                            )}
-                        </form>
                     </div>
                 </div>
 
