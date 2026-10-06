@@ -43,7 +43,7 @@
         "uuid": "^11.1.1",
         "postcss": "^8.5.10",
         "@tootallnate/once": "^2.0.1",
-        "next": "^16.3.6",
+        "next": "$next",
         "minimatch": "$minimatch",
         "eslint": {
             "minimatch": "$minimatch"
