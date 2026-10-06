@@ -14,6 +14,7 @@ export default function Home() {
     "@type": "GeneralContractor",
     "@id": `${COMPANY.url}/#business`,
     "name": "SYD BIOEDILIZIA",
+    "legalName": COMPANY.legalName,
     "description": "Leader a Roma e Provincia: ristrutturazioni tradizionali e bioedilizia.",
     "url": COMPANY.url,
     "logo": `${COMPANY.url}/syd-logo-v2.png`,

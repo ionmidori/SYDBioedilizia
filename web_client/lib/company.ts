@@ -4,6 +4,7 @@
  */
 export const COMPANY = {
     name: 'SYD Bioedilizia',
+    legalName: 'SYD Bioedilizia S.r.l.',
     vatId: '15714991005',
     address: {
         street: 'Via Quero, 132',
@@ -17,8 +18,8 @@ export const COMPANY = {
     url: 'https://sydbioedilizia.vercel.app',
 } as const;
 
-/** "SYD Bioedilizia - P.IVA 15714991005", for the legal pages' footer line. */
-export const COMPANY_LEGAL_LINE = `${COMPANY.name} - P.IVA ${COMPANY.vatId}`;
+/** "SYD Bioedilizia S.r.l. - P.IVA 15714991005", for the legal pages' footer line. */
+export const COMPANY_LEGAL_LINE = `${COMPANY.legalName} - P.IVA ${COMPANY.vatId}`;
 
 /** "Via Quero, 132 - 00123 Roma (RM)" */
 export const COMPANY_FULL_ADDRESS =
