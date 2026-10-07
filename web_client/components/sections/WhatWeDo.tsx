@@ -106,8 +106,8 @@ function ActivityCard({ activity, index }: { activity: Activity; index: number }
         >
             <div data-activity-body className="relative p-5 md:p-6">
                 <div className="flex items-center gap-3.5 mb-2.5">
-                    <span className="activity-gold-disc" aria-hidden="true">
-                        <Icon className="w-[18px] h-[18px]" strokeWidth={1.75} />
+                    <span className="activity-brass-tile" aria-hidden="true">
+                        <Icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
                     </span>
                     <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-bg">
                         {activity.title}
