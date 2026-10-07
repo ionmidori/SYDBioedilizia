@@ -55,6 +55,11 @@ describe('vercel-ignore-build.sh', () => {
         expect(run({ VERCEL_GIT_PREVIOUS_SHA: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' })).toBe(1);
     });
 
+    it('builds a redeploy of the already-deployed commit (e.g. after an env var change)', () => {
+        const head = git('rev-parse', 'HEAD');
+        expect(run({ VERCEL_GIT_PREVIOUS_SHA: head })).toBe(1);
+    });
+
     it('skips when only non-frontend paths changed since the last deploy', () => {
         const prev = git('rev-parse', 'HEAD');
         commit('backend_python/main.py', 'backend');

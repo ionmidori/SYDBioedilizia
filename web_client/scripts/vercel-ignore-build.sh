@@ -17,6 +17,13 @@ if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
   exit 1
 fi
 
+# Same commit as the last deploy = a manual Redeploy (e.g. after changing an
+# env var inlined at build time): always intentional, never skip it.
+if [ "$(git rev-parse "${BASE}^{commit}")" = "$(git rev-parse HEAD)" ]; then
+  echo "Redeploy of the already-deployed commit: building."
+  exit 1
+fi
+
 # Frontend output depends on web_client/ and on the root npm workspace manifests.
 if git diff --quiet "$BASE" HEAD -- . ../package.json ../package-lock.json ../.npmrc; then
   echo "No frontend changes since ${BASE:0:7}: skipping."
