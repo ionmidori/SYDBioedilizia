@@ -51,27 +51,27 @@ export function useMobileViewport(isOpen: boolean, chatContainerRef: RefObject<H
 
     // ─── Body lock (when fullscreen chat is open on mobile) ──────────────────
     useEffect(() => {
+        if (!isOpen || isInline) return;
+
         const html = document.documentElement;
         const body = document.body;
 
-        if (isOpen && !isInline) {
-            html.style.overflow = 'hidden';
-            html.style.overscrollBehavior = 'none';
-            body.style.overflow = 'hidden';
-            body.style.overscrollBehavior = 'none';
-            // Removed position: fixed to avoid scroll jumps
-            // Removed pointerEvents: none as it's dangerous for SPA navigation
-        } else {
+        html.style.overflow = 'hidden';
+        html.style.overscrollBehavior = 'none';
+        body.style.overflow = 'hidden';
+        body.style.overscrollBehavior = 'none';
+        // Removed position: fixed to avoid scroll jumps
+        // Removed pointerEvents: none as it's dangerous for SPA navigation
+
+        // Released on close AND on unmount: the widget is mounted per page, so a
+        // client-side navigation (e.g. the chat's "Informativa Privacy" link) unmounts
+        // it while open — without this the next page is left unscrollable.
+        return () => {
             html.style.overflow = '';
-            html.style.height = '';
-            html.style.position = '';
             html.style.overscrollBehavior = '';
             body.style.overflow = '';
-            body.style.height = '';
-            body.style.position = '';
             body.style.overscrollBehavior = '';
-            body.style.pointerEvents = '';
-        }
+        };
     }, [isOpen, isInline]);
 
     return { isMobile, keyboardOpen, keyboardHeight };

@@ -105,6 +105,20 @@ describe('useMobileViewport', () => {
         expect(document.body.style.position).toBe('');
     });
 
+    it('should remove body lock when unmounted while open (page navigation)', () => {
+        const mockRef: RefObject<HTMLDivElement | null> = { current: null };
+        const { unmount } = renderHook(() => useMobileViewport(true, mockRef));
+
+        expect(document.body.style.overflow).toBe('hidden');
+
+        unmount();
+
+        expect(document.body.style.overflow).toBe('');
+        expect(document.body.style.overscrollBehavior).toBe('');
+        expect(document.documentElement.style.overflow).toBe('');
+        expect(document.documentElement.style.overscrollBehavior).toBe('');
+    });
+
     it('should register resize event on window', () => {
         const mockRef: RefObject<HTMLDivElement | null> = {
             current: document.createElement('div'),
