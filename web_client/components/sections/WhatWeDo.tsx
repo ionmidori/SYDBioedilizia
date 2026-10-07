@@ -1,5 +1,6 @@
 'use client';
 
+import type { CSSProperties } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { activities, type Activity } from '@/lib/activities-data';
@@ -73,7 +74,7 @@ export function WhatWeDo() {
                                         index % 2 === 1 && '[--sd-dir:1]',
                                     )}
                                 >
-                                    <ActivityCard activity={activity} />
+                                    <ActivityCard activity={activity} index={index} />
                                 </div>
                             </div>
 
@@ -86,27 +87,34 @@ export function WhatWeDo() {
     );
 }
 
-function ActivityCard({ activity }: { activity: Activity }) {
+function ActivityCard({ activity, index }: { activity: Activity; index: number }) {
     const Icon = activity.icon;
 
     return (
         <article
             data-activity-card
             // Height comes from its own text, so each card fits its description.
-            // `.activity-blueprint-card` is the paper surface: opaque (the cards fly
-            // over the decoration glows) with a static graph-paper grid — see
-            // globals.css. m3-shape-xl gives the same 24px corners as the other cards.
-            className="activity-blueprint-card m3-shape-xl relative w-full"
+            // `.activity-marble-card` is the stone: opaque (the cards fly over the
+            // decoration glows), a marble photo under a cream veil, gold hairline
+            // edge — all static, see globals.css. m3-shape-xl: the site's 24px corners.
+            className="activity-marble-card m3-shape-xl relative w-full"
+            // A different part of the slab per card, so no two look the same.
+            style={{
+                '--marble-x': `${(index * 37) % 100}%`,
+                '--marble-y': index % 2 ? '80%' : '25%',
+            } as CSSProperties}
         >
             <div data-activity-body className="relative p-5 md:p-6">
-                <div className="flex items-start justify-between gap-4 mb-2">
+                <div className="flex items-center gap-3.5 mb-2.5">
+                    <span className="activity-gold-disc" aria-hidden="true">
+                        <Icon className="w-[18px] h-[18px]" strokeWidth={1.75} />
+                    </span>
                     <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-bg">
                         {activity.title}
                     </h3>
-                    <Icon className="w-5 h-5 mt-1 shrink-0 text-luxury-teal" strokeWidth={1.75} aria-hidden="true" />
                 </div>
 
-                {/* /85 on the paper surface measures ~7:1 — comfortably AA. */}
+                {/* /85 on the cream stone measures ~7:1 — comfortably AA. */}
                 <p className="text-base leading-relaxed text-luxury-bg/85">
                     {activity.description}
                 </p>

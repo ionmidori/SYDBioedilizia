@@ -477,28 +477,70 @@
     0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
-/* "Cosa facciamo" cards (WhatWeDo.tsx) — a technical drawing sheet laid on the
-   page: paper surface and graph-paper grid (16px minor / 80px major). The only
-   light surface on the dark page, so the section reads as its own thing. Corners
-   come from .m3-shape-xl, shared with the other cards. Fully opaque (the cards fly
-   in over the decoration glows) and entirely static: the entry motion lives on
-   this element's translate/rotate in scroll-animations.css, so nothing here may
-   touch transform. */
-.activity-blueprint-card {
-  --sheet-line: rgb(38 70 83 / 0.1);
-  --sheet-line-minor: rgb(38 70 83 / 0.05);
+/* "Cosa facciamo" cards (WhatWeDo.tsx) — Calacatta marble and gold leaf. The
+   only light surface on the dark page, so the section reads as its own thing.
+   - Stone: one photo (public/textures/marble-calacatta.avif, WebP fallback;
+     ~17 KB each), contrast-lifted and multiplied with the cream at export so the
+     white is the brand cream. Each card shows a different part of it via
+     --marble-x/--marble-y (percentages, set inline: always inside the image).
+     A cream veil from the left keeps the veins quieter under the text — worst
+     case under a dark vein still ~4.8:1 for the body text.
+   - Gold hairline edge: brightest at the top, fading down (same idea as the
+     Services cards' gold border).
+   Fully opaque (the cards fly in over the decoration glows) and entirely static:
+   the entry motion lives on this element's translate/rotate in
+   scroll-animations.css, so nothing here may touch transform or filter. */
+.activity-marble-card {
+  isolation: isolate;
   background-color: var(--color-luxury-text);
-  background-image:
-    linear-gradient(to right, var(--sheet-line) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--sheet-line) 1px, transparent 1px),
-    linear-gradient(to right, var(--sheet-line-minor) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--sheet-line-minor) 1px, transparent 1px);
-  background-size: 80px 80px, 80px 80px, 16px 16px, 16px 16px;
-  background-position: -1px -1px;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
     0 10px 24px -10px rgb(0 0 0 / 0.45),
     0 30px 60px -24px rgb(0 0 0 / 0.5);
+}
+
+.activity-marble-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image:
+    linear-gradient(100deg, rgb(244 241 222 / 0.55) 0%, rgb(244 241 222 / 0.2) 55%, transparent 80%),
+    image-set(url("/textures/marble-calacatta.avif") type("image/avif"), url("/textures/marble-calacatta.webp") type("image/webp"));
+  background-size: 100% 100%, 900px auto;
+  background-position: 0 0, var(--marble-x, 0%) var(--marble-y, 50%);
+  background-repeat: no-repeat;
+}
+
+.activity-marble-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: linear-gradient(170deg, var(--color-luxury-gold) 0%, #f7e7b0 18%, var(--color-luxury-gold-dark) 45%, rgb(179 139 54 / 0.25) 75%, rgb(179 139 54 / 0.1) 100%);
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+/* Gold-leaf disc holding the activity icon. Dark teal on gold: ~6:1. */
+.activity-gold-disc {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  color: var(--color-luxury-bg);
+  background: radial-gradient(circle at 32% 28%, #f7e7b0 0%, var(--color-luxury-gold) 38%, #c9a04a 70%, var(--color-luxury-gold-dark) 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 -1px 2px rgb(120 86 20 / 0.35),
+    0 2px 6px -2px rgb(120 86 20 / 0.5);
 }
 
 /* Bento Grid Layout */
