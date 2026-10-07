@@ -1,18 +1,14 @@
 'use client';
 
-import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { M3Spring } from '@/lib/m3-motion';
 import { Button } from '@/components/ui/button';
 import { StatCounter } from '@/components/ui/stat-counter';
-import { PlayCircle, Palette, FileText } from 'lucide-react';
+import { Palette, FileText } from 'lucide-react';
 import { Portfolio } from './Portfolio';
-import { SlideShowModal } from './SlideShowModal';
 import { openChat } from '@/lib/chat-events';
 
 export function Hero() {
-    const [isSlideShowOpen, setIsSlideShowOpen] = useState(false);
-
     return (
         <section className="relative min-h-[100dvh] flex items-center pt-20 pb-12 md:pb-16 overflow-hidden bg-luxury-bg">
             {/* Background Elements - Luxury Tech */}
@@ -94,15 +90,6 @@ export function Hero() {
                                 Crea Rendering Gratuito
                                 <Palette className="ml-2 w-5 h-5" />
                             </Button>
-                            <Button
-                                variant="outline"
-                                size="lg"
-                                className="h-14 px-8 text-base min-w-[300px] border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold/10 hover:border-luxury-gold rounded-lg transition-all duration-200 active:scale-95 active:bg-luxury-gold/20"
-                                onClick={() => setIsSlideShowOpen(true)}
-                            >
-                                <PlayCircle className="mr-2 w-5 h-5" />
-                                Guarda come funziona
-                            </Button>
                         </div>
                     </div>
 
@@ -130,9 +117,6 @@ export function Hero() {
                 </motion.div>
 
             </div>
-
-            {/* Modal */}
-            <SlideShowModal isOpen={isSlideShowOpen} onClose={() => setIsSlideShowOpen(false)} />
         </section>
     );
 }
