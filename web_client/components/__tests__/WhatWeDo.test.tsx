@@ -5,6 +5,10 @@ import { activities } from '@/lib/activities-data';
 const cards = (container: HTMLElement) =>
     Array.from(container.querySelectorAll<HTMLElement>('[data-activity-card]'));
 
+/** The activity rows: direct children of the <ol> (each card also holds a tag list). */
+const activityItems = (container: HTMLElement) =>
+    Array.from(container.querySelector('ol')?.children ?? []) as HTMLElement[];
+
 describe('WhatWeDo', () => {
     it('renders the section heading as the region label', () => {
         render(<WhatWeDo />);
@@ -14,9 +18,9 @@ describe('WhatWeDo', () => {
     });
 
     it('lists the six activities in order', () => {
-        render(<WhatWeDo />);
+        const { container } = render(<WhatWeDo />);
 
-        const items = within(screen.getByRole('list')).getAllByRole('listitem');
+        const items = activityItems(container);
         expect(items).toHaveLength(6);
 
         const titles = items.map((item) => within(item).getByRole('heading', { level: 3 }).textContent);
@@ -27,7 +31,7 @@ describe('WhatWeDo', () => {
         const { container } = render(<WhatWeDo />);
 
         expect(container.querySelectorAll('[data-activity-connector]')).toHaveLength(activities.length - 1);
-        const lastItem = screen.getAllByRole('listitem').at(-1);
+        const lastItem = activityItems(container).at(-1);
         expect(lastItem?.querySelector('[data-activity-connector]')).toBeNull();
     });
 
@@ -57,23 +61,19 @@ describe('WhatWeDo', () => {
         });
     });
 
-    describe('photos', () => {
-        it('shows each activity photo as a decorative background, under a scrim', () => {
+    it('shows each card as a spec sheet with its discipline header', () => {
+        const { container } = render(<WhatWeDo />);
+
+        cards(container).forEach((card, index) => {
+            expect(card).toHaveTextContent(`Scheda lavorazione · ${activities[index].discipline}`);
+        });
+    });
+
+    describe('layout', () => {
+        it('shows no photos on the cards', () => {
             const { container } = render(<WhatWeDo />);
 
-            cards(container).forEach((card, index) => {
-                const img = card.querySelector('img');
-                const body = card.querySelector('[data-activity-body]');
-
-                if (activities[index].image) {
-                    // alt="" — the title and text already say what the photo shows.
-                    expect(img).toHaveAttribute('alt', '');
-                    expect(body).toHaveClass('activity-photo-scrim');
-                } else {
-                    expect(img).toBeNull();
-                    expect(body).not.toHaveClass('activity-photo-scrim');
-                }
-            });
+            cards(container).forEach((card) => expect(card.querySelector('img')).toBeNull());
         });
 
         it('sizes cards from their text, never by hand-measured pixel heights or ratios', () => {
