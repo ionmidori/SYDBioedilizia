@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
+import { ArrowUpRight, ChevronLeft, ChevronRight, ImageOff, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -216,10 +216,14 @@ export function Portfolio({ className }: { className?: string }) {
             <div className="mt-8 text-center">
                 <Button
                     asChild
+                    variant="outline"
                     size="lg"
-                    className="px-10 h-14 text-base bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all hover:scale-[1.02]"
+                    className="h-14 px-8 text-base min-w-[300px] border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold/10 hover:border-luxury-gold rounded-lg transition-all duration-200 active:scale-95 active:bg-luxury-gold/20"
                 >
-                    <Link href="/progetti">Visualizza tutti i progetti</Link>
+                    <Link href="/progetti">
+                        <LayoutGrid className="mr-2 w-5 h-5" />
+                        Visualizza tutti i progetti
+                    </Link>
                 </Button>
             </div>
 
