@@ -61,14 +61,6 @@ describe('WhatWeDo', () => {
         });
     });
 
-    it('shows each card as a spec sheet with its discipline header', () => {
-        const { container } = render(<WhatWeDo />);
-
-        cards(container).forEach((card, index) => {
-            expect(card).toHaveTextContent(`Scheda lavorazione · ${activities[index].discipline}`);
-        });
-    });
-
     describe('layout', () => {
         it('shows no photos on the cards', () => {
             const { container } = render(<WhatWeDo />);

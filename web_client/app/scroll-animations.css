@@ -55,12 +55,13 @@
 
     /* ── Services, mobile sticky stack: a covered card recedes and dims while
        the next one slides over it. A sticky element barely moves while it is
-       stuck, so the timeline comes from a zero-height marker placed where the
-       covered card's slot ends in normal flow. The inset moves the "top" of
-       the viewport down to where cards come to rest (`--stack-top`, below the
-       navbar): the effect runs over the last slot-height (`--stack-slot`)
-       before the marker reaches that line — exactly while the next card
-       covers this one. Both come from Services.tsx, where the layout uses them.
+       stuck, so the timeline comes from a non-sticky marker filling the covered
+       card's grid cell, i.e. where its slot sits in normal flow. The inset moves
+       the "top" of the viewport down to where cards come to rest (`--stack-top`,
+       below the navbar, from Services.tsx). The `exit` range runs from the
+       marker's top reaching that line to its bottom reaching it: one row height,
+       exactly while the next card (the following row) slides over this one —
+       measured by the browser, so it follows the text, font size and zoom.
        The marker is a sibling of the card, not an ancestor, so each pair
        shares a unique timeline name (`--stack-<index>`) set inline by
        Services.tsx, with `timeline-scope` on the stack to expose it. */
@@ -78,7 +79,7 @@
 
     [data-stack-card],
     [data-stack-shade] {
-      animation-range: cover calc(100% - var(--stack-slot)) cover 100%;
+      animation-range: exit;
     }
   }
 }

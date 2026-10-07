@@ -51,13 +51,10 @@ export function WhatWeDo() {
                     </motion.p>
                 </div>
 
-                {/* Equal card heights with no measured numbers: rows alternate card /
-                    connector, and every card row is 1fr — in an auto-height grid that is the
-                    tallest card's content height, so all cards match the one with the most
-                    text. Each <li> spans its two rows through a subgrid. */}
-                <ol className="max-w-5xl mx-auto grid auto-rows-[1fr_auto]">
+                {/* Each card is as tall as its own text: no shared row height. */}
+                <ol className="max-w-5xl mx-auto">
                     {activities.map((activity, index) => (
-                        <li key={activity.id} className="row-span-2 grid grid-rows-subgrid">
+                        <li key={activity.id}>
                             <div
                                 className={cn(
                                     'flex justify-center',
@@ -71,7 +68,7 @@ export function WhatWeDo() {
                                 <div
                                     data-activity-slot
                                     className={cn(
-                                        // No height here: the grid row sets it.
+                                        // No height here: the card's text sets it.
                                         'w-full max-w-md lg:w-[44%] [perspective:1200px]',
                                         index % 2 === 1 && '[--sd-dir:1]',
                                     )}
@@ -95,23 +92,19 @@ function ActivityCard({ activity }: { activity: Activity }) {
     return (
         <article
             data-activity-card
-            // Height comes from the grid row (the longest text), so nothing is cut.
-            // `.activity-blueprint-card` is the paper sheet: opaque (the cards fly over
-            // the decoration glows), static grid and crop marks — see globals.css.
-            className="activity-blueprint-card relative flex h-full w-full flex-col"
+            // Height comes from its own text, so each card fits its description.
+            // `.activity-blueprint-card` is the paper surface: opaque (the cards fly
+            // over the decoration glows) with a static graph-paper grid — see
+            // globals.css. m3-shape-xl gives the same 24px corners as the other cards.
+            className="activity-blueprint-card m3-shape-xl relative w-full"
         >
-            <div data-activity-body className="relative px-5 pt-4 pb-5 md:px-6 md:pt-4 md:pb-6">
-                {/* Spec-sheet header. A div, not a <p>: the first <p> is the description. */}
-                <div className="flex items-center justify-between gap-4 pb-1.5 mb-2.5 border-b border-dashed border-luxury-bg/25">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-luxury-bg/80">
-                        Scheda lavorazione · {activity.discipline}
-                    </span>
-                    <Icon className="w-4 h-4 shrink-0 text-luxury-teal" strokeWidth={1.75} aria-hidden="true" />
+            <div data-activity-body className="relative p-5 md:p-6">
+                <div className="flex items-start justify-between gap-4 mb-2">
+                    <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-bg">
+                        {activity.title}
+                    </h3>
+                    <Icon className="w-5 h-5 mt-1 shrink-0 text-luxury-teal" strokeWidth={1.75} aria-hidden="true" />
                 </div>
-
-                <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-bg mb-1.5">
-                    {activity.title}
-                </h3>
 
                 {/* /85 on the paper surface measures ~7:1 — comfortably AA. */}
                 <p className="text-base leading-relaxed text-luxury-bg/85">
