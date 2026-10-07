@@ -15,18 +15,7 @@ import { openChat } from '@/lib/chat-events';
 const STACK_STEP_PX = 16;
 /** Where the first card comes to rest, clearing the fixed navbar. */
 const STACK_TOP_PX = 88;
-/** Height of the card itself — the content box, not the slot. */
-const STACK_SLOT_PX = 260;
-/**
- * Breathing room between stacked card edges, added as the slot's bottom padding.
- *
- * The card's own height must never shrink to make room for this — that clips the
- * last line of every description under the next card, permanently. So the slot
- * grows instead: `height: STACK_SLOT_PX + STACK_GAP_PX`, `paddingBottom:
- * STACK_GAP_PX`, `boxSizing: border-box`. The content box the card actually fills
- * is still exactly STACK_SLOT_PX — `ServiceCard`'s `h-full` resolves the same as
- * before — while the gap opens up as dead space below it.
- */
+/** Breathing room between stacked card edges, added as the slot's bottom padding. */
 const STACK_GAP_PX = 14;
 
 /** Header reveal — skipped entirely (rendered in place) under reduced motion. */
@@ -107,15 +96,18 @@ export function Services() {
 
                 {/* ── Mobile: sticky stack ── */}
                 <div
-                    className="md:hidden relative"
+                    // One grid row per card, every row 1fr: in an auto-height grid that
+                    // is the tallest card's content, so all cards match the longest text
+                    // at any width, font size or zoom — no hand-measured height. They
+                    // must match: a shorter card would show the text of the one it covers.
+                    className="md:hidden relative grid grid-cols-1 auto-rows-[1fr]"
                     // timelineScope exposes each marker's timeline to its card, which is
-                    // a sibling of the marker's, not a descendant. The two lengths feed
-                    // the same timeline in app/scroll-animations.css, so layout and
+                    // a sibling of the marker's, not a descendant. --stack-top feeds the
+                    // same timeline in app/scroll-animations.css, so layout and
                     // animation cannot drift apart.
                     style={{
                         timelineScope: services.slice(0, -1).map((_, i) => stackTimeline(i)).join(', '),
                         '--stack-top': `${STACK_TOP_PX}px`,
-                        '--stack-slot': `${STACK_SLOT_PX + STACK_GAP_PX}px`,
                     } as CSSProperties}
                 >
                     {services.map((service, index) => {
@@ -127,7 +119,11 @@ export function Services() {
                                     data-stack-slot
                                     className="sticky box-border"
                                     style={{
-                                        height: `${STACK_SLOT_PX + STACK_GAP_PX}px`,
+                                        // Explicit cell: the marker below shares it.
+                                        gridRow: index + 1,
+                                        gridColumn: 1,
+                                        // Gap below the card without shrinking it: the row
+                                        // grows instead, so no description is ever clipped.
                                         paddingBottom: `${STACK_GAP_PX}px`,
                                         top: `${STACK_TOP_PX + index * STACK_STEP_PX}px`,
                                     }}
@@ -156,13 +152,20 @@ export function Services() {
                                         )}
                                     </div>
                                 </div>
-                                {/* Zero-height and in normal flow: it sits where this slot
-                                    ends and scrolls with the page while the slot is stuck. */}
+                                {/* Fills this slot's grid cell but is not sticky: it stays
+                                    where the slot sits in normal flow and keeps scrolling
+                                    while the slot is stuck, so its view timeline measures
+                                    the real row height. Empty and click-through. */}
                                 {covered && (
                                     <div
                                         data-stack-marker
                                         aria-hidden="true"
-                                        style={{ viewTimelineName: stackTimeline(index) } as CSSProperties}
+                                        className="pointer-events-none"
+                                        style={{
+                                            gridRow: index + 1,
+                                            gridColumn: 1,
+                                            viewTimelineName: stackTimeline(index),
+                                        } as CSSProperties}
                                     />
                                 )}
                             </Fragment>
@@ -191,7 +194,7 @@ export function Services() {
                             onMouseEnter={() => setHoveredService(index)}
                             onMouseLeave={() => setHoveredService(null)}
                             className={cn(
-                                "group relative p-6 md:p-8 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer transition-shadow duration-500",
+                                "group relative p-6 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer transition-shadow duration-500",
                                 // Gold gradient border and specular highlight ride on the
                                 // class's own pseudo-elements, so no Tailwind `border` here.
                                 "glass-services-card",
@@ -247,7 +250,7 @@ function ServiceCard({
             type="button"
             onClick={onClick}
             className={cn(
-                'group relative flex h-full w-full flex-col justify-center p-6 text-left m3-shape-xl cinematic-focus',
+                'group relative flex h-full w-full flex-col justify-center px-5 py-4 text-left m3-shape-xl cinematic-focus',
                 // Fully opaque, not `surface-container-high` (85% alpha) and not
                 // glassmorphism: at anything below 100% the text of three stacked
                 // cards shows through at once. `.elevated-service-card` keeps that
@@ -259,7 +262,7 @@ function ServiceCard({
         >
             {/* Icon and title on one row — shrink-0 keeps the icon square when a long
                 title wraps to a second line. */}
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-4 mb-3">
                 <div className={cn(
                     'w-12 h-12 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/15',
                     // Alpha is safe here: the chip sits inside an already-opaque
