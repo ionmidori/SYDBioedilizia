@@ -42,6 +42,17 @@ jobs:
   smoke:
     name: 'Playwright smoke (chromium)'
     runs-on: 'ubuntu-latest'
+    # Official Playwright image: Chromium and its system libraries are baked in,
+    # so the job never runs `apt-get` against the runner's Ubuntu mirror (on
+    # 7 Oct 2026 azure.archive.ubuntu.com served ~80 KB/s and `--with-deps` hung
+    # for 7+ min). The tag MUST match the locked @playwright/test version, and
+    # Dependabot does not update container images in workflows: bump tag + digest
+    # by hand with Playwright. If they drift, the install step below downloads
+    # the matching browser from Playwright's CDN instead of failing.
+    container:
+      image: 'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'
+    # Fail fast instead of hanging for the 6 h default (normal run: ~3 min).
+    timeout-minutes: 20
 
     defaults:
       run:
@@ -68,8 +79,10 @@ jobs:
       - name: 'Install dependencies'
         run: npm ci
 
+      # No `--with-deps`: the image already has the system libraries. A no-op
+      # when the image matches the locked Playwright version.
       - name: 'Install Playwright browser (chromium)'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: 'Production build'
         run: npm run build
@@ -89,6 +102,10 @@ jobs:
   authed:
     name: 'Playwright authed (Firebase emulators)'
     runs-on: 'ubuntu-latest'
+    # Same image and pin as the smoke job — keep the two in sync.
+    container:
+      image: 'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'
+    timeout-minutes: 25
     # Intentionally NOT `needs: smoke` — the two run in parallel and fail
     # independently, so a broken login can never mask the public smoke result
     # (or be masked by it).
@@ -119,9 +136,15 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
-      # The Firestore emulator is a JVM binary. ubuntu-latest ships a JDK, so
-      # no setup-java step is needed; this asserts it is really there so a
-      # runner-image change fails loudly instead of mid-suite.
+      # The Firestore emulator is a JVM binary. The Playwright image has no JDK,
+      # so install one (Temurin, downloaded from Adoptium — not apt), then
+      # assert it is on PATH so a setup change fails loudly instead of mid-suite.
+      - name: 'Set up Java (Firestore emulator runtime)'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: 'Verify Java is available (Firestore emulator runtime)'
         run: java -version
 
@@ -131,7 +154,7 @@ jobs:
 
       - name: 'Install Playwright browser (chromium)'
         working-directory: './web_client'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
 
       - name: 'Production build (emulator env)'
         working-directory: './web_client'
