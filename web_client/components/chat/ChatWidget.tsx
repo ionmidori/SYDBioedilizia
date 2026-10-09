@@ -21,6 +21,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
 import { logger } from '@/lib/logger';
+import { warmBackend } from '@/lib/backend-warmup';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
 import { useUrlContextSync } from '@/hooks/useUrlContextSync';
@@ -91,6 +92,12 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // 3. Sync Props/URL to Context State
     //    If props.projectId changes, or URL changes, we update the Global Context.
     const { pathname, searchParams } = useUrlContextSync({ projectId, contextProjectId, setProjectId });
+
+    // Opening the chat is the strongest signal a message is coming: start a
+    // backend instance now so the first reply does not pay the cold start.
+    useEffect(() => {
+        if (isOpen) warmBackend();
+    }, [isOpen]);
 
     // 4. Status Queue (Visuals)
     const { currentStatus, addStatus, clearQueue } = useStatusQueue();

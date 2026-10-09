@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")  # Load .env into os.environ before any other imports (required by google-adk, google-genai)
 
+import time
 import uuid
 from contextlib import asynccontextmanager
 from typing import Any, cast
@@ -40,25 +41,52 @@ async def lifespan(_app: FastAPI):
     from src.core.tracing import init_tracing, shutdown_tracing
     init_tracing()
 
-    # ── Non-blocking ADK warm-up ──────────────────────────────────────────────
-    # Starts ADKOrchestrator initialization (Vertex AI + protobuf loading) in a
-    # background thread so /health, /ready and non-chat endpoints are available
-    # immediately (~4s) instead of waiting for the full warm-up (~16s).
+    # ── Non-blocking warm-up ──────────────────────────────────────────────────
+    # Initializes, in parallel background threads, everything the first chat
+    # turn would otherwise pay for: the ADK runner, Firebase Admin, the async
+    # Firestore client and the Model Armor client (~1s each when lazy, measured
+    # in production on the first turn of a cold instance).
     #
-    # The first /chat/stream request blocks on the factory lock until warm-up
-    # completes (same total latency, but server is responsive earlier).
+    # /health and non-chat endpoints answer immediately; /health/startup returns
+    # 503 until the warm-up is done, so a Cloud Run startup probe on it keeps
+    # traffic away from an instance that is not ready (the first /chat/stream
+    # would otherwise block on the factory lock).
     #
     # Task reference stored on app.state per python-production-coding skill
     # ("No fire-and-forget: never use create_task without storing the reference").
+    from src.db.firebase_client import get_async_firestore_client, init_firebase
+    from src.services.model_armor.model_armor_client import get_model_armor_service
     from src.services.orchestrator_factory import warm_up_orchestrator
     from starlette.concurrency import run_in_threadpool
 
-    async def _background_warmup():
+    async def _warm(name: str, fn, *, in_thread: bool = True) -> None:
+        started = time.perf_counter()
         try:
-            await run_in_threadpool(warm_up_orchestrator)
-            logger.info("ADKOrchestrator warm-up complete.")
+            if in_thread:
+                await run_in_threadpool(fn)
+            else:
+                fn()
+            logger.info(
+                f"Warm-up step '{name}' done",
+                extra={"warmup_step": name, "duration_ms": round((time.perf_counter() - started) * 1000, 1)},
+            )
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"ADKOrchestrator warm-up failed (will retry lazily): {e}")
+            logger.warning(f"Warm-up step '{name}' failed (will retry lazily): {e}")
+
+    async def _background_warmup():
+        started = time.perf_counter()
+        await asyncio.gather(
+            _warm("adk_orchestrator", warm_up_orchestrator),
+            _warm("firebase_admin", init_firebase),
+            _warm("model_armor", get_model_armor_service),
+        )
+        # The async Firestore client binds its gRPC channel to the running event
+        # loop, so it is created on the loop (cheap constructor), not in a thread.
+        await _warm("firestore_async", get_async_firestore_client, in_thread=False)
+        logger.info(
+            "ADKOrchestrator warm-up complete.",
+            extra={"duration_ms": round((time.perf_counter() - started) * 1000, 1)},
+        )
 
     warmup_task = asyncio.create_task(_background_warmup())
     _app.state.warmup_task = warmup_task
@@ -547,6 +575,19 @@ class ChatRequest(BaseModel):
 def health_check():
     """Liveness probe — lightweight, no I/O. Cloud Run uses this to restart stuck containers."""
     return {"status": "ok", "service": "syd-brain"}
+
+
+@app.get("/health/startup")
+def startup_check(request: Request):
+    """Startup probe for Cloud Run: 200 only once the background warm-up is done.
+
+    Cloud Run routes no traffic to an instance until its startup probe passes,
+    so users never wait on a half-initialized instance.
+    """
+    warmup_task = getattr(request.app.state, "warmup_task", None)
+    if warmup_task is not None and warmup_task.done():
+        return {"status": "started"}
+    return JSONResponse(status_code=503, content={"status": "warming_up"})
 
 
 @app.get("/ready")

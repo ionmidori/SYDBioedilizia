@@ -9,7 +9,7 @@ Verifies that the ADKOrchestrator.stream_chat() method correctly:
 
 Mocking:
 - Runner.run_async → returns mock Event objects
-- vertexai.init → no-op (no GCP creds needed)
+- No GCP credentials needed (the runner is replaced by a mock)
 - Session service → InMemorySessionService
 - Filters → pass-through
 """
