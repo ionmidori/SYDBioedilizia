@@ -26,6 +26,7 @@ import logging
 from pathlib import Path
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.core.models import ModelRole, get_model_id  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -104,7 +105,7 @@ async def generate_answers(
             )
             try:
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash",
+                    model=get_model_id(ModelRole.INSIGHT),
                     contents=prompt,
                     config=types.GenerateContentConfig(temperature=0.0),
                 )
@@ -132,7 +133,7 @@ def run_evaluation(rows: list[dict], project_id: str, location: str) -> dict:
     dataset = Dataset.from_list(rows)
 
     llm = ChatVertexAI(
-        model_name="gemini-2.5-flash-preview-04-17",
+        model_name=get_model_id(ModelRole.INSIGHT),
         project=project_id,
         location=location,
     )

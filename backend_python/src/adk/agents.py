@@ -13,6 +13,7 @@ import logging
 from google.adk.agents import Agent
 
 from src.adk.guardrails import model_armor_after_model, model_armor_before_model
+from src.adk.model_factory import build_adk_model
 from src.adk.tools import (
     generate_render_adk,
     list_project_files_adk,
@@ -30,6 +31,7 @@ from src.adk.tools import (
     suggest_quote_items_adk,
     trigger_n8n_webhook_adk,
 )
+from src.core.models import ModelRole, build_generate_content_config
 from src.prompts.components.identity import (
     CRITICAL_PROTOCOLS,
     IDENTITY,
@@ -277,7 +279,8 @@ _GUARDRAILS = {
 
 triage_agent = Agent(
     name="triage",
-    model="gemini-3.1-flash-lite-preview",
+    model=build_adk_model(ModelRole.TRIAGE),
+    generate_content_config=build_generate_content_config(ModelRole.TRIAGE),
     tools=[show_project_gallery_adk, retrieve_knowledge_adk],
     instruction=TRIAGE_AGENT_INSTRUCTION,
     **_GUARDRAILS,
@@ -285,7 +288,8 @@ triage_agent = Agent(
 
 design_agent = Agent(
     name="design",
-    model="gemini-3.1-flash-lite-preview",
+    model=build_adk_model(ModelRole.DESIGN),
+    generate_content_config=build_generate_content_config(ModelRole.DESIGN),
     tools=[generate_render_adk, list_project_files_adk, market_prices_adk, request_login_adk, retrieve_knowledge_adk],
     instruction=DESIGN_AGENT_INSTRUCTION,
     **_GUARDRAILS,
@@ -293,7 +297,8 @@ design_agent = Agent(
 
 quote_agent = Agent(
     name="quote",
-    model="gemini-3.1-flash-lite-preview",
+    model=build_adk_model(ModelRole.QUOTE),
+    generate_content_config=build_generate_content_config(ModelRole.QUOTE),
     tools=[
         pricing_engine_tool_adk,
         market_prices_adk,
@@ -313,7 +318,8 @@ quote_agent = Agent(
 
 syd_orchestrator = Agent(
     name="syd_orchestrator",
-    model="gemini-3.1-flash-lite-preview",
+    model=build_adk_model(ModelRole.ROUTER),
+    generate_content_config=build_generate_content_config(ModelRole.ROUTER),
     sub_agents=[triage_agent, design_agent, quote_agent],
     tools=[request_login_adk, search_listino_adk, search_prezzario_adk, retrieve_price_by_code_adk],
     instruction=SYD_ORCHESTRATOR_INSTRUCTION,

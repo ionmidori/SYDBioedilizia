@@ -79,7 +79,7 @@ class TestInsightEngine:
 
     def _make_engine(self):
         """Build InsightEngine with mocked genai client."""
-        with patch("src.services.insight_engine.genai.Client") as MockClient, \
+        with patch("src.services.insight_engine.get_genai_client") as MockClient, \
              patch("src.core.config.settings") as mock_settings:
             mock_settings.CHAT_MODEL_VERSION = "gemini-2.0-flash"
             mock_settings.api_key = "fake-key"
@@ -92,17 +92,17 @@ class TestInsightEngine:
             engine._assemblies = None
             return engine
 
-    def test_init_sets_model_name_from_settings(self):
-        with patch("src.services.insight_engine.genai.Client"), \
-             patch("src.services.insight_engine.settings") as mock_settings:
-            mock_settings.CHAT_MODEL_VERSION = "gemini-test"
-            mock_settings.api_key = "key"
+    def test_init_sets_model_name_from_registry(self):
+        with patch("src.services.insight_engine.get_genai_client"), \
+             patch("src.services.insight_engine.get_model_id", return_value="gemini-test") as mock_model_id:
+            from src.core.models import ModelRole
             from src.services.insight_engine import InsightEngine
             engine = InsightEngine()
             assert engine.model_name == "gemini-test"
+            mock_model_id.assert_called_once_with(ModelRole.INSIGHT)
 
     def test_init_with_explicit_model_name(self):
-        with patch("src.services.insight_engine.genai.Client"), \
+        with patch("src.services.insight_engine.get_genai_client"), \
              patch("src.services.insight_engine.settings") as mock_settings:
             mock_settings.api_key = "key"
             from src.services.insight_engine import InsightEngine
@@ -186,7 +186,7 @@ class TestInsightEngine:
         assert result.summary == "ok"
 
     def test_get_insight_engine_singleton(self):
-        with patch("src.services.insight_engine.genai.Client"), \
+        with patch("src.services.insight_engine.get_genai_client"), \
              patch("src.core.config.settings") as mock_settings:
             mock_settings.CHAT_MODEL_VERSION = "model"
             mock_settings.api_key = "key"

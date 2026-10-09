@@ -28,7 +28,7 @@ async def test_cad_engine_sends_raw_bytes_to_blob():
     fake_client = MagicMock()
     fake_client.aio.models.generate_content = generate_content
 
-    with patch.object(cad_engine.genai, "Client", return_value=fake_client):
+    with patch.object(cad_engine, "get_genai_client", return_value=fake_client):
         await cad_engine.analyze_floorplan_vector(image_bytes)
 
     contents = generate_content.call_args.kwargs["contents"]

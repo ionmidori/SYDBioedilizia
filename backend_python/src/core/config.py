@@ -59,7 +59,51 @@ class Settings(BaseSettings):
                     "0.0 disables filtering. Tune against eval_rag.py (rerank scores run higher).",
     )
 
-    CHAT_MODEL_VERSION: str = Field(default="gemini-3.1-flash-lite-preview", description="Default model for chat and analysis")
+    # ── Gemini model registry ────────────────────────────────────────────────
+    # The ONLY place where Gemini model IDs live (see src/core/models.py). Every
+    # agent, vision helper, tool and script resolves its model by ROLE from these
+    # settings, so switching models is an env change (Cloud Run / .env), not a
+    # code change. Pin GA model IDs; never floating aliases (`*-latest`).
+    # A guard test fails if a "gemini-" literal appears anywhere else in src/.
+    CHAT_MODEL_VERSION: str = Field(
+        default="gemini-3.1-flash-lite-preview",
+        description="Fallback model for every text role whose MODEL_<ROLE> is unset.",
+    )
+    MODEL_ROUTER: str | None = Field(default=None, description="syd_orchestrator (router). Falls back to CHAT_MODEL_VERSION.")
+    MODEL_TRIAGE: str | None = Field(default=None, description="triage sub-agent. Falls back to CHAT_MODEL_VERSION.")
+    MODEL_DESIGN: str | None = Field(default=None, description="design sub-agent. Falls back to CHAT_MODEL_VERSION.")
+    MODEL_QUOTE: str | None = Field(default=None, description="quote sub-agent. Falls back to CHAT_MODEL_VERSION.")
+    MODEL_VISION: str | None = Field(default=None, description="Vision helpers (room analysis, CAD, measurements, video). Falls back to CHAT_MODEL_VERSION.")
+    MODEL_INSIGHT: str | None = Field(default=None, description="Quote InsightEngine. Falls back to CHAT_MODEL_VERSION.")
+    MODEL_IMAGE: str = Field(
+        default="gemini-3.1-flash-image-preview",
+        description="Image generation / editing (renders).",
+    )
+    # Per-role thinking level: minimal | low | medium | high. Unset = model default.
+    THINKING_LEVEL_ROUTER: str | None = Field(default=None)
+    THINKING_LEVEL_TRIAGE: str | None = Field(default=None)
+    THINKING_LEVEL_DESIGN: str | None = Field(default=None)
+    THINKING_LEVEL_QUOTE: str | None = Field(default=None)
+    THINKING_LEVEL_VISION: str | None = Field(default=None)
+    THINKING_LEVEL_INSIGHT: str | None = Field(default=None)
+    # Per-call limits for the chat agents. Unset = SDK defaults (no timeout, no retry).
+    LLM_TIMEOUT_SECONDS: float | None = Field(
+        default=None, description="Per model-call HTTP timeout for chat agents."
+    )
+    LLM_RETRY_ATTEMPTS: int | None = Field(
+        default=None, description="Total attempts per model call (1 = no retry) for chat agents."
+    )
+    LLM_MAX_OUTPUT_TOKENS: int | None = Field(
+        default=None, description="Max output tokens for chat agents."
+    )
+    # Gemini backend: AI Studio (API key) by default, Vertex AI when true. The
+    # google-genai client (and ADK) read the same env vars directly.
+    GOOGLE_GENAI_USE_VERTEXAI: bool = Field(default=False)
+    GOOGLE_CLOUD_LOCATION: str = Field(default="europe-west1", description="Vertex AI location for Gemini.")
+    MODEL_VALIDATION_STRICT: bool = Field(
+        default=False,
+        description="Fail startup when a configured model ID is unknown to the API (staging).",
+    )
 
     # Feature Flags (App Check enabled by default for production safety)
     ENABLE_APP_CHECK: bool = Field(default=True, description="Enable Firebase App Check (set to false for local dev)")

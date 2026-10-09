@@ -10,10 +10,9 @@ CRITICAL: Output feeds directly into InsightEngine SKU quantity estimation.
 """
 import logging
 
-from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
-from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 from src.utils.json_parser import extract_json_response
 
 logger = logging.getLogger(__name__)
@@ -197,11 +196,11 @@ async def measure_room_from_photo(
     """
     logger.info("[MeasureRoom] Starting agentic room measurement analysis...")
 
-    client = genai.Client(api_key=settings.api_key)
+    client = get_genai_client()
 
     try:
         response = await client.aio.models.generate_content(
-            model="gemini-3.1-flash-lite-preview",
+            model=get_model_id(ModelRole.VISION),
             contents=[
                 types.Content(parts=[
                     types.Part(text=_MEASURE_PROMPT),

@@ -1,10 +1,9 @@
 import json
 import logging
 
-from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel
-from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,7 @@ async def generate_architectural_prompt(
     if keep_elements is None:
         keep_elements = []
 
-    model_name = "gemini-3.1-flash-lite-preview"
+    model_name = get_model_id(ModelRole.VISION)
     logger.info(f"[Architect] Building narrative plan (Style: {target_style}, Keep: {len(keep_elements)})...")
 
     preservation_list = ", ".join(keep_elements) if keep_elements else "None specified (renovate freely)"
@@ -127,7 +126,7 @@ Respond with ONLY valid JSON. No markdown, no explanations:
 """
 
     try:
-        client = genai.Client(api_key=settings.api_key)
+        client = get_genai_client()
 
         response = await client.aio.models.generate_content(
             model=model_name,

@@ -2,10 +2,9 @@ import json
 import logging
 import time
 
-from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
-from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 from src.utils.download import is_gemini_file_uri
 
 logger = logging.getLogger(__name__)
@@ -39,7 +38,7 @@ async def analyze_room_structure(image_bytes: bytes) -> RoomAnalysis:
     """
     Analyze room structure from uploaded photo using Gemini Vision.
     """
-    model_name = "gemini-3.1-flash-lite-preview"
+    model_name = get_model_id(ModelRole.VISION)
 
     logger.info(f"[Vision] Initializing Gemini Vision analysis with {model_name}...")
 
@@ -75,7 +74,7 @@ CRITICAL RULES:
 5. Ensure the JSON is valid and parseable"""
 
     try:
-        client = genai.Client(api_key=settings.api_key)
+        client = get_genai_client()
 
         # Determine content part based on input type
         try:

@@ -39,7 +39,7 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
 
-        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+        with patch('src.vision.triage.get_genai_client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
 
@@ -79,7 +79,7 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
 
-        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+        with patch('src.vision.triage.get_genai_client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
 
@@ -105,7 +105,7 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
 
-        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+        with patch('src.vision.triage.get_genai_client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
 
@@ -134,7 +134,7 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
 
-        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+        with patch('src.vision.triage.get_genai_client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
 
@@ -162,7 +162,7 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
 
-        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+        with patch('src.vision.triage.get_genai_client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
 
@@ -193,7 +193,7 @@ class TestImageTriage:
         mock_client = MagicMock()
         mock_client.aio.models = mock_models
 
-        with patch('src.vision.triage.genai.Client', return_value=mock_client):
+        with patch('src.vision.triage.get_genai_client', return_value=mock_client):
             # Act
             result = await analyze_image_triage(sample_image_bytes)
 

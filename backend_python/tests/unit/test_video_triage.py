@@ -139,7 +139,7 @@ class TestGeminiVideoAnalysis:
         mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
         mock_client.aio.files.delete = AsyncMock()
 
-        with patch('src.vision.video_triage.genai.Client', return_value=mock_client):
+        with patch('src.vision.video_triage.get_genai_client', return_value=mock_client):
             result = await analyze_video_with_gemini(str(video_file))
 
         # Assert
@@ -162,7 +162,7 @@ class TestGeminiVideoAnalysis:
         video_file = tmp_path / "test.mp4"
         video_file.write_bytes(b"fake video")
 
-        with patch('src.vision.video_triage.genai.Client') as mock_client_class:
+        with patch('src.vision.video_triage.get_genai_client') as mock_client_class:
             mock_client = mock_client_class.return_value
             mock_client.aio.files.upload = AsyncMock(side_effect=Exception("API Error"))
 

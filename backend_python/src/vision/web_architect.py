@@ -1,10 +1,9 @@
 import json
 import logging
 
-from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
-from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +33,7 @@ async def analyze_web_mockup(
     """
     Analyzes a web design mockup and translates it into Shadcn/UI and Tailwind specifications.
     """
-    model_name = "gemini-3.1-flash-lite-preview"
+    model_name = get_model_id(ModelRole.VISION)
     logger.info(f"[WebArchitect] Analyzing mockup with {model_name}...")
 
     system_prompt = f"""
@@ -64,7 +63,7 @@ async def analyze_web_mockup(
     """
 
     try:
-        client = genai.Client(api_key=settings.api_key)
+        client = get_genai_client()
 
         response = await client.aio.models.generate_content(
             model=model_name,

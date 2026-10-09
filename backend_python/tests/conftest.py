@@ -26,6 +26,17 @@ if not os.environ.get("GEMINI_API_KEY"):
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
+@pytest.fixture(autouse=True)
+def _reset_genai_client_cache():
+    """get_genai_client() is a process singleton: a client (or mock) created by
+    one test must not leak into the next."""
+    from src.core.models import get_genai_client
+
+    get_genai_client.cache_clear()
+    yield
+    get_genai_client.cache_clear()
+
+
 
 @pytest.fixture
 def mock_env_development(monkeypatch):

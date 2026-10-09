@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")  # Load .env into os.environ before any other imports (required by google-adk, google-genai)
 
+import inspect
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -54,6 +55,7 @@ async def lifespan(_app: FastAPI):
     #
     # Task reference stored on app.state per python-production-coding skill
     # ("No fire-and-forget: never use create_task without storing the reference").
+    from src.core.models import validate_configured_models
     from src.db.firebase_client import get_async_firestore_client, init_firebase
     from src.services.model_armor.model_armor_client import get_model_armor_service
     from src.services.orchestrator_factory import warm_up_orchestrator
@@ -62,7 +64,9 @@ async def lifespan(_app: FastAPI):
     async def _warm(name: str, fn, *, in_thread: bool = True) -> None:
         started = time.perf_counter()
         try:
-            if in_thread:
+            if inspect.iscoroutinefunction(fn):
+                await fn()
+            elif in_thread:
                 await run_in_threadpool(fn)
             else:
                 fn()
@@ -73,9 +77,14 @@ async def lifespan(_app: FastAPI):
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Warm-up step '{name}' failed (will retry lazily): {e}")
 
+    async def _validate_models() -> None:
+        # A retired model ID surfaces here, at deploy, instead of in a user's chat.
+        _app.state.model_problems = await validate_configured_models()
+
     async def _background_warmup():
         started = time.perf_counter()
         await asyncio.gather(
+            _warm("models", _validate_models),
             _warm("adk_orchestrator", warm_up_orchestrator),
             _warm("firebase_admin", init_firebase),
             _warm("model_armor", get_model_armor_service),
@@ -584,10 +593,18 @@ def startup_check(request: Request):
     Cloud Run routes no traffic to an instance until its startup probe passes,
     so users never wait on a half-initialized instance.
     """
-    warmup_task = getattr(request.app.state, "warmup_task", None)
-    if warmup_task is not None and warmup_task.done():
-        return {"status": "started"}
-    return JSONResponse(status_code=503, content={"status": "warming_up"})
+    state = request.app.state
+    warmup_task = getattr(state, "warmup_task", None)
+    if warmup_task is None or not warmup_task.done():
+        return JSONResponse(status_code=503, content={"status": "warming_up"})
+    # MODEL_VALIDATION_STRICT: a configured model the API does not serve keeps
+    # the new revision out of service (the previous revision keeps serving).
+    if settings.MODEL_VALIDATION_STRICT and getattr(state, "model_problems", None):
+        return JSONResponse(
+            status_code=503,
+            content={"status": "model_unavailable", "problems": state.model_problems},
+        )
+    return {"status": "started"}
 
 
 @app.get("/ready")

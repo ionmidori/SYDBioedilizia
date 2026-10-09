@@ -42,7 +42,7 @@ class TestArchitectPromptGeneration:
         )
         mock_client = _make_genai_client_mock(response_json)
 
-        with patch("src.vision.architect.genai.Client", return_value=mock_client):
+        with patch("src.vision.architect.get_genai_client", return_value=mock_client):
             result = await generate_architectural_prompt(
                 image_bytes=sample_image_bytes,
                 target_style="Modern Minimalist",
@@ -76,7 +76,7 @@ class TestArchitectPromptGeneration:
         )
         mock_client = _make_genai_client_mock(response_text)
 
-        with patch("src.vision.architect.genai.Client", return_value=mock_client):
+        with patch("src.vision.architect.get_genai_client", return_value=mock_client):
             result = await generate_architectural_prompt(
                 image_bytes=sample_image_bytes,
                 target_style="Modern",
@@ -98,7 +98,7 @@ class TestArchitectPromptGeneration:
         """
         mock_client = _make_genai_client_mock("This is not JSON at all!")
 
-        with patch("src.vision.architect.genai.Client", return_value=mock_client):
+        with patch("src.vision.architect.get_genai_client", return_value=mock_client):
             result = await generate_architectural_prompt(
                 image_bytes=sample_image_bytes,
                 target_style="Industrial",
@@ -125,7 +125,7 @@ class TestArchitectPromptGeneration:
         )
         mock_client = _make_genai_client_mock(response_json)
 
-        with patch("src.vision.architect.genai.Client", return_value=mock_client):
+        with patch("src.vision.architect.get_genai_client", return_value=mock_client):
             await generate_architectural_prompt(
                 image_bytes=sample_image_bytes,
                 target_style="Modern",
