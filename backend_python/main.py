@@ -77,6 +77,11 @@ async def lifespan(_app: FastAPI):
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Warm-up step '{name}' failed (will retry lazily): {e}")
 
+    def _warm_model_armor() -> None:
+        service = get_model_armor_service()
+        if service is not None:
+            service.warm_up()
+
     async def _validate_models() -> None:
         # A retired model ID surfaces here, at deploy, instead of in a user's chat.
         _app.state.model_problems = await validate_configured_models()
@@ -87,7 +92,7 @@ async def lifespan(_app: FastAPI):
             _warm("models", _validate_models),
             _warm("adk_orchestrator", warm_up_orchestrator),
             _warm("firebase_admin", init_firebase),
-            _warm("model_armor", get_model_armor_service),
+            _warm("model_armor", _warm_model_armor),
         )
         # The async Firestore client binds its gRPC channel to the running event
         # loop, so it is created on the loop (cheap constructor), not in a thread.
@@ -769,7 +774,8 @@ async def chat_stream(
         orchestrator.stream_chat(body, user_session, background_tasks),
         media_type="text/event-stream; charset=utf-8",
         headers={
-            "Connection": "close",
+            # No "Connection: close": the Next.js proxy keeps its connection to
+            # Cloud Run alive across turns (no TLS handshake per message).
             "x-vercel-ai-ui-message-stream": "v1",
             "X-Accel-Buffering": "no",
             "Cache-Control": "no-cache"

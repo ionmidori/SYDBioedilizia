@@ -53,6 +53,11 @@ class Settings(BaseSettings):
         default=4,
         description="Candidate multiplier for reranking: fetch top_k×this, rerank down to top_k.",
     )
+    RAG_TIMEOUT_SECONDS: float = Field(
+        default=8.0,
+        description="Deadline for one Pinecone search inside a chat turn; on timeout the "
+                    "search returns no results instead of stalling the reply.",
+    )
     RAG_MIN_SCORE: float = Field(
         default=0.0,
         description="Drop results whose relevance score is below this threshold. "
@@ -216,6 +221,19 @@ class Settings(BaseSettings):
                     "False (verify-then-stream): text is held until Model Armor approved the final "
                     "response, then sent at once — nothing unscanned is ever shown, but the user "
                     "waits for the whole reply (no token streaming of text).",
+    )
+    AUTH_TOKEN_CACHE_SECONDS: float = Field(
+        default=0.0,
+        description="OFF by default (strict revocation): every request checks revocation with "
+                    "Firebase Auth. When > 0, a verified ID token (by hash) is reused for this "
+                    "long, capped at its expiry, saving that round trip — but a token revoked "
+                    "server-side stays usable for up to this window on an instance.",
+    )
+    MODEL_ARMOR_TIMEOUT_SECONDS: float = Field(
+        default=5.0,
+        description="Overall deadline for one Model Armor scan, transient-error retries "
+                    "included (scans take 0.1-0.8s). Past it the verdict follows "
+                    "MODEL_ARMOR_FAIL_CLOSED, like any other Model Armor error.",
     )
     MODEL_ARMOR_FAIL_CLOSED: bool = Field(
         default=False,

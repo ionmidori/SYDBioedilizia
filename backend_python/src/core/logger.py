@@ -64,18 +64,6 @@ def setup_logging():
     Configures the root logger with File (JSON) and Console (Human) handlers.
     Called once at application startup.
     """
-    log_dir = os.getcwd()
-    log_file = os.path.join(log_dir, "server_debug.log")
-
-    # 1. JSON File Handler (Machine Readable)
-    file_handler = RotatingFileHandler(
-        log_file,
-        maxBytes=5 * 1024 * 1024,  # 5 MB
-        backupCount=3,
-        encoding='utf-8'
-    )
-    file_handler.setFormatter(JsonFormatter(datefmt='%Y-%m-%d %H:%M:%S'))
-
     # 2. Console Handler (Human Readable)
     # Force UTF-8 on Windows to support emoji in log messages (cp1252 can't encode them)
     if sys.platform == "win32" and isinstance(sys.stdout, io.TextIOWrapper):
@@ -92,9 +80,23 @@ def setup_logging():
         ))
 
     # 3. Root Logger Config
+    # Production (Cloud Run) collects stdout into Cloud Logging: the JSON console
+    # handler is enough. The rotating file inside the container was a second,
+    # synchronous write of every log line on the event loop that nobody reads.
+    handlers: list[logging.Handler] = [console_handler]
+    if settings.ENV != "production":
+        # 1. JSON File Handler (Machine Readable) — local debugging only
+        file_handler = RotatingFileHandler(
+            os.path.join(os.getcwd(), "server_debug.log"),
+            maxBytes=5 * 1024 * 1024,  # 5 MB
+            backupCount=3,
+            encoding='utf-8'
+        )
+        file_handler.setFormatter(JsonFormatter(datefmt='%Y-%m-%d %H:%M:%S'))
+        handlers.insert(0, file_handler)
     logging.basicConfig(
         level=logging.INFO, # Force INFO as baseline
-        handlers=[file_handler, console_handler],
+        handlers=handlers,
         force=True
     )
 

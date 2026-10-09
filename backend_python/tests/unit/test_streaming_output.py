@@ -30,7 +30,7 @@ from tests.unit.test_adk_orchestrator import (
 LONG = "Per rifare il pavimento servono queste lavorazioni principali: rimozione, massetto, posa. " * 3
 
 
-def test_guard_holds_back_a_trailing_window_and_the_token_being_written():
+async def test_guard_holds_back_a_trailing_window_and_the_token_being_written():
     guard = StreamingOutputGuard()
     released = guard.feed(LONG + "parola_in_corso")
     # Released text ends on a word boundary and stays >= 120 chars behind.
@@ -40,13 +40,13 @@ def test_guard_holds_back_a_trailing_window_and_the_token_being_written():
     assert guard.emitted == LONG + "parola_in_corso"
 
 
-def test_guard_short_replies_are_released_only_at_the_end():
+async def test_guard_short_replies_are_released_only_at_the_end():
     guard = StreamingOutputGuard()
     assert guard.feed("Ciao, il prezzo è 30 €") == ""
     assert guard.finish() == "Ciao, il prezzo è 30 €"
 
 
-def test_guard_never_releases_a_path_inside_a_multi_word_traceback_line():
+async def test_guard_never_releases_a_path_inside_a_multi_word_traceback_line():
     # Security review: `File "<path>", line N` spans several words; the path
     # must not be released before ", line N" arrives and the pattern matches.
     guard = StreamingOutputGuard()
@@ -56,7 +56,7 @@ def test_guard_never_releases_a_path_inside_a_multi_word_traceback_line():
     assert guard.tripped
 
 
-def test_guard_never_emits_an_email_split_across_chunks():
+async def test_guard_never_emits_an_email_split_across_chunks():
     guard = StreamingOutputGuard()
     released = guard.feed("Scrivi a mario.rossi@")
     released += guard.feed("example.com per info")
@@ -65,7 +65,7 @@ def test_guard_never_emits_an_email_split_across_chunks():
     assert guard.finish() == ""
 
 
-def test_guard_caps_the_holdback_on_long_tokens():
+async def test_guard_caps_the_holdback_on_long_tokens():
     guard = StreamingOutputGuard()
     released = guard.feed("x" * 500)
     assert len(released) == 300
@@ -165,12 +165,35 @@ async def test_orchestrator_streams_partials_without_duplicating_final(
 # ── Model Armor output callback ─────────────────────────────────────────────
 
 
-def test_model_armor_output_skips_partial_chunks():
+async def test_model_armor_output_skips_partial_chunks():
     service = MagicMock()
     with patch("src.adk.guardrails.get_model_armor_service", return_value=service):
-        result = model_armor_after_model(
+        result = await model_armor_after_model(
             SimpleNamespace(agent_name="syd_orchestrator", invocation_id="i"),
             SimpleNamespace(partial=True, content=None),
         )
     assert result is None
     service.sanitize_response.assert_not_called()
+
+
+@patch("src.core.config.settings")
+@patch("src.adk.adk_orchestrator.get_conversation_repository")
+@patch("src.adk.adk_orchestrator.get_session_service")
+async def test_tool_results_are_saved_concurrently_but_before_the_reply(
+    mock_get_session, mock_get_repo, mock_settings
+):
+    from tests.unit.test_adk_orchestrator import _make_function_response_event
+
+    _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
+    events = [
+        _make_function_call_event("search_listino"),
+        _make_function_response_event(),
+        _make_text_event("Costa 30 euro al metro quadro.", partial=False),
+    ]
+    orch = _make_orchestrator_with_events(events)
+    req, user = _make_request_and_user()
+
+    await _collect_chunks(orch.stream_chat(req, user))
+
+    roles = [c.kwargs["role"] for c in mock_get_repo.return_value.save_message.call_args_list]
+    assert roles == ["tool", "assistant"]

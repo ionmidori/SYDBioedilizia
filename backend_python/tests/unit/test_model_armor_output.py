@@ -89,7 +89,7 @@ class TestModelArmorOutputGuardrail:
     """Tests for model_armor_after_model callback."""
 
     @patch("src.adk.guardrails.get_model_armor_service")
-    def test_pii_leak_blocked(
+    async def test_pii_leak_blocked(
         self, mock_get_service, mock_callback_context,
         make_llm_response, blocked_output_verdict,
     ):
@@ -104,7 +104,7 @@ class TestModelArmorOutputGuardrail:
             "numero di carta è 4111-1111-1111-1111."
         )
 
-        result = model_armor_after_model(
+        result = await model_armor_after_model(
             mock_callback_context, llm_response,
         )
 
@@ -115,7 +115,7 @@ class TestModelArmorOutputGuardrail:
         mock_service.sanitize_response.assert_called_once()
 
     @patch("src.adk.guardrails.get_model_armor_service")
-    def test_clean_response_passes(
+    async def test_clean_response_passes(
         self, mock_get_service, mock_callback_context,
         make_llm_response, clean_output_verdict,
     ):
@@ -129,7 +129,7 @@ class TestModelArmorOutputGuardrail:
             "Il costo stimato per la ristrutturazione del bagno è tra 8.000€ e 12.000€."
         )
 
-        result = model_armor_after_model(
+        result = await model_armor_after_model(
             mock_callback_context, llm_response,
         )
 
@@ -137,7 +137,7 @@ class TestModelArmorOutputGuardrail:
         mock_service.sanitize_response.assert_called_once()
 
     @patch("src.adk.guardrails.get_model_armor_service")
-    def test_api_failure_degrades_gracefully(
+    async def test_api_failure_degrades_gracefully(
         self, mock_get_service, mock_callback_context,
         make_llm_response,
     ):
@@ -154,14 +154,14 @@ class TestModelArmorOutputGuardrail:
 
         llm_response = make_llm_response("Test output")
 
-        result = model_armor_after_model(
+        result = await model_armor_after_model(
             mock_callback_context, llm_response,
         )
 
         assert result is None  # fail-open
 
     @patch("src.adk.guardrails.get_model_armor_service")
-    def test_disabled_flag_bypasses(
+    async def test_disabled_flag_bypasses(
         self, mock_get_service, mock_callback_context,
         make_llm_response,
     ):
@@ -170,14 +170,14 @@ class TestModelArmorOutputGuardrail:
 
         llm_response = make_llm_response("Some response with PII")
 
-        result = model_armor_after_model(
+        result = await model_armor_after_model(
             mock_callback_context, llm_response,
         )
 
         assert result is None  # bypass
 
     @patch("src.adk.guardrails.get_model_armor_service")
-    def test_empty_response_passes_through(
+    async def test_empty_response_passes_through(
         self, mock_get_service, mock_callback_context,
     ):
         """EDGE: If response has no text parts (e.g., tool call),
@@ -191,7 +191,7 @@ class TestModelArmorOutputGuardrail:
         llm_response = MagicMock()
         llm_response.content = types.Content(role="model", parts=[])
 
-        result = model_armor_after_model(
+        result = await model_armor_after_model(
             mock_callback_context, llm_response,
         )
 
