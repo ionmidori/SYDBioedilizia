@@ -477,22 +477,24 @@
     0 0 0 1px rgba(0, 0, 0, 0.12);
 }
 
-/* "Cosa facciamo" cards (WhatWeDo.tsx) — Calacatta marble and gold leaf. The
+/* "Cosa facciamo" cards (WhatWeDo.tsx) — white Statuario marble and gold. The
    only light surface on the dark page, so the section reads as its own thing.
-   - Stone: one photo (public/textures/marble-calacatta.avif, WebP fallback;
-     ~17 KB each), contrast-lifted and multiplied with the cream at export so the
-     white is the brand cream. Each card shows a different part of it via
-     --marble-x/--marble-y (percentages, set inline: always inside the image).
-     A cream veil from the left keeps the veins quieter under the text — worst
-     case under a dark vein still ~4.8:1 for the body text.
+   - Stone: one photo (public/textures/marble-statuario.avif, WebP fallback;
+     ~18 KB each), veins contrast-lifted at export, cool white kept as shot.
+     Each card shows a different part of it via --marble-x/--marble-y
+     (percentages, set inline: always inside the image). A white veil from the
+     left keeps the veins quieter under the text. Body text, measured on the
+     darkest 0.1% of pixels: ≥5.5:1 under the veil, 4.5:1 with none.
+   - --marble-white is also the surface colour while the photo loads.
    - Gold hairline edge: brightest at the top, fading down (same idea as the
      Services cards' gold border).
    Fully opaque (the cards fly in over the decoration glows) and entirely static:
    the entry motion lives on this element's translate/rotate in
    scroll-animations.css, so nothing here may touch transform or filter. */
 .activity-marble-card {
+  --marble-white: 250 250 247;
   isolation: isolate;
-  background-color: var(--color-luxury-text);
+  background-color: rgb(var(--marble-white));
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.55),
     0 10px 24px -10px rgb(0 0 0 / 0.45),
@@ -507,8 +509,8 @@
   border-radius: inherit;
   pointer-events: none;
   background-image:
-    linear-gradient(100deg, rgb(244 241 222 / 0.55) 0%, rgb(244 241 222 / 0.2) 55%, transparent 80%),
-    image-set(url("/textures/marble-calacatta.avif") type("image/avif"), url("/textures/marble-calacatta.webp") type("image/webp"));
+    linear-gradient(100deg, rgb(var(--marble-white) / 0.55) 0%, rgb(var(--marble-white) / 0.2) 55%, transparent 80%),
+    image-set(url("/textures/marble-statuario.avif") type("image/avif"), url("/textures/marble-statuario.webp") type("image/webp"));
   background-size: 100% 100%, 900px auto;
   background-position: 0 0, var(--marble-x, 0%) var(--marble-y, 50%);
   background-repeat: no-repeat;
