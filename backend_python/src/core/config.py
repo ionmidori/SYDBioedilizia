@@ -113,7 +113,11 @@ class Settings(BaseSettings):
     # Gemini backend: AI Studio (API key) by default, Vertex AI when true. The
     # google-genai client (and ADK) read the same env vars directly.
     GOOGLE_GENAI_USE_VERTEXAI: bool = Field(default=False)
-    GOOGLE_CLOUD_LOCATION: str = Field(default="europe-west1", description="Vertex AI location for Gemini.")
+    GOOGLE_CLOUD_LOCATION: str = Field(
+        default="eu",
+        description="Vertex AI location for Gemini. `eu` = EU multi-region endpoint (data processed in "
+                    "the EU); europe-west1 does not serve the Gemini 3.x models (verified 2026-10-09).",
+    )
     MODEL_VALIDATION_STRICT: bool = Field(
         default=False,
         description="Fail startup when a configured model ID is unknown to the API (staging).",
