@@ -22,6 +22,9 @@
 #   --concurrency=40      one uvicorn process per instance: fewer concurrent
 #                         streams per process, more instances under load
 set -euo pipefail
+# Git Bash on Windows rewrites "/health/startup" into "C:/Program Files/Git/health/startup"
+# in arguments; exclude that argument from the conversion (no-op elsewhere).
+export MSYS2_ARG_CONV_EXCL="--startup-probe"
 
 SERVICE="${SERVICE:-syd-brain}"
 REGION="${REGION:-europe-west1}"
