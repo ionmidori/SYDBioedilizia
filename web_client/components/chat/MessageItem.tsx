@@ -11,7 +11,6 @@ import { LeadCaptureForm } from '@/components/chat/widgets/LeadCaptureForm';
 import { LoginRequest } from '@/components/chat/tools/LoginRequest';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { useChatContext } from '@/hooks/useChatContext';
 import { MessageFeedback } from '@/components/chat/MessageFeedback';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -25,6 +24,13 @@ interface MessageItemProps {
     sessionId?: string; // made optional
     onImageClick: (imageUrl: string) => void;
     onFormSubmit?: (data: unknown) => void;
+    /**
+     * Firestore-history version of this message (same id), resolved once by
+     * ChatMessages. Passed as a prop instead of reading the chat context here:
+     * the context changes on every streamed token, which re-rendered every
+     * message of the conversation and defeated React.memo.
+     */
+    historyMessage?: Message;
 }
 
 /**
@@ -32,13 +38,11 @@ interface MessageItemProps {
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onFormSubmit }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onFormSubmit, historyMessage }) => {
     const { user } = useAuth();
-    const { historyMessages } = useChatContext();
-
     // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
-    // To ensure the thumbs up/down state persists across reloads, we look up the raw message from Firestore history.
-    const originalMessage = historyMessages?.find(m => m.id === message.id);
+    // To ensure the thumbs up/down state persists across reloads, we use the raw message from Firestore history.
+    const originalMessage = historyMessage;
     const resolvedRating = originalMessage?.rating ?? message.rating ?? 0;
 
     // Helper: Extract text from both old (content) and new (parts[]) formats

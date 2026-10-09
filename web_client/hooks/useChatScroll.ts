@@ -41,10 +41,18 @@ export function useChatScroll<T>(dep: T, isOpen: boolean) {
         }
     }, []); // Only on mount
 
-    // Auto-scroll on dependency change (messages updated)
+    // Auto-scroll on dependency change (messages updated). A NEW message
+    // scrolls smoothly; while the same message streams (one update per token
+    // batch) the jump is instant — restarting a smooth animation on every
+    // update makes the view stutter and costs layout work.
+    const prevLengthRef = useRef<number | null>(null);
     useEffect(() => {
+        const length = Array.isArray(dep) ? dep.length : null;
+        // Non-array deps keep the previous behaviour (always smooth).
+        const isNewMessage = length === null || length !== prevLengthRef.current;
+        prevLengthRef.current = length;
         if (isOpen && isNearBottomRef.current) {
-            scrollToBottom('smooth');
+            scrollToBottom(isNewMessage ? 'smooth' : 'auto');
         }
     }, [dep, isOpen]);
 

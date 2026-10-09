@@ -52,19 +52,29 @@ beforeEach(() => {
 });
 
 describe('useChatTransport — auth headers', () => {
-    it('sends the bearer token returned by refreshToken', async () => {
-        mockRefreshToken.mockResolvedValue('tok-123');
+    it('uses the SDK token without the setAuthCookie round trip', async () => {
+        // refreshToken() awaits a Next.js server action: it must not sit in
+        // front of every chat request.
+        mutableAuth.currentUser = { getIdToken: jest.fn().mockResolvedValue('tok-123') };
 
         await expect(resolveHeaders()).resolves.toEqual({ Authorization: 'Bearer tok-123' });
+        expect(mockRefreshToken).not.toHaveBeenCalled();
     });
 
-    it('falls back to auth.currentUser when refreshToken returns null', async () => {
-        // Bridges the window between signInAnonymously() resolving and React
-        // re-rendering — without it the first message 401s.
-        mockRefreshToken.mockResolvedValue(null);
-        mutableAuth.currentUser = { getIdToken: jest.fn().mockResolvedValue('fallback-tok') };
+    it('falls back to refreshToken when auth.currentUser is not set yet', async () => {
+        // Bridges the window between signInAnonymously() resolving and
+        // auth.currentUser being populated — without it the first message 401s.
+        mockRefreshToken.mockResolvedValue('state-tok');
 
-        await expect(resolveHeaders()).resolves.toEqual({ Authorization: 'Bearer fallback-tok' });
+        await expect(resolveHeaders()).resolves.toEqual({ Authorization: 'Bearer state-tok' });
+    });
+
+    it('falls back to refreshToken when getIdToken rejects', async () => {
+        mutableAuth.currentUser = { getIdToken: jest.fn().mockRejectedValue(new Error('offline')) };
+        mockRefreshToken.mockResolvedValue(null);
+
+        await expect(resolveHeaders()).resolves.toEqual({});
+        expect(mockRefreshToken).toHaveBeenCalled();
     });
 
     it('omits Authorization when no token can be obtained', async () => {
@@ -72,18 +82,11 @@ describe('useChatTransport — auth headers', () => {
 
         await expect(resolveHeaders()).resolves.toEqual({});
     });
-
-    it('does not throw when the fallback getIdToken rejects', async () => {
-        mockRefreshToken.mockResolvedValue(null);
-        mutableAuth.currentUser = { getIdToken: jest.fn().mockRejectedValue(new Error('offline')) };
-
-        await expect(resolveHeaders()).resolves.toEqual({});
-    });
 });
 
 describe('useChatTransport — App Check', () => {
     beforeEach(() => {
-        mockRefreshToken.mockResolvedValue('tok-123');
+        mutableAuth.currentUser = { getIdToken: jest.fn().mockResolvedValue('tok-123') };
     });
 
     it('is skipped unless explicitly enabled', async () => {

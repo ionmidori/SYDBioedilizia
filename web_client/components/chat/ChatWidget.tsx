@@ -70,7 +70,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         error,
         reload,
         data,
-        isRestoringHistory
+        isRestoringHistory,
+        historyMessages
     } = useChatContext();
 
     // 2. State & Refs
@@ -261,6 +262,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
                     <ChatMessages
                         messages={messages}
+                        historyMessages={historyMessages}
                         isLoading={isLoading}
                         typingMessage={typingMessage}
                         sessionId={sessionId}

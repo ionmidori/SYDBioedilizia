@@ -9,10 +9,6 @@ jest.mock('@/hooks/useAuth', () => ({
     useAuth: () => ({ user: null }),
 }));
 
-const mockHistoryMessages: { current: Message[] } = { current: [] };
-jest.mock('@/hooks/useChatContext', () => ({
-    useChatContext: () => ({ historyMessages: mockHistoryMessages.current }),
-}));
 
 // Render ToolStatus as a thin probe so we can assert MessageItem passes the
 // resolved tool (with imageUrl) down to it.
@@ -36,10 +32,6 @@ jest.mock('@/components/ArchitectAvatar', () => ({ __esModule: true, default: ()
 const IMAGE_URL = 'https://firebasestorage.googleapis.com/render.png';
 
 describe('MessageItem — render image attachment', () => {
-    beforeEach(() => {
-        mockHistoryMessages.current = [];
-    });
-
     it('renders the render-tool image when toolInvocations live only in Firestore history (SDK stripped them)', () => {
         // The AI SDK keeps assistant message state WITHOUT toolInvocations
         // (transient tool results are not added to message.parts in v7).
@@ -50,7 +42,7 @@ describe('MessageItem — render image attachment', () => {
         } as unknown as Message;
 
         // useChatHistory's smart-merge DID build the toolInvocations with the imageUrl.
-        mockHistoryMessages.current = [
+        const historyMessage =
             {
                 id: 'm1',
                 role: 'assistant',
@@ -63,11 +55,15 @@ describe('MessageItem — render image attachment', () => {
                         result: { imageUrl: IMAGE_URL, status: 'success' },
                     },
                 ],
-            } as Message,
-        ];
+            } as Message;
 
         render(
-            <MessageItem message={sdkMessage} sessionId="s1" onImageClick={jest.fn()} />
+            <MessageItem
+                message={sdkMessage}
+                sessionId="s1"
+                onImageClick={jest.fn()}
+                historyMessage={historyMessage}
+            />
         );
 
         expect(screen.getByTestId('tool-status')).toHaveTextContent(IMAGE_URL);
