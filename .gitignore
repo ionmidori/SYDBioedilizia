@@ -152,3 +152,4 @@ supabase/.branches/
 .gemini/skills/
 skills_dev/
 skills_pkg/
+backend_python/deploy/.vertex-previous-revision
