@@ -351,8 +351,10 @@ class AppCheckMiddleware:
     """
     # "/api/health" is the same liveness probe as "/health": the frontend warmup
     # reaches it through the /api/py/* rewrite and was answered 403 on every visit.
+    # "/health/startup" is the Cloud Run startup probe: it carries no App Check
+    # token, and a 403 there would keep every new revision from ever starting.
     _PUBLIC_PATHS = frozenset({
-        "/health", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
+        "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
         "/internal/lifecycle/run", "/internal/quote/approve",
     })
     _DEV_PATHS = frozenset({"/docs", "/openapi.json"})
@@ -607,7 +609,8 @@ def startup_check(request: Request):
     if settings.MODEL_VALIDATION_STRICT and getattr(state, "model_problems", None):
         return JSONResponse(
             status_code=503,
-            content={"status": "model_unavailable", "problems": state.model_problems},
+            # Public endpoint: details (model IDs, API errors) stay in the logs.
+            content={"status": "model_unavailable"},
         )
     return {"status": "started"}
 
