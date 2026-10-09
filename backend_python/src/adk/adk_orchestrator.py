@@ -24,6 +24,7 @@ from google.genai import types
 from src.adk.agents import syd_orchestrator
 from src.adk.filters import filter_agent_output, sanitize_before_agent
 from src.adk.latency_plugin import LatencyPlugin
+from src.adk.media_model_plugin import MediaModelPlugin
 from src.adk.session import get_artifact_service, get_session_service
 from src.core.chat_timing import current_turn
 from src.db.firebase_client import get_async_firestore_client
@@ -56,7 +57,8 @@ class ADKOrchestrator(BaseOrchestrator):
             app=App(
                 name="syd_orchestrator",
                 root_agent=syd_orchestrator,
-                plugins=[LatencyPlugin()],
+                # MediaModelPlugin first: LatencyPlugin then logs the model actually used.
+                plugins=[MediaModelPlugin(), LatencyPlugin()],
             ),
             session_service=get_session_service(),
             artifact_service=get_artifact_service(),

@@ -13,11 +13,12 @@ from google.adk.evaluation.eval_metrics import (
     RubricsBasedCriterion,
 )
 from google.adk.evaluation.eval_rubrics import Rubric, RubricContent
+from src.core.models import ModelRole, get_model_id
 
 # ── Judge Model Config ────────────────────────────────────────────────────────
 
 SYD_JUDGE_OPTIONS = JudgeModelOptions(
-    judge_model="gemini-3.1-flash-lite-preview",
+    judge_model=get_model_id(ModelRole.INSIGHT),  # from the model registry (MODEL_INSIGHT)
     num_samples=3,  # 3 samples for cost efficiency; increase for CI
 )
 

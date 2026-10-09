@@ -18,7 +18,7 @@ from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 
 from src.core.config import settings
-from src.core.models import ModelRole, get_genai_client, get_model_id
+from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
 from src.services.pricing_service import PricingService
 
 logger = logging.getLogger(__name__)
@@ -435,7 +435,9 @@ Analizza la conversazione e produci la risposta strutturata.
                     temperature=0.1,
                     response_mime_type="application/json",
                     response_schema=InsightAnalysis,  # Pydantic-native, no manual parsing
-                    thinking_config=genai_types.ThinkingConfig(thinking_budget=2048),
+                    # THINKING_LEVEL_INSIGHT from the registry when set, else a fixed budget.
+                    thinking_config=build_thinking_config(ModelRole.INSIGHT)
+                    or genai_types.ThinkingConfig(thinking_budget=2048),
                 ),
             )
 

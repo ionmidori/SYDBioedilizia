@@ -172,3 +172,27 @@ def test_no_hardcoded_gemini_model_ids():
         "Gemini model IDs must come from settings via src/core/models.py "
         "(ModelRole / get_model_id), not literals:\n" + "\n".join(offenders)
     )
+
+
+def test_every_chat_agent_has_bounded_calls_and_thinking_level():
+    """Production defaults: no chat agent may run without a thinking level and a
+    per-call timeout (an unbounded call reached 45s on the retired preview model)."""
+    from src.adk import agents
+
+    for agent in (agents.syd_orchestrator, agents.triage_agent, agents.design_agent, agents.quote_agent):
+        config = agent.generate_content_config
+        assert config is not None, agent.name
+        assert config.thinking_config is not None, agent.name
+        assert config.http_options is not None and config.http_options.timeout, agent.name
+        assert agent.model.retry_options is not None, agent.name
+
+
+def test_image_generation_never_falls_back_to_a_chat_or_vision_model(clean_registry):
+    """Renders use only the dedicated image model (MODEL_IMAGE): no fallback to
+    CHAT_MODEL_VERSION (3.5 Flash-Lite) or MODEL_VISION (3.8 Flash)."""
+    clean_registry.setattr(settings, "MODEL_VISION", "vision-model")
+    assert get_model_id(ModelRole.IMAGE) == "image-model"
+    assert get_model_profile(ModelRole.IMAGE).thinking_level is None
+    imagen_source = (BACKEND_ROOT / "src" / "api" / "gemini_imagen.py").read_text(encoding="utf-8")
+    roles_used = set(re.findall(r"ModelRole\.(\w+)", imagen_source))
+    assert roles_used == {"IMAGE"}
