@@ -84,3 +84,81 @@ async def filter_agent_output(raw_output: str) -> str:
             )
             return _MASKED_REPLY
     return raw_output
+
+
+# Streaming holdback. Some leak patterns span several words
+# (`File "/app/src/x.py", line 12`, `Traceback (most recent call last)`), so
+# holding back only the token being written is not enough: the last
+# _STREAM_HOLDBACK_CHARS characters are never released before the next chunk
+# (or the end of the call) lets the patterns see what follows them.
+_STREAM_HOLDBACK_CHARS = 120
+# Upper bound on the text held back when the tail is one very long token;
+# keeps the stream moving on pathological output.
+_MAX_HOLDBACK_CHARS = 200
+
+
+class StreamingOutputGuard:
+    """`filter_agent_output` for token streaming, one instance per model call.
+
+    Chunk-by-chunk filtering would let a leak through when it is split across
+    two chunks (``mario.rossi@`` + ``example.com``). The guard instead:
+
+    - checks the leak patterns against the WHOLE text accumulated so far;
+    - releases text only up to the last whitespace AND at least
+      _STREAM_HOLDBACK_CHARS behind the end: the token still being written
+      (email, fiscal code, card number) and multi-word patterns (a traceback
+      `File "...", line N`) are held back until they are complete;
+    - once a pattern matches, emits nothing more and reports `tripped`, so the
+      caller can retract what was already shown (see `stream_redact`).
+    """
+
+    def __init__(self) -> None:
+        self.raw = ""        # everything received for this model call
+        self.emitted = ""    # what has been released to the client
+        self.tripped = False
+
+    @property
+    def started(self) -> bool:
+        return bool(self.raw)
+
+    def _leaks(self) -> bool:
+        return any(pattern.search(self.raw) for pattern in _LEAK_PATTERNS)
+
+    def feed(self, chunk: str) -> str:
+        """Add a chunk; return the newly releasable text ("" if none)."""
+        if self.tripped or not chunk:
+            return ""
+        self.raw += chunk
+        if self._leaks():
+            self.tripped = True
+            logger.warning("Detected potential sensitive data leak in streamed ADK output. Retracting.")
+            return ""
+        # Last word boundary at least _STREAM_HOLDBACK_CHARS before the end, so a
+        # release never splits a token.
+        limit = len(self.raw) - _STREAM_HOLDBACK_CHARS
+        cut = max(
+            self.raw.rfind(" ", 0, limit),
+            self.raw.rfind("\n", 0, limit),
+            self.raw.rfind("\t", 0, limit),
+        )
+        safe_end = cut + 1 if limit > 0 and cut >= 0 else 0
+        safe_end = max(safe_end, len(self.raw) - _MAX_HOLDBACK_CHARS)
+        if safe_end <= len(self.emitted):
+            return ""
+        released = self.raw[len(self.emitted):safe_end]
+        self.emitted += released
+        return released
+
+    def finish(self) -> str:
+        """End of the model call: release the held-back tail if still clean."""
+        if self.tripped:
+            return ""
+        if self._leaks():
+            self.tripped = True
+            return ""
+        tail = self.raw[len(self.emitted):]
+        self.emitted = self.raw
+        return tail
+
+
+MASKED_REPLY = _MASKED_REPLY

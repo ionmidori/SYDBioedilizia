@@ -16,13 +16,17 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+
+# Documented ADK import path (adk.dev RunConfig); StreamingMode is re-exported
+# there without being listed in __all__.
+from google.adk.agents.run_config import RunConfig, StreamingMode  # pyright: ignore[reportPrivateImportUsage]
 from google.adk.apps.app import App
 from google.adk.events import Event, EventActions
 from google.adk.runners import Runner
 from google.genai import types
 
 from src.adk.agents import syd_orchestrator
-from src.adk.filters import filter_agent_output, sanitize_before_agent
+from src.adk.filters import MASKED_REPLY, StreamingOutputGuard, filter_agent_output, sanitize_before_agent
 from src.adk.latency_plugin import LatencyPlugin
 from src.adk.media_model_plugin import MediaModelPlugin
 from src.adk.session import get_artifact_service, get_session_service
@@ -32,18 +36,90 @@ from src.repositories.conversation_repository import get_conversation_repository
 from src.services.base_orchestrator import BaseOrchestrator
 from src.utils.circuit_breaker import vertex_ai_breaker
 from src.utils.stream_protocol import (
+    redact_chunk,
     stream_artifact_event,
     stream_data,
     stream_error,
     stream_status,
-    stream_text,
     stream_tool_call,
     stream_tool_result,
     stream_ui_widget,
+    text_delta_chunk,
     to_ui_message_stream,
 )
 
 logger = logging.getLogger(__name__)
+
+# Token streaming: the runner yields partial events while the model generates,
+# so the first words reach the user as soon as Gemini produces them instead of
+# after the whole reply (and after every agent hop).
+_RUN_CONFIG = RunConfig(streaming_mode=StreamingMode.SSE)
+
+
+class _TurnText:
+    """Visible assistant text of one turn, streamed token by token.
+
+    Output guardrails run on complete text: the leak filter on what has been
+    accumulated (StreamingOutputGuard, per model call) and Model Armor on the
+    final aggregated response. When either replaces text that was already
+    streamed, the whole message is retracted with a `data-redact` part carrying
+    the safe text ("stream-then-verify"); after a retraction every update is
+    sent as a new redact so the shown message stays authoritative.
+
+    With `stream=False` (OUTPUT_GUARDRAIL_STREAMING off: verify-then-stream)
+    partial chunks are ignored and each model call's text is sent only from the
+    final response, i.e. after Model Armor approved it.
+
+    `feed_partial` / `feed_final` return the UI chunks to emit.
+    """
+
+    def __init__(self, stream: bool = True) -> None:
+        self._stream = stream
+        self.text = ""
+        self.redacted = False
+        self._guard = StreamingOutputGuard()
+        self._call_retracted = False
+
+    def _append(self, released: str) -> list[dict[str, Any]]:
+        if not released:
+            return []
+        self.text += released
+        return [redact_chunk(self.text)] if self.redacted else [text_delta_chunk(released)]
+
+    def _retract(self, replacement: str) -> list[dict[str, Any]]:
+        if self._call_retracted:
+            return []
+        self._call_retracted = True
+        shown_this_call = len(self._guard.emitted)
+        self.text = self.text[: len(self.text) - shown_this_call] + replacement
+        self.redacted = True
+        return [redact_chunk(self.text)]
+
+    def feed_partial(self, chunk: str) -> list[dict[str, Any]]:
+        if not self._stream:
+            return []
+        released = self._guard.feed(chunk)
+        if self._guard.tripped:
+            return self._retract(MASKED_REPLY)
+        return self._append(released)
+
+    async def feed_final(self, final_text: str) -> list[dict[str, Any]]:
+        guard = self._guard
+        if not guard.started:
+            # Nothing was streamed for this model call (e.g. input blocked by
+            # Model Armor, or a non-streaming response): filter the whole text.
+            out = self._append(await filter_agent_output(final_text))
+        elif self._call_retracted:
+            out = []
+        elif final_text != guard.raw:
+            # An after-model guardrail replaced the streamed reply.
+            out = self._retract(await filter_agent_output(final_text))
+        else:
+            tail = guard.finish()
+            out = self._retract(MASKED_REPLY) if guard.tripped else self._append(tail)
+        self._guard = StreamingOutputGuard()
+        self._call_retracted = False
+        return out
 
 
 class ADKOrchestrator(BaseOrchestrator):
@@ -306,7 +382,7 @@ class ADKOrchestrator(BaseOrchestrator):
 
             if turn is not None:
                 turn.mark("adk_session_ready")
-            full_response = ""
+            turn_text = _TurnText(stream=settings.OUTPUT_GUARDRAIL_STREAMING)
             accumulated_tool_calls = []
             # Map tool_name → call_id so we can correlate function_response
             # with the correct call_id (ADK may not preserve call_id on responses)
@@ -334,6 +410,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                 session_id=session_id,
                                 user_id=user_id,
                                 new_message=actual_message,
+                                run_config=_RUN_CONFIG,
                             ):
                                 yield event
                             return  # success — no retry needed
@@ -427,9 +504,21 @@ class ADKOrchestrator(BaseOrchestrator):
 
                             # ── Handle Content (Text & Tools) ──
                             if event.content and event.content.parts:
-                                has_text = any(hasattr(p, 'text') and p.text for p in event.content.parts)
-                                has_fc = any(hasattr(p, 'function_call') and p.function_call for p in event.content.parts)
-                                has_fr = any(hasattr(p, 'function_response') and p.function_response for p in event.content.parts)
+                                # Partial events (token streaming) only carry text to
+                                # forward; tool calls/results are handled once, on the
+                                # final aggregated event (ADK executes only those).
+                                is_partial = getattr(event, "partial", None) is True
+                                texts: list[str] = [
+                                    p.text for p in event.content.parts
+                                    if p.text and getattr(p, "thought", None) is not True
+                                ]
+                                has_text = bool(texts)
+                                has_fc = not is_partial and any(
+                                    hasattr(p, 'function_call') and p.function_call for p in event.content.parts
+                                )
+                                has_fr = not is_partial and any(
+                                    hasattr(p, 'function_response') and p.function_response for p in event.content.parts
+                                )
 
                                 # ── Tool Calls ──
                                 # Internal ADK routing tools (transfer_to_agent) must NOT be
@@ -569,7 +658,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                     ):
                                         yield chunk
 
-                                logger.info(
+                                (logger.debug if is_partial else logger.info)(
                                     "ADK Event received",
                                     extra={
                                         "author": getattr(event, "author", "unknown"),
@@ -583,14 +672,14 @@ class ADKOrchestrator(BaseOrchestrator):
 
                                 # ── Text Responses ──
                                 if has_text:
-                                    for part in event.content.parts:
-                                        if hasattr(part, 'text') and part.text:
-                                            filtered = await filter_agent_output(part.text)
-                                            full_response += filtered
-                                            if turn is not None and filtered:
-                                                turn.mark("first_text")
-                                            async for chunk in stream_text(filtered):
-                                                yield chunk
+                                    if is_partial:
+                                        out = [c for t in texts for c in turn_text.feed_partial(t)]
+                                    else:
+                                        out = await turn_text.feed_final("".join(texts))
+                                    if out and turn is not None:
+                                        turn.mark("first_text")
+                                    for chunk in out:
+                                        yield chunk
                             else:
                                 logger.debug("ADK event has no content or parts")
 
@@ -606,6 +695,7 @@ class ADKOrchestrator(BaseOrchestrator):
                         yield chunk
 
                 # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---
+                full_response = turn_text.text
                 if full_response or accumulated_tool_calls:
                     persist_started = time.perf_counter()
                     try:

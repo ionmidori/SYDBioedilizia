@@ -46,6 +46,28 @@ def _sse(chunk: dict[str, Any]) -> str:
     return f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
 
 
+def text_delta_chunk(text: str) -> dict[str, Any]:
+    """A v6 `text-delta` chunk (lifecycle handled by `to_ui_message_stream`)."""
+    return {"type": "text-delta", "id": TEXT_PART_ID, "delta": text}
+
+
+# Fixed id: the v6 reducer updates a data part in place when type + id match, so
+# successive retractions replace each other instead of piling up.
+REDACT_PART_ID = "redact"
+
+
+def redact_chunk(text: str) -> dict[str, Any]:
+    """Retract the text already streamed for this assistant message.
+
+    With token streaming, the final output guardrails (Model Armor, leak
+    filter) run after part of the text has been shown. When they replace the
+    reply, this NON-transient `data-redact` part lands in `message.parts` and
+    the message renders its `text` instead of the streamed text parts
+    ("stream-then-verify"). The persisted message already holds the safe text.
+    """
+    return {"type": "data-redact", "id": REDACT_PART_ID, "data": {"text": text}}
+
+
 async def stream_text(text: str) -> AsyncGenerator[dict[str, Any], None]:
     """Yield a v6 `text-delta` chunk (lifecycle handled by `to_ui_message_stream`)."""
     if text:

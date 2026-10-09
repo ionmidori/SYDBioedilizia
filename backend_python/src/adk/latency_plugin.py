@@ -45,7 +45,7 @@ class LatencyPlugin(BasePlugin):
         if turn is None:
             return None
         key = llm_call_key(callback_context)
-        if llm_response.partial:
+        if llm_response.partial is True:
             turn.llm_chunk(key)
             return None
         usage = llm_response.usage_metadata
