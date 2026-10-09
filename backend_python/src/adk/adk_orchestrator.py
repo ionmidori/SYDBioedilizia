@@ -16,13 +16,16 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from google.adk.apps.app import App
 from google.adk.events import Event, EventActions
 from google.adk.runners import Runner
 from google.genai import types
 
 from src.adk.agents import syd_orchestrator
 from src.adk.filters import filter_agent_output, sanitize_before_agent
+from src.adk.latency_plugin import LatencyPlugin
 from src.adk.session import get_artifact_service, get_session_service
+from src.core.chat_timing import current_turn
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
 from src.services.base_orchestrator import BaseOrchestrator
@@ -64,8 +67,11 @@ class ADKOrchestrator(BaseOrchestrator):
         )
 
         self.runner = Runner(
-            app_name="syd_orchestrator",
-            agent=syd_orchestrator,
+            app=App(
+                name="syd_orchestrator",
+                root_agent=syd_orchestrator,
+                plugins=[LatencyPlugin()],
+            ),
             session_service=get_session_service(),
             artifact_service=get_artifact_service(),
         )
@@ -90,11 +96,26 @@ class ADKOrchestrator(BaseOrchestrator):
         causes flicker.
         """
         assistant_msg_id = uuid.uuid4().hex
-        async for sse in to_ui_message_stream(
-            self._stream_events(request, user_session, background_tasks, assistant_msg_id),
-            message_id=assistant_msg_id,
-        ):
-            yield sse
+        turn = current_turn()
+        outcome = "ok"
+        try:
+            async for sse in to_ui_message_stream(
+                self._stream_events(request, user_session, background_tasks, assistant_msg_id),
+                message_id=assistant_msg_id,
+            ):
+                if turn is not None:
+                    turn.mark("first_chunk")
+                yield sse
+        except GeneratorExit:
+            outcome = "client_disconnected"
+            raise
+        except Exception:
+            outcome = "error"
+            raise
+        finally:
+            if turn is not None:
+                turn.mark("finish")
+                turn.emit(outcome=outcome)
 
     async def _stream_events(
         self,
@@ -158,6 +179,9 @@ class ADKOrchestrator(BaseOrchestrator):
                 phone_on_file = bool((_user_doc.to_dict() or {}).get("phone")) if _user_doc.exists else False
             except Exception:  # noqa: BLE001
                 pass  # Non-fatal: agent will ask for phone if lookup fails
+        turn = current_turn()
+        if turn is not None:
+            turn.mark("user_profile_ready")
 
         logger.info(f"[ADK] Auth injection: is_guest={is_guest}, uid={user_id}, phone_on_file={phone_on_file}")
         system_context = (
@@ -292,6 +316,8 @@ class ADKOrchestrator(BaseOrchestrator):
                     # Non-fatal: agent starts fresh if history injection fails
                     logger.warning(f"[ADK] History injection failed (session starts fresh): {hist_err}")
 
+            if turn is not None:
+                turn.mark("adk_session_ready")
             full_response = ""
             accumulated_tool_calls = []
             # Map tool_name → call_id so we can correlate function_response
@@ -496,6 +522,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                                 yield chunk
 
                                             # ── Persist Tool Result to Firestore ──
+                                            persist_started = time.perf_counter()
                                             try:
                                                 repo = get_conversation_repository()
                                                 content_str = json.dumps(raw_response) if isinstance(raw_response, dict) else str(raw_response)
@@ -510,6 +537,8 @@ class ADKOrchestrator(BaseOrchestrator):
                                                 logger.info(f"[Repo] Saved tool result for call_id {call_id}")
                                             except Exception as e:  # noqa: BLE001
                                                 logger.error(f"Failed to persist tool result: {e}")
+                                            if turn is not None:
+                                                turn.add_persist((time.perf_counter() - persist_started) * 1000)
 
                                     # ── UiWidget Events (ADK 1.27+) ──
                                 # Tools call tool_context.render_ui_widget(UiWidget(...))
@@ -570,6 +599,8 @@ class ADKOrchestrator(BaseOrchestrator):
                                         if hasattr(part, 'text') and part.text:
                                             filtered = await filter_agent_output(part.text)
                                             full_response += filtered
+                                            if turn is not None and filtered:
+                                                turn.mark("first_text")
                                             async for chunk in stream_text(filtered):
                                                 yield chunk
                             else:
@@ -588,6 +619,7 @@ class ADKOrchestrator(BaseOrchestrator):
 
                 # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---
                 if full_response or accumulated_tool_calls:
+                    persist_started = time.perf_counter()
                     try:
                         repo = get_conversation_repository()
                         assistant_timestamp = datetime.now(UTC)
@@ -603,6 +635,8 @@ class ADKOrchestrator(BaseOrchestrator):
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:  # noqa: BLE001
                         logger.error(f"Failed to persist assistant message: {e}")
+                    if turn is not None:
+                        turn.add_persist((time.perf_counter() - persist_started) * 1000)
             except Exception as _inner_exc:
                 await vertex_ai_breaker.on_failure(_inner_exc)
                 logger.exception("Inner ADK run_async error captured")

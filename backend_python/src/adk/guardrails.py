@@ -19,12 +19,15 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import time
 
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models.llm_request import LlmRequest
 from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
+from src.adk.latency_plugin import llm_call_key
+from src.core.chat_timing import current_turn
 from src.services.model_armor.model_armor_client import get_model_armor_service
 
 logger = logging.getLogger(__name__)
@@ -49,6 +52,14 @@ _OUTPUT_BLOCKED_MESSAGE = (
 # found clean in this invocation is not sent to Model Armor again; "temp:" state
 # lives only for the current invocation.
 _CLEAN_INPUT_KEY = "temp:model_armor_clean_input"
+
+
+def _record_scan(callback_context: CallbackContext, phase: str, started: float) -> None:
+    """Attribute a Model Armor scan's duration to the current chat turn."""
+    turn = current_turn()
+    if turn is not None:
+        ms = (time.perf_counter() - started) * 1000
+        turn.add_guardrail(llm_call_key(callback_context), phase, ms)
 
 
 def _extract_last_user_text(llm_request: LlmRequest) -> str:
@@ -122,7 +133,9 @@ def model_armor_before_model(
         len(user_text),
     )
 
+    started = time.perf_counter()
     verdict = service.sanitize_prompt(user_text)
+    _record_scan(callback_context, "input", started)
 
     if verdict.is_blocked:
         logger.warning(
@@ -177,7 +190,9 @@ def model_armor_after_model(
         len(response_text),
     )
 
+    started = time.perf_counter()
     verdict = service.sanitize_response(response_text)
+    _record_scan(callback_context, "output", started)
 
     if verdict.is_blocked:
         logger.warning(

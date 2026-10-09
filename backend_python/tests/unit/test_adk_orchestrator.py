@@ -310,3 +310,33 @@ class TestADKOrchestratorStreamChat:
         # partial=False text must be present as a v6 text-delta (not dropped)
         delta = next(p for p in parsed if isinstance(p, dict) and p.get("type") == "text-delta")
         assert "Risposta" in delta["delta"]
+
+
+class TestADKOrchestratorTurnTiming:
+    """stream_chat closes the per-turn timing started by the route (Phase 0 latency)."""
+
+    @patch("src.core.config.settings")
+    @patch("src.adk.adk_orchestrator.get_conversation_repository")
+    @patch("src.adk.adk_orchestrator.get_session_service")
+    async def test_turn_timing_records_first_text_and_persistence(
+        self, mock_get_session, mock_get_repo, mock_settings, caplog
+    ):
+        import logging
+
+        from src.core.chat_timing import start_turn
+
+        _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
+        orch = _make_orchestrator_with_events([_make_text_event("Ciao!")])
+        req, user = _make_request_and_user()
+
+        turn = start_turn(req.session_id)
+        with caplog.at_level(logging.INFO, logger="src.core.chat_timing"):
+            await _collect_chunks(orch.stream_chat(req, user))
+
+        # Status chunk first, real text later: TTFB and TTFT are distinct marks.
+        assert turn.marks["first_chunk"] <= turn.marks["first_text"] <= turn.marks["finish"]
+        assert turn.persist_ms > 0
+        timing = [r for r in caplog.records if r.getMessage() == "chat_turn_timing"]
+        assert len(timing) == 1
+        assert timing[0].outcome == "ok"
+        assert timing[0].first_text_ms == turn.marks["first_text"]

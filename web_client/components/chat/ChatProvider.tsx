@@ -14,6 +14,7 @@ import { auth } from '@/lib/firebase';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 import { logger } from '@/lib/logger';
+import { markChatFinish, markChatFirstText, markChatSend } from '@/lib/chat/latency';
 
 /**
  * ChatProvider
@@ -58,6 +59,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         transport,
         onData,
         onFinish(message) {
+            markChatFinish();
             logger.debug('[ChatProvider] Turn finished. Last message:', message);
         },
         onError: (err) => {
@@ -78,6 +80,18 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         logger.debug('[ChatProvider Debug] SDK messages updated:', messages.length, messages.map(m => m.id));
     }, [messages]);
+
+    // Latency: first assistant text visible during this turn (the leading "..."
+    // placeholder chunk is not real content).
+    useEffect(() => {
+        if (status !== 'streaming') return;
+        const last = messages[messages.length - 1];
+        if (last?.role !== 'assistant') return;
+        const hasText = last.parts.some(
+            p => p.type === 'text' && p.text.replace(/^\.\.\./, '').trim().length > 0
+        );
+        if (hasText) markChatFirstText();
+    }, [messages, status]);
 
     // When an authenticated user logs out, clear the AI SDK messages immediately and
     // generate a fresh guest session ID. This prevents stale authenticated chat history
@@ -127,6 +141,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
+        markChatSend();
         try {
             // Anonymous sign-in if guest — MUST happen BEFORE sending
             if (!user) {

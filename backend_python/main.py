@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from src.auth.jwt_handler import verify_token
+from src.core.chat_timing import start_turn
 from src.core.config import settings
 from src.core.context import set_request_id
 from src.core.exceptions import AppException, PermissionDenied
@@ -616,6 +617,8 @@ async def chat_stream(
     Auth is enforced via Depends(verify_token).
     """
     body.user_session = user_session
+    turn = start_turn(body.session_id, getattr(request.state, "t_arrival", None))
+    turn.mark("handler")
     # 🛡️ Multimodal Rate Limiting Penalty (Token Bucket)
     # se la richiesta contiene immagini o video, consumiamo 4 token extra
     # per compensare l'alto costo computazionale di Gemini 2.5/3.0 Vision.
@@ -681,6 +684,7 @@ async def chat_stream(
         raise
     except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to ensure session before stream: {e}")
+    turn.mark("session_ready")
 
     async def _persist_user_message():
         """Background: persist user message to Firestore without blocking the stream."""
