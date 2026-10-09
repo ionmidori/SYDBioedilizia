@@ -65,10 +65,13 @@ class Settings(BaseSettings):
     # settings, so switching models is an env change (Cloud Run / .env), not a
     # code change. Pin GA model IDs; never floating aliases (`*-latest`).
     # A guard test fails if a "gemini-" literal appears anywhere else in src/.
-    # Defaults validated on 2026-10-09 with scripts/chat_latency_bench.py +
-    # scripts/chat_quality_ab.py (blind LLM judge, 27 pairs): 3.5 Flash-Lite
-    # (thinking minimal) + 3.8 Flash for quotes (thinking low) preferred 15-9 over
-    # the retired gemini-3.1-flash-lite-preview, higher on helpfulness/rules/clarity.
+    # Defaults (2026-10-10, product decision): 3.5 Flash-Lite for every chat role
+    # (quotes included); 3.8 Flash ONLY to analyze the customer's uploaded photos
+    # and videos (MODEL_VISION: vision helpers + any agent turn carrying media,
+    # see src/adk/media_model_plugin.py). Validated with scripts/chat_latency_bench.py
+    # + scripts/chat_quality_ab.py (blind LLM judge, 27 pairs): all-3.5-Flash-Lite
+    # matched 3.8-Flash-for-quotes on quality (8-9, 10 ties) with a much shorter
+    # latency tail, and both beat the retired gemini-3.1-flash-lite-preview.
     CHAT_MODEL_VERSION: str = Field(
         default="gemini-3.5-flash-lite",
         description="Fallback model for every text role whose MODEL_<ROLE> is unset.",
@@ -76,8 +79,13 @@ class Settings(BaseSettings):
     MODEL_ROUTER: str | None = Field(default=None, description="syd_orchestrator (router). Falls back to CHAT_MODEL_VERSION.")
     MODEL_TRIAGE: str | None = Field(default=None, description="triage sub-agent. Falls back to CHAT_MODEL_VERSION.")
     MODEL_DESIGN: str | None = Field(default=None, description="design sub-agent. Falls back to CHAT_MODEL_VERSION.")
-    MODEL_QUOTE: str | None = Field(default="gemini-3.8-flash", description="quote sub-agent (multi-step quote flow).")
-    MODEL_VISION: str | None = Field(default=None, description="Vision helpers (room analysis, CAD, measurements, video). Falls back to CHAT_MODEL_VERSION.")
+    MODEL_QUOTE: str | None = Field(default=None, description="quote sub-agent. Falls back to CHAT_MODEL_VERSION.")
+    MODEL_VISION: str | None = Field(
+        default="gemini-3.8-flash",
+        description="Analysis of the customer's uploaded photos/videos: vision helpers (triage, video, "
+                    "measurements, CAD, render prompt) and every agent model call whose current user "
+                    "message carries an image or video.",
+    )
     MODEL_INSIGHT: str | None = Field(default=None, description="Quote InsightEngine. Falls back to CHAT_MODEL_VERSION.")
     MODEL_IMAGE: str = Field(
         default="gemini-3.1-flash-image-preview",
@@ -87,8 +95,8 @@ class Settings(BaseSettings):
     THINKING_LEVEL_ROUTER: str | None = Field(default="minimal")
     THINKING_LEVEL_TRIAGE: str | None = Field(default="minimal")
     THINKING_LEVEL_DESIGN: str | None = Field(default="minimal")
-    THINKING_LEVEL_QUOTE: str | None = Field(default="low")  # 3.8 Flash has no "minimal"
-    THINKING_LEVEL_VISION: str | None = Field(default=None)
+    THINKING_LEVEL_QUOTE: str | None = Field(default="low")
+    THINKING_LEVEL_VISION: str | None = Field(default="low")  # 3.8 Flash has no "minimal"
     THINKING_LEVEL_INSIGHT: str | None = Field(default=None)
     # Per-call limits for the chat agents. Unset = SDK defaults (no timeout, no retry).
     LLM_TIMEOUT_SECONDS: float | None = Field(
