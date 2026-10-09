@@ -282,6 +282,10 @@ _GUARDRAILS = {
 
 triage_agent = Agent(
     name="triage",
+    description=(
+        "Analizza foto o video caricati dall'utente (tipo di stanza, stato, materiali, misure) "
+        "quando è già in corso un preventivo o l'utente vuole solo un'analisi della stanza."
+    ),
     model=build_adk_model(ModelRole.TRIAGE),
     generate_content_config=build_generate_content_config(ModelRole.TRIAGE),
     tools=[show_project_gallery_adk, retrieve_knowledge_adk],
@@ -291,6 +295,10 @@ triage_agent = Agent(
 
 design_agent = Agent(
     name="design",
+    description=(
+        "Genera rendering fotorealistici e idee di ristrutturazione, da una foto o da una "
+        "descrizione, quando l'utente vuole vedere come potrebbe diventare l'ambiente."
+    ),
     model=build_adk_model(ModelRole.DESIGN),
     generate_content_config=build_generate_content_config(ModelRole.DESIGN),
     tools=[generate_render_adk, list_project_files_adk, market_prices_adk, request_login_adk, retrieve_knowledge_adk],
@@ -300,6 +308,10 @@ design_agent = Agent(
 
 quote_agent = Agent(
     name="quote",
+    description=(
+        "Prepara il preventivo / computo metrico per il progetto dell'utente: raccolta dati, "
+        "voci di lavorazione, prezzi, invio della richiesta. Non per domande di prezzo puntuali."
+    ),
     model=build_adk_model(ModelRole.QUOTE),
     generate_content_config=build_generate_content_config(ModelRole.QUOTE),
     tools=[
