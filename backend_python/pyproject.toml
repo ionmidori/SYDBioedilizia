@@ -7,7 +7,6 @@ dependencies = [
     "fastapi>=0.141.1",
     "starlette>=1.7.0",
     "firebase-admin>=7.7.0",
-    "google-cloud-aiplatform>=2.3.0",
     "google-cloud-firestore>=2.34.0",
     "google-genai>=2.27.0",
     "httpx>=0.28.1",

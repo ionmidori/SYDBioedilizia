@@ -47,25 +47,11 @@ logger = logging.getLogger(__name__)
 
 class ADKOrchestrator(BaseOrchestrator):
     def __init__(self):
-        import vertexai
-
-        from src.core.config import settings
-
-        # P1 Requirement: EU Region constraint for ADK and CMEK Encryption
-        logger.info(
-            "Initializing Vertex AI for ADK",
-            extra={
-                "project_id": settings.GOOGLE_CLOUD_PROJECT,
-                "location": settings.ADK_LOCATION,
-                "cmek": bool(settings.ADK_CMEK_KEY_NAME)
-            }
-        )
-
-        vertexai.init(
-            project=settings.GOOGLE_CLOUD_PROJECT,
-            location=settings.ADK_LOCATION
-        )
-
+        # The Gemini backend (AI Studio vs Vertex AI, project, region) is chosen by
+        # the google-genai client from GOOGLE_GENAI_USE_VERTEXAI /
+        # GOOGLE_CLOUD_PROJECT / GOOGLE_CLOUD_LOCATION. A `vertexai.init()` call
+        # here used to cost ~14s of import time (google-cloud-aiplatform) on every
+        # cold start while having no effect on the ADK model client.
         self.runner = Runner(
             app=App(
                 name="syd_orchestrator",
