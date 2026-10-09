@@ -38,6 +38,9 @@ class MetricsMiddleware:
             return
 
         start_time = time.time()
+        # Arrival time on the perf_counter clock, read by the chat route to
+        # time the whole turn (includes the wait for the ADK warm-up).
+        scope.setdefault("state", {})["t_arrival"] = time.perf_counter()
         status_code = 200
         first_body_sent = False
 
