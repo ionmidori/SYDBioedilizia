@@ -65,14 +65,18 @@ class Settings(BaseSettings):
     # settings, so switching models is an env change (Cloud Run / .env), not a
     # code change. Pin GA model IDs; never floating aliases (`*-latest`).
     # A guard test fails if a "gemini-" literal appears anywhere else in src/.
+    # Defaults validated on 2026-10-09 with scripts/chat_latency_bench.py +
+    # scripts/chat_quality_ab.py (blind LLM judge, 27 pairs): 3.5 Flash-Lite
+    # (thinking minimal) + 3.8 Flash for quotes (thinking low) preferred 15-9 over
+    # the retired gemini-3.1-flash-lite-preview, higher on helpfulness/rules/clarity.
     CHAT_MODEL_VERSION: str = Field(
-        default="gemini-3.1-flash-lite-preview",
+        default="gemini-3.5-flash-lite",
         description="Fallback model for every text role whose MODEL_<ROLE> is unset.",
     )
     MODEL_ROUTER: str | None = Field(default=None, description="syd_orchestrator (router). Falls back to CHAT_MODEL_VERSION.")
     MODEL_TRIAGE: str | None = Field(default=None, description="triage sub-agent. Falls back to CHAT_MODEL_VERSION.")
     MODEL_DESIGN: str | None = Field(default=None, description="design sub-agent. Falls back to CHAT_MODEL_VERSION.")
-    MODEL_QUOTE: str | None = Field(default=None, description="quote sub-agent. Falls back to CHAT_MODEL_VERSION.")
+    MODEL_QUOTE: str | None = Field(default="gemini-3.8-flash", description="quote sub-agent (multi-step quote flow).")
     MODEL_VISION: str | None = Field(default=None, description="Vision helpers (room analysis, CAD, measurements, video). Falls back to CHAT_MODEL_VERSION.")
     MODEL_INSIGHT: str | None = Field(default=None, description="Quote InsightEngine. Falls back to CHAT_MODEL_VERSION.")
     MODEL_IMAGE: str = Field(
@@ -80,18 +84,20 @@ class Settings(BaseSettings):
         description="Image generation / editing (renders).",
     )
     # Per-role thinking level: minimal | low | medium | high. Unset = model default.
-    THINKING_LEVEL_ROUTER: str | None = Field(default=None)
-    THINKING_LEVEL_TRIAGE: str | None = Field(default=None)
-    THINKING_LEVEL_DESIGN: str | None = Field(default=None)
-    THINKING_LEVEL_QUOTE: str | None = Field(default=None)
+    THINKING_LEVEL_ROUTER: str | None = Field(default="minimal")
+    THINKING_LEVEL_TRIAGE: str | None = Field(default="minimal")
+    THINKING_LEVEL_DESIGN: str | None = Field(default="minimal")
+    THINKING_LEVEL_QUOTE: str | None = Field(default="low")  # 3.8 Flash has no "minimal"
     THINKING_LEVEL_VISION: str | None = Field(default=None)
     THINKING_LEVEL_INSIGHT: str | None = Field(default=None)
     # Per-call limits for the chat agents. Unset = SDK defaults (no timeout, no retry).
     LLM_TIMEOUT_SECONDS: float | None = Field(
-        default=None, description="Per model-call HTTP timeout for chat agents."
+        default=30.0,
+        description="Per model-call HTTP timeout for chat agents. Production calls of the retired "
+                    "preview model reached 35-45s; a bounded call + retry beats an unbounded tail.",
     )
     LLM_RETRY_ATTEMPTS: int | None = Field(
-        default=None, description="Total attempts per model call (1 = no retry) for chat agents."
+        default=2, description="Total attempts per model call (1 = no retry) for chat agents."
     )
     LLM_MAX_OUTPUT_TOKENS: int | None = Field(
         default=None, description="Max output tokens for chat agents."

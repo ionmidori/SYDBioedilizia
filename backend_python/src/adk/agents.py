@@ -36,6 +36,7 @@ from src.prompts.components.identity import (
     CRITICAL_PROTOCOLS,
     IDENTITY,
     OUTPUT_RULES,
+    QUESTION_LIMIT_PROTOCOL,
     REASONING_INSTRUCTIONS,
 )
 from src.prompts.components.modes import MODE_A_DESIGNER, MODE_B_SURVEYOR
@@ -250,6 +251,7 @@ DESIGN_AGENT_INSTRUCTION = "\n\n".join([
     SECURITY_GUARDRAILS,        # 🛡️ LLM Sandwich Defense (top)
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
+    QUESTION_LIMIT_PROTOCOL,    # Una domanda alla volta
     MODE_A_DESIGNER,            # Flusso completo 5 fasi render
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
@@ -262,6 +264,7 @@ QUOTE_AGENT_INSTRUCTION = "\n\n".join([
     SECURITY_GUARDRAILS,        # 🛡️ LLM Sandwich Defense (top)
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
+    QUESTION_LIMIT_PROTOCOL,    # Una domanda alla volta
     MODE_B_SURVEYOR,            # Flusso completo 4 pilastri preventivo
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])

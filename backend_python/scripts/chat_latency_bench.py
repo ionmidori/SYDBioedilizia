@@ -61,6 +61,7 @@ def _dev_token() -> str:
 @dataclass
 class Sample:
     scenario: str
+    run: int
     turn: int
     status: int
     ttfb_ms: float | None
@@ -68,10 +69,12 @@ class Sample:
     total_ms: float | None
     text_chars: int
     error: str | None = None
+    prompt: str = ""
+    response: str = ""
 
 
 def _run_turn(client: httpx.Client, url: str, token: str, session_id: str, text: str,
-              scenario: str, turn: int, timeout: float) -> Sample:
+              scenario: str, run: int, turn: int, timeout: float) -> Sample:
     payload = {
         "messages": [{"id": uuid.uuid4().hex, "role": "user", "content": text}],
         "sessionId": session_id,
@@ -80,6 +83,7 @@ def _run_turn(client: httpx.Client, url: str, token: str, session_id: str, text:
     start = time.perf_counter()
     ttfb = ttft = total = None
     chars = 0
+    parts: list[str] = []
 
     def ms() -> float:
         return round((time.perf_counter() - start) * 1000, 1)
@@ -89,7 +93,7 @@ def _run_turn(client: httpx.Client, url: str, token: str, session_id: str, text:
                            headers=headers, timeout=timeout) as resp:
             if resp.status_code != 200:
                 resp.read()
-                return Sample(scenario, turn, resp.status_code, None, None, ms(), 0,
+                return Sample(scenario, run, turn, resp.status_code, None, None, ms(), 0,
                               error=resp.text[:200])
             for line in resp.iter_lines():
                 if not line:
@@ -106,11 +110,13 @@ def _run_turn(client: httpx.Client, url: str, token: str, session_id: str, text:
                 if chunk.get("type") == "text-delta":
                     delta = str(chunk.get("delta", ""))
                     chars += len(delta)
+                    parts.append(delta)
                     if ttft is None and delta.strip().strip(".").strip():
                         ttft = ms()
-            return Sample(scenario, turn, 200, ttfb, ttft, total or ms(), chars)
+            return Sample(scenario, run, turn, 200, ttfb, ttft, total or ms(), chars,
+                          prompt=text, response="".join(parts))
     except httpx.HTTPError as exc:
-        return Sample(scenario, turn, 0, ttfb, ttft, ms(), chars, error=repr(exc))
+        return Sample(scenario, run, turn, 0, ttfb, ttft, ms(), chars, error=repr(exc))
 
 
 def _pct(values: list[float], p: float) -> float | None:
@@ -160,7 +166,7 @@ def main() -> int:
             for run in range(args.runs):
                 session_id = f"bench-{uuid.uuid4().hex[:16]}"
                 for turn, text in enumerate(SCENARIOS[scenario][: max(1, min(args.turns, 3))]):
-                    s = _run_turn(client, args.url, token, session_id, text, scenario, turn, args.timeout)
+                    s = _run_turn(client, args.url, token, session_id, text, scenario, run, turn, args.timeout)
                     samples.append(s)
                     print(f"{scenario:<11} run={run} turn={turn} status={s.status} "
                           f"ttfb={s.ttfb_ms} ttft={s.ttft_ms} total={s.total_ms} chars={s.text_chars}"

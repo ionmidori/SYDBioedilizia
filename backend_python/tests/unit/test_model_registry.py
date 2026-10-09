@@ -172,3 +172,16 @@ def test_no_hardcoded_gemini_model_ids():
         "Gemini model IDs must come from settings via src/core/models.py "
         "(ModelRole / get_model_id), not literals:\n" + "\n".join(offenders)
     )
+
+
+def test_every_chat_agent_has_bounded_calls_and_thinking_level():
+    """Production defaults: no chat agent may run without a thinking level and a
+    per-call timeout (an unbounded call reached 45s on the retired preview model)."""
+    from src.adk import agents
+
+    for agent in (agents.syd_orchestrator, agents.triage_agent, agents.design_agent, agents.quote_agent):
+        config = agent.generate_content_config
+        assert config is not None, agent.name
+        assert config.thinking_config is not None, agent.name
+        assert config.http_options is not None and config.http_options.timeout, agent.name
+        assert agent.model.retry_options is not None, agent.name
