@@ -1,0 +1,26 @@
+# Alert: p95 time-to-first-text of the chat above 3 s over 10 minutes.
+# SLO from the latency plan: warm p95 < 2 s, cold p95 < 6 s; 3 s on the mix
+# catches regressions (model, streaming, region) without paging on one slow turn.
+displayName: "Chat TTFT p95 > 3s (syd-brain)"
+combiner: OR
+conditions:
+- displayName: "chat_ttft_ms p95 > 3000 ms"
+  conditionThreshold:
+    filter: >-
+      metric.type="logging.googleapis.com/user/chat_ttft_ms"
+      AND resource.type="cloud_run_revision"
+    aggregations:
+    - alignmentPeriod: 600s
+      perSeriesAligner: ALIGN_PERCENTILE_95
+      crossSeriesReducer: REDUCE_MAX
+    comparison: COMPARISON_GT
+    thresholdValue: 3000
+    duration: 0s
+    trigger:
+      count: 1
+documentation:
+  content: >-
+    Chat time-to-first-text p95 is above 3 s. Check the `chat_turn_timing`
+    log lines (queued_ms = cold start, llm_calls = model latency,
+    guardrail_ms = Model Armor) and recent deploys / model changes.
+  mimeType: text/markdown

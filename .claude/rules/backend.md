@@ -9,7 +9,8 @@ paths:
 Frontend -> Backend -> ADK Orchestrator is the ONLY flow. Never bypass tiers.
 
 ## Key Entry Points
-- `main.py` -> `/chat/stream` streaming endpoint
+- `main.py` -> `/chat/stream` streaming endpoint (token streaming; per-turn latency logged as `chat_turn_timing`, see `src/core/chat_timing.py`)
+- Gemini model IDs: ONLY in `src/core/config.py`, resolved by role via `src/core/models.py` (a guard test fails on any `"gemini-` literal elsewhere)
 - `src/adk/adk_orchestrator.py` wraps `google.adk.runners.Runner`
 - `src/adk/agents.py` — triage / design / quote sub-agents + syd_orchestrator router
 - `src/adk/tools.py` — 9 async FunctionTools (session_id required for all)
@@ -58,4 +59,6 @@ MUST maintain 1:1 parity between Pydantic (Python) and TypeScript interfaces.
 
 ## ADK Settings (.env)
 - `ORCHESTRATOR_MODE=vertex_adk`
-- `ADK_LOCATION=europe-west1` (GDPR)
+- `ADK_LOCATION` does NOT select the Gemini region (only a tracing label). The Gemini backend is chosen by the
+  google-genai client from `GOOGLE_GENAI_USE_VERTEXAI` / `GOOGLE_CLOUD_PROJECT` / `GOOGLE_CLOUD_LOCATION`;
+  for EU data residency use `GOOGLE_CLOUD_LOCATION=eu` (europe-west1 does not serve Gemini 3.x) — see `deploy/gemini-vertex-eu.sh`

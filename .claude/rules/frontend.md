@@ -38,7 +38,7 @@ sendMessage({ role: 'user', content: "input" } as any)
 ## State Management
 - URL-driven + SWR for server state
 - Auth: Firebase Client SDK with `AuthProvider` context
-- Chat: Vercel AI SDK (`@ai-sdk/react`) streams from `/chat/stream`
+- Chat: Vercel AI SDK (`@ai-sdk/react`) → Next.js proxy `/api/chat` (`app/api/chat/route.ts`, pass-through SSE) → backend `/chat/stream`. Token streaming end-to-end: never buffer, re-frame or `Connection: close` in the proxy; `MessageItem` must not subscribe to the chat context (re-renders every message per token)
 
 ## Styling (Tailwind 4 + M3 Expressive)
 - Material Design 3 Expressive + Glassmorphism
