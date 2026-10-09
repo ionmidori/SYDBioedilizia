@@ -1,9 +1,8 @@
 import logging
 from typing import Any
 
-from google import genai
 from google.genai import types
-from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 from src.utils.json_parser import extract_json_response
 
 logger = logging.getLogger(__name__)
@@ -56,13 +55,13 @@ async def analyze_image_triage(image_data: bytes) -> dict[str, Any]:
     Uses google-genai SDK with Gemini 3 Flash.
     """
     try:
-        client = genai.Client(api_key=settings.api_key)
+        client = get_genai_client()
 
         logger.info("Performing triage analysis on image (Gemini 2.5 Flash)...")
 
         try:
             response = await client.aio.models.generate_content(
-                model="gemini-3.1-flash-lite-preview",
+                model=get_model_id(ModelRole.VISION),
                 contents=[
                     types.Content(
                         parts=[

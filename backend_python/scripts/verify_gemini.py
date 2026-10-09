@@ -24,7 +24,8 @@ try:
         print(f"⚠️ Warning: .env file not found at {env_path}", flush=True)
 
     # NOW import the module that needs the env var
-    from src.api.gemini_imagen import generate_image_t2i, T2I_MODEL
+    from src.api.gemini_imagen import generate_image_t2i
+    from src.core.models import ModelRole, get_model_id
     print("🔹 Imports successful!", flush=True)
 except Exception as e:
     print(f"❌ Import Error: {e}", flush=True)
@@ -42,19 +43,15 @@ async def main():
         return
 
     print("✅ API Key found.")
-    print(f"🎯 Target Model: {T2I_MODEL}")
+    print(f"🎯 Target Model: {get_model_id(ModelRole.IMAGE)} (MODEL_IMAGE)")
 
     # 2. Test T2I Generation
     print(f"\n🚀 Testing Text-to-Image Generation (CHEAP FLASH MODE)...")
     try:
-        # ⚠️ OVERRIDING MODEL TO FLASH TO PREVENT COSTS
-        CHEAP_MODEL = "gemini-3.1-flash-preview"
-        print(f"💰 Using cheaper model: {CHEAP_MODEL}")
-        
+        # Model comes from MODEL_IMAGE (src/core/models.py): override it via env to test another one.
         result = await generate_image_t2i(
             prompt="A futuristic minimalist chair, white background, studio light",
             negative_prompt="blurry, low quality",
-            model=CHEAP_MODEL # Pass cheaper model if supported
         )
         
         if result.get("success"):

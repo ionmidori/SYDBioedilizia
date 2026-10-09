@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.core.config import settings
+from src.core.models import ModelRole, get_model_id
 
 logging.basicConfig(
     level=logging.INFO,
@@ -120,7 +121,7 @@ def extract_pages(pdf_path: str, start_page: int = 0, end_page: Optional[int] = 
             page_bytes = buf.getvalue()
 
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=get_model_id(ModelRole.VISION),
                 contents=[
                     types.Part.from_bytes(data=page_bytes, mime_type="application/pdf"),
                     "Estrai tutti gli articoli del prezzario da questa pagina.",

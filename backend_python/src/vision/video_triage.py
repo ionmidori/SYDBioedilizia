@@ -14,9 +14,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from google import genai
 from google.genai import types
-from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 from src.models.video_types import VideoMetadata, VideoTriageResult
 from src.utils.json_parser import extract_json_response
 
@@ -220,7 +219,7 @@ async def analyze_video_with_gemini(video_path: str) -> dict[str, Any]:
     Returns:
         Dict with triage analysis results
     """
-    client = genai.Client(api_key=settings.api_key)
+    client = get_genai_client()
 
     try:
         logger.info("Uploading video to Gemini File API...")
@@ -252,7 +251,7 @@ async def analyze_video_with_gemini(video_path: str) -> dict[str, Any]:
 
         # Generate content using video + prompt
         response = await client.aio.models.generate_content(
-            model="gemini-3.1-flash-lite-preview",
+            model=get_model_id(ModelRole.VISION),
             contents=[
                 types.Content(
                     parts=[

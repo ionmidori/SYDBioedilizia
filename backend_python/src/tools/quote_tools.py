@@ -4,10 +4,10 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
-from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import ConversationRepository
 from src.services.insight_engine import InsightEngineError, get_insight_engine
@@ -283,9 +283,9 @@ async def _run_render_structural_vision(
             logger.warning("[StructuralVision] Non-image content-type, skipping.")
             return ""
 
-        client = genai.Client(api_key=settings.api_key)
+        client = get_genai_client()
         response = await client.aio.models.generate_content(
-            model="gemini-3.1-flash-lite-preview",
+            model=get_model_id(ModelRole.VISION),
             contents=genai_types.Content(
                 parts=[
                     genai_types.Part(text=_STRUCTURAL_VISION_PROMPT),

@@ -14,11 +14,11 @@ import logging
 from pathlib import Path
 from typing import Any, Literal
 
-from google import genai
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 
 from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 from src.services.pricing_service import PricingService
 
 logger = logging.getLogger(__name__)
@@ -112,8 +112,8 @@ class InsightEngine:
     _ASSEMBLIES_PATH = Path(__file__).parent.parent / "data" / "renovation_assemblies.json"
 
     def __init__(self, model_name: str | None = None) -> None:
-        self.model_name = model_name or settings.CHAT_MODEL_VERSION
-        self.client = genai.Client(api_key=settings.api_key)
+        self.model_name = model_name or get_model_id(ModelRole.INSIGHT)
+        self.client = get_genai_client()
         self._assemblies: dict[str, Any] | None = None
 
     def _build_price_book_prompt(self) -> str:

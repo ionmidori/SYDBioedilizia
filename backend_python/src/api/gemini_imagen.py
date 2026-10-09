@@ -6,36 +6,22 @@ from typing import Any, cast
 from google import genai
 from google.api_core import exceptions as google_exceptions
 from google.genai import types
-from src.core.config import settings
+from src.core.models import ModelRole, get_genai_client, get_model_id
 
 logger = logging.getLogger(__name__)
 
-# Configure Gemini API via Settings (Robust)
-# GEMINI_API_KEY is now accessed via settings.api_key which handles fallback and validation
-
-# Create client with API key (Lazy)
-_client = None
-
-def _get_client():
-    """Lazy-load GenAI client."""
-    global _client
-    if _client is None:
-        try:
-            api_key = settings.api_key
-            _client = genai.Client(api_key=api_key)
-        except ValueError as e:
-            raise Exception(f"Configuration Error: {e}") from e
-    return _client
-
-# Models for image generation
-T2I_MODEL = "gemini-3.1-flash-image-preview"  # High Efficiency T2I
-I2I_MODEL = "gemini-3.1-flash-image-preview"  # Gemini 3.1 Flash Image (Multimodal I2I)
+def _get_client() -> genai.Client:
+    """Shared GenAI client (backend chosen by settings, see src/core/models.py)."""
+    try:
+        return get_genai_client()
+    except ValueError as e:
+        raise Exception(f"Configuration Error: {e}") from e
 
 
 async def generate_image_t2i(
     prompt: str,
     negative_prompt: str | None = None,
-    model: str = T2I_MODEL,
+    model: str | None = None,
     aspect_ratio: str = "9:16",
 ) -> dict[str, Any]:
     """
@@ -51,6 +37,7 @@ async def generate_image_t2i(
     Raises:
         Exception: If API call fails or no API key configured
     """
+    model = model or get_model_id(ModelRole.IMAGE)
     client = _get_client()
 
     try:
@@ -128,7 +115,7 @@ async def generate_image_i2i(
     keep_elements: list[str] | None = None,
     negative_prompt: str | None = None,
     mime_type: str = "image/jpeg",
-    model: str = I2I_MODEL,
+    model: str | None = None,
     aspect_ratio: str = "9:16",
 ) -> dict[str, Any]:
     """
@@ -147,6 +134,7 @@ async def generate_image_i2i(
     Raises:
         Exception: If API call fails or no API key configured
     """
+    model = model or get_model_id(ModelRole.IMAGE)
     client = _get_client()
 
     try:
@@ -178,7 +166,7 @@ async def generate_image_i2i(
             )
         ]
 
-        logger.info(f"[Gemini] ⏳ Sending I2I request line... model={I2I_MODEL}")
+        logger.info(f"[Gemini] ⏳ Sending I2I request line... model={model}")
 
         # Call API Async with explicit configuration and timeout
         try:
