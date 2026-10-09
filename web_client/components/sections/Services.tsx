@@ -100,7 +100,8 @@ export function Services() {
                     // is the tallest card's content, so all cards match the longest text
                     // at any width, font size or zoom — no hand-measured height. They
                     // must match: a shorter card would show the text of the one it covers.
-                    className="md:hidden relative grid grid-cols-1 auto-rows-[1fr]"
+                    // max-w-md: the same 448px cap as the "Cosa facciamo" cards.
+                    className="md:hidden relative mx-auto grid w-full max-w-md grid-cols-1 auto-rows-[1fr]"
                     // timelineScope exposes each marker's timeline to its card, which is
                     // a sibling of the marker's, not a descendant. --stack-top feeds the
                     // same timeline in app/scroll-animations.css, so layout and
@@ -206,17 +207,17 @@ export function Services() {
                             {/* Icon and title share a row. The icon keeps shrink-0 so a
                                 two-line title cannot squeeze it, and its hover scale is a
                                 transform — it never nudges the title beside it. */}
-                            <div className="flex items-center gap-4 mb-4">
+                            <div className="flex items-center gap-3.5 mb-2.5">
                                 <div className={cn(
-                                    "w-12 h-12 lg:w-14 lg:h-14 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/10 transition-transform duration-500",
+                                    "w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center border border-luxury-gold/10 transition-transform duration-500",
                                     "bg-[radial-gradient(circle_at_30%_20%,rgba(233,196,106,0.14),rgba(38,70,83,0.55)_70%)] text-luxury-teal",
                                     hoveredService === index && "scale-110 shadow-premium"
                                 )}>
-                                    <service.icon className="w-6 h-6 lg:w-7 lg:h-7" />
+                                    <service.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
                                 </div>
 
                                 <h3 className={cn(
-                                    "font-serif text-lg lg:text-2xl font-semibold text-luxury-text transition-colors duration-300",
+                                    "font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-text transition-colors duration-300",
                                     hoveredService === index && "text-luxury-gold"
                                 )}>
                                     {service.title}
@@ -225,7 +226,7 @@ export function Services() {
 
                             {/* /70 rather than /60: at font-light 14–16px over the glass
                                 backdrop, /60 measures 3.8:1 — short of WCAG AA. */}
-                            <p className="text-luxury-text/70 text-sm md:text-base leading-relaxed font-light">
+                            <p className="text-luxury-text/70 text-base leading-relaxed font-light">
                                 {service.description}
                             </p>
                         </motion.div>
@@ -250,7 +251,7 @@ function ServiceCard({
             type="button"
             onClick={onClick}
             className={cn(
-                'group relative flex h-full w-full flex-col justify-center px-5 py-4 text-left m3-shape-xl cinematic-focus',
+                'group relative flex h-full w-full flex-col justify-center p-5 text-left m3-shape-xl cinematic-focus',
                 // Fully opaque, not `surface-container-high` (85% alpha) and not
                 // glassmorphism: at anything below 100% the text of three stacked
                 // cards shows through at once. `.elevated-service-card` keeps that
@@ -262,24 +263,25 @@ function ServiceCard({
         >
             {/* Icon and title on one row — shrink-0 keeps the icon square when a long
                 title wraps to a second line. */}
-            <div className="flex items-center gap-4 mb-3">
+            <div className="flex items-center gap-3.5 mb-2.5">
                 <div className={cn(
-                    'w-12 h-12 shrink-0 rounded-xl flex items-center justify-center border border-luxury-gold/15',
+                    'w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center border border-luxury-gold/15',
                     // Alpha is safe here: the chip sits inside an already-opaque
                     // card, so it only blends with its own parent, not the stack.
                     'bg-gradient-to-br from-luxury-bg/70 to-luxury-bg/40 text-luxury-teal',
                 )}>
-                    <service.icon className="w-6 h-6" />
+                    <service.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
                 </div>
 
-                <h3 className="font-serif text-lg font-semibold text-luxury-text">
+                <h3 className="font-serif text-xl font-semibold leading-tight text-luxury-text">
                     {service.title}
                 </h3>
             </div>
 
             {/* /75 rather than /70: /70 measures 4.47:1 against the card
-                gradient, just short of WCAG AA for this text size. */}
-            <p className="text-luxury-text/75 text-sm leading-relaxed font-light">
+                gradient, just short of WCAG AA. Same 16px as the "Cosa facciamo"
+                cards, as are the title, icon and padding. */}
+            <p className="text-luxury-text/75 text-base leading-relaxed font-light">
                 {service.description}
             </p>
         </button>
