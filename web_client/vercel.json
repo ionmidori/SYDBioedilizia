@@ -1,4 +1,7 @@
 {
+    "regions": [
+        "cdg1"
+    ],
     "ignoreCommand": "bash scripts/vercel-ignore-build.sh",
     "git": {
         "deploymentEnabled": {

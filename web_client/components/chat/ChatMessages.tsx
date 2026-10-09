@@ -9,6 +9,8 @@ import { hasVisibleText } from '@/lib/chat/message-text';
 
 interface ChatMessagesProps {
     messages: Message[];
+    /** Firestore history, used by MessageItem for fields the AI SDK strips. */
+    historyMessages?: Message[];
     isLoading: boolean;
     typingMessage?: string | null;
     sessionId?: string | null;
@@ -26,9 +28,12 @@ interface ChatMessagesProps {
 }
 
 const scrollStyle = { WebkitOverflowScrolling: 'touch' as const };
+// Module-level so MessageItem's memo sees the same function on every render.
+const noopImageClick = () => {};
 
 const ChatMessagesComponent = ({
     messages,
+    historyMessages,
     isLoading,
     typingMessage,
     sessionId,
@@ -39,6 +44,11 @@ const ChatMessagesComponent = ({
     messagesEndRef,
     onFormSubmit
 }: ChatMessagesProps) => {
+
+    const historyById = React.useMemo(
+        () => new Map((historyMessages ?? []).map(m => [m.id, m])),
+        [historyMessages]
+    );
 
     // 🧠 Extract latest reasoning step from data stream
     const latestReasoning = React.useMemo(() => {
@@ -79,8 +89,9 @@ const ChatMessagesComponent = ({
                             key={msg.id || idx}
                             message={msg}
                             sessionId={sessionId || ""}
-                            onImageClick={onImageClick || (() => { })}
+                            onImageClick={onImageClick || noopImageClick}
                             onFormSubmit={onFormSubmit}
+                            historyMessage={msg.id ? historyById.get(msg.id) : undefined}
                         />
                     ))}
                 </AnimatePresence>

@@ -162,3 +162,24 @@ describe('useChatScroll', () => {
         }).not.toThrow();
     });
 });
+
+describe('useChatScroll — streaming updates', () => {
+    it('scrolls smoothly for a new message and instantly while it streams', () => {
+        const spy = jest.fn();
+        Element.prototype.scrollIntoView = spy;
+        const first = [{ id: '1' }];
+        const { result, rerender } = renderHook(
+            ({ messages }) => useChatScroll(messages, true),
+            { initialProps: { messages: first } }
+        );
+        const end = document.createElement('div');
+        (result.current.messagesEndRef as { current: HTMLDivElement | null }).current = end;
+
+        spy.mockClear();
+        act(() => { rerender({ messages: [...first, { id: '2' }] }); });
+        expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: 'smooth' }));
+
+        act(() => { rerender({ messages: [...first, { id: '2', text: 'più testo' }] }); });
+        expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: 'auto' }));
+    });
+});

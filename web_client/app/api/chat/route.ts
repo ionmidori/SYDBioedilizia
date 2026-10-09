@@ -93,11 +93,12 @@ export async function POST(req: Request) {
 
         logger.debug('[Proxy] Forwarding to Python backend:', PYTHON_BACKEND_URL);
 
-        // Forward to Python backend
+        // Forward to Python backend. Keep-alive (the default) lets consecutive
+        // turns reuse the TLS connection to Cloud Run instead of a new handshake
+        // per message.
         const proxyHeaders: Record<string, string> = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${idToken}`,
-            'Connection': 'close', // ⚡ Explicitly disable Keep-Alive upstream
         };
         if (appCheckToken) {
             proxyHeaders['X-Firebase-AppCheck'] = appCheckToken;
@@ -115,7 +116,9 @@ export async function POST(req: Request) {
                 cache: 'no-store', // ⚡ CRITICAL: Disable Next.js buffering
                 headers: proxyHeaders,
                 body: JSON.stringify(pythonPayload),
-                signal: connectAbort.signal,
+                // Client disconnect also cancels the upstream stream, so the
+                // backend stops generating a reply nobody will read.
+                signal: AbortSignal.any([connectAbort.signal, req.signal]),
             });
         } finally {
             clearTimeout(connectTimeout);
@@ -157,34 +160,9 @@ export async function POST(req: Request) {
 
         logger.debug('[Proxy] ✅ Streaming response from Python backend');
 
-        // Tee the stream: log chunks AND forward to client
-        // This helps diagnose if data is flowing through the proxy correctly
-        const { readable: clientStream, writable } = new TransformStream();
-        const writer = writable.getWriter();
-
-        (async () => {
-            try {
-                const reader = pythonResponse.body!.getReader();
-                let totalChunks = 0;
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                        logger.debug(`[Proxy] Stream complete (${totalChunks} chunks sent to client)`);
-                        await writer.close();
-                        break;
-                    }
-                    totalChunks++;
-                    const text = new TextDecoder().decode(value);
-                    logger.debug(`[Proxy] Chunk ${totalChunks}: ${JSON.stringify(text)}`);
-                    await writer.write(value);
-                }
-            } catch (err) {
-                console.error('[Proxy] Stream error:', err);
-                await writer.abort(err);
-            }
-        })();
-
-        return new Response(clientStream, {
+        // Pass the backend SSE body straight through: no re-framing, no
+        // per-chunk copy or decoding.
+        return new Response(pythonResponse.body, {
             status: 200,
             headers: {
                 // AI SDK v7 UI Message Stream protocol (SSE). The backend emits

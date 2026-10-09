@@ -23,42 +23,52 @@ export function useChatTransport({
 
     // -- DYNAMIC HEADERS/BODY RESOLVER --
     // AI SDK v7: transport headers/body can be async functions (Resolvable)
-    const resolveHeaders = useCallback(async (): Promise<Record<string, string>> => {
-        const headers: Record<string, string> = {};
-
-        // Primary: use the managed refreshToken (uses auth.currentUser || user state)
-        let token = await refreshToken();
-
-        // ⚡ Fallback: If refreshToken returned null (e.g. state hasn't re-rendered yet after
-        // anonymous sign-in), try auth.currentUser directly from the Firebase SDK.
-        // This bridges the window between signInAnonymously() resolving and React re-rendering.
-        if (!token && auth.currentUser) {
-            logger.debug('[ChatProvider] refreshToken returned null, falling back to auth.currentUser.getIdToken()');
+    // The ID token comes straight from the Firebase SDK, which caches it and
+    // refreshes it only when it is about to expire. `refreshToken()` is NOT on
+    // this path: it also awaits the `setAuthCookie` server action (a round trip
+    // to Next.js before the chat request could even start), and the cookie is
+    // already kept in sync by AuthProvider on every token change.
+    const getBearerToken = useCallback(async (): Promise<string | null> => {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
             try {
-                token = await auth.currentUser.getIdToken();
-            } catch (fallbackErr) {
-                console.error('[ChatProvider] Fallback getIdToken failed:', fallbackErr);
+                return await currentUser.getIdToken();
+            } catch (err) {
+                console.error('[ChatProvider] getIdToken failed:', err);
             }
         }
+        // Rare: React state holds the user before auth.currentUser is set
+        // (right after signInAnonymously). refreshToken() falls back to it.
+        logger.debug('[ChatProvider] auth.currentUser unavailable, falling back to refreshToken()');
+        return refreshToken();
+    }, [refreshToken]);
+
+    const getAppCheckToken = useCallback(async (): Promise<string | null> => {
+        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK !== 'true' || !appCheck) return null;
+        try {
+            const result = await getToken(appCheck, false);
+            return result.token || null;
+        } catch (err) {
+            console.error('[ChatProvider] App Check token error:', err);
+            return null;
+        }
+    }, []);
+
+    const resolveHeaders = useCallback(async (): Promise<Record<string, string>> => {
+        const headers: Record<string, string> = {};
+        // Independent: fetched in parallel.
+        const [token, appCheckToken] = await Promise.all([getBearerToken(), getAppCheckToken()]);
 
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         } else {
             console.warn('[ChatProvider] ⚠️ No token available for Authorization header — request may fail with 401');
         }
-
-        if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true' && appCheck) {
-            try {
-                const result = await getToken(appCheck, false);
-                if (result.token) {
-                    headers['X-Firebase-AppCheck'] = result.token;
-                }
-            } catch (err) {
-                console.error('[ChatProvider] App Check token error:', err);
-            }
+        if (appCheckToken) {
+            headers['X-Firebase-AppCheck'] = appCheckToken;
         }
         return headers;
-    }, [refreshToken]);
+    }, [getBearerToken, getAppCheckToken]);
 
     // NOTE: DefaultChatTransport does NOT accept `body` as a function.
     // Dynamic body fields must be injected via `prepareSendMessagesRequest`.

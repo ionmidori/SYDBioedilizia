@@ -58,6 +58,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const chatHelpers = useChat({
         id: sessionId,
         transport,
+        // Batch streamed updates: one React render per 50 ms instead of one per
+        // SSE chunk (the whole chat context changes on every update).
+        throttle: 50,
         onData,
         onFinish(message) {
             markChatFinish();
