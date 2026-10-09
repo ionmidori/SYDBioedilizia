@@ -86,8 +86,14 @@ async def filter_agent_output(raw_output: str) -> str:
     return raw_output
 
 
-# Upper bound on the text held back while streaming when the tail contains no
-# whitespace (a long token); keeps memory bounded on pathological output.
+# Streaming holdback. Some leak patterns span several words
+# (`File "/app/src/x.py", line 12`, `Traceback (most recent call last)`), so
+# holding back only the token being written is not enough: the last
+# _STREAM_HOLDBACK_CHARS characters are never released before the next chunk
+# (or the end of the call) lets the patterns see what follows them.
+_STREAM_HOLDBACK_CHARS = 120
+# Upper bound on the text held back when the tail is one very long token;
+# keeps the stream moving on pathological output.
 _MAX_HOLDBACK_CHARS = 200
 
 
@@ -98,9 +104,10 @@ class StreamingOutputGuard:
     two chunks (``mario.rossi@`` + ``example.com``). The guard instead:
 
     - checks the leak patterns against the WHOLE text accumulated so far;
-    - releases text up to the last whitespace only: the token still being
-      written (email, fiscal code, card number, path) is held back until it is
-      complete, so it is never emitted half-way;
+    - releases text only up to the last whitespace AND at least
+      _STREAM_HOLDBACK_CHARS behind the end: the token still being written
+      (email, fiscal code, card number) and multi-word patterns (a traceback
+      `File "...", line N`) are held back until they are complete;
     - once a pattern matches, emits nothing more and reports `tripped`, so the
       caller can retract what was already shown (see `stream_redact`).
     """
@@ -126,8 +133,15 @@ class StreamingOutputGuard:
             self.tripped = True
             logger.warning("Detected potential sensitive data leak in streamed ADK output. Retracting.")
             return ""
-        cut = max(self.raw.rfind(" "), self.raw.rfind("\n"), self.raw.rfind("\t"))
-        safe_end = cut + 1 if cut >= 0 else 0
+        # Last word boundary at least _STREAM_HOLDBACK_CHARS before the end, so a
+        # release never splits a token.
+        limit = len(self.raw) - _STREAM_HOLDBACK_CHARS
+        cut = max(
+            self.raw.rfind(" ", 0, limit),
+            self.raw.rfind("\n", 0, limit),
+            self.raw.rfind("\t", 0, limit),
+        )
+        safe_end = cut + 1 if limit > 0 and cut >= 0 else 0
         safe_end = max(safe_end, len(self.raw) - _MAX_HOLDBACK_CHARS)
         if safe_end <= len(self.emitted):
             return ""

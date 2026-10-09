@@ -27,12 +27,33 @@ from tests.unit.test_adk_orchestrator import (
 # ── StreamingOutputGuard ────────────────────────────────────────────────────
 
 
-def test_guard_holds_back_the_token_being_written():
+LONG = "Per rifare il pavimento servono queste lavorazioni principali: rimozione, massetto, posa. " * 3
+
+
+def test_guard_holds_back_a_trailing_window_and_the_token_being_written():
     guard = StreamingOutputGuard()
-    assert guard.feed("Ciao, il prez") == "Ciao, il "
-    assert guard.feed("zo è 30 €") == "prezzo è 30 "
-    assert guard.finish() == "€"
-    assert guard.emitted == "Ciao, il prezzo è 30 €"
+    released = guard.feed(LONG + "parola_in_corso")
+    # Released text ends on a word boundary and stays >= 120 chars behind.
+    assert released.endswith(" ")
+    assert len(LONG) + len("parola_in_corso") - len(released) >= 120
+    assert guard.finish() == (LONG + "parola_in_corso")[len(released):]
+    assert guard.emitted == LONG + "parola_in_corso"
+
+
+def test_guard_short_replies_are_released_only_at_the_end():
+    guard = StreamingOutputGuard()
+    assert guard.feed("Ciao, il prezzo è 30 €") == ""
+    assert guard.finish() == "Ciao, il prezzo è 30 €"
+
+
+def test_guard_never_releases_a_path_inside_a_multi_word_traceback_line():
+    # Security review: `File "<path>", line N` spans several words; the path
+    # must not be released before ", line N" arrives and the pattern matches.
+    guard = StreamingOutputGuard()
+    released = guard.feed(LONG + 'Errore: File "/app/progetto/moduli/calcolo.py",')
+    released += guard.feed(" line 42 in calcola")
+    assert "calcolo.py" not in released
+    assert guard.tripped
 
 
 def test_guard_never_emits_an_email_split_across_chunks():
@@ -91,9 +112,16 @@ async def test_after_a_retraction_updates_are_sent_as_redact():
     turn = _TurnText()
     turn.feed_partial("dati ")
     await turn.feed_final("Bloccato.")
-    out = turn.feed_partial("Altro testo ")
+    out = turn.feed_partial(LONG)
     assert out[-1]["type"] == "data-redact"
-    assert out[-1]["data"]["text"] == "Bloccato.Altro testo "
+    assert out[-1]["data"]["text"].startswith("Bloccato.Per rifare")
+
+
+async def test_verify_then_stream_mode_sends_text_only_after_the_final_scan():
+    turn = _TurnText(stream=False)
+    assert turn.feed_partial(LONG) == []
+    out = await turn.feed_final(LONG)
+    assert _deltas(out) == LONG
 
 
 async def test_non_streamed_final_is_filtered_as_a_whole():

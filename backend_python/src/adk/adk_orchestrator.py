@@ -66,10 +66,15 @@ class _TurnText:
     the safe text ("stream-then-verify"); after a retraction every update is
     sent as a new redact so the shown message stays authoritative.
 
+    With `stream=False` (OUTPUT_GUARDRAIL_STREAMING off: verify-then-stream)
+    partial chunks are ignored and each model call's text is sent only from the
+    final response, i.e. after Model Armor approved it.
+
     `feed_partial` / `feed_final` return the UI chunks to emit.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, stream: bool = True) -> None:
+        self._stream = stream
         self.text = ""
         self.redacted = False
         self._guard = StreamingOutputGuard()
@@ -91,6 +96,8 @@ class _TurnText:
         return [redact_chunk(self.text)]
 
     def feed_partial(self, chunk: str) -> list[dict[str, Any]]:
+        if not self._stream:
+            return []
         released = self._guard.feed(chunk)
         if self._guard.tripped:
             return self._retract(MASKED_REPLY)
@@ -375,7 +382,7 @@ class ADKOrchestrator(BaseOrchestrator):
 
             if turn is not None:
                 turn.mark("adk_session_ready")
-            turn_text = _TurnText()
+            turn_text = _TurnText(stream=settings.OUTPUT_GUARDRAIL_STREAMING)
             accumulated_tool_calls = []
             # Map tool_name → call_id so we can correlate function_response
             # with the correct call_id (ADK may not preserve call_id on responses)

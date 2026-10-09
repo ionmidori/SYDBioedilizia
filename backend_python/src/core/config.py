@@ -207,6 +207,16 @@ class Settings(BaseSettings):
         default="us-central1",
         description="Regional endpoint for Model Armor API.",
     )
+    OUTPUT_GUARDRAIL_STREAMING: bool = Field(
+        default=True,
+        description="True (stream-then-verify): reply text is streamed as it is generated and "
+                    "the output guardrails (leak filter on the accumulated text, Model Armor on "
+                    "the final response) retract it with a `data-redact` part if they block it — "
+                    "blocked text can be visible for the time it takes to finish the reply. "
+                    "False (verify-then-stream): text is held until Model Armor approved the final "
+                    "response, then sent at once — nothing unscanned is ever shown, but the user "
+                    "waits for the whole reply (no token streaming of text).",
+    )
     MODEL_ARMOR_FAIL_CLOSED: bool = Field(
         default=False,
         description="F-02: when True, a Model Armor API error/timeout BLOCKS the "
