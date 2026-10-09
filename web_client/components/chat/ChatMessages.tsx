@@ -5,6 +5,7 @@ import { MessageItem } from '@/components/chat/MessageItem';
 import { Message } from '@/types/chat'; // ✅ Message interface compatible with AI SDK
 import { ReasoningStep } from '@/types/reasoning'; // 🔥 CoT Types
 import { ThinkingIndicator } from '@/components/chat/ThinkingIndicator';
+import { hasVisibleText } from '@/lib/chat/message-text';
 
 interface ChatMessagesProps {
     messages: Message[];
@@ -53,6 +54,14 @@ const ChatMessagesComponent = ({
     }, [data]);
 
 
+    // With token streaming the reply itself shows progress: hide the "thinking"
+    // indicator as soon as the assistant message has visible text.
+    const lastMessage = messages[messages.length - 1];
+    const assistantIsWriting =
+        lastMessage?.role === 'assistant' &&
+        hasVisibleText(lastMessage.parts as { type: string; text?: unknown; data?: unknown }[] | undefined);
+    const showThinking = isLoading && !assistantIsWriting;
+
     return (
         <div
             ref={messagesContainerRef}
@@ -79,7 +88,7 @@ const ChatMessagesComponent = ({
 
             {/* AI Processing State - Dynamic Status */}
             {/* 🔒 FIX: Strict Loading Gate - Only show when actually loading */}
-            {isLoading && (
+            {showThinking && (
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}

@@ -18,6 +18,7 @@ import Image from 'next/image';
 
 import { Message, ToolInvocation } from '@/types/chat';
 import { logger } from '@/lib/logger';
+import { getVisibleText } from '@/lib/chat/message-text';
 
 interface MessageItemProps {
     message: Message;
@@ -43,10 +44,8 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
     // Helper: Extract text from both old (content) and new (parts[]) formats
     const getMessageText = (msg: Message): string => {
         if (msg.parts && Array.isArray(msg.parts)) {
-            return (msg.parts as { type: string; text?: string }[])
-                .filter((part) => part.type === 'text' && typeof part.text === 'string')
-                .map((part) => part.text as string)
-                .join('');
+            // Honors a `data-redact` retraction sent by the output guardrails.
+            return getVisibleText(msg.parts as { type: string; text?: unknown; data?: unknown }[]);
         }
         if (typeof msg.content === 'string') return msg.content;
         return JSON.stringify(msg.content || '');

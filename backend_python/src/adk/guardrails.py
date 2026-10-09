@@ -173,6 +173,12 @@ def model_armor_after_model(
     Returns:
         Replacement LlmResponse if output is blocked, None to pass through.
     """
+    # Token streaming: ADK runs this callback on every partial chunk too. Scan
+    # only the final aggregated response (one call per model turn, on the whole
+    # text); a block then retracts what was streamed (see redact_chunk).
+    if llm_response.partial is True:
+        return None
+
     service = get_model_armor_service()
     if service is None:
         # Model Armor disabled or misconfigured — pass through

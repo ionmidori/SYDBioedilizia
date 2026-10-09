@@ -15,6 +15,7 @@ import { auth } from '@/lib/firebase';
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
 import { logger } from '@/lib/logger';
 import { markChatFinish, markChatFirstText, markChatSend } from '@/lib/chat/latency';
+import { hasVisibleText } from '@/lib/chat/message-text';
 
 /**
  * ChatProvider
@@ -87,10 +88,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         if (status !== 'streaming') return;
         const last = messages[messages.length - 1];
         if (last?.role !== 'assistant') return;
-        const hasText = last.parts.some(
-            p => p.type === 'text' && p.text.replace(/^\.\.\./, '').trim().length > 0
-        );
-        if (hasText) markChatFirstText();
+        if (hasVisibleText(last.parts)) markChatFirstText();
     }, [messages, status]);
 
     // When an authenticated user logs out, clear the AI SDK messages immediately and

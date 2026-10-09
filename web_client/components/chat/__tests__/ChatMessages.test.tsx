@@ -166,6 +166,21 @@ describe('ChatMessages', () => {
             expect(screen.queryByText('Sto pensando...')).not.toBeInTheDocument();
         });
 
+        it('hides the indicator once streamed assistant text is visible', () => {
+            const streaming = [
+                { id: '1', role: 'user' as const, content: 'Quanto costa?' },
+                {
+                    id: '2',
+                    role: 'assistant' as const,
+                    content: '',
+                    parts: [{ type: 'text', text: 'Il costo indicativo' }],
+                },
+            ];
+            render(<ChatMessages {...defaultProps} isLoading={true} messages={streaming as never} />);
+
+            expect(screen.queryByTestId('thinking-indicator')).not.toBeInTheDocument();
+        });
+
         it('renders no indicator once the turn is over', () => {
             render(<ChatMessages {...defaultProps} isLoading={false} messages={pendingAssistant} />);
 

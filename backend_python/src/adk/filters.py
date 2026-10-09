@@ -84,3 +84,67 @@ async def filter_agent_output(raw_output: str) -> str:
             )
             return _MASKED_REPLY
     return raw_output
+
+
+# Upper bound on the text held back while streaming when the tail contains no
+# whitespace (a long token); keeps memory bounded on pathological output.
+_MAX_HOLDBACK_CHARS = 200
+
+
+class StreamingOutputGuard:
+    """`filter_agent_output` for token streaming, one instance per model call.
+
+    Chunk-by-chunk filtering would let a leak through when it is split across
+    two chunks (``mario.rossi@`` + ``example.com``). The guard instead:
+
+    - checks the leak patterns against the WHOLE text accumulated so far;
+    - releases text up to the last whitespace only: the token still being
+      written (email, fiscal code, card number, path) is held back until it is
+      complete, so it is never emitted half-way;
+    - once a pattern matches, emits nothing more and reports `tripped`, so the
+      caller can retract what was already shown (see `stream_redact`).
+    """
+
+    def __init__(self) -> None:
+        self.raw = ""        # everything received for this model call
+        self.emitted = ""    # what has been released to the client
+        self.tripped = False
+
+    @property
+    def started(self) -> bool:
+        return bool(self.raw)
+
+    def _leaks(self) -> bool:
+        return any(pattern.search(self.raw) for pattern in _LEAK_PATTERNS)
+
+    def feed(self, chunk: str) -> str:
+        """Add a chunk; return the newly releasable text ("" if none)."""
+        if self.tripped or not chunk:
+            return ""
+        self.raw += chunk
+        if self._leaks():
+            self.tripped = True
+            logger.warning("Detected potential sensitive data leak in streamed ADK output. Retracting.")
+            return ""
+        cut = max(self.raw.rfind(" "), self.raw.rfind("\n"), self.raw.rfind("\t"))
+        safe_end = cut + 1 if cut >= 0 else 0
+        safe_end = max(safe_end, len(self.raw) - _MAX_HOLDBACK_CHARS)
+        if safe_end <= len(self.emitted):
+            return ""
+        released = self.raw[len(self.emitted):safe_end]
+        self.emitted += released
+        return released
+
+    def finish(self) -> str:
+        """End of the model call: release the held-back tail if still clean."""
+        if self.tripped:
+            return ""
+        if self._leaks():
+            self.tripped = True
+            return ""
+        tail = self.raw[len(self.emitted):]
+        self.emitted = self.raw
+        return tail
+
+
+MASKED_REPLY = _MASKED_REPLY
