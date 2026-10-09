@@ -114,7 +114,7 @@ function ActivityCard({ activity, index }: { activity: Activity; index: number }
                     </h3>
                 </div>
 
-                {/* /85 on the cream stone measures ~7:1 — comfortably AA. */}
+                {/* /85 on the white marble: AA (≥4.5:1) even over the darkest veins, see globals.css. */}
                 <p className="text-base leading-relaxed text-luxury-bg/85">
                     {activity.description}
                 </p>
