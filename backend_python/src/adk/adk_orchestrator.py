@@ -55,6 +55,17 @@ logger = logging.getLogger(__name__)
 # after the whole reply (and after every agent hop).
 _RUN_CONFIG = RunConfig(streaming_mode=StreamingMode.SSE)
 
+# Strong references to in-flight Firestore saves: the event loop only keeps weak
+# references to tasks, and a save must survive a client disconnect.
+_inflight_saves: set[asyncio.Task[None]] = set()
+
+
+def _save_in_background(coro) -> asyncio.Task[None]:
+    task: asyncio.Task[None] = asyncio.create_task(coro)
+    _inflight_saves.add(task)
+    task.add_done_callback(_inflight_saves.discard)
+    return task
+
 
 class _TurnText:
     """Visible assistant text of one turn, streamed token by token.
@@ -383,6 +394,7 @@ class ADKOrchestrator(BaseOrchestrator):
             if turn is not None:
                 turn.mark("adk_session_ready")
             turn_text = _TurnText(stream=settings.OUTPUT_GUARDRAIL_STREAMING)
+            pending_saves: list[asyncio.Task[None]] = []
             accumulated_tool_calls = []
             # Map tool_name → call_id so we can correlate function_response
             # with the correct call_id (ADK may not preserve call_id on responses)
@@ -599,11 +611,15 @@ class ADKOrchestrator(BaseOrchestrator):
                                                 yield chunk
 
                                             # ── Persist Tool Result to Firestore ──
-                                            persist_started = time.perf_counter()
-                                            try:
-                                                repo = get_conversation_repository()
-                                                content_str = json.dumps(raw_response) if isinstance(raw_response, dict) else str(raw_response)
-                                                await repo.save_message(
+                                            # Saved concurrently: the next model call (which
+                                            # reads this result) must not wait on Firestore.
+                                            # save_message logs and swallows its own errors.
+                                            content_str = (
+                                                json.dumps(raw_response, default=str)
+                                                if isinstance(raw_response, dict) else str(raw_response)
+                                            )
+                                            pending_saves.append(_save_in_background(
+                                                get_conversation_repository().save_message(
                                                     session_id=session_id,
                                                     role="tool",
                                                     content=content_str,
@@ -611,11 +627,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                                     timestamp=datetime.now(UTC),
                                                     user_id=user_id,
                                                 )
-                                                logger.info(f"[Repo] Saved tool result for call_id {call_id}")
-                                            except Exception as e:  # noqa: BLE001
-                                                logger.error(f"Failed to persist tool result: {e}")
-                                            if turn is not None:
-                                                turn.add_persist((time.perf_counter() - persist_started) * 1000)
+                                            ))
 
                                     # ── UiWidget Events (ADK 1.27+) ──
                                 # Tools call tool_context.render_ui_widget(UiWidget(...))
@@ -695,6 +707,12 @@ class ADKOrchestrator(BaseOrchestrator):
                         yield chunk
 
                 # --- LOCAL PERSISTENCE BRIDGE (Save Assistant) ---
+                # Tool results first, so they sort before the assistant message.
+                if pending_saves:
+                    waited = time.perf_counter()
+                    await asyncio.gather(*pending_saves)
+                    if turn is not None:
+                        turn.add_persist((time.perf_counter() - waited) * 1000)
                 full_response = turn_text.text
                 if full_response or accumulated_tool_calls:
                     persist_started = time.perf_counter()

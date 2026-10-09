@@ -1,4 +1,8 @@
+import asyncio
+import hashlib
 import logging
+import time
+from typing import Any
 
 from fastapi import Request, Security
 from fastapi.security import HTTPBearer
@@ -11,6 +15,37 @@ logger = logging.getLogger(__name__)
 
 # Allow optional auth for Dev/Debug scripts (auto_error=False)
 security = HTTPBearer(auto_error=False)
+
+# ── Verified-token cache ─────────────────────────────────────────────────────
+# `verify_id_token(check_revoked=True)` is a network call to Firebase Auth on
+# every request, and the SDK call is synchronous. A token that verified clean is
+# cached (by SHA-256, never the raw token) for AUTH_TOKEN_CACHE_SECONDS, capped
+# at the token's own expiry. Trade-off: a token revoked server-side stays usable
+# for at most that window on this instance. 0 disables the cache.
+_MAX_CACHED_TOKENS = 4096
+_verified_tokens: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+def clear_verified_token_cache() -> None:
+    _verified_tokens.clear()
+
+
+async def _verify_id_token_cached(token: str, cache_seconds: float) -> dict[str, Any]:
+    key = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    now = time.monotonic()
+    cached = _verified_tokens.get(key)
+    if cached is not None and cached[0] > now:
+        return cached[1]
+    # Synchronous SDK call (revocation check = HTTP request): off the event loop.
+    decoded: dict[str, Any] = await asyncio.to_thread(
+        auth.verify_id_token, token, check_revoked=True, clock_skew_seconds=60
+    )
+    ttl = min(cache_seconds, float(decoded.get("exp", 0)) - time.time())
+    if ttl > 0:
+        if len(_verified_tokens) >= _MAX_CACHED_TOKENS:
+            _verified_tokens.pop(next(iter(_verified_tokens)))  # oldest entry
+        _verified_tokens[key] = (now + ttl, decoded)
+    return decoded
 
 
 async def verify_token(req: Request) -> UserSession:
@@ -96,12 +131,9 @@ async def verify_token(req: Request) -> UserSession:
         # Verify the ID token using the Firebase Admin SDK.
         # This performs asymmetric RSA signature verification using public keys
         # cached automatically by the SDK (rotated ~every 6 hours).
-        # We enforce check_revoked=True for strict security (checks against blacklisted tokens).
-        decoded_token = auth.verify_id_token(
-            token,
-            check_revoked=True,
-            clock_skew_seconds=60
-        )
+        # check_revoked=True (revocation list), with a short verified-token
+        # cache: see _verify_id_token_cached.
+        decoded_token = await _verify_id_token_cached(token, settings.AUTH_TOKEN_CACHE_SECONDS)
 
         # Extra Architecture Guard: Explicitly verify that the audience matches our Project ID.
         # Although verify_id_token does this, explicit verification prevents cross-project
@@ -112,7 +144,7 @@ async def verify_token(req: Request) -> UserSession:
             raise AuthError("Invalid audience", detail={"reason": "project_mismatch"})
 
         session = UserSession(
-            uid=decoded_token.get("uid"),
+            uid=decoded_token["uid"],  # always set by verify_id_token
             email=decoded_token.get("email"),
             is_authenticated=True,
             is_anonymous=(decoded_token.get("firebase", {}).get("sign_in_provider") == "anonymous"),

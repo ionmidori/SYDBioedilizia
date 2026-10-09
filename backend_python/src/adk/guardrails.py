@@ -17,6 +17,7 @@ References:
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import time
@@ -95,7 +96,7 @@ def _make_blocked_response(message: str) -> LlmResponse:
     )
 
 
-def model_armor_before_model(
+async def model_armor_before_model(
     callback_context: CallbackContext,
     llm_request: LlmRequest,
 ) -> LlmResponse | None:
@@ -134,7 +135,9 @@ def model_armor_before_model(
     )
 
     started = time.perf_counter()
-    verdict = service.sanitize_prompt(user_text)
+    # The Model Armor client is synchronous: run it off the event loop so a scan
+    # never stalls the other chat streams served by this instance.
+    verdict = await asyncio.to_thread(service.sanitize_prompt, user_text)
     _record_scan(callback_context, "input", started)
 
     if verdict.is_blocked:
@@ -155,7 +158,7 @@ def model_armor_before_model(
     return None
 
 
-def model_armor_after_model(
+async def model_armor_after_model(
     callback_context: CallbackContext,
     llm_response: LlmResponse,
     **kwargs,
@@ -197,7 +200,7 @@ def model_armor_after_model(
     )
 
     started = time.perf_counter()
-    verdict = service.sanitize_response(response_text)
+    verdict = await asyncio.to_thread(service.sanitize_response, response_text)
     _record_scan(callback_context, "output", started)
 
     if verdict.is_blocked:

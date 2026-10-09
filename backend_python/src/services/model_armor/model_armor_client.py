@@ -71,6 +71,9 @@ class ModelArmorService:
         self._template_name = (
             f"projects/{project_id}/locations/{location}/templates/{template_id}"
         )
+        from src.core.config import settings
+
+        self._timeout = settings.MODEL_ARMOR_TIMEOUT_SECONDS
         self._client = self._create_client()
         logger.info(
             "[ModelArmor] Initialized — project=%s location=%s template=%s",
@@ -125,7 +128,11 @@ class ModelArmorService:
                 name=self._template_name,
                 user_prompt_data=modelarmor_v1.DataItem(text=text),
             )
-            response = self._client.sanitize_user_prompt(request=request)
+            # Bounded and not retried: the scan sits on the chat's critical path,
+            # and an error already resolves to a verdict (fail-open by default).
+            response = self._client.sanitize_user_prompt(
+                request=request, timeout=self._timeout, retry=None
+            )
             return self._parse_result(response.sanitization_result)
         except GoogleAPIError as exc:
             logger.warning(
@@ -141,6 +148,11 @@ class ModelArmorService:
                 exc_info=True,
             )
             return self._error_verdict("UNEXPECTED_ERROR")
+
+    def warm_up(self) -> None:
+        """One throwaway scan at startup: fetches the OAuth token and opens the
+        TLS connection, which otherwise cost ~0.8s on a user's first message."""
+        self.sanitize_prompt("ciao")
 
     def sanitize_response(self, text: str) -> SanitizationVerdict:
         """Sanitize a model response via Model Armor API.
@@ -161,7 +173,9 @@ class ModelArmorService:
                 name=self._template_name,
                 model_response_data=modelarmor_v1.DataItem(text=text),
             )
-            response = self._client.sanitize_model_response(request=request)
+            response = self._client.sanitize_model_response(
+                request=request, timeout=self._timeout, retry=None
+            )
             return self._parse_result(response.sanitization_result)
         except GoogleAPIError as exc:
             logger.warning(

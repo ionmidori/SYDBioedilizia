@@ -27,6 +27,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.fixture(autouse=True)
+def _reset_verified_token_cache():
+    """A token verified (or mocked) in one test must not be served from the
+    cache in another."""
+    from src.auth.jwt_handler import clear_verified_token_cache
+
+    clear_verified_token_cache()
+    yield
+    clear_verified_token_cache()
+
+
+@pytest.fixture(autouse=True)
 def _reset_genai_client_cache():
     """get_genai_client() is a process singleton: a client (or mock) created by
     one test must not leak into the next."""

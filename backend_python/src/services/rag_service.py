@@ -125,8 +125,11 @@ class RAGService:
 
             # Pinecone SDK call is synchronous → offload to a thread so it
             # never blocks the asyncio event loop (e.g. concurrent chat streams).
-            response = await asyncio.to_thread(
-                lambda: index.search(**search_kwargs)
+            # Bounded: the search runs inside a chat turn; a timeout returns no
+            # results (the agent falls back) instead of stalling the reply.
+            response = await asyncio.wait_for(
+                asyncio.to_thread(lambda: index.search(**search_kwargs)),
+                timeout=settings.RAG_TIMEOUT_SECONDS,
             )
 
             dict_resp = response.to_dict() if hasattr(response, 'to_dict') else (response or {})
@@ -183,14 +186,13 @@ class RAGService:
         if namespaces is None:
             namespaces = [NAMESPACE_PREZZARIO, NAMESPACE_NORMATIVE]
 
+        # Namespaces are queried concurrently (one round trip instead of N).
+        per_namespace = await asyncio.gather(*(
+            self.search(query=query, top_k=top_k, filter_dict=filter_dict, namespace=ns)
+            for ns in namespaces
+        ))
         all_results: list[dict[str, Any]] = []
-        for ns in namespaces:
-            ns_results = await self.search(
-                query=query,
-                top_k=top_k,
-                filter_dict=filter_dict,
-                namespace=ns,
-            )
+        for ns, ns_results in zip(namespaces, per_namespace, strict=True):
             # Tag each result with its namespace for traceability
             for r in ns_results:
                 r["namespace"] = ns
