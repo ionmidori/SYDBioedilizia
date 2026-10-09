@@ -25,6 +25,19 @@ from google.api_core.exceptions import GoogleAPIError
 logger = logging.getLogger(__name__)
 
 
+def _enum_name(value: object) -> str:
+    """Name of a proto-plus enum value ("MATCH_FOUND").
+
+    proto-plus enums are IntEnum: since Python 3.11 `str()` returns the number
+    ("2"), not "FilterMatchState.MATCH_FOUND". Parsing the verdict from
+    `str()` made every scan look clean on Python 3.14 (production), so Model
+    Armor never blocked anything; on <=3.10 the substring check matched
+    "NO_MATCH_FOUND" too and would have blocked everything.
+    """
+    name = getattr(value, "name", None)
+    return name if isinstance(name, str) else str(value)
+
+
 @dataclass(frozen=True)
 class SanitizationVerdict:
     """Simplified result from Model Armor API call."""
@@ -179,8 +192,9 @@ class ModelArmorService:
         Note: CSAM detection is always enforced by the Model Armor infrastructure
         regardless of filterConfig. It cannot be disabled via template settings.
         """
-        filter_match_state = str(sanitization_result.filter_match_state)
-        is_blocked = "MATCH_FOUND" in filter_match_state
+        filter_match_state = _enum_name(sanitization_result.filter_match_state)
+        # Exact comparison: "MATCH_FOUND" is a substring of "NO_MATCH_FOUND".
+        is_blocked = filter_match_state == "MATCH_FOUND"
 
         # The filter_results map key already identifies which oneof member is
         # set, so read that attribute directly. NOTE: hasattr() cannot detect
@@ -201,7 +215,7 @@ class ModelArmorService:
             attr_name = _KEY_TO_ATTR.get(filter_key)
             sub_result = getattr(filter_value, attr_name, None) if attr_name else None
             if sub_result is not None and hasattr(sub_result, "match_state"):
-                matched_filters[filter_key] = str(sub_result.match_state)
+                matched_filters[filter_key] = _enum_name(sub_result.match_state)
 
         return SanitizationVerdict(
             is_blocked=is_blocked,
