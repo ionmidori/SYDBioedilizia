@@ -223,15 +223,17 @@ class Settings(BaseSettings):
                     "waits for the whole reply (no token streaming of text).",
     )
     AUTH_TOKEN_CACHE_SECONDS: float = Field(
-        default=300.0,
-        description="Cache a verified Firebase ID token (by hash) for this long, capped at its "
-                    "expiry, instead of a revocation-check round trip to Firebase Auth on every "
-                    "request. A revoked token stays usable for at most this window. 0 = off.",
+        default=0.0,
+        description="OFF by default (strict revocation): every request checks revocation with "
+                    "Firebase Auth. When > 0, a verified ID token (by hash) is reused for this "
+                    "long, capped at its expiry, saving that round trip — but a token revoked "
+                    "server-side stays usable for up to this window on an instance.",
     )
     MODEL_ARMOR_TIMEOUT_SECONDS: float = Field(
-        default=2.0,
-        description="Per-scan deadline for Model Armor (no retry). Scans take 0.1-0.8s; on "
-                    "timeout the verdict follows MODEL_ARMOR_FAIL_CLOSED.",
+        default=5.0,
+        description="Overall deadline for one Model Armor scan, transient-error retries "
+                    "included (scans take 0.1-0.8s). Past it the verdict follows "
+                    "MODEL_ARMOR_FAIL_CLOSED, like any other Model Armor error.",
     )
     MODEL_ARMOR_FAIL_CLOSED: bool = Field(
         default=False,
