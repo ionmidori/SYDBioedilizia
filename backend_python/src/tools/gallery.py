@@ -2,57 +2,39 @@ import json
 import logging
 from datetime import timedelta
 
-from firebase_admin import firestore, storage
-from src.utils.context import get_current_user_id
+from src.tools.project_storage import ProjectAccessError, assert_project_owner, iter_project_blobs
 
 logger = logging.getLogger(__name__)
 
-def show_project_gallery(session_id: str, room: str | None = None, status: str | None = None) -> str:
+def show_project_gallery(
+    session_id: str, user_id: str, room: str | None = None, status: str | None = None
+) -> str:
     """
     Displays a visual gallery of project photos and renderings in the chat.
     Use this tool when the user asks to see photos, renderings, or specific rooms.
 
     Args:
-        session_id: The project ID context.
+        session_id: The project ID context (verified session).
+        user_id: The verified caller (ADK tool_context.user_id).
         room: Optional filter for a specific room (e.g., 'cucina', 'bagno', 'soggiorno').
         status: Optional filter for file status (e.g., 'approvato', 'bozza').
 
     Returns:
         A JSON string containing a list of image objects with URLs and metadata.
     """
-    user_id = get_current_user_id()
-    logger.info(f"🖼️ [Tool] show_project_gallery requested for {session_id} (Room: {room}, Status: {status}) by {user_id}")
-
-    if not user_id:
-        return "Error: User not authenticated."
+    logger.info(f"🖼️ [Tool] show_project_gallery requested (Room: {room}, Status: {status})")
 
     try:
-        # 1. SECURITY CHECK: Verify Ownership via Firestore
-        db = firestore.client()
-        project_ref = db.collection("projects").document(session_id)
-        project_snap = project_ref.get()
+        # 1. SECURITY CHECK: the verified caller must own the project.
+        try:
+            assert_project_owner(session_id, user_id)
+        except ProjectAccessError as e:
+            return f"Error: {e}."
 
-        if not project_snap.exists:
-            return "Error: Project not found."
-
-        project_data = project_snap.to_dict() or {}
-        owner_id = project_data.get("user_id") or project_data.get("uid")
-
-        if owner_id != user_id:
-            logger.warning(f"⛔ [Tool] Access Denied: User {user_id} tried to access {session_id}")
-            return "Error: Access Denied."
-
-        # 2. LIST IMAGES from Storage
-        bucket = storage.bucket()
-        prefix = f"projects/{session_id}/"
-
-        blobs = bucket.list_blobs(prefix=prefix)
+        # 2. LIST IMAGES from every storage prefix of the project (uploads, renders)
         gallery_items = []
 
-        for blob in blobs:
-            if blob.name.endswith("/"):
-                continue
-
+        for blob in iter_project_blobs(session_id):
             content_type = blob.content_type or ""
             if not content_type.startswith('image/'):
                 continue

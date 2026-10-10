@@ -7,6 +7,7 @@ Name comes from the function name; description from the docstring.
 Type hints on parameters define the input schema.
 Pydantic validation is enforced via the function's argument types.
 """
+import asyncio
 import logging
 from typing import Any
 
@@ -308,7 +309,12 @@ async def show_project_gallery(session_id: str, tool_context) -> str:
         tool_context: ADK ToolContext injected automatically by the runner.
     """
     from src.tools.gallery import show_project_gallery as _gallery
-    return _gallery(session_id=_trusted_session_id(tool_context, session_id))
+    # Owner = the verified session's user; Firebase SDK calls are sync -> thread.
+    return await asyncio.to_thread(
+        _gallery,
+        session_id=_trusted_session_id(tool_context, session_id),
+        user_id=tool_context.user_id,
+    )
 
 
 # ─── Project Files ───────────────────────────────────────────────────────────
@@ -321,7 +327,9 @@ async def list_project_files(session_id: str, tool_context) -> str:
         tool_context: ADK ToolContext injected automatically by the runner.
     """
     from src.tools.project_files import list_project_files as _lp
-    return _lp(_trusted_session_id(tool_context, session_id))
+    return await asyncio.to_thread(
+        _lp, _trusted_session_id(tool_context, session_id), user_id=tool_context.user_id
+    )
 
 
 # ─── Quote Item Suggestions ──────────────────────────────────────────────────

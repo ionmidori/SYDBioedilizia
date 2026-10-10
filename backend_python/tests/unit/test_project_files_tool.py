@@ -8,16 +8,19 @@ from src.tools.project_files import list_project_files
 MOCK_USER_ID = "user_123"
 MOCK_OTHER_USER_ID = "user_999"
 MOCK_SESSION_ID = "session_abc"
-MOCK_PROJECT_DATA = {"user_id": MOCK_USER_ID, "title": "Test Project"}
+MOCK_PROJECT_DATA = {"userId": MOCK_USER_ID, "title": "Test Project"}
 
 @pytest.fixture
 def mock_context_user(mocker):
-    return mocker.patch("src.tools.project_files.get_current_user_id", return_value=MOCK_USER_ID)
+    """The verified caller (ADK tool_context.user_id), passed explicitly."""
+    return MOCK_USER_ID
 
 @pytest.fixture
 def mock_firebase(mocker):
-    mock_firestore = mocker.patch("src.tools.project_files.firestore.client")
-    mock_storage = mocker.patch("src.tools.project_files.storage.bucket")
+    mock_firestore = mocker.patch("src.tools.project_storage.firestore.client")
+    mock_storage = mocker.patch("src.tools.project_storage.storage.bucket")
+    # One prefix in these tests; the multi-prefix listing has its own test.
+    mocker.patch("src.tools.project_storage.session_storage_prefixes", return_value=("projects/x/",))
     return mock_firestore, mock_storage
 
 def test_list_files_success(mock_context_user, mock_firebase):
@@ -45,7 +48,7 @@ def test_list_files_success(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = [mock_blob]
 
     # Unwrap tool for unit testing
-    result = list_project_files(MOCK_SESSION_ID)
+    result = list_project_files(MOCK_SESSION_ID, MOCK_USER_ID)
 
     assert "image.png" in result
     assert "image/png" in result
@@ -58,10 +61,10 @@ def test_access_denied(mock_context_user, mock_firebase):
     # Mock Project owned by SOMEONE ELSE
     mock_doc = MagicMock()
     mock_doc.exists = True
-    mock_doc.to_dict.return_value = {"user_id": MOCK_OTHER_USER_ID}
+    mock_doc.to_dict.return_value = {"userId": MOCK_OTHER_USER_ID}
     mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
 
-    result = list_project_files(MOCK_SESSION_ID)
+    result = list_project_files(MOCK_SESSION_ID, MOCK_USER_ID)
 
     assert "Access Denied" in result
 
@@ -74,7 +77,7 @@ def test_project_not_found(mock_context_user, mock_firebase):
     mock_doc.exists = False
     mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
 
-    result = list_project_files(MOCK_SESSION_ID)
+    result = list_project_files(MOCK_SESSION_ID, MOCK_USER_ID)
 
     assert "not found" in result.lower()
 
@@ -103,7 +106,7 @@ def test_category_filtering(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = [img_blob, pdf_blob]
 
     # Filter for 'image'
-    result = list_project_files(MOCK_SESSION_ID, category='image')
+    result = list_project_files(MOCK_SESSION_ID, MOCK_USER_ID, category='image')
 
     assert "img.png" in result
     assert "doc.pdf" not in result

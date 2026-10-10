@@ -1,11 +1,10 @@
 import logging
 
-from firebase_admin import firestore, storage
-from src.utils.context import get_current_user_id
+from src.tools.project_storage import ProjectAccessError, assert_project_owner, iter_project_blobs
 
 logger = logging.getLogger(__name__)
 
-def list_project_files(session_id: str, category: str | None = None, limit: int = 20) -> str:
+def list_project_files(session_id: str, user_id: str, category: str | None = None, limit: int = 20) -> str:
     """
     Lists the files available in the current project (images, documents, videos).
 
@@ -13,48 +12,28 @@ def list_project_files(session_id: str, category: str | None = None, limit: int 
     You MUST verify the file list if the user asks about specific plans, photos, or quotes.
 
     Args:
-        session_id: The project ID context.
+        session_id: The project ID context (verified session).
+        user_id: The verified caller (ADK tool_context.user_id).
         category: Optional filter. 'image', 'video', 'document' (pdfs), 'plan' (planimetries).
         limit: Max number of files to return (default 20).
 
     Returns:
         A formatted string list of filenames with their types and URLs.
     """
-    user_id = get_current_user_id()
-    logger.info(f"📂 [Tool] list_project_files requested for {session_id} by {user_id}")
-
-    if not user_id:
-        return "Error: User not authenticated. Cannot access project files."
+    logger.info("📂 [Tool] list_project_files requested")
 
     try:
-        # 1. SECURITY CHECK: Verify Ownership via Firestore
-        db = firestore.client()
-        project_ref = db.collection("projects").document(session_id)
-        project_snap = project_ref.get()
+        # 1. SECURITY CHECK: the verified caller must own the project.
+        try:
+            assert_project_owner(session_id, user_id)
+        except ProjectAccessError as e:
+            return f"Error: {e}."
 
-        if not project_snap.exists:
-            logger.warning(f"⚠️ [Tool] Project {session_id} not found")
-            return "Error: Project not found."
-
-        project_data = project_snap.to_dict() or {}
-        owner_id = project_data.get("user_id") or project_data.get("uid")
-
-        if owner_id != user_id:
-            logger.warning(f"⛔ [Tool] Access Denied: User {user_id} tried to access {session_id} (owned by {owner_id})")
-            return "Error: Access Denied. You do not have permission to view this project's files."
-
-        # 2. LIST FILES from Storage
-        bucket = storage.bucket()
-        prefix = f"projects/{session_id}/" # Standard path structure
-
-        blobs = bucket.list_blobs(prefix=prefix)
+        # 2. LIST FILES from every storage prefix of the project (uploads, renders, PDFs)
         file_list = []
 
         count = 0
-        for blob in blobs:
-            if blob.name.endswith("/"): # Skip folders
-                continue
-
+        for blob in iter_project_blobs(session_id):
             # Filter by category if requested
             content_type = blob.content_type or ""
             filename = blob.name.split("/")[-1]
