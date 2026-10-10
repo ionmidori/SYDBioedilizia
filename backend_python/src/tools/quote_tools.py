@@ -1,5 +1,7 @@
 import asyncio
+import hashlib
 import logging
+from collections import OrderedDict
 from typing import Any
 from urllib.parse import urlparse
 
@@ -16,7 +18,11 @@ from src.services.pricing_service import PricingService
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, save_ai_draft
 from src.utils.datetime_utils import utc_now
-from src.vision.measure_room import format_measurements_for_insight, measure_room_from_photo
+from src.vision.measure_room import (
+    MeasurementError,
+    format_measurements_for_insight,
+    measure_room_from_photo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +145,29 @@ def _extract_vision_context(history: list[dict[str, Any]]) -> str:
     return ""
 
 
+# Measurements per photo (sha256 of the image bytes → formatted block). A photo
+# does not change, but every regeneration of the draft used to re-measure it
+# (40–143 s each). In-process LRU: Cloud Run session affinity keeps a chat on
+# one instance. The key is the content hash, so a hit requires having
+# downloaded the bytes through a valid signed URL first.
+_MEASURE_CACHE_MAX = 128
+_measure_cache: OrderedDict[str, str] = OrderedDict()
+
+
+def _cached_measurement(key: str) -> str | None:
+    value = _measure_cache.get(key)
+    if value is not None:
+        _measure_cache.move_to_end(key)
+    return value
+
+
+def _remember_measurement(key: str, value: str) -> None:
+    _measure_cache[key] = value
+    _measure_cache.move_to_end(key)
+    while len(_measure_cache) > _MEASURE_CACHE_MAX:
+        _measure_cache.popitem(last=False)
+
+
 async def _run_measurement_vision(media_urls: list[str]) -> str:
     """
     Downloads the first accessible image and runs the RoomMeasurementAgent on it.
@@ -166,6 +195,7 @@ async def _run_measurement_vision(media_urls: list[str]) -> str:
             continue
 
         try:
+            # Download FIRST: only a valid signed URL proves access to the photo.
             async with httpx.AsyncClient(timeout=15.0) as http_client:
                 resp = await http_client.get(url)
                 resp.raise_for_status()
@@ -174,11 +204,39 @@ async def _run_measurement_vision(media_urls: list[str]) -> str:
             if not mime_type.startswith("image/"):
                 continue
 
-            measurements = await measure_room_from_photo(resp.content, mime_type)
-            return format_measurements_for_insight(measurements)
+            # Keyed by the image CONTENT, never by its path/URL: a path-keyed
+            # lookup before the download would hand another client's
+            # measurement to anyone who knows (or guesses) the object path,
+            # skipping the signature check (security review of this PR).
+            cache_key = hashlib.sha256(resp.content).hexdigest()
+            cached = _cached_measurement(cache_key)
+            if cached is not None:
+                logger.info("[MeasureRoom] Reusing the measurement of this photo.")
+                return cached
 
+            measurements = await asyncio.wait_for(
+                measure_room_from_photo(resp.content, mime_type),
+                timeout=settings.MEASURE_ROOM_TIMEOUT_SECONDS,
+            )
+            block = format_measurements_for_insight(measurements)
+            _remember_measurement(cache_key, block)
+            return block
+
+        except TimeoutError:
+            # Best-effort: the InsightEngine falls back to Italian averages.
+            logger.warning(
+                "[MeasureRoom] Measurement timed out.",
+                extra={"timeout_s": settings.MEASURE_ROOM_TIMEOUT_SECONDS},
+            )
+            return ""
         except Exception as exc:  # noqa: BLE001
-            logger.warning("[MeasureRoom] Measurement failed for %s: %s", url, exc)
+            # Never log the URL nor str(exc): it is a signed URL (a bearer
+            # credential) and httpx errors embed the request URL.
+            msg = str(exc) if isinstance(exc, MeasurementError) else ""
+            logger.warning(
+                "[MeasureRoom] Measurement failed.",
+                extra={"error_type": type(exc).__name__, "error": msg[:200]},
+            )
             continue
 
     return ""  # No accessible image found — InsightEngine uses defaults
