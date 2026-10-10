@@ -1,23 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { buildCspHeader, generateNonce, isStrictCspPath } from '@/lib/security/csp';
-
-/**
- * Validates a Firebase JWT token's structural validity and expiration.
- */
-function isTokenExpired(token: string): boolean {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3) return true;
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + (4 - (base64.length % 4)) % 4, '=');
-    const payload = JSON.parse(atob(padded)) as Record<string, unknown>;
-    if (typeof payload.exp !== 'number') return true;
-    return Date.now() / 1000 > payload.exp + 10;
-  } catch {
-    return true;
-  }
-}
+import { hasAdminRoleClaim, isTokenExpired } from '@/lib/security/jwt-claims';
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -43,6 +27,20 @@ export function proxy(request: NextRequest) {
     const authToken = request.cookies.get('auth-token');
     if (!authToken || isTokenExpired(authToken.value)) {
       return NextResponse.redirect(new URL('/', request.url));
+    }
+  }
+
+  // 2b. Admin console (Phase 128). UX-only early redirect: the cookie token is
+  //     NOT verified here. The real gate is the backend (`require_admin` on
+  //     every /api/admin route, Firebase-verified token, role=admin claim).
+  const isAdminPath = pathname === '/admin' || pathname.startsWith('/admin/');
+  if (isAdminPath) {
+    const authToken = request.cookies.get('auth-token');
+    if (!authToken || isTokenExpired(authToken.value)) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+    if (!hasAdminRoleClaim(authToken.value)) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 
@@ -79,6 +77,10 @@ export function proxy(request: NextRequest) {
   response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   response.headers.set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(self)');
+  if (isAdminPath) {
+    // Never index the console, even if a URL leaks (robots.txt alone is advisory).
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  }
 
   return response;
 }

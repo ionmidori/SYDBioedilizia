@@ -1,15 +1,15 @@
 import { buildCspHeader, generateNonce, isStrictCspPath } from '../csp';
 
 describe('isStrictCspPath', () => {
-  it.each(['/dashboard', '/dashboard/', '/dashboard/quotes', '/dashboard/abc/files'])(
-    'returns true for dashboard route %s',
+  it.each(['/dashboard', '/dashboard/', '/dashboard/quotes', '/dashboard/abc/files', '/admin', '/admin/quotes', '/admin/quotes/p1'])(
+    'returns true for dynamic route %s',
     (path) => {
       expect(isStrictCspPath(path)).toBe(true);
     }
   );
 
-  it.each(['/', '/blog', '/faq', '/dashboardfoo', '/auth/verify', '/privacy'])(
-    'returns false for non-dashboard route %s',
+  it.each(['/', '/blog', '/faq', '/dashboardfoo', '/administrator', '/auth/verify', '/privacy'])(
+    'returns false for static route %s',
     (path) => {
       expect(isStrictCspPath(path)).toBe(false);
     }
