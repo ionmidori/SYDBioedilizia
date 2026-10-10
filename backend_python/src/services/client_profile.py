@@ -18,6 +18,7 @@ from src.db.firebase_client import get_async_firestore_client
 from src.schemas.quote import ClientSnapshot
 
 logger = logging.getLogger(__name__)
+# Logs carry no uid or contact data (CodeQL py/clear-text-logging).
 
 GUEST_UID_PREFIX = "guest_"
 
@@ -45,8 +46,8 @@ async def get_client_profile(uid: str) -> ClientProfile:
         name = user_record.display_name or ""
         # Anonymous Firebase users have no linked provider.
         is_guest = not user_record.provider_data
-    except Exception:  # noqa: BLE001 — profile lookup is best-effort by contract
-        logger.warning("[ClientProfile] Firebase Auth lookup failed", extra={"uid": uid})
+    except Exception as exc:  # noqa: BLE001 — profile lookup is best-effort by contract
+        logger.warning("[ClientProfile] Firebase Auth lookup failed", extra={"error_type": type(exc).__name__})
 
     try:
         db = get_async_firestore_client()
@@ -55,8 +56,8 @@ async def get_client_profile(uid: str) -> ClientProfile:
         phone = data.get("phone") or ""
         name = name or data.get("displayName") or data.get("name") or ""
         email = email or data.get("email") or ""
-    except Exception:  # noqa: BLE001 — profile lookup is best-effort by contract
-        logger.warning("[ClientProfile] Firestore lookup failed", extra={"uid": uid})
+    except Exception as exc:  # noqa: BLE001 — profile lookup is best-effort by contract
+        logger.warning("[ClientProfile] Firestore lookup failed", extra={"error_type": type(exc).__name__})
 
     return ClientProfile(name=name, email=email, phone=phone, is_guest=is_guest and not email)
 

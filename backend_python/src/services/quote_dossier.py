@@ -26,6 +26,8 @@ from src.tools.project_storage import iter_project_blobs
 from src.utils.download import storage_path_from_url
 
 logger = logging.getLogger(__name__)
+# Logs carry no project/session/user ids: the project id is the chat session
+# id, an access token for guests (CodeQL py/clear-text-logging).
 
 _LABELS: dict[str, str] = {"input_photo": "Foto", "render": "Render", "video": "Video"}
 
@@ -115,13 +117,13 @@ def build_media(blobs: list[BlobInfo], session_id: str, render_sources: dict[str
 async def collect_media(db: Any, project_id: str) -> list[MediaRef]:
     try:
         blobs = await asyncio.to_thread(_list_blobs_sync, project_id)
-    except Exception:  # noqa: BLE001 — dossier enrichment is best-effort by contract
-        logger.warning("[QuoteDossier] Storage listing failed", extra={"project_id": project_id})
+    except Exception as exc:  # noqa: BLE001 — dossier enrichment is best-effort by contract
+        logger.warning("[QuoteDossier] Storage listing failed", extra={"error_type": type(exc).__name__})
         return []
     try:
         sources = await _render_sources(db, project_id)
-    except Exception:  # noqa: BLE001 — render→photo links are optional
-        logger.warning("[QuoteDossier] Files metadata read failed", extra={"project_id": project_id})
+    except Exception as exc:  # noqa: BLE001 — render→photo links are optional
+        logger.warning("[QuoteDossier] Files metadata read failed", extra={"error_type": type(exc).__name__})
         sources = {}
     return build_media(blobs, project_id, sources)
 
@@ -153,8 +155,8 @@ def request_details_from_session(session: dict[str, Any]) -> dict[str, Any]:
 async def collect_request_details(db: Any, session_id: str) -> dict[str, Any]:
     try:
         snap = await db.collection("sessions").document(session_id).get()
-    except Exception:  # noqa: BLE001 — dossier enrichment is best-effort by contract
-        logger.warning("[QuoteDossier] Session read failed", extra={"project_id": session_id})
+    except Exception as exc:  # noqa: BLE001 — dossier enrichment is best-effort by contract
+        logger.warning("[QuoteDossier] Session read failed", extra={"error_type": type(exc).__name__})
         return {}
     return request_details_from_session((snap.to_dict() or {}) if snap.exists else {})
 
