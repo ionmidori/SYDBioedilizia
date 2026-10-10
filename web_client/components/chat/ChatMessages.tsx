@@ -88,11 +88,10 @@ const ChatMessagesComponent = ({
             className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-luxury-gold/20 scrollbar-track-transparent overscroll-contain touch-pan-y"
             style={scrollStyle}
         >
-            <motion.div
-                layout
-                className="flex flex-col space-y-6"
-            >
-                <AnimatePresence initial={false} mode="popLayout">
+            {/* No `layout` / popLayout: messages never reorder, and layout (FLIP)
+                animations scale content on every height change while a reply streams. */}
+            <div className="flex flex-col space-y-6">
+                <AnimatePresence initial={false}>
                     {messages.map((msg, idx) => (
                         <MessageItem
                             key={msg.id || idx}
@@ -105,7 +104,7 @@ const ChatMessagesComponent = ({
                         />
                     ))}
                 </AnimatePresence>
-            </motion.div>
+            </div>
 
             {/* AI Processing State - Dynamic Status */}
             {/* 🔒 FIX: Strict Loading Gate - Only show when actually loading */}
