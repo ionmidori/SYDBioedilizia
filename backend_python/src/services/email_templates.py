@@ -112,6 +112,7 @@ def client_quote_email(
     valid_until: datetime.date | datetime.datetime | None = None,
     revision: int = 1,
     has_attachment: bool = True,
+    admin_message: str | None = None,
 ) -> EmailContent:
     name = one_line(client_name)
     greeting = f"Gentile {name}," if name else "Gentile Cliente,"
@@ -131,6 +132,8 @@ def client_quote_email(
         "e importi e lavorazioni possono variare."
     )
     url = dashboard_quotes_url()
+    # Optional note typed by the admin in the Send dialog (plain text, escaped).
+    note = (admin_message or "").strip()
 
     text = "\n".join(
         [
@@ -143,6 +146,7 @@ def client_quote_email(
             "",
             f"IMPORTANTE: {notice}",
             "",
+            *(["Messaggio dal nostro team:", note, ""] if note else []),
             f"Area riservata: {url}",
             "",
             f"Per qualsiasi domanda rispondi a questa email o chiamaci al {COMPANY.phone}.",
@@ -161,6 +165,11 @@ def client_quote_email(
         + "</p>"
         '<p style="background:#FFF8E1;border:1px solid #C9A84C;border-radius:6px;padding:12px;font-size:13px;">'
         f"<strong>Importante:</strong> {escape(notice)}</p>"
+        + (
+            f'<p><strong>Messaggio dal nostro team:</strong><br>{escape(note).replace(chr(10), "<br>")}</p>'
+            if note
+            else ""
+        )
         + _button(url, "Apri la tua area riservata")
         + f"<p>Per qualsiasi domanda rispondi a questa email o chiamaci al {escape(COMPANY.phone)}.</p>"
         f"<p>Cordiali saluti,<br>{escape(COMPANY.name)}</p>",

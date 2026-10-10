@@ -146,6 +146,40 @@ class QuoteRevision(BaseModel):
     created_at: datetime = Field(default_factory=utc_now)
 
 
+DeliveryRecordStatusType = Literal["queued", "sent", "delivered", "bounced", "complained", "failed"]
+
+
+class DeliveryEventRecord(BaseModel):
+    """A provider-reported outcome stored on the delivery (webhook)."""
+    model_config = {"extra": "forbid"}
+    event: str
+    at: datetime
+    detail: str | None = Field(default=None)
+
+
+class QuoteDelivery(BaseModel):
+    """projects/{pid}/private_data/quote/deliveries/{delivery_id}: one send of
+    the approved PDF to one recipient (immutable recipient, mutable outcome)."""
+    model_config = {"extra": "forbid"}
+    delivery_id: str
+    to: str
+    cc: list[str] = Field(default_factory=list)
+    subject: str | None = Field(default=None, description="Subject override (else the template subject)")
+    message: str | None = Field(default=None, description="Optional note from the admin, added to the body")
+    revision: int = Field(..., ge=1)
+    pdf_blob_path: str
+    status: DeliveryRecordStatusType = "queued"
+    provider: str
+    provider_message_id: str | None = Field(default=None)
+    attempts: int = 0
+    last_error: str | None = Field(default=None, description="Error type only — never the message body")
+    events: list[DeliveryEventRecord] = Field(default_factory=list)
+    created_by: str
+    created_at: datetime
+    sent_at: datetime | None = Field(default=None)
+    updated_at: datetime | None = Field(default=None)
+
+
 class QuoteSchema(BaseModel):
     id: str | None = None
     # Discriminator for the `private_data` collection-group query (admin inbox).
@@ -176,6 +210,8 @@ class QuoteSchema(BaseModel):
     pdf_url: str | None = None
     pdf_blob_path: str | None = None
     pdf_revision: int | None = None
+    last_delivery_id: str | None = None
+    sent_at: datetime | None = None
     admin_decision: str | None = None
     reviewed_by: str | None = None
     started_by: str | None = None

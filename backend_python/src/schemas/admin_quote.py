@@ -7,9 +7,16 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from src.schemas.quote import MediaRef, QuoteDeliveryStatusType, QuoteItem, QuoteSchema, QuoteStatusType
+from src.schemas.quote import (
+    DeliveryRecordStatusType,
+    MediaRef,
+    QuoteDeliveryStatusType,
+    QuoteItem,
+    QuoteSchema,
+    QuoteStatusType,
+)
 
 
 class AdminMe(BaseModel):
@@ -64,6 +71,23 @@ class RevisionSummary(BaseModel):
     change_count: int = 0
 
 
+class DeliverySummary(BaseModel):
+    """One send of the quote, newest first in the dossier."""
+    delivery_id: str
+    to: str
+    cc: list[str] = Field(default_factory=list)
+    revision: int
+    status: DeliveryRecordStatusType
+    provider: str
+    attempts: int = 0
+    last_error: str | None = None
+    created_by: str
+    created_at: datetime | None = None
+    sent_at: datetime | None = None
+    last_event: str | None = None
+    last_event_at: datetime | None = None
+
+
 class QuoteDossier(BaseModel):
     project_id: str
     project_name: str | None = None
@@ -73,6 +97,7 @@ class QuoteDossier(BaseModel):
     client_profile_changed: bool = False
     media: list[DossierMedia] = Field(default_factory=list)
     revisions: list[RevisionSummary] = Field(default_factory=list)
+    deliveries: list[DeliverySummary] = Field(default_factory=list)
 
 
 class EditQuoteBody(BaseModel):
@@ -103,3 +128,31 @@ class MediaUrlResponse(BaseModel):
     url: str
     filename: str = ""
     expires_in_seconds: int = 900
+
+
+class SendDefaults(BaseModel):
+    """What the Send dialog pre-fills: the admin can change every field."""
+    to: str | None = None
+    to_source: str = Field(..., description="snapshot | profile | none")
+    subject: str
+    body_preview: str
+    attachment_name: str
+    revision: int
+    pdf_ready: bool
+
+
+class SendQuoteBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    to: EmailStr
+    cc: list[EmailStr] = Field(default_factory=list, max_length=3)
+    subject: str | None = Field(default=None, min_length=3, max_length=200)
+    message: str | None = Field(default=None, max_length=2000)
+
+
+class SendQuoteResponse(BaseModel):
+    project_id: str
+    delivery_id: str
+    status: QuoteStatusType
+    delivery_status: DeliveryRecordStatusType
+    quote_number: str | None = None
+    duplicate: bool = Field(False, description="True when the Idempotency-Key was already used")

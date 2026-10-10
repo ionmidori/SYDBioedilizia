@@ -25,6 +25,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'projects/p1/private_data/quote/revisions/1'), { version: 1, actor_kind: 'ai' });
   await setDoc(doc(db, 'projects/p1/private_data/quote/deliveries/d1'), { to: 'owner@example.it' });
   await setDoc(doc(db, 'counters/quote_2026'), { next: 2 });
+  await setDoc(doc(db, 'email_outbox/o1'), { kind: 'quote_delivery', status: 'pending' });
+  await setDoc(doc(db, 'email_messages/m1'), { project_id: 'p1', delivery_id: 'd1' });
 });
 
 const owner = env.authenticatedContext('owner', google).firestore();
@@ -51,6 +53,10 @@ const cases = [
   ['owner lists quote deliveries', false, () => getDocs(collection(owner, 'projects/p1/private_data/quote/deliveries'))],
   ['user reads number counter', false, () => getDoc(doc(owner, 'counters/quote_2026'))],
   ['user bumps number counter', false, () => setDoc(doc(owner, 'counters/quote_2026'), { next: 1 })],
+  // email outbox (Phase 128 Fase 4): backend-only, never readable or writable by clients
+  ['user reads email outbox', false, () => getDoc(doc(owner, 'email_outbox/o1'))],
+  ['user enqueues an email', false, () => setDoc(doc(owner, 'email_outbox/o2'), { kind: 'admin_notification' })],
+  ['user reads message index', false, () => getDoc(doc(owner, 'email_messages/m1'))],
 ];
 
 let failed = 0;

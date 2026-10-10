@@ -232,3 +232,12 @@ class MediaNotFoundError(ResourceNotFound):
 
     def __init__(self, media_id: str) -> None:
         super().__init__(message="Media not found for this quote.", detail={"media_id": media_id})
+
+
+class IdempotencyKeyRequiredError(AppException):
+    """A send was requested without an Idempotency-Key header."""
+    status_code = 428
+    error_code = "IDEMPOTENCY_KEY_REQUIRED"
+
+    def __init__(self) -> None:
+        super().__init__(message="Send a unique Idempotency-Key header (8-128 chars) with every send request.")

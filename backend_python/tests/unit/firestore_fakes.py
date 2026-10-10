@@ -34,6 +34,10 @@ class FakeDocRef:
     def reference(self) -> FakeDocRef:
         return self
 
+    @property
+    def id(self) -> str:
+        return self.path[-1]
+
     async def get(self, transaction: FakeTransaction | None = None) -> FakeSnapshot:
         if transaction is not None:
             transaction.record_read(self.path)
@@ -71,11 +75,33 @@ class FakeCollection:
         self._db = db
         self.path = path
 
-    def document(self, doc_id: str) -> FakeDocRef:
+    def document(self, doc_id: str | None = None) -> FakeDocRef:
+        if doc_id is None:  # auto-id, like Firestore's collection.document()
+            self._db.auto_ids += 1
+            doc_id = f"auto{self._db.auto_ids:04d}"
         return FakeDocRef(self._db, (*self.path, doc_id))
 
     _order: tuple[str, bool] | None = None
     _limit: int | None = None
+    _filters: tuple[tuple[str, str, Any], ...] = ()
+
+    def where(self, *args: Any, filter: Any = None) -> FakeCollection:
+        clone = FakeCollection(self._db, self.path)
+        clone._order, clone._limit = self._order, self._limit
+        condition = (filter.field_path, filter.op_string, filter.value) if filter is not None else tuple(args)
+        clone._filters = (*self._filters, condition)
+        return clone
+
+    def _matches(self, data: dict[str, Any]) -> bool:
+        for field, op, value in self._filters:
+            actual = data.get(field)
+            if op == "==" and actual != value:
+                return False
+            if op == "<=" and (actual is None or actual > value):
+                return False
+            if op == "in" and actual not in value:
+                return False
+        return True
 
     def limit(self, n: int) -> FakeCollection:
         self._limit = n
@@ -88,7 +114,9 @@ class FakeCollection:
     async def stream(self):
         depth = len(self.path) + 1
         paths = [
-            p for p in sorted(self._db.docs) if len(p) == depth and p[: len(self.path)] == self.path
+            p
+            for p in sorted(self._db.docs)
+            if len(p) == depth and p[: len(self.path)] == self.path and self._matches(self._db.docs[p])
         ]
         if self._order:
             field, desc = self._order
@@ -100,6 +128,7 @@ class FakeCollection:
 class FakeDb:
     def __init__(self) -> None:
         self.docs: dict[tuple[str, ...], dict[str, Any]] = {}
+        self.auto_ids = 0
 
     def collection(self, name: str) -> FakeCollection:
         return FakeCollection(self, (name,))

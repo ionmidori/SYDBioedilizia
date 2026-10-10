@@ -36,6 +36,7 @@ class AuditAction(StrEnum):
     QUOTE_EDIT = "quote.edit"
     QUOTE_REOPEN = "quote.reopen"
     QUOTE_PDF = "quote.pdf"
+    QUOTE_SEND = "quote.send"
     RETENTION_CLEANUP = "admin.retention_cleanup"
 
 

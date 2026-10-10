@@ -4,6 +4,7 @@ BatchService tests — PR 2 (chat quote submit).
 The service is the single submission path shared by the REST routes and the
 chat tool submit_quote_request. Logic extracted 1:1 from batch_routes.py.
 """
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -121,13 +122,12 @@ class TestSubmitBatch:
         db, batch_ref, quote_refs = _make_db(
             {}, {"p1": _doc(True, {})}, batch_doc=_doc(True, self._batch_data()),
         )
-        notify = AsyncMock(return_value="✅ ok")
+        notify = AsyncMock()
 
         with (
             patch("src.services.batch_service.get_async_firestore_client", return_value=db),
-            patch("src.services.batch_service.NotificationService") as svc,
+            patch("src.services.batch_service._notify_admin", new=notify),
         ):
-            svc.return_value.notify_admin_quote_ready = notify
             summary = await batch_service.submit_batch(USER, "batch-1")
 
         assert summary.status == "submitted"
@@ -137,10 +137,9 @@ class TestSubmitBatch:
         # batch → submitted
         batch_update = batch_ref.update.await_args.args[0]
         assert batch_update["status"] == "submitted"
-        # admin notified (fire-and-forget task created with correct args)
-        notify.assert_called_once()
-        assert notify.call_args.kwargs["project_id"] == "batch-1"
-        assert notify.call_args.kwargs["grand_total"] == 122.0
+        # admin notified through the outbox, with the batch total (never the batch id)
+        notify.assert_awaited_once()
+        assert notify.await_args.args[2] == 122.0
 
 
     async def test_admin_email_gets_number_client_and_summary_of_each_quote(self):
@@ -155,16 +154,15 @@ class TestSubmitBatch:
         db, _, _ = _make_db(
             {}, {"p1": _doc(True, stored)}, batch_doc=_doc(True, self._batch_data()),
         )
-        notify = AsyncMock(return_value="✅ ok")
+        notify = AsyncMock()
 
         with (
             patch("src.services.batch_service.get_async_firestore_client", return_value=db),
-            patch("src.services.batch_service.NotificationService") as svc,
+            patch("src.services.batch_service._notify_admin", new=notify),
         ):
-            svc.return_value.notify_admin_quote_ready = notify
             await batch_service.submit_batch(USER, "batch-1")
 
-        digests = notify.call_args.kwargs["quotes"]
+        digests = notify.await_args.args[1]
         assert [(d.quote_number, d.client_name, d.grand_total, d.summary) for d in digests] == [
             ("PRV-2026-0042", "Mario Rossi", 816.91, "Pittura cucina")
         ]
@@ -192,7 +190,45 @@ class TestSubmitBatch:
         )
         with (
             patch("src.services.batch_service.get_async_firestore_client", return_value=db),
-            patch("src.services.batch_service.NotificationService"),
+            patch("src.services.batch_service._notify_admin", new=AsyncMock()),
         ):
             summary = await batch_service.submit_batch(USER, "batch-1", is_admin=True)
         assert summary.status == "submitted"
+
+
+
+class TestNotifyAdmin:
+    """The admin email goes through the outbox (recorded, then sent in the
+    background; the sweeper is the safety net)."""
+
+    async def test_queues_the_rendered_email_and_dispatches_it(self, monkeypatch):
+        monkeypatch.setattr(batch_service.settings, "ADMIN_EMAIL", "admin@syd.it")
+        enqueue = AsyncMock(return_value="out-1")
+        dispatch = AsyncMock(return_value="sent")
+        digest = batch_service.RequestDigest(
+            quote_number="PRV-2026-0042", client_name="Mario Rossi", client_email="m@x.it",
+            client_is_guest=False, grand_total=816.91, summary="Pittura",
+        )
+        with (
+            patch("src.services.batch_service.enqueue_message", new=enqueue),
+            patch("src.services.batch_service.dispatch_one", new=dispatch),
+        ):
+            await batch_service._notify_admin(MagicMock(), [digest], 816.91)
+            await asyncio.gather(*batch_service._background_tasks)
+
+        kwargs = enqueue.await_args.kwargs
+        assert kwargs["kind"] == "admin_notification" and kwargs["to"] == "admin@syd.it"
+        assert kwargs["subject"] == "[SYD] Nuova richiesta PRV-2026-0042 da Mario Rossi (€ 816,91)"
+        dispatch.assert_awaited_once()
+        assert dispatch.await_args.args[1] == "out-1"
+
+    async def test_skips_without_an_admin_address(self, monkeypatch):
+        monkeypatch.setattr(batch_service.settings, "ADMIN_EMAIL", None)
+        with patch("src.services.batch_service.enqueue_message", new=AsyncMock()) as enqueue:
+            await batch_service._notify_admin(MagicMock(), [], 10.0)
+        enqueue.assert_not_called()
+
+    async def test_queue_failure_never_breaks_the_submission(self, monkeypatch):
+        monkeypatch.setattr(batch_service.settings, "ADMIN_EMAIL", "admin@syd.it")
+        with patch("src.services.batch_service.enqueue_message", new=AsyncMock(side_effect=RuntimeError("down"))):
+            await batch_service._notify_admin(MagicMock(), [], 10.0)  # does not raise

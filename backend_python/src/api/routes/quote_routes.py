@@ -41,8 +41,9 @@ from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteItem, QuoteSchema
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.services.client_profile import get_client_profile
-from src.services.notification_service import NotificationService
-from src.services.pdf_service import PdfService, resolve_validity
+from src.services.email import get_email_provider
+from src.services.email.outbox import dispatch_one, enqueue_quote_delivery
+from src.services.pdf_service import PdfService
 from src.services.pricing_service import PricingService
 from src.utils.datetime_utils import utc_now
 
@@ -142,6 +143,7 @@ _CLIENT_HIDDEN_FIELDS = (
     "client_snapshot",
     "review",  # admin uids, lock and approval metadata
     "pdf_revision",
+    "last_delivery_id",  # outbox/delivery internals
 )
 
 
@@ -373,39 +375,39 @@ async def _run_quote_approval(
             # The blob path powers the client area "Preventivi" section:
             # GET /quote/{id}/pdf mints fresh short-lived signed URLs from it.
             await quote_ref.update({"pdf_url": pdf_url, "pdf_blob_path": pdf_blob_path})
-            logger.info("PDF generated and saved.", extra={"project_id": project_id, "pdf_url": pdf_url[:80]})
+            logger.info("PDF generated and saved.", extra={"quote_number": quote_data.get("quote_number") or "-"})
 
-            # 3. Deliver to client (fire-and-forget — don't block the response).
-            #    Recipient = the PROJECT OWNER's email (from Firebase Auth),
-            #    not the admin performing the approval.
+            # 3. Deliver to client. Recipient = the PROJECT OWNER's email (from
+            #    Firebase Auth), not the admin performing the approval.
             owner_uid = await _resolve_project_owner_uid(project_id)
             client_email = ""
-            client_name = (quote_data.get("client_snapshot") or {}).get("display_name") or ""
             if owner_uid:
                 user_profile = await _get_user_profile(owner_uid)
                 client_email = user_profile["email"]
-                client_name = user_profile["name"] or client_name
             else:
                 logger.warning(
                     "Cannot resolve project owner for delivery.",
                     extra={"project_id": project_id},
                 )
-            grand_total = quote_data.get("financials", {}).get("grand_total", 0.0)
             if client_email:
-                notification = NotificationService()
-                asyncio.create_task(
-                    notification.deliver_quote_to_client(
-                        project_id=project_id,
-                        pdf_url=pdf_url,
-                        client_email=client_email,
-                        quote_total=grand_total,
-                        pdf_bytes=pdf_bytes,
-                        quote_number=quote_data.get("quote_number"),
-                        client_name=client_name or None,
-                        revision=int(quote_data.get("version") or 1),
-                        valid_until=resolve_validity(quote_data)[2],
-                    )
+                # Phase 128: through the transactional outbox (recorded with
+                # the quote -> sent transition, retried by the sweeper), no
+                # longer a fire-and-forget task nor n8n. The PDF blob path makes
+                # the idempotency key unique per approval.
+                db = get_async_firestore_client()
+                queued = await enqueue_quote_delivery(
+                    db,
+                    project_id,
+                    to=client_email,
+                    cc=[],
+                    subject=None,
+                    message=None,  # admin notes are already printed on the PDF
+                    actor=actor_uid,
+                    idempotency_key=f"approve:{pdf_blob_path}",
+                    now=utc_now(),
                 )
+                if not queued.duplicate:
+                    await dispatch_one(db, queued.delivery_id, get_email_provider())
         except Exception:
             # PDF/delivery failure must not break the approval response
             logger.error(
