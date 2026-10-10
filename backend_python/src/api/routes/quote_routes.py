@@ -124,6 +124,22 @@ def _is_admin(user_session: UserSession) -> bool:
     return has_admin_role(user_session)
 
 
+# Review/pipeline metadata the client must never receive: who reviewed or
+# started the review, the raw decision, and Storage locations / long-lived
+# signed URLs (the client downloads the PDF via GET /{id}/pdf, 15-min URL).
+_CLIENT_HIDDEN_FIELDS = ("reviewed_by", "started_by", "admin_decision", "pdf_url", "pdf_blob_path")
+
+
+def _strip_internal_fields(data: dict) -> dict:
+    """🛡️ Client view of a quote: drop review metadata; admin notes only once
+    approved (they are printed on the PDF, but drafts may hold internal notes)."""
+    for field in _CLIENT_HIDDEN_FIELDS:
+        data.pop(field, None)
+    if data.get("status") not in ("approved", "sent"):
+        data.pop("admin_notes", None)
+    return data
+
+
 def _mask_draft_prices(data: dict) -> dict:
     """🛡️ The draft is confidential until admin approval: hide every price."""
     data["items"] = [{**item, "unit_price": 0.0, "total": 0.0} for item in data.get("items", [])]
@@ -525,8 +541,10 @@ async def get_quote(
             detail=f"No quote found for project '{project_id}'.",
         )
     data["id"] = doc.id
-    if not _is_admin(user_session) and data.get("status") != "approved":
-        data = _mask_draft_prices(data)
+    if not _is_admin(user_session):
+        if data.get("status") not in ("approved", "sent"):
+            data = _mask_draft_prices(data)
+        data = _strip_internal_fields(data)
     return QuoteSchema(**data)
 
 

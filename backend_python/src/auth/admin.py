@@ -21,7 +21,7 @@ from src.schemas.internal import UserSession
 ADMIN_ROLE = "admin"
 
 
-def has_admin_role(user_session: UserSession) -> bool:
+def _role_claim_is_admin(user_session: UserSession) -> bool:
     return user_session.claims.get("role") == ADMIN_ROLE
 
 
@@ -32,13 +32,28 @@ def has_second_factor(claims: dict[str, Any]) -> bool:
     return bool(firebase_claims.get("sign_in_second_factor"))
 
 
+def _mfa_satisfied(user_session: UserSession) -> bool:
+    return not settings.ADMIN_REQUIRE_MFA or has_second_factor(user_session.claims)
+
+
+def has_admin_role(user_session: UserSession) -> bool:
+    """True only if the session may exercise admin powers.
+
+    Used by every "owner or admin" check, so it must apply the SAME policy as
+    `require_admin` — including MFA when `ADMIN_REQUIRE_MFA` is on. Checking
+    the role claim alone would let a password-only admin session bypass MFA
+    on the legacy routes (approve, PATCH, batch decide, admin storage).
+    """
+    return _role_claim_is_admin(user_session) and _mfa_satisfied(user_session)
+
+
 def ensure_admin(user_session: UserSession) -> UserSession:
     """Raise unless the session is a (non-anonymous) admin, with MFA if required."""
     if not user_session.is_authenticated or user_session.is_anonymous:
         raise AuthError("Authentication required.")
-    if not has_admin_role(user_session):
+    if not _role_claim_is_admin(user_session):
         raise AdminRequiredError()
-    if settings.ADMIN_REQUIRE_MFA and not has_second_factor(user_session.claims):
+    if not _mfa_satisfied(user_session):
         raise AdminRequiredError("Multi-factor authentication is required for admin actions.")
     return user_session
 

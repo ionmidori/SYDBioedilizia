@@ -55,3 +55,13 @@ def test_mfa_enforced_only_when_enabled(monkeypatch):
 async def test_dependency_returns_the_session():
     session = _session()
     assert await require_admin(session) is session
+
+
+def test_shared_role_check_also_requires_mfa_when_enabled(monkeypatch):
+    """Legacy "owner or admin" routes use has_admin_role: it must not let a
+    password-only admin bypass ADMIN_REQUIRE_MFA (security review, PR 1.1)."""
+    from src.auth import admin as admin_module
+
+    monkeypatch.setattr(admin_module.settings, "ADMIN_REQUIRE_MFA", True)
+    assert not has_admin_role(_session())
+    assert has_admin_role(_session(claims={"role": "admin", "firebase": {"sign_in_second_factor": "totp"}}))
