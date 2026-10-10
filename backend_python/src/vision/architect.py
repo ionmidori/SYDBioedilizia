@@ -130,7 +130,7 @@ Respond with ONLY valid JSON. No markdown, no explanations:
 
         response = await client.aio.models.generate_content(
             model=model_name,
-            contents=[genai_types.Content(parts=[
+            contents=[genai_types.Content(role="user", parts=[
                 genai_types.Part(text=system_prompt),
                 genai_types.Part(inline_data=genai_types.Blob(
                     mime_type=mime_type,

@@ -253,7 +253,7 @@ async def analyze_video_with_gemini(video_path: str) -> dict[str, Any]:
         response = await client.aio.models.generate_content(
             model=get_model_id(ModelRole.VISION),
             contents=[
-                types.Content(
+                types.Content(role="user",
                     parts=[
                         types.Part(text=VIDEO_TRIAGE_PROMPT),
                         types.Part(file_data=types.FileData(

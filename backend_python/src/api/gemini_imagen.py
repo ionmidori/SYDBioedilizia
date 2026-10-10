@@ -158,7 +158,7 @@ async def generate_image_i2i(
 
         # Build multimodal content - Aligned with working triage.py
         contents = [
-            types.Content(
+            types.Content(role="user",
                 parts=[
                     types.Part(text=full_prompt),
                     types.Part(inline_data=types.Blob(mime_type=mime_type, data=source_image_bytes))

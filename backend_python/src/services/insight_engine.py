@@ -430,7 +430,7 @@ Analizza la conversazione e produci la risposta strutturata.
             logger.info("[InsightEngine] Starting AI project analysis.")
             response = await self.client.aio.models.generate_content(
                 model=self.model_name,
-                contents=[genai_types.Content(parts=parts)],
+                contents=[genai_types.Content(role="user", parts=parts)],
                 config=genai_types.GenerateContentConfig(
                     temperature=0.1,
                     response_mime_type="application/json",
