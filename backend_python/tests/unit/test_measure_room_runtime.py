@@ -62,9 +62,30 @@ async def test_the_same_photo_is_measured_once():
     measure = AsyncMock(return_value=MEASURES)
     with patch.object(quote_tools, "measure_room_from_photo", new=measure):
         first = await quote_tools._run_measurement_vision([URL])
-        # Same object, freshly re-signed URL → still a cache hit.
+        # Same bytes, freshly re-signed URL → still a cache hit.
         second = await quote_tools._run_measurement_vision([URL.replace("SECRET", "OTHER")])
     assert first and first == second
+    measure.assert_awaited_once()
+
+
+async def test_cache_never_answers_without_a_successful_download(monkeypatch):
+    """Security review: a path-keyed cache consulted before the download let a
+    forged/unsigned URL with a known object path read another client's
+    measurement. The download (signature check) must always happen first."""
+    measure = AsyncMock(return_value=MEASURES)
+    with patch.object(quote_tools, "measure_room_from_photo", new=measure):
+        assert await quote_tools._run_measurement_vision([URL])  # victim's photo cached
+
+    class _Forbidden(_FakeHttp):
+        async def get(self, url):
+            resp = await super().get(url)
+            resp.raise_for_status = MagicMock(side_effect=RuntimeError("403 Forbidden"))
+            return resp
+
+    monkeypatch.setattr(quote_tools.httpx, "AsyncClient", lambda **_: _Forbidden())
+    forged = URL.split("?")[0]  # same object path, no valid signature
+    with patch.object(quote_tools, "measure_room_from_photo", new=measure):
+        assert await quote_tools._run_measurement_vision([forged]) == ""
     measure.assert_awaited_once()
 
 

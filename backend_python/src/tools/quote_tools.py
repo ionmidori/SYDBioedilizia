@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import logging
 from collections import OrderedDict
 from typing import Any
@@ -17,7 +18,6 @@ from src.services.pricing_service import PricingService
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, save_ai_draft
 from src.utils.datetime_utils import utc_now
-from src.utils.download import storage_path_from_url
 from src.vision.measure_room import (
     MeasurementError,
     format_measurements_for_insight,
@@ -145,9 +145,11 @@ def _extract_vision_context(history: list[dict[str, Any]]) -> str:
     return ""
 
 
-# Measurements per photo (Storage object path → formatted block). A photo does
-# not change, but every regeneration of the draft used to re-measure it (40–143 s
-# each). In-process LRU: Cloud Run session affinity keeps a chat on one instance.
+# Measurements per photo (sha256 of the image bytes → formatted block). A photo
+# does not change, but every regeneration of the draft used to re-measure it
+# (40–143 s each). In-process LRU: Cloud Run session affinity keeps a chat on
+# one instance. The key is the content hash, so a hit requires having
+# downloaded the bytes through a valid signed URL first.
 _MEASURE_CACHE_MAX = 128
 _measure_cache: OrderedDict[str, str] = OrderedDict()
 
@@ -192,13 +194,8 @@ async def _run_measurement_vision(media_urls: list[str]) -> str:
         if "/renders/" in url:
             continue
 
-        cache_key = storage_path_from_url(url) or parsed.path
-        cached = _cached_measurement(cache_key)
-        if cached is not None:
-            logger.info("[MeasureRoom] Reusing the measurement of this photo.")
-            return cached
-
         try:
+            # Download FIRST: only a valid signed URL proves access to the photo.
             async with httpx.AsyncClient(timeout=15.0) as http_client:
                 resp = await http_client.get(url)
                 resp.raise_for_status()
@@ -206,6 +203,16 @@ async def _run_measurement_vision(media_urls: list[str]) -> str:
             mime_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
             if not mime_type.startswith("image/"):
                 continue
+
+            # Keyed by the image CONTENT, never by its path/URL: a path-keyed
+            # lookup before the download would hand another client's
+            # measurement to anyone who knows (or guesses) the object path,
+            # skipping the signature check (security review of this PR).
+            cache_key = hashlib.sha256(resp.content).hexdigest()
+            cached = _cached_measurement(cache_key)
+            if cached is not None:
+                logger.info("[MeasureRoom] Reusing the measurement of this photo.")
+                return cached
 
             measurements = await asyncio.wait_for(
                 measure_room_from_photo(resp.content, mime_type),
