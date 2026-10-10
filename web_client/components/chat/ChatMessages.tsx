@@ -72,6 +72,15 @@ const ChatMessagesComponent = ({
         hasVisibleText(lastMessage.parts as { type: string; text?: unknown; data?: unknown }[] | undefined);
     const showThinking = isLoading && !assistantIsWriting;
 
+    // Replies streamed live in this tab (not restored from history) get the
+    // progressive reveal. State adjusted during render (React's documented
+    // pattern for derived state): runs once per new live reply.
+    const [liveReplyIds, setLiveReplyIds] = React.useState<ReadonlySet<string>>(() => new Set());
+    const liveCandidate = isLoading && lastMessage?.role === 'assistant' ? lastMessage.id : undefined;
+    if (liveCandidate && !liveReplyIds.has(liveCandidate)) {
+        setLiveReplyIds(new Set(liveReplyIds).add(liveCandidate));
+    }
+
     return (
         <div
             ref={messagesContainerRef}
@@ -92,6 +101,7 @@ const ChatMessagesComponent = ({
                             onImageClick={onImageClick || noopImageClick}
                             onFormSubmit={onFormSubmit}
                             historyMessage={msg.id ? historyById.get(msg.id) : undefined}
+                            animate={!!msg.id && liveReplyIds.has(msg.id)}
                         />
                     ))}
                 </AnimatePresence>
