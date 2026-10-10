@@ -46,6 +46,25 @@ def plan_claims(current: dict[str, Any] | None, revoke: bool) -> dict[str, Any]:
     return claims
 
 
+def grant_refusal(email_verified: bool, has_provider: bool, revoke: bool) -> str | None:
+    """Why granting must be refused, or None. Revoking is always allowed.
+
+    The account is found BY EMAIL: without a verified email, anyone could have
+    registered with the admin's address (email/password sign-up) and would
+    receive the role. Only a verified owner of the address may be granted it.
+    """
+    if revoke:
+        return None
+    if not has_provider:
+        return "Anonymous account: refusing to grant a role."
+    if not email_verified:
+        return (
+            "The email of this account is NOT verified: refusing to grant the admin role "
+            "(anyone can sign up with an address they do not own). Verify it first."
+        )
+    return None
+
+
 async def _audit(uid: str, action: str, operator: str) -> None:
     db = get_async_firestore_client()
     await db.collection("audit_logs").add(
@@ -76,8 +95,9 @@ def main() -> None:
         sys.exit(f"No Firebase user with email {args.email}: the person must sign up on the site first.")
     if user.disabled:
         sys.exit("The account is disabled: refusing to change its role.")
-    if not user.provider_data:
-        sys.exit("Anonymous account: refusing to grant a role.")
+    refusal = grant_refusal(user.email_verified, bool(user.provider_data), args.revoke)
+    if refusal:
+        sys.exit(refusal)
 
     current = dict(user.custom_claims or {})
     new = plan_claims(current, args.revoke)

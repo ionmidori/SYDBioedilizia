@@ -19,3 +19,12 @@ def test_grant_keeps_other_claims():
 def test_revoke_removes_only_the_admin_role():
     assert script.plan_claims({"tier": "pro", "role": "admin"}, revoke=True) == {"tier": "pro"}
     assert script.plan_claims({"role": "editor"}, revoke=True) == {"role": "editor"}  # not ours to remove
+
+
+def test_unverified_email_is_never_granted():
+    """The account is looked up by email: an unverified address could belong to
+    someone who registered with the admin's email (security review)."""
+    assert script.grant_refusal(email_verified=False, has_provider=True, revoke=False)
+    assert script.grant_refusal(email_verified=True, has_provider=False, revoke=False)
+    assert script.grant_refusal(email_verified=True, has_provider=True, revoke=False) is None
+    assert script.grant_refusal(email_verified=False, has_provider=True, revoke=True) is None  # revoking is always ok
