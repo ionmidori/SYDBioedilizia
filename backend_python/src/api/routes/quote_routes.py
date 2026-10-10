@@ -42,7 +42,7 @@ from src.schemas.quote import QuoteItem, QuoteSchema
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.services.client_profile import get_client_profile
 from src.services.notification_service import NotificationService
-from src.services.pdf_service import PdfService
+from src.services.pdf_service import PdfService, resolve_validity
 from src.services.pricing_service import PricingService
 from src.utils.datetime_utils import utc_now
 
@@ -362,7 +362,11 @@ async def _run_quote_approval(
             pdf_service = PdfService()
             pdf_bytes = await asyncio.to_thread(pdf_service.generate_pdf_bytes, quote_data)
             pdf_url, pdf_blob_path = await asyncio.to_thread(
-                pdf_service.upload_pdf, pdf_bytes, project_id
+                pdf_service.upload_pdf,
+                pdf_bytes,
+                project_id,
+                quote_data.get("quote_number"),
+                quote_data.get("version"),
             )
 
             # 2. Save PDF URL + blob path to quote document.
@@ -376,9 +380,11 @@ async def _run_quote_approval(
             #    not the admin performing the approval.
             owner_uid = await _resolve_project_owner_uid(project_id)
             client_email = ""
+            client_name = (quote_data.get("client_snapshot") or {}).get("display_name") or ""
             if owner_uid:
                 user_profile = await _get_user_profile(owner_uid)
                 client_email = user_profile["email"]
+                client_name = user_profile["name"] or client_name
             else:
                 logger.warning(
                     "Cannot resolve project owner for delivery.",
@@ -394,6 +400,10 @@ async def _run_quote_approval(
                         client_email=client_email,
                         quote_total=grand_total,
                         pdf_bytes=pdf_bytes,
+                        quote_number=quote_data.get("quote_number"),
+                        client_name=client_name or None,
+                        revision=int(quote_data.get("version") or 1),
+                        valid_until=resolve_validity(quote_data)[2],
                     )
                 )
         except Exception:

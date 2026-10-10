@@ -27,6 +27,7 @@ from src.services.batch_aggregation_engine import (
     ProjectQuoteSummary,
     get_batch_aggregation_engine,
 )
+from src.services.email_templates import RequestDigest, digest_from_quote
 from src.services.notification_service import NotificationService
 from src.utils.datetime_utils import utc_now
 
@@ -177,6 +178,7 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
 
     # Update each project's quote status to pending_review
     projects = data.get("projects", [])
+    digests: list[RequestDigest] = []
     for proj in projects:
         pid = proj.get("project_id")
         if pid:
@@ -188,8 +190,12 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
                 await quote_ref.update(
                     {"status": "pending_review", "updated_at": now, "request.batch_id": batch_id}
                 )
+                # Who/what for the admin email (PRV number, client name, summary).
+                submitted = await quote_ref.get()
+                if submitted.exists:
+                    digests.append(digest_from_quote(submitted.to_dict() or {}))
             except Exception:  # noqa: BLE001
-                logger.warning("Failed to update project quote status.", extra={"project_id": pid})
+                logger.warning("Failed to update project quote status.")
 
     # Update batch status
     await _batch_ref(batch_id).update({
@@ -206,6 +212,7 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
                 project_id=batch_id,
                 grand_total=data.get("batch_grand_total", 0.0),
                 user_id=user_id,
+                quotes=digests or None,
             )
         )
     except Exception:  # noqa: BLE001
