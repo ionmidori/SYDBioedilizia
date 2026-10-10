@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from src.services.insight_engine import InsightAnalysis, SKUItemSuggestion
+from src.services.quote_dossier import DossierInputs
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult
 from src.tools.quote_tools import suggest_quote_items_wrapper
 
@@ -29,6 +30,8 @@ async def test_suggest_quote_items_wrapper_success():
             # Mock persistence: the draft goes through the transactional
             # save_ai_draft (never a blind set() on the quote document).
             with patch("src.tools.quote_tools.get_async_firestore_client"), patch(
+                "src.tools.quote_tools.gather_dossier_inputs", new=AsyncMock(return_value=DossierInputs())
+            ), patch(
                 "src.tools.quote_tools.save_ai_draft",
                 new=AsyncMock(
                     return_value=DraftSaveResult(DraftSaveOutcome.CREATED, "draft", "PRV-2026-0001")
@@ -52,6 +55,7 @@ async def test_suggest_quote_items_wrapper_success():
 
                 mock_save.assert_awaited_once()
                 _db, project_id, quote, request = mock_save.await_args.args
+                assert mock_save.await_args.kwargs["dossier"] == DossierInputs()
                 assert project_id == "test_project"
                 assert quote.items[0].sku == "DEM-001"
                 assert quote.financials.grand_total > 0
@@ -72,6 +76,8 @@ async def test_suggest_quote_items_does_not_touch_a_quote_under_review():
                 summary="Rifacimento bagno.",
             ))
             with patch("src.tools.quote_tools.get_async_firestore_client"), patch(
+                "src.tools.quote_tools.gather_dossier_inputs", new=AsyncMock(return_value=DossierInputs())
+            ), patch(
                 "src.tools.quote_tools.save_ai_draft",
                 new=AsyncMock(
                     return_value=DraftSaveResult(DraftSaveOutcome.SKIPPED, "pending_review", "PRV-2026-0009")

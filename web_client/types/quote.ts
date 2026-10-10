@@ -94,6 +94,53 @@ export const quoteRequestSchema = z.object({
 });
 export type QuoteRequest = z.infer<typeof quoteRequestSchema>;
 
+// ── Dossier (admin review) ───────────────────────────────────────────────────
+
+export const clientSnapshotSchema = z.object({
+  uid: z.string(),
+  display_name: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  is_guest: z.boolean().default(false),
+  captured_at: z.string().optional(),
+});
+export type ClientSnapshot = z.infer<typeof clientSnapshotSchema>;
+
+export const mediaKindSchema = z.enum(['input_photo', 'render', 'video', 'link']);
+export type MediaKind = z.infer<typeof mediaKindSchema>;
+
+// Storage path only — short-lived URLs are minted by the backend on read.
+export const mediaRefSchema = z.object({
+  media_id: z.string(),
+  kind: mediaKindSchema,
+  blob_path: z.string().nullable().optional(),
+  external_url: z.string().nullable().optional(),
+  mime: z.string().nullable().optional(),
+  label: z.string(),
+  source_media_id: z.string().nullable().optional(),
+  created_at: z.string().nullable().optional(),
+});
+export type MediaRef = z.infer<typeof mediaRefSchema>;
+
+export const revisionActorSchema = z.enum(['ai', 'admin', 'system']);
+
+export const quoteRevisionSchema = z.object({
+  version: z.number().min(1),
+  items: z.array(quoteItemSchema).default([]),
+  financials: quoteFinancialsSchema.default({
+    subtotal: 0,
+    vat_rate: 0.22,
+    vat_amount: 0,
+    grand_total: 0,
+  }),
+  admin_notes: z.string().nullable().optional(),
+  actor_uid: z.string().nullable().optional(),
+  actor_kind: revisionActorSchema,
+  reason: z.string().nullable().optional(),
+  created_at: z.string().optional(),
+});
+export type QuoteRevision = z.infer<typeof quoteRevisionSchema>;
+
 // ── QuoteSchema ──────────────────────────────────────────────────────────────
 
 export const quoteSchema = z.object({
@@ -116,6 +163,9 @@ export const quoteSchema = z.object({
   }),
   admin_notes: z.string().nullable().optional(),
   request: quoteRequestSchema.nullable().optional(),
+  client_snapshot: clientSnapshotSchema.nullable().optional(),
+  media: z.array(mediaRefSchema).default([]),
+  search_keys: z.array(z.string()).default([]),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   version: z.number().default(1),
@@ -173,6 +223,8 @@ export type QuoteBatch = z.infer<typeof quoteBatchSchema>;
 export const quoteListItemSchema = z.object({
   project_id: z.string(),
   project_name: z.string().default(''),
+  // Human-readable reference (PRV-YYYY-NNNN); null for quotes not yet numbered
+  quote_number: z.string().nullable().optional(),
   status: z.string(),
   // Masked to 0 by the backend for non-admin callers until the quote is approved
   grand_total: z.number().default(0),

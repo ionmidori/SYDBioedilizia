@@ -111,6 +111,7 @@ async def delete_project(session_id: str, user_id: str) -> bool:
         # B. Frontend 'projects' collection
         frontend_project_ref = db.collection("projects").document(session_id)
         await _delete_collection_batch(db, frontend_project_ref.collection("files"))
+        await delete_quote_data(db, frontend_project_ref)
         await frontend_project_ref.delete()
 
         # 2. Delete Firebase Storage Blobs (S5 FIX: non-blocking)
@@ -149,6 +150,25 @@ async def delete_project(session_id: str, user_id: str) -> bool:
     except Exception as e:
         logger.error(f"[Projects] Error deleting project {session_id}: {str(e)}", exc_info=True)
         return False
+
+
+# Subcollections hanging under projects/{pid}/private_data/{doc}.
+_PRIVATE_DATA_SUBCOLLECTIONS = ("revisions", "deliveries")
+
+
+async def delete_quote_data(db, project_ref) -> None:
+    """Delete every private quote document of a project, subcollections first.
+
+    Firestore does NOT cascade: deleting `private_data/quote` (or the project
+    document) leaves `revisions`/`deliveries` behind, and those hold the
+    client's data (snapshot, recipient email). Same for the legacy HITL
+    resumption tokens in `projects/{pid}/quotes`.
+    """
+    async for private_doc in project_ref.collection("private_data").stream():
+        for name in _PRIVATE_DATA_SUBCOLLECTIONS:
+            await _delete_collection_batch(db, private_doc.reference.collection(name))
+        await private_doc.reference.delete()
+    await _delete_collection_batch(db, project_ref.collection("quotes"))
 
 
 async def _delete_collection_batch(db, coll_ref, batch_size=50):

@@ -185,7 +185,9 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
                 .collection("private_data").document("quote")
             )
             try:
-                await quote_ref.update({"status": "pending_review", "updated_at": now})
+                await quote_ref.update(
+                    {"status": "pending_review", "updated_at": now, "request.batch_id": batch_id}
+                )
             except Exception:  # noqa: BLE001
                 logger.warning("Failed to update project quote status.", extra={"project_id": pid})
 

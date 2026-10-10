@@ -63,6 +63,24 @@ describe('QuoteListClient', () => {
         expect(screen.queryByText('Bozza Segreta')).not.toBeInTheDocument();
     });
 
+    it('shows the human-readable quote number when the quote has one', () => {
+        mockQuotesResult([quote({ quote_number: 'PRV-2026-0042' })]);
+        render(<QuoteListClient />);
+        expect(screen.getByTestId('quote-number')).toHaveTextContent('PRV-2026-0042');
+    });
+
+    it('omits the number for legacy quotes not yet numbered', () => {
+        mockQuotesResult([quote()]);
+        render(<QuoteListClient />);
+        expect(screen.queryByTestId('quote-number')).not.toBeInTheDocument();
+    });
+
+    it('keeps showing "In revisione" once the admin opens the request', () => {
+        mockQuotesResult([quote({ status: 'in_review' })]);
+        render(<QuoteListClient />);
+        expect(screen.getByText('In revisione')).toBeInTheDocument();
+    });
+
     it('renders a pending request without totals', () => {
         mockQuotesResult([quote()]);
         render(<QuoteListClient />);

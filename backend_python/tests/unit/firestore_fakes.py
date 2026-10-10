@@ -28,10 +28,23 @@ class FakeDocRef:
     def collection(self, name: str) -> FakeCollection:
         return FakeCollection(self._db, (*self.path, name))
 
+    @property
+    def reference(self) -> FakeDocRef:
+        return self
+
     async def get(self, transaction: FakeTransaction | None = None) -> FakeSnapshot:
         if transaction is not None:
             transaction.record_read(self.path)
         return FakeSnapshot(self._db.docs.get(self.path))
+
+    async def update(self, data: dict[str, Any]) -> None:
+        if self.path not in self._db.docs:
+            raise AssertionError(f"update() on missing document {self.path}")
+        for key, value in data.items():
+            _set_dotted(self._db.docs[self.path], key, copy.deepcopy(value))
+
+    async def delete(self) -> None:
+        self._db.docs.pop(self.path, None)
 
 
 class FakeCollection:
@@ -41,6 +54,15 @@ class FakeCollection:
 
     def document(self, doc_id: str) -> FakeDocRef:
         return FakeDocRef(self._db, (*self.path, doc_id))
+
+    def limit(self, _n: int) -> FakeCollection:
+        return self
+
+    async def stream(self):
+        depth = len(self.path) + 1
+        for path in sorted(self._db.docs):
+            if len(path) == depth and path[: len(self.path)] == self.path:
+                yield FakeDocRef(self._db, path)
 
 
 class FakeDb:
@@ -56,6 +78,22 @@ class FakeDb:
 
     def get_data(self, *path: str) -> dict[str, Any] | None:
         return copy.deepcopy(self.docs.get(tuple(path)))
+
+    def batch(self) -> FakeBatch:
+        return FakeBatch(self)
+
+
+class FakeBatch:
+    def __init__(self, db: FakeDb) -> None:
+        self._db = db
+        self._deletes: list[tuple[str, ...]] = []
+
+    def delete(self, ref: FakeDocRef) -> None:
+        self._deletes.append(ref.path)
+
+    async def commit(self) -> None:
+        for path in self._deletes:
+            self._db.docs.pop(path, None)
 
 
 def _set_dotted(target: dict[str, Any], dotted: str, value: Any) -> None:

@@ -72,6 +72,57 @@ class QuoteRequest(BaseModel):
     batch_id: str | None = Field(default=None, description="Batch the quote was submitted with")
 
 
+class ClientSnapshot(BaseModel):
+    """Who asked for the quote, captured when the draft is created.
+
+    A snapshot (not a live join) so the admin inbox can list and search
+    quotes without a Firebase Auth call per row. GDPR erasure clears it.
+    """
+    model_config = {"extra": "forbid"}
+    uid: str
+    display_name: str | None = Field(default=None)
+    email: str | None = Field(default=None)
+    phone: str | None = Field(default=None)
+    is_guest: bool = False
+    captured_at: datetime = Field(default_factory=utc_now)
+
+
+MediaKindType = Literal["input_photo", "render", "video", "link"]
+
+
+class MediaRef(BaseModel):
+    """A photo, render or link attached to the request.
+
+    Stores the Storage object path, never a signed URL: signed URLs expire,
+    fresh short-lived ones are minted on read from `blob_path`.
+    """
+    model_config = {"extra": "forbid"}
+    media_id: str = Field(..., description="projects/{pid}/files document id")
+    kind: MediaKindType
+    blob_path: str | None = Field(default=None, description="Object path in the app bucket")
+    external_url: str | None = Field(default=None, description="Only for kind=link (never fetched server-side)")
+    mime: str | None = Field(default=None)
+    label: str = Field(..., description="Human label, e.g. 'Foto 1', 'Render 2'")
+    source_media_id: str | None = Field(default=None, description="Photo a render was generated from")
+    created_at: datetime | None = Field(default=None)
+
+
+RevisionActorType = Literal["ai", "admin", "system"]
+
+
+class QuoteRevision(BaseModel):
+    """Immutable snapshot at projects/{pid}/private_data/quote/revisions/{version}."""
+    model_config = {"extra": "forbid"}
+    version: int = Field(..., ge=1)
+    items: list[QuoteItem] = Field(default_factory=list)
+    financials: QuoteFinancials = Field(default_factory=QuoteFinancials)  # type: ignore[arg-type]
+    admin_notes: str | None = Field(default=None)
+    actor_uid: str | None = Field(default=None)
+    actor_kind: RevisionActorType
+    reason: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
 class QuoteSchema(BaseModel):
     id: str | None = None
     # Discriminator for the `private_data` collection-group query (admin inbox).
@@ -88,6 +139,10 @@ class QuoteSchema(BaseModel):
     financials: QuoteFinancials = Field(default_factory=QuoteFinancials)  # type: ignore[arg-type]
     admin_notes: str | None = None
     request: QuoteRequest | None = None
+    client_snapshot: ClientSnapshot | None = None
+    media: list[MediaRef] = Field(default_factory=list)
+    # Lower-cased tokens (number, name, email) for the admin inbox search.
+    search_keys: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     # Optimistic-concurrency token: bumped on every content change.
