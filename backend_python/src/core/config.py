@@ -188,6 +188,11 @@ class Settings(BaseSettings):
     LIFECYCLE_DISABLE_MONTHS: int = Field(default=13, description="Months of inactivity before Firebase Auth is disabled.")
     LIFECYCLE_ANONYMIZE_MONTHS: int = Field(default=24, description="Months of inactivity before Firestore PII is anonymized.")
 
+    # Room measurement from the client photo (quote InsightEngine input).
+    # Gemini + code execution: observed 40–143 s in production; the tool is
+    # best-effort (defaults are used without it), so cap the tail latency.
+    MEASURE_ROOM_TIMEOUT_SECONDS: float = Field(default=60.0, gt=0)
+
     # Admin area (/admin): role=admin custom claim, optionally with a second factor
     ADMIN_REQUIRE_MFA: bool = Field(
         default=False,

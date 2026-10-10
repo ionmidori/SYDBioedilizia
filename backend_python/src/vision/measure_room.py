@@ -9,6 +9,7 @@ Pattern: Skill prompt-engineering — CoT + code execution + few-shot + self-cor
 CRITICAL: Output feeds directly into InsightEngine SKU quantity estimation.
 """
 import logging
+from typing import Any
 
 from google.genai import types
 from pydantic import BaseModel, Field
@@ -171,6 +172,26 @@ RICORDA: Misura SOLO superfici fisiche della stanza. NON includere mobili o arre
 
 # ── Agent ─────────────────────────────────────────────────────────────────────
 
+def response_text(response: Any) -> str:
+    """All text the model produced, including code-execution output.
+
+    With `code_execution` the final JSON can sit in a `code_execution_result`
+    part (the script prints it) while `response.text` is empty — observed in
+    production as "Empty response from Gemini" after a 143 s run.
+    """
+    if response.text:
+        return response.text
+    chunks: list[str] = []
+    for candidate in response.candidates or []:
+        content = candidate.content
+        for part in (content.parts if content else None) or []:
+            if part.text:
+                chunks.append(part.text)
+            elif part.code_execution_result and part.code_execution_result.output:
+                chunks.append(part.code_execution_result.output)
+    return "\n".join(chunks)
+
+
 async def measure_room_from_photo(
     image_bytes: bytes,
     mime_type: str = "image/jpeg",
@@ -215,10 +236,11 @@ async def measure_room_from_photo(
     finally:
         client.close()
 
-    if not response.text:
+    text = response_text(response)
+    if not text:
         raise MeasurementError("Empty response from Gemini.")
 
-    raw = extract_json_response(response.text)
+    raw = extract_json_response(text)
     if not raw:
         raise MeasurementError("Could not extract JSON from Gemini response.")
 
