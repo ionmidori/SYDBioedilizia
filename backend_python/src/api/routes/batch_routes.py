@@ -22,6 +22,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from pydantic import BaseModel, Field
 from src.api.routes.quote_routes import _run_quote_approval
+from src.auth.admin import has_admin_role
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import (
     BatchNotFoundError,
@@ -127,7 +128,7 @@ async def _get_batch_or_404(batch_id: str) -> dict:
 
 async def _verify_batch_ownership(batch_data: dict, user_session: UserSession) -> None:
     """Raise 403 if caller doesn't own the batch (admins bypass)."""
-    if user_session.claims.get("role") == "admin":
+    if has_admin_role(user_session):
         return
     if batch_data.get("user_id") != user_session.uid:
         raise HTTPException(
@@ -137,7 +138,7 @@ async def _verify_batch_ownership(batch_data: dict, user_session: UserSession) -
 
 
 def _require_admin(user_session: UserSession) -> None:
-    if user_session.claims.get("role") != "admin":
+    if not has_admin_role(user_session):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required.",
@@ -197,7 +198,7 @@ async def list_user_batches(
     user_session: UserSession = Depends(verify_token),
 ) -> list[BatchListItemResponse]:
     """List all quote batches for a user. IDOR-safe: caller must match or be admin."""
-    if user_id != user_session.uid and user_session.claims.get("role") != "admin":
+    if user_id != user_session.uid and not has_admin_role(user_session):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
 
     db = get_async_firestore_client()
@@ -295,7 +296,7 @@ async def submit_batch(
         summary = await batch_service.submit_batch(
             user_id=user_session.uid,
             batch_id=batch_id,
-            is_admin=user_session.claims.get("role") == "admin",
+            is_admin=has_admin_role(user_session),
         )
     except PermissionDenied as e:
         raise HTTPException(

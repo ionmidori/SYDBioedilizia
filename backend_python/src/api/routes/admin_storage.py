@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from src.auth.admin import has_admin_role
 from src.auth.jwt_handler import verify_token
 from src.schemas.internal import UserSession
 from src.schemas.storage import SignedUrlRequest, SignedUrlResponse
@@ -27,7 +28,7 @@ async def generate_signed_url(
         )
 
     # Admin role enforcement — prevents non-admin users from uploading arbitrary files
-    if user_session.claims.get("role") != "admin":
+    if not has_admin_role(user_session):
         logger.warning(f"Non-admin user {user_session.uid} attempted admin storage access")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

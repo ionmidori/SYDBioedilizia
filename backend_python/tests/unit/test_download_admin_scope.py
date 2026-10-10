@@ -44,3 +44,29 @@ async def test_foreign_path_never_uses_admin_sdk(mock_storage, mock_httpx_cls):
             owner_session_id="attacker",
         )
     mock_storage.bucket.assert_not_called()
+
+
+# ── storage_path_from_url (Phase 128: persist paths, not expiring URLs) ──────
+
+import pytest as _pytest  # noqa: E402
+from src.utils.download import storage_path_from_url  # noqa: E402
+
+
+@_pytest.mark.parametrize(
+    "url,expected",
+    [
+        (
+            "https://storage.googleapis.com/bkt/renders/s1/1700-abcd1234.png?X-Goog-Signature=x",
+            "renders/s1/1700-abcd1234.png",
+        ),
+        (
+            "https://firebasestorage.googleapis.com/v0/b/bkt/o/projects%2Fp1%2Fuploads%2Fa.jpg?alt=media",
+            "projects/p1/uploads/a.jpg",
+        ),
+        ("https://example.com/a.png", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_storage_path_from_url(url, expected):
+    assert storage_path_from_url(url) == expected

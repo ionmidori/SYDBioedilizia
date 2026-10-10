@@ -7,8 +7,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.utils.datetime_utils import utc_now
 
-# Canonical status lifecycle: draft → pending_review → approved → sent | rejected
-QuoteStatusType = Literal["draft", "pending_review", "approved", "sent", "rejected"]
+# Canonical status lifecycle — transitions enforced by src/services/quote_state.py:
+# draft → pending_review → in_review → approved → sent | rejected (deleted = soft delete)
+QuoteStatusType = Literal[
+    "draft", "pending_review", "in_review", "approved", "sent", "rejected", "deleted"
+]
+
+# Email delivery outcome, tracked separately from the review status.
+QuoteDeliveryStatusType = Literal[
+    "none", "queued", "sent", "delivered", "bounced", "complained", "failed"
+]
+
+QuoteChannelType = Literal["chat", "dashboard"]
 
 class QuoteItem(BaseModel):
     model_config = {"extra": "forbid"}
@@ -49,17 +59,48 @@ class AggregationAdjustment(BaseModel):
     affected_rooms: list[str] = Field(default_factory=list, description="room_ids involved")
 
 
+class QuoteRequest(BaseModel):
+    """What the client asked for — shown to the admin in the quote dossier."""
+    model_config = {"extra": "forbid"}
+    summary: str | None = Field(default=None, description="AI summary of the requested works (Italian)")
+    technical_notes: str | None = Field(default=None, description="Site notes from the project's construction details")
+    address: str | None = Field(default=None, description="Site address")
+    footage_sqm: float | None = Field(default=None, ge=0, description="Surface in square metres")
+    budget_cap: float | None = Field(default=None, ge=0, description="Client budget cap in EUR")
+    channel: QuoteChannelType | None = Field(default=None, description="Where the request started")
+    session_id: str | None = Field(default=None, description="Chat session the draft was generated from")
+    batch_id: str | None = Field(default=None, description="Batch the quote was submitted with")
+
+
 class QuoteSchema(BaseModel):
     id: str | None = None
+    # Discriminator for the `private_data` collection-group query (admin inbox).
+    doc_type: Literal["quote"] = "quote"
     project_id: str
     user_id: str
-    status: QuoteStatusType = Field("draft", description="Status lifecycle: draft → pending_review → approved → sent | rejected")
+    # Human-readable reference, immutable once assigned (src/services/quote_numbering.py).
+    quote_number: str | None = Field(default=None, description="e.g. PRV-2026-0042 — never contains personal data")
+    quote_year: int | None = None
+    quote_seq: int | None = None
+    status: QuoteStatusType = Field("draft", description="See src/services/quote_state.py")
+    delivery_status: QuoteDeliveryStatusType = "none"
     items: list[QuoteItem] = Field(default_factory=list)
     financials: QuoteFinancials = Field(default_factory=QuoteFinancials)  # type: ignore[arg-type]
     admin_notes: str | None = None
+    request: QuoteRequest | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+    # Optimistic-concurrency token: bumped on every content change.
     version: int = 1
+    # Written by the approval pipeline (quote_routes._run_quote_approval / adk.hitl).
+    # Typed here so stored approved quotes still validate under extra="forbid".
+    pdf_url: str | None = None
+    pdf_blob_path: str | None = None
+    admin_decision: str | None = None
+    reviewed_by: str | None = None
+    started_by: str | None = None
+    delivered_at: datetime | None = None
+    deleted_at: datetime | None = None
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 

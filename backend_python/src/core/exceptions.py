@@ -165,3 +165,53 @@ class DeliveryError(ServiceError):
             message=f"Quote delivery webhook failed for project '{project_id}'.",
             detail={"project_id": project_id, "http_status": http_status},
         )
+
+
+# ─── Quote review workflow (Phase 128 — admin HITL) ───────────────────────────
+
+class AdminRequiredError(PermissionDenied):
+    """Caller is authenticated but lacks the `role=admin` custom claim (or MFA)."""
+    error_code = "ADMIN_REQUIRED"
+
+    def __init__(self, reason: str = "Admin role required.") -> None:
+        super().__init__(message=reason)
+
+
+class InvalidQuoteTransitionError(AppException):
+    """The requested action is not allowed from the quote's current status."""
+    status_code = 409
+    error_code = "INVALID_TRANSITION"
+
+    def __init__(self, current_status: str, event: str) -> None:
+        super().__init__(
+            message=f"Action '{event}' is not allowed when the quote is '{current_status}'.",
+            detail={"status": current_status, "event": event},
+        )
+
+
+class QuoteVersionConflictError(AppException):
+    """Optimistic-concurrency check failed: the quote changed since it was read."""
+    status_code = 409
+    error_code = "VERSION_CONFLICT"
+
+    def __init__(self, project_id: str, expected_version: int, current_version: int) -> None:
+        super().__init__(
+            message="The quote was modified by someone else. Reload and retry.",
+            detail={
+                "project_id": project_id,
+                "expected_version": expected_version,
+                "current_version": current_version,
+            },
+        )
+
+
+class QuoteLockedError(AppException):
+    """Another admin holds the review lock on this quote."""
+    status_code = 409
+    error_code = "QUOTE_LOCKED"
+
+    def __init__(self, project_id: str, locked_by: str) -> None:
+        super().__init__(
+            message="The quote is being reviewed by another admin.",
+            detail={"project_id": project_id, "locked_by": locked_by},
+        )

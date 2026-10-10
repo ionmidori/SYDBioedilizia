@@ -10,8 +10,10 @@ from src.core.config import settings
 from src.core.models import ModelRole, get_genai_client, get_model_id
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import ConversationRepository
+from src.schemas.quote import QuoteRequest
 from src.services.insight_engine import InsightEngineError, get_insight_engine
 from src.services.pricing_service import PricingService
+from src.services.quote_drafts import DraftSaveOutcome, save_ai_draft
 from src.vision.measure_room import format_measurements_for_insight, measure_room_from_photo
 
 logger = logging.getLogger(__name__)
@@ -460,12 +462,26 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 "Verify pricing service and AI output."
             )
 
-        # 9. Save the draft to Firestore (Collection: projects/{projectId}/private_data/quote)
+        # 9. Save the draft to Firestore (projects/{projectId}/private_data/quote)
+        # in a transaction: never overwrite a quote the admin already owns, and
+        # assign the human-readable PRV number on creation.
         db = get_async_firestore_client()
         target_project_id = project_id or session_id
+        saved = await save_ai_draft(
+            db,
+            target_project_id,
+            quote,
+            QuoteRequest(summary=analysis.summary, channel="chat", session_id=session_id),
+        )
+        reference = f" (riferimento **{saved.quote_number}**)" if saved.quote_number else ""
 
-        quote_ref = db.collection('projects').document(target_project_id).collection('private_data').document('quote')
-        await quote_ref.set(quote.model_dump(exclude_none=True))
+        if saved.outcome is DraftSaveOutcome.SKIPPED:
+            return (
+                f"La tua richiesta di preventivo{reference} è già in mano al nostro team "
+                "tecnico, quindi non la modifico da qui. Se vuoi aggiungere o cambiare "
+                "qualcosa scrivimelo pure: lo riporto al team, che aggiornerà il preventivo "
+                "prima di inviartelo via email."
+            )
 
         # 10. Return a NEUTRAL Italian summary — the draft (items + prices) is
         # deliberately NOT shown to the client: the admin reviews and adjusts
@@ -473,7 +489,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # by email after approval. Only the works summary is disclosed.
         response = (
             f"**{analysis.summary}**\n\n"
-            f"Ho registrato la tua richiesta di preventivo: ho identificato "
+            f"Ho registrato la tua richiesta di preventivo{reference}: ho identificato "
             f"{len(quote.items)} lavorazioni da sottoporre al nostro team tecnico.\n\n"
             "Il team esaminerà la richiesta, definirà le voci e i prezzi e "
             "riceverai il preventivo dettagliato via email dopo la revisione.\n\n"

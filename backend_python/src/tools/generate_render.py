@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from src.api.gemini_imagen import generate_image_i2i, generate_image_t2i
 from src.db.messages import save_file_metadata
 from src.storage.upload import upload_base64_image as _upload_base64_image_sync
-from src.utils.download import download_image_smart
+from src.utils.download import download_image_smart, storage_path_from_url
 from src.vision.triage import analyze_image_triage
 
 logger = logging.getLogger(__name__)
@@ -158,7 +158,10 @@ async def generate_render_wrapper(
                 "metadata": {
                     "source_image_id": source_image_url if mode == "modification" else None,
                     "prompt": prompt,
-                    "style": style
+                    "style": style,
+                    # The signed URL above expires in 7 days; the path lets the
+                    # gallery and the admin dossier mint fresh URLs forever.
+                    "storage_path": storage_path_from_url(image_url),
                 }
             }
 

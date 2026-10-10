@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from src.services.insight_engine import InsightAnalysis, SKUItemSuggestion
+from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult
 from src.tools.quote_tools import suggest_quote_items_wrapper
 
 
@@ -25,15 +26,14 @@ async def test_suggest_quote_items_wrapper_success():
                 summary="Renovation of living room floor."
             ))
 
-            # Mock Firestore
-            with patch("src.tools.quote_tools.get_async_firestore_client") as mock_get_db:
-                mock_db = mock_get_db.return_value
-                mock_col = mock_db.collection.return_value
-                mock_doc = mock_col.document.return_value
-                mock_subcol = mock_doc.collection.return_value
-                mock_subdoc = mock_subcol.document.return_value
-                mock_subdoc.set = AsyncMock()
-
+            # Mock persistence: the draft goes through the transactional
+            # save_ai_draft (never a blind set() on the quote document).
+            with patch("src.tools.quote_tools.get_async_firestore_client"), patch(
+                "src.tools.quote_tools.save_ai_draft",
+                new=AsyncMock(
+                    return_value=DraftSaveResult(DraftSaveOutcome.CREATED, "draft", "PRV-2026-0001")
+                ),
+            ) as mock_save:
                 # Execute
                 result = await suggest_quote_items_wrapper(
                     session_id="test_session",
@@ -45,19 +45,40 @@ async def test_suggest_quote_items_wrapper_success():
                 # (admin reviews it first; client never sees items/prices in chat)
                 assert "Renovation of living room floor" in result
                 assert "2 lavorazioni" in result
+                assert "PRV-2026-0001" in result
                 assert "Demolizione tramezzi" not in result
                 assert "Subtotale" not in result
                 assert "€" not in result
 
-                # Check Firestore call
-                # projects/{projectId}/private_data/quote
-                # db.collection('projects').document('test_project').collection('private_data').document('quote').set(...)
-                mock_db.collection.assert_called_with('projects')
-                mock_col.document.assert_called_with('test_project')
-                mock_doc.collection.assert_called_with('private_data')
-                mock_subcol.document.assert_called_with('quote')
-                mock_subdoc.set.assert_called_once()
+                mock_save.assert_awaited_once()
+                _db, project_id, quote, request = mock_save.await_args.args
+                assert project_id == "test_project"
+                assert quote.items[0].sku == "DEM-001"
+                assert quote.financials.grand_total > 0
+                assert request.summary == "Renovation of living room floor."
+                assert request.channel == "chat"
+                assert request.session_id == "test_session"
 
-                call_args = mock_subdoc.set.call_args[0][0]
-                assert call_args["items"][0]["sku"] == "DEM-001"
-                assert call_args["financials"]["grand_total"] > 0
+
+@pytest.mark.asyncio
+async def test_suggest_quote_items_does_not_touch_a_quote_under_review():
+    with patch("src.tools.quote_tools.ConversationRepository") as MockRepo:
+        MockRepo.return_value.get_context = AsyncMock(return_value=[
+            {"role": "user", "content": "Rifai il bagno di 6 mq", "attachments": []}
+        ])
+        with patch("src.tools.quote_tools.get_insight_engine") as mock_get_engine:
+            mock_get_engine.return_value.analyze_project_for_quote = AsyncMock(return_value=InsightAnalysis(
+                suggestions=[SKUItemSuggestion(sku="DEM-001", qty=6.0, ai_reasoning="Demolizione")],
+                summary="Rifacimento bagno.",
+            ))
+            with patch("src.tools.quote_tools.get_async_firestore_client"), patch(
+                "src.tools.quote_tools.save_ai_draft",
+                new=AsyncMock(
+                    return_value=DraftSaveResult(DraftSaveOutcome.SKIPPED, "pending_review", "PRV-2026-0009")
+                ),
+            ):
+                result = await suggest_quote_items_wrapper(session_id="s1", project_id="p1", user_id="u1")
+
+    assert "PRV-2026-0009" in result
+    assert "già in mano al nostro team" in result
+    assert "Vuoi che invii" not in result
