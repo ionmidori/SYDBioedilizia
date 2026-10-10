@@ -197,7 +197,9 @@ async def save_ai_draft(
     logger.info(
         "[QuoteDraft] AI draft %s",
         result.outcome.value,
-        extra={"project_id": project_id, "quote_number": result.quote_number, "status": result.status},
+        # quote_number is the correlation key: never the project id (= chat
+        # session id, an access token for guests — CodeQL py/clear-text-logging).
+        extra={"quote_number": result.quote_number, "status": result.status},
     )
     return result
 
@@ -221,5 +223,7 @@ async def refresh_quote_owner(db: Any, project_id: str, new_user_id: str) -> Non
                 "search_keys": build_search_keys(data.get("quote_number"), snapshot),
             }
         )
-    except Exception:  # noqa: BLE001 — never fail a completed claim on enrichment
-        logger.warning("[QuoteDraft] Quote owner refresh after claim failed", extra={"project_id": project_id})
+    except Exception as exc:  # noqa: BLE001 — never fail a completed claim on enrichment
+        logger.warning(
+            "[QuoteDraft] Quote owner refresh after claim failed", extra={"error_type": type(exc).__name__}
+        )
