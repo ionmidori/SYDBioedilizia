@@ -56,6 +56,21 @@ export function useChatScroll<T>(dep: T, isOpen: boolean) {
         }
     }, [dep, isOpen]);
 
+    // Follow the content as it grows. A reply revealed progressively (and
+    // images loading) changes the height between SDK updates, so scrolling
+    // only on `dep` changes left new lines below the fold. If the user is near
+    // the bottom, keep the view pinned there (instant, no animation per frame).
+    useEffect(() => {
+        const container = messagesContainerRef.current;
+        const content = container?.firstElementChild;
+        if (!isOpen || !container || !content || typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(() => {
+            if (isNearBottomRef.current) container.scrollTop = container.scrollHeight;
+        });
+        observer.observe(content);
+        return () => observer.disconnect();
+    }, [isOpen]);
+
     // Initial scroll when opening
     useEffect(() => {
         if (isOpen) {

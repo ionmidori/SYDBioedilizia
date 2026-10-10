@@ -183,3 +183,63 @@ describe('useChatScroll — streaming updates', () => {
         expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: 'auto' }));
     });
 });
+
+describe('useChatScroll — follows content growth', () => {
+    let resizeCallback: (() => void) | null = null;
+    const observe = jest.fn();
+    const disconnect = jest.fn();
+
+    beforeEach(() => {
+        resizeCallback = null;
+        observe.mockClear();
+        disconnect.mockClear();
+        (global as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+            constructor(cb: () => void) { resizeCallback = cb; }
+            observe = observe;
+            disconnect = disconnect;
+        };
+    });
+
+    function mountWithContainer(isOpen: boolean, startAtBottom = true) {
+        const container = document.createElement('div');
+        const content = document.createElement('div');
+        container.appendChild(content);
+        // JSDOM has no layout: drive the geometry by hand.
+        let scrollHeight = 2000;
+        let scrollTop = startAtBottom ? 1500 : 0;
+        Object.defineProperty(container, 'scrollHeight', { get: () => scrollHeight, configurable: true });
+        Object.defineProperty(container, 'clientHeight', { value: 500, configurable: true });
+        Object.defineProperty(container, 'scrollTop', {
+            get: () => scrollTop,
+            set: (v: number) => { scrollTop = v; },
+            configurable: true,
+        });
+        const hook = renderHook(({ open }) => {
+            const r = useChatScroll([], open);
+            (r.messagesContainerRef as { current: HTMLDivElement | null }).current = container;
+            return r;
+        }, { initialProps: { open: false } });
+        hook.rerender({ open: isOpen });
+        const grow = (h: number) => { scrollHeight = h; act(() => { resizeCallback?.(); }); };
+        return { container, content, grow };
+    }
+
+    it('pins the view to the bottom when the content grows', () => {
+        const { container, content, grow } = mountWithContainer(true);
+        expect(observe).toHaveBeenCalledWith(content);
+        grow(2600);
+        expect(container.scrollTop).toBe(2600);
+    });
+
+    it('leaves the view alone when the user scrolled up to read', () => {
+        const { container, grow } = mountWithContainer(true, false);
+        container.dispatchEvent(new Event('scroll'));
+        grow(2600);
+        expect(container.scrollTop).toBe(0);
+    });
+
+    it('does not observe while the chat is closed', () => {
+        mountWithContainer(false);
+        expect(observe).not.toHaveBeenCalled();
+    });
+});

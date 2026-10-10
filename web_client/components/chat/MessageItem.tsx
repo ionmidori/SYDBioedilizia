@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { User } from 'lucide-react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import { type Components } from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
 import { ToolStatus } from '@/components/chat/ToolStatus';
@@ -19,6 +19,7 @@ import { Message, ToolInvocation } from '@/types/chat';
 import { logger } from '@/lib/logger';
 import { getVisibleText } from '@/lib/chat/message-text';
 import { useSmoothText } from '@/hooks/useSmoothText';
+import { MemoizedMarkdown } from '@/components/chat/MemoizedMarkdown';
 
 interface MessageItemProps {
     message: Message;
@@ -70,9 +71,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
         }
         return [];
     };
-
-    // Fix for React 18/19 type mismatch
-    const Markdown = ReactMarkdown as React.ComponentType<React.ComponentProps<typeof ReactMarkdown>>;
 
     const text = getMessageText(message);
     // The AI SDK v7 keeps assistant message state text-only — transient tool
@@ -127,12 +125,14 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
         ) : null
     }), [onImageClick]);
 
+    // Entry/exit only: no `scale` and no `layout` animation. A layout (FLIP)
+    // animation scales the element between old and new size on every height
+    // change, so a streaming reply looked squashed and then stretched.
     const variants: Variants = {
-        hidden: { opacity: 0, y: 15, scale: 0.98 },
+        hidden: { opacity: 0, y: 15 },
         visible: {
             opacity: 1,
             y: 0,
-            scale: 1,
             transition: {
                 duration: 0.45,
                 ease: [0.23, 1, 0.32, 1] // Skill: animating-ui-interactions Custom Luxury Ease
@@ -140,7 +140,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
         },
         exit: {
             opacity: 0,
-            scale: 0.95,
             transition: { duration: 0.2 }
         }
     };
@@ -207,7 +206,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
 
     return (
         <motion.div
-            layout
             variants={variants}
             initial="hidden"
             animate="visible"
@@ -281,34 +279,26 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                 {/* 2. Main Text Bubble */}
                 {shouldShow && (
                     <div className={cn(
-                        "p-4 text-sm leading-relaxed shadow-lg backdrop-blur-xl transition-all duration-300", // Increased blur and transition
+                        // Solid backgrounds, no backdrop-filter: a blurred bubble had to be fully
+                        // repainted on every height change while a reply streamed in.
+                        "p-4 text-sm leading-relaxed shadow-lg transition-colors duration-300",
                         message.role === 'user'
                             ? "bg-luxury-teal text-white rounded-[24px_24px_4px_24px] border border-transparent shadow-luxury-teal/20" // Organic shape USER
-                            : "bg-luxury-bg/85 backdrop-blur-2xl border border-luxury-gold/10 text-luxury-text rounded-[24px_24px_24px_4px] shadow-lg shadow-black/5" // Organic shape AI + Stronger Glass
+                            : "bg-luxury-bg/95 border border-luxury-gold/10 text-luxury-text rounded-[24px_24px_24px_4px] shadow-lg shadow-black/5" // Organic shape AI
                     )}>
                         <div className="prose prose-sm prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
                             {formattedText && !hasVisibleTools && (
-                                <Markdown
-                                    urlTransform={(value: string) =>
-                                        /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
-                                    }
-                                    components={markdownComponents}
-                                >
+                                <MemoizedMarkdown components={markdownComponents}>
                                     {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
                                     {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
-                                </Markdown>
+                                </MemoizedMarkdown>
                             )}
 
                             {/* Special Case: Allow text IF it's NOT a Login Request (to preserve context for other tools) */}
                             {formattedText && hasVisibleTools && !toolInvocations.some(t => t.toolName === 'request_login' || (t.result as string)?.includes?.('LOGIN_REQUIRED_UI_TRIGGER')) && (
-                                <Markdown
-                                    urlTransform={(value: string) =>
-                                        /^(https?:\/\/|\/|#|mailto:)/i.test(value) ? value : ''
-                                    }
-                                    components={markdownComponents}
-                                >
+                                <MemoizedMarkdown components={markdownComponents}>
                                     {formattedText}
-                                </Markdown>
+                                </MemoizedMarkdown>
                             )}
 
 

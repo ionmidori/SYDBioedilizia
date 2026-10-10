@@ -17,6 +17,16 @@ import { useReducedMotion } from 'framer-motion';
  */
 const DRAIN_MS = 350; // a backlog of any size is shown within this time
 const MIN_CHARS_PER_MS = 0.06; // floor speed (~60 chars/s) for tiny backlogs
+const MIN_COMMIT_MS = 33; // at most ~30 React updates per second
+const WORD_LOOKAHEAD = 16; // extend a step to the end of the current word
+
+/** Next reveal point: `from + step`, moved forward to the end of the word. */
+function nextCut(text: string, from: number, step: number): number {
+    const cut = Math.min(text.length, from + step);
+    if (cut >= text.length) return text.length;
+    const space = text.slice(cut, cut + WORD_LOOKAHEAD).search(/\s/);
+    return space === -1 ? cut : cut + space;
+}
 
 export function useSmoothText(target: string, animate: boolean): string {
     const reduceMotion = useReducedMotion();
@@ -42,12 +52,17 @@ export function useSmoothText(target: string, animate: boolean): string {
         let frame = 0;
         let last = performance.now();
         const tick = (now: number) => {
-            const backlog = target.length - shownRef.current.length;
-            if (backlog <= 0) return;
+            if (shownRef.current.length >= target.length) return;
             const elapsed = now - last;
+            // Skip frames until MIN_COMMIT_MS has passed: each update re-renders
+            // the message, so fewer, word-aligned steps cost less and read better.
+            if (elapsed < MIN_COMMIT_MS) {
+                frame = requestAnimationFrame(tick);
+                return;
+            }
             last = now;
             const step = Math.max(1, Math.ceil(elapsed * charsPerMs));
-            shownRef.current = target.slice(0, shownRef.current.length + step);
+            shownRef.current = target.slice(0, nextCut(target, shownRef.current.length, step));
             setShown(shownRef.current);
             frame = requestAnimationFrame(tick);
         };

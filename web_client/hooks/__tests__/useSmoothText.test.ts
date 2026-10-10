@@ -57,3 +57,22 @@ describe('useSmoothText', () => {
         expect(result.current).toBe('Risposta filtrata.');
     });
 });
+
+describe('useSmoothText — update frequency', () => {
+    it('updates at most ~30 times per second and stops on word boundaries', () => {
+        const values: string[] = [];
+        const { result } = renderHook(() => {
+            const v = useSmoothText(REPLY, true);
+            values.push(v);
+            return v;
+        });
+        act(() => { jest.advanceTimersByTime(1000); });
+        expect(result.current).toBe(REPLY);
+        const distinct = [...new Set(values)];
+        expect(distinct.length).toBeLessThanOrEqual(1 + 1000 / 33);
+        // Every intermediate cut ends where a word ends (or at the full text).
+        for (const v of distinct.slice(1, -1)) {
+            expect(/\s/.test(REPLY[v.length] ?? ' ')).toBe(true);
+        }
+    });
+});
