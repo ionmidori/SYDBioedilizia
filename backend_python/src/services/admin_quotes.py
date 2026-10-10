@@ -37,6 +37,7 @@ from src.core.exceptions import (
     QuoteVersionConflictError,
 )
 from src.schemas.quote import QuoteItem, RevisionChange
+from src.services.pdf_service import quote_pdf_blob_path
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import build_revision, quote_doc_ref, revision_ref
 from src.services.quote_state import QuoteEvent, QuoteStatus, transition
@@ -303,16 +304,17 @@ async def reopen_tx(
 
 def pdf_blob_path(project_id: str, quote_number: str | None, version: int) -> str:
     """`projects/{pid}/quotes/PRV-2026-0042_r3.pdf` — no personal data in the name."""
-    stem = quote_number or "preventivo"
-    return f"projects/{project_id}/quotes/{stem}_r{version}.pdf"
+    return quote_pdf_blob_path(project_id, quote_number, version)
 
 
-def pdf_input(quote: dict[str, Any], project_id: str) -> dict[str, Any]:
-    """The approved document as PdfService expects it (client name from the
-    snapshot, never the uid — PdfService falls back to user_id otherwise)."""
+def pdf_input(quote: dict[str, Any], project_id: str, project_name: str | None = None) -> dict[str, Any]:
+    """The approved document as PdfService expects it. The client is shown by
+    NAME (snapshot), never by uid; the site by project NAME, never by id."""
     data = {**quote, "project_id": project_id}
     snapshot = quote.get("client_snapshot") or {}
     data["client_name"] = snapshot.get("display_name") or "Cliente"
+    if project_name:
+        data["project_name"] = project_name
     return data
 
 

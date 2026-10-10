@@ -6,6 +6,7 @@ Fallback chain: n8n webhook (if configured) → SMTP email → Firestore flag + 
 
 Pattern: Service Layer (no HTTP logic, pure domain behavior).
 """
+import datetime
 import logging
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -16,6 +17,12 @@ import aiosmtplib
 
 from src.core.config import settings
 from src.db.firebase_client import get_async_firestore_client
+from src.services.email_templates import (
+    RequestDigest,
+    admin_new_requests_email,
+    attachment_filename,
+    client_quote_email,
+)
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -38,9 +45,14 @@ class NotificationService:
         project_id: str,
         grand_total: float,
         user_id: str,
+        quotes: list[RequestDigest] | None = None,
     ) -> str:
         """
-        Notify admin that a new quote draft is ready for review.
+        Notify admin that new quote request(s) are ready for review.
+
+        `quotes` carries the PRV number / client name / summary of each request
+        (built by batch_service); without it the email still sends, with no
+        identifiers (never the batch id or the uid).
 
         Returns a status message describing the notification result.
         Never raises — all failures are logged and handled gracefully.
@@ -65,19 +77,22 @@ class NotificationService:
         # 2. Try SMTP email
         if settings.SMTP_HOST and settings.ADMIN_EMAIL:
             try:
-                subject = f"[SYD] Nuovo preventivo da revisionare — {project_id} (€{grand_total:,.2f})"
-                body = (
-                    f"Un nuovo preventivo è pronto per la revisione.\n\n"
-                    f"Progetto: {project_id}\n"
-                    f"Totale stimato: €{grand_total:,.2f} (IVA inclusa)\n"
-                    f"Cliente/Utente: {user_id}\n\n"
-                    f"Accedi alla dashboard admin per approvare o modificare:\n"
-                    f"{settings.ADMIN_DASHBOARD_URL}/quotes/{project_id}\n"
-                )
+                digests = quotes or [
+                    RequestDigest(
+                        quote_number=None,
+                        client_name=None,
+                        client_email=None,
+                        client_is_guest=False,
+                        grand_total=grand_total,
+                        summary="",
+                    )
+                ]
+                content = admin_new_requests_email(requests=digests, admin_url=settings.ADMIN_DASHBOARD_URL)
                 await self._send_email(
                     to=settings.ADMIN_EMAIL,
-                    subject=subject,
-                    body=body,
+                    subject=content.subject,
+                    body=content.text,
+                    html=content.html,
                 )
                 return f"✅ Notifica admin inviata via email a {settings.ADMIN_EMAIL}"
             except Exception:  # noqa: BLE001
@@ -99,12 +114,18 @@ class NotificationService:
         client_email: str,
         quote_total: float,
         pdf_bytes: bytes | None = None,
+        quote_number: str | None = None,
+        client_name: str | None = None,
+        revision: int = 1,
+        valid_until: datetime.date | datetime.datetime | None = None,
     ) -> str:
         """
-        Deliver the approved quote PDF to the client.
+        Deliver the approved draft quote to the client.
 
-        When pdf_bytes is provided, the PDF is attached to the email
-        alongside the signed download link (valid 7 days).
+        The PDF is attached when `pdf_bytes` is given. The body never carries
+        the signed Storage link (a forwarded email must not leak the file): it
+        points to the login-protected client area instead. `pdf_url` is only
+        used by the n8n branch.
 
         Returns a status message. Never raises.
         """
@@ -129,31 +150,22 @@ class NotificationService:
         # 2. SMTP email with PDF link
         if settings.SMTP_HOST and client_email:
             try:
-                subject = f"Il tuo preventivo SYD Bioedilizia — €{quote_total:,.2f}"
-                body = (
-                    f"Gentile Cliente,\n\n"
-                    f"Il tuo preventivo per il progetto {project_id} è stato approvato.\n\n"
-                    f"Totale: €{quote_total:,.2f} (IVA inclusa)\n\n"
-                    f"In allegato trovi il PDF del preventivo. Puoi anche scaricarlo\n"
-                    f"dal seguente link (valido 7 giorni):\n"
-                    f"{pdf_url}\n\n"
-                    f"Per qualsiasi domanda, rispondi a questa email o contattaci.\n\n"
-                    f"Cordiali saluti,\n"
-                    f"SYD Bioedilizia — Architetto Personale AI"
-                )
-                html = self._build_quote_email_html(
-                    project_id=project_id,
-                    pdf_url=pdf_url,
-                    quote_total=quote_total,
+                content = client_quote_email(
+                    client_name=client_name,
+                    quote_number=quote_number,
+                    grand_total=quote_total,
+                    valid_until=valid_until,
+                    revision=revision,
+                    has_attachment=bool(pdf_bytes),
                 )
                 attachments = (
-                    [(f"preventivo_{project_id}.pdf", pdf_bytes)] if pdf_bytes else None
+                    [(attachment_filename(quote_number), pdf_bytes)] if pdf_bytes else None
                 )
                 await self._send_email(
                     to=client_email,
-                    subject=subject,
-                    body=body,
-                    html=html,
+                    subject=content.subject,
+                    body=content.text,
+                    html=content.html,
                     attachments=attachments,
                     list_unsubscribe_email="privacy@sydbioedilizia.com",
                 )
@@ -223,38 +235,6 @@ class NotificationService:
         )
 
     # ── Internal helpers ─────────────────────────────────────────────────────
-
-    @staticmethod
-    def _build_quote_email_html(
-        project_id: str,
-        pdf_url: str,
-        quote_total: float,
-    ) -> str:
-        """Minimal branded HTML body for the client quote delivery email."""
-        return (
-            '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;'
-            'margin:0 auto;color:#2C3E50;">'
-            '<div style="background:#2C3E50;padding:24px;text-align:center;">'
-            '<h1 style="color:#C9A84C;margin:0;font-size:22px;">SYD Bioedilizia</h1>'
-            '<p style="color:#ffffff;margin:4px 0 0;font-size:13px;">'
-            "Architetto Personale AI</p></div>"
-            '<div style="padding:24px;">'
-            "<p>Gentile Cliente,</p>"
-            f"<p>il tuo preventivo per il progetto <strong>{project_id}</strong> "
-            "è stato <strong>approvato</strong>.</p>"
-            '<p style="font-size:20px;margin:16px 0;">Totale: '
-            f"<strong>€{quote_total:,.2f}</strong> "
-            '<span style="font-size:13px;">(IVA inclusa)</span></p>'
-            "<p>In allegato trovi il PDF del preventivo. Puoi anche scaricarlo dal "
-            "pulsante qui sotto (link valido <strong>7 giorni</strong>):</p>"
-            '<p style="text-align:center;margin:24px 0;">'
-            f'<a href="{pdf_url}" style="background:#C9A84C;color:#ffffff;'
-            'padding:12px 28px;text-decoration:none;border-radius:6px;'
-            'font-weight:bold;">Scarica il preventivo (PDF)</a></p>'
-            "<p>Per qualsiasi domanda, rispondi a questa email o contattaci.</p>"
-            "<p>Cordiali saluti,<br>SYD Bioedilizia — Architetto Personale AI</p>"
-            "</div></div>"
-        )
 
     async def _send_email(
         self,

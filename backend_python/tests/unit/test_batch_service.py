@@ -142,6 +142,32 @@ class TestSubmitBatch:
         assert notify.call_args.kwargs["project_id"] == "batch-1"
         assert notify.call_args.kwargs["grand_total"] == 122.0
 
+
+    async def test_admin_email_gets_number_client_and_summary_of_each_quote(self):
+        """The admin sees PRV number + client name, never the batch id or the uid."""
+        stored = {
+            "status": "draft",
+            "quote_number": "PRV-2026-0042",
+            "client_snapshot": {"display_name": "Mario Rossi", "email": "m@x.it"},
+            "request": {"summary": "Pittura cucina"},
+            "financials": {"grand_total": 816.91},
+        }
+        db, _, _ = _make_db(
+            {}, {"p1": _doc(True, stored)}, batch_doc=_doc(True, self._batch_data()),
+        )
+        notify = AsyncMock(return_value="✅ ok")
+
+        with (
+            patch("src.services.batch_service.get_async_firestore_client", return_value=db),
+            patch("src.services.batch_service.NotificationService") as svc,
+        ):
+            svc.return_value.notify_admin_quote_ready = notify
+            await batch_service.submit_batch(USER, "batch-1")
+
+        digests = notify.call_args.kwargs["quotes"]
+        assert [(d.quote_number, d.client_name, d.grand_total, d.summary) for d in digests] == [
+            ("PRV-2026-0042", "Mario Rossi", 816.91, "Pittura cucina")
+        ]
     async def test_submit_missing_batch_raises_not_found(self):
         db, _, _ = _make_db({}, {}, batch_doc=_doc(False))
         with patch("src.services.batch_service.get_async_firestore_client", return_value=db):

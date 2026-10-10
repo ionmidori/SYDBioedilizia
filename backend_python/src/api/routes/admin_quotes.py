@@ -320,11 +320,14 @@ async def _render_pdf(project_id: str, quote: dict[str, Any], version: int) -> t
     an approval stays valid if the PDF fails (retry with POST .../pdf)."""
     blob_path = svc.pdf_blob_path(project_id, quote.get("quote_number"), version)
     try:
-        pdf_bytes = await asyncio.to_thread(PdfService().generate_pdf_bytes, svc.pdf_input(quote, project_id))
-        await asyncio.to_thread(svc.upload_pdf_sync, pdf_bytes, blob_path)
-        await quote_doc_ref(get_async_firestore_client(), project_id).update(
-            {"pdf_blob_path": blob_path, "pdf_revision": version}
+        db = get_async_firestore_client()
+        project_snap = await db.collection("projects").document(project_id).get()
+        project_name = ((project_snap.to_dict() or {}).get("name") if project_snap.exists else None) or None
+        pdf_bytes = await asyncio.to_thread(
+            PdfService().generate_pdf_bytes, svc.pdf_input(quote, project_id, project_name)
         )
+        await asyncio.to_thread(svc.upload_pdf_sync, pdf_bytes, blob_path)
+        await quote_doc_ref(db, project_id).update({"pdf_blob_path": blob_path, "pdf_revision": version})
         filename = f"Preventivo_{quote.get('quote_number') or 'SYD'}.pdf"
         preview = await asyncio.to_thread(svc.sign_url_sync, blob_path, f'inline; filename="{filename}"')
         return True, preview
