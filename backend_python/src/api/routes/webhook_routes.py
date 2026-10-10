@@ -135,7 +135,9 @@ async def _apply_event(db: Any, event: N8NWebhookEvent, now: datetime) -> None:
             .collection("private_data")
             .document("quote")
         )
-        await quote_ref.update({"status": "delivered", "delivered_at": now})
+        # Delivery is tracked apart from the review status (quote_state.py):
+        # "delivered" is not a review state and would break QuoteSchema reads.
+        await quote_ref.update({"delivery_status": "delivered", "delivered_at": now})
 
     elif event.event_type == "batch_notification_sent":
         batch_ref = db.collection("quote_batches").document(event.project_id)

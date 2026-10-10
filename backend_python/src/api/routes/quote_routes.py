@@ -28,6 +28,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
+from src.auth.admin import has_admin_role
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import (
     CheckpointError,
@@ -120,7 +121,23 @@ class QuotePdfUrlResponse(BaseModel):
 # ─── Security Helpers ─────────────────────────────────────────────────────────
 
 def _is_admin(user_session: UserSession) -> bool:
-    return user_session.claims.get("role") == "admin"
+    return has_admin_role(user_session)
+
+
+# Review/pipeline metadata the client must never receive: who reviewed or
+# started the review, the raw decision, and Storage locations / long-lived
+# signed URLs (the client downloads the PDF via GET /{id}/pdf, 15-min URL).
+_CLIENT_HIDDEN_FIELDS = ("reviewed_by", "started_by", "admin_decision", "pdf_url", "pdf_blob_path")
+
+
+def _strip_internal_fields(data: dict) -> dict:
+    """🛡️ Client view of a quote: drop review metadata; admin notes only once
+    approved (they are printed on the PDF, but drafts may hold internal notes)."""
+    for field in _CLIENT_HIDDEN_FIELDS:
+        data.pop(field, None)
+    if data.get("status") not in ("approved", "sent"):
+        data.pop("admin_notes", None)
+    return data
 
 
 def _mask_draft_prices(data: dict) -> dict:
@@ -132,7 +149,7 @@ def _mask_draft_prices(data: dict) -> dict:
 
 def _require_admin(user_session: UserSession) -> None:
     """Raise 403 if caller does not have the 'admin' Firebase custom claim."""
-    if user_session.claims.get("role") != "admin":
+    if not has_admin_role(user_session):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required.",
@@ -147,7 +164,7 @@ async def _verify_project_ownership(
     Admins bypass ownership checks.
     Raises 404 if the project does not exist.
     """
-    if user_session.claims.get("role") == "admin":
+    if has_admin_role(user_session):
         return  # Admins can access any project
 
     db = get_async_firestore_client()
@@ -447,7 +464,7 @@ async def list_user_quotes(
     Admin can access any user's quotes.
     """
     # IDOR guard: caller must match user_id or be admin
-    if user_id != user_session.uid and user_session.claims.get("role") != "admin":
+    if user_id != user_session.uid and not has_admin_role(user_session):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied.",
@@ -457,7 +474,7 @@ async def list_user_quotes(
     projects_query = db.collection("projects").where("userId", "==", user_id)
     project_docs = await projects_query.get()
 
-    is_admin = user_session.claims.get("role") == "admin"
+    is_admin = has_admin_role(user_session)
 
     results: list[QuoteListItemResponse] = []
     for proj_doc in project_docs:
@@ -524,8 +541,10 @@ async def get_quote(
             detail=f"No quote found for project '{project_id}'.",
         )
     data["id"] = doc.id
-    if not _is_admin(user_session) and data.get("status") != "approved":
-        data = _mask_draft_prices(data)
+    if not _is_admin(user_session):
+        if data.get("status") not in ("approved", "sent"):
+            data = _mask_draft_prices(data)
+        data = _strip_internal_fields(data)
     return QuoteSchema(**data)
 
 
@@ -551,7 +570,7 @@ async def get_quote_pdf_url(
 
     quote_doc = await _quote_doc_ref(project_id).get()
     qdata = (quote_doc.to_dict() or {}) if quote_doc.exists else {}
-    is_admin = user_session.claims.get("role") == "admin"
+    is_admin = has_admin_role(user_session)
     if not is_admin and qdata.get("status") != "approved":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

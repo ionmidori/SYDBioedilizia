@@ -188,6 +188,13 @@ class Settings(BaseSettings):
     LIFECYCLE_DISABLE_MONTHS: int = Field(default=13, description="Months of inactivity before Firebase Auth is disabled.")
     LIFECYCLE_ANONYMIZE_MONTHS: int = Field(default=24, description="Months of inactivity before Firestore PII is anonymized.")
 
+    # Admin area (/admin): role=admin custom claim, optionally with a second factor
+    ADMIN_REQUIRE_MFA: bool = Field(
+        default=False,
+        description="Require firebase.sign_in_second_factor in admin ID tokens "
+                    "(enable after admins enrolled Identity Platform TOTP).",
+    )
+
     # Admin Console internal trust (server-to-server, no Firebase user on the Streamlit side)
     ADMIN_INTERNAL_SECRET: str | None = Field(
         default=None,

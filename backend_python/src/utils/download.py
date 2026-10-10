@@ -152,6 +152,18 @@ def _parse_firebase_url(url: str) -> tuple[str, str] | None:
     return None
 
 
+def storage_path_from_url(url: str | None) -> str | None:
+    """Object path inside the bucket for a Firebase/GCS URL (signed or not).
+
+    Persist this, not the URL: signed URLs expire, the path does not, and a
+    fresh short-lived URL can always be minted from it.
+    """
+    if not url:
+        return None
+    parsed = _parse_firebase_url(url)
+    return parsed[1] if parsed else None
+
+
 def session_storage_prefixes(session_id: str) -> tuple[str, ...]:
     """Storage prefixes that belong to one chat session (= project id): backend
     uploads, frontend uploads / quote PDFs, renders."""

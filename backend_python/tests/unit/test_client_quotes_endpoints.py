@@ -221,3 +221,59 @@ class TestUpdateQuoteAdminOnly:
             )
         assert resp.status_code == 200
         quote_ref.update.assert_awaited_once()
+
+
+class TestGetQuoteClientView:
+    """GET /quote/{id}: the owner must not receive review metadata (security
+    review of Phase 128 PR 1.1 — the schema now types these stored fields)."""
+
+    def _get(self, data: dict, role: str | None = None):
+        doc = MagicMock()
+        doc.exists = True
+        doc.id = "quote"
+        doc.to_dict.return_value = data
+        quote_ref = MagicMock()
+        quote_ref.get = AsyncMock(return_value=doc)
+        with (
+            patch("src.api.routes.quote_routes._verify_project_ownership", new=AsyncMock()),
+            patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
+        ):
+            return _make_client(role=role).get("/api/quote/p1")
+
+    @staticmethod
+    def _approved() -> dict:
+        return {
+            "project_id": "p1",
+            "user_id": OWNER_UID,
+            "status": "approved",
+            "items": [],
+            "financials": {"subtotal": 100.0, "vat_rate": 0.22, "vat_amount": 22.0, "grand_total": 122.0},
+            "admin_notes": "Prezzi validi 30 giorni",
+            "reviewed_by": "admin-username",
+            "started_by": "uid-x",
+            "admin_decision": "approve",
+            "pdf_url": "https://storage.googleapis.com/b/projects/p1/quotes/q.pdf?X-Goog-Signature=s",
+            "pdf_blob_path": "projects/p1/quotes/q.pdf",
+            "quote_number": "PRV-2026-0001",
+        }
+
+    def test_owner_gets_no_review_metadata_or_storage_locations(self):
+        resp = self._get(self._approved())
+        assert resp.status_code == 200
+        body = resp.json()
+        for field in ("reviewed_by", "started_by", "admin_decision", "pdf_url", "pdf_blob_path"):
+            assert body[field] is None, field
+        assert body["quote_number"] == "PRV-2026-0001"
+        assert body["financials"]["grand_total"] == 122.0
+        assert body["admin_notes"] == "Prezzi validi 30 giorni"  # approved: printed on the PDF
+
+    def test_owner_does_not_see_admin_notes_of_a_draft(self):
+        data = self._approved() | {"status": "pending_review", "admin_notes": "cliente difficile"}
+        body = self._get(data).json()
+        assert body["admin_notes"] is None
+        assert body["financials"]["grand_total"] == 0.0
+
+    def test_admin_sees_everything(self):
+        body = self._get(self._approved(), role="admin").json()
+        assert body["reviewed_by"] == "admin-username"
+        assert body["pdf_blob_path"] == "projects/p1/quotes/q.pdf"
