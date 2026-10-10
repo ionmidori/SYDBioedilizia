@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -109,6 +109,28 @@ class MediaRef(BaseModel):
 
 RevisionActorType = Literal["ai", "admin", "system"]
 
+RevisionChangeType = Literal["added", "removed", "changed"]
+
+
+class RevisionChange(BaseModel):
+    """One line-item difference between a revision and the previous one."""
+    model_config = {"extra": "forbid"}
+    change: RevisionChangeType
+    sku: str
+    before: dict[str, Any] | None = Field(default=None, description="qty/unit_price/total/description before")
+    after: dict[str, Any] | None = Field(default=None, description="qty/unit_price/total/description after")
+
+
+class QuoteReview(BaseModel):
+    """Admin review state: who holds the lock, who approved/rejected and why."""
+    model_config = {"extra": "forbid"}
+    locked_by: str | None = Field(default=None, description="Admin uid holding the review lock")
+    locked_at: datetime | None = Field(default=None)
+    approved_by: str | None = Field(default=None)
+    approved_at: datetime | None = Field(default=None)
+    approved_revision: int | None = Field(default=None, description="Version frozen by the approval")
+    reason: str | None = Field(default=None, description="Last reject/reopen reason")
+
 
 class QuoteRevision(BaseModel):
     """Immutable snapshot at projects/{pid}/private_data/quote/revisions/{version}."""
@@ -120,6 +142,7 @@ class QuoteRevision(BaseModel):
     actor_uid: str | None = Field(default=None)
     actor_kind: RevisionActorType
     reason: str | None = Field(default=None)
+    diff: list[RevisionChange] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -143,6 +166,7 @@ class QuoteSchema(BaseModel):
     media: list[MediaRef] = Field(default_factory=list)
     # Lower-cased tokens (number, name, email) for the admin inbox search.
     search_keys: list[str] = Field(default_factory=list)
+    review: QuoteReview | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     # Optimistic-concurrency token: bumped on every content change.
@@ -151,6 +175,7 @@ class QuoteSchema(BaseModel):
     # Typed here so stored approved quotes still validate under extra="forbid".
     pdf_url: str | None = None
     pdf_blob_path: str | None = None
+    pdf_revision: int | None = None
     admin_decision: str | None = None
     reviewed_by: str | None = None
     started_by: str | None = None

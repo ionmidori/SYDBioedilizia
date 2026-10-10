@@ -31,6 +31,11 @@ class AuditAction(StrEnum):
     USER_ERASE = "user.erase"
     QUOTE_APPROVE = "quote.approve"
     QUOTE_REJECT = "quote.reject"
+    QUOTE_CLAIM = "quote.claim"
+    QUOTE_RELEASE = "quote.release"
+    QUOTE_EDIT = "quote.edit"
+    QUOTE_REOPEN = "quote.reopen"
+    QUOTE_PDF = "quote.pdf"
     RETENTION_CLEANUP = "admin.retention_cleanup"
 
 

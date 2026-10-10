@@ -140,6 +140,8 @@ _CLIENT_HIDDEN_FIELDS = (
     "media",
     "search_keys",
     "client_snapshot",
+    "review",  # admin uids, lock and approval metadata
+    "pdf_revision",
 )
 
 

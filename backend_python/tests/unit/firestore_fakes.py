@@ -10,6 +10,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+from google.cloud.firestore_v1 import DELETE_FIELD
+
 
 class FakeSnapshot:
     def __init__(self, data: dict[str, Any] | None) -> None:
@@ -72,14 +74,27 @@ class FakeCollection:
     def document(self, doc_id: str) -> FakeDocRef:
         return FakeDocRef(self._db, (*self.path, doc_id))
 
-    def limit(self, _n: int) -> FakeCollection:
+    _order: tuple[str, bool] | None = None
+    _limit: int | None = None
+
+    def limit(self, n: int) -> FakeCollection:
+        self._limit = n
+        return self
+
+    def order_by(self, field: str, direction: str = "ASCENDING") -> FakeCollection:
+        self._order = (field, str(direction).upper().startswith("DESC"))
         return self
 
     async def stream(self):
         depth = len(self.path) + 1
-        for path in sorted(self._db.docs):
-            if len(path) == depth and path[: len(self.path)] == self.path:
-                yield FakeDocSnapshot(self._db, path)
+        paths = [
+            p for p in sorted(self._db.docs) if len(p) == depth and p[: len(self.path)] == self.path
+        ]
+        if self._order:
+            field, desc = self._order
+            paths.sort(key=lambda p: self._db.docs[p].get(field), reverse=desc)
+        for path in paths[: self._limit] if self._limit is not None else paths:
+            yield FakeDocSnapshot(self._db, path)
 
 
 class FakeDb:
@@ -118,7 +133,11 @@ def _set_dotted(target: dict[str, Any], dotted: str, value: Any) -> None:
     node = target
     for key in parents:
         node = node.setdefault(key, {})
-    node[leaf] = value
+    # deepcopy may clone the sentinel, so compare by type, not identity.
+    if isinstance(value, type(DELETE_FIELD)):
+        node.pop(leaf, None)
+    else:
+        node[leaf] = value
 
 
 class FakeTransaction:

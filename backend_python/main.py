@@ -478,6 +478,11 @@ from src.api.routes.admin_storage import router as admin_storage_router
 
 app.include_router(admin_storage_router)
 
+# Register admin quote review API (Phase 128 — /api/admin, role=admin claim)
+from src.api.routes.admin_quotes import router as admin_quotes_router
+
+app.include_router(admin_quotes_router)
+
 # Register account lifecycle routes (GDPR inactivity pipeline — Cloud Scheduler only)
 from src.api.routes.lifecycle_routes import router as lifecycle_router
 
