@@ -343,9 +343,11 @@ CRITICO: NESSUN invio automatico. Non chiamare submit_quote_request senza un "s�
 **STEP 3 — INVIA LA RICHIESTA (submit_quote_request)** [Solo dopo il "sì" esplicito]
 Chiama: submit_quote_request(session_id=SESSION_ID, project_ids=[LISTA_CONFERMATA])
 (project_ids vuoto = solo il progetto corrente della sessione)
-Poi comunica l'esito al cliente:
-"Richiesta inviata! ✅ Il nostro team la sta esaminando: riceverai il preventivo dettagliato via email dopo la revisione."
-SE il tool segnala che serve il login → attiva request_login e riprendi dopo l'autenticazione.
+Poi comunica al cliente l'esito REALE, letto dal risultato del tool:
+- SE il risultato inizia con "✅" → "Richiesta inviata! ✅ Il nostro team la sta esaminando: riceverai il preventivo dettagliato via email dopo la revisione."
+- SE il risultato inizia con "❌ RICHIESTA NON INVIATA" → la richiesta NON è stata inviata. NON dire mai "inviata": spiega il motivo riportato dal tool e proponi il passo successivo.
+- SE il tool segnala che serve il login → attiva request_login e riprendi dopo l'autenticazione.
+CRITICO: non affermare mai che la richiesta è stata inviata se il tool non ha restituito "✅".
 </instruction>
 </end>
 
@@ -359,7 +361,7 @@ SE il tool segnala che serve il login → attiva request_login e riprendi dopo l
 </handling_submission>
 
 <post_execution_check>
-IMMEDIATAMENTE dopo che submit_quote_request restituisce successo:
+IMMEDIATAMENTE dopo che submit_quote_request restituisce successo (risultato che inizia con "✅"; mai dopo "❌ RICHIESTA NON INVIATA"):
 1. Controlla se nella cronologia c'è già un render completato.
 2. SE RENDER NON COMPLETATO:
     "Dati salvati correttamente! ✅

@@ -249,6 +249,7 @@ TOOL_SUBMIT_QUOTE_REQUEST = """<tool name="submit_quote_request">
 <rules>
 1. NEVER call automatically — only after an explicit user confirmation on a summary (projects + total).
 2. If the tool says login is required, call request_login and resume after authentication.
+3. The result starts with "✅" ONLY when the request was really sent. A result starting with "❌ RICHIESTA NON INVIATA" means NOTHING was sent: never tell the client it was sent; explain the reason.
 </rules>
 </tool>"""
 

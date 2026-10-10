@@ -96,10 +96,11 @@ class TestProjectDbOperations:
         """
         from src.db import projects as projects_db
 
-        # Mock async Firestore client
-        mock_doc_ref = AsyncMock()
+        # Mock async Firestore client: both documents are written in one batch
         mock_db = MagicMock()
-        mock_db.collection.return_value.document.return_value = mock_doc_ref
+        batch = MagicMock()
+        batch.commit = AsyncMock()
+        mock_db.batch.return_value = batch
 
         with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
             session_id = await projects_db.create_project(
@@ -111,12 +112,20 @@ class TestProjectDbOperations:
         assert len(session_id) == 36  # UUID format
         assert "-" in session_id
 
-        # Assert: Firestore set was called
-        mock_doc_ref.set.assert_called_once()
-        call_args = mock_doc_ref.set.call_args[0][0]
+        # Assert: one atomic commit with the session AND its projection
+        batch.commit.assert_awaited_once()
+        assert batch.set.call_count == 2
+        call_args = batch.set.call_args_list[0][0][1]
         assert call_args["userId"] == "test-user-123"
         assert call_args["title"] == "My Kitchen"
         assert call_args["status"] == "draft"
+        # Regression guard (quote submission "user doesn't own project"): the
+        # dashboard path must write projects/{id}.userId like the chat path.
+        projection = batch.set.call_args_list[1][0][1]
+        assert projection["userId"] == "test-user-123"
+        assert projection["id"] == session_id
+        assert projection["name"] == "My Kitchen"
+        assert batch.set.call_args_list[1][1] == {"merge": True}
         # Regression guard: new projects MUST initialize is_deleted = False
         assert call_args["is_deleted"] is False
 
