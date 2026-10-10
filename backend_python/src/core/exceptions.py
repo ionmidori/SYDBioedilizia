@@ -215,3 +215,20 @@ class QuoteLockedError(AppException):
             message="The quote is being reviewed by another admin.",
             detail={"project_id": project_id, "locked_by": locked_by},
         )
+
+
+class PreconditionRequiredError(AppException):
+    """A write that needs optimistic concurrency was sent without If-Match."""
+    status_code = 428
+    error_code = "PRECONDITION_REQUIRED"
+
+    def __init__(self) -> None:
+        super().__init__(message='Send the quote version in the If-Match header (e.g. "v3").')
+
+
+class MediaNotFoundError(ResourceNotFound):
+    """The requested media is not attached to this quote."""
+    error_code = "MEDIA_NOT_FOUND"
+
+    def __init__(self, media_id: str) -> None:
+        super().__init__(message="Media not found for this quote.", detail={"media_id": media_id})

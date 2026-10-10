@@ -124,6 +124,25 @@ export type MediaRef = z.infer<typeof mediaRefSchema>;
 
 export const revisionActorSchema = z.enum(['ai', 'admin', 'system']);
 
+export const revisionChangeSchema = z.object({
+  change: z.enum(['added', 'removed', 'changed']),
+  sku: z.string(),
+  before: z.record(z.string(), z.unknown()).nullable().optional(),
+  after: z.record(z.string(), z.unknown()).nullable().optional(),
+});
+export type RevisionChange = z.infer<typeof revisionChangeSchema>;
+
+// Admin review state: lock holder, approval, last reject/reopen reason.
+export const quoteReviewSchema = z.object({
+  locked_by: z.string().nullable().optional(),
+  locked_at: z.string().nullable().optional(),
+  approved_by: z.string().nullable().optional(),
+  approved_at: z.string().nullable().optional(),
+  approved_revision: z.number().nullable().optional(),
+  reason: z.string().nullable().optional(),
+});
+export type QuoteReview = z.infer<typeof quoteReviewSchema>;
+
 export const quoteRevisionSchema = z.object({
   version: z.number().min(1),
   items: z.array(quoteItemSchema).default([]),
@@ -137,6 +156,7 @@ export const quoteRevisionSchema = z.object({
   actor_uid: z.string().nullable().optional(),
   actor_kind: revisionActorSchema,
   reason: z.string().nullable().optional(),
+  diff: z.array(revisionChangeSchema).default([]),
   created_at: z.string().optional(),
 });
 export type QuoteRevision = z.infer<typeof quoteRevisionSchema>;
@@ -166,11 +186,13 @@ export const quoteSchema = z.object({
   client_snapshot: clientSnapshotSchema.nullable().optional(),
   media: z.array(mediaRefSchema).default([]),
   search_keys: z.array(z.string()).default([]),
+  review: quoteReviewSchema.nullable().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   version: z.number().default(1),
   pdf_url: z.string().nullable().optional(),
   pdf_blob_path: z.string().nullable().optional(),
+  pdf_revision: z.number().nullable().optional(),
   admin_decision: z.string().nullable().optional(),
   reviewed_by: z.string().nullable().optional(),
   started_by: z.string().nullable().optional(),
