@@ -471,6 +471,34 @@ async def revision_summaries(db: Any, project_id: str, limit: int = 50) -> list[
     return rows
 
 
+async def delivery_summaries(db: Any, project_id: str, limit: int = 20) -> list[dict[str, Any]]:
+    """Sends of this quote, newest first (recipient, outcome, last event)."""
+    deliveries = quote_doc_ref(db, project_id).collection("deliveries")
+    rows: list[dict[str, Any]] = []
+    async for doc in deliveries.order_by("created_at", direction=Query.DESCENDING).limit(limit).stream():
+        data = doc.to_dict() or {}
+        events = data.get("events") or []
+        last = events[-1] if events else {}
+        rows.append(
+            {
+                "delivery_id": data.get("delivery_id") or doc.id,
+                "to": data.get("to", ""),
+                "cc": data.get("cc") or [],
+                "revision": int(data.get("revision") or 1),
+                "status": data.get("status", "queued"),
+                "provider": data.get("provider", ""),
+                "attempts": int(data.get("attempts") or 0),
+                "last_error": data.get("last_error"),
+                "created_by": data.get("created_by", ""),
+                "created_at": data.get("created_at"),
+                "sent_at": data.get("sent_at"),
+                "last_event": last.get("event"),
+                "last_event_at": last.get("at"),
+            }
+        )
+    return rows
+
+
 async def read_quote(db: Any, project_id: str) -> dict[str, Any]:
     snap = await quote_doc_ref(db, project_id).get()
     data = (snap.to_dict() or {}) if snap.exists else {}

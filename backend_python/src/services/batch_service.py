@@ -15,6 +15,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 
+from src.core.config import settings
 from src.core.exceptions import (
     BatchNotFoundError,
     BatchNotSubmittableError,
@@ -27,8 +28,9 @@ from src.services.batch_aggregation_engine import (
     ProjectQuoteSummary,
     get_batch_aggregation_engine,
 )
-from src.services.email_templates import RequestDigest, digest_from_quote
-from src.services.notification_service import NotificationService
+from src.services.email import get_email_provider
+from src.services.email.outbox import dispatch_one, enqueue_message
+from src.services.email_templates import RequestDigest, admin_new_requests_email, digest_from_quote
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -155,6 +157,34 @@ async def create_batch(user_id: str, project_ids: list[str]) -> BatchSummary:
     )
 
 
+_background_tasks: set[asyncio.Task] = set()
+
+
+async def _notify_admin(db, digests: list[RequestDigest], grand_total: float) -> None:
+    """Queue the 'new request(s)' email for the admin. Never raises."""
+    if not settings.ADMIN_EMAIL:
+        logger.warning("Admin notification skipped: ADMIN_EMAIL not configured.")
+        return
+    requests = digests or [
+        RequestDigest(
+            quote_number=None, client_name=None, client_email=None,
+            client_is_guest=False, grand_total=grand_total, summary="",
+        )
+    ]
+    content = admin_new_requests_email(requests=requests, admin_url=settings.ADMIN_DASHBOARD_URL)
+    try:
+        outbox_id = await enqueue_message(
+            db, kind="admin_notification", to=settings.ADMIN_EMAIL,
+            subject=content.subject, text=content.text, html=content.html,
+        )
+    except Exception:  # noqa: BLE001 — a lost notification must not fail the client's submission; logged
+        logger.error("Admin notification could not be queued.", exc_info=True)
+        return
+    task = asyncio.create_task(dispatch_one(db, outbox_id, get_email_provider()))
+    _background_tasks.add(task)  # keep a reference until done (asyncio holds only weak refs)
+    task.add_done_callback(_background_tasks.discard)
+
+
 async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -> BatchSummary:
     """
     Submit a draft batch to admin: batch → 'submitted', each project's quote →
@@ -204,19 +234,10 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
         "updated_at": now,
     })
 
-    # Fire-and-forget admin notification
-    try:
-        notification = NotificationService()
-        asyncio.create_task(
-            notification.notify_admin_quote_ready(
-                project_id=batch_id,
-                grand_total=data.get("batch_grand_total", 0.0),
-                user_id=user_id,
-                quotes=digests or None,
-            )
-        )
-    except Exception:  # noqa: BLE001
-        logger.warning("Admin notification failed (non-fatal).", exc_info=True)
+    # Admin notification through the transactional outbox: the email is
+    # recorded first, then sent in the background; if the instance stops before
+    # sending, the sweeper (Cloud Scheduler, every 5 min) sends it.
+    await _notify_admin(db, digests, float(data.get("batch_grand_total", 0.0)))
 
     logger.info(
         "Batch submitted to admin.",

@@ -12,6 +12,8 @@ from src.auth.jwt_handler import verify_token
 from src.core.exceptions import AppException
 from src.schemas.internal import UserSession
 from src.services.client_profile import ClientProfile
+from src.services.email.console import ConsoleProvider
+from src.services.email.types import ProviderError
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
 
 PID = "p1"
@@ -174,3 +176,107 @@ def test_list_maps_status_shortcuts(db):
 
 def test_unsafe_project_id_is_rejected(db):
     assert _client().get("/api/admin/quotes/..%2Fusers").status_code in (404, 422)
+
+
+# ── Send (Phase 4: outbox) ────────────────────────────────────────────────────
+
+APPROVED = {
+    "status": "approved",
+    "pdf_blob_path": f"projects/{PID}/quotes/PRV-2026-0001_r2.pdf",
+    "pdf_revision": 2,
+    "review": {"approved_by": "admin-a", "approved_at": T0, "approved_revision": 2},
+}
+
+
+@pytest.fixture
+def mail(db, monkeypatch):
+    """Real outbox + dispatcher on the fake Firestore, Console provider."""
+    provider = ConsoleProvider()
+
+    async def transact(_db, body):
+        return await body(FakeTransaction(db))
+
+    monkeypatch.setattr(routes.outbox, "_transact", transact)
+    monkeypatch.setattr(routes.outbox, "_download_sync", lambda path: b"%PDF")
+    monkeypatch.setattr(routes, "get_email_provider", lambda: provider)
+    return provider
+
+
+def test_send_defaults_prefill_the_client_email(db, mail):
+    _seed(db, **APPROVED)
+    resp = _client().get(f"/api/admin/quotes/{PID}/send-defaults")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["to"] == "m@x.it" and body["to_source"] == "snapshot"
+    assert body["subject"] == "Bozza di preventivo PRV-2026-0001 – SYD Bioedilizia"
+    assert body["attachment_name"] == "Bozza_preventivo_PRV-2026-0001.pdf"
+    assert body["pdf_ready"] is True and body["revision"] == 2
+
+
+def test_send_defaults_refuse_an_unapproved_quote(db, mail):
+    _seed(db)  # pending_review
+    assert _client().get(f"/api/admin/quotes/{PID}/send-defaults").status_code == 409
+
+
+def test_send_needs_an_idempotency_key(db, mail):
+    _seed(db, **APPROVED)
+    resp = _client().post(f"/api/admin/quotes/{PID}/send", json={"to": "m@x.it"})
+    assert resp.status_code == 428 and resp.json()["error_code"] == "IDEMPOTENCY_KEY_REQUIRED"
+
+
+def test_send_to_a_recipient_chosen_by_the_admin(db, mail):
+    _seed(db, **APPROVED)
+    resp = _client().post(
+        f"/api/admin/quotes/{PID}/send",
+        json={"to": "altro.indirizzo@example.it", "cc": ["socio@example.it"], "message": "A presto"},
+        headers={"Idempotency-Key": "click-0001"},
+    )
+    assert resp.status_code == 202
+    body = resp.json()
+    assert body["status"] == "sent" and body["delivery_status"] == "sent" and body["duplicate"] is False
+    [email] = mail.sent
+    assert email.to == "altro.indirizzo@example.it" and email.cc == ("socio@example.it",)
+    assert "A presto" in email.text and email.attachments[0].content == b"%PDF"
+    quote = db.get_data(*QUOTE)
+    assert quote["status"] == "sent" and quote["delivery_status"] == "sent"
+
+
+def test_double_click_sends_once(db, mail):
+    _seed(db, **APPROVED)
+    client = _client()
+    first = client.post(f"/api/admin/quotes/{PID}/send", json={"to": "m@x.it"}, headers={"Idempotency-Key": "click-0002"})
+    second = client.post(f"/api/admin/quotes/{PID}/send", json={"to": "m@x.it"}, headers={"Idempotency-Key": "click-0002"})
+    assert first.json()["delivery_id"] == second.json()["delivery_id"]
+    assert second.json()["duplicate"] is True and len(mail.sent) == 1
+
+
+def test_send_validates_addresses(db, mail):
+    _seed(db, **APPROVED)
+    resp = _client().post(f"/api/admin/quotes/{PID}/send", json={"to": "non-una-email"},
+                          headers={"Idempotency-Key": "click-0003"})
+    assert resp.status_code == 422 and mail.sent == []
+
+
+def test_provider_down_still_answers_and_keeps_the_send_queued(db, mail, monkeypatch):
+    _seed(db, **APPROVED)
+
+    class Down:
+        name = "smtp"
+
+        async def send(self, email):
+            raise ProviderError("down")
+
+    monkeypatch.setattr(routes, "get_email_provider", lambda: Down())
+    resp = _client().post(f"/api/admin/quotes/{PID}/send", json={"to": "m@x.it"}, headers={"Idempotency-Key": "click-0004"})
+    assert resp.status_code == 202 and resp.json()["delivery_status"] == "queued"
+    entry = db.get_data("email_outbox", resp.json()["delivery_id"])
+    assert entry["status"] == "pending" and entry["attempts"] == 1  # the sweeper will retry
+
+
+def test_dossier_lists_the_deliveries(db, mail):
+    _seed(db, **APPROVED)
+    _client().post(f"/api/admin/quotes/{PID}/send", json={"to": "m@x.it"}, headers={"Idempotency-Key": "click-0005"})
+    with patch.object(routes, "get_client_profile", new=AsyncMock(return_value=ClientProfile())):
+        body = _client().get(f"/api/admin/quotes/{PID}").json()
+    [delivery] = body["deliveries"]
+    assert delivery["to"] == "m@x.it" and delivery["status"] == "sent" and delivery["revision"] == 2

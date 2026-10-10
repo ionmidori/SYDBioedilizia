@@ -7,6 +7,8 @@ import {
   editQuoteBodySchema,
   quoteDossierSchema,
   quoteWriteResponseSchema,
+  sendQuoteBodySchema,
+  sendQuoteResponseSchema,
 } from '../admin-quote';
 
 const dossier = {
@@ -73,6 +75,21 @@ const dossier = {
   revisions: [
     { version: 3, actor_kind: 'admin', actor_uid: 'admin-a', reason: 'sopralluogo', change_count: 2 },
   ],
+  deliveries: [
+    {
+      delivery_id: 'a1b2c3',
+      to: 'm@x.it',
+      cc: [],
+      revision: 3,
+      status: 'delivered',
+      provider: 'smtp',
+      attempts: 1,
+      created_by: 'admin-a',
+      created_at: '2026-10-11T09:05:00Z',
+      sent_at: '2026-10-11T09:05:02Z',
+      last_event: 'delivered',
+    },
+  ],
 };
 
 describe('admin quote Golden Sync', () => {
@@ -115,5 +132,19 @@ describe('admin quote Golden Sync', () => {
   it('rejects unknown fields in an edit, like the backend (extra=forbid)', () => {
     expect(editQuoteBodySchema.safeParse({ status: 'approved' }).success).toBe(false);
     expect(editQuoteBodySchema.safeParse({ admin_notes: 'ok' }).success).toBe(true);
+  });
+
+  it('validates a send request and parses its response', () => {
+    expect(sendQuoteBodySchema.safeParse({ to: 'm@x.it' }).success).toBe(true);
+    expect(sendQuoteBodySchema.safeParse({ to: 'not-an-email' }).success).toBe(false);
+    expect(sendQuoteBodySchema.safeParse({ to: 'm@x.it', cc: ['a@x.it', 'b@x.it', 'c@x.it', 'd@x.it'] }).success).toBe(false);
+    const res = sendQuoteResponseSchema.parse({
+      project_id: 'p1',
+      delivery_id: 'd1',
+      status: 'sent',
+      delivery_status: 'sent',
+    });
+    expect(res.duplicate).toBe(false);
+    expect(quoteDossierSchema.parse(dossier).deliveries[0].status).toBe('delivered');
   });
 });

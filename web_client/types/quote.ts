@@ -161,6 +161,45 @@ export const quoteRevisionSchema = z.object({
 });
 export type QuoteRevision = z.infer<typeof quoteRevisionSchema>;
 
+// ── Delivery (one send of the approved PDF) ──────────────────────────────────
+
+export const deliveryRecordStatusSchema = z.enum([
+  'queued',
+  'sent',
+  'delivered',
+  'bounced',
+  'complained',
+  'failed',
+]);
+export type DeliveryRecordStatus = z.infer<typeof deliveryRecordStatusSchema>;
+
+export const deliveryEventRecordSchema = z.object({
+  event: z.string(),
+  at: z.string(),
+  detail: z.string().nullable().optional(),
+});
+
+export const quoteDeliverySchema = z.object({
+  delivery_id: z.string(),
+  to: z.string(),
+  cc: z.array(z.string()).default([]),
+  subject: z.string().nullable().optional(),
+  message: z.string().nullable().optional(),
+  revision: z.number().min(1),
+  pdf_blob_path: z.string(),
+  status: deliveryRecordStatusSchema.default('queued'),
+  provider: z.string(),
+  provider_message_id: z.string().nullable().optional(),
+  attempts: z.number().default(0),
+  last_error: z.string().nullable().optional(),
+  events: z.array(deliveryEventRecordSchema).default([]),
+  created_by: z.string(),
+  created_at: z.string(),
+  sent_at: z.string().nullable().optional(),
+  updated_at: z.string().nullable().optional(),
+});
+export type QuoteDelivery = z.infer<typeof quoteDeliverySchema>;
+
 // ── QuoteSchema ──────────────────────────────────────────────────────────────
 
 export const quoteSchema = z.object({
@@ -193,6 +232,8 @@ export const quoteSchema = z.object({
   pdf_url: z.string().nullable().optional(),
   pdf_blob_path: z.string().nullable().optional(),
   pdf_revision: z.number().nullable().optional(),
+  last_delivery_id: z.string().nullable().optional(),
+  sent_at: z.string().nullable().optional(),
   admin_decision: z.string().nullable().optional(),
   reviewed_by: z.string().nullable().optional(),
   started_by: z.string().nullable().optional(),

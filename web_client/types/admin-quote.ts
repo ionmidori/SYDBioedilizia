@@ -7,6 +7,7 @@
 import { z } from 'zod';
 
 import {
+  deliveryRecordStatusSchema,
   mediaRefSchema,
   quoteDeliveryStatusSchema,
   quoteItemSchema,
@@ -71,6 +72,23 @@ export const revisionSummarySchema = z.object({
 });
 export type RevisionSummary = z.infer<typeof revisionSummarySchema>;
 
+export const deliverySummarySchema = z.object({
+  delivery_id: z.string(),
+  to: z.string(),
+  cc: z.array(z.string()).default([]),
+  revision: z.number(),
+  status: deliveryRecordStatusSchema,
+  provider: z.string(),
+  attempts: z.number().default(0),
+  last_error: z.string().nullable().optional(),
+  created_by: z.string(),
+  created_at: z.string().nullable().optional(),
+  sent_at: z.string().nullable().optional(),
+  last_event: z.string().nullable().optional(),
+  last_event_at: z.string().nullable().optional(),
+});
+export type DeliverySummary = z.infer<typeof deliverySummarySchema>;
+
 export const quoteDossierSchema = z.object({
   project_id: z.string(),
   project_name: z.string().nullable().optional(),
@@ -80,6 +98,7 @@ export const quoteDossierSchema = z.object({
   client_profile_changed: z.boolean().default(false),
   media: z.array(dossierMediaSchema).default([]),
   revisions: z.array(revisionSummarySchema).default([]),
+  deliveries: z.array(deliverySummarySchema).default([]),
 });
 export type QuoteDossier = z.infer<typeof quoteDossierSchema>;
 
@@ -117,3 +136,35 @@ export const mediaUrlResponseSchema = z.object({
   expires_in_seconds: z.number().default(900),
 });
 export type MediaUrlResponse = z.infer<typeof mediaUrlResponseSchema>;
+
+// What the Send dialog pre-fills: the admin can change every field.
+export const sendDefaultsSchema = z.object({
+  to: z.string().nullable().optional(),
+  to_source: z.enum(['snapshot', 'profile', 'none']),
+  subject: z.string(),
+  body_preview: z.string(),
+  attachment_name: z.string(),
+  revision: z.number(),
+  pdf_ready: z.boolean(),
+});
+export type SendDefaults = z.infer<typeof sendDefaultsSchema>;
+
+export const sendQuoteBodySchema = z
+  .object({
+    to: z.email(),
+    cc: z.array(z.email()).max(3).default([]),
+    subject: z.string().min(3).max(200).nullable().optional(),
+    message: z.string().max(2000).nullable().optional(),
+  })
+  .strict();
+export type SendQuoteBody = z.infer<typeof sendQuoteBodySchema>;
+
+export const sendQuoteResponseSchema = z.object({
+  project_id: z.string(),
+  delivery_id: z.string(),
+  status: quoteStatusSchema,
+  delivery_status: deliveryRecordStatusSchema,
+  quote_number: z.string().nullable().optional(),
+  duplicate: z.boolean().default(false),
+});
+export type SendQuoteResponse = z.infer<typeof sendQuoteResponseSchema>;

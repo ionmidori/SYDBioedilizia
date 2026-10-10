@@ -18,7 +18,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Header, Path, Query, Request, Response
 from google.cloud.firestore_v1 import async_transactional
 from src.auth.admin import has_second_factor, require_admin
-from src.core.exceptions import InvalidQuoteTransitionError, ResourceNotFound
+from src.core.exceptions import IdempotencyKeyRequiredError, InvalidQuoteTransitionError, ResourceNotFound
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.admin_quote import (
@@ -26,6 +26,7 @@ from src.schemas.admin_quote import (
     AdminQuoteList,
     AdminQuoteListItem,
     ClientLive,
+    DeliverySummary,
     DossierMedia,
     EditQuoteBody,
     MediaUrlResponse,
@@ -33,13 +34,18 @@ from src.schemas.admin_quote import (
     QuoteWriteResponse,
     ReasonBody,
     RevisionSummary,
+    SendDefaults,
+    SendQuoteBody,
+    SendQuoteResponse,
 )
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteRevision, QuoteSchema
 from src.services import admin_quotes as svc
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.services.client_profile import get_client_profile
-from src.services.pdf_service import PdfService
+from src.services.email import get_email_provider, outbox
+from src.services.email_templates import attachment_filename, client_quote_email
+from src.services.pdf_service import PdfService, resolve_validity
 from src.services.quote_drafts import quote_doc_ref, revision_ref
 from src.utils.datetime_utils import utc_now
 
@@ -116,9 +122,10 @@ async def get_dossier(
 
     snapshot = quote.get("client_snapshot") or {}
     owner = quote.get("user_id") or project.get("userId") or ""
-    media, revisions, live = await asyncio.gather(
+    media, revisions, deliveries, live = await asyncio.gather(
         svc.signed_media(quote, project_id),
         svc.revision_summaries(db, project_id),
+        svc.delivery_summaries(db, project_id),
         get_client_profile(owner) if owner else asyncio.sleep(0, result=None),
     )
     client_live = None
@@ -140,6 +147,7 @@ async def get_dossier(
         client_profile_changed=changed,
         media=[DossierMedia(**m) for m in media],
         revisions=[RevisionSummary(**r) for r in revisions if r.get("version")],
+        deliveries=[DeliverySummary(**d) for d in deliveries],
     )
 
 
@@ -310,6 +318,95 @@ async def reopen_quote(
     result = await _run(lambda tx, db: svc.reopen_tx(tx, db, project_id, admin.uid, body.reason, now))
     _audit(AuditAction.QUOTE_REOPEN, project_id, admin, quote_number=result.quote_number)
     return _write_response(result)
+
+
+# ── Send to the client (Phase 4: outbox) ─────────────────────────────────────
+
+
+@router.get("/quotes/{project_id}/send-defaults", response_model=SendDefaults)
+@limiter.limit("60/minute")
+async def send_defaults(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    project_id: str = _PID,
+    admin: UserSession = Depends(require_admin),  # pyright: ignore[reportUnusedParameter]
+) -> SendDefaults:
+    """What the Send dialog pre-fills. The admin may change the recipient."""
+    quote = await svc.read_quote(get_async_firestore_client(), project_id)
+    outbox.assert_sendable(quote)
+    snapshot = quote.get("client_snapshot") or {}
+    to, source = snapshot.get("email"), "snapshot"
+    if not to and quote.get("user_id"):
+        profile = await get_client_profile(str(quote["user_id"]))
+        to, source = profile.email or None, "profile"
+    review = quote.get("review") or {}
+    revision = int(review.get("approved_revision") or quote.get("pdf_revision") or quote.get("version") or 1)
+    content = client_quote_email(
+        client_name=snapshot.get("display_name"),
+        quote_number=quote.get("quote_number"),
+        grand_total=float((quote.get("financials") or {}).get("grand_total", 0.0)),
+        valid_until=resolve_validity(quote)[2],
+        revision=revision,
+    )
+    pdf_revision = quote.get("pdf_revision")
+    pdf_ready = bool(quote.get("pdf_blob_path")) and (
+        pdf_revision is None or review.get("approved_revision") is None or pdf_revision == review.get("approved_revision")
+    )
+    return SendDefaults(
+        to=to,
+        to_source=source if to else "none",
+        subject=content.subject,
+        body_preview=content.text,
+        attachment_name=attachment_filename(quote.get("quote_number")),
+        revision=revision,
+        pdf_ready=pdf_ready,
+    )
+
+
+@router.post("/quotes/{project_id}/send", response_model=SendQuoteResponse, status_code=202)
+@limiter.limit("20/hour")
+async def send_quote(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    body: SendQuoteBody,
+    project_id: str = _PID,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+    admin: UserSession = Depends(require_admin),
+) -> SendQuoteResponse:
+    """Queue the approved PDF for the recipient chosen by the admin, then try
+    to send it right away. If the provider is down the outbox retries."""
+    if not idempotency_key or not 8 <= len(idempotency_key) <= 128:
+        raise IdempotencyKeyRequiredError()
+    now = utc_now()
+    result = await _run(
+        lambda tx, db: outbox.enqueue_quote_delivery_tx(
+            tx,
+            db,
+            project_id,
+            to=str(body.to),
+            cc=[str(c) for c in body.cc],
+            subject=body.subject,
+            message=body.message,
+            actor=admin.uid,
+            idempotency_key=idempotency_key,
+            now=now,
+        )
+    )
+    db = get_async_firestore_client()
+    if not result.duplicate:
+        _audit(AuditAction.QUOTE_SEND, project_id, admin, quote_number=result.quote_number,
+               delivery_id=result.delivery_id)
+        # Inline dispatch (bounded by the provider timeout); the sweeper
+        # retries whatever is left pending.
+        await outbox.dispatch_one(db, result.delivery_id, get_email_provider())
+    delivery = await outbox.delivery_ref(db, project_id, result.delivery_id).get()
+    delivery_status = (delivery.to_dict() or {}).get("status", "queued") if delivery.exists else "queued"
+    return SendQuoteResponse(
+        project_id=project_id,
+        delivery_id=result.delivery_id,
+        status=result.status,  # type: ignore[arg-type]  # validated by the state machine
+        delivery_status=delivery_status,
+        quote_number=result.quote_number,
+        duplicate=result.duplicate,
+    )
 
 
 # ── PDF helper ────────────────────────────────────────────────────────────────

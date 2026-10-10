@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -264,6 +266,26 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = Field(default="SYD Bioedilizia", description="Sender display name for notifications (e.g. 'SYD Bioedilizia <noreply@...>')")
     ADMIN_EMAIL: str | None = Field(default=None, description="Admin email address for quote review notifications")
 
+    # Transactional email platform (Phase 128 — Fase 4): outbox + provider.
+    EMAIL_PROVIDER: Literal["smtp", "brevo", "console"] = Field(
+        default="smtp", description="smtp (Gmail today) | brevo (EU, needs a verified domain) | console (dev/tests)"
+    )
+    EMAIL_FROM_ADDRESS: str | None = Field(default=None, description="Sender address; falls back to SMTP_FROM_EMAIL")
+    EMAIL_FROM_NAME: str | None = Field(default=None, description="Sender name; falls back to SMTP_FROM_NAME")
+    EMAIL_REPLY_TO: str | None = Field(default=None, description="Reply-To; falls back to the sender address")
+    EMAIL_MAX_ATTEMPTS: int = Field(default=5, ge=1, le=10, description="Send attempts before dead-lettering")
+    BREVO_API_KEY: str | None = Field(default=None, description="Brevo transactional API key (Secret Manager)")
+    BREVO_WEBHOOK_TOKEN: str | None = Field(
+        default=None, description="Bearer token Brevo sends on webhook calls (Secret Manager, >=32 chars)"
+    )
+    # Cloud Scheduler → POST /internal/email/sweep with an OIDC token.
+    EMAIL_SWEEP_AUDIENCE: str | None = Field(
+        default=None, description="Expected OIDC audience (the sweep URL configured on the Scheduler job)"
+    )
+    EMAIL_SWEEP_INVOKER_EMAIL: str | None = Field(
+        default=None, description="Service account email the Scheduler job signs its OIDC token with"
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -303,7 +325,7 @@ class Settings(BaseSettings):
         if self.ENV == "production":
             import logging
             _log = logging.getLogger(__name__)
-            for name in ("N8N_WEBHOOK_HMAC_SECRET", "LIFECYCLE_SECRET", "ADMIN_INTERNAL_SECRET"):
+            for name in ("N8N_WEBHOOK_HMAC_SECRET", "LIFECYCLE_SECRET", "ADMIN_INTERNAL_SECRET", "BREVO_WEBHOOK_TOKEN"):
                 value = getattr(self, name, None)
                 if value and len(value) < 32:
                     _log.warning(
@@ -312,6 +334,18 @@ class Settings(BaseSettings):
                         name,
                     )
         return self
+
+    @property
+    def email_from_address(self) -> str:
+        return self.EMAIL_FROM_ADDRESS or self.SMTP_FROM_EMAIL
+
+    @property
+    def email_from_name(self) -> str:
+        return self.EMAIL_FROM_NAME or self.SMTP_FROM_NAME
+
+    @property
+    def email_reply_to(self) -> str:
+        return self.EMAIL_REPLY_TO or self.email_from_address
 
     @property
     def api_key(self) -> str:

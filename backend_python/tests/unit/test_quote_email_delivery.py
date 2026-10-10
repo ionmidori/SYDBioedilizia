@@ -9,7 +9,7 @@ Covers:
 """
 import datetime
 from email import message_from_bytes
-from email.header import decode_header, make_header
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -46,7 +46,7 @@ class TestSendEmail:
     async def test_plain_only_backcompat(self, smtp_settings):
         """Existing plain-text callers keep working: plain part present, no PDF."""
         service = NotificationService()
-        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
+        with patch("src.services.email.smtp.aiosmtplib.send", new=AsyncMock()) as mock_send:
             await service._send_email(to="a@b.c", subject="Test", body="Ciao")
 
         parsed = _sent_message(mock_send)
@@ -59,7 +59,7 @@ class TestSendEmail:
     async def test_html_and_pdf_attachment(self, smtp_settings):
         """html + attachments build multipart/mixed with alternative and PDF part."""
         service = NotificationService()
-        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
+        with patch("src.services.email.smtp.aiosmtplib.send", new=AsyncMock()) as mock_send:
             await service._send_email(
                 to="a@b.c",
                 subject="Test",
@@ -85,7 +85,7 @@ class TestDeliverabilityHeaders:
     async def test_from_uses_display_name(self, smtp_settings, monkeypatch):
         monkeypatch.setattr(settings, "SMTP_FROM_NAME", "SYD Bioedilizia")
         service = NotificationService()
-        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
+        with patch("src.services.email.smtp.aiosmtplib.send", new=AsyncMock()) as mock_send:
             await service._send_email(to="a@b.c", subject="Test", body="Ciao")
 
         parsed = _sent_message(mock_send)
@@ -94,7 +94,7 @@ class TestDeliverabilityHeaders:
 
     async def test_list_unsubscribe_omitted_by_default(self, smtp_settings):
         service = NotificationService()
-        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
+        with patch("src.services.email.smtp.aiosmtplib.send", new=AsyncMock()) as mock_send:
             await service._send_email(to="a@b.c", subject="Test", body="Ciao")
 
         parsed = _sent_message(mock_send)
@@ -102,7 +102,7 @@ class TestDeliverabilityHeaders:
 
     async def test_list_unsubscribe_present_when_requested(self, smtp_settings):
         service = NotificationService()
-        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
+        with patch("src.services.email.smtp.aiosmtplib.send", new=AsyncMock()) as mock_send:
             await service._send_email(
                 to="a@b.c",
                 subject="Test",
@@ -112,58 +112,6 @@ class TestDeliverabilityHeaders:
 
         parsed = _sent_message(mock_send)
         assert parsed["List-Unsubscribe"] == "<mailto:privacy@sydbioedilizia.com?subject=unsubscribe>"
-
-
-# ─── deliver_quote_to_client ─────────────────────────────────────────────────
-
-class TestDeliverQuoteToClient:
-    async def test_attaches_pdf_and_points_to_the_client_area(self, smtp_settings):
-        service = NotificationService()
-        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
-            result = await service.deliver_quote_to_client(
-                project_id="9de20502-0eb6-4075-99f1-14ad188150af",
-                pdf_url="https://signed.example/q.pdf",
-                client_email="cliente@example.com",
-                quote_total=1234.56,
-                pdf_bytes=PDF_BYTES,
-                quote_number="PRV-2026-0042",
-                client_name="Mario Rossi",
-            )
-
-        assert "✅" in result
-        parsed = _sent_message(mock_send)
-        assert parsed["To"] == "cliente@example.com"
-        assert "PRV-2026-0042" in str(make_header(decode_header(parsed["Subject"])))
-        parts = _parts_by_type(parsed)
-        plain = parts["text/plain"].get_payload(decode=True).decode("utf-8")
-        assert "Gentile Mario Rossi" in plain
-        assert "bozza" in plain.lower()
-        # No signed Storage link and no project id in the body: a forwarded email must not leak the file.
-        assert "signed.example" not in plain and "9de20502" not in plain
-        assert "/dashboard/quotes" in plain
-        assert "text/html" in parts
-        pdf_part = parts.get("application/pdf")
-        assert pdf_part is not None
-        assert pdf_part.get_filename() == "Bozza_preventivo_PRV-2026-0042.pdf"
-        assert pdf_part.get_payload(decode=True) == PDF_BYTES
-
-    async def test_without_pdf_bytes_still_sends_without_attachment(self, smtp_settings):
-        """pdf_bytes optional: the email still goes out, pointing to the client area."""
-        service = NotificationService()
-        with patch("src.services.notification_service.aiosmtplib.send", new=AsyncMock()) as mock_send:
-            result = await service.deliver_quote_to_client(
-                project_id="p1",
-                pdf_url="https://signed.example/q.pdf",
-                client_email="cliente@example.com",
-                quote_total=100.0,
-            )
-
-        assert "✅" in result
-        parsed = _sent_message(mock_send)
-        parts = _parts_by_type(parsed)
-        plain = parts["text/plain"].get_payload(decode=True).decode("utf-8")
-        assert "Gentile Cliente" in plain and "area riservata" in plain
-        assert "application/pdf" not in parts
 
 
 # ─── PdfService signed URL expiry ────────────────────────────────────────────
@@ -255,7 +203,8 @@ class TestApproveRecipient:
                 "admin-test-uid": {"name": "Admin", "email": "admin@test.com", "phone": ""},
             }[uid]
 
-        deliver_mock = AsyncMock(return_value="✅ ok")
+        enqueue_mock = AsyncMock(return_value=SimpleNamespace(delivery_id="d1", duplicate=False))
+        dispatch_mock = AsyncMock(return_value="sent")
 
         with (
             patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve),
@@ -264,8 +213,9 @@ class TestApproveRecipient:
             patch("src.api.routes.quote_routes._resolve_project_owner_uid",
                   new=AsyncMock(return_value="client-uid-123")),
             patch("src.api.routes.quote_routes._get_user_profile", side_effect=fake_profile),
-            patch("src.services.notification_service.NotificationService.deliver_quote_to_client",
-                  new=deliver_mock),
+            patch("src.api.routes.quote_routes.get_async_firestore_client", return_value=MagicMock()),
+            patch("src.api.routes.quote_routes.enqueue_quote_delivery", new=enqueue_mock),
+            patch("src.api.routes.quote_routes.dispatch_one", new=dispatch_mock),
         ):
             response = client.post(
                 "/api/quote/test-project-001/approve",
@@ -273,8 +223,11 @@ class TestApproveRecipient:
             )
 
         assert response.status_code == 200
-        deliver_mock.assert_called_once()
-        kwargs = deliver_mock.call_args.kwargs
-        assert kwargs["client_email"] == "cliente@example.com"
-        assert kwargs["pdf_bytes"] == PDF_BYTES
-        assert kwargs["pdf_url"] == "https://signed.example/q.pdf"
+        enqueue_mock.assert_awaited_once()
+        kwargs = enqueue_mock.await_args.kwargs
+        # recipient = project owner, never the approving admin; one key per approval (its PDF)
+        assert kwargs["to"] == "cliente@example.com"
+        assert kwargs["idempotency_key"] == "approve:projects/test-project-001/quotes/quote_1.pdf"
+        assert kwargs["message"] is None  # admin notes are printed on the PDF, not repeated
+        dispatch_mock.assert_awaited_once()
+        assert dispatch_mock.await_args.args[1] == "d1"

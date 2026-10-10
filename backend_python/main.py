@@ -356,6 +356,8 @@ class AppCheckMiddleware:
     _PUBLIC_PATHS = frozenset({
         "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
         "/internal/lifecycle/run", "/internal/quote/approve",
+        # Email platform (Phase 128): Cloud Scheduler OIDC / Brevo bearer token.
+        "/internal/email/sweep", "/webhooks/email/brevo",
     })
     _DEV_PATHS = frozenset({"/docs", "/openapi.json"})
     # Public read-only homepage content. The landing page fetches it without an
@@ -482,6 +484,11 @@ app.include_router(admin_storage_router)
 from src.api.routes.admin_quotes import router as admin_quotes_router
 
 app.include_router(admin_quotes_router)
+
+# Register email platform router (outbox sweep + provider webhooks)
+from src.api.routes.email_routes import router as email_router
+
+app.include_router(email_router)
 
 # Register account lifecycle routes (GDPR inactivity pipeline — Cloud Scheduler only)
 from src.api.routes.lifecycle_routes import router as lifecycle_router
