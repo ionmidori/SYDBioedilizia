@@ -10,6 +10,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+from google.cloud.firestore_v1 import DELETE_FIELD
+
 
 class FakeSnapshot:
     def __init__(self, data: dict[str, Any] | None) -> None:
@@ -118,7 +120,11 @@ def _set_dotted(target: dict[str, Any], dotted: str, value: Any) -> None:
     node = target
     for key in parents:
         node = node.setdefault(key, {})
-    node[leaf] = value
+    # deepcopy may clone the sentinel, so compare by type, not identity.
+    if isinstance(value, type(DELETE_FIELD)):
+        node.pop(leaf, None)
+    else:
+        node[leaf] = value
 
 
 class FakeTransaction:
