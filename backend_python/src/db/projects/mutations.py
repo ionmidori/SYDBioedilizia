@@ -3,6 +3,7 @@ Write operations (create/update/claim) for Projects.
 """
 import logging
 import uuid
+from datetime import datetime
 from typing import Any
 
 from src.db.firebase_client import get_async_firestore_client
@@ -12,6 +13,19 @@ from src.services.quote_drafts import refresh_quote_owner
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
+
+
+def project_projection(session_id: str, owner_id: str, title: str, now: datetime) -> dict[str, Any]:
+    """Public projection `projects/{id}` of a project (same shape as the chat
+    path in conversation_repository.ensure_session)."""
+    return {
+        "id": session_id,
+        "name": title,
+        "userId": owner_id,
+        "createdAt": now,
+        "updatedAt": now,
+        "status": "active",
+    }
 
 
 async def create_project(user_id: str, data: ProjectCreate) -> str:
@@ -32,11 +46,19 @@ async def create_project(user_id: str, data: ProjectCreate) -> str:
         session_id = str(uuid.uuid4())
 
         doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
+        now = utc_now()
 
+        # One atomic batch for BOTH documents. The `projects/{id}` projection
+        # carries the owner (`userId`) that quote submission, the client
+        # "Preventivi" list, ownership checks and storage.rules read; the chat
+        # path (conversation_repository.ensure_session) always wrote it, this
+        # dashboard path did not — so dashboard projects could never submit a
+        # quote ("Batch: user doesn't own project").
+        batch = db.batch()
         # S1 FIX: Explicit null initialization for ALL fields
         # is_deleted is explicitly set to False so the composite index filter
         # in count_user_projects works correctly without a fallback.
-        await doc_ref.set({
+        batch.set(doc_ref, {
             "sessionId": session_id,
             "userId": user_id,
             "title": data.title,
@@ -46,9 +68,15 @@ async def create_project(user_id: str, data: ProjectCreate) -> str:
             "constructionDetails": None,
             "messageCount": 0,
             "is_deleted": False,
-            "createdAt": utc_now(),
-            "updatedAt": utc_now(),
+            "createdAt": now,
+            "updatedAt": now,
         })
+        batch.set(
+            db.collection("projects").document(session_id),
+            project_projection(session_id, user_id, data.title, now),
+            merge=True,
+        )
+        await batch.commit()
 
         logger.info(f"[Projects] Created project {session_id} for user {user_id}")
         return session_id

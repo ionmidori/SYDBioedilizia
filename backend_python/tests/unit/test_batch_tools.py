@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from src.core.exceptions import NoEligibleProjectsError
 from src.services.batch_service import BatchSummary
 from src.tools.batch_tools import (
+    NOT_SENT_PREFIX,
     list_ready_quotes_wrapper,
     submit_quote_request_wrapper,
 )
@@ -52,6 +53,7 @@ class TestSubmitQuoteRequest:
         with patch("src.tools.batch_tools.get_async_firestore_client", return_value=db):
             result = await submit_quote_request_wrapper(SESSION)
         assert "accedere" in result.lower() or "login" in result.lower()
+        assert result.startswith(NOT_SENT_PREFIX)
 
     async def test_defaults_to_current_session_project(self):
         db = _session_db(user_id=USER)
@@ -65,7 +67,7 @@ class TestSubmitQuoteRequest:
         ):
             result = await submit_quote_request_wrapper(SESSION)
 
-        assert "✅" in result
+        assert result.startswith("✅")
         create.assert_awaited_once_with(user_id=USER, project_ids=[SESSION])
         submit.assert_awaited_once_with(user_id=USER, batch_id="b1")
 
@@ -95,6 +97,7 @@ class TestSubmitQuoteRequest:
             result = await submit_quote_request_wrapper(SESSION)
 
         assert "✅" not in result
+        assert result.startswith(NOT_SENT_PREFIX)  # the prompt keys on this marker
         assert "bozza" in result
 
     async def test_unexpected_error_never_raises(self):
@@ -106,6 +109,7 @@ class TestSubmitQuoteRequest:
         ):
             result = await submit_quote_request_wrapper(SESSION)
         assert "problema" in result
+        assert result.startswith(NOT_SENT_PREFIX)
 
 
 class TestListReadyQuotes:
@@ -151,3 +155,14 @@ class TestListReadyQuotes:
         ):
             result = await list_ready_quotes_wrapper(SESSION)
         assert "Non ci sono" in result
+
+
+
+def test_prompt_reports_the_real_submission_outcome():
+    """Regression (10 Oct 2026): STEP 3 told the agent to always answer
+    "Richiesta inviata! ✅" after calling the tool — a failed submission
+    ("user doesn't own project") was announced to the client as sent."""
+    from src.prompts.components.modes import MODE_B_SURVEYOR
+
+    assert "RICHIESTA NON INVIATA" in MODE_B_SURVEYOR
+    assert "non affermare mai che la richiesta è stata inviata" in MODE_B_SURVEYOR

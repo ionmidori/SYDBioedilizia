@@ -18,9 +18,15 @@ from src.services import batch_service
 
 logger = logging.getLogger(__name__)
 
+# Every failure starts with this marker, every success with "✅": the agent
+# prompt (MODE_B_SURVEYOR STEP 3) reports the REAL outcome from it. Before, the
+# prompt told the agent to always say "Richiesta inviata! ✅" after the call,
+# so a failed submission was announced to the client as sent.
+NOT_SENT_PREFIX = "❌ RICHIESTA NON INVIATA:"
+
 _LOGIN_REQUIRED_MSG = (
-    "Per inviare la richiesta di preventivo devi prima accedere al tuo account. "
-    "Usa il pulsante di login."
+    f"{NOT_SENT_PREFIX} per inviare la richiesta di preventivo devi prima accedere "
+    "al tuo account. Usa il pulsante di login."
 )
 
 
@@ -111,8 +117,8 @@ async def submit_quote_request_wrapper(
             )
         except NoEligibleProjectsError:
             return (
-                "Nessuno dei progetti indicati ha un preventivo in bozza da inviare. "
-                "Usa list_ready_quotes per vedere quelli pronti."
+                f"{NOT_SENT_PREFIX} nessuno dei progetti indicati ha un preventivo in bozza "
+                "da inviare. Usa list_ready_quotes per vedere quelli pronti."
             )
 
         submitted = await batch_service.submit_batch(
@@ -129,6 +135,6 @@ async def submit_quote_request_wrapper(
     except Exception:
         logger.error("[submit_quote_request] Failed.", exc_info=True)
         return (
-            "Si è verificato un problema durante l'invio della richiesta. "
+            f"{NOT_SENT_PREFIX} si è verificato un problema durante l'invio. "
             "Riprova tra poco oppure usa la dashboard progetti."
         )

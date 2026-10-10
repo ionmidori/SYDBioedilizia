@@ -46,6 +46,23 @@ class FakeDocRef:
     async def delete(self) -> None:
         self._db.docs.pop(self.path, None)
 
+    async def set(self, data: dict[str, Any], merge: bool = False) -> None:
+        if merge and self.path in self._db.docs:
+            self._db.docs[self.path].update(copy.deepcopy(data))
+        else:
+            self._db.docs[self.path] = copy.deepcopy(data)
+
+
+class FakeDocSnapshot(FakeDocRef):
+    """What `stream()` yields: a reference that also exposes `id`/`to_dict()`."""
+
+    @property
+    def id(self) -> str:
+        return self.path[-1]
+
+    def to_dict(self) -> dict[str, Any] | None:
+        return copy.deepcopy(self._db.docs.get(self.path))
+
 
 class FakeCollection:
     def __init__(self, db: FakeDb, path: tuple[str, ...]) -> None:
@@ -62,7 +79,7 @@ class FakeCollection:
         depth = len(self.path) + 1
         for path in sorted(self._db.docs):
             if len(path) == depth and path[: len(self.path)] == self.path:
-                yield FakeDocRef(self._db, path)
+                yield FakeDocSnapshot(self._db, path)
 
 
 class FakeDb:
