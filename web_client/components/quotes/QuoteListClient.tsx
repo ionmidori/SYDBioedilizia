@@ -21,6 +21,8 @@ import { logger } from '@/lib/logger';
 
 const STATUS_UI: Record<string, { label: string; className: string; Icon: typeof Clock }> = {
     pending_review: { label: 'In revisione', className: 'text-amber-400 bg-amber-400/10 border-amber-400/20', Icon: Clock },
+    // The admin opened the request: still "in revisione" for the client.
+    in_review: { label: 'In revisione', className: 'text-amber-400 bg-amber-400/10 border-amber-400/20', Icon: Clock },
     approved: { label: 'Approvato', className: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', Icon: CheckCircle2 },
     sent: { label: 'Inviato', className: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', Icon: Mail },
     rejected: { label: 'Non approvato', className: 'text-red-400 bg-red-400/10 border-red-400/20', Icon: XCircle },
@@ -77,6 +79,14 @@ function QuoteCard({ quote }: { quote: QuoteListItem }) {
                     <h3 className="font-semibold text-luxury-text truncate">
                         {quote.project_name || 'Progetto senza nome'}
                     </h3>
+                    {quote.quote_number && (
+                        <p
+                            data-testid="quote-number"
+                            className="text-xs font-medium tracking-wide text-luxury-gold/80 mt-0.5 tabular-nums"
+                        >
+                            {quote.quote_number}
+                        </p>
+                    )}
                     <p className="text-xs text-luxury-text/50 mt-1">
                         {quote.item_count} lavorazioni
                         {quote.updated_at && <> · aggiornato {formatDate(quote.updated_at)}</>}

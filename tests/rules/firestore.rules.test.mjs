@@ -20,6 +20,11 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   const db = ctx.firestore();
   await setDoc(doc(db, 'projects/p1'), { userId: 'owner', status: 'draft' });
   await setDoc(doc(db, 'testimonials/t1'), { userId: 'owner', text: 'Ottimo', rating: 5, status: 'approved' });
+  // Phase 128: quote dossier data is backend-only (Admin SDK), even for the owner.
+  await setDoc(doc(db, 'projects/p1/private_data/quote'), { user_id: 'owner', status: 'draft', quote_number: 'PRV-2026-0001' });
+  await setDoc(doc(db, 'projects/p1/private_data/quote/revisions/1'), { version: 1, actor_kind: 'ai' });
+  await setDoc(doc(db, 'projects/p1/private_data/quote/deliveries/d1'), { to: 'owner@example.it' });
+  await setDoc(doc(db, 'counters/quote_2026'), { next: 2 });
 });
 
 const owner = env.authenticatedContext('owner', google).firestore();
@@ -38,6 +43,14 @@ const cases = [
   ['signed-out reads approved testimonial', false, () => getDoc(doc(guest, 'testimonials/t1'))],
   ['user lists testimonials', false, () => getDocs(collection(other, 'testimonials'))],
   ['user creates testimonial', false, () => setDoc(doc(owner, 'testimonials/t2'), { userId: 'owner', text: 'x', rating: 5, status: 'pending' })],
+  // quote dossier (Phase 128): drafts, revisions, deliveries and the number counter
+  // are read and written only by the backend — prices stay confidential until approval
+  ['owner reads own quote draft', false, () => getDoc(doc(owner, 'projects/p1/private_data/quote'))],
+  ['owner edits own quote', false, () => updateDoc(doc(owner, 'projects/p1/private_data/quote'), { status: 'approved' })],
+  ['owner reads quote revision', false, () => getDoc(doc(owner, 'projects/p1/private_data/quote/revisions/1'))],
+  ['owner lists quote deliveries', false, () => getDocs(collection(owner, 'projects/p1/private_data/quote/deliveries'))],
+  ['user reads number counter', false, () => getDoc(doc(owner, 'counters/quote_2026'))],
+  ['user bumps number counter', false, () => setDoc(doc(owner, 'counters/quote_2026'), { next: 1 })],
 ];
 
 let failed = 0;

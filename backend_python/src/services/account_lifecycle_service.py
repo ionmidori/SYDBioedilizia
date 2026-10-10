@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 
 from src.core.config import settings
 from src.db.firebase_client import get_async_firestore_client
+from src.db.projects.deletion import delete_quote_data
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -227,9 +228,10 @@ class AccountLifecycleService:
             await session_doc.reference.delete()
 
         # ── Delete private quote data from projects (keep project shell) ──────
+        # (subcollections too: revisions/deliveries hold client data and are
+        # not removed by deleting the parent document)
         async for project_doc in db.collection("projects").where("userId", "==", uid).stream():
-            quote_ref = project_doc.reference.collection("private_data").document("quote")
-            await quote_ref.delete()
+            await delete_quote_data(db, project_doc.reference)
 
         # ── Delete Firebase Auth account ──────────────────────────────────────
         try:

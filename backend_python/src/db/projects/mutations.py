@@ -8,6 +8,7 @@ from typing import Any
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import PROJECTS_COLLECTION
 from src.models.project import ProjectCreate, ProjectDetails, ProjectStatus, ProjectUpdate
+from src.services.quote_drafts import refresh_quote_owner
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -181,6 +182,9 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
 
         # 4. Commit Transition
         await batch.commit()
+
+        # 5. The quote (if any) follows the project: new owner + client snapshot.
+        await refresh_quote_owner(db, session_id, new_user_id)
 
         logger.info(f"[Projects] DEEP CLAIM completed for project {session_id}. Owner: {new_user_id}")
         return True

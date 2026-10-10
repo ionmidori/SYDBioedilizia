@@ -13,7 +13,9 @@ from src.repositories.conversation_repository import ConversationRepository
 from src.schemas.quote import QuoteRequest
 from src.services.insight_engine import InsightEngineError, get_insight_engine
 from src.services.pricing_service import PricingService
+from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, save_ai_draft
+from src.utils.datetime_utils import utc_now
 from src.vision.measure_room import format_measurements_for_insight, measure_room_from_photo
 
 logger = logging.getLogger(__name__)
@@ -467,11 +469,17 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # assign the human-readable PRV number on creation.
         db = get_async_firestore_client()
         target_project_id = project_id or session_id
+        # Dossier for the admin (client, site details, photos/renders):
+        # gathered outside the transaction, best-effort, never blocks the draft.
+        now = utc_now()
+        dossier = await gather_dossier_inputs(db, target_project_id, final_user_id, now)
         saved = await save_ai_draft(
             db,
             target_project_id,
             quote,
             QuoteRequest(summary=analysis.summary, channel="chat", session_id=session_id),
+            now=now,
+            dossier=dossier,
         )
         reference = f" (riferimento **{saved.quote_number}**)" if saved.quote_number else ""
 

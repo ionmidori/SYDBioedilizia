@@ -40,6 +40,7 @@ from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteItem, QuoteSchema
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
+from src.services.client_profile import get_client_profile
 from src.services.notification_service import NotificationService
 from src.services.pdf_service import PdfService
 from src.services.pricing_service import PricingService
@@ -103,6 +104,8 @@ class QuoteListItemResponse(BaseModel):
     model_config = {"extra": "ignore"}
     project_id: str
     project_name: str = ""
+    # Human-readable reference (PRV-YYYY-NNNN); None for quotes not yet numbered.
+    quote_number: str | None = None
     status: str
     # Confidential until admin approval: masked to 0.0 for non-admin callers
     # when status != "approved" (the draft is reviewed by the admin first).
@@ -127,7 +130,17 @@ def _is_admin(user_session: UserSession) -> bool:
 # Review/pipeline metadata the client must never receive: who reviewed or
 # started the review, the raw decision, and Storage locations / long-lived
 # signed URLs (the client downloads the PDF via GET /{id}/pdf, 15-min URL).
-_CLIENT_HIDDEN_FIELDS = ("reviewed_by", "started_by", "admin_decision", "pdf_url", "pdf_blob_path")
+_CLIENT_HIDDEN_FIELDS = (
+    "reviewed_by",
+    "started_by",
+    "admin_decision",
+    "pdf_url",
+    "pdf_blob_path",
+    # Admin dossier data: Storage paths, search index, contact snapshot.
+    "media",
+    "search_keys",
+    "client_snapshot",
+)
 
 
 def _strip_internal_fields(data: dict) -> dict:
@@ -214,36 +227,10 @@ async def _get_user_profile(uid: str) -> dict:
     Resolves user contact info from Firebase Auth + Firestore.
 
     Returns {name, email, phone} for PDF generation and email delivery.
-    Phone is optional — only available if the user provided it during a quote flow.
     Never raises: missing fields default to empty string.
     """
-    name = ""
-    email = ""
-    phone = ""
-
-    # 1. Firebase Auth: authoritative source for email + display name
-    try:
-        from firebase_admin import auth as fb_auth
-        user_record = await run_in_threadpool(fb_auth.get_user, uid)
-        email = user_record.email or ""
-        name = user_record.display_name or ""
-    except Exception:  # noqa: BLE001
-        logger.warning("[UserProfile] Firebase Auth lookup failed for uid=%s", uid)
-
-    # 2. Firestore users/{uid}: phone (saved during quote flow) + name fallback
-    try:
-        db = get_async_firestore_client()
-        doc = await db.collection("users").document(uid).get()
-        data = doc.to_dict() or {} if doc.exists else {}
-        phone = data.get("phone", "")
-        if not name:
-            name = data.get("displayName") or data.get("name", "")
-        if not email:
-            email = data.get("email", "")
-    except Exception:  # noqa: BLE001
-        logger.warning("[UserProfile] Firestore lookup failed for uid=%s", uid)
-
-    return {"name": name, "email": email, "phone": phone}
+    profile = await get_client_profile(uid)
+    return {"name": profile.name, "email": profile.email, "phone": profile.phone}
 
 
 # ─── HITL Endpoints ─────────────────────────────────────────────────────────
@@ -495,7 +482,7 @@ async def list_user_quotes(
             # Confidentiality: the draft is reviewed by the admin first —
             # non-admin callers see the total only once approved.
             grand_total = financials.get("grand_total", 0.0)
-            if not is_admin and quote_status != "approved":
+            if not is_admin and quote_status not in ("approved", "sent"):
                 grand_total = 0.0
 
             proj_data = proj_doc.to_dict() or {}
@@ -503,6 +490,7 @@ async def list_user_quotes(
                 QuoteListItemResponse(
                     project_id=proj_doc.id,
                     project_name=proj_data.get("name", ""),
+                    quote_number=qdata.get("quote_number"),
                     status=quote_status,
                     grand_total=grand_total,
                     item_count=len(items),

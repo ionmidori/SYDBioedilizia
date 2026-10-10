@@ -255,6 +255,9 @@ class TestGetQuoteClientView:
             "pdf_url": "https://storage.googleapis.com/b/projects/p1/quotes/q.pdf?X-Goog-Signature=s",
             "pdf_blob_path": "projects/p1/quotes/q.pdf",
             "quote_number": "PRV-2026-0001",
+            "client_snapshot": {"uid": OWNER_UID, "email": "u@test.com"},
+            "media": [{"media_id": "abc", "kind": "input_photo", "blob_path": "user-uploads/p1/a.jpg", "label": "Foto 1"}],
+            "search_keys": ["prv-2026-0001"],
         }
 
     def test_owner_gets_no_review_metadata_or_storage_locations(self):
@@ -263,6 +266,8 @@ class TestGetQuoteClientView:
         body = resp.json()
         for field in ("reviewed_by", "started_by", "admin_decision", "pdf_url", "pdf_blob_path"):
             assert body[field] is None, field
+        assert body["client_snapshot"] is None
+        assert body["media"] == [] and body["search_keys"] == []
         assert body["quote_number"] == "PRV-2026-0001"
         assert body["financials"]["grand_total"] == 122.0
         assert body["admin_notes"] == "Prezzi validi 30 giorni"  # approved: printed on the PDF
