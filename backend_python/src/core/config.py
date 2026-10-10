@@ -278,13 +278,20 @@ class Settings(BaseSettings):
     BREVO_WEBHOOK_TOKEN: str | None = Field(
         default=None, description="Bearer token Brevo sends on webhook calls (Secret Manager, >=32 chars)"
     )
-    # Cloud Scheduler → POST /internal/email/sweep with an OIDC token.
-    EMAIL_SWEEP_AUDIENCE: str | None = Field(
-        default=None, description="Expected OIDC audience (the sweep URL configured on the Scheduler job)"
+    # Internal email endpoints (/internal/email/dispatch/{id}, /internal/email/sweep)
+    # are called by Cloud Tasks with an OIDC token of a dedicated service account.
+    EMAIL_INTERNAL_BASE_URL: str | None = Field(
+        default=None, description="Public base URL of this service, used to build the Cloud Tasks targets"
     )
-    EMAIL_SWEEP_INVOKER_EMAIL: str | None = Field(
-        default=None, description="Service account email the Scheduler job signs its OIDC token with"
+    EMAIL_INTERNAL_AUDIENCE: str | None = Field(
+        default=None, description="OIDC audience accepted on the internal email endpoints"
     )
+    EMAIL_INTERNAL_INVOKER_EMAIL: str | None = Field(
+        default=None, description="Service account whose OIDC tokens the internal email endpoints accept"
+    )
+    # Event-driven retries (no recurring job): a task only when an email is queued or failed.
+    EMAIL_TASKS_QUEUE: str | None = Field(default=None, description="Cloud Tasks queue name (None = disabled)")
+    EMAIL_TASKS_LOCATION: str = Field(default="europe-west1", description="Cloud Tasks queue location")
 
     model_config = SettingsConfigDict(
         env_file=".env",

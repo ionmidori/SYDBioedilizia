@@ -1,5 +1,5 @@
-"""Machine-to-machine email endpoints (Phase 128 — Fase 4): Scheduler sweep
-(OIDC) and Brevo webhook (bearer token)."""
+"""Machine-to-machine email endpoints (Phase 128 — Fase 4): Cloud Tasks
+dispatch + manual sweep (OIDC) and Brevo webhook (bearer token)."""
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -29,14 +29,14 @@ def client(monkeypatch) -> TestClient:
 
 @pytest.fixture
 def sweep_configured(monkeypatch):
-    monkeypatch.setattr(routes.settings, "EMAIL_SWEEP_AUDIENCE", "https://syd-brain/internal/email/sweep")
-    monkeypatch.setattr(routes.settings, "EMAIL_SWEEP_INVOKER_EMAIL", INVOKER)
+    monkeypatch.setattr(routes.settings, "EMAIL_INTERNAL_AUDIENCE", "https://syd-brain")
+    monkeypatch.setattr(routes.settings, "EMAIL_INTERNAL_INVOKER_EMAIL", INVOKER)
 
 
 def test_sweep_fails_closed_when_not_configured(client, monkeypatch):
-    monkeypatch.setattr(routes.settings, "EMAIL_SWEEP_AUDIENCE", None)
+    monkeypatch.setattr(routes.settings, "EMAIL_INTERNAL_AUDIENCE", None)
     resp = client.post("/internal/email/sweep", headers={"Authorization": "Bearer x"})
-    assert resp.status_code == 503 and resp.json()["error_code"] == "EMAIL_SWEEP_DISABLED"
+    assert resp.status_code == 503 and resp.json()["error_code"] == "EMAIL_INTERNAL_DISABLED"
 
 
 def test_sweep_requires_a_token(client, sweep_configured):
@@ -59,7 +59,7 @@ def test_sweep_runs_with_the_scheduler_identity(client, sweep_configured):
     ):
         resp = client.post("/internal/email/sweep", headers={"Authorization": "Bearer good"})
     assert resp.status_code == 200 and resp.json()["sent"] == 2
-    assert verify.call_args.kwargs["audience"] == "https://syd-brain/internal/email/sweep"
+    assert verify.call_args.kwargs["audience"] == "https://syd-brain"
 
 
 @pytest.mark.parametrize("header", [None, "Bearer wrong", f"Basic {TOKEN}"])
@@ -90,3 +90,32 @@ def test_webhook_rejects_invalid_json(client, monkeypatch):
     resp = client.post("/webhooks/email/brevo", content=b"not json",
                        headers={"Authorization": f"Bearer {TOKEN}", "content-type": "application/json"})
     assert resp.status_code == 400
+
+
+# ── Cloud Tasks dispatch ──────────────────────────────────────────────────────
+
+
+def test_dispatch_requires_the_tasks_identity(client, sweep_configured):
+    assert client.post("/internal/email/dispatch/abcdef123456").status_code == 401
+    foreign = {"email": "attacker@evil.iam.gserviceaccount.com", "email_verified": True}
+    with (
+        patch.object(routes.google.oauth2.id_token, "verify_oauth2_token", return_value=foreign),
+        patch.object(routes.outbox, "dispatch_one", new=AsyncMock()) as dispatch,
+    ):
+        assert client.post("/internal/email/dispatch/abcdef123456", headers={"Authorization": "Bearer x"}).status_code == 401
+    dispatch.assert_not_called()
+
+
+def test_dispatch_runs_one_entry_and_always_answers_200(client, sweep_configured):
+    claims = {"email": INVOKER, "email_verified": True}
+    with (
+        patch.object(routes.google.oauth2.id_token, "verify_oauth2_token", return_value=claims),
+        patch.object(routes.outbox, "dispatch_one", new=AsyncMock(return_value="retry")) as dispatch,
+    ):
+        resp = client.post("/internal/email/dispatch/abcdef123456", headers={"Authorization": "Bearer good"})
+    assert resp.status_code == 200 and resp.json() == {"outcome": "retry"}
+    assert dispatch.await_args.args[1] == "abcdef123456"
+
+
+def test_dispatch_rejects_malformed_ids(client, sweep_configured):
+    assert client.post("/internal/email/dispatch/..%2Fx", headers={"Authorization": "Bearer x"}).status_code in (404, 422)

@@ -15,8 +15,10 @@ How:
 3. RETRY — transient failures go back to `pending` with exponential backoff;
    after EMAIL_MAX_ATTEMPTS (or a permanent provider error) the entry is
    dead-lettered and the delivery/quote show `failed` to the admin.
-4. SWEEP — Cloud Scheduler calls /internal/email/sweep every 5 minutes and
-   re-dispatches due `pending` entries and expired leases.
+4. SCHEDULE — no recurring job: Cloud Tasks runs a dispatch only when there is
+   something to send — one delayed safety check right after enqueue, one task
+   at each retry time (`scheduling.py`). /internal/email/sweep remains for a
+   manual recovery of anything left `pending`.
 5. EVENTS — provider webhooks (Brevo) update the delivery: delivered,
    bounced, complained…, found through `email_messages/{hash(message id)}`.
 
@@ -40,6 +42,7 @@ from google.cloud.firestore_v1 import FieldFilter, async_transactional
 
 from src.core.config import settings
 from src.core.exceptions import AppException, QuoteNotFoundError
+from src.services.email.scheduling import schedule_dispatch
 from src.services.email.types import (
     Attachment,
     DeliveryEvent,
@@ -59,6 +62,8 @@ OUTBOX = "email_outbox"
 MESSAGES = "email_messages"
 DELIVERIES = "deliveries"
 LEASE = timedelta(minutes=3)
+# Safety task after enqueue: once the lease of an interrupted inline dispatch has expired.
+SAFETY_DELAY = LEASE + timedelta(minutes=1)
 _BACKOFF_BASE = timedelta(minutes=1)
 _BACKOFF_MAX = timedelta(minutes=60)
 UNSUBSCRIBE_MAILBOX = "privacy@sydbioedilizia.com"
@@ -202,7 +207,12 @@ async def enqueue_quote_delivery_tx(
 
 
 async def enqueue_quote_delivery(db: Any, project_id: str, **kwargs: Any) -> EnqueueResult:
-    return await _transact(db, lambda tx: enqueue_quote_delivery_tx(tx, db, project_id, **kwargs))
+    result = await _transact(db, lambda tx: enqueue_quote_delivery_tx(tx, db, project_id, **kwargs))
+    if not result.duplicate:
+        # One delayed safety check (no recurring job): a no-op if the inline
+        # dispatch already sent it.
+        await schedule_dispatch(result.delivery_id, kwargs["now"] + SAFETY_DELAY, "safety")
+    return result
 
 
 # ── Enqueue: a pre-rendered message (admin notifications) ─────────────────────
@@ -225,6 +235,7 @@ async def enqueue_message(
             "message": {"to": to, "subject": subject, "text": text, "html": html},
         }
     )
+    await schedule_dispatch(ref.id, when + SAFETY_DELAY, "safety")
     return ref.id
 
 
@@ -357,6 +368,9 @@ async def _record_failure(db: Any, entry: dict[str, Any], error: ProviderError, 
         )
 
     await _transact(db, _txn)
+    if not dead:
+        # Event-driven retry: one task at the retry time, none otherwise.
+        await schedule_dispatch(entry["id"], now + backoff(entry["attempts"]), f"a{entry['attempts'] + 1}")
     return "dead" if dead else "retry"
 
 

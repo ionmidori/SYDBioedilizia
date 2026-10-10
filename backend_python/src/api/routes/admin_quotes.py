@@ -375,27 +375,23 @@ async def send_quote(
     to send it right away. If the provider is down the outbox retries."""
     if not idempotency_key or not 8 <= len(idempotency_key) <= 128:
         raise IdempotencyKeyRequiredError()
-    now = utc_now()
-    result = await _run(
-        lambda tx, db: outbox.enqueue_quote_delivery_tx(
-            tx,
-            db,
-            project_id,
-            to=str(body.to),
-            cc=[str(c) for c in body.cc],
-            subject=body.subject,
-            message=body.message,
-            actor=admin.uid,
-            idempotency_key=idempotency_key,
-            now=now,
-        )
-    )
     db = get_async_firestore_client()
+    result = await outbox.enqueue_quote_delivery(
+        db,
+        project_id,
+        to=str(body.to),
+        cc=[str(c) for c in body.cc],
+        subject=body.subject,
+        message=body.message,
+        actor=admin.uid,
+        idempotency_key=idempotency_key,
+        now=utc_now(),
+    )
     if not result.duplicate:
         _audit(AuditAction.QUOTE_SEND, project_id, admin, quote_number=result.quote_number,
                delivery_id=result.delivery_id)
-        # Inline dispatch (bounded by the provider timeout); the sweeper
-        # retries whatever is left pending.
+        # Inline dispatch (bounded by the provider timeout); a failure is
+        # retried by a Cloud Task scheduled at the retry time.
         await outbox.dispatch_one(db, result.delivery_id, get_email_provider())
     delivery = await outbox.delivery_ref(db, project_id, result.delivery_id).get()
     delivery_status = (delivery.to_dict() or {}).get("status", "queued") if delivery.exists else "queued"
