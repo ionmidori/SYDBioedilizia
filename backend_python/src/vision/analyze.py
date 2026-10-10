@@ -98,7 +98,7 @@ CRITICAL RULES:
         start_time = time.time()
         response = await client.aio.models.generate_content(
             model=model_name,
-            contents=[genai_types.Content(parts=[
+            contents=[genai_types.Content(role="user", parts=[
                 genai_types.Part(text=system_prompt),
                 image_part,
             ])],

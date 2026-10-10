@@ -202,7 +202,7 @@ async def measure_room_from_photo(
         response = await client.aio.models.generate_content(
             model=get_model_id(ModelRole.VISION),
             contents=[
-                types.Content(parts=[
+                types.Content(role="user", parts=[
                     types.Part(text=_MEASURE_PROMPT),
                     types.Part(inline_data=types.Blob(mime_type=mime_type, data=image_bytes)),
                 ])

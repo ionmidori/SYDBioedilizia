@@ -63,7 +63,7 @@ async def analyze_image_triage(image_data: bytes) -> dict[str, Any]:
             response = await client.aio.models.generate_content(
                 model=get_model_id(ModelRole.VISION),
                 contents=[
-                    types.Content(
+                    types.Content(role="user",
                         parts=[
                             types.Part(text=TRIAGE_PROMPT),
                             types.Part(inline_data=types.Blob(mime_type="image/jpeg", data=image_data)),

@@ -290,7 +290,7 @@ async def _run_render_structural_vision(
         client = get_genai_client()
         response = await client.aio.models.generate_content(
             model=get_model_id(ModelRole.VISION),
-            contents=genai_types.Content(
+            contents=genai_types.Content(role="user",
                 parts=[
                     genai_types.Part(text=_STRUCTURAL_VISION_PROMPT),
                     genai_types.Part(
