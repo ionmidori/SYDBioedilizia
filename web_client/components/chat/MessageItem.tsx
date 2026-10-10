@@ -18,6 +18,7 @@ import Image from 'next/image';
 import { Message, ToolInvocation } from '@/types/chat';
 import { logger } from '@/lib/logger';
 import { getVisibleText } from '@/lib/chat/message-text';
+import { useSmoothText } from '@/hooks/useSmoothText';
 
 interface MessageItemProps {
     message: Message;
@@ -31,6 +32,8 @@ interface MessageItemProps {
      * message of the conversation and defeated React.memo.
      */
     historyMessage?: Message;
+    /** True for a reply streamed live in this tab: its text is revealed progressively. */
+    animate?: boolean;
 }
 
 /**
@@ -38,7 +41,7 @@ interface MessageItemProps {
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onFormSubmit, historyMessage }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onFormSubmit, historyMessage, animate = false }) => {
     const { user } = useAuth();
     // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
     // To ensure the thumbs up/down state persists across reloads, we use the raw message from Firestore history.
@@ -108,7 +111,10 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
         );
     };
 
-    const formattedText = formatMessageText(text);
+    // Live replies are revealed progressively (useSmoothText); visibility
+    // decisions below still use the full text.
+    const displayText = useSmoothText(text, animate);
+    const formattedText = formatMessageText(displayText);
 
     // ✅ Memoize ReactMarkdown components to prevent re-creation on every render
     const markdownComponents = useMemo<Components>(() => ({
