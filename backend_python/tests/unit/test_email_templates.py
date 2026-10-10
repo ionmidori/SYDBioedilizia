@@ -1,5 +1,6 @@
 """Email templates v2 (Phase 128 PR 3.2): no ids, escaped, single-line headers."""
 import datetime
+import re
 
 from src.core.company import COMPANY
 from src.services.email_templates import (
@@ -33,7 +34,9 @@ def test_client_email_content():
     # what the document is: an automatic draft confirmed by a technician
     assert "bozza generata automaticamente" in mail.text
     assert "sopralluogo" in mail.text and "contatto telefonico" in mail.text
-    assert f"{COMPANY.url}/dashboard/quotes" in mail.text and dashboard_quotes_url() in mail.html
+    assert f"Area riservata: {dashboard_quotes_url()}" in mail.text
+    assert re.findall(r'href="([^"]+)"', mail.html) == [dashboard_quotes_url()]
+    assert dashboard_quotes_url() == f"{COMPANY.url}/dashboard/quotes"
     assert COMPANY.phone in mail.text and COMPANY.legal_line in mail.html
 
 
@@ -81,7 +84,9 @@ def test_admin_email_for_one_request():
     mail = admin_new_requests_email(requests=[_digest()], admin_url="https://admin.example/")
     assert mail.subject == "[SYD] Nuova richiesta PRV-2026-0042 da Mario Rossi (€ 816,91)"
     assert "PRV-2026-0042 · Mario Rossi <mario@example.it> · € 816,91 — Pittura cucina" in mail.text
-    assert "https://admin.example/" in mail.text and "https://admin.example/" in mail.html
+    # The console link is the whole last line of the text and the only href of the HTML.
+    assert mail.text.splitlines()[-1] == "https://admin.example/"
+    assert re.findall(r'href="([^"]+)"', mail.html) == ["https://admin.example/"]
 
 
 def test_admin_email_for_a_batch():
