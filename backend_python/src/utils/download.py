@@ -152,8 +152,9 @@ def _parse_firebase_url(url: str) -> tuple[str, str] | None:
     return None
 
 
-def _session_prefixes(session_id: str) -> tuple[str, ...]:
-    """Storage prefixes that belong to one chat session (= project id)."""
+def session_storage_prefixes(session_id: str) -> tuple[str, ...]:
+    """Storage prefixes that belong to one chat session (= project id): backend
+    uploads, frontend uploads / quote PDFs, renders."""
     return (f"user-uploads/{session_id}/", f"projects/{session_id}/", f"renders/{session_id}/")
 
 
@@ -165,7 +166,7 @@ def _admin_read_allowed(bucket_name: str, blob_path: str, owner_session_id: str 
         return False
     if ".." in blob_path.split("/"):
         return False
-    return blob_path.startswith(_session_prefixes(owner_session_id))
+    return blob_path.startswith(session_storage_prefixes(owner_session_id))
 
 
 async def download_image_smart(

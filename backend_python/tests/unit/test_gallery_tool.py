@@ -4,7 +4,7 @@ Tests cover: access control, metadata filtering, JSON response format, error han
 """
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from src.tools.gallery import show_project_gallery
@@ -13,20 +13,22 @@ from src.tools.gallery import show_project_gallery
 MOCK_USER_ID = "user_123"
 MOCK_OTHER_USER_ID = "user_999"
 MOCK_SESSION_ID = "project_abc"
-MOCK_PROJECT_DATA = {"user_id": MOCK_USER_ID, "title": "Test Project"}
+MOCK_PROJECT_DATA = {"userId": MOCK_USER_ID, "title": "Test Project"}
 
 
 @pytest.fixture
 def mock_context_user(mocker):
-    """Mock the current authenticated user."""
-    return mocker.patch("src.tools.gallery.get_current_user_id", return_value=MOCK_USER_ID)
+    """The verified caller (ADK tool_context.user_id), passed explicitly."""
+    return MOCK_USER_ID
 
 
 @pytest.fixture
 def mock_firebase(mocker):
     """Mock Firebase Firestore and Storage clients."""
-    mock_firestore = mocker.patch("src.tools.gallery.firestore.client")
-    mock_storage = mocker.patch("src.tools.gallery.storage.bucket")
+    mock_firestore = mocker.patch("src.tools.project_storage.firestore.client")
+    mock_storage = mocker.patch("src.tools.project_storage.storage.bucket")
+    # One prefix in these tests; the multi-prefix listing has its own test.
+    mocker.patch("src.tools.project_storage.session_storage_prefixes", return_value=("projects/x/",))
     return mock_firestore, mock_storage
 
 
@@ -57,7 +59,7 @@ def test_gallery_success_basic(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = [blob1, blob2]
 
     # Execute
-    result = show_project_gallery(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID)
     # Validate JSON structure
     data = json.loads(result)
     assert data["type"] == "gallery"
@@ -90,7 +92,7 @@ def test_gallery_room_filtering(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = blobs
 
     # Filter for kitchen
-    result = show_project_gallery(MOCK_SESSION_ID, room="cucina")
+    result = show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID, room="cucina")
 
     data = json.loads(result)
     assert len(data["items"]) == 2
@@ -116,7 +118,7 @@ def test_gallery_status_filtering(mock_context_user, mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = blobs
 
     # Filter for approved only
-    result = show_project_gallery(MOCK_SESSION_ID, status="approvato")
+    result = show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID, status="approvato")
 
     data = json.loads(result)
     assert len(data["items"]) == 1
@@ -130,10 +132,10 @@ def test_gallery_access_denied(mock_context_user, mock_firebase):
     # Project owned by someone else
     mock_doc = MagicMock()
     mock_doc.exists = True
-    mock_doc.to_dict.return_value = {"user_id": MOCK_OTHER_USER_ID}
+    mock_doc.to_dict.return_value = {"userId": MOCK_OTHER_USER_ID}
     mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
 
-    result = show_project_gallery(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID)
 
     assert "Access Denied" in result
 
@@ -147,7 +149,7 @@ def test_gallery_project_not_found(mock_context_user, mock_firebase):
     mock_doc.exists = False
     mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
 
-    result = show_project_gallery(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID)
 
     assert "Project not found" in result
 
@@ -165,7 +167,7 @@ def test_gallery_no_images_found(mock_context_user, mock_firebase):
     # Return no blobs
     mock_bucket.return_value.list_blobs.return_value = []
 
-    result = show_project_gallery(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID)
 
     assert "No images found" in result
 
@@ -188,7 +190,7 @@ def test_gallery_ignores_non_images(mock_context_user, mock_firebase):
     ]
     mock_bucket.return_value.list_blobs.return_value = blobs
 
-    result = show_project_gallery(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID)
 
     data = json.loads(result)
     assert len(data["items"]) == 1
@@ -209,7 +211,7 @@ def test_gallery_max_limit(mock_context_user, mock_firebase):
     blobs = [create_mock_blob(f"photo_{i}.jpg", "image/jpeg") for i in range(20)]
     mock_bucket.return_value.list_blobs.return_value = blobs
 
-    result = show_project_gallery(MOCK_SESSION_ID)
+    result = show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID)
 
     data = json.loads(result)
     assert len(data["items"]) == 12  # Should cap at 12
@@ -217,7 +219,41 @@ def test_gallery_max_limit(mock_context_user, mock_firebase):
 
 def test_gallery_unauthenticated_user(mock_firebase):
     """Test error when user is not authenticated."""
-    # Mock: No authenticated user
-    with patch("src.tools.gallery.get_current_user_id", return_value=None):
-        result = show_project_gallery(MOCK_SESSION_ID)
-        assert "not authenticated" in result
+    result = show_project_gallery(MOCK_SESSION_ID, "")
+    assert "not authenticated" in result
+
+
+def test_gallery_includes_renders_and_backend_uploads(mocker, mock_firebase):
+    """Regression: only projects/<id>/ was listed, so renders (renders/<id>/) and
+    backend uploads (user-uploads/<id>/) never appeared."""
+    mock_db, mock_bucket = mock_firebase
+    mocker.patch(
+        "src.tools.project_storage.session_storage_prefixes",
+        return_value=(f"user-uploads/{MOCK_SESSION_ID}/", f"projects/{MOCK_SESSION_ID}/", f"renders/{MOCK_SESSION_ID}/"),
+    )
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = MOCK_PROJECT_DATA
+    mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
+    by_prefix = {
+        f"user-uploads/{MOCK_SESSION_ID}/": [create_mock_blob("upload.jpg", "image/jpeg")],
+        f"projects/{MOCK_SESSION_ID}/": [],
+        f"renders/{MOCK_SESSION_ID}/": [create_mock_blob("render.png", "image/png")],
+    }
+    mock_bucket.return_value.list_blobs.side_effect = lambda prefix: by_prefix[prefix]
+
+    data = json.loads(show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID))
+    assert {i["name"] for i in data["items"]} == {"upload.jpg", "render.png"}
+
+
+def test_gallery_owner_field_is_userid_as_stored_by_the_backend(mock_firebase):
+    """Regression: the owner was read from user_id/uid, but projects store userId,
+    so every owner got "Access Denied"."""
+    mock_db, mock_bucket = mock_firebase
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = {"userId": MOCK_USER_ID}
+    mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
+    mock_bucket.return_value.list_blobs.return_value = [create_mock_blob("a.jpg", "image/jpeg")]
+
+    assert "Access Denied" not in show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID)

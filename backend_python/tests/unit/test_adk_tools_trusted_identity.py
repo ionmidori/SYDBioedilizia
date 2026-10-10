@@ -86,5 +86,5 @@ async def test_gallery_and_files_use_verified_session(tool_context):
          patch("src.tools.project_files.list_project_files", return_value="f") as f:
         await tools.show_project_gallery(session_id=FOREIGN_SESSION, tool_context=tool_context)
         await tools.list_project_files(session_id=FOREIGN_SESSION, tool_context=tool_context)
-    g.assert_called_once_with(session_id=TRUSTED_SESSION)
-    f.assert_called_once_with(TRUSTED_SESSION)
+    g.assert_called_once_with(session_id=TRUSTED_SESSION, user_id=tool_context.user_id)
+    f.assert_called_once_with(TRUSTED_SESSION, user_id=tool_context.user_id)
