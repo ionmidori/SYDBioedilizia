@@ -9,6 +9,7 @@ import { ClientCard, clientDisplayName, RequestCard } from '@/components/admin/d
 import { DeliveryLog } from '@/components/admin/dossier/DeliveryLog';
 import { ErrorBanner } from '@/components/admin/dossier/ErrorBanner';
 import { MediaGallery } from '@/components/admin/dossier/MediaGallery';
+import { PriceBookPicker } from '@/components/admin/dossier/PriceBookPicker';
 import { QuoteItemsEditor } from '@/components/admin/dossier/QuoteItemsEditor';
 import { ReasonDialog } from '@/components/admin/dossier/ReasonDialog';
 import { RevisionTimeline } from '@/components/admin/dossier/RevisionTimeline';
@@ -75,6 +76,7 @@ export function DossierView({ projectId }: { projectId: string }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const [dialog, setDialog] = useState<'approve' | 'reject' | 'reopen' | 'send' | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
@@ -368,6 +370,7 @@ export function DossierView({ projectId }: { projectId: string }) {
             errors={showErrors ? itemErrors : new Map()}
             readOnly={!canEdit}
             onChange={(next) => touch({ items: next })}
+            onPickFromPriceBook={() => setPickerOpen(true)}
           />
           <section className="glass-premium rounded-2xl p-4 border border-white/5 space-y-4" data-testid="totals-panel">
             <label className="block space-y-1.5">
@@ -433,6 +436,12 @@ export function DossierView({ projectId }: { projectId: string }) {
           <DeliveryLog deliveries={dossier.data.deliveries} />
         </div>
       </div>
+
+      <PriceBookPicker
+        open={pickerOpen && canEdit}
+        onOpenChange={setPickerOpen}
+        onPick={(item) => touch({ items: [...items, item] })}
+      />
 
       {/* ── Dialogs ─────────────────────────────────────────────────────────── */}
       <ApproveDialog

@@ -197,6 +197,31 @@ describe('DossierView', () => {
     expect(screen.getByTestId('profile-changed')).toHaveTextContent('nuova@example.it');
   });
 
+  it('adds a line from the price book with the official sku and price, and the draft is then savable', () => {
+    setup(dossier());
+    m.usePriceBook.mockReturnValue({
+      isPending: false,
+      isError: false,
+      data: {
+        items: [{ sku: 'DEM-001', description: 'Demolizione tramezzi', unit: 'mq', unit_price: 25, category: 'Demolizioni', vat_agevolata: false, tags: [] }],
+      },
+    } as unknown as ReturnType<typeof m.usePriceBook>);
+    fireEvent.click(screen.getByTestId('add-from-price-book'));
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi DEM-001' }));
+
+    expect(screen.getAllByTestId('items-row')).toHaveLength(2);
+    expect(screen.getByTestId('item-price-1')).toHaveValue(25);
+    expect(screen.getByTestId('btn-save')).toBeEnabled();
+    expect(screen.getByTestId('btn-approve')).toBeDisabled(); // unsaved: save first
+    // 10 x 12.50 + 1 x 25 = 150 + 22% VAT
+    expect(screen.getByTestId('totals-grand')).toHaveTextContent('183,00');
+  });
+
+  it('offers no price book search once the quote is no longer editable', () => {
+    setup(dossier({}, { status: 'approved' }));
+    expect(screen.queryByTestId('add-from-price-book')).not.toBeInTheDocument();
+  });
+
   describe('right after a save', () => {
     function withDossier(data: QuoteDossier, isFetching: boolean) {
       m.useAdminDossier.mockReturnValue({

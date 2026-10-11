@@ -6,6 +6,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useAuth } from '@/hooks/useAuth';
 import { AdminApiError, adminApi, type QuoteListFilters } from '@/lib/admin/admin-api';
 import type { EditQuoteBody, QuoteWriteResponse, SendQuoteBody } from '@/types/admin-quote';
+import type { PutPriceBookBody } from '@/types/admin-price-book';
 
 export const ADMIN_KEYS = {
   me: ['admin', 'me'] as const,
@@ -13,6 +14,9 @@ export const ADMIN_KEYS = {
   dossier: (projectId: string) => ['admin', 'dossier', projectId] as const,
   revision: (projectId: string, version: number) => ['admin', 'revision', projectId, version] as const,
   sendDefaults: (projectId: string) => ['admin', 'send-defaults', projectId] as const,
+  kpis: ['admin', 'kpis'] as const,
+  priceBook: ['admin', 'price-book'] as const,
+  priceBookHistory: ['admin', 'price-book', 'history'] as const,
 };
 
 /** Never retry an access denial: the answer will not change. */
@@ -139,4 +143,46 @@ export function useNow(intervalMs: number): number {
     return () => clearInterval(id);
   }, [intervalMs]);
   return now;
+}
+
+export function useAdminKpis() {
+  return useQuery({
+    queryKey: ADMIN_KEYS.kpis,
+    queryFn: adminApi.getKpis,
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+    retry: retryUnlessDenied,
+  });
+}
+
+/** The whole price book plus the ETag a save must send back. */
+export function usePriceBook(enabled = true) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.priceBook,
+    queryFn: adminApi.getPriceBook,
+    enabled,
+    staleTime: 15 * 1000,
+    retry: retryUnlessDenied,
+  });
+}
+
+export function usePriceBookHistory(enabled: boolean) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.priceBookHistory,
+    queryFn: adminApi.getPriceBookHistory,
+    enabled,
+    staleTime: 15 * 1000,
+    retry: retryUnlessDenied,
+  });
+}
+
+/** Saving refreshes the book (new ETag) and its history; not awaited, like the quote writes. */
+export function useSavePriceBook() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { etag: string; body: PutPriceBookBody }) => adminApi.savePriceBook(v.etag, v.body),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ADMIN_KEYS.priceBook });
+    },
+  });
 }
