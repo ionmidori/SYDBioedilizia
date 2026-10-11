@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Settings, X, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,9 @@ import { CookieCategory } from '@/lib/cookie-manager';
 
 export function CookieConsent() {
     const { consent, isInitialized, acceptAll, declineAll, updateConsent } = useCookieConsent();
+    // The admin console only uses essential (sign-in) cookies and its dialogs
+    // sit where the banner appears: never show it there.
+    const isAdminRoute = usePathname()?.startsWith('/admin') ?? false;
     const [showSettings, setShowSettings] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
 
@@ -43,7 +47,7 @@ export function CookieConsent() {
         setTempConsent(prev => ({ ...prev, [cat]: !prev[cat] }));
     };
 
-    if (!isInitialized) return null;
+    if (!isInitialized || isAdminRoute) return null;
 
     return (
         <AnimatePresence>

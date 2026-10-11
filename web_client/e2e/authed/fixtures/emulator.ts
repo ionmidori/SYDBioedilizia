@@ -72,6 +72,25 @@ export async function createTestUser(email: string, password: string): Promise<T
   return (await res.json()) as TestUser;
 }
 
+/**
+ * Sets custom claims on an emulator user (e.g. `{ role: 'admin' }`), exactly
+ * what `scripts/set_admin_claim.py` does in production. Must run BEFORE the
+ * user signs in: claims are baked into the ID token when it is minted.
+ */
+export async function setCustomClaims(localId: string, claims: Record<string, unknown>): Promise<void> {
+  await expectOk(
+    await fetch(
+      `${AUTH_EMULATOR_URL}/identitytoolkit.googleapis.com/v1/projects/${EMULATOR_PROJECT_ID}/accounts:update`,
+      {
+        method: 'POST',
+        headers: ADMIN_HEADERS,
+        body: JSON.stringify({ localId, customAttributes: JSON.stringify(claims) }),
+      },
+    ),
+    'auth emulator set custom claims',
+  );
+}
+
 /** Seeds the deterministic chat history used by the reload-persistence test. */
 export async function seedChatHistory(uid: string): Promise<string> {
   const sessionId = `global-${uid}`;

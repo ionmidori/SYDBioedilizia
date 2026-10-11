@@ -59,4 +59,55 @@ describe('adminApi', () => {
     mockFetch.mockResolvedValue(json(200, { uid: 'u', role: 'admin', mfa: false, email: 'a@b.it' }));
     await expect(adminApi.me()).resolves.toEqual({ uid: 'u', role: 'admin', mfa: false, email: 'a@b.it' });
   });
+
+  describe('writes', () => {
+    const WRITE_OK = { project_id: 'p1', status: 'pending_review', version: 3, etag: '"v3"' };
+
+    it('sends the dossier ETag as If-Match on edit and approve', async () => {
+      mockFetch.mockResolvedValue(json(200, WRITE_OK));
+      await adminApi.edit('p1', '"v2"', { admin_notes: 'ok' });
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/py/admin/quotes/p1');
+      expect(init).toMatchObject({ method: 'PATCH', body: JSON.stringify({ admin_notes: 'ok' }) });
+      expect((init as RequestInit).headers).toMatchObject({ 'If-Match': '"v2"', 'Content-Type': 'application/json' });
+
+      await adminApi.approve('p1', '"v3"');
+      expect(mockFetch.mock.calls[1][0]).toBe('/api/py/admin/quotes/p1/approve');
+      expect((mockFetch.mock.calls[1][1] as RequestInit).headers).toMatchObject({ 'If-Match': '"v3"' });
+    });
+
+    it('sends the Idempotency-Key on send', async () => {
+      mockFetch.mockResolvedValue(
+        json(202, { project_id: 'p1', delivery_id: 'd1', status: 'sent', delivery_status: 'queued' }),
+      );
+      const result = await adminApi.send('p1', { to: 'a@b.it', cc: [] }, 'key-12345678');
+      expect(result.duplicate).toBe(false);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/py/admin/quotes/p1/send');
+      expect((init as RequestInit).headers).toMatchObject({ 'Idempotency-Key': 'key-12345678' });
+    });
+
+    it('posts the reason for reject and reopen', async () => {
+      mockFetch.mockResolvedValue(json(200, { ...WRITE_OK, status: 'rejected' }));
+      await adminApi.reject('p1', 'Fuori zona');
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/quotes/p1/reject');
+      expect((mockFetch.mock.calls[0][1] as RequestInit).body).toBe(JSON.stringify({ reason: 'Fuori zona' }));
+      await adminApi.reopen('p1', 'Cliente ha richiamato');
+      expect(mockFetch.mock.calls[1][0]).toBe('/api/py/admin/quotes/p1/reopen');
+    });
+
+    it('asks for an attachment URL with a readable filename', async () => {
+      mockFetch.mockResolvedValue(json(200, { url: 'https://signed.test/x', filename: 'PRV-2026-0001_foto-1.jpg' }));
+      const media = await adminApi.getMediaUrl('p1', 'm/1', 'attachment');
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/quotes/p1/media/m%2F1/url?disposition=attachment');
+      expect(media.filename).toBe('PRV-2026-0001_foto-1.jpg');
+    });
+
+    it('surfaces a version conflict with its code', async () => {
+      mockFetch.mockResolvedValue(json(409, { error_code: 'VERSION_CONFLICT', message: 'changed' }));
+      const error = (await adminApi.edit('p1', '"v1"', {}).catch((e: unknown) => e)) as AdminApiError;
+      expect(error.status).toBe(409);
+      expect(error.errorCode).toBe('VERSION_CONFLICT');
+    });
+  });
 });

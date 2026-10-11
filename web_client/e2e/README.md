@@ -23,6 +23,15 @@ Covers the flows that unit tests structurally cannot: chat history
 reconciliation across a reload, the quotes area, and chat attachment upload.
 These are the seams that produced #125/#127/#128, #231, #232 and #239.
 
+### Admin console (`e2e/authed/admin-quotes.spec.ts`)
+
+The seeded user also gets the `role=admin` custom claim (`setCustomClaims` in
+`auth.setup.ts`, the emulator equivalent of `scripts/set_admin_claim.py`), so the
+real proxy and layout gate run. The FastAPI backend is replaced by a small
+stateful fake inside the spec that enforces `If-Match` (409 when stale) and
+`Idempotency-Key`; backend behaviour is covered by pytest. A user without the
+claim is redirected away (proxy, UX only: the backend is the authority).
+
 ### Prerequisites
 
 1. **A JDK** — the Firestore emulator is a JVM binary. Any JDK 11+ works; it

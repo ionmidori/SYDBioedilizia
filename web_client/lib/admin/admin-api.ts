@@ -13,11 +13,22 @@ import { fetchWithAuth } from '@/lib/api-client';
 import {
   type AdminMe,
   type AdminQuoteList,
+  type EditQuoteBody,
+  type MediaUrlResponse,
   type QuoteDossier,
+  type QuoteWriteResponse,
+  type SendDefaults,
+  type SendQuoteBody,
+  type SendQuoteResponse,
   adminMeSchema,
   adminQuoteListSchema,
+  mediaUrlResponseSchema,
   quoteDossierSchema,
+  quoteWriteResponseSchema,
+  sendDefaultsSchema,
+  sendQuoteResponseSchema,
 } from '@/types/admin-quote';
+import { type QuoteRevision, quoteRevisionSchema } from '@/types/quote';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py';
 const ADMIN_ROOT = `${API_ROOT}/admin`;
@@ -63,6 +74,21 @@ async function request<S extends z.ZodTypeAny>(path: string, schema: S, init: Re
   return schema.parse(await response.json());
 }
 
+/** The ETag the dossier returned ("v3"), sent back as If-Match on writes. */
+function ifMatch(etag: string): Record<string, string> {
+  return { 'If-Match': etag };
+}
+
+function jsonInit(method: string, body: unknown, headers: Record<string, string> = {}): RequestInit {
+  return {
+    method,
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify(body),
+  };
+}
+
+const quote = (projectId: string): string => `/quotes/${encodeURIComponent(projectId)}`;
+
 export interface QuoteListFilters {
   /** "open" (draft + pending + in review), a status, or a comma-separated list. */
   status?: string;
@@ -86,4 +112,50 @@ export const adminApi = {
 
   getDossier: (projectId: string): Promise<QuoteDossier> =>
     request(`/quotes/${encodeURIComponent(projectId)}`, quoteDossierSchema),
+
+  getRevision: (projectId: string, version: number): Promise<QuoteRevision> =>
+    request(`${quote(projectId)}/revisions/${version}`, quoteRevisionSchema),
+
+  /** Fresh 15-minute URL; `attachment` makes the browser save it as PRV-…_foto-1.jpg. */
+  getMediaUrl: (
+    projectId: string,
+    mediaId: string,
+    disposition: 'inline' | 'attachment' = 'inline',
+  ): Promise<MediaUrlResponse> =>
+    request(
+      `${quote(projectId)}/media/${encodeURIComponent(mediaId)}/url?disposition=${disposition}`,
+      mediaUrlResponseSchema,
+    ),
+
+  claim: (projectId: string): Promise<QuoteWriteResponse> =>
+    request(`${quote(projectId)}/claim`, quoteWriteResponseSchema, { method: 'POST' }),
+
+  release: (projectId: string): Promise<QuoteWriteResponse> =>
+    request(`${quote(projectId)}/release`, quoteWriteResponseSchema, { method: 'POST' }),
+
+  edit: (projectId: string, etag: string, body: EditQuoteBody): Promise<QuoteWriteResponse> =>
+    request(quote(projectId), quoteWriteResponseSchema, jsonInit('PATCH', body, ifMatch(etag))),
+
+  approve: (projectId: string, etag: string): Promise<QuoteWriteResponse> =>
+    request(`${quote(projectId)}/approve`, quoteWriteResponseSchema, { method: 'POST', headers: ifMatch(etag) }),
+
+  regeneratePdf: (projectId: string): Promise<QuoteWriteResponse> =>
+    request(`${quote(projectId)}/pdf`, quoteWriteResponseSchema, { method: 'POST' }),
+
+  reject: (projectId: string, reason: string): Promise<QuoteWriteResponse> =>
+    request(`${quote(projectId)}/reject`, quoteWriteResponseSchema, jsonInit('POST', { reason })),
+
+  reopen: (projectId: string, reason: string): Promise<QuoteWriteResponse> =>
+    request(`${quote(projectId)}/reopen`, quoteWriteResponseSchema, jsonInit('POST', { reason })),
+
+  sendDefaults: (projectId: string): Promise<SendDefaults> =>
+    request(`${quote(projectId)}/send-defaults`, sendDefaultsSchema),
+
+  /** `idempotencyKey` makes a retry of the same send a no-op on the server. */
+  send: (projectId: string, body: SendQuoteBody, idempotencyKey: string): Promise<SendQuoteResponse> =>
+    request(
+      `${quote(projectId)}/send`,
+      sendQuoteResponseSchema,
+      jsonInit('POST', body, { 'Idempotency-Key': idempotencyKey }),
+    ),
 };
