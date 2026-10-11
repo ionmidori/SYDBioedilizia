@@ -22,6 +22,8 @@ BUCKET = "test-bucket.appspot.com"
 NOW = datetime(2026, 10, 14, 12, 0, tzinfo=UTC)  # a Wednesday
 GOOD_IMAGE = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%2F1700_bagno.webp?alt=media"
 LEGACY_IMAGE = f"https://storage.googleapis.com/{BUCKET}/portfolio/1700_cucina.jpg"
+BACKSLASH = chr(92)
+FB = "https://firebasestorage.googleapis.com"
 
 
 @pytest.fixture
@@ -99,6 +101,21 @@ def test_every_route_needs_the_admin_role(db, method, path):
         (f"https://evil.example.com/v0/b/{BUCKET}/o/portfolio%2Fx.webp", None),
         ("javascript:alert(1)", None),
         ("", None),
+        # parser differentials: Python and a browser would read these differently
+        (f"https://evil.example.com{BACKSLASH}@firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%2Fx.webp", None),
+        (f"{FB}{BACKSLASH}@evil.example.com/v0/b/{BUCKET}/o/portfolio%2Fx.webp", None),
+        (f"https://user:pw@firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%2Fx.webp", None),
+        (f"https://firebasestorage.googleapis.com:444/v0/b/{BUCKET}/o/portfolio%2Fx.webp", None),
+        (f"https://FIREBASESTORAGE.googleapis.com/v0/b/{BUCKET}/o/portfolio%2Fx.webp", None),
+        (f"{GOOD_IMAGE.split('?')[0]}#@evil.example.com", None),
+        (f"{GOOD_IMAGE}&x=1", None),
+        (f"https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%2Fx y.webp", None),
+        (GOOD_IMAGE + chr(10), None),
+        (f"https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%252F..%252Fx.webp", None),  # double encoding
+        (f"https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%2F%2e%2e%2Fx.webp", None),
+        (f"https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%2Fx{chr(233)}.webp", None),  # non-ASCII
+        (f"https://storage.googleapis.com/{BUCKET}/portfolio/x.jpg?token=abc", None),
+        (f"https://storage.googleapis.com/{BUCKET}/portfolio/", None),
     ],
 )
 def test_only_images_in_our_portfolio_folder_are_accepted(url, expected):
@@ -415,3 +432,18 @@ def test_the_admin_can_run_the_lifecycle_pass_without_the_shared_secret(db, monk
 
     service.run_lifecycle_pass.return_value = LifecycleRunResult(errors=["uid x failed"])
     assert _client().post("/api/admin/gdpr/lifecycle/run").json()["status"] == "partial_errors"
+
+
+# ── Public endpoint: defence in depth ─────────────────────────────────────────
+
+
+def test_the_public_portfolio_only_serves_images_of_our_folder(monkeypatch):
+    from src.api.routes import content_routes
+
+    monkeypatch.setattr(settings, "FIREBASE_STORAGE_BUCKET", BUCKET)
+    assert content_routes._public_image(GOOD_IMAGE) == GOOD_IMAGE
+    assert content_routes._public_image(LEGACY_IMAGE) == LEGACY_IMAGE
+    assert content_routes._public_image(f"https://evil.example.com{BACKSLASH}@firebasestorage.googleapis.com/x") is None
+    assert content_routes._public_image("https://example.com/a.png") is None
+    assert content_routes._public_image(None) is None
+    assert content_routes._public_image("") is None

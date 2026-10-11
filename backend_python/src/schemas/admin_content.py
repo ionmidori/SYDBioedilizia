@@ -6,6 +6,7 @@ Golden Sync: web_client/types/admin-content.ts (1:1).
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Literal
 from urllib.parse import unquote, urlparse
@@ -29,33 +30,56 @@ PORTFOLIO_CATEGORIES = (
 PORTFOLIO_FOLDER = "portfolio"
 
 
+# Characters that never belong in one of our image URLs (a backslash is a slash to a browser).
+_FORBIDDEN_CHARS = frozenset(chr(c) for c in (92, 34, 60, 62, 39, 96, 94, 124, 123, 125))
+_FILE_PATH = re.compile(r"^portfolio/[A-Za-z0-9][A-Za-z0-9._-]{0,150}$")
+_RAW_OBJECT = re.compile(r"^[A-Za-z0-9._%/-]+$")
+_ALLOWED_QUERIES = frozenset({"", "alt=media"})
+
+
 def portfolio_blob_path(url: str, bucket: str) -> str | None:
     """Storage path of a portfolio image URL of OUR bucket, else None.
 
-    Accepted forms (both end up in `portfolio/…`):
-      https://firebasestorage.googleapis.com/v0/b/{bucket}/o/portfolio%2Fx.webp?alt=media
-      https://storage.googleapis.com/{bucket}/portfolio/x.webp
-    Anything else — other hosts, other buckets, other folders — is refused: the
-    URL is rendered on the public landing page.
+    Accepted forms (both end up in `portfolio/<file>`):
+      https://firebasestorage.googleapis.com/v0/b/{bucket}/o/portfolio%2F<file>[?alt=media]
+      https://storage.googleapis.com/{bucket}/portfolio/<file>
+
+    The URL is rendered on the public landing page, so it is validated as a
+    STRING, not only as parsed by Python: browsers read URLs differently from
+    `urlparse` (a backslash is a slash, userinfo and ports change the host, a
+    space or a control character is stripped). Anything outside the plain
+    ASCII shape above — userinfo, port, fragment, backslash, whitespace,
+    upper-case host, double encoding, nested paths — is refused.
     """
+    if not url or len(url) > 1000 or not bucket or not url.isascii():
+        return None
+    if any(ord(c) <= 32 or ord(c) == 127 or c in _FORBIDDEN_CHARS for c in url):
+        return None
     try:
         parsed = urlparse(url)
     except ValueError:
         return None
-    if parsed.scheme != "https":
+    # netloc must be exactly the lower-case host: no userinfo, no port.
+    if parsed.scheme != "https" or parsed.fragment or parsed.params or parsed.netloc != (parsed.hostname or ""):
         return None
-    path: str | None = None
+    if parsed.query not in _ALLOWED_QUERIES:
+        return None
     if parsed.hostname == "firebasestorage.googleapis.com":
         prefix = f"/v0/b/{bucket}/o/"
-        if parsed.path.startswith(prefix):
-            path = unquote(parsed.path[len(prefix):])
     elif parsed.hostname == "storage.googleapis.com":
         prefix = f"/{bucket}/"
-        if parsed.path.startswith(prefix):
-            path = unquote(parsed.path[len(prefix):])
-    if not path or ".." in path or not path.startswith(f"{PORTFOLIO_FOLDER}/") or path.count("/") != 1:
+        if parsed.query:
+            return None
+    else:
         return None
-    return path
+    if not parsed.path.startswith(prefix):
+        return None
+    raw = parsed.path[len(prefix):]
+    if not _RAW_OBJECT.match(raw):
+        return None
+    path = unquote(raw)
+    # One level of decoding only: a '%' left over means double encoding.
+    return path if "%" not in path and _FILE_PATH.match(path) else None
 
 
 class PortfolioStats(BaseModel):
