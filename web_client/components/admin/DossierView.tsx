@@ -36,9 +36,14 @@ const REVIEWABLE: ReadonlyArray<QuoteStatus> = ['draft', 'pending_review', 'in_r
 /** Mirrors LOCK_LEASE in backend_python/src/services/admin_quotes.py. */
 const LOCK_MINUTES = 30;
 
-/** Unsaved edits, tied to the version they started from (the ETag). */
+/**
+ * Unsaved edits, tied to the version they started from (the ETag).
+ * `savedAs` is set once the server accepted them: the draft stays on screen
+ * until the dossier carries that ETag, so a save never flashes the old values.
+ */
 interface Draft {
   baseEtag: string;
+  savedAs: string | null;
   items: QuoteItem[];
   notes: string;
   vatPercent: number;
@@ -79,9 +84,13 @@ export function DossierView({ projectId }: { projectId: string }) {
   const savedNotes = quote?.admin_notes ?? '';
   const savedVat = toPercent(quote?.financials.vat_rate ?? 0.22);
 
-  const items = draft?.items ?? savedItems;
-  const notes = draft?.notes ?? savedNotes;
-  const vatPercent = draft?.vatPercent ?? savedVat;
+  // A draft the server already accepted disappears when the dossier catches up.
+  const activeDraft = draft && draft.savedAs && draft.savedAs === etag ? null : draft;
+  const awaitingRefresh = !!activeDraft?.savedAs && dossier.isFetching;
+
+  const items = activeDraft?.items ?? savedItems;
+  const notes = activeDraft?.notes ?? savedNotes;
+  const vatPercent = activeDraft?.vatPercent ?? savedVat;
 
   const itemErrors = useMemo(() => validateItems(items), [items]);
   const vatInvalid = !Number.isFinite(vatPercent) || vatPercent < 0 || vatPercent > 50;
@@ -117,12 +126,34 @@ export function DossierView({ projectId }: { projectId: string }) {
 
   const reviewable = REVIEWABLE.includes(status);
   const canEdit = reviewable && !lockedByOther;
-  const stale = draft !== null && draft.baseEtag !== etag;
+  // Edits only exist while the quote is editable: once it is not (rejected,
+  // locked by someone else…) the saved version is what is shown.
+  const draftShown = canEdit && activeDraft !== null;
+  const stale = draftShown && !awaitingRefresh && activeDraft.baseEtag !== etag;
   const dirty =
-    draft !== null &&
-    (!itemsEqual(draft.items, savedItems) || draft.notes !== savedNotes || draft.vatPercent !== savedVat);
-  const hasLineErrors = itemErrors.size > 0 || vatInvalid;
-  const busy = claim.isPending || release.isPending || edit.isPending || approve.isPending || reject.isPending || reopen.isPending;
+    draftShown &&
+    (!itemsEqual(activeDraft.items, savedItems) ||
+      activeDraft.notes !== savedNotes ||
+      activeDraft.vatPercent !== savedVat);
+  const shownItems = draftShown ? items : savedItems;
+  const shownNotes = draftShown ? notes : savedNotes;
+  const shownVat = draftShown ? vatPercent : savedVat;
+  const shownTotals = draftShown
+    ? totals
+    : {
+        subtotal: quote.financials.subtotal,
+        vatAmount: quote.financials.vat_amount,
+        grandTotal: quote.financials.grand_total,
+      };
+  const hasLineErrors = draftShown && (itemErrors.size > 0 || vatInvalid);
+  const busy =
+    awaitingRefresh ||
+    claim.isPending ||
+    release.isPending ||
+    edit.isPending ||
+    approve.isPending ||
+    reject.isPending ||
+    reopen.isPending;
 
   const approvedRevision = review?.approved_revision ?? null;
   const pdfReady =
@@ -134,14 +165,15 @@ export function DossierView({ projectId }: { projectId: string }) {
   const clientName = clientDisplayName(quote.client_snapshot);
 
   // ── Actions ────────────────────────────────────────────────────────────────
-  const touch = (patch: Partial<Omit<Draft, 'baseEtag'>>) =>
-    setDraft((prev) => ({
-      baseEtag: prev?.baseEtag ?? etag,
-      items: prev?.items ?? savedItems,
-      notes: prev?.notes ?? savedNotes,
-      vatPercent: prev?.vatPercent ?? savedVat,
+  const touch = (patch: Partial<Pick<Draft, 'items' | 'notes' | 'vatPercent'>>) =>
+    setDraft({
+      baseEtag: activeDraft?.baseEtag ?? etag,
+      savedAs: null,
+      items: activeDraft?.items ?? savedItems,
+      notes: activeDraft?.notes ?? savedNotes,
+      vatPercent: activeDraft?.vatPercent ?? savedVat,
       ...patch,
-    }));
+    });
 
   const resetErrors = () => {
     for (const mutation of [claim, release, edit, approve, reject, reopen, regenerate]) mutation.reset();
@@ -156,21 +188,22 @@ export function DossierView({ projectId }: { projectId: string }) {
   };
 
   const save = () => {
-    if (!draft || stale) return;
+    if (!activeDraft || stale || busy) return;
     if (hasLineErrors) {
       setShowErrors(true);
       return;
     }
     const body: EditQuoteBody = {};
-    if (!itemsEqual(draft.items, savedItems)) body.items = draft.items.map((i) => ({ ...i, total: lineTotal(i) }));
-    if (draft.notes !== savedNotes) body.admin_notes = draft.notes;
-    if (draft.vatPercent !== savedVat) body.vat_rate = draft.vatPercent / 100;
+    if (!itemsEqual(activeDraft.items, savedItems)) body.items = activeDraft.items.map((i) => ({ ...i, total: lineTotal(i) }));
+    if (activeDraft.notes !== savedNotes) body.admin_notes = activeDraft.notes;
+    if (activeDraft.vatPercent !== savedVat) body.vat_rate = activeDraft.vatPercent / 100;
     setNotice(null);
     edit.mutate(
       { etag, body },
       {
         onSuccess: (result) => {
-          setDraft(null);
+          // Keep showing the saved edits until the refetched dossier carries the new ETag.
+          setDraft((prev) => (prev ? { ...prev, savedAs: result.etag } : prev));
           setShowErrors(false);
           setNotice(`Modifiche salvate: nuova revisione ${result.version}.`);
         },
@@ -283,7 +316,7 @@ export function DossierView({ projectId }: { projectId: string }) {
             Salva modifiche
           </ActionButton>
         )}
-        {canEdit && dirty && (
+        {draftShown && (
           <ActionButton onClick={reload} disabled={busy} testId="btn-discard">
             Annulla modifiche
           </ActionButton>
@@ -291,10 +324,10 @@ export function DossierView({ projectId }: { projectId: string }) {
         {canEdit && (
           <ActionButton
             onClick={() => setDialog('approve')}
-            disabled={busy || dirty || stale || items.length === 0}
+            disabled={busy || dirty || stale || shownItems.length === 0}
             primary={!dirty}
             testId="btn-approve"
-            title={dirty ? 'Salva prima le modifiche' : items.length === 0 ? 'Aggiungi almeno una voce' : undefined}
+            title={dirty ? 'Salva prima le modifiche' : shownItems.length === 0 ? 'Aggiungi almeno una voce' : undefined}
           >
             Approva
           </ActionButton>
@@ -330,7 +363,7 @@ export function DossierView({ projectId }: { projectId: string }) {
           <RequestCard request={quote.request} projectName={dossier.data.project_name} createdAt={quote.created_at} />
           <MediaGallery projectId={projectId} media={dossier.data.media} />
           <QuoteItemsEditor
-            items={items}
+            items={shownItems}
             saved={savedItems}
             errors={showErrors ? itemErrors : new Map()}
             readOnly={!canEdit}
@@ -342,7 +375,7 @@ export function DossierView({ projectId }: { projectId: string }) {
                 Note per il cliente <span className="normal-case font-normal text-luxury-text/50">(compaiono nel PDF)</span>
               </span>
               <textarea
-                value={notes}
+                value={shownNotes}
                 disabled={!canEdit}
                 onChange={(e) => touch({ notes: e.target.value })}
                 rows={3}
@@ -354,7 +387,7 @@ export function DossierView({ projectId }: { projectId: string }) {
             <dl className="ml-auto max-w-xs space-y-1.5 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-luxury-text/70">Imponibile</dt>
-                <dd className="tabular-nums" data-testid="totals-subtotal">{formatEuro(totals.subtotal)}</dd>
+                <dd className="tabular-nums" data-testid="totals-subtotal">{formatEuro(shownTotals.subtotal)}</dd>
               </div>
               <div className="flex justify-between items-center gap-4">
                 <dt className="text-luxury-text/70">
@@ -368,19 +401,19 @@ export function DossierView({ projectId }: { projectId: string }) {
                     step="any"
                     min={0}
                     max={50}
-                    value={Number.isFinite(vatPercent) ? vatPercent : ''}
+                    value={Number.isFinite(shownVat) ? shownVat : ''}
                     disabled={!canEdit}
                     onChange={(e) => touch({ vatPercent: e.target.value === '' ? Number.NaN : Number(e.target.value) })}
-                    aria-invalid={vatInvalid}
+                    aria-invalid={draftShown && vatInvalid}
                     data-testid="vat-percent"
                     className="w-20 rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-right text-base md:text-sm tabular-nums disabled:opacity-60"
                   />
-                  <span className="tabular-nums w-24 text-right" data-testid="totals-vat">{formatEuro(totals.vatAmount)}</span>
+                  <span className="tabular-nums w-24 text-right" data-testid="totals-vat">{formatEuro(shownTotals.vatAmount)}</span>
                 </dd>
               </div>
               <div className="flex justify-between gap-4 border-t border-white/10 pt-1.5 text-base font-semibold">
                 <dt>Totale</dt>
-                <dd className="tabular-nums" data-testid="totals-grand">{formatEuro(totals.grandTotal)}</dd>
+                <dd className="tabular-nums" data-testid="totals-grand">{formatEuro(shownTotals.grandTotal)}</dd>
               </div>
               {dirty && (
                 <div className="flex justify-between gap-4 text-xs text-luxury-text/50">
@@ -453,6 +486,7 @@ export function DossierView({ projectId }: { projectId: string }) {
           reject.mutate(reason, {
             onSuccess: () => {
               setDialog(null);
+              setDraft(null);
               setNotice('Preventivo rifiutato.');
             },
           })

@@ -78,10 +78,10 @@ export function useSendDefaults(projectId: string, enabled: boolean) {
 
 /**
  * Every write refreshes the dossier (new ETag, status, revisions) and the
- * inbox, success or not (a 409 means the dossier is stale). The refetch is
- * deliberately NOT awaited: the caller clears its local draft as soon as the
- * write resolves, before the new ETag arrives, so a save never looks like a
- * conflict with itself.
+ * inbox and the send defaults, success or not (a 409 means the dossier is
+ * stale). The refetch is not awaited here: callers that keep local state
+ * (DossierView's draft) hold it until the dossier shows the ETag the write
+ * returned, so a save never flashes old values or looks like a conflict.
  */
 function useQuoteWrite<TVariables, TResult>(projectId: string, mutationFn: (variables: TVariables) => Promise<TResult>) {
   const client = useQueryClient();
@@ -90,6 +90,7 @@ function useQuoteWrite<TVariables, TResult>(projectId: string, mutationFn: (vari
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.dossier(projectId) });
       void client.invalidateQueries({ queryKey: ['admin', 'quotes'] });
+      void client.invalidateQueries({ queryKey: ADMIN_KEYS.sendDefaults(projectId) });
     },
   });
 }

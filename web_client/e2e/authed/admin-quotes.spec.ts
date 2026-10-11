@@ -31,6 +31,8 @@ interface Fake {
   sends: { headers: Record<string, string>; body: Record<string, unknown> }[];
   /** Next PATCH answers 409 (somebody else saved first). */
   conflictOnNextEdit: boolean;
+  /** The next dossier GET answers late (a real network): exposes UI races after a write. */
+  slowNextDossier: boolean;
 }
 
 const UNIT_PRICE = 12.5;
@@ -120,6 +122,7 @@ async function installFakeBackend(page: import('@playwright/test').Page, overrid
     approvals: [],
     sends: [],
     conflictOnNextEdit: false,
+    slowNextDossier: false,
     ...overrides,
   };
   const json = (route: Route, status: number, body: unknown) =>
@@ -156,7 +159,13 @@ async function installFakeBackend(page: import('@playwright/test').Page, overrid
         next_cursor: null,
       });
     }
-    if (path === `/quotes/${PID}` && method === 'GET') return json(route, 200, dossier(f));
+    if (path === `/quotes/${PID}` && method === 'GET') {
+      if (f.slowNextDossier) {
+        f.slowNextDossier = false;
+        await new Promise((resolve) => setTimeout(resolve, 600));
+      }
+      return json(route, 200, dossier(f));
+    }
 
     if (path === `/quotes/${PID}` && method === 'PATCH') {
       const ifMatch = request.headers()['if-match'] ?? null;
@@ -170,6 +179,7 @@ async function installFakeBackend(page: import('@playwright/test').Page, overrid
       f.qty = body.items?.[0]?.qty ?? f.qty;
       f.version += 1;
       f.revisions.push(f.version);
+      f.slowNextDossier = true;
       return json(route, 200, writeResponse(f));
     }
     if (path === `/quotes/${PID}/approve`) {
@@ -239,6 +249,11 @@ test.describe('admin console', () => {
     await expect(page.getByTestId('btn-approve')).toBeDisabled();
     await page.getByTestId('btn-save').click();
     await expect(page.getByTestId('notice')).toContainText('revisione 3');
+    // While the refreshed dossier is still on its way: no flash back to 10,
+    // no false "modified by another admin", and nothing can be approved yet.
+    await expect(page.getByTestId('item-qty-0')).toHaveValue('20');
+    await expect(page.getByTestId('stale-banner')).toHaveCount(0);
+    await expect(page.getByTestId('btn-approve')).toBeDisabled();
     expect(fake.edits).toEqual([{ ifMatch: '"v2"', qty: 20 }]);
     await expect(page.getByTestId('revision-item')).toHaveCount(3);
     await expect(page.getByTestId('btn-approve')).toBeEnabled();

@@ -196,4 +196,58 @@ describe('DossierView', () => {
     );
     expect(screen.getByTestId('profile-changed')).toHaveTextContent('nuova@example.it');
   });
+
+  describe('right after a save', () => {
+    function withDossier(data: QuoteDossier, isFetching: boolean) {
+      m.useAdminDossier.mockReturnValue({
+        isPending: false,
+        isError: false,
+        isFetching,
+        data,
+        refetch: jest.fn(),
+      } as unknown as ReturnType<typeof m.useAdminDossier>);
+    }
+
+    it('keeps the saved edits on screen, with no false conflict, until the refetched dossier arrives', () => {
+      const { rerender } = setup(dossier());
+      mocks.edit.mutate.mockImplementation((_vars, options) => options.onSuccess({ version: 3, etag: '"v3"' }));
+
+      fireEvent.change(screen.getByTestId('item-qty-0'), { target: { value: '20' } });
+      fireEvent.click(screen.getByTestId('btn-save'));
+
+      // the server accepted the edit, the old dossier ("v2") is still in the cache while it refetches
+      withDossier(dossier(), true);
+      rerender(<DossierView projectId="p1" />);
+      expect(screen.getByTestId('item-qty-0')).toHaveValue(20);
+      expect(screen.queryByTestId('stale-banner')).not.toBeInTheDocument();
+      expect(screen.getByTestId('btn-approve')).toBeDisabled();
+
+      // the refetch lands with the new ETag and the saved values
+      const saved = dossier({ etag: '"v3"' }, { version: 3 });
+      saved.quote.items = [{ ...saved.quote.items[0], qty: 20, total: 250 }];
+      withDossier(saved, false);
+      rerender(<DossierView projectId="p1" />);
+      expect(screen.getByTestId('item-qty-0')).toHaveValue(20);
+      expect(screen.queryByTestId('stale-banner')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('btn-save')).not.toBeInTheDocument();
+      expect(screen.getByTestId('btn-approve')).toBeEnabled();
+
+      // typing again starts from the NEW version, not the one before the save
+      fireEvent.change(screen.getByTestId('item-qty-0'), { target: { value: '25' } });
+      fireEvent.click(screen.getByTestId('btn-save'));
+      expect(mocks.edit.mutate.mock.calls[1][0].etag).toBe('"v3"');
+    });
+
+    it('does not show unsaved edits once the quote is no longer editable', () => {
+      const { rerender } = setup(dossier());
+      fireEvent.change(screen.getByTestId('item-qty-0'), { target: { value: '99' } });
+
+      // rejected meanwhile (same ETag): the read-only view shows the saved version
+      withDossier(dossier({}, { status: 'rejected' }), false);
+      rerender(<DossierView projectId="p1" />);
+      expect(screen.getByTestId('item-qty-0')).toHaveValue(10);
+      expect(screen.getByTestId('dossier-total')).toHaveTextContent('152,50');
+      expect(screen.queryByTestId('btn-discard')).not.toBeInTheDocument();
+    });
+  });
 });

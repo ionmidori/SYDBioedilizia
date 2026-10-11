@@ -93,4 +93,22 @@ describe('SendDialog', () => {
     expect(screen.getByTestId('send-confirm')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Rigenera il PDF' })).toBeInTheDocument();
   });
+
+  it('keeps the Idempotency-Key for an identical retry but issues a new one when the body changes', async () => {
+    const { mutate } = setup();
+    fireEvent.click(screen.getByTestId('send-confirm'));
+    fireEvent.click(screen.getByTestId('send-confirm')); // retry after a lost response
+    fireEvent.change(screen.getByTestId('send-to'), { target: { value: 'corretto@example.it' } });
+    fireEvent.click(screen.getByTestId('send-confirm')); // the admin fixed the address
+    await waitFor(() => expect(mutate).toHaveBeenCalledTimes(3));
+    const keys = mutate.mock.calls.map(([vars]) => vars.idempotencyKey);
+    expect(keys[0]).toBe(keys[1]);
+    expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it('does not read the defaults while closed, so each opening is fresh', () => {
+    mockDefaults.mockReset();
+    render(<SendDialog projectId="p1" open={false} onOpenChange={jest.fn()} onSent={jest.fn()} />);
+    expect(mockDefaults).not.toHaveBeenCalled();
+  });
 });

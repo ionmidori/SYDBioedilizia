@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FileText, Loader2 } from 'lucide-react';
 
 import { ErrorBanner } from '@/components/admin/dossier/ErrorBanner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useRegeneratePdf, useSendDefaults, useSendQuote } from '@/hooks/admin/use-admin';
+import { AdminApiError } from '@/lib/admin/admin-api';
 import { sendQuoteBodySchema, type SendDefaults, type SendQuoteResponse } from '@/types/admin-quote';
 
 interface Props {
@@ -34,7 +35,6 @@ const INPUT =
  * subject) and stays editable; nothing leaves until the admin confirms here.
  */
 export function SendDialog({ projectId, open, onOpenChange, ...rest }: Props) {
-  const defaults = useSendDefaults(projectId, open);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-luxury-bg border-luxury-gold/20 text-luxury-text">
@@ -44,19 +44,29 @@ export function SendDialog({ projectId, open, onOpenChange, ...rest }: Props) {
             Controlla destinatario e testo: puoi cambiare tutto prima dell&apos;invio.
           </DialogDescription>
         </DialogHeader>
-        {defaults.isPending && open ? (
-          <div className="py-10 flex justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
-          </div>
-        ) : defaults.isError ? (
-          <ErrorBanner error={defaults.error} onReload={rest.onReload} />
-        ) : open && defaults.data ? (
-          // Mounted per opening, so each opening gets its own Idempotency-Key.
-          <SendForm projectId={projectId} defaults={defaults.data} onCancel={() => onOpenChange(false)} {...rest} />
-        ) : null}
+        {/* Mounted only while open: every opening reads fresh defaults (the
+            recipient or the PDF may have changed) and gets its own Idempotency-Key. */}
+        {open && <SendDialogBody projectId={projectId} onCancel={() => onOpenChange(false)} {...rest} />}
       </DialogContent>
     </Dialog>
   );
+}
+
+function SendDialogBody({
+  projectId,
+  onCancel,
+  ...rest
+}: Omit<Props, 'open' | 'onOpenChange'> & { onCancel: () => void }) {
+  const defaults = useSendDefaults(projectId, true);
+  if (defaults.isPending) {
+    return (
+      <div className="py-10 flex justify-center">
+        <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
+      </div>
+    );
+  }
+  if (defaults.isError) return <ErrorBanner error={defaults.error} onReload={rest.onReload} />;
+  return <SendForm projectId={projectId} defaults={defaults.data} onCancel={onCancel} {...rest} />;
 }
 
 function SendForm({
@@ -71,8 +81,10 @@ function SendForm({
   const [cc, setCc] = useState('');
   const [subject, setSubject] = useState(defaults.subject);
   const [message, setMessage] = useState('');
-  // One key per opening: a retry after a lost response is a no-op, not a second email.
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // The key identifies one exact send: retrying the SAME body after a lost
+  // response is a no-op on the server, but a CHANGED body must get a new key,
+  // otherwise the server would answer "already registered" and drop the fix.
+  const keyRef = useRef<{ signature: string; key: string } | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(pdfPreviewUrl ?? null);
 
   const send = useSendQuote(projectId);
@@ -90,8 +102,10 @@ function SendForm({
 
   const submit = () => {
     if (!parsed.success) return;
+    const signature = JSON.stringify(parsed.data);
+    if (keyRef.current?.signature !== signature) keyRef.current = { signature, key: crypto.randomUUID() };
     send.mutate(
-      { body: parsed.data, idempotencyKey },
+      { body: parsed.data, idempotencyKey: keyRef.current.key },
       { onSuccess: (result) => onSent(result, parsed.data.to) },
     );
   };
@@ -203,6 +217,12 @@ function SendForm({
       </div>
 
       <ErrorBanner error={send.error} onReload={onReload} />
+      {send.error && !(send.error instanceof AdminApiError && send.error.status < 500) && (
+        <p role="note" data-testid="send-ambiguous" className="text-xs text-amber-300">
+          Il server potrebbe aver già ricevuto la richiesta: controlla «Invii al cliente» prima di riprovare. Se cambi
+          qualcosa e invii di nuovo, partirà una nuova email.
+        </p>
+      )}
 
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer">
