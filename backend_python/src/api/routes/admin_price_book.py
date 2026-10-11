@@ -56,6 +56,7 @@ async def get_price_book(
         item_count=len(state.items),
         updated_at=state.updated_at,
         updated_by=state.updated_by,
+        ignored_document=state.problem,
         items=[PriceBookItem(**item) for item in state.items],
     )
 
@@ -75,7 +76,7 @@ async def put_price_book(
     result = await price_book.save(
         get_async_firestore_client(), body.items, expected, admin.uid, utc_now(), reason=body.reason
     )
-    PricingService.apply_price_book(result.items, result.version)
+    PricingService.apply_price_book(result.items, result.version, result.updated_at)
     emit_audit_event(
         AuditAction.PRICE_BOOK_UPDATE,
         AuditResourceType.CONFIG,
@@ -117,7 +118,7 @@ async def get_price_book_history(
     query = (
         price_book.history_ref(db)
         .select(list(PriceBookHistoryItem.model_fields))
-        .order_by("version", direction="DESCENDING")
+        .order_by("created_at", direction="DESCENDING")
         .limit(_HISTORY_LIMIT)
     )
     rows = [PriceBookHistoryItem(**(doc.to_dict() or {})) async for doc in query.stream()]

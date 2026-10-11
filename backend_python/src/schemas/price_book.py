@@ -9,6 +9,7 @@ Golden Sync: web_client/types/admin-price-book.ts (1:1).
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Literal
 
@@ -16,7 +17,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 # SKU as used in quotes and prompts: short, no spaces or exotic characters.
 SKU_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._\-]{0,39}$"
-MAX_ITEMS = 2000  # a Firestore document holds 1 MiB; ~66 items weigh ~25 KiB
+MAX_ITEMS = 2000
+# A Firestore document holds 1 MiB (~66 items weigh ~25 KiB). The JSON size over-estimates
+# the stored size, so this limit leaves room for the other fields of the document.
+MAX_BYTES = 800 * 1024
 
 
 class PriceBookItem(BaseModel):
@@ -68,6 +72,9 @@ class PriceBookResponse(BaseModel):
     item_count: int
     updated_at: datetime | None = None
     updated_by: str | None = None
+    # Set when the stored document was ignored (e.g. written by another tool
+    # without a version): the seed is shown and saving replaces the document.
+    ignored_document: str | None = None
     items: list[PriceBookItem]
 
 
@@ -88,6 +95,12 @@ class PutPriceBookBody(BaseModel):
             seen.add(key)
         if duplicated:
             raise ValueError(f"Duplicate SKU: {', '.join(sorted(set(duplicated))[:10])}")
+        size = len(json.dumps([i.model_dump(exclude_none=True) for i in self.items], ensure_ascii=False).encode())
+        if size > MAX_BYTES:
+            raise ValueError(
+                f"The price book is too large to store ({size // 1024} KiB, limit {MAX_BYTES // 1024} KiB): "
+                "shorten descriptions or tags."
+            )
         return self
 
 

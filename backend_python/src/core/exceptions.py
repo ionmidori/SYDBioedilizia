@@ -217,6 +217,21 @@ class PriceBookConflictError(AppException):
         )
 
 
+class PriceBookSkuInUseError(AppException):
+    """A save would remove SKUs that the AI's assembly library still points to."""
+    status_code = 422
+    error_code = "PRICE_BOOK_SKU_IN_USE"
+
+    def __init__(self, skus: list[str]) -> None:
+        super().__init__(
+            message=(
+                "These SKUs are used by the assembly library (renovation_assemblies.json) and cannot be "
+                f"removed: {', '.join(skus[:10])}."
+            ),
+            detail={"skus": skus},
+        )
+
+
 class QuoteLockedError(AppException):
     """Another admin holds the review lock on this quote."""
     status_code = 409
