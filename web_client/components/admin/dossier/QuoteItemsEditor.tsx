@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 
 import { formatEuro } from '@/components/admin/quote-status';
 import { emptyManualItem, isChangedLine, type ItemErrors, lineTotal } from '@/lib/admin/quote-math';
@@ -14,6 +14,8 @@ interface Props {
   errors: Map<number, ItemErrors>;
   readOnly: boolean;
   onChange: (items: QuoteItem[]) => void;
+  /** Opens the price book search; when absent the button is not shown. */
+  onPickFromPriceBook?: () => void;
 }
 
 const FIELD =
@@ -24,7 +26,7 @@ function toNumber(raw: string): number {
   return raw.trim() === '' ? Number.NaN : Number(raw);
 }
 
-export function QuoteItemsEditor({ items, saved, errors, readOnly, onChange }: Props) {
+export function QuoteItemsEditor({ items, saved, errors, readOnly, onChange, onPickFromPriceBook }: Props) {
   const update = (index: number, patch: Partial<QuoteItem>) =>
     onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)));
 
@@ -35,14 +37,26 @@ export function QuoteItemsEditor({ items, saved, errors, readOnly, onChange }: P
           Voci del preventivo <span className="text-luxury-text/40">({items.length})</span>
         </h2>
         {!readOnly && (
-          <button
-            type="button"
-            onClick={() => onChange([...items, emptyManualItem(items)])}
-            data-testid="add-item"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-sm hover:bg-white/5 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" aria-hidden /> Aggiungi voce
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {onPickFromPriceBook && (
+              <button
+                type="button"
+                onClick={onPickFromPriceBook}
+                data-testid="add-from-price-book"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-luxury-gold/15 border border-luxury-gold/30 text-luxury-gold text-sm cursor-pointer"
+              >
+                <Search className="w-4 h-4" aria-hidden /> Dal listino
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onChange([...items, emptyManualItem(items)])}
+              data-testid="add-item"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-sm hover:bg-white/5 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" aria-hidden /> Voce manuale
+            </button>
+          </div>
         )}
       </div>
 

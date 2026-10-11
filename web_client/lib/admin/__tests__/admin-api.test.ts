@@ -110,4 +110,40 @@ describe('adminApi', () => {
       expect(error.errorCode).toBe('VERSION_CONFLICT');
     });
   });
+
+  describe('dashboard and price book', () => {
+    it('reads the KPIs', async () => {
+      mockFetch.mockResolvedValue(
+        json(200, {
+          by_status: { pending_review: 2 },
+          pending_value: 10,
+          weekly_approvals: [],
+          recent_approvals: [],
+          testimonials: {},
+          generated_at: '2026-10-14T12:00:00Z',
+        }),
+      );
+      const kpis = await adminApi.getKpis();
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/kpis');
+      expect(kpis.by_status.pending_review).toBe(2);
+    });
+
+    it('saves the price book with the ETag it read as If-Match', async () => {
+      mockFetch.mockResolvedValue(json(200, { etag: '"v3"', version: 3, item_count: 1, added: 0, removed: 0, changed: 1 }));
+      const item = { sku: 'A-1', description: 'd', unit: 'mq', unit_price: 1, category: 'c', vat_agevolata: false, tags: [] };
+      await adminApi.savePriceBook('"v2"', { items: [item], reason: 'Prezzi 2026' });
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/py/admin/price-book');
+      expect(init).toMatchObject({ method: 'PUT' });
+      expect((init as RequestInit).headers).toMatchObject({ 'If-Match': '"v2"' });
+      expect(JSON.parse(String((init as RequestInit).body))).toMatchObject({ reason: 'Prezzi 2026' });
+    });
+
+    it('keeps the list of SKUs when the AI recipes still use them', async () => {
+      mockFetch.mockResolvedValue(json(422, { error_code: 'PRICE_BOOK_SKU_IN_USE', message: 'x', detail: { skus: ['DEM-001'] } }));
+      const error = (await adminApi.savePriceBook('"v1"', { items: [] } as never).catch((e: unknown) => e)) as AdminApiError;
+      expect(error.errorCode).toBe('PRICE_BOOK_SKU_IN_USE');
+      expect(error.detail).toEqual({ skus: ['DEM-001'] });
+    });
+  });
 });

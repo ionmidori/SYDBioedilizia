@@ -1,14 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { FileText, LogOut, ShieldAlert } from 'lucide-react';
+import { FileText, LayoutDashboard, LogOut, ShieldAlert, Tag } from 'lucide-react';
 
 import { ScallopedPageTransition } from '@/components/ui/ScallopedPageTransition';
 import { useAdminMe } from '@/hooks/admin/use-admin';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminApiError } from '@/lib/admin/admin-api';
+import { confirmLeave } from '@/lib/admin/unsaved-guard';
+import { cn } from '@/lib/utils';
+
+const NAV = [
+  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/admin/quotes', label: 'Preventivi', icon: FileText, exact: false },
+  { href: '/admin/price-book', label: 'Listino', icon: Tag, exact: false },
+] as const;
+
+function isActive(pathname: string, href: string, exact: boolean): boolean {
+  return exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
+}
 
 /**
  * Admin console shell (Phase 128).
@@ -21,6 +33,7 @@ import { AdminApiError } from '@/lib/admin/admin-api';
 export function AdminClientLayout({ children }: { children: React.ReactNode }) {
   const { user, isInitialized, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname() ?? '';
   const me = useAdminMe();
 
   useEffect(() => {
@@ -58,17 +71,36 @@ export function AdminClientLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-luxury-bg text-luxury-text">
       <header className="sticky top-0 z-30 border-b border-luxury-gold/10 bg-luxury-bg/95">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center gap-4">
-          <Link href="/admin/quotes" className="font-semibold tracking-tight">
+          <Link
+            href="/admin"
+            onClick={(event) => {
+              if (!confirmLeave()) event.preventDefault();
+            }}
+            className="font-semibold tracking-tight"
+          >
             SYD <span className="text-luxury-gold">Console</span>
           </Link>
-          <nav aria-label="Sezioni della console" className="flex items-center gap-1 text-sm">
-            <Link
-              href="/admin/quotes"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-white/5"
-            >
-              <FileText className="w-4 h-4" aria-hidden />
-              Preventivi
-            </Link>
+          <nav aria-label="Sezioni della console" className="flex items-center gap-1 text-sm overflow-x-auto">
+            {NAV.map(({ href, label, icon: Icon, exact }) => {
+              const active = isActive(pathname, href, exact);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={(event) => {
+                    if (!confirmLeave()) event.preventDefault();
+                  }}
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap',
+                    active ? 'bg-luxury-gold/15 text-luxury-gold' : 'hover:bg-white/5',
+                  )}
+                >
+                  <Icon className="w-4 h-4" aria-hidden />
+                  {label}
+                </Link>
+              );
+            })}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="hidden sm:inline text-luxury-text/60" data-testid="admin-email">

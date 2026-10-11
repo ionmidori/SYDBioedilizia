@@ -28,6 +28,19 @@ import {
   sendDefaultsSchema,
   sendQuoteResponseSchema,
 } from '@/types/admin-quote';
+import {
+  type AdminKpis,
+  adminKpisSchema,
+} from '@/types/admin-content';
+import {
+  type PriceBookHistory,
+  type PriceBookResponse,
+  type PriceBookSaveResponse,
+  type PutPriceBookBody,
+  priceBookHistorySchema,
+  priceBookResponseSchema,
+  priceBookSaveResponseSchema,
+} from '@/types/admin-price-book';
 import { type QuoteRevision, quoteRevisionSchema } from '@/types/quote';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py';
@@ -158,4 +171,15 @@ export const adminApi = {
       sendQuoteResponseSchema,
       jsonInit('POST', body, { 'Idempotency-Key': idempotencyKey }),
     ),
+
+  getKpis: (): Promise<AdminKpis> => request('/kpis', adminKpisSchema),
+
+  getPriceBook: (): Promise<PriceBookResponse> => request('/price-book', priceBookResponseSchema),
+
+  /** `etag` is the version the editor read: a save over a newer one answers 409. */
+  savePriceBook: (etag: string, body: PutPriceBookBody): Promise<PriceBookSaveResponse> =>
+    request('/price-book', priceBookSaveResponseSchema, jsonInit('PUT', body, ifMatch(etag))),
+
+  getPriceBookHistory: (): Promise<PriceBookHistory> =>
+    request('/price-book/history', priceBookHistorySchema),
 };

@@ -23,7 +23,7 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
     case 'VERSION_CONFLICT':
       return {
         kind: 'conflict',
-        message: 'Il preventivo è stato modificato da un altro admin. Ricarica per vedere la versione aggiornata.',
+        message: 'Questi dati sono stati modificati da un altro admin nel frattempo. Ricarica per vedere la versione aggiornata.',
         stale: true,
       };
     case 'QUOTE_LOCKED':
@@ -40,6 +40,14 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
       };
     case 'PRECONDITION_REQUIRED':
       return { kind: 'conflict', message: 'Versione del preventivo mancante: ricarica la pagina.', stale: true };
+    case 'PRICE_BOOK_SKU_IN_USE': {
+      const skus = Array.isArray(error.detail.skus) ? (error.detail.skus as unknown[]).map(String) : [];
+      return {
+        kind: 'invalid',
+        message: `Queste voci sono usate dalle ricette dell'AI e non si possono eliminare: ${skus.slice(0, 10).join(', ')}.`,
+        stale: false,
+      };
+    }
     case 'IDEMPOTENCY_KEY_REQUIRED':
       return { kind: 'other', message: 'Invio non valido: riapri la finestra e riprova.', stale: false };
     default:
