@@ -6,7 +6,7 @@ _ALLOWED_CONTENT_TYPES = frozenset({
     "image/jpeg", "image/png", "image/webp", "image/gif",
     "application/pdf", "video/mp4", "video/webm",
 })
-_ALLOWED_FOLDERS = frozenset({"project_assets", "gallery", "testimonials", "renders"})
+_ALLOWED_FOLDERS = frozenset({"project_assets", "gallery", "testimonials", "renders", "portfolio"})
 _SAFE_FILENAME_RE = re.compile(r"^[a-zA-Z0-9._-]+$")
 
 

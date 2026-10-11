@@ -29,7 +29,7 @@ const anon = { firebase: { sign_in_provider: 'anonymous' } };
 await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(ctx.firestore(), 'projects/p1'), { userId: 'owner' });
   const st = ctx.storage();
-  for (const p of ['projects/p1/uploads/a.png', 'renders/p1/r.png', 'user-uploads/p1/u.png', 'renders/p2/r.png']) {
+  for (const p of ['projects/p1/uploads/a.png', 'renders/p1/r.png', 'user-uploads/p1/u.png', 'renders/p2/r.png', 'portfolio/p.webp']) {
     await uploadBytes(ref(st, p), PNG, IMG);
   }
 });
@@ -51,6 +51,13 @@ const cases = [
   ['upload to missing project', false, () => uploadBytes(ref(owner, 'projects/nope/uploads/x.png'), PNG, IMG)],
   ['anonymous token reads upload', false, () => getBytes(ref(anonOwner, 'projects/p1/uploads/a.png'))],
   ['owner uploads wrong type', false, () => uploadBytes(ref(owner, 'projects/p1/uploads/x.exe'), PNG, { contentType: 'application/x-msdownload' })],
+  // portfolio/{file}: public showcase, read-only for everyone
+  ['guest reads a portfolio image', true, () => getBytes(ref(guest, 'portfolio/p.webp'))],
+  ['user reads a portfolio image', true, () => getBytes(ref(other, 'portfolio/p.webp'))],
+  ['guest lists the portfolio', false, () => listAll(ref(guest, 'portfolio'))],
+  ['user uploads to the portfolio', false, () => uploadBytes(ref(owner, 'portfolio/x.webp'), PNG, IMG)],
+  ['user deletes a portfolio image', false, () => deleteObject(ref(owner, 'portfolio/p.webp'))],
+  ['guest reads a nested portfolio path', false, () => getBytes(ref(guest, 'portfolio/sub/p.webp'))],
   // renders/{sessionId}
   ['owner reads own render', true, () => getBytes(ref(owner, 'renders/p1/r.png'))],
   ['owner lists own renders', true, () => listAll(ref(owner, 'renders/p1'))],
