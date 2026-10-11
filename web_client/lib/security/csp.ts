@@ -79,8 +79,10 @@ const EMULATOR_CONNECT_ORIGINS =
 const USE_EMULATORS = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === 'true';
 
 /** Routes rendered dynamically (force-dynamic) that receive the strict CSP. */
+const STRICT_CSP_ROOTS = ['/dashboard', '/admin'] as const;
+
 export function isStrictCspPath(pathname: string): boolean {
-  return pathname === '/dashboard' || pathname.startsWith('/dashboard/');
+  return STRICT_CSP_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));
 }
 
 /** 128-bit random nonce, base64 — Web Crypto only (Edge-runtime safe). */
