@@ -205,6 +205,18 @@ class QuoteVersionConflictError(AppException):
         )
 
 
+class PriceBookConflictError(AppException):
+    """The price book changed since the editor read it (optimistic concurrency)."""
+    status_code = 409
+    error_code = "VERSION_CONFLICT"
+
+    def __init__(self, expected_version: int, current_version: int) -> None:
+        super().__init__(
+            message="The price book was modified by someone else. Reload and retry.",
+            detail={"expected_version": expected_version, "current_version": current_version},
+        )
+
+
 class QuoteLockedError(AppException):
     """Another admin holds the review lock on this quote."""
     status_code = 409

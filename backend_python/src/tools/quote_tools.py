@@ -461,7 +461,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 f"e quali lavori hai in mente? ({analysis.summary})"
             )
 
-        # Validation Pattern: SKU existence check
+        # Validation Pattern: SKU existence check (against the same price book the AI saw)
+        await PricingService.ensure_fresh()
         unknown_skus = validate_sku_suggestions(analysis.suggestions)
         valid_suggestions = [s for s in analysis.suggestions if s.sku not in unknown_skus]
 

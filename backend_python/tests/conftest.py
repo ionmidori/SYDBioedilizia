@@ -38,6 +38,18 @@ def _reset_verified_token_cache():
 
 
 @pytest.fixture(autouse=True)
+def _price_book_without_firestore():
+    """Tests serve the bundled price book: PricingService must not try to reach
+    Firestore (tests/unit/test_price_book.py drives the refresh explicitly)."""
+    from src.services.pricing_service import PricingService
+
+    PricingService.reset_price_book_cache()
+    PricingService._refresh_after = float("inf")
+    yield
+    PricingService.reset_price_book_cache()
+
+
+@pytest.fixture(autouse=True)
 def _reset_genai_client_cache():
     """get_genai_client() is a process singleton: a client (or mock) created by
     one test must not leak into the next."""

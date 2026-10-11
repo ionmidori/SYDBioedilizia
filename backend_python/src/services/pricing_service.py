@@ -1,27 +1,95 @@
-import json
+import asyncio
 import logging
-import os
+import time
 from typing import Any
 
+from google.api_core.exceptions import GoogleAPIError
+from google.auth.exceptions import GoogleAuthError
+
+from src.db.firebase_client import get_async_firestore_client
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
+from src.services import price_book
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
+# How long an instance trusts what it read, and how soon it retries after a
+# failed read. Edits made in the admin console reach every instance within the TTL.
+PRICE_BOOK_TTL_SECONDS = 60.0
+PRICE_BOOK_RETRY_SECONDS = 15.0
+_REFRESH_TIMEOUT_SECONDS = 5.0
+
+
 class PricingService:
-    _master_price_book = None
+    """Deterministic pricing over the master price book.
+
+    The price book lives in Firestore (`app_config/price_book`, edited from the
+    admin console); the bundled JSON is the seed and the fallback. Reads stay
+    synchronous and never block on I/O: `load_price_book()` returns what was
+    last loaded, and async entry points call `ensure_fresh()` first to renew it
+    when the TTL has expired. If Firestore is unreachable the previous (or seed)
+    price book keeps serving — quoting never stops because of a config read.
+    """
+
+    _master_price_book: list[dict[str, Any]] | None = None  # bundled seed
+    _live_price_book: list[dict[str, Any]] | None = None  # from Firestore, if any
+    _live_version: int = 0
+    _refresh_after: float = 0.0  # time.monotonic() deadline
+    _refresh_lock: asyncio.Lock | None = None
 
     @classmethod
-    def load_price_book(cls):
+    def load_price_book(cls) -> list[dict[str, Any]]:
+        if cls._live_price_book is not None:
+            return cls._live_price_book
         if cls._master_price_book is None:
-            data_path = os.path.join(os.path.dirname(__file__), "..", "data", "master_price_book.json")
-            try:
-                with open(data_path, encoding="utf-8") as f:
-                    cls._master_price_book = json.load(f)["items"]
-            except Exception as e:  # noqa: BLE001
-                logger.error(f"[PricingService] Error loading price book: {e}")
-                cls._master_price_book = []
+            cls._master_price_book = price_book.seed_items()
         return cls._master_price_book
+
+    @classmethod
+    def price_book_version(cls) -> int:
+        """0 while serving the seed."""
+        return cls._live_version if cls._live_price_book is not None else 0
+
+    @classmethod
+    def apply_price_book(cls, items: list[dict[str, Any]], version: int) -> None:
+        """Make this instance serve a price book it just saved or read."""
+        cls._live_price_book = items
+        cls._live_version = version
+        cls._refresh_after = time.monotonic() + PRICE_BOOK_TTL_SECONDS
+
+    @classmethod
+    def reset_price_book_cache(cls) -> None:
+        cls._master_price_book = None
+        cls._live_price_book = None
+        cls._live_version = 0
+        cls._refresh_after = 0.0
+
+    @classmethod
+    async def ensure_fresh(cls) -> None:
+        """Renew the price book from Firestore when the TTL has expired. Never raises."""
+        if time.monotonic() < cls._refresh_after:
+            return
+        if cls._refresh_lock is None:
+            cls._refresh_lock = asyncio.Lock()
+        async with cls._refresh_lock:
+            if time.monotonic() < cls._refresh_after:
+                return  # another request refreshed it while this one waited
+            try:
+                state = await asyncio.wait_for(
+                    price_book.read_state(get_async_firestore_client()), _REFRESH_TIMEOUT_SECONDS
+                )
+            except (GoogleAPIError, GoogleAuthError, OSError, RuntimeError, ValueError) as exc:
+                logger.warning(
+                    "[PriceBook] Refresh failed, keeping the current price book [%s].", type(exc).__name__
+                )
+                cls._refresh_after = time.monotonic() + PRICE_BOOK_RETRY_SECONDS
+                return
+            if state.source == "firestore":
+                cls.apply_price_book(state.items, state.version)
+            else:
+                cls._live_price_book = None
+                cls._live_version = 0
+                cls._refresh_after = time.monotonic() + PRICE_BOOK_TTL_SECONDS
 
     @classmethod
     def get_item_by_sku(cls, sku: str) -> dict[str, Any] | None:
