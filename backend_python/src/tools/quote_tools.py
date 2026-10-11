@@ -461,7 +461,9 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 f"e quali lavori hai in mente? ({analysis.summary})"
             )
 
-        # Validation Pattern: SKU existence check
+        # Validation Pattern: SKU existence check. No ensure_fresh() here: the price book
+        # was renewed before the prompt was built (insight engine), and renewing it
+        # again after the long model call could validate against a newer version.
         unknown_skus = validate_sku_suggestions(analysis.suggestions)
         valid_suggestions = [s for s in analysis.suggestions if s.sku not in unknown_skus]
 

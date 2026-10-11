@@ -72,6 +72,7 @@ async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
     if not (0.01 <= qty <= 10_000):
         return {"status": "error", "message": f"qty={qty} out of valid range [0.01, 10000]."}
     from src.services.pricing_service import PricingService
+    await PricingService.ensure_fresh()
     item = PricingService.get_item_by_sku(sku)
     if not item:
         return {"status": "error", "message": f"SKU '{sku}' not found in price book."}

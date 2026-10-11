@@ -26,6 +26,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'projects/p1/private_data/quote/deliveries/d1'), { to: 'owner@example.it' });
   await setDoc(doc(db, 'counters/quote_2026'), { next: 2 });
   await setDoc(doc(db, 'email_outbox/o1'), { kind: 'quote_delivery', status: 'pending' });
+  await setDoc(doc(db, 'app_config/price_book'), { version: 1, items: [] });
+  await setDoc(doc(db, 'app_config/price_book/history/1'), { version: 1 });
   await setDoc(doc(db, 'email_messages/m1'), { project_id: 'p1', delivery_id: 'd1' });
 });
 
@@ -55,6 +57,9 @@ const cases = [
   ['user bumps number counter', false, () => setDoc(doc(owner, 'counters/quote_2026'), { next: 1 })],
   // email outbox (Phase 128 Fase 4): backend-only, never readable or writable by clients
   ['user reads email outbox', false, () => getDoc(doc(owner, 'email_outbox/o1'))],
+  ['user reads the price book', false, () => getDoc(doc(owner, 'app_config/price_book'))],
+  ['user edits the price book', false, () => setDoc(doc(owner, 'app_config/price_book'), { version: 2, items: [] })],
+  ['user reads the price book history', false, () => getDoc(doc(owner, 'app_config/price_book/history/1'))],
   ['user enqueues an email', false, () => setDoc(doc(owner, 'email_outbox/o2'), { kind: 'admin_notification' })],
   ['user reads message index', false, () => getDoc(doc(owner, 'email_messages/m1'))],
 ];

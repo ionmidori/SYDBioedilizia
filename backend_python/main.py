@@ -59,6 +59,7 @@ async def lifespan(_app: FastAPI):
     from src.db.firebase_client import get_async_firestore_client, init_firebase
     from src.services.model_armor.model_armor_client import get_model_armor_service
     from src.services.orchestrator_factory import warm_up_orchestrator
+    from src.services.pricing_service import PricingService
     from starlette.concurrency import run_in_threadpool
 
     async def _warm(name: str, fn, *, in_thread: bool = True) -> None:
@@ -97,6 +98,8 @@ async def lifespan(_app: FastAPI):
         # The async Firestore client binds its gRPC channel to the running event
         # loop, so it is created on the loop (cheap constructor), not in a thread.
         await _warm("firestore_async", get_async_firestore_client, in_thread=False)
+        # Prices edited in the admin console: load them before the first quote.
+        await _warm("price_book", PricingService.ensure_fresh, in_thread=False)
         logger.info(
             "ADKOrchestrator warm-up complete.",
             extra={"duration_ms": round((time.perf_counter() - started) * 1000, 1)},
@@ -490,6 +493,10 @@ app.include_router(admin_storage_router)
 from src.api.routes.admin_quotes import router as admin_quotes_router
 
 app.include_router(admin_quotes_router)
+
+from src.api.routes.admin_price_book import router as admin_price_book_router
+
+app.include_router(admin_price_book_router)
 
 # Register email platform router (outbox sweep + provider webhooks)
 from src.api.routes.email_routes import router as email_router

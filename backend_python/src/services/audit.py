@@ -37,6 +37,7 @@ class AuditAction(StrEnum):
     QUOTE_REOPEN = "quote.reopen"
     QUOTE_PDF = "quote.pdf"
     QUOTE_SEND = "quote.send"
+    PRICE_BOOK_UPDATE = "price_book.update"
     RETENTION_CLEANUP = "admin.retention_cleanup"
 
 
@@ -47,6 +48,7 @@ class AuditResourceType(StrEnum):
     QUOTE = "quote"
     FILE = "file"
     SYSTEM = "system"
+    CONFIG = "config"
 
 
 async def _write_audit_record(record: dict[str, Any]) -> None:

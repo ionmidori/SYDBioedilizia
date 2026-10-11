@@ -363,6 +363,7 @@ Analizza la conversazione e produci la risposta strutturata.
         Raises:
             InsightEngineError: On Gemini failure or empty response.
         """
+        await PricingService.ensure_fresh()  # prices edited in the admin console
         price_book_section = self._build_price_book_prompt()
         assembly_section = self._build_assembly_prompt()
         system_prompt = self._build_system_prompt(price_book_section, assembly_section)

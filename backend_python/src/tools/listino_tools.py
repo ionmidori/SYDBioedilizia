@@ -69,6 +69,7 @@ async def search_listino(query: str, top_k: int = 4) -> str:
     if not q_tokens:
         return NO_LISTINO_MATCH
 
+    await PricingService.ensure_fresh()
     items = PricingService.load_price_book()
     if not items:
         logger.error("[Listino] master price book is empty/unavailable.")

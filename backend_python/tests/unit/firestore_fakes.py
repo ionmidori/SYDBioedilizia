@@ -103,6 +103,9 @@ class FakeCollection:
                 return False
         return True
 
+    def select(self, _fields: list[str]) -> FakeCollection:
+        return self  # projection only trims the wire payload; the fake returns whole documents
+
     def limit(self, n: int) -> FakeCollection:
         self._limit = n
         return self
