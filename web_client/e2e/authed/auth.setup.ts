@@ -1,7 +1,7 @@
 import { test as setup, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { AUTH_DIR, AUTH_STATE_FILE, TEST_USER, UID_FILE } from './fixtures/constants';
-import { createTestUser, resetEmulators, seedChatHistory } from './fixtures/emulator';
+import { createTestUser, resetEmulators, seedChatHistory, setCustomClaims } from './fixtures/emulator';
 
 /**
  * Signs in against the Auth emulator and captures the storage state reused by
@@ -14,6 +14,9 @@ setup('authenticate against the Firebase Auth emulator', async ({ page, context,
   await resetEmulators();
   const { localId: uid } = await createTestUser(TEST_USER.email, TEST_USER.password);
   await seedChatHistory(uid);
+  // The seeded user is also an admin (claim in the token), so the /admin specs
+  // exercise the real proxy + layout gate; the backend itself is route-mocked.
+  await setCustomClaims(uid, { role: 'admin' });
 
   // AuthDialog's post-login hook may call projectsApi.claimProject(). In a
   // production build that rewrites to Cloud Run, so it must never leave the box.
