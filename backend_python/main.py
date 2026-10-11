@@ -356,9 +356,11 @@ class AppCheckMiddleware:
     _PUBLIC_PATHS = frozenset({
         "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
         "/internal/lifecycle/run", "/internal/quote/approve",
-        # Email platform (Phase 128): Cloud Scheduler OIDC / Brevo bearer token.
+        # Email platform (Phase 128): Cloud Tasks OIDC / Brevo bearer token.
         "/internal/email/sweep", "/webhooks/email/brevo",
     })
+    # Same, for paths with an id segment (own OIDC authentication).
+    _PUBLIC_PREFIXES = ("/internal/email/dispatch/",)
     _DEV_PATHS = frozenset({"/docs", "/openapi.json"})
     # Public read-only homepage content. The landing page fetches it without an
     # App Check token (loading reCAPTCHA first would delay the hero gallery), so
@@ -382,7 +384,11 @@ class AppCheckMiddleware:
         # Public endpoints whitelist
         path = scope.get("path", "")
         allowed = self._PUBLIC_PATHS | (self._DEV_PATHS if settings.ENV == "development" else frozenset())
-        if path in allowed or (scope.get("method") == "GET" and path in self._PUBLIC_GET_PATHS):
+        if (
+            path in allowed
+            or path.startswith(self._PUBLIC_PREFIXES)
+            or (scope.get("method") == "GET" and path in self._PUBLIC_GET_PATHS)
+        ):
             await self.app(scope, receive, send)
             return
 
