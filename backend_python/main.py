@@ -498,6 +498,17 @@ from src.api.routes.admin_price_book import router as admin_price_book_router
 
 app.include_router(admin_price_book_router)
 
+# Admin content: portfolio, testimonials, batches, KPIs/GDPR (Phase 128 — Fase 6.1b)
+from src.api.routes.admin_batches import router as admin_batches_router
+from src.api.routes.admin_dashboard import router as admin_dashboard_router
+from src.api.routes.admin_portfolio import router as admin_portfolio_router
+from src.api.routes.admin_testimonials import router as admin_testimonials_router
+
+app.include_router(admin_portfolio_router)
+app.include_router(admin_testimonials_router)
+app.include_router(admin_batches_router)
+app.include_router(admin_dashboard_router)
+
 # Register email platform router (outbox sweep + provider webhooks)
 from src.api.routes.email_routes import router as email_router
 

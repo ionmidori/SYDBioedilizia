@@ -35,6 +35,10 @@ class FakeDocRef:
         return self
 
     @property
+    def parent(self) -> FakeCollection:
+        return FakeCollection(self._db, self.path[:-1])
+
+    @property
     def id(self) -> str:
         return self.path[-1]
 
@@ -84,10 +88,23 @@ class FakeCollection:
     _order: tuple[str, bool] | None = None
     _limit: int | None = None
     _filters: tuple[tuple[str, str, Any], ...] = ()
+    _group: str | None = None  # collection-group query: every collection with this name
+
+    @property
+    def parent(self) -> FakeDocRef | None:
+        return FakeDocRef(self._db, self.path[:-1]) if len(self.path) > 1 else None
+
+    async def add(self, data: dict[str, Any]) -> tuple[None, FakeDocRef]:
+        ref = self.document()
+        self._db.docs[ref.path] = copy.deepcopy(data)
+        return None, ref
+
+    def count(self, alias: str = "count") -> _FakeAggregation:
+        return _FakeAggregation(self)
 
     def where(self, *args: Any, filter: Any = None) -> FakeCollection:
         clone = FakeCollection(self._db, self.path)
-        clone._order, clone._limit = self._order, self._limit
+        clone._order, clone._limit, clone._group = self._order, self._limit, self._group
         condition = (filter.field_path, filter.op_string, filter.value) if filter is not None else tuple(args)
         clone._filters = (*self._filters, condition)
         return clone
@@ -98,6 +115,8 @@ class FakeCollection:
             if op == "==" and actual != value:
                 return False
             if op == "<=" and (actual is None or actual > value):
+                return False
+            if op == ">=" and (actual is None or actual < value):
                 return False
             if op == "in" and actual not in value:
                 return False
@@ -114,18 +133,39 @@ class FakeCollection:
         self._order = (field, str(direction).upper().startswith("DESC"))
         return self
 
-    async def stream(self):
+    def _paths(self) -> list[tuple[str, ...]]:
+        if self._group:
+            return [
+                p for p in sorted(self._db.docs)
+                if len(p) >= 2 and p[-2] == self._group and self._matches(self._db.docs[p])
+            ]
         depth = len(self.path) + 1
-        paths = [
+        return [
             p
             for p in sorted(self._db.docs)
             if len(p) == depth and p[: len(self.path)] == self.path and self._matches(self._db.docs[p])
         ]
+
+    async def stream(self):
+        paths = self._paths()
         if self._order:
             field, desc = self._order
             paths.sort(key=lambda p: self._db.docs[p].get(field), reverse=desc)
         for path in paths[: self._limit] if self._limit is not None else paths:
             yield FakeDocSnapshot(self._db, path)
+
+
+class _FakeCount:
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+
+class _FakeAggregation:
+    def __init__(self, query: FakeCollection) -> None:
+        self._query = query
+
+    async def get(self) -> list[list[_FakeCount]]:
+        return [[_FakeCount(len(self._query._paths()))]]
 
 
 class FakeDb:
@@ -135,6 +175,11 @@ class FakeDb:
 
     def collection(self, name: str) -> FakeCollection:
         return FakeCollection(self, (name,))
+
+    def collection_group(self, name: str) -> FakeCollection:
+        group = FakeCollection(self, ())
+        group._group = name
+        return group
 
     def put(self, *path_and_data: Any) -> None:
         *path, data = path_and_data
@@ -188,6 +233,10 @@ class FakeTransaction:
     def set(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
         self.writes.append(("set", ref.path, copy.deepcopy(data)))
         self._db.docs[ref.path] = copy.deepcopy(data)
+
+    def delete(self, ref: FakeDocRef) -> None:
+        self.writes.append(("delete", ref.path, {}))
+        self._db.docs.pop(ref.path, None)
 
     def update(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
         if ref.path not in self._db.docs:

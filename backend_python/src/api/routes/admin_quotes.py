@@ -42,6 +42,7 @@ from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteRevision, QuoteSchema
 from src.services import admin_quotes as svc
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
+from src.services.batch_sync import sync_project_decision_safely
 from src.services.client_profile import get_client_profile
 from src.services.email import get_email_provider, outbox
 from src.services.email_templates import attachment_filename, client_quote_email
@@ -269,6 +270,7 @@ async def approve_quote(
     now = utc_now()
     result, approved = await _run(lambda tx, db: svc.approve_tx(tx, db, project_id, admin.uid, expected, now))
     _audit(AuditAction.QUOTE_APPROVE, project_id, admin, quote_number=result.quote_number, version=result.version)
+    await sync_project_decision_safely(get_async_firestore_client(), project_id)
     pdf_ready, preview = await _render_pdf(project_id, approved, result.version)
     return _write_response(result, pdf_ready=pdf_ready, pdf_preview_url=preview)
 
@@ -303,6 +305,8 @@ async def reject_quote(
     now = utc_now()
     result = await _run(lambda tx, db: svc.reject_tx(tx, db, project_id, admin.uid, body.reason, now))
     _audit(AuditAction.QUOTE_REJECT, project_id, admin, quote_number=result.quote_number)
+    # The batch only gets the status: the internal reason must not reach the client.
+    await sync_project_decision_safely(get_async_firestore_client(), project_id)
     return _write_response(result)
 
 
@@ -317,6 +321,7 @@ async def reopen_quote(
     now = utc_now()
     result = await _run(lambda tx, db: svc.reopen_tx(tx, db, project_id, admin.uid, body.reason, now))
     _audit(AuditAction.QUOTE_REOPEN, project_id, admin, quote_number=result.quote_number)
+    await sync_project_decision_safely(get_async_firestore_client(), project_id)
     return _write_response(result)
 
 

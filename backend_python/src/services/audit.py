@@ -38,6 +38,11 @@ class AuditAction(StrEnum):
     QUOTE_PDF = "quote.pdf"
     QUOTE_SEND = "quote.send"
     PRICE_BOOK_UPDATE = "price_book.update"
+    PORTFOLIO_CREATE = "portfolio.create"
+    PORTFOLIO_UPDATE = "portfolio.update"
+    PORTFOLIO_DELETE = "portfolio.delete"
+    TESTIMONIAL_MODERATE = "testimonial.moderate"
+    GDPR_LIFECYCLE_RUN = "gdpr.lifecycle_run"
     RETENTION_CLEANUP = "admin.retention_cleanup"
 
 
@@ -49,6 +54,7 @@ class AuditResourceType(StrEnum):
     FILE = "file"
     SYSTEM = "system"
     CONFIG = "config"
+    CONTENT = "content"
 
 
 async def _write_audit_record(record: dict[str, Any]) -> None:

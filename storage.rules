@@ -96,6 +96,19 @@ service firebase.storage {
     }
     
     // ==========================================
+    // PORTFOLIO (public landing page gallery)
+    // ==========================================
+
+    // The images are the site's public showcase: anyone can fetch a file, nobody
+    // can list the folder. Only the backend writes: the admin
+    // console uploads through a short-lived signed URL.
+    match /portfolio/{fileName} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // ==========================================
     // DEFAULT RULE - DENY ALL
     // ==========================================
 
