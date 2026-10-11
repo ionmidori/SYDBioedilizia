@@ -28,7 +28,9 @@ import {
   useReleaseQuote,
   useReopenQuote,
 } from '@/hooks/admin/use-admin';
+import { useUnsavedGuard } from '@/hooks/admin/use-unsaved-guard';
 import { AdminApiError } from '@/lib/admin/admin-api';
+import { confirmLeave } from '@/lib/admin/unsaved-guard';
 import { computeTotals, itemsEqual, lineTotal, validateItems } from '@/lib/admin/quote-math';
 import type { EditQuoteBody, SendQuoteResponse } from '@/types/admin-quote';
 import type { QuoteItem, QuoteStatus } from '@/types/quote';
@@ -91,6 +93,11 @@ export function DossierView({ projectId }: { projectId: string }) {
   const awaitingRefresh = !!activeDraft?.savedAs && dossier.isFetching;
 
   const items = activeDraft?.items ?? savedItems;
+  const hasUnsavedEdits =
+    activeDraft !== null &&
+    (!itemsEqual(activeDraft.items, savedItems) || activeDraft.notes !== savedNotes || activeDraft.vatPercent !== savedVat);
+  // Closing the tab, reloading or using the console menu asks first while edits are unsaved.
+  useUnsavedGuard('dossier', hasUnsavedEdits);
   const notes = activeDraft?.notes ?? savedNotes;
   const vatPercent = activeDraft?.vatPercent ?? savedVat;
 
@@ -130,7 +137,11 @@ export function DossierView({ projectId }: { projectId: string }) {
   const canEdit = reviewable && !lockedByOther;
   // Edits only exist while the quote is editable: once it is not (rejected,
   // locked by someone else…) the saved version is what is shown.
+  // While a save settles (its refetch not yet here) nothing can be edited: typing now would build on stale data.
+  const editable = canEdit && !awaitingRefresh;
   const draftShown = canEdit && activeDraft !== null;
+  // The price book search closes with the editor (and does not pop back open when editing resumes).
+  if (!editable && pickerOpen) setPickerOpen(false);
   const stale = draftShown && !awaitingRefresh && activeDraft.baseEtag !== etag;
   const dirty =
     draftShown &&
@@ -169,7 +180,8 @@ export function DossierView({ projectId }: { projectId: string }) {
   // ── Actions ────────────────────────────────────────────────────────────────
   const touch = (patch: Partial<Pick<Draft, 'items' | 'notes' | 'vatPercent'>>) =>
     setDraft({
-      baseEtag: activeDraft?.baseEtag ?? etag,
+      // Built on the version the server returned for the previous save, if its refetch has not arrived yet.
+      baseEtag: activeDraft?.savedAs ?? activeDraft?.baseEtag ?? etag,
       savedAs: null,
       items: activeDraft?.items ?? savedItems,
       notes: activeDraft?.notes ?? savedNotes,
@@ -225,7 +237,13 @@ export function DossierView({ projectId }: { projectId: string }) {
 
   return (
     <article className="space-y-5" data-testid="dossier-view">
-      <Link href="/admin/quotes" className="inline-flex items-center gap-1.5 text-sm text-luxury-text/60 hover:text-luxury-text">
+      <Link
+        href="/admin/quotes"
+        onClick={(event) => {
+          if (!confirmLeave()) event.preventDefault();
+        }}
+        className="inline-flex items-center gap-1.5 text-sm text-luxury-text/60 hover:text-luxury-text"
+      >
         <ArrowLeft className="w-4 h-4" aria-hidden /> Preventivi
       </Link>
 
@@ -368,7 +386,7 @@ export function DossierView({ projectId }: { projectId: string }) {
             items={shownItems}
             saved={savedItems}
             errors={showErrors ? itemErrors : new Map()}
-            readOnly={!canEdit}
+            readOnly={!editable}
             onChange={(next) => touch({ items: next })}
             onPickFromPriceBook={() => setPickerOpen(true)}
           />
@@ -379,7 +397,7 @@ export function DossierView({ projectId }: { projectId: string }) {
               </span>
               <textarea
                 value={shownNotes}
-                disabled={!canEdit}
+                disabled={!editable}
                 onChange={(e) => touch({ notes: e.target.value })}
                 rows={3}
                 maxLength={4000}
@@ -405,7 +423,7 @@ export function DossierView({ projectId }: { projectId: string }) {
                     min={0}
                     max={50}
                     value={Number.isFinite(shownVat) ? shownVat : ''}
-                    disabled={!canEdit}
+                    disabled={!editable}
                     onChange={(e) => touch({ vatPercent: e.target.value === '' ? Number.NaN : Number(e.target.value) })}
                     aria-invalid={draftShown && vatInvalid}
                     data-testid="vat-percent"
@@ -438,7 +456,7 @@ export function DossierView({ projectId }: { projectId: string }) {
       </div>
 
       <PriceBookPicker
-        open={pickerOpen && canEdit}
+        open={pickerOpen && editable}
         onOpenChange={setPickerOpen}
         onPick={(item) => touch({ items: [...items, item] })}
       />

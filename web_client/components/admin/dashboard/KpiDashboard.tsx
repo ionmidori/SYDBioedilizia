@@ -11,20 +11,24 @@ import type { AdminKpis } from '@/types/admin-content';
 function Kpi({ label, value, hint, testId, href }: { label: string; value: string; hint?: string; testId: string; href?: string }) {
   const body = (
     <>
-      <dt className="text-xs text-luxury-text/60">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold tabular-nums" data-testid={testId}>
+      <p className="text-xs text-luxury-text/60">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums" data-testid={testId}>
         {value}
-      </dd>
+      </p>
       {hint && <p className="mt-0.5 text-[11px] text-luxury-text/50">{hint}</p>}
     </>
   );
-  const box = 'glass-premium rounded-2xl p-4 border border-white/5 block';
-  return href ? (
-    <Link href={href} className={`${box} hover:border-luxury-gold/30 transition-colors`}>
-      {body}
-    </Link>
-  ) : (
-    <div className={box}>{body}</div>
+  const box = 'glass-premium rounded-2xl p-4 border border-white/5 block h-full';
+  return (
+    <li>
+      {href ? (
+        <Link href={href} className={`${box} hover:border-luxury-gold/30 transition-colors`}>
+          {body}
+        </Link>
+      ) : (
+        <div className={box}>{body}</div>
+      )}
+    </li>
   );
 }
 
@@ -80,7 +84,7 @@ export function KpiDashboard() {
         </button>
       </div>
 
-      <dl className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <ul aria-label="Indicatori" className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Kpi label="Da lavorare" value={String(s.toWork)} hint="da revisionare o in revisione" testId="kpi-to-work" href="/admin/quotes" />
         <Kpi
           label="Valore in attesa"
@@ -95,7 +99,7 @@ export function KpiDashboard() {
           value={String(data.testimonials.pending)}
           testId="kpi-reviews"
         />
-      </dl>
+      </ul>
 
       {s.drafts > 0 && (
         <p className="inline-flex items-center gap-2 text-sm text-luxury-text/60" data-testid="kpi-drafts">
@@ -152,9 +156,9 @@ export function KpiDashboard() {
               ['Rifiutate', data.testimonials.rejected],
             ] as const
           ).map(([label, value]) => (
-            <div key={label}>
-              <dd className="text-xl font-semibold tabular-nums">{value}</dd>
+            <div key={label} className="flex flex-col-reverse">
               <dt className="text-xs text-luxury-text/60">{label}</dt>
+              <dd className="text-xl font-semibold tabular-nums">{value}</dd>
             </div>
           ))}
         </dl>

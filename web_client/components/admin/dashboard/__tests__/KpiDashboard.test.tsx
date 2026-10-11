@@ -105,3 +105,19 @@ describe('WeeklyBars', () => {
     expect(screen.getAllByRole('row')).toHaveLength(8);
   });
 });
+
+describe('KpiDashboard markup', () => {
+  it('the indicators are a list of cards, not loose children of a definition list', () => {
+    load(kpis());
+    const { container } = render(<KpiDashboard />);
+    expect(screen.getByRole('list', { name: 'Indicatori' }).querySelectorAll(':scope > li')).toHaveLength(5);
+    // every <dd> sits after its <dt> inside a <dl> that only holds groups of them
+    for (const dl of Array.from(container.querySelectorAll('dl'))) {
+      for (const group of Array.from(dl.children)) {
+        expect(group.tagName).toBe('DIV');
+        const tags = Array.from(group.children).map((c) => c.tagName);
+        expect(tags.indexOf('DT')).toBeLessThan(tags.indexOf('DD'));
+      }
+    }
+  });
+});

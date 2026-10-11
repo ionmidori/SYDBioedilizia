@@ -1,17 +1,19 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Download, History, Loader2, Plus, Save, Search } from 'lucide-react';
 
 import { HistoryPanel } from '@/components/admin/price-book/HistoryPanel';
 import { PriceBookRow } from '@/components/admin/price-book/PriceBookRow';
 import { SaveDialog } from '@/components/admin/price-book/SaveDialog';
 import { usePriceBook, useSavePriceBook } from '@/hooks/admin/use-admin';
+import { useUnsavedGuard } from '@/hooks/admin/use-unsaved-guard';
 import {
   categoriesOf,
   diffCounts,
   emptyItem,
   filterRows,
+  firstProblem,
   hasIssues,
   itemsEqual,
   toCsv,
@@ -50,12 +52,26 @@ export function PriceBookEditor() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // CSS selector to focus after the next render (a new row, the first bad field…).
+  const focusAfterRender = useRef<string | null>(null);
 
   const saved = useMemo(() => book.data?.items ?? [], [book.data]);
   const etag = book.data?.etag ?? '';
   const activeDraft = draft && draft.savedAs && draft.savedAs === etag ? null : draft;
   const awaitingRefresh = !!activeDraft?.savedAs && book.isFetching;
   const items = activeDraft?.items ?? saved;
+  const dirty = activeDraft !== null && !itemsEqual(activeDraft.items, saved);
+
+  // Closing the tab, reloading or using the console menu asks first while edits are unsaved.
+  useUnsavedGuard('price-book', dirty);
+  useEffect(() => {
+    const selector = focusAfterRender.current;
+    if (!selector) return;
+    focusAfterRender.current = null;
+    const target = document.querySelector<HTMLElement>(selector);
+    target?.focus();
+    target?.scrollIntoView?.({ block: 'center' });
+  });
 
   const issues = useMemo(() => validatePriceBook(items), [items]);
   const rows = useMemo(() => filterRows(items, query, category), [items, query, category]);
@@ -77,7 +93,6 @@ export function PriceBookEditor() {
     );
   }
 
-  const dirty = activeDraft !== null && !itemsEqual(activeDraft.items, saved);
   const stale = activeDraft !== null && !awaitingRefresh && activeDraft.baseEtag !== etag;
   const busy = awaitingRefresh || save.isPending;
   const counts = diffCounts(saved, items);
@@ -87,7 +102,8 @@ export function PriceBookEditor() {
 
   const edit = (next: PriceBookItem[]) => {
     setNotice(null);
-    setDraft({ baseEtag: activeDraft?.baseEtag ?? etag, savedAs: null, items: next });
+    // Built on the version the server returned for the previous save, if its refetch has not arrived yet.
+    setDraft({ baseEtag: activeDraft?.savedAs ?? activeDraft?.baseEtag ?? etag, savedAs: null, items: next });
   };
 
   const reload = () => {
@@ -99,9 +115,21 @@ export function PriceBookEditor() {
     void book.refetch();
   };
 
+  const jumpToProblem = () => {
+    const problem = firstProblem(issues);
+    if (!problem) return;
+    // Clear the filters so the line is on screen, go to its page, open its details if the error is there.
+    setQuery('');
+    setCategory('');
+    setPage(Math.floor(problem.index / PAGE_SIZE));
+    if (problem.inDetails) setOpenIndex(problem.index);
+    focusAfterRender.current = '[data-testid="pb-row"] [aria-invalid="true"]';
+  };
+
   const startSave = () => {
     if (hasIssues(issues)) {
       setShowErrors(true);
+      jumpToProblem();
       return;
     }
     setSaveOpen(true);
@@ -125,12 +153,14 @@ export function PriceBookEditor() {
   };
 
   const exportCsv = () => {
-    const url = URL.createObjectURL(new Blob([`﻿${toCsv(items)}`], { type: 'text/csv;charset=utf-8' }));
+    // The saved version, under its version number: an export is never mistaken for the live list
+    // when it holds unsaved edits.
+    const url = URL.createObjectURL(new Blob([`﻿${toCsv(saved)}`], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'listino-syd.csv';
+    link.download = `listino-syd-v${book.data.version}.csv`;
     link.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const markOf = (item: PriceBookItem): 'new' | 'changed' | null => {
@@ -170,7 +200,7 @@ export function PriceBookEditor() {
             data-testid="pb-export"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer"
           >
-            <Download className="w-4 h-4" aria-hidden /> Esporta CSV
+            <Download className="w-4 h-4" aria-hidden /> Esporta CSV{dirty ? ' (versione salvata)' : ''}
           </button>
         </div>
       </div>
@@ -244,6 +274,7 @@ export function PriceBookEditor() {
             setCategory('');
             setPage(0);
             setOpenIndex(0);
+            focusAfterRender.current = '[data-testid="pb-sku-0"]';
           }}
           disabled={busy}
           data-testid="pb-add"
@@ -278,7 +309,12 @@ export function PriceBookEditor() {
 
       {showErrors && hasIssues(issues) && (
         <div role="alert" data-testid="pb-issues" className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300">
-          Correggi i campi evidenziati prima di salvare ({issues.rows.size} voci con problemi).
+          Correggi i campi evidenziati prima di salvare ({issues.rows.size} voci con problemi).{' '}
+          {issues.rows.size > 0 && (
+            <button type="button" onClick={jumpToProblem} className="underline cursor-pointer" data-testid="pb-jump">
+              Vai alla prima
+            </button>
+          )}
           {issues.list.map((message) => (
             <p key={message}>{message}</p>
           ))}
@@ -296,6 +332,7 @@ export function PriceBookEditor() {
           Nessuna voce corrisponde alla ricerca.
         </p>
       ) : (
+        <fieldset disabled={busy} className="contents" aria-label="Voci del listino">
         <ul className="space-y-2">
           {visible.map(({ item, index }) => (
             <PriceBookRow
@@ -311,10 +348,12 @@ export function PriceBookEditor() {
               onRemove={() => {
                 edit(items.filter((_, i) => i !== index));
                 setOpenIndex(null);
+                focusAfterRender.current = '[data-testid="pb-add"]';
               }}
             />
           ))}
         </ul>
+        </fieldset>
       )}
 
       {pageCount > 1 && (

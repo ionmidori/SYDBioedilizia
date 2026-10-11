@@ -9,6 +9,7 @@ import { ScallopedPageTransition } from '@/components/ui/ScallopedPageTransition
 import { useAdminMe } from '@/hooks/admin/use-admin';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminApiError } from '@/lib/admin/admin-api';
+import { confirmLeave } from '@/lib/admin/unsaved-guard';
 import { cn } from '@/lib/utils';
 
 const NAV = [
@@ -70,7 +71,13 @@ export function AdminClientLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-luxury-bg text-luxury-text">
       <header className="sticky top-0 z-30 border-b border-luxury-gold/10 bg-luxury-bg/95">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-14 flex items-center gap-4">
-          <Link href="/admin" className="font-semibold tracking-tight">
+          <Link
+            href="/admin"
+            onClick={(event) => {
+              if (!confirmLeave()) event.preventDefault();
+            }}
+            className="font-semibold tracking-tight"
+          >
             SYD <span className="text-luxury-gold">Console</span>
           </Link>
           <nav aria-label="Sezioni della console" className="flex items-center gap-1 text-sm overflow-x-auto">
@@ -80,6 +87,9 @@ export function AdminClientLayout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={href}
                   href={href}
+                  onClick={(event) => {
+                    if (!confirmLeave()) event.preventDefault();
+                  }}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg whitespace-nowrap',

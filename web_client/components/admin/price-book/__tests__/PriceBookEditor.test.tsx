@@ -2,8 +2,10 @@ import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { PriceBookEditor } from '../PriceBookEditor';
+import { optionalNum } from '../PriceBookRow';
 import { usePriceBook, usePriceBookHistory, useSavePriceBook } from '@/hooks/admin/use-admin';
 import { AdminApiError } from '@/lib/admin/admin-api';
+import { confirmLeave, LEAVE_MESSAGE } from '@/lib/admin/unsaved-guard';
 import type { PriceBookItem, PriceBookResponse } from '@/types/admin-price-book';
 
 jest.mock('@/hooks/admin/use-admin');
@@ -182,18 +184,30 @@ describe('PriceBookEditor', () => {
     expect(screen.getByTestId('pb-history')).toHaveTextContent('Prezzi 2026');
   });
 
-  it('exports the whole list as CSV', () => {
+  it('exports the SAVED list under its version number, even when there are unsaved edits', () => {
+    jest.useFakeTimers();
     book();
-    const createObjectURL = jest.fn(() => 'blob:x');
+    const blobs: Blob[] = [];
+    const createObjectURL = jest.fn((blob: Blob) => (blobs.push(blob), 'blob:x'));
     const revoke = jest.fn();
     Object.assign(URL, { createObjectURL, revokeObjectURL: revoke });
-    const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+    let downloadName = '';
+    const click = jest
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        downloadName = this.download;
+      });
     render(<PriceBookEditor />);
+    fireEvent.change(screen.getByTestId('pb-price-0'), { target: { value: '999' } });
     fireEvent.click(screen.getByTestId('pb-export'));
-    expect(createObjectURL).toHaveBeenCalledTimes(1);
-    expect(click).toHaveBeenCalled();
+
+    expect(downloadName).toBe('listino-syd-v2.csv');
+    expect(revoke).not.toHaveBeenCalled(); // the browser may still be starting the download
+    jest.runAllTimers();
     expect(revoke).toHaveBeenCalledWith('blob:x');
+    expect(blobs).toHaveLength(1);
     click.mockRestore();
+    jest.useRealTimers();
   });
 
   it('paginates long lists', () => {
@@ -206,5 +220,119 @@ describe('PriceBookEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Successiva' }));
     expect(screen.getAllByTestId('pb-row')).toHaveLength(15);
     expect(screen.getByRole('button', { name: 'Successiva' })).toBeDisabled();
+  });
+
+  it('an edit typed right after a save builds on the saved version: no false conflict when the refetch lands', () => {
+    book();
+    saveMutation.mutate.mockImplementation((_vars, options) => options.onSuccess({ version: 3, etag: '"v3"', added: 0, changed: 1, removed: 0 }));
+    const { rerender } = render(<PriceBookEditor />);
+    fireEvent.change(screen.getByTestId('pb-price-0'), { target: { value: '30' } });
+    fireEvent.click(screen.getByTestId('pb-save'));
+    fireEvent.click(screen.getByTestId('save-confirm'));
+
+    // the refetch is not "in flight" yet (e.g. just before it starts) and the admin keeps typing
+    fireEvent.change(screen.getByTestId('pb-price-1'), { target: { value: '310' } });
+    book({ etag: '"v3"', version: 3, items: [item({ unit_price: 30 }), ...ITEMS.slice(1)] });
+    rerender(<PriceBookEditor />);
+
+    expect(screen.queryByTestId('stale-banner')).not.toBeInTheDocument();
+    expect(screen.getByTestId('pb-price-1')).toHaveValue(310);
+    expect(screen.getByTestId('pb-save')).toBeEnabled();
+  });
+
+  it('cannot be edited while a save is settling', () => {
+    book();
+    saveMutation.mutate.mockImplementation((_vars, options) => options.onSuccess({ version: 3, etag: '"v3"', added: 0, changed: 1, removed: 0 }));
+    const { rerender } = render(<PriceBookEditor />);
+    fireEvent.change(screen.getByTestId('pb-price-0'), { target: { value: '30' } });
+    fireEvent.click(screen.getByTestId('pb-save'));
+    fireEvent.click(screen.getByTestId('save-confirm'));
+    book({}, { isFetching: true });
+    rerender(<PriceBookEditor />);
+    expect(screen.getByRole('group', { name: 'Voci del listino' })).toBeDisabled();
+    expect(screen.getByTestId('pb-add')).toBeDisabled();
+  });
+
+  describe('finding the line that blocks a save', () => {
+    const many = Array.from({ length: 95 }, (_, i) => item({ sku: `X-${String(i).padStart(3, '0')}`, description: `Voce ${i}` }));
+
+    it('clears the filters, goes to the right page and focuses the bad field', () => {
+      book({ items: many, item_count: many.length });
+      render(<PriceBookEditor />);
+      fireEvent.change(screen.getByTestId('pb-search'), { target: { value: 'Voce 7' } }); // a filter hides the rest
+      fireEvent.change(screen.getByTestId('pb-price-7'), { target: { value: '1' } }); // some edit, so Save is enabled
+      fireEvent.change(screen.getByTestId('pb-search'), { target: { value: '' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Successiva' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Successiva' })); // page 3 (rows 80-94)
+      fireEvent.change(screen.getByTestId('pb-price-85'), { target: { value: '' } }); // invalid
+      fireEvent.change(screen.getByTestId('pb-search'), { target: { value: 'Voce 7' } });
+      fireEvent.click(screen.getByTestId('pb-save'));
+
+      expect(screen.getByTestId('pb-search')).toHaveValue(''); // filter cleared
+      expect(screen.getByTestId('pb-issues')).toHaveTextContent('1 voci con problemi');
+      expect(document.activeElement).toBe(screen.getByTestId('pb-price-85')); // page 3 shown, field focused
+    });
+
+    it('opens the details when the problem is there, and hints at it while they are closed', () => {
+      book({ items: many.slice(0, 5), item_count: 5 });
+      render(<PriceBookEditor />);
+      fireEvent.click(screen.getByRole('button', { name: 'Dettagli della voce X-002' }));
+      const details = screen.getByTestId('pb-details');
+      fireEvent.change(within(details).getByLabelText('Quantità min'), { target: { value: '-5' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Dettagli della voce X-002' })); // close it again
+      fireEvent.click(screen.getByTestId('pb-save'));
+
+      // the failed save re-opens the row where the error is
+      expect(screen.getByTestId('pb-details')).toBeInTheDocument();
+      expect(within(screen.getByTestId('pb-details')).getByText('Quantità minima non valida')).toBeInTheDocument();
+    });
+
+    it('the banner can take you to the first problem again', () => {
+      book({ items: many.slice(0, 5), item_count: 5 });
+      render(<PriceBookEditor />);
+      fireEvent.change(screen.getByTestId('pb-price-3'), { target: { value: '' } });
+      fireEvent.click(screen.getByTestId('pb-save'));
+      fireEvent.change(screen.getByTestId('pb-search'), { target: { value: 'Voce 0' } });
+      fireEvent.click(screen.getByTestId('pb-jump'));
+      expect(screen.getByTestId('pb-search')).toHaveValue('');
+      expect(document.activeElement).toBe(screen.getByTestId('pb-price-3'));
+    });
+  });
+
+  it('asks before leaving with unsaved edits, and stops asking once they are discarded', () => {
+    book();
+    const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<PriceBookEditor />);
+    expect(confirmLeave()).toBe(true); // nothing edited yet
+    fireEvent.change(screen.getByTestId('pb-price-0'), { target: { value: '30' } });
+    expect(confirmLeave()).toBe(false);
+    expect(confirm).toHaveBeenCalledWith(LEAVE_MESSAGE);
+
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+
+    fireEvent.click(screen.getByTestId('pb-discard'));
+    expect(confirmLeave()).toBe(true);
+    confirm.mockRestore();
+  });
+
+  it('moves focus to the new line, and back to the Add button after a removal', () => {
+    book();
+    render(<PriceBookEditor />);
+    fireEvent.click(screen.getByTestId('pb-add'));
+    expect(document.activeElement).toBe(screen.getByTestId('pb-sku-0'));
+    fireEvent.click(screen.getByRole('button', { name: 'Elimina la voce NUOVO-001' }));
+    expect(document.activeElement).toBe(screen.getByTestId('pb-add'));
+  });
+});
+
+describe('optionalNum', () => {
+  const el = (value: string, badInput = false) => ({ value, validity: { badInput } }) as unknown as HTMLInputElement;
+
+  it('empty = absent, text the browser cannot read = NaN (flagged), never silently dropped', () => {
+    expect(optionalNum(el(''))).toBeNull();
+    expect(optionalNum(el('12.5'))).toBe(12.5);
+    expect(Number.isNaN(optionalNum(el('', true)))).toBe(true);
   });
 });

@@ -90,9 +90,9 @@ function SaveForm({
 
 function Count({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="rounded-xl border border-white/10 py-2">
-      <dd className={`text-2xl font-semibold tabular-nums ${tone}`}>{value}</dd>
+    <div className="rounded-xl border border-white/10 py-2 flex flex-col-reverse">
       <dt className="text-xs text-luxury-text/60">{label}</dt>
+      <dd className={`text-2xl font-semibold tabular-nums ${tone}`}>{value}</dd>
     </div>
   );
 }

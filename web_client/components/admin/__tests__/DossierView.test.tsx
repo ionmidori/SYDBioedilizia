@@ -222,6 +222,74 @@ describe('DossierView', () => {
     expect(screen.queryByTestId('add-from-price-book')).not.toBeInTheDocument();
   });
 
+  describe('edits around a save', () => {
+    function withDossier(data: QuoteDossier, isFetching: boolean) {
+      m.useAdminDossier.mockReturnValue({ isPending: false, isError: false, isFetching, data, refetch: jest.fn() } as unknown as ReturnType<
+        typeof m.useAdminDossier
+      >);
+    }
+
+    it('an edit typed right after a save builds on the saved version: no false conflict when the refetch lands', () => {
+      const { rerender } = setup(dossier());
+      mocks.edit.mutate.mockImplementation((_vars, options) => options.onSuccess({ version: 3, etag: '"v3"' }));
+      fireEvent.change(screen.getByTestId('item-qty-0'), { target: { value: '20' } });
+      fireEvent.click(screen.getByTestId('btn-save'));
+
+      fireEvent.change(screen.getByTestId('admin-notes'), { target: { value: 'Nota per il cliente' } });
+      const saved = dossier({ etag: '"v3"' }, { version: 3 });
+      saved.quote.items = [{ ...saved.quote.items[0], qty: 20, total: 250 }];
+      withDossier(saved, false);
+      rerender(<DossierView projectId="p1" />);
+
+      expect(screen.queryByTestId('stale-banner')).not.toBeInTheDocument();
+      expect(screen.getByTestId('admin-notes')).toHaveValue('Nota per il cliente');
+      expect(screen.getByTestId('item-qty-0')).toHaveValue(20);
+      expect(screen.getByTestId('btn-save')).toBeEnabled();
+    });
+
+    it('nothing can be edited while the refetch after a save is on its way', () => {
+      const { rerender } = setup(dossier());
+      mocks.edit.mutate.mockImplementation((_vars, options) => options.onSuccess({ version: 3, etag: '"v3"' }));
+      fireEvent.change(screen.getByTestId('item-qty-0'), { target: { value: '20' } });
+      fireEvent.click(screen.getByTestId('btn-save'));
+      withDossier(dossier(), true);
+      rerender(<DossierView projectId="p1" />);
+      expect(screen.getByTestId('item-qty-0')).toBeDisabled();
+      expect(screen.getByTestId('admin-notes')).toBeDisabled();
+      expect(screen.getByTestId('vat-percent')).toBeDisabled();
+      expect(screen.queryByTestId('add-from-price-book')).not.toBeInTheDocument();
+    });
+
+    it('the price book search closes when editing stops and does not pop back open when it resumes', () => {
+      const { rerender } = setup(dossier());
+      m.usePriceBook.mockReturnValue({ isPending: false, isError: false, data: { items: [] } } as unknown as ReturnType<typeof m.usePriceBook>);
+      fireEvent.click(screen.getByTestId('add-from-price-book'));
+      expect(screen.getByTestId('picker-search')).toBeInTheDocument();
+
+      // another admin takes the review lock: read-only
+      withDossier(dossier({}, { status: 'in_review', review: { locked_by: 'admin-2', locked_at: new Date().toISOString() } }), false);
+      rerender(<DossierView projectId="p1" />);
+      expect(screen.queryByTestId('picker-search')).not.toBeInTheDocument();
+
+      // the lock expires / is released: editing resumes, the dialog stays closed
+      withDossier(dossier({}, { status: 'in_review', review: null }), false);
+      rerender(<DossierView projectId="p1" />);
+      expect(screen.getByTestId('add-from-price-book')).toBeInTheDocument();
+      expect(screen.queryByTestId('picker-search')).not.toBeInTheDocument();
+    });
+  });
+
+  it('asks before leaving through the back link while edits are unsaved', () => {
+    setup(dossier());
+    const confirm = jest.spyOn(window, 'confirm').mockReturnValue(false);
+    const back = screen.getByRole('link', { name: /Preventivi/ });
+    expect(fireEvent.click(back)).toBe(true); // nothing unsaved: free to go
+    fireEvent.change(screen.getByTestId('item-qty-0'), { target: { value: '20' } });
+    expect(fireEvent.click(back)).toBe(false); // prevented
+    expect(confirm).toHaveBeenCalledTimes(1);
+    confirm.mockRestore();
+  });
+
   describe('right after a save', () => {
     function withDossier(data: QuoteDossier, isFetching: boolean) {
       m.useAdminDossier.mockReturnValue({

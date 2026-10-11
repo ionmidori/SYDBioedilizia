@@ -2,7 +2,7 @@
 
 import { ChevronDown, Trash2 } from 'lucide-react';
 
-import { type ItemErrors, parseTags, UNITS } from '@/lib/admin/price-book-logic';
+import { DETAIL_ERROR_KEYS, type ItemErrors, LIMITS, parseTags, UNITS } from '@/lib/admin/price-book-logic';
 import { cn } from '@/lib/utils';
 import type { PriceBookItem } from '@/types/admin-price-book';
 
@@ -28,8 +28,10 @@ function num(raw: string): number {
   return raw.trim() === '' ? Number.NaN : Number(raw);
 }
 
-function optionalNum(raw: string): number | null {
-  return raw.trim() === '' ? null : Number(raw);
+/** Empty = absent (null). Text the browser cannot read as a number is NaN → flagged, never silently dropped. */
+export function optionalNum(el: HTMLInputElement): number | null {
+  if (el.validity.badInput) return Number.NaN;
+  return el.value.trim() === '' ? null : Number(el.value);
 }
 
 export function PriceBookRow({
@@ -58,6 +60,7 @@ export function PriceBookRow({
           <span className="text-[11px] text-luxury-text/50">SKU</span>
           <input
             value={item.sku}
+            maxLength={40}
             onChange={(e) => onChange({ sku: e.target.value })}
             aria-invalid={!!errors?.sku}
             data-testid={`pb-sku-${index}`}
@@ -69,6 +72,7 @@ export function PriceBookRow({
           <span className="text-[11px] text-luxury-text/50">Descrizione</span>
           <input
             value={item.description}
+            maxLength={LIMITS.description}
             onChange={(e) => onChange({ description: e.target.value })}
             aria-invalid={!!errors?.description}
             data-testid={`pb-description-${index}`}
@@ -98,6 +102,7 @@ export function PriceBookRow({
             inputMode="decimal"
             step="any"
             min={0}
+            max={LIMITS.maxPrice}
             value={Number.isFinite(item.unit_price) ? item.unit_price : ''}
             onChange={(e) => onChange({ unit_price: num(e.target.value) })}
             aria-invalid={!!errors?.unit_price}
@@ -110,6 +115,7 @@ export function PriceBookRow({
           <span className="text-[11px] text-luxury-text/50">Categoria</span>
           <input
             value={item.category}
+            maxLength={LIMITS.category}
             list={categoryListId}
             onChange={(e) => onChange({ category: e.target.value })}
             aria-invalid={!!errors?.category}
@@ -139,6 +145,12 @@ export function PriceBookRow({
         </div>
       </div>
 
+      {!open && DETAIL_ERROR_KEYS.some((key) => errors?.[key]) && (
+        <p role="alert" className="text-[11px] text-red-400" data-testid="pb-details-error">
+          Dettagli da correggere: apri la riga con la freccia.
+        </p>
+      )}
+
       {mark && (
         <p className="text-[11px] text-amber-400" data-testid="pb-mark">
           {mark === 'new' ? 'nuova voce' : 'modificata'}
@@ -151,6 +163,7 @@ export function PriceBookRow({
             <span className="text-[11px] text-luxury-text/50">Sottocategoria</span>
             <input
               value={item.subcategory ?? ''}
+              maxLength={LIMITS.subcategory}
               onChange={(e) => onChange({ subcategory: e.target.value || null })}
               className={FIELD}
             />
@@ -161,11 +174,12 @@ export function PriceBookRow({
               type="number"
               step="any"
               min={0}
-              value={item.min_qty ?? ''}
-              onChange={(e) => onChange({ min_qty: optionalNum(e.target.value) })}
+              value={Number.isFinite(item.min_qty ?? 0) ? (item.min_qty ?? '') : ''}
+              onChange={(e) => onChange({ min_qty: optionalNum(e.target) })}
               aria-invalid={!!errors?.min_qty}
               className={cn(FIELD, 'tabular-nums')}
             />
+            {errors?.min_qty && <Error text={errors.min_qty} />}
           </label>
           <label className="space-y-1">
             <span className="text-[11px] text-luxury-text/50">Quantità max</span>
@@ -173,10 +187,12 @@ export function PriceBookRow({
               type="number"
               step="any"
               min={0}
-              value={item.max_qty ?? ''}
-              onChange={(e) => onChange({ max_qty: optionalNum(e.target.value) })}
+              value={Number.isFinite(item.max_qty ?? 0) ? (item.max_qty ?? '') : ''}
+              onChange={(e) => onChange({ max_qty: optionalNum(e.target) })}
+              aria-invalid={!!errors?.max_qty}
               className={cn(FIELD, 'tabular-nums')}
             />
+            {errors?.max_qty && <Error text={errors.max_qty} />}
           </label>
           <label className="space-y-1">
             <span className="text-[11px] text-luxury-text/50">Range min (€)</span>
@@ -184,11 +200,12 @@ export function PriceBookRow({
               type="number"
               step="any"
               min={0}
-              value={item.range_min ?? ''}
-              onChange={(e) => onChange({ range_min: optionalNum(e.target.value) })}
+              value={Number.isFinite(item.range_min ?? 0) ? (item.range_min ?? '') : ''}
+              onChange={(e) => onChange({ range_min: optionalNum(e.target) })}
               aria-invalid={!!errors?.range_min}
               className={cn(FIELD, 'tabular-nums')}
             />
+            {errors?.range_min && <Error text={errors.range_min} />}
           </label>
           <label className="space-y-1">
             <span className="text-[11px] text-luxury-text/50">Range max (€)</span>
@@ -196,10 +213,12 @@ export function PriceBookRow({
               type="number"
               step="any"
               min={0}
-              value={item.range_max ?? ''}
-              onChange={(e) => onChange({ range_max: optionalNum(e.target.value) })}
+              value={Number.isFinite(item.range_max ?? 0) ? (item.range_max ?? '') : ''}
+              onChange={(e) => onChange({ range_max: optionalNum(e.target) })}
+              aria-invalid={!!errors?.range_max}
               className={cn(FIELD, 'tabular-nums')}
             />
+            {errors?.range_max && <Error text={errors.range_max} />}
           </label>
           <label className="col-span-2 md:col-span-5 space-y-1">
             <span className="text-[11px] text-luxury-text/50">Parole chiave (separate da virgola)</span>
@@ -219,11 +238,6 @@ export function PriceBookRow({
             />
             IVA agevolata
           </label>
-          {(errors?.min_qty || errors?.range_min) && (
-            <p role="alert" className="col-span-full text-[11px] text-red-400">
-              {errors.min_qty ?? errors.range_min}
-            </p>
-          )}
         </div>
       )}
     </li>

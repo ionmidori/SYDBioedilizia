@@ -8,8 +8,24 @@
 import { PRICE_BOOK_MAX_ITEMS, SKU_PATTERN, type PriceBookItem } from '@/types/admin-price-book';
 
 export type ItemErrors = Partial<
-  Record<'sku' | 'description' | 'unit' | 'unit_price' | 'category' | 'min_qty' | 'range_min', string>
+  Record<
+    | 'sku'
+    | 'description'
+    | 'unit'
+    | 'unit_price'
+    | 'category'
+    | 'subcategory'
+    | 'min_qty'
+    | 'max_qty'
+    | 'range_min'
+    | 'range_max'
+    | 'tags',
+    string
+  >
 >;
+
+/** Errors that live in the collapsed details panel of a row. */
+export const DETAIL_ERROR_KEYS = ['subcategory', 'min_qty', 'max_qty', 'range_min', 'range_max', 'tags'] as const;
 
 export interface PriceBookIssues {
   /** Per row index. */
@@ -20,8 +36,24 @@ export interface PriceBookIssues {
 
 export const UNITS = ['mq', 'ml', 'cad', 'ps', 'ore', 'kg', 'mc'] as const;
 
+/** Same limits as `PriceBookItem` in backend_python/src/schemas/price_book.py. */
+export const LIMITS = {
+  description: 300,
+  unit: 12,
+  category: 60,
+  subcategory: 80,
+  tag: 40,
+  tags: 20,
+  maxPrice: 1_000_000,
+} as const;
+
 function finite(value: number | null | undefined): value is number {
   return typeof value === 'number' && Number.isFinite(value);
+}
+
+/** An optional number is fine when absent; present, it must be a finite value >= 0. */
+function badOptional(value: number | null | undefined): boolean {
+  return value != null && (!Number.isFinite(value) || value < 0);
 }
 
 export function validatePriceBook(items: readonly PriceBookItem[]): PriceBookIssues {
@@ -39,18 +71,44 @@ export function validatePriceBook(items: readonly PriceBookItem[]): PriceBookIss
     const key = item.sku.toLowerCase();
     if (firstSeen.has(key)) add(index, 'sku', 'SKU duplicato');
     else firstSeen.set(key, index);
+
     if (!item.description.trim()) add(index, 'description', 'Descrizione obbligatoria');
+    else if (item.description.length > LIMITS.description) add(index, 'description', `Massimo ${LIMITS.description} caratteri`);
     if (!item.unit.trim()) add(index, 'unit', 'Unità obbligatoria');
+    else if (item.unit.length > LIMITS.unit) add(index, 'unit', `Massimo ${LIMITS.unit} caratteri`);
     if (!item.category.trim()) add(index, 'category', 'Categoria obbligatoria');
+    else if (item.category.length > LIMITS.category) add(index, 'category', `Massimo ${LIMITS.category} caratteri`);
+    if ((item.subcategory ?? '').length > LIMITS.subcategory) add(index, 'subcategory', `Massimo ${LIMITS.subcategory} caratteri`);
+
     if (!finite(item.unit_price) || item.unit_price < 0) add(index, 'unit_price', 'Prezzo non valido');
-    if (finite(item.min_qty) && finite(item.max_qty) && item.min_qty > item.max_qty) {
+    else if (item.unit_price > LIMITS.maxPrice) add(index, 'unit_price', 'Prezzo troppo alto (max 1.000.000)');
+
+    if (badOptional(item.min_qty)) add(index, 'min_qty', 'Quantità minima non valida');
+    if (badOptional(item.max_qty)) add(index, 'max_qty', 'Quantità massima non valida');
+    if (badOptional(item.range_min)) add(index, 'range_min', 'Range minimo non valido');
+    if (badOptional(item.range_max)) add(index, 'range_max', 'Range massimo non valido');
+    if (finite(item.min_qty) && finite(item.max_qty) && item.min_qty > item.max_qty && !rows.get(index)?.min_qty) {
       add(index, 'min_qty', 'Minimo maggiore del massimo');
     }
-    if (finite(item.range_min) && finite(item.range_max) && item.range_min > item.range_max) {
+    if (finite(item.range_min) && finite(item.range_max) && item.range_min > item.range_max && !rows.get(index)?.range_min) {
       add(index, 'range_min', 'Range minimo maggiore del massimo');
+    }
+    const tags = item.tags ?? [];
+    if (tags.length > LIMITS.tags || tags.some((t) => t.length > LIMITS.tag)) {
+      add(index, 'tags', `Massimo ${LIMITS.tags} parole chiave di ${LIMITS.tag} caratteri`);
     }
   });
   return { rows, list };
+}
+
+/** First row (lowest index) with a problem, and whether it is in the collapsed details. */
+export function firstProblem(issues: PriceBookIssues): { index: number; inDetails: boolean } | null {
+  const indexes = [...issues.rows.keys()].sort((a, b) => a - b);
+  if (indexes.length === 0) return null;
+  const index = indexes[0];
+  const errors = issues.rows.get(index) ?? {};
+  const inDetails = DETAIL_ERROR_KEYS.some((key) => errors[key]) && !Object.keys(errors).some((k) => !(DETAIL_ERROR_KEYS as readonly string[]).includes(k));
+  return { index, inDetails };
 }
 
 export function hasIssues(issues: PriceBookIssues): boolean {
@@ -152,10 +210,12 @@ export function categoriesOf(items: readonly PriceBookItem[]): string[] {
 }
 
 function csvCell(value: string | number | boolean | null | undefined): string {
-  const text = value == null ? '' : String(value);
-  // Quote when needed; neutralise spreadsheet formulas (=, +, -, @ at the start of a text cell).
-  const safe = /^[=+@]/.test(text) || (/^-/.test(text) && Number.isNaN(Number(text))) ? `'${text}` : text;
-  return /[",;\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+  let text = typeof value === 'number' ? String(value).replace('.', ',') : value == null ? '' : String(value);
+  // Neutralise spreadsheet formulas, also behind leading blanks/tabs/line breaks.
+   
+  const lead = text.replace(/^[\s\u0000-\u001f]+/, '');
+  if (/^[=+@]/.test(lead) || (/^-/.test(lead) && Number.isNaN(Number(lead.replace(',', '.'))))) text = `'${text}`;
+  return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 export const CSV_COLUMNS = [
@@ -174,7 +234,7 @@ export const CSV_COLUMNS = [
 ] as const;
 
 export function toCsv(items: readonly PriceBookItem[]): string {
-  const lines = [CSV_COLUMNS.join(',')];
+  const lines = [CSV_COLUMNS.join(';')];
   for (const item of items) {
     lines.push(
       [
@@ -192,7 +252,7 @@ export function toCsv(items: readonly PriceBookItem[]): string {
         (item.tags ?? []).join('|'),
       ]
         .map(csvCell)
-        .join(','),
+        .join(';'),
     );
   }
   return lines.join('\n');

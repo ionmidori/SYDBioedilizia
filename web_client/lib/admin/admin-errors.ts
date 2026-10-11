@@ -23,7 +23,7 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
     case 'VERSION_CONFLICT':
       return {
         kind: 'conflict',
-        message: 'Il preventivo è stato modificato da un altro admin. Ricarica per vedere la versione aggiornata.',
+        message: 'Questi dati sono stati modificati da un altro admin nel frattempo. Ricarica per vedere la versione aggiornata.',
         stale: true,
       };
     case 'QUOTE_LOCKED':
