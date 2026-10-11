@@ -95,8 +95,26 @@ async def create_project(db: Any, data: dict[str, Any], now: datetime) -> Portfo
     return project_from(ref.id, payload)
 
 
-async def update_project(db: Any, project_id: str, changes: dict[str, Any], now: datetime) -> tuple[PortfolioProject, str | None]:
-    """Apply a partial update. Returns the project and the previous image URL if it was replaced."""
+async def _image_in_use(db: Any, image_url: str | None, except_id: str) -> bool:
+    """Does another project still show this image? Compared by the canonical
+    Storage path, not by the URL text (%2F vs %2f, with or without ?alt=media)."""
+    path = portfolio_blob_path(image_url, _bucket_name()) if image_url else None
+    if not path:
+        return False
+    async for doc in db.collection(PORTFOLIO).stream():
+        if doc.id == except_id:
+            continue
+        other = (doc.to_dict() or {}).get("image_url")
+        if isinstance(other, str) and portfolio_blob_path(other, _bucket_name()) == path:
+            return True
+    return False
+
+
+async def update_project(
+    db: Any, project_id: str, changes: dict[str, Any], now: datetime
+) -> tuple[PortfolioProject, str | None]:
+    """Apply a partial update. Returns the project and the previous image URL
+    if it was replaced AND no other project still uses it (safe to delete)."""
     ref = db.collection(PORTFOLIO).document(project_id)
     snap = await ref.get()
     if not snap.exists:
@@ -104,19 +122,29 @@ async def update_project(db: Any, project_id: str, changes: dict[str, Any], now:
     before = snap.to_dict() or {}
     await ref.update({**changes, "updated_at": now})
     after = {**before, **changes, "updated_at": now}
-    replaced = before.get("image_url") if "image_url" in changes and changes["image_url"] != before.get("image_url") else None
+    old_image = before.get("image_url") if isinstance(before.get("image_url"), str) else None
+    replaced = (
+        old_image
+        if "image_url" in changes
+        and old_image
+        and portfolio_blob_path(changes["image_url"], _bucket_name()) != portfolio_blob_path(old_image, _bucket_name())
+        and not await _image_in_use(db, old_image, project_id)
+        else None
+    )
     return project_from(project_id, after), replaced
 
 
 async def delete_project(db: Any, project_id: str) -> str | None:
-    """Delete the project; returns its image URL (the caller removes the file)."""
+    """Delete the project; returns its image URL only if no other project uses it."""
     ref = db.collection(PORTFOLIO).document(project_id)
     snap = await ref.get()
     if not snap.exists:
         raise ResourceNotFound(message="Portfolio project not found.")
     image_url = (snap.to_dict() or {}).get("image_url")
     await ref.delete()
-    return image_url if isinstance(image_url, str) else None
+    if isinstance(image_url, str) and not await _image_in_use(db, image_url, project_id):
+        return image_url
+    return None
 
 
 def _delete_blob_sync(blob_path: str) -> None:
@@ -156,10 +184,14 @@ def testimonial_from(doc_id: str, data: dict[str, Any]) -> AdminTestimonial:
 
 
 async def list_testimonials(db: Any, status: str, limit: int = 200) -> list[AdminTestimonial]:
-    query = db.collection(TESTIMONIALS).where(filter=FieldFilter("status", "==", status)).limit(limit)
-    rows = [testimonial_from(doc.id, doc.to_dict() or {}) async for doc in query.stream()]
-    rows.sort(key=lambda t: t.created_at.timestamp() if t.created_at else 0.0, reverse=True)
-    return rows
+    # Ordered in the query (index: status + createdAt desc): the cap keeps the NEWEST.
+    query = (
+        db.collection(TESTIMONIALS)
+        .where(filter=FieldFilter("status", "==", status))
+        .order_by("createdAt", direction=Query.DESCENDING)
+        .limit(limit)
+    )
+    return [testimonial_from(doc.id, doc.to_dict() or {}) async for doc in query.stream()]
 
 
 async def moderate(

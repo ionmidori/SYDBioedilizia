@@ -139,6 +139,11 @@ class PortfolioPatch(BaseModel):
     def _something_to_change(self) -> PortfolioPatch:
         if not self.model_fields_set:
             raise ValueError("Send at least one field to change.")
+        # "Not sent" means unchanged; an explicit null would blank a field the
+        # public site renders (and used to break the whole gallery).
+        nulled = sorted(name for name in self.model_fields_set if getattr(self, name) is None)
+        if nulled:
+            raise ValueError(f"Fields cannot be null: {', '.join(nulled)}.")
         return self
 
 

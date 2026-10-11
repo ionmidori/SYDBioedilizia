@@ -1,5 +1,6 @@
 """Admin console content API (Phase 128, Fase 6.1b): portfolio, testimonials,
 batches (read-only + sync), KPIs and the GDPR monitor."""
+import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
@@ -7,13 +8,14 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
-from src.api.routes import admin_batches, admin_dashboard, admin_portfolio, admin_testimonials
+from src.api.routes import admin_batches, admin_dashboard, admin_portfolio, admin_testimonials, lifecycle_routes
 from src.auth.jwt_handler import verify_token
 from src.core.config import settings
 from src.core.exceptions import AppException
+from src.core.rate_limit import limiter
 from src.schemas.admin_content import portfolio_blob_path
 from src.schemas.internal import UserSession
-from src.services import admin_content, admin_kpis, batch_sync
+from src.services import admin_content, admin_kpis, batch_sync, lifecycle_lock
 from src.services.account_lifecycle_service import LifecycleRunResult
 from src.services.client_profile import ClientProfile
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
@@ -39,7 +41,9 @@ def db(monkeypatch):
         return await body(FakeTransaction(fake))
 
     monkeypatch.setattr(batch_sync, "_transact", transact)
+    monkeypatch.setattr(lifecycle_lock, "_transact", transact)
     admin_dashboard._kpi_cache = None
+    limiter.reset()  # the 3/hour GDPR limit is per process: each test starts fresh
     return fake
 
 
@@ -213,6 +217,66 @@ def test_a_storage_failure_does_not_fail_the_delete(db, monkeypatch):
     assert client.delete(f"/api/admin/portfolio/{pid}").status_code == 204
 
 
+@pytest.mark.parametrize("field", ["title", "description", "stats", "image_url", "active", "category", "location"])
+def test_a_patch_cannot_null_a_field(db, field):
+    client = _client()
+    pid = client.post("/api/admin/portfolio", json=_project()).json()["id"]
+    resp = client.patch(f"/api/admin/portfolio/{pid}", json={field: None})
+    assert resp.status_code == 422
+    assert db.get_data("portfolio_projects", pid)["title"] == "Bagno Trastevere"
+
+
+def test_one_malformed_document_does_not_blank_the_public_gallery():
+    from pydantic import ValidationError
+    from src.api.routes import content_routes
+
+    good = content_routes._portfolio_from_doc("p1", {"title": "T", "category": "Bagno", "location": "Roma",
+                                                   "stats": None, "description": None, "image_url": GOOD_IMAGE})
+    assert (good.stats.area, good.description) == ("", "") and good.image is None  # bucket unset here
+    with pytest.raises(ValidationError):
+        content_routes._portfolio_from_doc("p2", {"title": ["not", "a", "string"]})
+
+
+def _two_projects_sharing_an_image(client):
+    shared = GOOD_IMAGE
+    first = client.post("/api/admin/portfolio", json=_project(image_url=shared)).json()["id"]
+    # the same object, spelled differently: lower-case %2f, no ?alt=media
+    alias = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%2F1700_bagno.webp"
+    second = client.post("/api/admin/portfolio", json=_project(title="Altro", image_url=alias)).json()["id"]
+    return first, second
+
+
+def test_an_image_still_used_by_another_project_is_not_deleted(db, monkeypatch):
+    removed: list[str] = []
+    monkeypatch.setattr(admin_content, "_delete_blob_sync", removed.append)
+    client = _client()
+    first, second = _two_projects_sharing_an_image(client)
+
+    assert client.delete(f"/api/admin/portfolio/{first}").status_code == 204
+    assert removed == []  # the other project still shows it
+    assert client.delete(f"/api/admin/portfolio/{second}").status_code == 204
+    assert removed == ["portfolio/1700_bagno.webp"]  # the last user removes the file
+
+
+def test_replacing_a_shared_image_keeps_the_file_for_the_other_project(db, monkeypatch):
+    removed: list[str] = []
+    monkeypatch.setattr(admin_content, "_delete_blob_sync", removed.append)
+    client = _client()
+    first, _second = _two_projects_sharing_an_image(client)
+    assert client.patch(f"/api/admin/portfolio/{first}", json={"image_url": LEGACY_IMAGE}).status_code == 200
+    assert removed == []
+
+
+def test_saving_the_same_image_again_deletes_nothing(db, monkeypatch):
+    removed: list[str] = []
+    monkeypatch.setattr(admin_content, "_delete_blob_sync", removed.append)
+    client = _client()
+    pid = client.post("/api/admin/portfolio", json=_project()).json()["id"]
+    respelled = f"https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/portfolio%2F1700_bagno.webp"
+    assert client.patch(f"/api/admin/portfolio/{pid}", json={"image_url": respelled}).status_code == 200
+    assert removed == []
+
+
 # ── Testimonials ──────────────────────────────────────────────────────────────
 
 
@@ -232,6 +296,13 @@ def test_testimonials_are_listed_by_status_newest_first_with_stats(db):
     approved = _client().get("/api/admin/testimonials?status=approved").json()
     assert [t["id"] for t in approved["items"]] == ["t3"]
     assert _client().get("/api/admin/testimonials?status=bogus").status_code == 422
+
+
+def test_the_testimonial_cap_keeps_the_newest(db):
+    for i in range(5):
+        _review(db, f"t{i}", created=NOW - timedelta(days=5 - i))
+    items = asyncio.run(admin_content.list_testimonials(db, "pending", limit=2))
+    assert [t.id for t in items] == ["t4", "t3"]
 
 
 def test_approve_publishes_and_reject_takes_it_down(db):
@@ -290,6 +361,14 @@ def test_batches_list_shows_the_client_and_progress(db, profiles):
     assert _client().get("/api/admin/batches?scope=bogus").status_code == 422
 
 
+def test_the_batch_cap_keeps_the_newest(db, profiles, monkeypatch):
+    monkeypatch.setattr(admin_batches, "_LIST_CAP", 2)
+    for i in range(4):
+        _batch(db, f"b{i}", submitted=NOW - timedelta(days=4 - i))
+    items = _client().get("/api/admin/batches").json()["items"]
+    assert [i["batch_id"] for i in items] == ["b3", "b2"]
+
+
 def test_batch_detail_shows_the_live_state_of_each_quote(db, profiles):
     _batch(db)
     db.put("projects", "pa", "private_data", "quote", {
@@ -311,8 +390,9 @@ def test_batch_detail_shows_the_live_state_of_each_quote(db, profiles):
 # ── Batch sync ────────────────────────────────────────────────────────────────
 
 
-def _quote_in_batch(db, pid, batch_id="b1"):
-    db.put("projects", pid, "private_data", "quote", {"doc_type": "quote", "request": {"batch_id": batch_id}})
+def _quote_in_batch(db, pid, status="pending_review", batch_id="b1"):
+    db.put("projects", pid, "private_data", "quote",
+           {"doc_type": "quote", "status": status, "request": {"batch_id": batch_id}})
 
 
 @pytest.mark.parametrize(
@@ -329,41 +409,61 @@ def test_batch_status_follows_its_projects(statuses, expected):
     assert batch_sync.batch_status_from([{"status": s} for s in statuses]) == expected
 
 
-async def test_a_decision_is_mirrored_on_the_batch(db):
+@pytest.mark.parametrize(
+    "quote_status, expected",
+    [("approved", "approved"), ("sent", "approved"), ("rejected", "rejected"),
+     ("pending_review", "draft"), ("in_review", "draft"), ("draft", "draft"), (None, "draft")],
+)
+def test_a_quote_status_maps_to_a_batch_project_status(quote_status, expected):
+    assert batch_sync.project_status_from(quote_status) == expected
+
+
+async def test_the_batch_follows_the_quote_status(db):
     _batch(db)
-    _quote_in_batch(db, "pb")
-    assert await batch_sync.sync_project_decision(db, "pb", "approved") is True
+    _quote_in_batch(db, "pb", status="approved")
+    assert await batch_sync.sync_project_decision(db, "pb") is True
     stored = db.get_data("quote_batches", "b1")
     assert [p["status"] for p in stored["projects"]] == ["approved", "approved"]
     assert stored["status"] == "approved"
 
-    assert await batch_sync.sync_project_decision(db, "pb", "draft") is True  # reopened
+    _quote_in_batch(db, "pb", status="in_review")  # reopened
+    await batch_sync.sync_project_decision(db, "pb")
     assert db.get_data("quote_batches", "b1")["status"] == "submitted"
 
 
-async def test_a_note_is_stored_only_when_given(db):
+async def test_a_late_sync_cannot_leave_the_batch_opposite_to_the_quote(db):
+    """Approve then reopen in quick succession: whichever sync runs last (or twice),
+    the batch reflects the quote as it is NOW, not the decision it was triggered by."""
     _batch(db)
-    _quote_in_batch(db, "pb")
-    await batch_sync.sync_project_decision(db, "pb", "rejected")
+    _quote_in_batch(db, "pb", status="in_review")  # already reopened
+    await batch_sync.sync_project_decision(db, "pb")  # the 'approve' sync, arriving late
+    stored = db.get_data("quote_batches", "b1")
+    assert stored["projects"][1]["status"] == "draft" and stored["status"] == "submitted"
+
+
+async def test_nothing_internal_is_written_to_the_client_readable_batch(db):
+    _batch(db)
+    _quote_in_batch(db, "pb", status="rejected")
+    await batch_sync.sync_project_decision(db, "pb")
     assert "admin_notes" not in db.get_data("quote_batches", "b1")["projects"][1]
-    await batch_sync.sync_project_decision(db, "pb", "rejected", "Fuori zona")
-    assert db.get_data("quote_batches", "b1")["projects"][1]["admin_notes"] == "Fuori zona"
 
 
 async def test_quotes_outside_a_batch_or_with_a_draft_batch_are_left_alone(db):
     db.put("projects", "solo", "private_data", "quote", {"doc_type": "quote", "request": {}})
-    assert await batch_sync.sync_project_decision(db, "solo", "approved") is False
-    assert await batch_sync.sync_project_decision(db, "missing", "approved") is False
+    assert await batch_sync.sync_project_decision(db, "solo") is False
+    assert await batch_sync.sync_project_decision(db, "missing") is False
     _batch(db, status="draft")
-    _quote_in_batch(db, "pb")
-    assert await batch_sync.sync_project_decision(db, "pb", "approved") is False
+    _quote_in_batch(db, "pb", status="approved")
+    assert await batch_sync.sync_project_decision(db, "pb") is False
 
 
-async def test_a_sync_failure_never_fails_the_caller(db, monkeypatch):
+@pytest.mark.parametrize("error", ["ServiceUnavailable", "ValueError"])
+async def test_a_sync_failure_never_fails_the_caller(db, monkeypatch, error):
     from google.api_core.exceptions import ServiceUnavailable
 
-    monkeypatch.setattr(batch_sync, "sync_project_decision", AsyncMock(side_effect=ServiceUnavailable("down")))
-    await batch_sync.sync_project_decision_safely(db, "pb", "approved")  # must not raise
+    raised = ServiceUnavailable("down") if error == "ServiceUnavailable" else ValueError("Failed to commit")
+    monkeypatch.setattr(batch_sync, "sync_project_decision", AsyncMock(side_effect=raised))
+    await batch_sync.sync_project_decision_safely(db, "pb")  # must not raise
 
 
 # ── KPIs ──────────────────────────────────────────────────────────────────────
@@ -377,12 +477,39 @@ def _quote(db, pid, status, total, updated, **extra):
 
 
 def test_week_buckets_are_monday_anchored_and_cover_eight_weeks():
-    assert admin_kpis.week_start(NOW).isoformat() == "2026-10-12T00:00:00+00:00"  # Monday
+    assert admin_kpis.week_start(NOW).isoformat() == "2026-10-12"  # Monday
     times = [NOW, NOW - timedelta(days=1), NOW - timedelta(weeks=1), NOW - timedelta(weeks=20)]
     weeks = admin_kpis.weekly_buckets(times, NOW)
     assert len(weeks) == 8 and weeks[-1].week_start == "2026-10-12"
-    assert [w.approvals for w in weeks][-2:] == [1, 2]  # last week 1; this week: NOW and Tuesday... see below
+    assert [w.approvals for w in weeks][-2:] == [1, 2]  # last week: 1; this week: Wednesday and Tuesday
     assert sum(w.approvals for w in weeks) == 3  # the 20-week-old one is outside the window
+
+
+def test_italian_daylight_saving_dates():
+    assert admin_kpis.rome_offset(datetime(2026, 3, 29, 0, 59, tzinfo=UTC)) == timedelta(hours=1)
+    assert admin_kpis.rome_offset(datetime(2026, 3, 29, 1, 0, tzinfo=UTC)) == timedelta(hours=2)
+    assert admin_kpis.rome_offset(datetime(2026, 10, 25, 0, 59, tzinfo=UTC)) == timedelta(hours=2)
+    assert admin_kpis.rome_offset(datetime(2026, 10, 25, 1, 0, tzinfo=UTC)) == timedelta(hours=1)
+
+
+@pytest.mark.parametrize(
+    "moment, week",
+    [
+        # summer (UTC+2): Sunday 22:30 UTC is already Monday 00:30 in Rome
+        (datetime(2026, 10, 11, 22, 30, tzinfo=UTC), "2026-10-12"),
+        (datetime(2026, 10, 11, 21, 30, tzinfo=UTC), "2026-10-05"),
+        # winter (UTC+1): Sunday 23:30 UTC is Monday 00:30; 22:30 UTC is still Sunday 23:30
+        (datetime(2026, 1, 11, 23, 30, tzinfo=UTC), "2026-01-12"),
+        (datetime(2026, 1, 11, 22, 30, tzinfo=UTC), "2026-01-05"),
+    ],
+)
+def test_weeks_follow_italian_local_time(moment, week):
+    assert admin_kpis.week_start(moment).isoformat() == week
+
+
+def test_the_query_window_starts_at_the_beginning_of_an_italian_week():
+    start = admin_kpis.week_start_instant(admin_kpis.week_start(NOW) - timedelta(weeks=7))
+    assert start == datetime(2026, 8, 23, 22, 0, tzinfo=UTC)  # Monday 24 Aug 00:00 CEST
 
 
 async def test_kpis_count_sum_and_rank(db):
@@ -422,28 +549,58 @@ def test_gdpr_status_lists_the_phases_and_whether_the_scheduler_secret_exists(db
     assert body["scheduler_secret_configured"] is True
 
 
-def test_the_admin_can_run_the_lifecycle_pass_without_the_shared_secret(db, monkeypatch):
+def _lifecycle_service(monkeypatch, result):
     service = MagicMock()
-    service.run_lifecycle_pass = AsyncMock(return_value=LifecycleRunResult(warned=2, disabled=1, anonymized=0, errors=[]))
+    service.run_lifecycle_pass = AsyncMock(return_value=result)
     monkeypatch.setattr(admin_dashboard, "get_account_lifecycle_service", lambda: service)
+    monkeypatch.setattr(lifecycle_routes, "get_account_lifecycle_service", lambda: service)
+    return service
+
+
+def test_the_admin_can_run_the_lifecycle_pass_without_the_shared_secret(db, monkeypatch):
+    service = _lifecycle_service(monkeypatch, LifecycleRunResult(warned=2, disabled=1, anonymized=0, errors=[]))
     resp = _client().post("/api/admin/gdpr/lifecycle/run")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok", "warned": 2, "disabled": 1, "anonymized": 0, "errors": []}
-
-    service.run_lifecycle_pass.return_value = LifecycleRunResult(errors=["uid x failed"])
-    assert _client().post("/api/admin/gdpr/lifecycle/run").json()["status"] == "partial_errors"
-
-
-# ── Public endpoint: defence in depth ─────────────────────────────────────────
+    assert service.run_lifecycle_pass.await_count == 1
+    assert db.get_data("app_config", "gdpr_lifecycle_lock") is None  # the lease is released
 
 
-def test_the_public_portfolio_only_serves_images_of_our_folder(monkeypatch):
-    from src.api.routes import content_routes
+def test_raw_error_text_never_reaches_the_browser(db, monkeypatch):
+    errors = ["warn:uid-123:SMTP refused mario@example.it", "warn:uid-456:timeout", "disable:uid-789:boom"]
+    _lifecycle_service(monkeypatch, LifecycleRunResult(errors=errors))
+    body = _client().post("/api/admin/gdpr/lifecycle/run").json()
+    assert body["status"] == "partial_errors"
+    assert body["errors"] == ["disable: 1 errori (dettagli nei log del server)", "warn: 2 errori (dettagli nei log del server)"]
+    assert "uid-" not in str(body) and "example.it" not in str(body)
 
-    monkeypatch.setattr(settings, "FIREBASE_STORAGE_BUCKET", BUCKET)
-    assert content_routes._public_image(GOOD_IMAGE) == GOOD_IMAGE
-    assert content_routes._public_image(LEGACY_IMAGE) == LEGACY_IMAGE
-    assert content_routes._public_image(f"https://evil.example.com{BACKSLASH}@firebasestorage.googleapis.com/x") is None
-    assert content_routes._public_image("https://example.com/a.png") is None
-    assert content_routes._public_image(None) is None
-    assert content_routes._public_image("") is None
+
+def test_two_runs_cannot_overlap(db, monkeypatch):
+    inner: dict = {}
+
+    async def second_run_while_first_is_running(*_a, **_k):
+        # the scheduler's call arrives while the admin's run is in progress
+        inner["admin"] = _client().post("/api/admin/gdpr/lifecycle/run")
+        app = FastAPI()
+        app.include_router(lifecycle_routes.router)
+        monkeypatch.setattr(lifecycle_routes.settings, "LIFECYCLE_SECRET", "s" * 40)
+        inner["scheduler"] = TestClient(app).post("/internal/lifecycle/run", headers={"X-Lifecycle-Secret": "s" * 40})
+        return LifecycleRunResult(warned=1)
+
+    service = _lifecycle_service(monkeypatch, LifecycleRunResult())
+    service.run_lifecycle_pass = AsyncMock(side_effect=second_run_while_first_is_running)
+    monkeypatch.setattr(lifecycle_routes, "get_async_firestore_client", lambda: db)
+
+    # the "first" run is the admin's own
+    first = _client().post("/api/admin/gdpr/lifecycle/run")
+    assert first.status_code == 200 and first.json()["warned"] == 1
+    assert inner["admin"].status_code == 409 and inner["admin"].json()["error_code"] == "LIFECYCLE_ALREADY_RUNNING"
+    assert inner["scheduler"].status_code == 200 and inner["scheduler"].json()["status"] == "already_running"
+    assert service.run_lifecycle_pass.await_count == 1  # nobody was emailed twice
+
+
+async def test_an_expired_lease_does_not_block_the_next_run(db):
+    db.put("app_config", "gdpr_lifecycle_lock", {"locked_until": datetime.now(UTC) - timedelta(minutes=1), "token": "old"})
+    async with lifecycle_lock.lifecycle_lease(db):
+        assert db.get_data("app_config", "gdpr_lifecycle_lock")["token"] != "old"
+    assert db.get_data("app_config", "gdpr_lifecycle_lock") is None

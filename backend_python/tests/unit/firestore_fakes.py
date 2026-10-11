@@ -234,6 +234,10 @@ class FakeTransaction:
         self.writes.append(("set", ref.path, copy.deepcopy(data)))
         self._db.docs[ref.path] = copy.deepcopy(data)
 
+    def delete(self, ref: FakeDocRef) -> None:
+        self.writes.append(("delete", ref.path, {}))
+        self._db.docs.pop(ref.path, None)
+
     def update(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
         if ref.path not in self._db.docs:
             raise AssertionError(f"update() on missing document {ref.path}")

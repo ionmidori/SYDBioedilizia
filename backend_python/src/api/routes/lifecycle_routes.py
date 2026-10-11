@@ -25,7 +25,9 @@ import secrets
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel
 from src.core.config import settings
+from src.db.firebase_client import get_async_firestore_client
 from src.services.account_lifecycle_service import get_account_lifecycle_service
+from src.services.lifecycle_lock import LifecycleAlreadyRunningError, lifecycle_lease
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +80,13 @@ async def run_lifecycle(
     # ── Run pipeline ──────────────────────────────────────────────────────────
     logger.info("[Lifecycle] Starting scheduled lifecycle pass.")
     service = get_account_lifecycle_service()
-    result = await service.run_lifecycle_pass()
+    try:
+        async with lifecycle_lease(get_async_firestore_client()):
+            result = await service.run_lifecycle_pass()
+    except LifecycleAlreadyRunningError:
+        # Another run (e.g. an admin's) is in progress: not a failure for the scheduler.
+        logger.info("[Lifecycle] Skipped: a pass is already running.")
+        return LifecycleRunResponse(status="already_running", warned=0, disabled=0, anonymized=0, errors=[])
 
     return LifecycleRunResponse(
         status="ok" if not result.errors else "partial_errors",

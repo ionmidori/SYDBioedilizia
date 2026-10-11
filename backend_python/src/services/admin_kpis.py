@@ -14,7 +14,7 @@ cap is reported (`pending_truncated`) rather than silently hidden.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 from google.cloud.firestore_v1 import Query
@@ -63,10 +63,33 @@ def _aware(value: Any) -> datetime | None:
     return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
-def week_start(moment: datetime) -> datetime:
-    """Monday 00:00 UTC of the week containing `moment`."""
-    day = moment.astimezone(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    return day - timedelta(days=day.weekday())
+def _last_sunday(year: int, month: int) -> date:
+    last = date(year + (month == 12), month % 12 + 1, 1) - timedelta(days=1)
+    return last - timedelta(days=(last.weekday() + 1) % 7)
+
+
+def rome_offset(moment: datetime) -> timedelta:
+    """UTC offset of Italy at `moment`: CEST (+2h) from the last Sunday of March
+    01:00 UTC to the last Sunday of October 01:00 UTC, else CET (+1h).
+    (No tz database needed: it is not installed on every platform we run on.)"""
+    utc = moment.astimezone(UTC)
+    start = datetime.combine(_last_sunday(utc.year, 3), time(1), tzinfo=UTC)
+    end = datetime.combine(_last_sunday(utc.year, 10), time(1), tzinfo=UTC)
+    return timedelta(hours=2) if start <= utc < end else timedelta(hours=1)
+
+
+def week_start(moment: datetime) -> date:
+    """Monday (Italian calendar) of the week containing `moment`: the admins think
+    in local time, so an approval on Monday 00:30 Rome time belongs to the new
+    week even though it is still Sunday in UTC."""
+    local = (moment.astimezone(UTC) + rome_offset(moment)).date()
+    return local - timedelta(days=local.weekday())
+
+
+def week_start_instant(day: date) -> datetime:
+    """The instant (UTC) at which the Italian week starting on `day` begins."""
+    midnight_utc = datetime.combine(day, time.min, tzinfo=UTC)
+    return midnight_utc - rome_offset(midnight_utc + timedelta(hours=12))
 
 
 def approval_time(quote: dict[str, Any]) -> datetime | None:
@@ -77,16 +100,16 @@ def approval_time(quote: dict[str, Any]) -> datetime | None:
 def weekly_buckets(approvals: list[datetime], now: datetime) -> list[WeeklyApprovals]:
     current = week_start(now)
     starts = [current - timedelta(weeks=w) for w in range(WEEKS - 1, -1, -1)]
-    counts = {s: 0 for s in starts}
+    counts = dict.fromkeys(starts, 0)
     for moment in approvals:
         start = week_start(moment)
         if start in counts:
             counts[start] += 1
-    return [WeeklyApprovals(week_start=s.date().isoformat(), approvals=n) for s, n in counts.items()]
+    return [WeeklyApprovals(week_start=s.isoformat(), approvals=n) for s, n in counts.items()]
 
 
 async def compute_kpis(db: Any, now: datetime) -> AdminKpis:
-    cutoff = week_start(now) - timedelta(weeks=WEEKS - 1)
+    cutoff = week_start_instant(week_start(now) - timedelta(weeks=WEEKS - 1))
     open_query = (
         _quotes(db)
         .where(filter=FieldFilter("status", "in", OPEN_STATUSES))

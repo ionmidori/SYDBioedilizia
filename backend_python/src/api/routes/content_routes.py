@@ -5,7 +5,7 @@ These endpoints replace direct Firestore reads from the frontend,
 enforcing the 3-Tier architecture boundary.
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from src.auth.jwt_handler import verify_token
 from src.core.config import settings
 from src.core.logger import get_logger
@@ -127,6 +127,27 @@ def _public_image(url: object) -> str | None:
     return None
 
 
+def _portfolio_from_doc(doc_id: str, d: dict) -> PortfolioOut:
+    raw_stats = d.get("stats")
+    stats = raw_stats if isinstance(raw_stats, dict) else {}
+    return PortfolioOut(
+        id=doc_id,
+        title=d.get("title") or "",
+        category=d.get("category") or "",
+        location=d.get("location") or "",
+        # None when the document has no (valid) image: the client shows a placeholder.
+        # Defence in depth: the admin API only stores images of our portfolio/ folder,
+        # but this URL ends up in the visitors' browsers, so it is checked again.
+        image=_public_image(d.get("image_url")),
+        description=d.get("description") or "",
+        stats=PortfolioStats(
+            area=str(stats.get("area") or ""),
+            duration=str(stats.get("duration") or ""),
+            budget=str(stats.get("budget") or ""),
+        ),
+    )
+
+
 @router.get("/portfolio", response_model=list[PortfolioOut])
 @limiter.limit("60/minute")  # no App Check on this public GET (see AppCheckMiddleware)
 async def get_portfolio_projects(
@@ -146,22 +167,11 @@ async def get_portfolio_projects(
         docs = await run_in_threadpool(_query)
         results = []
         for doc in docs:
-            d = doc.to_dict() or {}
-            results.append(PortfolioOut(
-                id=doc.id,
-                title=d.get("title", ""),
-                category=d.get("category", ""),
-                location=d.get("location", ""),
-                # Defence in depth: the admin API only stores images of our portfolio/ folder,
-                # but this URL ends up in the visitors' browsers, so it is checked again.
-                image=_public_image(d.get("image_url")),
-                description=d.get("description", ""),
-                stats=PortfolioStats(
-                    area=d.get("stats", {}).get("area", ""),
-                    duration=d.get("stats", {}).get("duration", ""),
-                    budget=d.get("stats", {}).get("budget", ""),
-                ),
-            ))
+            try:
+                results.append(_portfolio_from_doc(doc.id, doc.to_dict() or {}))
+            except ValidationError:
+                # One malformed document must not blank the whole gallery.
+                logger.warning("[portfolio] Skipping a malformed portfolio document.")
         if not results:
             logger.info("[portfolio] Query succeeded but no active projects found")
         return results

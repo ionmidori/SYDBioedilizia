@@ -60,8 +60,9 @@ async def list_batches(
 ) -> AdminBatchList:
     db = get_async_firestore_client()
     query = db.collection("quote_batches").where(filter=FieldFilter("status", "in", _statuses(scope)))
-    docs = [(doc.id, doc.to_dict() or {}) async for doc in query.limit(_LIST_CAP).stream()]
-    docs.sort(key=lambda d: d[1].get("submitted_at") or d[1].get("created_at") or 0, reverse=True)
+    # Newest first INSIDE the query (index: status + submitted_at desc): the cap keeps the newest.
+    query = query.order_by("submitted_at", direction="DESCENDING").limit(_LIST_CAP)
+    docs = [(doc.id, doc.to_dict() or {}) async for doc in query.stream()]
     profiles = await _profiles({str(d.get("user_id")) for _, d in docs if d.get("user_id")})
     items = []
     for batch_id, data in docs:
