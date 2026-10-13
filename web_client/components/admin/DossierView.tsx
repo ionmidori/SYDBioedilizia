@@ -585,7 +585,10 @@ export function DossierView({ projectId }: { projectId: string }) {
           <>
             <p className="font-medium">Attenzione: questo preventivo è già stato inviato al cliente.</p>
             <p>
-              Inviato a {sentTo} il {formatDateTime(sentAt)}. Rivederlo crea una <strong>nuova revisione</strong> (rev.{' '}
+              {sentAt
+                ? `Inviato a ${sentTo} il ${formatDateTime(sentAt)}.`
+                : `L'invio a ${sentTo} risulta avviato ma non confermato: controlla lo storico invii.`}{' '}
+              Rivederlo crea una <strong>nuova revisione</strong> (rev.{' '}
               {quote.version + 1}) del preventivo {quoteNumber}: il cliente conserva la versione che ha già ricevuto finché
               non approvi e invii quella nuova.
             </p>

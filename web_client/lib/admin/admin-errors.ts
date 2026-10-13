@@ -38,6 +38,12 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
         message: 'Il preventivo ha cambiato stato nel frattempo, questa azione non è più disponibile.',
         stale: true,
       };
+    case 'DELIVERY_PENDING':
+      return {
+        kind: 'transition',
+        message: "L'email del preventivo è ancora in invio. Attendi che parta, poi potrai rivederlo.",
+        stale: true,
+      };
     case 'PRECONDITION_REQUIRED':
       return { kind: 'conflict', message: 'Versione del preventivo mancante: ricarica la pagina.', stale: true };
     case 'PRICE_BOOK_SKU_IN_USE': {

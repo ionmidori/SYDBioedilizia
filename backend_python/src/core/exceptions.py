@@ -244,6 +244,18 @@ class QuoteLockedError(AppException):
         )
 
 
+class QuoteDeliveryPendingError(AppException):
+    """The quote's email is still being delivered: it cannot be reopened for revision yet."""
+    status_code = 409
+    error_code = "DELIVERY_PENDING"
+
+    def __init__(self, project_id: str) -> None:
+        super().__init__(
+            message="The quote email is still being delivered; wait for it to go out before revising.",
+            detail={"project_id": project_id},
+        )
+
+
 class PreconditionRequiredError(AppException):
     """A write that needs optimistic concurrency was sent without If-Match."""
     status_code = 428

@@ -201,6 +201,8 @@ async function installFakeBackend(page: import('@playwright/test').Page, overrid
       f.reopens.push(body.reason);
       f.status = 'in_review';
       f.approvedRevision = null;
+      f.version += 1; // revising a sent quote starts a new version
+      f.revisions.push(f.version);
       return json(route, 200, writeResponse(f));
     }
     if (path === `/quotes/${PID}/send-defaults`) {
@@ -354,7 +356,7 @@ test.describe('admin console', () => {
     // now it can be edited again, as a new revision
     await page.getByTestId('item-qty-0').fill('15');
     await page.getByTestId('btn-save').click();
-    await expect(page.getByTestId('notice')).toContainText('revisione 3');
+    await expect(page.getByTestId('notice')).toContainText('revisione 4');
     await expect(page.getByTestId('btn-approve')).toBeEnabled();
   });
 });

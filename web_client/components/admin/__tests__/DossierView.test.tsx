@@ -265,6 +265,18 @@ describe('DossierView', () => {
       expect(warning).toHaveTextContent('conserva la versione');
     });
 
+    it('does not claim a date when the send was never confirmed', () => {
+      setup(
+        dossier(
+          { deliveries: [] },
+          { status: 'sent', sent_at: null, delivery_status: 'failed', pdf_blob_path: 'x.pdf', pdf_revision: 2, review: { approved_revision: 2 } },
+        ),
+      );
+      fireEvent.click(screen.getByTestId('btn-revise'));
+      const warning = screen.getByTestId('revise-warning');
+      expect(warning).toHaveTextContent('non confermato');
+    });
+
     it('needs a written reason, then reopens the quote', () => {
       setup(sent());
       fireEvent.click(screen.getByTestId('btn-revise'));

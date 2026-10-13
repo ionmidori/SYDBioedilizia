@@ -364,6 +364,7 @@ def test_a_sent_quote_can_be_reopened_for_revision_without_touching_what_the_cli
     assert doc["review"]["reason"] == "Prezzo del materiale cambiato"
     # what the client was sent stays on record
     assert doc["pdf_blob_path"] == SENT["pdf_blob_path"] and doc["pdf_revision"] == 2
+    assert doc["version"] == 3 and resp.json()["version"] == 3  # a new version, so r2.pdf is never reused
     assert doc["sent_at"] == T0 and doc["last_delivery_id"] == "d-first" and doc["delivery_status"] == "delivered"
     # the old approval is void
     assert "approved_revision" not in doc["review"] and "approved_by" not in doc["review"]
@@ -392,13 +393,38 @@ def test_revise_edit_approve_then_send_again(db, mail, monkeypatch):
     items = [{"sku": "PIT-001", "description": "Pittura", "unit": "mq", "qty": 12.0, "unit_price": 13.0,
               "total": 156.0, "manual_override": True}]
     edited = client.patch(f"/api/admin/quotes/{PID}", json={"items": items, "reason": "Nuovo prezzo"},
-                          headers={"If-Match": '"v2"'})
-    assert edited.status_code == 200 and edited.json()["version"] == 3  # a new revision, same quote number
+                          headers={"If-Match": '"v3"'})
+    assert edited.status_code == 200 and edited.json()["version"] == 4  # a new revision, same quote number
 
-    approved = client.post(f"/api/admin/quotes/{PID}/approve", headers={"If-Match": '"v3"'})
+    approved = client.post(f"/api/admin/quotes/{PID}/approve", headers={"If-Match": '"v4"'})
     assert approved.status_code == 200 and approved.json()["status"] == "approved"
-    assert uploads == [f"projects/{PID}/quotes/PRV-2026-0001_r3.pdf"]  # the first PDF (r2) is not overwritten
+    assert uploads == [f"projects/{PID}/quotes/PRV-2026-0001_r4.pdf"]  # the first PDF (r2) is not overwritten
 
     sent = client.post(f"/api/admin/quotes/{PID}/send", json={"to": "m@x.it"}, headers={"Idempotency-Key": "revise-0002"})
     assert sent.status_code == 202 and sent.json()["status"] == "sent"
     assert db.get_data(*QUOTE)["last_delivery_id"] != "d-first"  # a second delivery, the first stays in the history
+
+
+def test_revise_then_approve_without_editing_does_not_overwrite_the_pdf_the_client_got(db, mail, monkeypatch):
+    _seed(db, **SENT)
+    monkeypatch.setattr(routes.PdfService, "generate_pdf_bytes", lambda self, data: b"%PDF")
+    uploads: list[str] = []
+    monkeypatch.setattr(routes.svc, "upload_pdf_sync", lambda data, path: uploads.append(path))
+    client = _client()
+
+    reopened = client.post(f"/api/admin/quotes/{PID}/reopen", json={"reason": "Ricontrollo"})
+    assert reopened.status_code == 200
+    approved = client.post(f"/api/admin/quotes/{PID}/approve", headers={"If-Match": f'"v{reopened.json()["version"]}"'})
+    assert approved.status_code == 200
+    assert uploads and uploads != [SENT["pdf_blob_path"]]
+    assert all(path != SENT["pdf_blob_path"] for path in uploads)
+    # the revision that records the reopen keeps the reason
+    revision = db.get_data(*QUOTE, "revisions", "3")
+    assert revision["reason"] == "Ricontrollo"
+
+
+def test_a_sent_quote_whose_email_is_still_queued_cannot_be_revised(db):
+    _seed(db, **{**SENT, "delivery_status": "queued"})
+    resp = _client().post(f"/api/admin/quotes/{PID}/reopen", json={"reason": "Correzione"})
+    assert resp.status_code == 409 and resp.json()["error_code"] == "DELIVERY_PENDING"
+    assert db.get_data(*QUOTE)["status"] == "sent"
