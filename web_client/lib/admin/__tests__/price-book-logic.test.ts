@@ -122,6 +122,12 @@ describe('csv export', () => {
     ['  =SUM(A1)'], // blanks before the formula
     ['\t=SUM(A1)'], // a tab
     ['\r=SUM(A1)'], // a carriage return
+    ['\u200b=SUM(A1)'], // zero-width space
+    ['\u00a0=SUM(A1)'], // non-breaking space
+    ['\ufeff=SUM(A1)'], // byte order mark
+    ['\u202e=SUM(A1)'], // right-to-left override
+    ['\u000b=SUM(A1)'], // vertical tab
+    ["=cmd|' /C calc'!A0"], // DDE
   ])('neutralises a spreadsheet formula: %j', (text) => {
     const row = toCsv([item({ description: text })]).split('\n').slice(1).join('\n');
     expect(row).toContain(`'${text}`);

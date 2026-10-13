@@ -48,6 +48,20 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
         stale: false,
       };
     }
+    case 'INVALID_IMAGE':
+      return {
+        kind: 'invalid',
+        message: "Il file non è un'immagine utilizzabile: prova con un altro file (JPG, PNG o WebP).",
+        stale: false,
+      };
+    case 'PORTFOLIO_UPLOAD_FAILED':
+      return { kind: 'other', message: "Il salvataggio dell'immagine non è riuscito. Riprova tra poco.", stale: false };
+    case 'LIFECYCLE_ALREADY_RUNNING':
+      return {
+        kind: 'locked',
+        message: "Un'esecuzione del controllo GDPR è già in corso (anche quella automatica del job). Riprova tra qualche minuto.",
+        stale: false,
+      };
     case 'IDEMPOTENCY_KEY_REQUIRED':
       return { kind: 'other', message: 'Invio non valido: riapri la finestra e riprova.', stale: false };
     default:
@@ -63,4 +77,17 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
       }
       return { kind: 'other', message: error.message || 'Operazione non riuscita. Riprova.', stale: false };
   }
+}
+
+/** Upload failures come from the file itself as often as from the server: say which. */
+export function describeUploadError(error: unknown): AdminErrorInfo {
+  if (error instanceof AdminApiError) {
+    if (error.status === 413) {
+      return { kind: 'invalid', message: "L'immagine è troppo grande: massimo 10 MB.", stale: false };
+    }
+    if (error.status === 400) {
+      return { kind: 'invalid', message: 'Il file non sembra un\'immagine valida: usa JPG, PNG, WebP o GIF.', stale: false };
+    }
+  }
+  return describeAdminError(error);
 }

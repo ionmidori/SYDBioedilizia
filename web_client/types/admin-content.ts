@@ -75,6 +75,14 @@ export const portfolioProjectSchema = z.object({
 });
 export type PortfolioProject = z.infer<typeof portfolioProjectSchema>;
 
+export const portfolioImageUploadedSchema = z.object({
+  image_url: z.string(),
+  width: z.number(),
+  height: z.number(),
+  size_bytes: z.number(),
+});
+export type PortfolioImageUploaded = z.infer<typeof portfolioImageUploadedSchema>;
+
 export const portfolioListSchema = z.object({
   items: z.array(portfolioProjectSchema),
   visible: z.number(),

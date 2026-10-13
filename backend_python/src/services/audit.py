@@ -40,6 +40,7 @@ class AuditAction(StrEnum):
     PRICE_BOOK_UPDATE = "price_book.update"
     PORTFOLIO_CREATE = "portfolio.create"
     PORTFOLIO_UPDATE = "portfolio.update"
+    PORTFOLIO_UPLOAD = "portfolio.upload"
     PORTFOLIO_DELETE = "portfolio.delete"
     TESTIMONIAL_MODERATE = "testimonial.moderate"
     GDPR_LIFECYCLE_RUN = "gdpr.lifecycle_run"

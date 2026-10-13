@@ -211,9 +211,9 @@ export function categoriesOf(items: readonly PriceBookItem[]): string[] {
 
 function csvCell(value: string | number | boolean | null | undefined): string {
   let text = typeof value === 'number' ? String(value).replace('.', ',') : value == null ? '' : String(value);
-  // Neutralise spreadsheet formulas, also behind leading blanks/tabs/line breaks.
-   
-  const lead = text.replace(/^[\s\u0000-\u001f]+/, '');
+  // Neutralise spreadsheet formulas, also behind anything a spreadsheet skips or does not show:
+  // blanks, tabs, line breaks, other control characters, zero-width / bidi / BOM format characters.
+  const lead = text.replace(/^[\s\p{Cc}\p{Cf}\p{Z}]+/u, '');
   if (/^[=+@]/.test(lead) || (/^-/.test(lead) && Number.isNaN(Number(lead.replace(',', '.'))))) text = `'${text}`;
   return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }

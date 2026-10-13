@@ -29,8 +29,30 @@ import {
   sendQuoteResponseSchema,
 } from '@/types/admin-quote';
 import {
+  type AdminBatchDetail,
+  type AdminBatchList,
   type AdminKpis,
+  type GdprRunResult,
+  type GdprStatus,
+  type ModerateBody,
+  type ModerateResponse,
+  type PortfolioImageUploaded,
+  type PortfolioList,
+  type PortfolioPatch,
+  type PortfolioProject,
+  type PortfolioWrite,
+  type TestimonialList,
+  type TestimonialStatus,
+  adminBatchDetailSchema,
+  adminBatchListSchema,
   adminKpisSchema,
+  gdprRunResultSchema,
+  gdprStatusSchema,
+  moderateResponseSchema,
+  portfolioImageUploadedSchema,
+  portfolioListSchema,
+  portfolioProjectSchema,
+  testimonialListSchema,
 } from '@/types/admin-content';
 import {
   type PriceBookHistory,
@@ -74,7 +96,12 @@ async function toError(response: Response): Promise<AdminApiError> {
   return new AdminApiError(
     response.status,
     typeof body.error_code === 'string' ? body.error_code : `HTTP_${response.status}`,
-    typeof body.message === 'string' ? body.message : `Richiesta non riuscita (${response.status}).`,
+    // FastAPI's own HTTPException (e.g. 400/413 on uploads) puts the text in a string `detail`.
+    typeof body.message === 'string'
+      ? body.message
+      : typeof body.detail === 'string'
+        ? body.detail
+        : `Richiesta non riuscita (${response.status}).`,
     detail,
   );
 }
@@ -101,6 +128,14 @@ function jsonInit(method: string, body: unknown, headers: Record<string, string>
 }
 
 const quote = (projectId: string): string => `/quotes/${encodeURIComponent(projectId)}`;
+
+/** A call whose success answers 204 (no body). */
+async function requestVoid(path: string, init: RequestInit): Promise<void> {
+  const response = await fetchWithAuth(`${ADMIN_ROOT}${path}`, init);
+  if (!response.ok) {
+    throw await toError(response);
+  }
+}
 
 export interface QuoteListFilters {
   /** "open" (draft + pending + in review), a status, or a comma-separated list. */
@@ -182,4 +217,39 @@ export const adminApi = {
 
   getPriceBookHistory: (): Promise<PriceBookHistory> =>
     request('/price-book/history', priceBookHistorySchema),
+
+  listBatches: (scope: 'open' | 'closed' | 'all'): Promise<AdminBatchList> =>
+    request(`/batches?scope=${scope}`, adminBatchListSchema),
+
+  getBatch: (batchId: string): Promise<AdminBatchDetail> =>
+    request(`/batches/${encodeURIComponent(batchId)}`, adminBatchDetailSchema),
+
+  listTestimonials: (status: TestimonialStatus): Promise<TestimonialList> =>
+    request(`/testimonials?status=${status}`, testimonialListSchema),
+
+  moderateTestimonial: (id: string, body: ModerateBody): Promise<ModerateResponse> =>
+    request(`/testimonials/${encodeURIComponent(id)}/moderate`, moderateResponseSchema, jsonInit('POST', body)),
+
+  listPortfolio: (): Promise<PortfolioList> => request('/portfolio', portfolioListSchema),
+
+  createPortfolioProject: (body: PortfolioWrite): Promise<PortfolioProject> =>
+    request('/portfolio', portfolioProjectSchema, jsonInit('POST', body)),
+
+  updatePortfolioProject: (id: string, body: PortfolioPatch): Promise<PortfolioProject> =>
+    request(`/portfolio/${encodeURIComponent(id)}`, portfolioProjectSchema, jsonInit('PATCH', body)),
+
+  deletePortfolioProject: (id: string): Promise<void> =>
+    requestVoid(`/portfolio/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  /** The server checks the file, re-encodes it (WebP, no metadata/GPS) and stores it. */
+  uploadPortfolioImage: (file: File): Promise<PortfolioImageUploaded> => {
+    const form = new FormData();
+    form.append('file', file);
+    // No Content-Type: the browser sets the multipart boundary itself.
+    return request('/portfolio/image', portfolioImageUploadedSchema, { method: 'POST', body: form });
+  },
+
+  getGdprStatus: (): Promise<GdprStatus> => request('/gdpr/status', gdprStatusSchema),
+
+  runGdprLifecycle: (): Promise<GdprRunResult> => request('/gdpr/lifecycle/run', gdprRunResultSchema, { method: 'POST' }),
 };
