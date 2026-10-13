@@ -146,4 +146,62 @@ describe('adminApi', () => {
       expect(error.detail).toEqual({ skus: ['DEM-001'] });
     });
   });
+
+  describe('batches, content and GDPR', () => {
+    const PROJECT = { id: 'p1', title: 'Bagno', category: 'Bagno', location: 'Roma', stats: {}, active: true, order: 1 };
+
+    it('reads batches by scope and one batch by id', async () => {
+      mockFetch.mockResolvedValue(json(200, { items: [] }));
+      await adminApi.listBatches('closed');
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/batches?scope=closed');
+      mockFetch.mockResolvedValue(json(200, { batch_id: 'b/1', status: 'submitted', projects: [] }));
+      await adminApi.getBatch('b/1');
+      expect(mockFetch.mock.calls[1][0]).toBe('/api/py/admin/batches/b%2F1');
+    });
+
+    it('moderates a testimonial with the decision and the note', async () => {
+      mockFetch.mockResolvedValue(json(200, { id: 't1', status: 'approved', stats: {} }));
+      await adminApi.listTestimonials('pending').catch(() => undefined);
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/testimonials?status=pending');
+      await adminApi.moderateTestimonial('t1', { decision: 'approve', notes: 'ok' });
+      const [url, init] = mockFetch.mock.calls[1];
+      expect(url).toBe('/api/py/admin/testimonials/t1/moderate');
+      expect(JSON.parse(String((init as RequestInit).body))).toEqual({ decision: 'approve', notes: 'ok' });
+    });
+
+    it('creates, patches and deletes portfolio projects', async () => {
+      mockFetch.mockResolvedValue(json(200, PROJECT));
+      await adminApi.updatePortfolioProject('p/1', { active: false });
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/portfolio/p%2F1');
+      expect(mockFetch.mock.calls[0][1]).toMatchObject({ method: 'PATCH', body: JSON.stringify({ active: false }) });
+
+      // a successful delete answers 204 with no body
+      mockFetch.mockResolvedValue({ ok: true, status: 204, json: async () => { throw new Error('no body'); } } as unknown as Response);
+      await expect(adminApi.deletePortfolioProject('p1')).resolves.toBeUndefined();
+      expect(mockFetch.mock.calls[1][1]).toMatchObject({ method: 'DELETE' });
+
+      mockFetch.mockResolvedValue(json(404, { error_code: 'RESOURCE_NOT_FOUND', message: 'gone' }));
+      await expect(adminApi.deletePortfolioProject('p1')).rejects.toMatchObject({ status: 404 });
+    });
+
+    it('uploads an image as multipart without forcing a Content-Type', async () => {
+      mockFetch.mockResolvedValue(json(201, { image_url: 'https://x/portfolio%2Fa.webp', width: 10, height: 10, size_bytes: 5 }));
+      const file = new File(['x'], 'foto.png', { type: 'image/png' });
+      const result = await adminApi.uploadPortfolioImage(file);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/py/admin/portfolio/image');
+      expect((init as RequestInit).body).toBeInstanceOf(FormData);
+      expect(((init as RequestInit).body as FormData).get('file')).toBeInstanceOf(File);
+      expect((init as RequestInit).headers).toBeUndefined(); // the browser sets the multipart boundary
+      expect(result.image_url).toContain('portfolio');
+    });
+
+    it('runs the GDPR pass and keeps the already-running code', async () => {
+      mockFetch.mockResolvedValue(json(200, { status: 'ok', warned: 1, disabled: 0, anonymized: 0, errors: [] }));
+      await expect(adminApi.runGdprLifecycle()).resolves.toMatchObject({ warned: 1 });
+      expect(mockFetch.mock.calls[0][1]).toMatchObject({ method: 'POST' });
+      mockFetch.mockResolvedValue(json(409, { error_code: 'LIFECYCLE_ALREADY_RUNNING', message: 'busy' }));
+      await expect(adminApi.runGdprLifecycle()).rejects.toMatchObject({ errorCode: 'LIFECYCLE_ALREADY_RUNNING' });
+    });
+  });
 });

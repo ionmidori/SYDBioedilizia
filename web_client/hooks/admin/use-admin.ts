@@ -6,6 +6,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useAuth } from '@/hooks/useAuth';
 import { AdminApiError, adminApi, type QuoteListFilters } from '@/lib/admin/admin-api';
 import type { EditQuoteBody, QuoteWriteResponse, SendQuoteBody } from '@/types/admin-quote';
+import type { ModerateBody, PortfolioPatch, PortfolioWrite, TestimonialStatus } from '@/types/admin-content';
 import type { PutPriceBookBody } from '@/types/admin-price-book';
 
 export const ADMIN_KEYS = {
@@ -15,6 +16,11 @@ export const ADMIN_KEYS = {
   revision: (projectId: string, version: number) => ['admin', 'revision', projectId, version] as const,
   sendDefaults: (projectId: string) => ['admin', 'send-defaults', projectId] as const,
   kpis: ['admin', 'kpis'] as const,
+  batches: (scope: string) => ['admin', 'batches', scope] as const,
+  batch: (id: string) => ['admin', 'batch', id] as const,
+  testimonials: (status: string) => ['admin', 'testimonials', status] as const,
+  portfolio: ['admin', 'portfolio'] as const,
+  gdpr: ['admin', 'gdpr'] as const,
   priceBook: ['admin', 'price-book'] as const,
   priceBookHistory: ['admin', 'price-book', 'history'] as const,
 };
@@ -185,4 +191,95 @@ export function useSavePriceBook() {
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.priceBook });
     },
   });
+}
+
+export function useAdminBatches(scope: 'open' | 'closed' | 'all') {
+  return useQuery({
+    queryKey: ADMIN_KEYS.batches(scope),
+    queryFn: () => adminApi.listBatches(scope),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+    retry: retryUnlessDenied,
+  });
+}
+
+export function useAdminBatch(batchId: string) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.batch(batchId),
+    queryFn: () => adminApi.getBatch(batchId),
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: true,
+    retry: retryUnlessDenied,
+  });
+}
+
+export function useAdminTestimonials(status: TestimonialStatus) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.testimonials(status),
+    queryFn: () => adminApi.listTestimonials(status),
+    staleTime: 15 * 1000,
+    refetchOnWindowFocus: true,
+    retry: retryUnlessDenied,
+  });
+}
+
+/** Moderation changes the lists of every status and the dashboard counters. */
+export function useModerateTestimonial() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; body: ModerateBody }) => adminApi.moderateTestimonial(v.id, v.body),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ['admin', 'testimonials'] });
+      void client.invalidateQueries({ queryKey: ADMIN_KEYS.kpis });
+    },
+  });
+}
+
+export function useAdminPortfolio() {
+  return useQuery({
+    queryKey: ADMIN_KEYS.portfolio,
+    queryFn: adminApi.listPortfolio,
+    staleTime: 15 * 1000,
+    retry: retryUnlessDenied,
+  });
+}
+
+function usePortfolioWrite<TVariables, TResult>(mutationFn: (variables: TVariables) => Promise<TResult>) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ADMIN_KEYS.portfolio });
+    },
+  });
+}
+
+export function useCreatePortfolioProject() {
+  return usePortfolioWrite((body: PortfolioWrite) => adminApi.createPortfolioProject(body));
+}
+
+export function useUpdatePortfolioProject() {
+  return usePortfolioWrite((v: { id: string; body: PortfolioPatch }) => adminApi.updatePortfolioProject(v.id, v.body));
+}
+
+export function useDeletePortfolioProject() {
+  return usePortfolioWrite((id: string) => adminApi.deletePortfolioProject(id));
+}
+
+/** Uploading only stores a cleaned copy; nothing refers to it until the project is saved. */
+export function useUploadPortfolioImage() {
+  return useMutation({ mutationFn: (file: File) => adminApi.uploadPortfolioImage(file) });
+}
+
+export function useGdprStatus() {
+  return useQuery({
+    queryKey: ADMIN_KEYS.gdpr,
+    queryFn: adminApi.getGdprStatus,
+    staleTime: 5 * 60 * 1000,
+    retry: retryUnlessDenied,
+  });
+}
+
+export function useRunGdprLifecycle() {
+  return useMutation({ mutationFn: () => adminApi.runGdprLifecycle() });
 }

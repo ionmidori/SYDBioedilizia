@@ -1,0 +1,79 @@
+import React from 'react';
+import { fireEvent, render, screen } from '@testing-library/react';
+
+import { GdprMonitor } from '../GdprMonitor';
+import { useGdprStatus, useRunGdprLifecycle } from '@/hooks/admin/use-admin';
+import { AdminApiError } from '@/lib/admin/admin-api';
+
+jest.mock('@/hooks/admin/use-admin');
+const mockStatus = useGdprStatus as jest.MockedFunction<typeof useGdprStatus>;
+const mockRun = useRunGdprLifecycle as jest.MockedFunction<typeof useRunGdprLifecycle>;
+
+const STATUS = {
+  phases: [
+    { phase: 1, months_inactive: 12, action: 'Email di avviso inattività' },
+    { phase: 2, months_inactive: 13, action: 'Account disabilitato' },
+    { phase: 3, months_inactive: 24, action: 'Dati personali anonimizzati' },
+  ],
+  scheduler_secret_configured: true,
+};
+
+const run = { mutate: jest.fn(), reset: jest.fn(), isPending: false, error: null as unknown, data: undefined as unknown };
+
+function setup(overrides: Record<string, unknown> = {}) {
+  mockStatus.mockReturnValue({ isPending: false, isError: false, data: STATUS } as unknown as ReturnType<typeof useGdprStatus>);
+  mockRun.mockReturnValue({ ...run, ...overrides } as unknown as ReturnType<typeof useRunGdprLifecycle>);
+}
+
+describe('GdprMonitor', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('explains the phases and whether the automatic job is configured', () => {
+    setup();
+    render(<GdprMonitor />);
+    const phases = screen.getByTestId('gdpr-phases');
+    expect(phases).toHaveTextContent('12 mesi');
+    expect(phases).toHaveTextContent('24 mesi');
+    expect(phases).toHaveTextContent('Dati personali anonimizzati');
+    expect(screen.getByTestId('gdpr-scheduler')).toHaveTextContent('configurato');
+  });
+
+  it('warns when the automatic job is not configured', () => {
+    mockStatus.mockReturnValue({ isPending: false, isError: false, data: { ...STATUS, scheduler_secret_configured: false } } as unknown as ReturnType<typeof useGdprStatus>);
+    mockRun.mockReturnValue(run as unknown as ReturnType<typeof useRunGdprLifecycle>);
+    render(<GdprMonitor />);
+    expect(screen.getByTestId('gdpr-scheduler')).toHaveTextContent('NON è configurato');
+  });
+
+  it('never runs without an explicit confirmation that says what it does', () => {
+    setup();
+    render(<GdprMonitor />);
+    fireEvent.click(screen.getByTestId('gdpr-run'));
+    expect(run.mutate).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog')).toHaveTextContent('non si può annullare');
+    fireEvent.click(screen.getByTestId('gdpr-confirm'));
+    expect(run.mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the outcome per phase and the (sanitised) errors', () => {
+    setup({ data: { status: 'partial_errors', warned: 3, disabled: 1, anonymized: 0, errors: ['warn: 2 errori (dettagli nei log del server)'] } });
+    render(<GdprMonitor />);
+    const result = screen.getByTestId('gdpr-result');
+    expect(result).toHaveTextContent('errori parziali');
+    expect(result).toHaveTextContent('3');
+    expect(screen.getByTestId('gdpr-errors')).toHaveTextContent('warn: 2 errori');
+  });
+
+  it('tells the admin that a pass is already running', () => {
+    setup({ error: new AdminApiError(409, 'LIFECYCLE_ALREADY_RUNNING', 'x') });
+    render(<GdprMonitor />);
+    expect(screen.getByTestId('error-banner')).toHaveTextContent('già in corso');
+  });
+
+  it('shows progress while running', () => {
+    setup({ isPending: true });
+    render(<GdprMonitor />);
+    expect(screen.getByTestId('gdpr-run')).toBeDisabled();
+    expect(screen.getByText(/fino a un minuto/)).toBeInTheDocument();
+  });
+});

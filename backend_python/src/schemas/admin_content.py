@@ -161,6 +161,15 @@ class PortfolioProject(BaseModel):
     updated_at: datetime | None = None
 
 
+class PortfolioImageUploaded(BaseModel):
+    """A processed image, stored in `portfolio/`; pass `image_url` when saving the project."""
+
+    image_url: str
+    width: int
+    height: int
+    size_bytes: int
+
+
 class PortfolioList(BaseModel):
     items: list[PortfolioProject]
     visible: int

@@ -98,6 +98,7 @@ export function KpiDashboard() {
           label="Recensioni da moderare"
           value={String(data.testimonials.pending)}
           testId="kpi-reviews"
+          href="/admin/testimonials"
         />
       </ul>
 

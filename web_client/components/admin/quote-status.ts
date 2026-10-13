@@ -1,4 +1,5 @@
 /** Italian labels + chip styles for review and delivery states (admin console). */
+import type { BatchStatus } from '@/types/admin-content';
 import type { DeliveryRecordStatus, QuoteDeliveryStatus, QuoteStatus } from '@/types/quote';
 
 interface Chip {
@@ -30,6 +31,14 @@ export const DELIVERY_STATUS_CHIP: Record<QuoteDeliveryStatus | DeliveryRecordSt
   bounced: { label: 'Email rimbalzata', className: RED },
   complained: { label: 'Segnalata come spam', className: RED },
   failed: { label: 'Invio fallito', className: RED },
+};
+
+export const BATCH_STATUS_CHIP: Record<BatchStatus, Chip> = {
+  draft: { label: 'Bozza', className: GREY },
+  submitted: { label: 'Da revisionare', className: AMBER },
+  partially_approved: { label: 'Parzialmente deciso', className: BLUE },
+  approved: { label: 'Approvato', className: GREEN },
+  rejected: { label: 'Rifiutato', className: RED },
 };
 
 /** Inbox filters (tab → backend `status` query). */

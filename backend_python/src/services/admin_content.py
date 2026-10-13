@@ -45,13 +45,13 @@ class InvalidPortfolioImageError(AppException):
         )
 
 
-def _bucket_name() -> str:
+def bucket_name() -> str:
     return settings.FIREBASE_STORAGE_BUCKET or ""
 
 
 def checked_image_url(url: str) -> str:
     """The URL if it points at OUR portfolio folder, else 422. It is rendered on the public site."""
-    if not portfolio_blob_path(url, _bucket_name()):
+    if not portfolio_blob_path(url, bucket_name()):
         raise InvalidPortfolioImageError()
     return url
 
@@ -98,14 +98,14 @@ async def create_project(db: Any, data: dict[str, Any], now: datetime) -> Portfo
 async def _image_in_use(db: Any, image_url: str | None, except_id: str) -> bool:
     """Does another project still show this image? Compared by the canonical
     Storage path, not by the URL text (%2F vs %2f, with or without ?alt=media)."""
-    path = portfolio_blob_path(image_url, _bucket_name()) if image_url else None
+    path = portfolio_blob_path(image_url, bucket_name()) if image_url else None
     if not path:
         return False
     async for doc in db.collection(PORTFOLIO).stream():
         if doc.id == except_id:
             continue
         other = (doc.to_dict() or {}).get("image_url")
-        if isinstance(other, str) and portfolio_blob_path(other, _bucket_name()) == path:
+        if isinstance(other, str) and portfolio_blob_path(other, bucket_name()) == path:
             return True
     return False
 
@@ -127,7 +127,7 @@ async def update_project(
         old_image
         if "image_url" in changes
         and old_image
-        and portfolio_blob_path(changes["image_url"], _bucket_name()) != portfolio_blob_path(old_image, _bucket_name())
+        and portfolio_blob_path(changes["image_url"], bucket_name()) != portfolio_blob_path(old_image, bucket_name())
         and not await _image_in_use(db, old_image, project_id)
         else None
     )
@@ -154,7 +154,7 @@ def _delete_blob_sync(blob_path: str) -> None:
 async def delete_image_quietly(image_url: str | None) -> None:
     """Remove an image we own from Storage. A missing file or a Storage hiccup
     must not fail the content change (the file is merely orphaned): logged."""
-    path = portfolio_blob_path(image_url, _bucket_name()) if image_url else None
+    path = portfolio_blob_path(image_url, bucket_name()) if image_url else None
     if not path:
         return
     try:

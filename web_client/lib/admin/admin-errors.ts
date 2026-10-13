@@ -48,6 +48,12 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
         stale: false,
       };
     }
+    case 'LIFECYCLE_ALREADY_RUNNING':
+      return {
+        kind: 'locked',
+        message: "Un'esecuzione del controllo GDPR è già in corso (anche quella automatica del job). Riprova tra qualche minuto.",
+        stale: false,
+      };
     case 'IDEMPOTENCY_KEY_REQUIRED':
       return { kind: 'other', message: 'Invio non valido: riapri la finestra e riprova.', stale: false };
     default:

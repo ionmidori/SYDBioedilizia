@@ -85,7 +85,11 @@ describe('AdminClientLayout', () => {
     expect(links).toEqual([
       ['Dashboard', '/admin'],
       ['Preventivi', '/admin/quotes'],
+      ['Lotti', '/admin/batches'],
       ['Listino', '/admin/price-book'],
+      ['Portfolio', '/admin/portfolio'],
+      ['Recensioni', '/admin/testimonials'],
+      ['GDPR', '/admin/gdpr'],
     ]);
     // the mocked path is /admin/quotes/abc: Preventivi is current, Dashboard (exact match) is not
     expect(screen.getByRole('link', { name: 'Preventivi' })).toHaveAttribute('aria-current', 'page');
