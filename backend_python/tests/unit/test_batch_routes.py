@@ -3,16 +3,9 @@ Unit tests for batch quote submission data models and validators.
 
 Tests cover:
 - CreateBatchBody validation
-- ProjectDecisionBody validation
-- _require_admin() authorization check
 """
 import pytest
-from fastapi import HTTPException
-from src.api.routes.batch_routes import (
-    CreateBatchBody,
-    ProjectDecisionBody,
-    _require_admin,
-)
+from src.api.routes.batch_routes import CreateBatchBody
 from src.schemas.internal import UserSession
 
 
@@ -59,60 +52,3 @@ class TestCreateBatchBody:
         """Accept project IDs with alphanumeric, underscore, hyphen."""
         body = CreateBatchBody(project_ids=["proj-001_v2"])
         assert body.project_ids == ["proj-001_v2"]
-
-
-class TestProjectDecisionBody:
-    """Tests for ProjectDecisionBody request validation."""
-
-    def test_valid_approve(self):
-        """Accept 'approve' decision."""
-        body = ProjectDecisionBody(decision="approve")
-        assert body.decision == "approve"
-
-    def test_valid_reject(self):
-        """Accept 'reject' decision."""
-        body = ProjectDecisionBody(decision="reject")
-        assert body.decision == "reject"
-
-    def test_reject_invalid_decision(self):
-        """Reject invalid decision value."""
-        with pytest.raises(ValueError):
-            ProjectDecisionBody(decision="maybe")
-
-    def test_valid_with_notes(self):
-        """Accept decision with admin notes."""
-        body = ProjectDecisionBody(decision="reject", notes="Does not meet spec.")
-        assert body.notes == "Does not meet spec."
-
-    def test_reject_notes_too_long(self):
-        """Reject notes exceeding max length."""
-        long_notes = "x" * 2001
-        with pytest.raises(ValueError):
-            ProjectDecisionBody(decision="reject", notes=long_notes)
-
-    def test_default_empty_notes(self):
-        """Notes default to empty string."""
-        body = ProjectDecisionBody(decision="approve")
-        assert body.notes == ""
-
-
-class TestRequireAdmin:
-    """Tests for _require_admin() authorization check."""
-
-    def test_admin_allowed(self, admin_session):
-        """Admin role passes authorization."""
-        # Should not raise
-        _require_admin(admin_session)
-
-    def test_user_denied(self, user_session):
-        """Regular user role is denied."""
-        with pytest.raises(HTTPException) as exc:
-            _require_admin(user_session)
-        assert exc.value.status_code == 403
-
-    def test_missing_role_denied(self):
-        """User with missing role is denied."""
-        session = UserSession(uid="user_999", claims={})
-        with pytest.raises(HTTPException) as exc:
-            _require_admin(session)
-        assert exc.value.status_code == 403

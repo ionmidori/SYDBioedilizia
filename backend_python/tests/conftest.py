@@ -211,16 +211,12 @@ def mock_n8n_webhook_urls(monkeypatch):
 def mock_quote_graph():
     """Mock ADK HITL functions for quote route testing (Replaces old mock_quote_graph)."""
     with patch("src.adk.hitl.start_quote_hitl") as mock_start:
-        with patch("src.adk.hitl.approve_quote_hitl") as mock_approve:
-            mock_start.return_value = {"status": "awaiting_admin_review"}
-            mock_approve.return_value = {"status": "completed"}
+        mock_start.return_value = {"status": "awaiting_admin_review"}
 
-            # Pack them into an object for test compatibility if needed
-            class MockHitl:
-                start = mock_start
-                approve = mock_approve
+        class MockHitl:
+            start = mock_start
 
-            yield MockHitl()
+        yield MockHitl()
 
 
 @pytest.fixture

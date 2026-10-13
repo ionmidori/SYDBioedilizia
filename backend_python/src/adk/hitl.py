@@ -7,7 +7,7 @@ import secrets
 
 from google.cloud import firestore
 
-from src.core.exceptions import QuoteAlreadyApprovedError, QuoteNotFoundError
+from src.core.exceptions import QuoteAlreadyApprovedError
 from src.db.firebase_client import get_async_firestore_client
 
 logger = logging.getLogger(__name__)
@@ -70,31 +70,3 @@ async def start_quote_hitl(project_id: str, user_id: str) -> None:
         merge=True,
     )
     logger.info(f"[HITL] Quote flow started for project {project_id} by user {user_id}.")
-
-
-async def approve_quote_hitl(project_id: str, decision: str, notes: str, admin_uid: str) -> None:
-    """
-    Phase 2: admin approves or rejects the pending quote.
-    Raises QuoteNotFoundError if no pending review exists.
-    """
-    db = get_async_firestore_client()
-    quote_ref = (
-        db.collection("projects")
-        .document(project_id)
-        .collection("private_data")
-        .document("quote")
-    )
-    doc = await quote_ref.get()
-    if not doc.exists or (doc.to_dict() or {}).get("status") != "pending_review":
-        raise QuoteNotFoundError(f"No pending quote found for project '{project_id}'.")
-
-    new_status = "approved" if decision == "approve" else "rejected"
-    await quote_ref.update(
-        {
-            "status": new_status,
-            "admin_decision": decision,
-            "admin_notes": notes,
-            "reviewed_by": admin_uid,
-        }
-    )
-    logger.info(f"[HITL] Quote {decision}d for project {project_id} by admin {admin_uid}.")

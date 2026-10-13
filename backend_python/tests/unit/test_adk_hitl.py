@@ -5,14 +5,13 @@ Tests the cryptographic resumption token pattern used for admin quote approval:
 - save_resumption_token stores a nonce in Firestore
 - verify_resumption_token validates + atomically deletes (one-time use)
 - start_quote_hitl rejects already-approved quotes
-- approve_quote_hitl rejects non-pending quotes
 
 All Firestore calls are mocked — no external dependencies.
 """
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from src.core.exceptions import QuoteAlreadyApprovedError, QuoteNotFoundError
+from src.core.exceptions import QuoteAlreadyApprovedError
 
 
 @pytest.fixture
@@ -164,47 +163,3 @@ class TestStartQuoteHitl:
         from src.adk.hitl import start_quote_hitl
         await start_quote_hitl("proj-1", "user-123")
         # Verify set was called (pending_review record created)
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# approve_quote_hitl
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-class TestApproveQuoteHitl:
-    """Tests the admin approval flow."""
-
-    @pytest.mark.asyncio
-    async def test_rejects_non_pending(self, mock_db, mock_firestore_doc):
-        """Should raise QuoteNotFoundError if status is not pending_review."""
-        mock_firestore_doc.to_dict.return_value = {"status": "draft"}
-
-        quote_ref = AsyncMock()
-        quote_ref.get = AsyncMock(return_value=mock_firestore_doc)
-
-        mock_db.collection.return_value.document.return_value \
-            .collection.return_value.document.return_value = quote_ref
-
-        from src.adk.hitl import approve_quote_hitl
-
-        with pytest.raises(QuoteNotFoundError):
-            await approve_quote_hitl("proj-1", "approve", "Looks good", "admin-uid")
-
-    @pytest.mark.asyncio
-    async def test_approves_pending_review(self, mock_db, mock_firestore_doc):
-        """Should update status to 'approved' for a pending_review quote."""
-        mock_firestore_doc.to_dict.return_value = {"status": "pending_review"}
-
-        quote_ref = AsyncMock()
-        quote_ref.get = AsyncMock(return_value=mock_firestore_doc)
-        quote_ref.update = AsyncMock()
-
-        mock_db.collection.return_value.document.return_value \
-            .collection.return_value.document.return_value = quote_ref
-
-        from src.adk.hitl import approve_quote_hitl
-        await approve_quote_hitl("proj-1", "approve", "LGTM", "admin-uid-789")
-
-        quote_ref.update.assert_awaited_once()
-        call_args = quote_ref.update.call_args[0][0]
-        assert call_args["status"] == "approved"
-        assert call_args["reviewed_by"] == "admin-uid-789"

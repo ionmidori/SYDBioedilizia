@@ -196,10 +196,13 @@ class TestGetQuoteConfidentiality:
         assert body["financials"]["grand_total"] == 305.0
 
 
-class TestUpdateQuoteAdminOnly:
-    """Security audit 2026-10-03, M2: the owner must not rewrite prices or admin notes."""
+class TestLegacyAdminWritesAreGone:
+    """Security audit 2026-10-03 (M2) made quote edits admin-only. Phase 128 (Fase 7)
+    moved every admin decision to /api/admin/quotes, which keeps revisions, the review
+    lock, If-Match and the approve -> send separation; the old unversioned write paths
+    were removed. Neither the owner nor an admin can use them any more."""
 
-    def test_owner_cannot_patch_prices(self):
+    def test_nobody_can_patch_a_quote_through_the_client_router(self):
         quote_ref = MagicMock()
         quote_ref.get = AsyncMock(return_value=_full_quote_doc("draft"))
         quote_ref.update = AsyncMock()
@@ -207,20 +210,23 @@ class TestUpdateQuoteAdminOnly:
             patch("src.api.routes.quote_routes._verify_project_ownership", new=AsyncMock()),
             patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
         ):
-            resp = _make_client().patch("/api/quote/p1", json={"admin_notes": "sconto 90%"})
-        assert resp.status_code == 403
+            owner = _make_client().patch("/api/quote/p1", json={"admin_notes": "sconto 90%"})
+            admin = _make_client(role="admin", uid="admin-uid").patch("/api/quote/p1", json={"admin_notes": "ok"})
+        assert owner.status_code == admin.status_code == 405
         quote_ref.update.assert_not_called()
 
-    def test_admin_can_patch(self):
-        quote_ref = MagicMock()
-        quote_ref.get = AsyncMock(return_value=_full_quote_doc("draft"))
-        quote_ref.update = AsyncMock()
-        with patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref):
-            resp = _make_client(role="admin", uid="admin-uid").patch(
-                "/api/quote/p1", json={"admin_notes": "ok"}
-            )
-        assert resp.status_code == 200
-        quote_ref.update.assert_awaited_once()
+    def test_the_old_approve_route_is_gone(self):
+        for client in (_make_client(), _make_client(role="admin", uid="admin-uid")):
+            resp = client.post("/api/quote/p1/approve", json={"decision": "approve"})
+            assert resp.status_code in (404, 405)
+
+    def test_the_batch_decide_route_is_gone(self):
+        from src.api.routes.batch_routes import router as batch_router
+
+        app = FastAPI()
+        app.include_router(batch_router)
+        resp = TestClient(app).post("/api/quote/batch/b1/projects/p1/decide", json={"decision": "approve"})
+        assert resp.status_code in (404, 405)
 
 
 class TestGetQuoteClientView:

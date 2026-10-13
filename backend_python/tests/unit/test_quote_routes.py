@@ -1,9 +1,9 @@
 """
 Quote Routes FastAPI Tests — Phase C.
 
-Tests both HTTP endpoints with mocked graph singleton:
-  - POST /quote/{project_id}/start (Phase 1)
-  - POST /quote/{project_id}/approve (Phase 2)
+Tests the quote start endpoint with the mocked ADK HITL entry point:
+  - POST /quote/{project_id}/start
+(Admin decisions live in /api/admin/quotes — tests/unit/test_admin_quotes_routes.py.)
 
 Pattern: TestClient + AsyncMock for FastAPI async route testing.
 """
@@ -14,7 +14,6 @@ from fastapi.testclient import TestClient
 from src.core.exceptions import (
     CheckpointError,
     QuoteAlreadyApprovedError,
-    QuoteNotFoundError,
 )
 
 # ─── Helper to create TestClient ──────────────────────────────────────────────
@@ -118,98 +117,6 @@ class TestStartQuoteFlow:
 
 # ─── Phase 2: ApproveQuoteFlow Tests ──────────────────────────────────────────
 
-class TestApproveQuoteFlow:
-    """Test POST /quote/{project_id}/approve (Phase 2) endpoint."""
-
-    @pytest.mark.asyncio
-    async def test_approve_quote_decision_approve_returns_200(
-        self, mock_quote_graph, client
-    ):
-        """Decision 'approve' → 200 OK with completed status."""
-        mock_quote_graph.approve.return_value = {"status": "completed"}
-
-        with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
-            response = client.post(
-                "/api/quote/test-project-001/approve",
-                json={"decision": "approve", "notes": "Approved by admin console."},
-            )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "completed"
-        assert data["decision"] == "approve"
-        assert data["project_id"] == "test-project-001"
-
-        mock_quote_graph.approve.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_approve_quote_decision_reject_returns_200_rejected(
-        self, mock_quote_graph, client
-    ):
-        """Decision 'reject' → 200 OK with rejected status."""
-        mock_quote_graph.approve.return_value = {"status": "rejected"}
-
-        with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
-            response = client.post(
-                "/api/quote/test-project-001/approve",
-                json={"decision": "reject", "notes": "Budget constraint"},
-            )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "rejected"
-        assert data["decision"] == "reject"
-
-    @pytest.mark.asyncio
-    async def test_approve_quote_not_found_returns_404(
-        self, mock_quote_graph, client
-    ):
-        """No checkpoint found → 404 Not Found."""
-        mock_quote_graph.approve.side_effect = QuoteNotFoundError(project_id="test-project-001")
-
-        with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
-            response = client.post(
-                "/api/quote/test-project-001/approve",
-                json={"decision": "approve", "notes": "Test"},
-            )
-
-        assert response.status_code == 404
-        assert "No pending quote found" in response.json()["detail"]
-
-    @pytest.mark.asyncio
-    async def test_approve_quote_checkpoint_error_returns_502(
-        self, mock_quote_graph, client
-    ):
-        """CheckpointError during update/resume → 502 Bad Gateway."""
-        mock_quote_graph.approve.side_effect = CheckpointError(
-            thread_id="test-project-001",
-            reason="Firestore update failed",
-        )
-
-        with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
-            response = client.post(
-                "/api/quote/test-project-001/approve",
-                json={"decision": "approve", "notes": "Test"},
-            )
-
-        assert response.status_code == 502
-
-    @pytest.mark.asyncio
-    async def test_approve_quote_generic_exception_returns_500(
-        self, mock_quote_graph, client
-    ):
-        """Generic exception → 500 Internal Server Error."""
-        mock_quote_graph.approve.side_effect = RuntimeError("Unexpected")
-
-        with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
-            response = client.post(
-                "/api/quote/test-project-001/approve",
-                json={"decision": "approve", "notes": "Test"},
-            )
-
-        assert response.status_code == 500
-
-
 # ─── Error Code Validation Tests ──────────────────────────────────────────────
 
 class TestQuoteRoutesErrorHandling:
@@ -223,30 +130,3 @@ class TestQuoteRoutesErrorHandling:
 
         # FastAPI treats // as invalid path
         assert response.status_code == 404
-
-    @pytest.mark.asyncio
-    async def test_approve_quote_missing_decision_field(
-        self, mock_quote_graph, client
-    ):
-        """Missing 'decision' field → 422 Unprocessable Entity."""
-        with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
-            response = client.post(
-                "/api/quote/test-project-001/approve",
-                json={"notes": "No decision field"},
-            )
-
-        assert response.status_code == 422
-        assert "decision" in response.json()["detail"][0]["loc"]
-
-    @pytest.mark.asyncio
-    async def test_approve_quote_invalid_decision_value(
-        self, mock_quote_graph, client
-    ):
-        """Invalid decision value → 422 Unprocessable Entity."""
-        with patch("src.adk.hitl.approve_quote_hitl", mock_quote_graph.approve):
-            response = client.post(
-                "/api/quote/test-project-001/approve",
-                json={"decision": "invalid", "notes": "Test"},
-            )
-
-        assert response.status_code == 422
