@@ -82,4 +82,13 @@ describe('TestimonialModeration', () => {
     expect(mockList).toHaveBeenLastCalledWith('approved');
     expect(moderate.reset).toHaveBeenCalled();
   });
+
+  it('locks every card while a decision is in flight, so two requests never share one mutation', () => {
+    load([review(), review({ id: 't2', name: 'Luca' })]);
+    moderate.isPending = true;
+    render(<TestimonialModeration />);
+    for (const button of [...screen.getAllByTestId('review-approve'), ...screen.getAllByTestId('review-reject')]) {
+      expect(button).toBeDisabled();
+    }
+  });
 });

@@ -9,10 +9,13 @@ at OUR `portfolio/` folder — it is rendered on the public site.
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from fastapi import APIRouter, Depends, File, Path, Request, Response, UploadFile
+from google.api_core.exceptions import GoogleAPIError
 from src.api.routes.upload import _safe_read_file
 from src.auth.admin import require_admin
+from src.core.exceptions import ServiceError
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.admin_content import (
@@ -28,6 +31,8 @@ from src.services import portfolio_images
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.utils.datetime_utils import utc_now
 from src.utils.security import validate_image_magic_bytes
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/admin", tags=["Admin — Portfolio"])
 
@@ -65,7 +70,14 @@ async def upload_portfolio_image(
     raw = await _safe_read_file(file, portfolio_images.MAX_UPLOAD_BYTES)
     data, width, height = await asyncio.to_thread(portfolio_images.process_image, raw)
     blob_path = portfolio_images.new_blob_path()
-    await asyncio.to_thread(portfolio_images.upload_sync, blob_path, data)
+    try:
+        await asyncio.to_thread(portfolio_images.upload_sync, blob_path, data)
+    except (GoogleAPIError, OSError, RuntimeError) as exc:
+        logger.warning("[Portfolio] Storage upload failed [%s].", type(exc).__name__)
+        raise ServiceError(
+            message="The image could not be stored. Try again in a moment.",
+            error_code="PORTFOLIO_UPLOAD_FAILED",
+        ) from exc
     _audit(AuditAction.PORTFOLIO_UPLOAD, blob_path, admin, size_bytes=len(data))
     return PortfolioImageUploaded(
         image_url=portfolio_images.public_url(svc.bucket_name(), blob_path),

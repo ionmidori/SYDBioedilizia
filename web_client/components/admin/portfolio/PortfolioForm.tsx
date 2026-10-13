@@ -6,9 +6,12 @@ import { ImagePlus, Loader2 } from 'lucide-react';
 import { ErrorBanner } from '@/components/admin/dossier/ErrorBanner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCreatePortfolioProject, useUpdatePortfolioProject, useUploadPortfolioImage } from '@/hooks/admin/use-admin';
+import { describeUploadError } from '@/lib/admin/admin-errors';
+import { prepareImageForUpload } from '@/lib/admin/image-prep';
 import {
   PORTFOLIO_CATEGORIES,
   type PortfolioPatch,
+  portfolioPatchSchema,
   type PortfolioProject,
   portfolioWriteSchema,
 } from '@/types/admin-content';
@@ -35,7 +38,8 @@ interface FormState {
 function initial(project: PortfolioProject | null): FormState {
   return {
     title: project?.title ?? '',
-    category: project?.category && (PORTFOLIO_CATEGORIES as readonly string[]).includes(project.category) ? project.category : PORTFOLIO_CATEGORIES[0],
+    // A category outside the list (old data) is kept as it is: saving must not silently change it.
+    category: project?.category || PORTFOLIO_CATEGORIES[0],
     location: project?.location ?? '',
     description: project?.description ?? '',
     area: project?.stats.area ?? '',
@@ -64,6 +68,16 @@ export function buildPatch(project: PortfolioProject, form: FormState): Portfoli
   return patch;
 }
 
+const PROBLEMS: Record<string, string> = {
+  image_url: "Carica un'immagine.",
+  title: 'Il titolo è obbligatorio.',
+  location: 'La città o zona è obbligatoria.',
+};
+
+function problemFor(field: string): string {
+  return PROBLEMS[field] ?? 'Controlla i campi.';
+}
+
 interface Props {
   /** null = a new project. */
   project: PortfolioProject | null;
@@ -90,6 +104,7 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
   const [form, setForm] = useState<FormState>(() => initial(project));
   const [problems, setProblems] = useState<string[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const upload = useUploadPortfolioImage();
   const create = useCreatePortfolioProject();
@@ -108,7 +123,10 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
       setFileError('Immagine troppo grande: massimo 10 MB.');
       return;
     }
-    upload.mutate(file, { onSuccess: (result) => set('imageUrl', result.image_url) });
+    setPreparing(true);
+    void prepareImageForUpload(file)
+      .then((ready) => upload.mutate(ready, { onSuccess: (result) => set('imageUrl', result.image_url) }))
+      .finally(() => setPreparing(false));
   };
 
   const submit = () => {
@@ -117,6 +135,11 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
       const patch = buildPatch(project, form);
       if (Object.keys(patch).length === 0) {
         onDone();
+        return;
+      }
+      const checked = portfolioPatchSchema.safeParse(patch);
+      if (!checked.success) {
+        setProblems(checked.error.issues.map((issue) => problemFor(String(issue.path[0]))));
         return;
       }
       update.mutate({ id: project.id, body: patch }, { onSuccess: onDone });
@@ -132,11 +155,7 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
       active: form.active,
     });
     if (!parsed.success) {
-      setProblems(
-        parsed.error.issues.map((issue) =>
-          issue.path[0] === 'image_url' ? 'Carica un\'immagine.' : issue.path[0] === 'title' ? 'Il titolo è obbligatorio.' : issue.path[0] === 'location' ? 'La città o zona è obbligatoria.' : 'Controlla i campi.',
-        ),
-      );
+      setProblems(parsed.error.issues.map((issue) => problemFor(String(issue.path[0]))));
       return;
     }
     create.mutate(parsed.data, { onSuccess: onDone });
@@ -170,13 +189,13 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
                 choose(e.target.files?.[0]);
                 e.target.value = ''; // the same file can be chosen again after an error
               }}
-              disabled={upload.isPending}
+              disabled={upload.isPending || preparing}
               aria-label="Scegli un'immagine"
               data-testid="portfolio-file"
               className="block text-sm file:mr-3 file:rounded-lg file:border file:border-white/10 file:bg-white/5 file:px-3 file:py-1.5 file:text-sm"
             />
             <p className="text-xs text-luxury-text/50">JPG, PNG, WebP o GIF, max 10 MB. Viene ridimensionata e ripulita dai dati nascosti (posizione GPS inclusa).</p>
-            {upload.isPending && (
+            {(upload.isPending || preparing) && (
               <p className="inline-flex items-center gap-1.5 text-xs text-luxury-gold" role="status">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden /> Caricamento in corso…
               </p>
@@ -188,7 +207,7 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
             )}
           </div>
         </div>
-        <ErrorBanner error={upload.error} />
+        <ErrorBanner error={upload.error} describe={describeUploadError} />
       </fieldset>
 
       <div className="grid md:grid-cols-2 gap-3">
@@ -199,6 +218,11 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
         <label className="space-y-1">
           <span className="text-sm">Categoria *</span>
           <select value={form.category} onChange={(e) => set('category', e.target.value)} className={FIELD}>
+            {(PORTFOLIO_CATEGORIES as readonly string[]).includes(form.category)
+              ? null
+              : (
+                <option value={form.category}>{form.category} (non in elenco)</option>
+              )}
             {PORTFOLIO_CATEGORIES.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -254,7 +278,7 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
         </button>
         <button
           type="submit"
-          disabled={saving || upload.isPending}
+          disabled={saving || upload.isPending || preparing}
           data-testid="portfolio-save"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-luxury-gold text-black text-sm font-medium disabled:opacity-50 cursor-pointer"
         >

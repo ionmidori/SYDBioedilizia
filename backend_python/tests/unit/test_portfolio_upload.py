@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
-from PIL import Image
+from PIL import Image, ImageCms
 from src.api.routes import admin_portfolio, upload
 from src.auth.jwt_handler import verify_token
 from src.core.config import settings
@@ -167,3 +167,71 @@ def test_oversized_uploads_are_cut_off_while_reading(stored, monkeypatch):
     monkeypatch.setattr(upload, "CHUNK_SIZE", 64)
     assert _post(_client(), _png((300, 300))).status_code == 413
     assert stored == []
+
+
+# ── Colour management, formats and failures ───────────────────────────────────
+
+
+def _with_profile(color=(200, 40, 40)) -> bytes:
+    srgb = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    out = io.BytesIO()
+    Image.new("RGB", (30, 30), color).save(out, format="PNG", icc_profile=srgb)
+    return out.getvalue()
+
+
+def test_an_embedded_profile_is_applied_then_dropped():
+    data, _, _ = portfolio_images.process_image(_with_profile())
+    out = Image.open(io.BytesIO(data))
+    assert "icc_profile" not in out.info
+    r, g, b = out.convert("RGB").getpixel((5, 5))
+    assert (abs(r - 200), abs(g - 40), abs(b - 40)) < (4, 4, 4)  # sRGB -> sRGB leaves the colours alone
+
+
+def test_a_broken_profile_never_rejects_the_photo():
+    out = io.BytesIO()
+    Image.new("RGB", (30, 30), (10, 200, 10)).save(out, format="PNG", icc_profile=b"definitely not a profile")
+    data, width, height = portfolio_images.process_image(out.getvalue())
+    assert Image.open(io.BytesIO(data)).format == "WEBP" and (width, height) == (30, 30)
+
+
+@pytest.mark.parametrize("mode", ["CMYK", "L", "P", "1", "LA", "I;16"])
+def test_unusual_colour_modes_come_out_as_rgb(mode):
+    out = io.BytesIO()
+    fmt = "TIFF" if mode in ("CMYK", "I;16") else "PNG"
+    Image.new(mode, (40, 40)).save(out, format=fmt)
+    data, _, _ = portfolio_images.process_image(out.getvalue())
+    assert Image.open(io.BytesIO(data)).mode in ("RGB", "RGBA")
+
+
+def test_a_big_palette_image_is_converted_before_it_is_resized():
+    out = io.BytesIO()
+    Image.new("P", (3000, 2000)).save(out, format="PNG")
+    data, width, height = portfolio_images.process_image(out.getvalue())
+    assert max(width, height) == portfolio_images.MAX_SIDE
+    assert Image.open(io.BytesIO(data)).mode == "RGB"
+
+
+def test_a_jpeg_whose_first_marker_is_not_jfif_is_accepted(stored):
+    jpeg = bytearray(_jpeg_with_gps((200, 100)))
+    assert bytes(jpeg[:3]) == b"\xff\xd8\xff"  # Pillow writes JFIF (E0) first; the loop swaps the marker
+    for marker in (0xE2, 0xED, 0xEE):  # ICC/MPF, Photoshop, Adobe: all valid first markers
+        jpeg[3] = marker
+        assert _post(_client(), bytes(jpeg), "image/jpeg", "x.jpg").status_code == 201, hex(marker)
+
+
+def test_a_storage_failure_is_a_clean_502_and_nothing_is_audited(monkeypatch):
+    from google.api_core.exceptions import ServiceUnavailable
+
+    audited: list[tuple] = []
+
+    def boom(path, data):
+        raise ServiceUnavailable("storage down")
+
+    monkeypatch.setattr(portfolio_images, "upload_sync", boom)
+    monkeypatch.setattr(settings, "FIREBASE_STORAGE_BUCKET", BUCKET)
+    monkeypatch.setattr(admin_portfolio, "emit_audit_event", lambda *a, **k: audited.append(a))
+    limiter.reset()
+    resp = _post(_client(), _png())
+    assert resp.status_code == 502 and resp.json()["error_code"] == "PORTFOLIO_UPLOAD_FAILED"
+    assert "storage down" not in resp.text  # no internals leak
+    assert audited == []

@@ -32,11 +32,10 @@ VIDEO_SIGNATURES = {
 # Magic Bytes signatures for allowed image formats
 IMAGE_SIGNATURES = {
     "image/jpeg": [
-        bytes.fromhex("FF D8 FF E0"),  # JFIF
-        bytes.fromhex("FF D8 FF E1"),  # EXIF
-        bytes.fromhex("FF D8 FF E8"),  # SPIFF
-        bytes.fromhex("FF D8 FF DB"),  # Raw JPEG (no marker)
-        bytes.fromhex("FF D8 FF EE"),  # Adobe JPEG
+        # Every JPEG starts with SOI (FF D8) followed by a marker (FF ..): JFIF E0, EXIF E1,
+        # ICC/MPF E2, Photoshop/IPTC ED, Adobe EE, raw DB, SPIFF E8, ... Listing markers one by one
+        # rejected valid phone/editor exports; the decoder still has to accept the whole file.
+        bytes.fromhex("FF D8 FF"),
     ],
     "image/png": [
         bytes.fromhex("89 50 4E 47 0D 0A 1A 0A"),  # PNG

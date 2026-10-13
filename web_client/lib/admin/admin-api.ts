@@ -96,7 +96,12 @@ async function toError(response: Response): Promise<AdminApiError> {
   return new AdminApiError(
     response.status,
     typeof body.error_code === 'string' ? body.error_code : `HTTP_${response.status}`,
-    typeof body.message === 'string' ? body.message : `Richiesta non riuscita (${response.status}).`,
+    // FastAPI's own HTTPException (e.g. 400/413 on uploads) puts the text in a string `detail`.
+    typeof body.message === 'string'
+      ? body.message
+      : typeof body.detail === 'string'
+        ? body.detail
+        : `Richiesta non riuscita (${response.status}).`,
     detail,
   );
 }

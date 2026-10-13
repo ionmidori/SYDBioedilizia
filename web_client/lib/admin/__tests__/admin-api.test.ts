@@ -204,4 +204,11 @@ describe('adminApi', () => {
       await expect(adminApi.runGdprLifecycle()).rejects.toMatchObject({ errorCode: 'LIFECYCLE_ALREADY_RUNNING' });
     });
   });
+
+  it("uses FastAPI's string detail as the message (uploads answer 400/413 that way)", async () => {
+    mockFetch.mockResolvedValue(json(413, { detail: 'File too large. Maximum size is 10MB.' }));
+    const error = (await adminApi.uploadPortfolioImage(new File(['x'], 'a.png', { type: 'image/png' })).catch((e: unknown) => e)) as AdminApiError;
+    expect(error.status).toBe(413);
+    expect(error.message).toBe('File too large. Maximum size is 10MB.');
+  });
 });

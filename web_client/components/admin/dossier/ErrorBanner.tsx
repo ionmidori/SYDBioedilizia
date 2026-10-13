@@ -2,12 +2,21 @@
 
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-import { describeAdminError } from '@/lib/admin/admin-errors';
+import { type AdminErrorInfo, describeAdminError } from '@/lib/admin/admin-errors';
 
 /** Failure of an admin action; offers a reload when the dossier is stale. */
-export function ErrorBanner({ error, onReload }: { error: unknown; onReload?: () => void }) {
+export function ErrorBanner({
+  error,
+  onReload,
+  describe = describeAdminError,
+}: {
+  error: unknown;
+  onReload?: () => void;
+  /** Overrides the wording for a specific kind of call (e.g. file uploads). */
+  describe?: (error: unknown) => AdminErrorInfo;
+}) {
   if (!error) return null;
-  const info = describeAdminError(error);
+  const info = describe(error);
   return (
     <div
       role="alert"

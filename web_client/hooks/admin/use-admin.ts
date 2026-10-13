@@ -101,6 +101,10 @@ function useQuoteWrite<TVariables, TResult>(projectId: string, mutationFn: (vari
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.dossier(projectId) });
       void client.invalidateQueries({ queryKey: ['admin', 'quotes'] });
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.sendDefaults(projectId) });
+      // The batch a quote belongs to follows its decisions (server side), and the dashboard counts them.
+      void client.invalidateQueries({ queryKey: ['admin', 'batch'] });
+      void client.invalidateQueries({ queryKey: ['admin', 'batches'] });
+      void client.invalidateQueries({ queryKey: ADMIN_KEYS.kpis });
     },
   });
 }

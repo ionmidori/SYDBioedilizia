@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 
 import { buildPatch, MAX_IMAGE_BYTES, PortfolioForm } from '../PortfolioForm';
 import { PortfolioManager } from '../PortfolioManager';
@@ -10,9 +10,12 @@ import {
   useUpdatePortfolioProject,
   useUploadPortfolioImage,
 } from '@/hooks/admin/use-admin';
+import { AdminApiError } from '@/lib/admin/admin-api';
+import { prepareImageForUpload } from '@/lib/admin/image-prep';
 import type { PortfolioProject } from '@/types/admin-content';
 
 jest.mock('@/hooks/admin/use-admin');
+jest.mock('@/lib/admin/image-prep', () => ({ prepareImageForUpload: jest.fn(async (file: File) => file) }));
 const mockList = useAdminPortfolio as jest.MockedFunction<typeof useAdminPortfolio>;
 const mockCreate = useCreatePortfolioProject as jest.MockedFunction<typeof useCreatePortfolioProject>;
 const mockUpdate = useUpdatePortfolioProject as jest.MockedFunction<typeof useUpdatePortfolioProject>;
@@ -135,12 +138,32 @@ describe('PortfolioManager', () => {
 describe('PortfolioForm', () => {
   const file = (type: string, size = 1000) => new File([new Uint8Array(size)], 'foto.jpg', { type });
 
-  it('uploads the chosen image and previews the stored copy', () => {
+  it('uploads the chosen image and previews the stored copy', async () => {
     upload.mutate.mockImplementation((_f, options) => options.onSuccess({ image_url: NEW_IMAGE, width: 1920, height: 1080, size_bytes: 1 }));
     render(<PortfolioForm project={null} open onOpenChange={jest.fn()} />);
     fireEvent.change(screen.getByTestId('portfolio-file'), { target: { files: [file('image/jpeg')] } });
-    expect(upload.mutate).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(upload.mutate).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId('portfolio-preview')).toHaveAttribute('src', NEW_IMAGE);
+  });
+
+  it('sends the shrunk copy when the photo is big', async () => {
+    const shrunk = file('image/jpeg', 10);
+    (prepareImageForUpload as jest.Mock).mockResolvedValueOnce(shrunk);
+    render(<PortfolioForm project={null} open onOpenChange={jest.fn()} />);
+    fireEvent.change(screen.getByTestId('portfolio-file'), { target: { files: [file('image/jpeg', 8_000_000)] } });
+    await waitFor(() => expect(upload.mutate).toHaveBeenCalledTimes(1));
+    expect(upload.mutate.mock.calls[0][0]).toBe(shrunk);
+  });
+
+  it.each([
+    ['too large', new AdminApiError(413, 'HTTP_413', 'File too large'), 'massimo 10 MB'],
+    ['not an image', new AdminApiError(400, 'HTTP_400', 'Security validation failed'), 'non sembra un\'immagine valida'],
+    ['undecodable', new AdminApiError(422, 'INVALID_IMAGE', 'x'), 'non è un\'immagine utilizzabile'],
+    ['storage down', new AdminApiError(502, 'PORTFOLIO_UPLOAD_FAILED', 'x'), 'Riprova tra poco'],
+  ])('explains an upload that failed because the file is %s', (_label, error, message) => {
+    upload.error = error;
+    render(<PortfolioForm project={null} open onOpenChange={jest.fn()} />);
+    expect(screen.getByTestId('error-banner')).toHaveTextContent(message);
   });
 
   it.each([
@@ -151,6 +174,7 @@ describe('PortfolioForm', () => {
     fireEvent.change(screen.getByTestId('portfolio-file'), { target: { files: [chosen] } });
     expect(screen.getByTestId('portfolio-file-error')).toHaveTextContent(message);
     expect(upload.mutate).not.toHaveBeenCalled();
+    expect(prepareImageForUpload).not.toHaveBeenCalled();
   });
 
   it('creating needs a title, a place and an image, and says which is missing', () => {
@@ -163,10 +187,11 @@ describe('PortfolioForm', () => {
     expect(create.mutate).not.toHaveBeenCalled();
   });
 
-  it('creates with the uploaded image', () => {
+  it('creates with the uploaded image', async () => {
     upload.mutate.mockImplementation((_f, options) => options.onSuccess({ image_url: NEW_IMAGE, width: 1, height: 1, size_bytes: 1 }));
     render(<PortfolioForm project={null} open onOpenChange={jest.fn()} />);
     fireEvent.change(screen.getByTestId('portfolio-file'), { target: { files: [file('image/png')] } });
+    await waitFor(() => expect(screen.getByTestId('portfolio-preview')).toHaveAttribute('src', NEW_IMAGE));
     fireEvent.change(screen.getByTestId('portfolio-title'), { target: { value: '  Cucina Prati ' } });
     fireEvent.change(screen.getByTestId('portfolio-location'), { target: { value: 'Roma' } });
     fireEvent.click(screen.getByTestId('portfolio-save'));
@@ -194,5 +219,22 @@ describe('PortfolioForm', () => {
     render(<PortfolioForm project={project()} open onOpenChange={jest.fn()} />);
     expect(screen.getByTestId('portfolio-save')).toBeDisabled();
     expect(screen.getByRole('status')).toHaveTextContent('Caricamento in corso');
+  });
+
+  it('editing validates too: a cleared title is explained, not left to a generic server error', () => {
+    render(<PortfolioForm project={project()} open onOpenChange={jest.fn()} />);
+    fireEvent.change(screen.getByTestId('portfolio-title'), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('portfolio-save'));
+    expect(screen.getByTestId('portfolio-problems')).toHaveTextContent('Il titolo è obbligatorio');
+    expect(update.mutate).not.toHaveBeenCalled();
+  });
+
+  it('a category outside the list is kept, so saving another field does not change it', () => {
+    const odd = project({ category: 'Giardino' });
+    render(<PortfolioForm project={odd} open onOpenChange={jest.fn()} />);
+    expect(screen.getByDisplayValue('Giardino (non in elenco)')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('portfolio-title'), { target: { value: 'Giardino nuovo' } });
+    fireEvent.click(screen.getByTestId('portfolio-save'));
+    expect(update.mutate).toHaveBeenCalledWith({ id: 'p1', body: { title: 'Giardino nuovo' } }, expect.any(Object));
   });
 });

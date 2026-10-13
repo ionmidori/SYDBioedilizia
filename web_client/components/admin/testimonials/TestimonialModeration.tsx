@@ -83,7 +83,7 @@ export function TestimonialModeration() {
       ) : (
         <ul className="space-y-3">
           {list.data.items.map((review) => (
-            <ReviewCard key={review.id} review={review} pending={moderate.isPending && moderate.variables?.id === review.id} onModerate={(decision, notes) => moderate.mutate({ id: review.id, body: { decision, notes } })} />
+            <ReviewCard key={review.id} review={review} pending={moderate.isPending} onModerate={(decision, notes) => moderate.mutate({ id: review.id, body: { decision, notes } })} />
           ))}
         </ul>
       )}

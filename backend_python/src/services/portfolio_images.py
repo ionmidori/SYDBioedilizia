@@ -21,7 +21,7 @@ import time
 from urllib.parse import quote
 
 from firebase_admin import storage
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageCms, ImageOps, UnidentifiedImageError
 
 from src.core.exceptions import AppException
 
@@ -42,6 +42,34 @@ class InvalidImageError(AppException):
         super().__init__(message=f"The file is not a usable image: {reason}")
 
 
+def _to_srgb(image: Image.Image) -> Image.Image:
+    """RGB/RGBA in the sRGB colour space, whatever the source mode or embedded profile.
+
+    Dropping a profile without converting the pixels washes out a Display-P3 phone
+    photo or an Adobe RGB export, so when one is embedded the pixels are converted
+    first. Converting happens BEFORE resizing too: Pillow resizes palette and 1-bit
+    images with nearest neighbour, which looks jagged.
+    """
+    has_alpha = image.mode in ("RGBA", "LA", "PA") or (image.mode == "P" and "transparency" in image.info)
+    target = "RGBA" if has_alpha else "RGB"
+    icc = image.info.get("icc_profile")
+    if icc and image.mode in ("RGB", "RGBA", "CMYK", "L", "LA"):
+        try:
+            alpha = image.getchannel("A") if has_alpha else None
+            base = image.convert("RGB") if image.mode in ("RGBA", "L", "LA") else image
+            converted = ImageCms.profileToProfile(
+                base, ImageCms.ImageCmsProfile(io.BytesIO(icc)), ImageCms.createProfile("sRGB"), outputMode="RGB"
+            )
+            if converted is not None:
+                if alpha is not None:
+                    converted.putalpha(alpha)
+                return converted
+        except (ImageCms.PyCMSError, OSError, ValueError):
+            # A broken or unusable profile must not reject the photo: use the pixels as they are.
+            logger.warning("[Portfolio] Unusable colour profile, pixels kept as they are.")
+    return image.convert(target)
+
+
 def process_image(raw: bytes) -> tuple[bytes, int, int]:
     """Decode, normalise and re-encode. Returns (webp bytes, width, height). CPU-bound: run in a thread."""
     try:
@@ -56,9 +84,8 @@ def process_image(raw: bytes) -> tuple[bytes, int, int]:
         raise InvalidImageError(type(exc).__name__) from exc
 
     image = ImageOps.exif_transpose(image) or image
+    image = _to_srgb(image)
     image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
-    has_alpha = image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info)
-    image = image.convert("RGBA" if has_alpha else "RGB")
 
     out = io.BytesIO()
     image.save(out, format="WEBP", quality=WEBP_QUALITY, method=4)  # no exif/icc passed: metadata is dropped
