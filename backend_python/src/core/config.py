@@ -179,7 +179,10 @@ class Settings(BaseSettings):
     # Comma-separated allowlist of valid n8n hostnames (SSRF prevention).
     # Example: "n8n.sydbioedilizia.com,n8n-staging.sydbioedilizia.com"
     N8N_ALLOWED_WEBHOOK_HOSTS: str | None = Field(default=None, description="Comma-separated allowlist of n8n webhook hostnames (SSRF guard)")
-    ADMIN_DASHBOARD_URL: str = Field(default="http://localhost:8501", description="Base URL of the Streamlit admin console")
+    ADMIN_DASHBOARD_URL: str = Field(
+        default="http://localhost:3000/admin/quotes",
+        description="Base URL of the admin console quote inbox (/admin/quotes); a quote dossier is {url}/{project_id}.",
+    )
 
     # Account Lifecycle (GDPR B2C Inactivity Policy)
     LIFECYCLE_SECRET: str | None = Field(
@@ -200,14 +203,6 @@ class Settings(BaseSettings):
         default=False,
         description="Require firebase.sign_in_second_factor in admin ID tokens "
                     "(enable after admins enrolled Identity Platform TOTP).",
-    )
-
-    # Admin Console internal trust (server-to-server, no Firebase user on the Streamlit side)
-    ADMIN_INTERNAL_SECRET: str | None = Field(
-        default=None,
-        description="Shared secret for POST /internal/quote/approve (X-Admin-Internal-Secret "
-                    "header). Dedicated secret, distinct from LIFECYCLE_SECRET, so a leak of "
-                    "one does not grant access to the other's action.",
     )
 
     # Model Armor (Runtime Guardrails — OWASP LLM01/LLM02)
@@ -332,7 +327,7 @@ class Settings(BaseSettings):
         if self.ENV == "production":
             import logging
             _log = logging.getLogger(__name__)
-            for name in ("N8N_WEBHOOK_HMAC_SECRET", "LIFECYCLE_SECRET", "ADMIN_INTERNAL_SECRET", "BREVO_WEBHOOK_TOKEN"):
+            for name in ("N8N_WEBHOOK_HMAC_SECRET", "LIFECYCLE_SECRET", "BREVO_WEBHOOK_TOKEN"):
                 value = getattr(self, name, None)
                 if value and len(value) < 32:
                     _log.warning(

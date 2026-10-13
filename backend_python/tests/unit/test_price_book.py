@@ -167,7 +167,7 @@ async def test_other_skus_can_be_removed(db):
     assert result.removed == 1
 
 
-# ── A document written by another tool (the legacy Streamlit editor) ──────────
+# ── A document written by another tool (the removed Streamlit editor) ─────────
 
 
 @pytest.mark.parametrize(

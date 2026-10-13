@@ -519,12 +519,7 @@ from src.api.routes.lifecycle_routes import router as lifecycle_router
 
 app.include_router(lifecycle_router)
 
-# Register internal quote approval route (Streamlit admin console, shared secret)
 from datetime import UTC
-
-from src.api.routes.internal_quote_routes import router as internal_quote_router
-
-app.include_router(internal_quote_router)
 
 # 🧪 TEST AUTOMATION ROUTER (Only in development)
 if settings.ENV == "development":

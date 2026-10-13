@@ -29,23 +29,6 @@ updates:
         update-types: ["minor", "patch"]
     labels: ["dependencies", "backend"]
 
-  # ── Admin tool (Python / uv) ─────────────────────────────────────────────
-  # MUST be "uv", not "pip" -- same reasoning as /backend_python above.
-  # admin_tool used to be a bare requirements.txt (no lockfile); migrated to
-  # a pyproject.toml + uv.lock pair (see Dockerfile/CI), so "pip" would once
-  # again only rewrite floors and never touch the lock the image ships from.
-  - package-ecosystem: "uv"
-    directory: "/admin_tool"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
-      admin-tool:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-    labels: ["dependencies", "admin-tool"]
-
   # ── npm (root + web_client workspace) ────────────────────────────────────
   # web_client is an npm workspace of the root, so its dependency tree lives in
   # the root package-lock.json. A single npm entry at "/" covers both — do NOT
@@ -90,13 +73,6 @@ updates:
       interval: "weekly"
       day: "monday"
     labels: ["dependencies", "docker"]
-
-  - package-ecosystem: "docker"
-    directory: "/admin_tool"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    labels: ["dependencies", "docker", "admin-tool"]
 
   # ── GitHub Actions ───────────────────────────────────────────────────────
   - package-ecosystem: "github-actions"

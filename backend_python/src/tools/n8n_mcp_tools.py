@@ -180,7 +180,7 @@ async def notify_admin_wrapper(
         "estimated_value": round(estimated_value, 2),
         "client_name": client_name or "Unknown",
         "urgency": urgency,
-        "review_url": f"{settings.ADMIN_DASHBOARD_URL}/quotes/{project_id}",
+        "review_url": f"{settings.ADMIN_DASHBOARD_URL}/{project_id}",
     }
 
     try:

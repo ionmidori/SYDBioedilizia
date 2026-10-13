@@ -118,7 +118,6 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: 'Build image (validates Dockerfile only -- not pushed)'
-        # Same shape as the admin_tool job in admin-tool-checks.yml: plain
-        # `docker build`, no buildx actions, so this adds no new pinned
+        # Plain `docker build`, no buildx actions, so this adds no new pinned
         # dependency to the supply chain.
         run: 'docker build -t syd-brain-ci-check ./backend_python'

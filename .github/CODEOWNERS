@@ -11,8 +11,10 @@
 # Tier 2 — Next.js frontend.
 /web_client/                    @ionmidori
 
-# Admin tool (Streamlit).
-/admin_tool/                    @ionmidori
+# Admin console (Next.js /admin + FastAPI /api/admin).
+/web_client/app/admin/           @ionmidori
+/web_client/components/admin/    @ionmidori
+/backend_python/src/api/routes/admin_*.py @ionmidori
 
 # CI/CD, dependency policy, and repo governance — highest-risk surface.
 /.github/                       @ionmidori

@@ -301,12 +301,8 @@ async def _run_quote_approval(
     decision, resumes the graph, then (on approve) runs PDF generation +
     client delivery.
 
-    Shared by two callers with different auth models:
-      - POST /api/quote/{id}/approve (this module) — Firebase ID token,
-        actor_uid = the admin's Firebase uid.
-      - POST /internal/quote/approve (internal_quote_routes.py) — shared
-        secret, actor_uid = the Streamlit admin console username (no
-        Firebase user exists for that caller).
+    Called by POST /api/quote/{id}/approve and by the batch decide route
+    (Firebase ID token, actor_uid = the admin's Firebase uid).
 
     CRITICAL: ainvoke(None, config) resumes — do NOT pass initial state.
     """
