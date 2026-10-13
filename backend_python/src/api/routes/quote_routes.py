@@ -1,20 +1,17 @@
 """
-Quote API Routes — HITL flow (start/approve) + CRUD (get/list/update/delete).
+Quote API Routes — the CLIENT side of quotes (list / get / pdf / delete draft).
 
 Security: All endpoints require JWT authentication (Depends(verify_token)).
-          Admin-only actions (approve) require role="admin" Firebase custom claim.
           Project-specific actions verify caller owns the project (or is admin).
 
-HITL Flow (LangGraph):
-  - POST /{project_id}/start   — Phase 1: AI analysis → suspend at admin_review
-  - POST /{project_id}/approve — Phase 2: inject decision → resume graph (ADMIN ONLY)
-
-CRUD (Firestore):
   - GET  /user/{user_id}       — List all quotes for a user (IDOR-safe: enforces uid match)
   - GET  /{project_id}         — Get quote by project
   - GET  /{project_id}/pdf     — On-demand short-lived PDF signed URL (15 min)
-  - PATCH /{project_id}        — Update quote items/notes
   - DELETE /{project_id}       — Delete quote draft (not approved/sent)
+
+The draft is created by the AI (services/quote_drafts.py) and submitted through a
+batch (batch_routes.py). Every admin decision — edit, approve, reject, send — lives
+in /api/admin/quotes (admin_quotes.py): revisions, review lock, If-Match, state machine.
 
 Storage path: projects/{project_id}/private_data/quote
 """
@@ -28,10 +25,6 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from src.auth.admin import has_admin_role
 from src.auth.jwt_handler import verify_token
-from src.core.exceptions import (
-    CheckpointError,
-    QuoteAlreadyApprovedError,
-)
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
@@ -55,13 +48,6 @@ _PROJECT_ID = Path(
 
 
 # ─── Schemas ─────────────────────────────────────────────────────────────────
-
-class StartQuoteResponse(BaseModel):
-    model_config = {"extra": "ignore"}
-    status: str = "awaiting_admin_review"
-    project_id: str
-    message: str
-
 
 class QuoteListItemResponse(BaseModel):
     """Golden Sync: web_client/types/quote.ts → QuoteListItem."""
@@ -163,62 +149,6 @@ def _quote_doc_ref(project_id: str):
         .document(project_id)
         .collection("private_data")
         .document("quote")
-    )
-
-
-# ─── HITL Endpoints ─────────────────────────────────────────────────────────
-
-@router.post(
-    "/{project_id}/start",
-    response_model=StartQuoteResponse,
-    status_code=status.HTTP_202_ACCEPTED,
-    summary="Start HITL quote flow (Phase 1)",
-)
-@limiter.limit("5/hour")
-async def start_quote_flow(
-    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
-    project_id: str = _PROJECT_ID,
-    user_session: UserSession = Depends(verify_token),
-) -> StartQuoteResponse:
-    """
-    Phase 1: runs the QuantitySurveyor node, then suspends at admin_review.
-    State is persisted to Firestore via FirestoreSaver.
-    Returns 202 Accepted.
-    Caller must own the project or be admin.
-    """
-    await _verify_project_ownership(project_id, user_session)
-    logger.info(
-        "Starting HITL quote flow (ADK).",
-        extra={"project_id": project_id, "uid": user_session.uid},
-    )
-
-    try:
-        from src.adk.hitl import start_quote_hitl
-        await start_quote_hitl(project_id=project_id, user_id=user_session.uid)
-    except QuoteAlreadyApprovedError as e:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Quote for project '{project_id}' is already approved.",
-        ) from e
-    except CheckpointError as e:
-        logger.error(f"Checkpoint error: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Quote checkpoint service is temporarily unavailable.",
-        ) from e
-    except Exception as e:
-        logger.exception("Unexpected error in start_quote_flow.", extra={"project_id": project_id})
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error_code": "INTERNAL_ERROR", "project_id": project_id},
-        ) from e
-
-    return StartQuoteResponse(
-        project_id=project_id,
-        message=(
-            "Quote analysis complete. Awaiting admin review in the admin console. "
-            f"Visit /admin to review project '{project_id}'."
-        ),
     )
 
 
@@ -351,7 +281,7 @@ async def get_quote_pdf_url(
     quote_doc = await _quote_doc_ref(project_id).get()
     qdata = (quote_doc.to_dict() or {}) if quote_doc.exists else {}
     is_admin = has_admin_role(user_session)
-    if not is_admin and qdata.get("status") != "approved":
+    if not is_admin and qdata.get("status") not in ("approved", "sent"):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="PDF not yet available for this project.",

@@ -57,52 +57,17 @@ def test_save_quote_stores_structured_renovation_draft():
             pass
         print("   Chat simulation completed.")
 
-        # 2. Start the quote flow (Phase 1)
-        print("2. Starting quote flow...")
-        start_resp = requests.post(
-            f"{BASE_URL}/quote/{project_id}/start",
-            headers=HEADERS,
-            timeout=TIMEOUT
-        )
-        assert start_resp.status_code == 202, f"Failed to start quote: {start_resp.text}"
-        print("   Quote flow started (awaiting review).")
-
-        # Give Firestore/LangGraph a couple seconds to sync
-        time.sleep(2)
-
-        # 3. Retrieve the draft quote
-        print("3. Retrieving quote draft...")
+        # 2. Retrieve the draft the assistant saved from the chat
+        print("2. Retrieving quote draft...")
         get_resp = requests.get(f"{BASE_URL}/quote/{project_id}", headers=HEADERS, timeout=TIMEOUT)
         assert get_resp.status_code == 200, f"Failed to get quote: {get_resp.text}"
         quote_data = get_resp.json()
         print(f"   Quote retrieved, status: {quote_data.get('status')}")
 
-        # 4. Patch the quote (update admin notes)
-        print("4. Patching quote draft...")
-        patch_resp = requests.patch(
-            f"{BASE_URL}/quote/{project_id}",
-            json={"admin_notes": "Added from TC004 test"},
-            headers=HEADERS,
-            timeout=TIMEOUT
-        )
-        assert patch_resp.status_code == 200, f"Failed to patch quote: {patch_resp.text}"
-        print("   Quote patched successfully.")
-
-        # 5. Approve the quote (Phase 2)
-        print("5. Approving quote...")
-        approve_resp = requests.post(
-            f"{BASE_URL}/quote/{project_id}/approve",
-            json={"decision": "approve", "notes": "LGTM"},
-            headers=HEADERS,
-            timeout=TIMEOUT
-        )
-        assert approve_resp.status_code == 200, f"Failed to approve quote: {approve_resp.text}"
-        print("   Quote approved.")
-
     finally:
         # Cleanup
         if project_id:
-            print("6. Cleaning up project...")
+            print("3. Cleaning up project...")
             del_resp = requests.delete(
                 f"{BASE_URL}/api/projects/{project_id}",
                 headers=HEADERS,

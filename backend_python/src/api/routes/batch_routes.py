@@ -48,15 +48,6 @@ _BATCH_ID = Path(
     description="Batch ID",
 )
 
-_PROJECT_ID = Path(
-    ...,
-    min_length=1,
-    max_length=128,
-    pattern=r"^[a-zA-Z0-9_-]+$",
-    description="Project ID",
-)
-
-
 # ── Request / Response Schemas ───────────────────────────────────────────────
 
 class CreateBatchBody(BaseModel):

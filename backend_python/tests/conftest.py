@@ -159,41 +159,6 @@ def sample_image_bytes():
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PHASE 28: Quote HITL Workflow Fixtures
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@pytest.fixture
-def mock_admin_decision_body():
-    """Standard AdminDecisionBody for testing quote approval workflow."""
-    from src.api.routes.quote_routes import AdminDecisionBody
-
-    return AdminDecisionBody(
-        decision="approve",
-        notes="Approved by admin console. Ready for delivery.",
-    )
-
-
-@pytest.fixture
-def mock_quote_state():
-    """Minimal QuoteState template for testing."""
-    from src.graph.quote_state import QuoteState
-
-    return QuoteState(
-        project_id="test-project-001",
-        admin_decision=None,
-        admin_notes="",
-        ai_draft={
-            "structural_skeleton": "Modern living room",
-            "material_plan": "Plaster + oak flooring",
-            "furnishing_strategy": "Minimalist furniture",
-            "technical_notes": "8K photorealistic render",
-        },
-        pdf_url="",
-    )
-
-
 @pytest.fixture
 def mock_n8n_webhook_urls(monkeypatch):
     """Setup n8n webhook URLs for testing by patching settings object."""
@@ -205,18 +170,6 @@ def mock_n8n_webhook_urls(monkeypatch):
         "notify_admin": "https://n8n.example.com/webhook/notify-admin",
         "deliver_quote": "https://n8n.example.com/webhook/deliver-quote",
     }
-
-
-@pytest.fixture
-def mock_quote_graph():
-    """Mock ADK HITL functions for quote route testing (Replaces old mock_quote_graph)."""
-    with patch("src.adk.hitl.start_quote_hitl") as mock_start:
-        mock_start.return_value = {"status": "awaiting_admin_review"}
-
-        class MockHitl:
-            start = mock_start
-
-        yield MockHitl()
 
 
 @pytest.fixture

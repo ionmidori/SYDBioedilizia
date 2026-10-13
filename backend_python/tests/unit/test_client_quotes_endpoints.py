@@ -134,6 +134,30 @@ class TestQuotePdfUrl:
         assert resp.json()["pdf_url"] == "https://fresh.example/q.pdf"
         bucket.blob.assert_called_once_with("projects/p1/quotes/quote_99.pdf")
 
+    def test_a_delivered_quote_stays_downloadable_for_its_owner(self):
+        """Sending moves approved -> sent; the client must still get the PDF it was emailed."""
+        quote_ref, bucket, blob, ownership = self._patches(
+            _quote_doc("sent", blob_path="projects/p1/quotes/PRV-2026-0001_r2.pdf")
+        )
+        with (
+            ownership,
+            patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
+            patch("firebase_admin.storage.bucket", return_value=bucket),
+        ):
+            resp = _make_client().get("/api/quote/p1/pdf")
+        assert resp.status_code == 200 and resp.json()["pdf_url"]
+        bucket.blob.assert_called_once_with("projects/p1/quotes/PRV-2026-0001_r2.pdf")
+
+    def test_a_draft_or_rejected_quote_has_no_pdf_for_its_owner(self):
+        for state in ("draft", "pending_review", "in_review", "rejected"):
+            quote_ref, bucket, _, ownership = self._patches(_quote_doc(state, blob_path="projects/p1/quotes/q.pdf"))
+            with (
+                ownership,
+                patch("src.api.routes.quote_routes._quote_doc_ref", return_value=quote_ref),
+                patch("firebase_admin.storage.bucket", return_value=bucket),
+            ):
+                assert _make_client().get("/api/quote/p1/pdf").status_code == 404, state
+
     def test_missing_blob_returns_404(self):
         quote_ref, bucket, _, ownership = self._patches(
             _quote_doc("approved", blob_path="projects/p1/quotes/quote_99.pdf"),
@@ -219,6 +243,11 @@ class TestLegacyAdminWritesAreGone:
         for client in (_make_client(), _make_client(role="admin", uid="admin-uid")):
             resp = client.post("/api/quote/p1/approve", json={"decision": "approve"})
             assert resp.status_code in (404, 405)
+
+    def test_the_orphaned_start_route_is_gone(self):
+        """It let the owner force `pending_review` on a quote in any state (sent, rejected, in review)."""
+        for client in (_make_client(), _make_client(role="admin", uid="admin-uid")):
+            assert client.post("/api/quote/p1/start").status_code in (404, 405)
 
     def test_the_batch_decide_route_is_gone(self):
         from src.api.routes.batch_routes import router as batch_router

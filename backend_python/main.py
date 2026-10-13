@@ -358,7 +358,7 @@ class AppCheckMiddleware:
     # token, and a 403 there would keep every new revision from ever starting.
     _PUBLIC_PATHS = frozenset({
         "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
-        "/internal/lifecycle/run", "/internal/quote/approve",
+        "/internal/lifecycle/run",
         # Email platform (Phase 128): Cloud Tasks OIDC / Brevo bearer token.
         "/internal/email/sweep", "/webhooks/email/brevo",
     })
