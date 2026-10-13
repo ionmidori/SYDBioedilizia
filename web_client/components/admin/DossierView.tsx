@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2, Lock, Save } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Lock, Save, TriangleAlert } from 'lucide-react';
 
 import { ApproveDialog } from '@/components/admin/dossier/ApproveDialog';
 import { ClientCard, clientDisplayName, RequestCard } from '@/components/admin/dossier/DossierCards';
@@ -15,7 +15,7 @@ import { ReasonDialog } from '@/components/admin/dossier/ReasonDialog';
 import { RevisionTimeline } from '@/components/admin/dossier/RevisionTimeline';
 import { SendDialog } from '@/components/admin/dossier/SendDialog';
 import { StatusChip } from '@/components/admin/StatusChip';
-import { DELIVERY_STATUS_CHIP, formatEuro, QUOTE_STATUS_CHIP } from '@/components/admin/quote-status';
+import { DELIVERY_STATUS_CHIP, formatDateTime, formatEuro, QUOTE_STATUS_CHIP } from '@/components/admin/quote-status';
 import {
   useAdminDossier,
   useAdminMe,
@@ -77,7 +77,7 @@ export function DossierView({ projectId }: { projectId: string }) {
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [showErrors, setShowErrors] = useState(false);
-  const [dialog, setDialog] = useState<'approve' | 'reject' | 'reopen' | 'send' | null>(null);
+  const [dialog, setDialog] = useState<'approve' | 'reject' | 'reopen' | 'revise' | 'send' | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -172,6 +172,13 @@ export function DossierView({ projectId }: { projectId: string }) {
   const pdfReady =
     !!quote.pdf_blob_path && (approvedRevision === null || quote.pdf_revision === approvedRevision);
 
+  // A quote that was already sent: who got it and when (the latest delivery that went out).
+  const lastSent = [...dossier.data.deliveries]
+    .filter((d) => d.status !== 'failed' && d.status !== 'queued')
+    .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
+  const sentAt = quote.sent_at ?? lastSent?.sent_at ?? null;
+  const alreadySent = !!sentAt;
+  const sentTo = lastSent?.to ?? quote.client_snapshot?.email ?? 'il cliente';
   const statusChip = QUOTE_STATUS_CHIP[status];
   const deliveryChip = DELIVERY_STATUS_CHIP[quote.delivery_status];
   const quoteNumber = quote.quote_number ?? 'Senza numero';
@@ -311,6 +318,20 @@ export function DossierView({ projectId }: { projectId: string }) {
           <span className="text-luxury-text/50">(il link vale 15 minuti)</span>
         </p>
       )}
+      {alreadySent && (status === 'in_review' || status === 'approved') && (
+        <p
+          role="status"
+          data-testid="sent-before-banner"
+          className="flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200"
+        >
+          <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" aria-hidden />
+          <span>
+            Questo preventivo era già stato inviato a {sentTo} il {formatDateTime(sentAt)}: il cliente ha ancora quella
+            versione. Stai lavorando a una nuova revisione, che arriverà al cliente solo dopo l&apos;approvazione e un
+            nuovo invio.
+          </span>
+        </p>
+      )}
       {review?.reason && (status === 'rejected' || status === 'in_review') && (
         <p className="text-sm text-luxury-text/70" data-testid="review-reason">
           Ultimo motivo registrato: {review.reason}
@@ -360,6 +381,11 @@ export function DossierView({ projectId }: { projectId: string }) {
         {(status === 'approved' || status === 'sent') && (
           <ActionButton onClick={() => setDialog('send')} disabled={busy || !pdfReady} primary testId="btn-send">
             {status === 'sent' ? 'Invia di nuovo' : 'Invia al cliente'}
+          </ActionButton>
+        )}
+        {status === 'sent' && (
+          <ActionButton onClick={() => setDialog('revise')} disabled={busy} testId="btn-revise">
+            Rivedi preventivo
           </ActionButton>
         )}
         {(status === 'approved' || status === 'rejected') && (
@@ -540,6 +566,44 @@ export function DossierView({ projectId }: { projectId: string }) {
               setDialog(null);
               setPdfPreviewUrl(null);
               setNotice('Preventivo riaperto: ora è in revisione.');
+            },
+          })
+        }
+      />
+      <ReasonDialog
+        open={dialog === 'revise'}
+        onOpenChange={(open) => {
+          setDialog(open ? 'revise' : null);
+          if (!open) reopen.reset();
+        }}
+        title="Rivedere un preventivo già inviato?"
+        description="Torna «In revisione» e potrai modificarlo: dovrai approvarlo e inviarlo di nuovo."
+        confirmLabel="Rivedi e crea nuova revisione"
+        pending={reopen.isPending}
+        error={reopen.error}
+        notice={
+          <>
+            <p className="font-medium">Attenzione: questo preventivo è già stato inviato al cliente.</p>
+            <p>
+              Inviato a {sentTo} il {formatDateTime(sentAt)}. Rivederlo crea una <strong>nuova revisione</strong> (rev.{' '}
+              {quote.version + 1}) del preventivo {quoteNumber}: il cliente conserva la versione che ha già ricevuto finché
+              non approvi e invii quella nuova.
+            </p>
+          </>
+        }
+        noticeTestId="revise-warning"
+        onReload={() => {
+          setDialog(null);
+          reload();
+        }}
+        onConfirm={(reason) =>
+          reopen.mutate(reason, {
+            onSuccess: () => {
+              setDialog(null);
+              setPdfPreviewUrl(null);
+              setNotice(
+                'Preventivo riaperto in revisione. Il cliente ha ancora la versione già inviata: servono approvazione e un nuovo invio.',
+              );
             },
           })
         }

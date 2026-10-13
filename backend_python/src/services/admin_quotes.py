@@ -279,10 +279,17 @@ async def reject_tx(
 async def reopen_tx(
     transaction: Any, db: Any, project_id: str, admin_uid: str, reason: str, now: datetime
 ) -> WriteResult:
-    """Approved (never sent) or rejected → back in review, locked to this admin."""
+    """Approved, rejected — or already SENT — back in review, locked to this admin.
+
+    Revising a sent quote does not touch what the client received: the PDF that was
+    emailed (`pdf_blob_path`, `pdf_revision`), `sent_at`, the delivery history and
+    `delivery_status` stay as they are. The new content becomes a new revision when
+    edited; it must be approved and sent again to reach the client.
+    """
     ref, quote = await _read(transaction, db, project_id)
     _check_lock(project_id, quote, admin_uid, now)
-    status = transition(quote.get("status", ""), QuoteEvent.REOPEN)
+    event = QuoteEvent.REVISE if quote.get("status") == QuoteStatus.SENT else QuoteEvent.REOPEN
+    status = transition(quote.get("status", ""), event)
     transaction.update(
         ref,
         {
