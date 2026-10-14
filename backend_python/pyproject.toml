@@ -132,6 +132,6 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "pip-audit>=2.10.1",
-    "ruff>=0.16.10",
+    "ruff>=0.17.0",
     "pyright>=1.1.414",
 ]
