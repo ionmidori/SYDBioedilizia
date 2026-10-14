@@ -18,7 +18,8 @@ architecture docs; ask a maintainer for the current architecture map.
 
 ## Prerequisites
 
-- **Node.js 22+** and npm (frontend is an npm workspace — always `npm install`
+- **Node.js 24.12+** (`engines.node` `^24.12.0`, required by firebase 13) and
+  npm 10 for lockfile changes (frontend is an npm workspace — always `npm install`
   from the repo root, never from `web_client/`).
 - **Python 3.12+** and [`uv`](https://docs.astral.sh/uv/) (backend).
 
