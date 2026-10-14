@@ -48,8 +48,13 @@ jobs:
       - name: 'Set up Node.js'
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version-file: 'package.json'
           cache: 'npm'
+
+      # Node 24 bundles npm 11; the lockfile toolchain is npm 10 (see
+      # .claude/rules/frontend.md). Pin it so CI resolves like the lockfile.
+      - name: 'Pin npm 10 (lockfile toolchain)'
+        run: npm install -g npm@10.9.9 && npm -v
 
       - name: 'Install dependencies'
         run: npm ci
