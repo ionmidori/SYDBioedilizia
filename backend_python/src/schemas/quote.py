@@ -205,7 +205,7 @@ class QuoteSchema(BaseModel):
     updated_at: datetime = Field(default_factory=utc_now)
     # Optimistic-concurrency token: bumped on every content change.
     version: int = 1
-    # Written by the approval pipeline (quote_routes._run_quote_approval / adk.hitl).
+    # Written when a quote is approved (services/admin_quotes.approve + pdf render).
     # Typed here so stored approved quotes still validate under extra="forbid".
     pdf_url: str | None = None
     pdf_blob_path: str | None = None

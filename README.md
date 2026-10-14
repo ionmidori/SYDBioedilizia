@@ -87,7 +87,7 @@ The platform is built on a strict separation of concerns to ensure institutional
 | Service | Region | URL |
 | :--- | :--- | :--- |
 | **Backend (syd-brain)** | `europe-west1` | Cloud Run (revision `syd-brain-00253-xch`) |
-| **Admin Console** | `europe-west1` | https://syd-admin-972229558318.europe-west1.run.app |
+| **Admin Console** | Vercel (Next.js `/admin`) | https://sydbioedilizia.vercel.app/admin |
 | **n8n Workflows** | `europe-west1` | Cloud Run (4 workflows active) |
 
 ### Local Development

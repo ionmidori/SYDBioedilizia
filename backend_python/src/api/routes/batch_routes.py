@@ -5,23 +5,23 @@ A QuoteBatch is a grouping container: individual project quotes are preserved
 as-is (no aggregation/merge). The batch groups them for a single submission.
 
 Security: All endpoints require JWT authentication (Depends(verify_token)).
-          Admin-only actions (per-project approve/reject) require role="admin".
+          A client sees only its own batches. The admin reviews and decides each quote
+          in the admin console (/api/admin/batches, /api/admin/quotes), never from here.
 
 Firestore path: quote_batches/{batch_id}
 
 Flow:
   1. User creates a batch from selected project IDs → POST /quote/batch
   2. User submits batch to admin → POST /quote/batch/{batch_id}/submit
-  3. Admin reviews each project independently → POST /quote/batch/{batch_id}/projects/{project_id}/decide
+  3. Admin decides each quote in its dossier (/admin/quotes/{project_id});
+     the batch follows (services/batch_sync.py).
 """
 from __future__ import annotations
 
 import logging
-from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
 from pydantic import BaseModel, Field
-from src.api.routes.quote_routes import _run_quote_approval
 from src.auth.admin import has_admin_role
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import (
@@ -33,9 +33,8 @@ from src.core.exceptions import (
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
-from src.schemas.quote import AggregationAdjustment, BatchStatusType, QuoteBatch
+from src.schemas.quote import AggregationAdjustment, QuoteBatch
 from src.services import batch_service
-from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 # /api prefix: see quote_routes.py — client-facing routers live under /api/*.
@@ -48,15 +47,6 @@ _BATCH_ID = Path(
     pattern=r"^[a-zA-Z0-9_-]+$",
     description="Batch ID",
 )
-
-_PROJECT_ID = Path(
-    ...,
-    min_length=1,
-    max_length=128,
-    pattern=r"^[a-zA-Z0-9_-]+$",
-    description="Project ID",
-)
-
 
 # ── Request / Response Schemas ───────────────────────────────────────────────
 
@@ -94,22 +84,6 @@ class AggregationPreviewResponse(BaseModel):
     adjustments: list[AggregationAdjustment]
 
 
-class ProjectDecisionBody(BaseModel):
-    model_config = {"extra": "forbid"}
-    decision: Literal["approve", "reject"] = Field(
-        ..., description="Admin decision for this project within the batch",
-    )
-    notes: str = Field(default="", max_length=2000)
-
-
-class ProjectDecisionResponse(BaseModel):
-    model_config = {"extra": "ignore"}
-    batch_id: str
-    project_id: str
-    decision: str
-    batch_status: str
-
-
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 def _batch_ref(batch_id: str):
@@ -134,14 +108,6 @@ async def _verify_batch_ownership(batch_data: dict, user_session: UserSession) -
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied.",
-        )
-
-
-def _require_admin(user_session: UserSession) -> None:
-    if not has_admin_role(user_session):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required.",
         )
 
 
@@ -314,104 +280,4 @@ async def submit_batch(
         total_projects=summary.total_projects,
         batch_subtotal=summary.batch_subtotal,
         status=summary.status,
-    )
-
-
-@router.post(
-    "/{batch_id}/projects/{project_id}/decide",
-    response_model=ProjectDecisionResponse,
-    summary="Admin: approve or reject a single project in the batch",
-)
-@limiter.limit("20/minute")
-async def decide_project(
-    request: Request,  # pyright: ignore[reportUnusedParameter]
-    batch_id: str = _BATCH_ID,
-    project_id: str = _PROJECT_ID,
-    body: ProjectDecisionBody = ...,  # type: ignore[assignment]
-    user_session: UserSession = Depends(verify_token),
-) -> ProjectDecisionResponse:
-    """
-    Admin approves or rejects a single project within a batch.
-    When all projects have been decided, the batch status auto-transitions.
-    """
-    _require_admin(user_session)
-
-    data = await _get_batch_or_404(batch_id)
-    if data.get("status") not in ("submitted", "partially_approved"):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Batch status is '{data.get('status')}'. Must be 'submitted' or 'partially_approved'.",
-        )
-
-    # Find and update the target project
-    projects = data.get("projects", [])
-    found = False
-    new_status = "approved" if body.decision == "approve" else "rejected"
-    for proj in projects:
-        if proj.get("project_id") == project_id:
-            new_status = "approved" if body.decision == "approve" else "rejected"
-            proj["status"] = new_status
-            if body.notes:
-                proj["admin_notes"] = body.notes
-            found = True
-            break
-
-    if not found:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Project '{project_id}' not found in batch '{batch_id}'.",
-        )
-
-    # Determine overall batch status
-    statuses = {p.get("status") for p in projects}
-    if statuses <= {"approved"}:
-        batch_status: BatchStatusType = "approved"
-    elif statuses <= {"rejected"}:
-        batch_status = "rejected"
-    elif "draft" not in statuses:
-        batch_status = "partially_approved"
-    else:
-        batch_status = "submitted"
-
-    now = utc_now()
-    await _batch_ref(batch_id).update({
-        "projects": projects,
-        "status": batch_status,
-        "updated_at": now,
-    })
-
-    # Run the SAME approve/reject pipeline as POST /api/quote/{id}/approve —
-    # on approve this generates the PDF, saves pdf_blob_path, and delivers the
-    # quote by email to the project owner (previously this only flipped the
-    # quote doc's status field, so batch-approved quotes were never delivered
-    # and their PDF download always 404'd — see Phase 96 smoke findings).
-    # Best-effort like the previous inline update: the batch decision itself
-    # must succeed even if the per-project pipeline fails (e.g. already
-    # decided outside the batch flow, or a transient PDF/delivery error).
-    try:
-        await _run_quote_approval(project_id, body.decision, body.notes, user_session.uid)
-    except HTTPException as e:
-        # _run_quote_approval maps its own domain errors (e.g. no pending
-        # review found — already decided outside the batch flow) to
-        # HTTPException; swallow here, the batch decision already succeeded.
-        logger.warning(
-            "Quote approval pipeline failed for project in batch.",
-            extra={"project_id": project_id, "batch_id": batch_id, "status_code": e.status_code},
-        )
-
-    logger.info(
-        "Admin decided on project in batch.",
-        extra={
-            "batch_id": batch_id,
-            "project_id": project_id,
-            "decision": body.decision,
-            "batch_status": batch_status,
-        },
-    )
-
-    return ProjectDecisionResponse(
-        batch_id=batch_id,
-        project_id=project_id,
-        decision=body.decision,
-        batch_status=batch_status,
     )

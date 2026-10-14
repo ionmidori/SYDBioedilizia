@@ -42,23 +42,19 @@ features:
         path: /api/projects/{session_id}
         description: Delete a project
         auth_required: true
-  - name: Renovation Quote (HITL)
-    description: Human-in-the-loop workflow for generating and approving renovation quotes.
+  - name: Renovation Quote (client side)
+    description: Quotes drafted by the AI and read by their owner; admin decisions live in /api/admin/quotes.
     files:
       - src/api/routes/quote_routes.py
-      - src/graph/quote_graph.py
+      - src/api/routes/admin_quotes.py
     endpoints:
-      - method: POST
-        path: /quote/{project_id}/start
-        description: Start quote analysis flow (Phase 1)
-        auth_required: true
-      - method: POST
-        path: /quote/{project_id}/approve
-        description: Admin decision to approve/reject quote (Phase 2)
+      - method: GET
+        path: /api/quote/{project_id}
+        description: Retrieve quote details (owner; prices masked until approved)
         auth_required: true
       - method: GET
-        path: /quote/{project_id}
-        description: Retrieve quote details
+        path: /api/quote/{project_id}/pdf
+        description: Short-lived signed PDF link (approved or sent quotes)
         auth_required: true
   - name: Health & Utility
     description: System monitoring and administrative endpoints.

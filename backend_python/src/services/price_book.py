@@ -95,8 +95,8 @@ def _seed_state(problem: Literal["legacy_document", "invalid_items"] | None = No
 def _state_from(data: dict[str, Any] | None) -> PriceBookState:
     """The stored price book, or the seed when there is none or it cannot be trusted.
 
-    Other tools (the legacy Streamlit editor) wrote this document with no
-    version and no validation (NaN, `tags: None`...). A document that is not
+    Another tool (the old Streamlit editor, removed in Phase 128) wrote this document
+    with no version and no validation (NaN, `tags: None`...); a stale copy may exist. A document that is not
     exactly what `save` writes is ignored and logged, never served to the AI.
     """
     if not data:

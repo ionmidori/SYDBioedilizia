@@ -358,7 +358,7 @@ class AppCheckMiddleware:
     # token, and a 403 there would keep every new revision from ever starting.
     _PUBLIC_PATHS = frozenset({
         "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
-        "/internal/lifecycle/run", "/internal/quote/approve",
+        "/internal/lifecycle/run",
         # Email platform (Phase 128): Cloud Tasks OIDC / Brevo bearer token.
         "/internal/email/sweep", "/webhooks/email/brevo",
     })
@@ -519,12 +519,7 @@ from src.api.routes.lifecycle_routes import router as lifecycle_router
 
 app.include_router(lifecycle_router)
 
-# Register internal quote approval route (Streamlit admin console, shared secret)
 from datetime import UTC
-
-from src.api.routes.internal_quote_routes import router as internal_quote_router
-
-app.include_router(internal_quote_router)
 
 # 🧪 TEST AUTOMATION ROUTER (Only in development)
 if settings.ENV == "development":

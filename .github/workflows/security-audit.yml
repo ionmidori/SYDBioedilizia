@@ -1,9 +1,9 @@
-name: 'Security Audit (root npm + admin_tool)'
+name: 'Security Audit (root npm)'
 
 # Closes the CI coverage gap: backend_python (pip-audit) and web_client
 # (npm audit) are already gated in their own workflows, but the root npm
-# tooling lockfile and the admin_tool Python deps had no audit gate, so
-# advisories there only surfaced via the Dependabot dashboard. This job
+# tooling lockfile had no audit gate, so advisories there only surfaced via
+# the Dependabot dashboard. This job
 # fails the build on actionable (production-affecting) vulnerabilities.
 
 on:
@@ -12,16 +12,12 @@ on:
     paths:
       - 'package-lock.json'
       - 'package.json'
-      - 'admin_tool/pyproject.toml'
-      - 'admin_tool/uv.lock'
       - '.github/workflows/security-audit.yml'
   pull_request:
     branches: ['main', 'develop']
     paths:
       - 'package-lock.json'
       - 'package.json'
-      - 'admin_tool/pyproject.toml'
-      - 'admin_tool/uv.lock'
       - '.github/workflows/security-audit.yml'
   schedule:
     # Weekly safety net — catches newly-published advisories even when no
@@ -51,30 +47,6 @@ jobs:
       # genuinely dev-only advisories are left to Dependabot PRs.
       - name: 'Audit production dependencies (fail on high/critical)'
         run: npm audit --omit=dev --audit-level=high
-
-  admin-tool-audit:
-    name: 'admin_tool pip-audit'
-    runs-on: 'ubuntu-latest'
-    defaults:
-      run:
-        working-directory: './admin_tool'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          # Tracks the base image in admin_tool/Dockerfile: pip-audit resolves
-          # against the interpreter it runs on, so auditing 3.12 wheels while
-          # Cloud Run ships 3.14 would audit a tree that is not deployed.
-          python-version: '3.14'
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          version: 'latest'
-      - name: 'Install locked dependencies'
-        # --locked: audit the resolution the Dockerfile actually ships, not a
-        # fresh re-resolve of the floors in pyproject.toml.
-        run: uv sync --locked
-      - name: 'Audit admin_tool dependencies'
-        run: uv run pip-audit --strict --desc
 
   dependabot-alert-freshness:
     name: 'Dependabot alert freshness'

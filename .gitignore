@@ -111,6 +111,8 @@ __pycache__/
 htmlcov/
 
 # admin tool secrets
+# The Streamlit admin tool was removed (Phase 128, Fase 7). A local copy of its folder may still hold
+# credentials (config.yaml, service-account key): keep them out of git until deleted by hand.
 admin_tool/config.yaml
 
 # project memory & directives — LOCAL ONLY, must NOT be pushed to GitHub
