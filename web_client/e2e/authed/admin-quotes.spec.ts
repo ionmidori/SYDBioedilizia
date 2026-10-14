@@ -22,17 +22,20 @@ const PNG = Buffer.from(
 
 interface Fake {
   version: number;
-  status: 'pending_review' | 'approved' | 'sent';
+  status: 'pending_review' | 'approved' | 'sent' | 'in_review';
   qty: number;
   revisions: number[];
   approvedRevision: number | null;
   edits: { ifMatch: string | null; qty: number }[];
   approvals: (string | null)[];
+  reopens: string[];
   sends: { headers: Record<string, string>; body: Record<string, unknown> }[];
   /** Next PATCH answers 409 (somebody else saved first). */
   conflictOnNextEdit: boolean;
   /** The next dossier GET answers late (a real network): exposes UI races after a write. */
   slowNextDossier: boolean;
+  /** The quote has gone out at least once (stays true while it is revised). */
+  sentOnce: boolean;
 }
 
 const UNIT_PRICE = 12.5;
@@ -92,6 +95,7 @@ function dossier(f: Fake) {
       search_keys: [],
       request: { summary: 'Ridipingere il bagno di 6 mq', address: 'Via Roma 1, Roma', channel: 'chat' },
       client_snapshot: { uid: 'client-1', display_name: 'Mario Rossi', email: 'mario@example.it', is_guest: false },
+      sent_at: f.sentOnce ? '2026-10-11T10:25:35Z' : null,
       review: f.approvedRevision ? { approved_revision: f.approvedRevision } : null,
       pdf_blob_path: f.approvedRevision ? 'projects/proj-e2e/quotes/PRV-2026-0001_r.pdf' : null,
       pdf_revision: f.approvedRevision,
@@ -120,9 +124,11 @@ async function installFakeBackend(page: import('@playwright/test').Page, overrid
     approvedRevision: null,
     edits: [],
     approvals: [],
+    reopens: [],
     sends: [],
     conflictOnNextEdit: false,
     slowNextDossier: false,
+    sentOnce: false,
     ...overrides,
   };
   const json = (route: Route, status: number, body: unknown) =>
@@ -190,6 +196,15 @@ async function installFakeBackend(page: import('@playwright/test').Page, overrid
       f.approvedRevision = f.version;
       return json(route, 200, writeResponse(f, { pdf_ready: true, pdf_preview_url: 'https://storage.googleapis.com/e2e-bucket/p.pdf' }));
     }
+    if (path === `/quotes/${PID}/reopen`) {
+      const body = request.postDataJSON() as { reason: string };
+      f.reopens.push(body.reason);
+      f.status = 'in_review';
+      f.approvedRevision = null;
+      f.version += 1; // revising a sent quote starts a new version
+      f.revisions.push(f.version);
+      return json(route, 200, writeResponse(f));
+    }
     if (path === `/quotes/${PID}/send-defaults`) {
       return json(route, 200, {
         to: 'mario@example.it',
@@ -204,6 +219,7 @@ async function installFakeBackend(page: import('@playwright/test').Page, overrid
     if (path === `/quotes/${PID}/send` && method === 'POST') {
       f.sends.push({ headers: request.headers(), body: request.postDataJSON() as Record<string, unknown> });
       f.status = 'sent';
+      f.sentOnce = true;
       return route.fulfill({
         status: 202,
         contentType: 'application/json',
@@ -309,5 +325,38 @@ test.describe('admin console', () => {
 
     await page.goto('/admin/quotes', { waitUntil: 'load' });
     await expect(page).not.toHaveURL(/\/admin/);
+  });
+
+  test('a quote already sent can be revised, with a warning, and goes out again as a new revision', async ({ page }) => {
+    const fake = await installFakeBackend(page, {
+      status: 'sent',
+      version: 2,
+      approvedRevision: 2,
+      sentOnce: true,
+      sends: [{ headers: {}, body: { to: 'mario@example.it' } }],
+    });
+
+    await page.goto(`/admin/quotes/${PID}`, { waitUntil: 'load' });
+    await expect(page.getByTestId('dossier-status')).toHaveText('Inviato');
+    await expect(page.getByTestId('item-qty-0')).toBeDisabled();
+
+    await page.getByTestId('btn-revise').click();
+    const warning = page.getByTestId('revise-warning');
+    await expect(warning).toContainText('già stato inviato al cliente');
+    await expect(warning).toContainText('mario@example.it');
+    await expect(warning).toContainText('rev. 3');
+    await expect(page.getByTestId('reason-confirm')).toBeDisabled();
+    await page.getByTestId('reason-input').fill('Prezzo del materiale cambiato');
+    await page.getByTestId('reason-confirm').click();
+
+    await expect(page.getByTestId('dossier-status')).toHaveText('In revisione');
+    expect(fake.reopens).toEqual(['Prezzo del materiale cambiato']);
+    await expect(page.getByTestId('sent-before-banner')).toContainText('già stato inviato a mario@example.it');
+
+    // now it can be edited again, as a new revision
+    await page.getByTestId('item-qty-0').fill('15');
+    await page.getByTestId('btn-save').click();
+    await expect(page.getByTestId('notice')).toContainText('revisione 4');
+    await expect(page.getByTestId('btn-approve')).toBeEnabled();
   });
 });

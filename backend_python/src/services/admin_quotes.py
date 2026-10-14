@@ -32,11 +32,12 @@ from google.cloud.firestore_v1 import DELETE_FIELD, FieldFilter, Query
 from src.core.exceptions import (
     MediaNotFoundError,
     PreconditionRequiredError,
+    QuoteDeliveryPendingError,
     QuoteLockedError,
     QuoteNotFoundError,
     QuoteVersionConflictError,
 )
-from src.schemas.quote import QuoteItem, RevisionChange
+from src.schemas.quote import QuoteFinancials, QuoteItem, RevisionChange
 from src.services.pdf_service import quote_pdf_blob_path
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import build_revision, quote_doc_ref, revision_ref
@@ -279,24 +280,53 @@ async def reject_tx(
 async def reopen_tx(
     transaction: Any, db: Any, project_id: str, admin_uid: str, reason: str, now: datetime
 ) -> WriteResult:
-    """Approved (never sent) or rejected → back in review, locked to this admin."""
+    """Approved, rejected — or already SENT — back in review, locked to this admin.
+
+    Revising a sent quote does not touch what the client received: the PDF that was
+    emailed (`pdf_blob_path`, `pdf_revision`), `sent_at`, the delivery history and
+    `delivery_status` stay as they are. The quote moves to a NEW version (n+1, with
+    a revision that records the reason), so approving it without further edits
+    renders `…_r{n+1}.pdf` and never overwrites the PDF the client already has. It
+    must be approved and sent again to reach the client.
+
+    A send that is still queued (retrying) blocks the revision: the email is built
+    from the live quote and would mix the old PDF with the new, unapproved content.
+    """
     ref, quote = await _read(transaction, db, project_id)
     _check_lock(project_id, quote, admin_uid, now)
-    status = transition(quote.get("status", ""), QuoteEvent.REOPEN)
-    transaction.update(
-        ref,
-        {
-            "status": status.value,
-            "updated_at": now,
-            "admin_decision": DELETE_FIELD,
-            "review.reason": reason,
-            "review.approved_by": DELETE_FIELD,
-            "review.approved_at": DELETE_FIELD,
-            "review.approved_revision": DELETE_FIELD,
-            **_lock_fields(admin_uid, now),
-        },
-    )
-    return _result(project_id, quote, status.value, _version(quote))
+    was_sent = quote.get("status") == QuoteStatus.SENT
+    if was_sent and quote.get("delivery_status") == "queued":
+        raise QuoteDeliveryPendingError(project_id)
+    event = QuoteEvent.REVISE if was_sent else QuoteEvent.REOPEN
+    status = transition(quote.get("status", ""), event)
+    version = _version(quote)
+    updates: dict[str, Any] = {
+        "status": status.value,
+        "updated_at": now,
+        "admin_decision": DELETE_FIELD,
+        "review.reason": reason,
+        "review.approved_by": DELETE_FIELD,
+        "review.approved_at": DELETE_FIELD,
+        "review.approved_revision": DELETE_FIELD,
+        **_lock_fields(admin_uid, now),
+    }
+    if was_sent:
+        version += 1
+        updates["version"] = version
+        revision = build_revision(
+            version,
+            [QuoteItem(**i) for i in quote.get("items") or []],
+            QuoteFinancials(**(quote.get("financials") or {})),
+            quote.get("admin_notes"),
+            "admin",
+            admin_uid,
+            now,
+            reason=reason,
+        )
+        revision["diff"] = []
+        transaction.set(revision_ref(ref, version), revision)
+    transaction.update(ref, updates)
+    return _result(project_id, quote, status.value, version)
 
 
 # ── PDF (after approval) ──────────────────────────────────────────────────────

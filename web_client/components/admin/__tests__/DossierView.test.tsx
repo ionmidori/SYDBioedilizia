@@ -222,6 +222,89 @@ describe('DossierView', () => {
     expect(screen.queryByTestId('add-from-price-book')).not.toBeInTheDocument();
   });
 
+  describe('revising a quote that was already sent', () => {
+    const sent = (overrides: Record<string, unknown> = {}) =>
+      dossier(
+        {
+          deliveries: [
+            { delivery_id: 'd1', to: 'mario@example.it', cc: [], revision: 2, status: 'sent', provider: 'smtp', attempts: 1, created_by: 'a', created_at: '2026-10-11T10:25:00Z', sent_at: '2026-10-11T10:25:35Z' },
+          ],
+        },
+        {
+          status: 'sent',
+          sent_at: '2026-10-11T10:25:35Z',
+          pdf_blob_path: 'projects/p1/quotes/PRV-2026-0001_r2.pdf',
+          pdf_revision: 2,
+          review: { approved_revision: 2 },
+          ...overrides,
+        },
+      );
+
+    it('offers to revise a sent quote, and nothing else that would change it', () => {
+      setup(sent());
+      expect(screen.getByTestId('btn-revise')).toBeEnabled();
+      expect(screen.queryByTestId('btn-approve')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('btn-reopen')).not.toBeInTheDocument();
+      expect(screen.getByTestId('item-qty-0')).toBeDisabled();
+    });
+
+    it('does not offer it before the quote has gone out', () => {
+      setup(dossier());
+      expect(screen.queryByTestId('btn-revise')).not.toBeInTheDocument();
+    });
+
+    it('warns that the client already has it and that a new revision will be created', () => {
+      setup(sent());
+      fireEvent.click(screen.getByTestId('btn-revise'));
+      const warning = screen.getByTestId('revise-warning');
+      expect(warning).toHaveTextContent('già stato inviato al cliente');
+      expect(warning).toHaveTextContent('mario@example.it');
+      expect(warning).toHaveTextContent('nuova revisione');
+      expect(warning).toHaveTextContent('rev. 3'); // the sent one is version 2
+      expect(warning).toHaveTextContent('PRV-2026-0001');
+      expect(warning).toHaveTextContent('conserva la versione');
+    });
+
+    it('does not claim a date when the send was never confirmed', () => {
+      setup(
+        dossier(
+          { deliveries: [] },
+          { status: 'sent', sent_at: null, delivery_status: 'failed', pdf_blob_path: 'x.pdf', pdf_revision: 2, review: { approved_revision: 2 } },
+        ),
+      );
+      fireEvent.click(screen.getByTestId('btn-revise'));
+      const warning = screen.getByTestId('revise-warning');
+      expect(warning).toHaveTextContent('non confermato');
+    });
+
+    it('needs a written reason, then reopens the quote', () => {
+      setup(sent());
+      fireEvent.click(screen.getByTestId('btn-revise'));
+      expect(screen.getByTestId('reason-confirm')).toBeDisabled();
+      fireEvent.change(screen.getByTestId('reason-input'), { target: { value: 'Prezzo del materiale cambiato' } });
+      fireEvent.click(screen.getByTestId('reason-confirm'));
+      expect(mocks.reopen.mutate).toHaveBeenCalledWith('Prezzo del materiale cambiato', expect.any(Object));
+    });
+
+    it('keeps reminding that the client has the earlier version while it is revised or re-approved', () => {
+      setup(sent({ status: 'in_review' }));
+      const banner = screen.getByTestId('sent-before-banner');
+      expect(banner).toHaveTextContent('già stato inviato a mario@example.it');
+      expect(banner).toHaveTextContent('nuova revisione');
+    });
+
+    it('shows no such reminder on a quote that was never sent', () => {
+      setup(dossier({}, { status: 'in_review' }));
+      expect(screen.queryByTestId('sent-before-banner')).not.toBeInTheDocument();
+    });
+
+    it('the plain reopen of an approved quote has no warning (nothing reached the client)', () => {
+      setup(dossier({}, { status: 'approved', pdf_blob_path: 'x.pdf', pdf_revision: 2, review: { approved_revision: 2 } }));
+      fireEvent.click(screen.getByTestId('btn-reopen'));
+      expect(screen.queryByTestId('revise-warning')).not.toBeInTheDocument();
+    });
+  });
+
   describe('edits around a save', () => {
     function withDossier(data: QuoteDossier, isFetching: boolean) {
       m.useAdminDossier.mockReturnValue({ isPending: false, isError: false, isFetching, data, refetch: jest.fn() } as unknown as ReturnType<

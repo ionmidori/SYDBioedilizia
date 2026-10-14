@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, TriangleAlert } from 'lucide-react';
 
 import { ErrorBanner } from '@/components/admin/dossier/ErrorBanner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -19,9 +19,12 @@ interface Props {
   error: unknown;
   onConfirm: (reason: string) => void;
   onReload?: () => void;
+  /** A warning the admin must read before confirming (e.g. the quote was already sent). */
+  notice?: React.ReactNode;
+  noticeTestId?: string;
 }
 
-/** Reject / reopen: both need a written reason, stored in the audit trail. */
+/** Reject / reopen / revise: all need a written reason, stored in the audit trail. */
 export function ReasonDialog({ open, onOpenChange, ...rest }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -42,6 +45,8 @@ function ReasonForm({
   error,
   onConfirm,
   onReload,
+  notice,
+  noticeTestId,
   onCancel,
 }: Omit<Props, 'open' | 'onOpenChange'> & { onCancel: () => void }) {
   const [reason, setReason] = useState('');
@@ -59,6 +64,16 @@ function ReasonForm({
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>{description}</DialogDescription>
       </DialogHeader>
+      {notice && (
+        <div
+          role="alert"
+          data-testid={noticeTestId}
+          className="flex gap-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200"
+        >
+          <TriangleAlert className="w-5 h-5 shrink-0 text-amber-400" aria-hidden />
+          <div className="space-y-1">{notice}</div>
+        </div>
+      )}
       <label className="block space-y-1.5">
         <span className="text-sm">Motivo (obbligatorio)</span>
         <textarea
