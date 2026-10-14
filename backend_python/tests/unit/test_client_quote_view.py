@@ -141,6 +141,41 @@ def test_the_owner_cannot_delete_a_quote_they_were_sent_while_it_is_revised(db):
 
 def test_only_a_sent_quote_under_revision_is_swapped():
     assert not client_quote_view.serves_sent_copy({"status": "in_review"})
-    assert not client_quote_view.serves_sent_copy({"status": "sent", "sent_at": T_SENT})
+    assert not client_quote_view.serves_sent_copy({"status": "sent", "sent_at": T_SENT, "delivery_status": "sent"})
     assert not client_quote_view.serves_sent_copy({"status": "deleted", "sent_at": T_SENT})
     assert client_quote_view.serves_sent_copy({"status": "in_review", "sent_at": T_SENT})
+
+
+@pytest.mark.parametrize("delivery_status", ["queued", "failed"])
+def test_the_new_revision_is_not_shown_until_its_email_leaves(db, delivery_status):
+    _seed_revised(db, status="sent")
+    db.docs[QUOTE]["delivery_status"] = delivery_status
+    body = _client().get(f"/api/quote/{PID}").json()
+    assert body["version"] == 2 and body["financials"]["grand_total"] == 146.4
+
+
+def test_the_newest_delivery_the_client_got_wins(db):
+    _seed_revised(db)
+    db.put(*QUOTE, "revisions", "3", {"version": 3, "items": NEW_ITEMS, "financials": NEW_FIN})
+    db.put(*QUOTE, "deliveries", "d2", {"revision": 3, "pdf_blob_path": "x_r3.pdf", "status": "complained",
+                                        "sent_at": datetime(2026, 10, 12, tzinfo=UTC)})
+    assert _client().get(f"/api/quote/{PID}").json()["version"] == 3
+
+
+def test_a_send_that_bounced_later_is_still_the_version_the_portal_showed(db):
+    _seed_revised(db)
+    db.docs[(*QUOTE, "deliveries", "d1")]["status"] = "bounced"
+    body = _client().get(f"/api/quote/{PID}").json()
+    assert body["status"] == "sent" and body["version"] == 2
+
+
+def test_the_admin_list_shows_the_live_quote(db):
+    _seed_revised(db)
+    rows = _client(role="admin").get(f"/api/quote/user/{OWNER}").json()
+    assert rows[0]["status"] == "in_review" and rows[0]["grand_total"] == 237.9
+
+
+def test_a_never_sent_draft_can_still_be_deleted_by_its_owner(db):
+    db.put(*QUOTE, {"project_id": PID, "user_id": OWNER, "status": "draft", "items": []})
+    assert _client().delete(f"/api/quote/{PID}").status_code == 204
+    assert db.get_data(*QUOTE)["status"] == "deleted"

@@ -7,10 +7,13 @@ approved AND sent: the work in progress is confidential, and the client keeps
 the offer they received — prices, PDF, status.
 
 So while a quote that has `sent_at` is in any status other than `sent`
-(in_review, approved-but-not-sent, rejected…), the client is served the last
-revision that actually went out: the latest delivery that left the provider
-(`sent`, `delivered`, `complained`) names its revision and PDF, and the
-immutable `revisions/{n}` snapshot holds its items and totals.
+(in_review, approved-but-not-sent, rejected…) — or is `sent` again but the new
+email is still queued or has failed — the client is served the last revision
+that actually went out: the latest delivery that left the provider names its
+revision and PDF, and the immutable `revisions/{n}` snapshot holds its items
+and totals. Deliveries the client got (`sent`, `delivered`, `complained`) win;
+one accepted by the provider and bounced later is the fallback, since the
+portal already showed that version before the revision.
 """
 from __future__ import annotations
 
@@ -21,6 +24,8 @@ from src.services.quote_drafts import quote_doc_ref, revision_ref
 
 # Deliveries that left the provider: the client has (or had) that email.
 _REACHED_CLIENT = ("sent", "delivered", "complained")
+# The new email has not left yet: the client still has the previous one.
+_NOT_YET_OUT = ("queued", "failed")
 
 
 @dataclass(frozen=True)
@@ -35,19 +40,26 @@ class SentCopy:
 
 def serves_sent_copy(quote: dict[str, Any]) -> bool:
     """True if the client must see the last sent revision instead of the live quote."""
-    return bool(quote.get("sent_at")) and quote.get("status") not in ("sent", "deleted")
+    if not quote.get("sent_at") or quote.get("status") == "deleted":
+        return False
+    return quote.get("status") != "sent" or quote.get("delivery_status") in _NOT_YET_OUT
 
 
 async def last_sent_copy(db: Any, project_id: str) -> SentCopy | None:
     """The last revision the client received, or None if it cannot be rebuilt."""
     quote_ref = quote_doc_ref(db, project_id)
-    latest: dict[str, Any] | None = None
+    reached: dict[str, Any] | None = None
+    accepted: dict[str, Any] | None = None  # left the provider, bounced later
     async for snap in quote_ref.collection("deliveries").stream():
         delivery = snap.to_dict() or {}
-        if delivery.get("status") not in _REACHED_CLIENT or not delivery.get("sent_at"):
+        if not delivery.get("sent_at"):  # only set once the provider accepted it
             continue
-        if latest is None or delivery["sent_at"] > latest["sent_at"]:
-            latest = delivery
+        if delivery.get("status") in _REACHED_CLIENT:
+            if reached is None or delivery["sent_at"] > reached["sent_at"]:
+                reached = delivery
+        elif accepted is None or delivery["sent_at"] > accepted["sent_at"]:
+            accepted = delivery
+    latest = reached or accepted
     if latest is None or latest.get("revision") is None:
         return None
 
