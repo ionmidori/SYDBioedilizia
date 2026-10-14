@@ -12,7 +12,8 @@ paths:
 
 ## Dependencies & Lockfile (CRITICAL — read before any `npm install`)
 - This is an **npm workspace**: the single `package-lock.json` lives at the **repo root**, not in `web_client/`. Run npm from the repo root.
-- **Use npm 10 / Node 22 to touch the lockfile** — this is what CI runs (`.github/workflows/frontend-checks.yml`: `npm ci` + `npm audit --audit-level=high` + `npm run type-check`).
+- **Node version comes from `engines.node` (`^24.12.0`, the floor firebase 13 requires)** — CI reads it via `node-version-file: 'package.json'`, Vercel deploys the latest 24.x. Never hardcode `node-version` in a workflow (`__tests__/node-engines.test.ts` fails).
+- **Use npm 10 (10.9.9) to touch the lockfile** — this is what CI runs: Node 24 bundles npm 11, so every workflow pins npm with a `Pin npm 10` step (`.github/workflows/frontend-checks.yml`: `npm ci` + `npm audit --audit-level=high` + `npm run type-check`).
 - **Do NOT regenerate the lockfile with npm 11.** On Windows/npm 11 a plain `npm install` silently corrupts it in ways CI's npm 10 rejects:
   - prunes optional cross-platform deps (`@emnapi/*`, `@tailwindcss/oxide`/`sharp` WASM variants),
   - re-resolves unrelated ranges (e.g. downgrades the `eslint@10` tree).
