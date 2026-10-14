@@ -104,20 +104,53 @@ describe('declared Node.js engine', () => {
         // Local/CI parity with Vercel: firebase 13 needs >=24.12, so an older
         // runtime must fail here with a clear message instead of later, obscurely.
         const root = readJson(path.join(repoRoot, 'package.json')) as { engines: { node: string } };
-        expect(semver.satisfies(process.version, root.engines.node)).toBe(true);
+        expect(runtimeMismatch(process.version, root.engines.node)).toBeNull();
+    });
+
+    it('explains how to fix a runtime below engines.node', () => {
+        expect(runtimeMismatch('v24.11.1', '^24.12.0')).toBe(
+            'Node v24.11.1 does not satisfy engines.node ^24.12.0 — install a matching Node (e.g. nvm install 24)'
+        );
     });
 
     it('every CI setup-node step reads the Node version from package.json', () => {
         // Single source of truth: a hardcoded node-version drifts from engines
         // (CI ran Node 22 while engines said 24.x and Vercel deployed 24).
         const workflowsDir = path.join(repoRoot, '.github', 'workflows');
-        const offenders: string[] = [];
-        for (const file of fs.readdirSync(workflowsDir).filter((f) => /\.ya?ml$/.test(f))) {
-            const text = fs.readFileSync(path.join(workflowsDir, file), 'utf8');
-            const setupSteps = (text.match(/uses:\s*actions\/setup-node@/g) ?? []).length;
-            const fromFile = (text.match(/node-version-file:\s*'package\.json'/g) ?? []).length;
-            if (/^\s*node-version:/m.test(text) || fromFile !== setupSteps) offenders.push(file);
-        }
+        const offenders = fs
+            .readdirSync(workflowsDir)
+            .filter((f) => /\.ya?ml$/.test(f))
+            .filter((f) => pinsNodeOutsideEngines(fs.readFileSync(path.join(workflowsDir, f), 'utf8')));
         expect(offenders).toEqual([]);
     });
+
+    it.each([
+        ['hardcoded node-version', "uses: actions/setup-node@abc # v7\n  with:\n    node-version: '22'\n", true],
+        ['quoted uses without with:', 'uses: "actions/setup-node@v7"\n', true],
+        ['single-quoted uses without with:', "uses: 'actions/setup-node@v7'\n", true],
+        ['node-version-file, single quotes', "uses: actions/setup-node@abc\n  with:\n    node-version-file: 'package.json'\n", false],
+        ['node-version-file, double quotes', 'uses: "actions/setup-node@v7"\n  with:\n    node-version-file: "package.json"\n', false],
+        ['node-version-file, unquoted', 'uses: actions/setup-node@v7\n  with:\n    node-version-file: package.json\n', false],
+    ])('workflow guard: %s', (_label, yaml, expected) => {
+        expect(pinsNodeOutsideEngines(yaml)).toBe(expected);
+    });
+
+    it('Frontend Checks (which runs this guard) triggers on any workflow change', () => {
+        // Otherwise a PR adding a workflow with a hardcoded Node never runs the guard.
+        const text = fs.readFileSync(path.join(repoRoot, '.github', 'workflows', 'frontend-checks.yml'), 'utf8');
+        expect(text.match(/^\s*- '\.github\/workflows\/\*\*'$/gm)?.length).toBe(2); // push + pull_request
+    });
 });
+
+/** Error message when `version` is outside the `engines.node` range, else null. */
+function runtimeMismatch(version: string, range: string): string | null {
+    if (semver.satisfies(version, range)) return null;
+    return `Node ${version} does not satisfy engines.node ${range} — install a matching Node (e.g. nvm install 24)`;
+}
+
+/** True when a workflow sets up Node without reading the version from package.json. */
+function pinsNodeOutsideEngines(yaml: string): boolean {
+    const setupSteps = (yaml.match(/uses:\s*["']?actions\/setup-node@/g) ?? []).length;
+    const fromFile = (yaml.match(/node-version-file:\s*["']?package\.json["']?\s*$/gm) ?? []).length;
+    return /^\s*node-version:/m.test(yaml) || fromFile !== setupSteps;
+}
