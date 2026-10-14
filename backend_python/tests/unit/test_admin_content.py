@@ -431,6 +431,22 @@ async def test_the_batch_follows_the_quote_status(db):
     assert db.get_data("quote_batches", "b1")["status"] == "submitted"
 
 
+@pytest.mark.parametrize("quote_status", ["in_review", "approved", "rejected", "sent"])
+def test_a_quote_already_sent_stays_approved_in_the_batch_while_it_is_revised(quote_status):
+    assert batch_sync.project_status_from(quote_status, sent_before=True) == "approved"
+
+
+async def test_revising_a_sent_quote_does_not_reopen_its_batch(db):
+    _batch(db)
+    _quote_in_batch(db, "pb", status="approved")
+    await batch_sync.sync_project_decision(db, "pb")
+    db.put("projects", "pb", "private_data", "quote",
+           {"doc_type": "quote", "status": "in_review", "sent_at": "2026-10-11T10:25:00Z",
+            "request": {"batch_id": "b1"}})
+    await batch_sync.sync_project_decision(db, "pb")
+    assert db.get_data("quote_batches", "b1")["status"] == "approved"
+
+
 async def test_a_late_sync_cannot_leave_the_batch_opposite_to_the_quote(db):
     """Approve then reopen in quick succession: whichever sync runs last (or twice),
     the batch reflects the quote as it is NOW, not the decision it was triggered by."""

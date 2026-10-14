@@ -9,6 +9,10 @@ Security: All endpoints require JWT authentication (Depends(verify_token)).
   - GET  /{project_id}/pdf     — On-demand short-lived PDF signed URL (15 min)
   - DELETE /{project_id}       — Delete quote draft (not approved/sent)
 
+A quote that was already sent and is being revised in the admin console is
+shown to its owner as the version they received (services/client_quote_view.py):
+the revision in progress stays confidential until it is approved and sent.
+
 The draft is created by the AI (services/quote_drafts.py) and submitted through a
 batch (batch_routes.py). Every admin decision — edit, approve, reject, send — lives
 in /api/admin/quotes (admin_quotes.py): revisions, review lock, If-Match, state machine.
@@ -29,6 +33,7 @@ from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteSchema
+from src.services.client_quote_view import client_view_source
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -194,6 +199,8 @@ async def list_user_quotes(
             # Exclude soft-deleted quotes
             if qdata.get("status") == "deleted":
                 continue
+            if not is_admin:
+                qdata = await client_view_source(db, proj_doc.id, qdata)
             quote_status = qdata.get("status", "draft")
             financials = qdata.get("financials", {})
             items = qdata.get("items", [])
@@ -217,7 +224,8 @@ async def list_user_quotes(
                     grand_total=grand_total,
                     item_count=len(items),
                     updated_at=str(updated),
-                    pdf_available=bool(qdata.get("pdf_blob_path") or qdata.get("pdf_url")),
+                    pdf_available=bool(qdata.get("pdf_blob_path") or qdata.get("pdf_url"))
+                    and (is_admin or quote_status in ("approved", "sent")),
                 )
             )
 
@@ -252,6 +260,7 @@ async def get_quote(
         )
     data["id"] = doc.id
     if not _is_admin(user_session):
+        data = await client_view_source(get_async_firestore_client(), project_id, data)
         if data.get("status") not in ("approved", "sent"):
             data = _mask_draft_prices(data)
         data = _strip_internal_fields(data)
@@ -273,14 +282,18 @@ async def get_quote_pdf_url(
     Generates a fresh 15-minute signed URL for the project's quote PDF.
     Does NOT use long-lived cached URLs — every call produces a new short-lived token.
     Caller must own the project or be admin.
-    Non-admin callers can only fetch the PDF of an APPROVED quote (the draft
-    is confidential until the admin review — client area "Preventivi" section).
+    Non-admin callers can only fetch the PDF of an approved or sent quote (the
+    draft is confidential until the admin review — client area "Preventivi"
+    section); while a sent quote is revised, the PDF they were sent.
     """
     await _verify_project_ownership(project_id, user_session)
 
     quote_doc = await _quote_doc_ref(project_id).get()
     qdata = (quote_doc.to_dict() or {}) if quote_doc.exists else {}
     is_admin = has_admin_role(user_session)
+    if not is_admin and qdata:
+        # Under revision: the owner downloads the PDF they were sent.
+        qdata = await client_view_source(get_async_firestore_client(), project_id, qdata)
     if not is_admin and qdata.get("status") not in ("approved", "sent"):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -346,7 +359,8 @@ async def delete_quote(
         )
 
     qdata = doc.to_dict() or {}
-    if qdata.get("status") in ("approved", "sent", "deleted"):
+    # A quote that reached the client stays, even while the admin revises it.
+    if qdata.get("status") in ("approved", "sent", "deleted") or qdata.get("sent_at"):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot delete a quote with status '{qdata.get('status')}'.",
