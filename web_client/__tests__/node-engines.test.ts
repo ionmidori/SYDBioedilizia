@@ -99,4 +99,25 @@ describe('declared Node.js engine', () => {
             })
         ).not.toThrow();
     });
+
+    it('runs on a Node version that satisfies the declared engines.node', () => {
+        // Local/CI parity with Vercel: firebase 13 needs >=24.12, so an older
+        // runtime must fail here with a clear message instead of later, obscurely.
+        const root = readJson(path.join(repoRoot, 'package.json')) as { engines: { node: string } };
+        expect(semver.satisfies(process.version, root.engines.node)).toBe(true);
+    });
+
+    it('every CI setup-node step reads the Node version from package.json', () => {
+        // Single source of truth: a hardcoded node-version drifts from engines
+        // (CI ran Node 22 while engines said 24.x and Vercel deployed 24).
+        const workflowsDir = path.join(repoRoot, '.github', 'workflows');
+        const offenders: string[] = [];
+        for (const file of fs.readdirSync(workflowsDir).filter((f) => /\.ya?ml$/.test(f))) {
+            const text = fs.readFileSync(path.join(workflowsDir, file), 'utf8');
+            const setupSteps = (text.match(/uses:\s*actions\/setup-node@/g) ?? []).length;
+            const fromFile = (text.match(/node-version-file:\s*'package\.json'/g) ?? []).length;
+            if (/^\s*node-version:/m.test(text) || fromFile !== setupSteps) offenders.push(file);
+        }
+        expect(offenders).toEqual([]);
+    });
 });
