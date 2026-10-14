@@ -4,12 +4,10 @@ Unit Tests - Coverage Boost
 Tests for low-coverage modules:
   - src/utils/security.py (sanitize_filename + magic bytes)
   - src/utils/download.py
-  - src/services/media_processor.py
 """
 
 from __future__ import annotations
 
-import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -420,100 +418,3 @@ class TestDownloadImageSmart:
                 owner_session_id="s1",
             )
         assert mime == "image/jpeg"  # guessed from path
-
-
-# ---------------------------------------------------------------------------
-# 5. src/services/media_processor.py
-# ---------------------------------------------------------------------------
-
-class TestMediaProcessor:
-    @patch("src.services.media_processor.settings")
-    @patch("src.services.media_processor.genai")
-    def test_init_with_api_key(self, mock_genai, mock_settings):
-        from src.services.media_processor import MediaProcessor
-        mock_settings.GEMINI_API_KEY = "test-key"
-        MediaProcessor()
-        mock_genai.Client.assert_called_once()
-
-    @patch("src.services.media_processor.settings")
-    def test_init_without_api_key_raises(self, mock_settings):
-        from src.services.media_processor import MediaProcessor
-        mock_settings.GEMINI_API_KEY = None
-        with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
-            MediaProcessor()
-
-    @patch("src.services.media_processor.settings")
-    @patch("src.services.media_processor.genai")
-    async def test_upload_success(self, mock_genai, mock_settings):
-        from src.services.media_processor import MediaProcessor
-        mock_settings.GEMINI_API_KEY = "test-key"
-
-        mock_uploaded = MagicMock()
-        mock_uploaded.uri = "files/123"
-        mock_uploaded.state = "ACTIVE"
-
-        mock_client = MagicMock()
-        mock_client.aio.files.upload = AsyncMock(return_value=mock_uploaded)
-        mock_genai.Client.return_value = mock_client
-
-        processor = MediaProcessor()
-        result = await processor.upload_video_for_analysis(io.BytesIO(b"data"), "video/mp4", "test.mp4")
-        assert result.uri == "files/123"
-
-    @patch("src.services.media_processor.settings")
-    @patch("src.services.media_processor.genai")
-    async def test_upload_failure_raises(self, mock_genai, mock_settings):
-        from src.services.media_processor import MediaProcessor, VideoProcessingError
-        mock_settings.GEMINI_API_KEY = "test-key"
-
-        mock_client = MagicMock()
-        mock_client.aio.files.upload = AsyncMock(side_effect=Exception("Network error"))
-        mock_genai.Client.return_value = mock_client
-
-        processor = MediaProcessor()
-        with pytest.raises(VideoProcessingError, match="Video upload failed"):
-            await processor.upload_video_for_analysis(io.BytesIO(b"data"), "video/mp4", "test.mp4")
-
-    @patch("src.services.media_processor.settings")
-    @patch("src.services.media_processor.genai")
-    async def test_wait_for_processing_active(self, mock_genai, mock_settings):
-        from src.services.media_processor import MediaProcessor
-        mock_settings.GEMINI_API_KEY = "test-key"
-
-        mock_file = MagicMock()
-        mock_file.state = MagicMock()
-        mock_file.state.name = "ACTIVE"
-
-        mock_client = MagicMock()
-        mock_client.aio.files.get = AsyncMock(return_value=mock_file)
-        mock_genai.Client.return_value = mock_client
-
-        processor = MediaProcessor()
-        result = await processor.wait_for_processing("files/123", timeout_seconds=5)
-        assert result is mock_file
-
-    @patch("src.services.media_processor.settings")
-    @patch("src.services.media_processor.genai")
-    async def test_wait_for_processing_failed(self, mock_genai, mock_settings):
-        from src.services.media_processor import MediaProcessor, VideoProcessingError
-        mock_settings.GEMINI_API_KEY = "test-key"
-
-        mock_file = MagicMock()
-        mock_file.state = MagicMock()
-        mock_file.state.name = "FAILED"
-
-        mock_client = MagicMock()
-        mock_client.aio.files.get = AsyncMock(return_value=mock_file)
-        mock_genai.Client.return_value = mock_client
-
-        processor = MediaProcessor()
-        with pytest.raises(VideoProcessingError, match="failed"):
-            await processor.wait_for_processing("files/123", timeout_seconds=5)
-
-    @patch("src.services.media_processor.settings")
-    @patch("src.services.media_processor.genai")
-    def test_get_media_processor_factory(self, mock_genai, mock_settings):
-        from src.services.media_processor import get_media_processor
-        mock_settings.GEMINI_API_KEY = "test-key"
-        processor = get_media_processor()
-        assert processor is not None

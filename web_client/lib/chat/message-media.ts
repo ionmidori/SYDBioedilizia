@@ -2,8 +2,9 @@ import type { UploadItem } from '@/types/media';
 
 /**
  * Media payload assembled from completed uploads, shaped for the chat
- * `sendMessage` body (mediaUrls for images, videoFileUris for the Gemini
- * File API, mediaMetadata keyed by URL for size/mime/filename display).
+ * `sendMessage` body (mediaUrls for images, videoFileUris = gs:// Storage
+ * URIs the model reads natively, mediaMetadata keyed by URL for
+ * size/mime/filename display).
  *
  * Pure — no React, no upload hook — so image/video/mixed/empty cases are
  * unit-tested without mounting ChatWidget.

@@ -24,7 +24,7 @@ export interface Attachment {
         start: number;
         end: number;
     };
-    fileUri?: string; // File API URI (for videos)
+    fileUri?: string; // gs:// Storage URI (for videos)
 }
 
 /**

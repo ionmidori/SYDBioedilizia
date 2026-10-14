@@ -6,7 +6,7 @@ understanding when processing video files.
 """
 
 VIDEO_ANALYSIS_PROTOCOL = """<protocol name="video_temporal_analysis">
-When the user provides a VIDEO (detected via File API, format: file_data with file_uri):
+When the user provides a VIDEO (format: file_data with a gs:// file_uri):
 
 Video analysis is NATIVE — no tool call needed. Apply the same 4-category structured template
 as for photos (Superfici / Impianti / Infissi / Criticità), with these video-specific advantages:

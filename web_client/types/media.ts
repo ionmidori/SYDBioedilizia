@@ -53,9 +53,11 @@ export interface VideoMediaAsset extends MediaAssetBase {
     height?: number;
     /** Duration in seconds */
     duration_seconds?: number;
-    /** Google AI File API URI */
+    /** gs:// URI of the video in the app bucket (read natively by the model) */
     file_uri: string;
-    /** File API processing state */
+    /** Storage path in bucket */
+    file_path?: string;
+    /** Processing state (always ACTIVE once stored) */
     state: string;
 }
 

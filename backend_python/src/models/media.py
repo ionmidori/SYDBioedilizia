@@ -59,9 +59,10 @@ class VideoMediaAsset(MediaAssetBase):
     height: int | None = Field(default=None, ge=1, description="Video height in pixels")
     duration_seconds: float | None = Field(default=None, ge=0, description="Duration in seconds")
 
-    # File API reference (for Gemini multimodal processing)
-    file_uri: str = Field(..., description="Google AI File API URI")
-    state: str = Field(default="ACTIVE", description="File API processing state")
+    # Storage reference the model reads natively (Vertex AI file_data)
+    file_uri: str = Field(..., description="gs:// URI of the video in the app bucket")
+    file_path: str | None = Field(default=None, description="Storage path in bucket")
+    state: str = Field(default="ACTIVE", description="Processing state (always ACTIVE once stored)")
 
 
 class DocumentMediaAsset(MediaAssetBase):

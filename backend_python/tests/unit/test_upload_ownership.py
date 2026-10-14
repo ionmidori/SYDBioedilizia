@@ -28,9 +28,9 @@ def _repo_with_owner(owner: str | None) -> ConversationRepository:
 
 @pytest.fixture()
 def _auth(monkeypatch: pytest.MonkeyPatch):
-    from src.core.config import settings
-
-    monkeypatch.setattr(settings, "ENABLE_APP_CHECK", False)
+    # The middleware reads its module-level copy of the flag, not settings:
+    # patching settings left App Check on, and the 403 below came from it.
+    monkeypatch.setattr("src.middleware.app_check.ENABLE_APP_CHECK", False)
     app.dependency_overrides[verify_token] = lambda: UserSession(uid="attacker-uid", is_authenticated=True)
     yield
     app.dependency_overrides.clear()
