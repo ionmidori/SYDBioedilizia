@@ -3,12 +3,11 @@ Media Upload Handler for Images and Videos.
 
 This module provides endpoints for uploading media files:
 - Images: Uploaded to Firebase Storage with signed URLs
-- Videos: Uploaded to Google AI File API for native multimodal processing
+- Videos: Uploaded to Firebase Storage; the model reads them by gs:// URI (Vertex AI)
 
 **Security**: All uploaded files are validated using Magic Bytes to prevent
 MIME type spoofing attacks (e.g., .exe files renamed to .jpg).
 """
-import io
 import re
 import uuid
 from datetime import timedelta
@@ -23,23 +22,12 @@ from src.core.logger import get_logger
 from src.models.media import ImageMediaAsset, VideoMediaAsset
 from src.repositories.conversation_repository import get_conversation_repository
 from src.schemas.internal import UserSession
-from src.services.media_processor import MediaProcessor, VideoProcessingError, get_media_processor
 from src.tools.quota import check_quota, increment_quota
 from src.utils.security import sanitize_filename, validate_image_magic_bytes, validate_video_magic_bytes
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
-
-
-class VideoUploadResponse(BaseModel):
-    """Response model for video upload."""
-    model_config = {"extra": "ignore"}
-    file_uri: str
-    mime_type: str
-    display_name: str
-    state: str
-    size_bytes: int
 
 
 class ImageUploadResponse(BaseModel):
@@ -55,6 +43,12 @@ class ImageUploadResponse(BaseModel):
 MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10MB
 MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
 CHUNK_SIZE = 1024 * 1024            # 1MB read chunks
+# Resumable upload chunk (multiple of 256 KiB). Without it the GCS client
+# buffers up to 100 MB per request.
+STORAGE_UPLOAD_CHUNK = 8 * 1024 * 1024
+
+# Detected MIME (validate_video_magic_bytes) -> stored file extension
+_VIDEO_EXTENSIONS = {"video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm"}
 
 
 # ── Shared Dependencies (DRY) ──────────────────────────────────────────────
@@ -121,6 +115,41 @@ def _firebase_upload(
     )
 
     return signed_url, signed_url
+
+
+def _spooled_size(file: UploadFile) -> int:
+    """Byte size of the upload, read from its spooled temp file (no copy)."""
+    stream = file.file
+    stream.seek(0, 2)
+    size = stream.tell()
+    stream.seek(0)
+    return size
+
+
+def _firebase_upload_stream(
+    file_path: str,
+    file: UploadFile,
+    content_type: str,
+    safe_filename: str,
+) -> tuple[str, str]:
+    """Stream an upload to Firebase Storage in chunks — runs in threadpool.
+
+    Returns (gs:// URI the model reads, short-lived signed URL for the preview).
+    """
+    bucket = fb_storage.bucket()
+    blob = bucket.blob(file_path, chunk_size=STORAGE_UPLOAD_CHUNK)
+    # Same privacy as images: private object, signed URLs only (H-2).
+    blob.cache_control = "private, max-age=3600"
+    blob.content_disposition = f'inline; filename="{safe_filename}"'
+    file.file.seek(0)
+    blob.upload_from_file(file.file, content_type=content_type)
+
+    signed_url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(hours=1),
+        method="GET",
+    )
+    return f"gs://{bucket.name}/{file_path}", signed_url
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -250,23 +279,33 @@ async def upload_image(
 async def upload_video(
     request: Request,
     file: UploadFile = File(...),
+    session_id: str = Form(...),
     user_session: UserSession = Depends(verify_token),
-    processor: MediaProcessor = Depends(get_media_processor),
 ) -> VideoMediaAsset:
     """
-    Upload a video file to Google AI File API for native processing.
+    Upload a video to Firebase Storage for native multimodal processing.
+
+    The model reads it from Storage by reference (gs:// URI on Vertex AI): no
+    Gemini File API, no AI Studio key.
 
     Args:
-        file: Video file (mp4, webm, mov, avi)
+        file: Video file (mp4, mov, webm)
+        session_id: Chat session ID (= project id) that owns the upload
         user_session: JWT verified user session
-        processor: Injected MediaProcessor service
 
     Returns:
-        VideoMediaAsset with file URI and metadata
+        VideoMediaAsset with the gs:// URI (`file_uri`) and a signed preview URL
 
     Raises:
         HTTPException: If upload fails or file type is invalid
     """
+    # Validate session_id format (prevent path traversal / log injection)
+    if not re.match(r'^[a-zA-Z0-9_-]+$', session_id) or len(session_id) > 128:
+        raise HTTPException(status_code=422, detail="Invalid session_id format")
+
+    # 🛡️ Ownership: never attach files to another user's project (403 outside the try).
+    await get_conversation_repository().assert_session_access(session_id, user_session.uid)
+
     try:
         # 1. Early rejection via Content-Length header (fast fail, advisory only)
         content_length = request.headers.get("content-length")
@@ -278,63 +317,46 @@ async def upload_video(
         # 2. Quota enforcement (DRY)
         await _enforce_quota(user_id, "upload_video")
 
-        try:
-            # 3. Magic Bytes Validation
-            detected_mime = await validate_video_magic_bytes(file)
-            logger.info(f"Video Magic Bytes check passed: {detected_mime}")
+        # 3. Magic Bytes Validation
+        detected_mime = await validate_video_magic_bytes(file)
+        logger.info(f"Video Magic Bytes check passed: {detected_mime}")
 
-            safe_filename = await sanitize_filename(file.filename or "upload.mp4")
-            logger.info(f"User {user_id} uploading video: {safe_filename} ({detected_mime})")
+        safe_filename = await sanitize_filename(file.filename or "upload.mp4")
 
-            # 4. Chunked read with enforced size limit (memory safety)
-            content = await _safe_read_file(file, MAX_VIDEO_SIZE)
-            file_size = len(content)
-
-            # 5. Prepare stream for Google File API
-            file_stream = io.BytesIO(content)
-
-            # 6. Delegate to service (async — already non-blocking)
-            uploaded_file = await processor.upload_video_for_analysis(
-                file_stream=file_stream,
-                mime_type=detected_mime,
-                display_name=safe_filename,
-            )
-
-            # 7. Wait for processing (async polling)
-            if not uploaded_file.name:
-                raise HTTPException(status_code=502, detail="Upload returned no file name")
-            active_file = await processor.wait_for_processing(uploaded_file.name)
-
-            # An ACTIVE file always carries a uri + mime_type; guard defensively so
-            # a malformed File response fails loud (502) instead of building an
-            # invalid VideoMediaAsset with None where str is required.
-            if not active_file or not active_file.uri or not active_file.mime_type:
-                raise HTTPException(
-                    status_code=502,
-                    detail="Video processing returned an incomplete file reference.",
-                )
-
-            # 8. Increment quota (only on success)
-            await increment_quota(user_id, "upload_video")
-
-            asset_id = uuid.uuid4().hex
-
-            return VideoMediaAsset(
-                id=asset_id,
-                url=active_file.uri,
-                filename=safe_filename,
-                mime_type=active_file.mime_type,
-                size_bytes=file_size,
-                file_uri=active_file.uri,
-                state=active_file.state.name if active_file.state else "ACTIVE",
-            )
-
-        except VideoProcessingError as e:
-            logger.error(f"Video processing error: {str(e)}")
+        # 4. Size from the spooled temp file Starlette already wrote: no copy of
+        #    the body in memory (the File API path held it twice, ~200 MB).
+        file_size = await run_in_threadpool(_spooled_size, file)
+        if file_size > MAX_VIDEO_SIZE:
             raise HTTPException(
-                status_code=502,
-                detail="Video processing failed. Please try a different format or smaller file.",
-            ) from e
+                status_code=413,
+                detail=f"File too large. Maximum size is {MAX_VIDEO_SIZE / 1024 / 1024:.0f}MB.",
+            )
+
+        # 5. Stream to Storage (resumable upload, fixed-size chunks)
+        asset_id = uuid.uuid4().hex
+        ext = _VIDEO_EXTENSIONS.get(detected_mime, "mp4")
+        file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
+        gs_uri, signed_url = await run_in_threadpool(
+            _firebase_upload_stream, file_path, file, detected_mime, safe_filename
+        )
+
+        # 6. Increment quota (only on success)
+        await increment_quota(user_id, "upload_video")
+
+        logger.info(
+            "video_upload_completed",
+            extra={"file_path": file_path, "file_size_bytes": file_size, "mime_type": detected_mime},
+        )
+
+        return VideoMediaAsset(
+            id=asset_id,
+            url=signed_url,
+            filename=safe_filename,
+            mime_type=detected_mime,
+            size_bytes=file_size,
+            file_uri=gs_uri,
+            file_path=file_path,
+        )
 
     except HTTPException:
         raise

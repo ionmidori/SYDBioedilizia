@@ -35,6 +35,7 @@ from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
 from src.services.base_orchestrator import BaseOrchestrator
 from src.utils.circuit_breaker import vertex_ai_breaker
+from src.utils.download import session_storage_prefixes
 from src.utils.stream_protocol import (
     redact_chunk,
     stream_artifact_event,
@@ -58,6 +59,42 @@ _RUN_CONFIG = RunConfig(streaming_mode=StreamingMode.SSE)
 # Strong references to in-flight Firestore saves: the event loop only keeps weak
 # references to tasks, and a save must survive a client disconnect.
 _inflight_saves: set[asyncio.Task[None]] = set()
+
+
+# Extensions written by /api/upload/video (src/api/routes/upload.py)
+_VIDEO_MIME_BY_EXT = {"mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm"}
+
+
+def _video_parts(video_uris: list[str], *, session_id: str, bucket: str, vertex: bool) -> list[types.Part]:
+    """`file_data` parts for the videos attached to this turn.
+
+    Only gs:// URIs inside this session's own Storage prefixes are passed on:
+    Vertex reads the object with the project's service agent, so an arbitrary
+    path from the request body would let a user point the model at another
+    user's file. AI Studio cannot read gs:// at all, so off Vertex they are skipped.
+    """
+    if not video_uris:
+        return []
+    if not vertex:
+        logger.warning("[ADK] Video attachments need Vertex AI (gs:// input): skipped")
+        return []
+    prefixes = session_storage_prefixes(session_id)
+    parts: list[types.Part] = []
+    for uri in video_uris:
+        parsed = urlparse(uri)
+        path = parsed.path.lstrip("/")
+        if (
+            parsed.scheme != "gs"
+            or not bucket
+            or parsed.netloc != bucket
+            or ".." in path.split("/")
+            or not path.startswith(prefixes)
+        ):
+            logger.warning("[ADK] Rejected video URI outside the session's files")
+            continue
+        mime = _VIDEO_MIME_BY_EXT.get(path.rsplit(".", 1)[-1].lower(), "video/mp4")
+        parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type=mime)))
+    return parts
 
 
 def _save_in_background(coro) -> asyncio.Task[None]:
@@ -307,14 +344,15 @@ class ADKOrchestrator(BaseOrchestrator):
                 logger.error(f"Failed to fetch media {url}: {e}")
                 return None
 
-        # Handle Video File API URIs (local check, no download)
-        for uri in video_uris:
-            try:
-                parsed_uri = urlparse(uri)
-                if parsed_uri.scheme == "gs" and parsed_uri.netloc == settings.FIREBASE_STORAGE_BUCKET:
-                    content_parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type="video/mp4")))
-            except Exception:  # noqa: BLE001
-                pass
+        # Videos: passed by gs:// reference, the model reads them from Storage
+        content_parts.extend(
+            _video_parts(
+                video_uris,
+                session_id=session_id,
+                bucket=settings.FIREBASE_STORAGE_BUCKET or "",
+                vertex=bool(settings.GOOGLE_GENAI_USE_VERTEXAI),
+            )
+        )
 
         # Execute parallel fetch using TaskGroup (Python 3.12+): auto-cancels on exception
         if media_urls:

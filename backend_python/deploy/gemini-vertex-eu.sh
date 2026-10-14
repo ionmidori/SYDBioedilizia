@@ -21,6 +21,10 @@
 # After a few days on Vertex: remove GEMINI_API_KEY from the service and
 # disable the AI Studio key (`gcloud run services update syd-brain
 # --remove-env-vars=GEMINI_API_KEY`, then revoke it in AI Studio).
+#
+# ⚠️ 2026-10-14: the AI Studio key has been REVOKED. `rollback` targets an
+# AI Studio revision (syd-brain-00581-hdv) and would take the whole chat down:
+# do not use it. Roll back to an earlier Vertex revision instead.
 set -euo pipefail
 
 SERVICE="${SERVICE:-syd-brain}"
@@ -44,6 +48,11 @@ case "${1:-}" in
     gcloud run services update-traffic "$SERVICE" --region="$REGION" --to-latest --quiet
     ;;
   rollback)
+    if [[ "${FORCE_AI_STUDIO_ROLLBACK:-}" != "1" ]]; then
+      echo "Refusing: the previous revision runs on AI Studio and its key is revoked." >&2
+      echo "Set FORCE_AI_STUDIO_ROLLBACK=1 only after configuring a new key." >&2
+      exit 1
+    fi
     previous=$(cat "$STATE_FILE")
     gcloud run services update-traffic "$SERVICE" --region="$REGION" \
       --to-revisions="$previous=100" --quiet

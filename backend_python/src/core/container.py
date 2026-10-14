@@ -8,7 +8,6 @@ class Container:
     def __init__(self):
         # Placeholders for Phase 2 Services
         # self.auth_service: AuthService = AuthService()
-        # self.media_processor: MediaProcessor = MediaProcessor()
         pass
 
     @classmethod

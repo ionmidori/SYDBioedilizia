@@ -12,7 +12,7 @@ class MediaAttachment(BaseModel):
     url: str
     media_type: Literal['image', 'video', 'document'] = 'image'
     mime_type: str = "image/jpeg"
-    file_uri: str | None = None # For internal Gemini File API refs
+    file_uri: str | None = None # gs:// Storage URI read natively by the model (videos)
     width: int | None = None
     height: int | None = None
 

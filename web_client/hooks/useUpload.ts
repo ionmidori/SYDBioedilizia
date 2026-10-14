@@ -191,7 +191,8 @@ export function useUpload(options: UseUploadOptions = {}) {
                 // BUILD FORM DATA
                 const formData = new FormData();
                 formData.append('file', fileToUpload);
-                if (sessionId && item.file.type.startsWith('image/')) {
+                // Images and videos are stored under the session's Storage prefix.
+                if (sessionId && (item.file.type.startsWith('image/') || item.file.type.startsWith('video/'))) {
                     formData.append('session_id', sessionId);
                 }
 
