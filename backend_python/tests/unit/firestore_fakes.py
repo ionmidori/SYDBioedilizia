@@ -14,9 +14,10 @@ from google.cloud.firestore_v1 import DELETE_FIELD
 
 
 class FakeSnapshot:
-    def __init__(self, data: dict[str, Any] | None) -> None:
+    def __init__(self, data: dict[str, Any] | None, doc_id: str = "") -> None:
         self._data = copy.deepcopy(data)
         self.exists = data is not None
+        self.id = doc_id
 
     def to_dict(self) -> dict[str, Any] | None:
         return copy.deepcopy(self._data)
@@ -45,7 +46,7 @@ class FakeDocRef:
     async def get(self, transaction: FakeTransaction | None = None) -> FakeSnapshot:
         if transaction is not None:
             transaction.record_read(self.path)
-        return FakeSnapshot(self._db.docs.get(self.path))
+        return FakeSnapshot(self._db.docs.get(self.path), self.path[-1])
 
     async def update(self, data: dict[str, Any]) -> None:
         if self.path not in self._db.docs:
@@ -153,6 +154,9 @@ class FakeCollection:
             paths.sort(key=lambda p: self._db.docs[p].get(field), reverse=desc)
         for path in paths[: self._limit] if self._limit is not None else paths:
             yield FakeDocSnapshot(self._db, path)
+
+    async def get(self) -> list[FakeDocSnapshot]:
+        return [snap async for snap in self.stream()]
 
 
 class _FakeCount:

@@ -26,11 +26,16 @@ from src.utils.datetime_utils import utc_now
 logger = logging.getLogger(__name__)
 
 
-def project_status_from(quote_status: str | None) -> str:
+def project_status_from(quote_status: str | None, sent_before: bool = False) -> str:
     """The per-project status stored in the batch for a quote status.
 
-    `draft` means "not decided yet" (the batch route's own vocabulary).
+    `draft` means "not decided yet" (the batch route's own vocabulary). A quote
+    that was already sent stays `approved` while the admin revises it: the client
+    keeps the offer they received, even if a revision is rejected
+    (services/client_quote_view.py).
     """
+    if sent_before and quote_status != "deleted":
+        return "approved"
     if quote_status in ("approved", "sent"):
         return "approved"
     if quote_status == "rejected":
@@ -82,7 +87,8 @@ async def sync_project_decision(db: Any, project_id: str) -> bool:
         target = next((p for p in projects if p.get("project_id") == project_id), None)
         if target is None:
             return False
-        target["status"] = project_status_from((quote_snap.to_dict() or {}).get("status") if quote_snap.exists else None)
+        quote = (quote_snap.to_dict() or {}) if quote_snap.exists else {}
+        target["status"] = project_status_from(quote.get("status"), sent_before=bool(quote.get("sent_at")))
         transaction.update(
             batch_ref,
             {"projects": projects, "status": batch_status_from(projects), "updated_at": utc_now()},
