@@ -33,7 +33,7 @@ from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteSchema
-from src.services.client_quote_view import client_view_source
+from src.services.client_quote_view import client_view_source, serves_sent_copy
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -260,7 +260,8 @@ async def get_quote(
         )
     data["id"] = doc.id
     if not _is_admin(user_session):
-        data = await client_view_source(get_async_firestore_client(), project_id, data)
+        if serves_sent_copy(data):
+            data = await client_view_source(get_async_firestore_client(), project_id, data)
         if data.get("status") not in ("approved", "sent"):
             data = _mask_draft_prices(data)
         data = _strip_internal_fields(data)
@@ -291,7 +292,7 @@ async def get_quote_pdf_url(
     quote_doc = await _quote_doc_ref(project_id).get()
     qdata = (quote_doc.to_dict() or {}) if quote_doc.exists else {}
     is_admin = has_admin_role(user_session)
-    if not is_admin and qdata:
+    if not is_admin and serves_sent_copy(qdata):
         # Under revision: the owner downloads the PDF they were sent.
         qdata = await client_view_source(get_async_firestore_client(), project_id, qdata)
     if not is_admin and qdata.get("status") not in ("approved", "sent"):
