@@ -215,6 +215,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // -- CONTEXT VALUE --
     const value = useMemo<ChatContextType>(() => ({
         currentProjectId,
+        sessionId,
         setProjectId: setCurrentProjectId,
         isRestoringHistory,
         isLoading,
@@ -232,6 +233,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         data: streamData,
     }), [
         currentProjectId,
+        sessionId,
         // Stable useState setter from useChatSession; listed because the lint rule
         // can only prove stability for setters destructured from useState inline.
         setCurrentProjectId,
