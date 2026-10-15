@@ -34,7 +34,9 @@ async def generate_id_token():
         firebase_admin.initialize_app(cred)
 
     # 1. Create a custom token for a test user
-    uid = "testsprite-qa-user"
+    # The printed ID token is a live credential (1h): use it locally only and
+    # NEVER paste it into a committed file (TestSprite tests once did).
+    uid = "local-qa-user"
     custom_token = auth.create_custom_token(uid)
     
     # 2. Exchange custom token for an ID token

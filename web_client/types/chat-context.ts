@@ -21,6 +21,13 @@ export interface ChatContextType {
     currentProjectId: string | null;
 
     /**
+     * Session key of the active conversation (backend, Firestore history,
+     * Storage upload prefix). Guests get a stable per-browser id, signed-in
+     * users the project id or `global-<uid>`.
+     */
+    sessionId: string;
+
+    /**
      * Flag indicating if we are switching contexts and hyrdating history.
      * Used to show a "Skeleton Loader" instead of an empty chat.
      */
