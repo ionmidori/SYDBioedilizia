@@ -368,7 +368,15 @@ async def _record_failure(db: Any, entry: dict[str, Any], error: ProviderError, 
         )
 
     await _transact(db, _txn)
-    if not dead:
+    if dead:
+        # Alert signal (#478): a log-based metric on jsonPayload.event pages the
+        # admin through Cloud Monitoring, independent of the failing provider.
+        # No recipient address here: ids and the error class are enough to triage.
+        logger.error("[Email/Outbox] Dead-letter: delivery abandoned.", extra={
+            "event": "email_dead_letter", "outbox_id": entry["id"], "kind": entry.get("kind"),
+            "project_id": entry.get("project_id"), "attempts": entry["attempts"], "last_error": error_type,
+        })
+    else:
         # Event-driven retry: one task at the retry time, none otherwise.
         await schedule_dispatch(entry["id"], now + backoff(entry["attempts"]), f"a{entry['attempts'] + 1}")
     return "dead" if dead else "retry"
