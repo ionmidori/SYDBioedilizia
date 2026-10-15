@@ -20,11 +20,11 @@ from src.middleware.security_headers import SecurityHeadersMiddleware
 EXPECTED_OUTERMOST_FIRST = [
     RequestIDMiddleware,
     SecurityHeadersMiddleware,
+    CORSMiddleware,
     GlobalErrorCatcherMiddleware,
     AppCheckMiddleware,
     IdempotencyMiddleware,
     MetricsMiddleware,
-    CORSMiddleware,
 ]
 
 
