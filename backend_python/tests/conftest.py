@@ -6,7 +6,7 @@ Shared test fixtures for mocking external dependencies.
 import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -160,19 +160,6 @@ def sample_image_bytes():
 
 
 @pytest.fixture
-def mock_n8n_webhook_urls(monkeypatch):
-    """Setup n8n webhook URLs for testing by patching settings object."""
-    from src.core.config import settings
-    monkeypatch.setattr(settings, "N8N_WEBHOOK_NOTIFY_ADMIN", "https://n8n.example.com/webhook/notify-admin")
-    monkeypatch.setattr(settings, "N8N_WEBHOOK_DELIVER_QUOTE", "https://n8n.example.com/webhook/deliver-quote")
-    monkeypatch.setattr(settings, "N8N_API_KEY", "test-n8n-api-key")
-    return {
-        "notify_admin": "https://n8n.example.com/webhook/notify-admin",
-        "deliver_quote": "https://n8n.example.com/webhook/deliver-quote",
-    }
-
-
-@pytest.fixture
 def mock_quote_graph_with_memory_saver():
     """
     Real quote graph instance with MemorySaver (for integration testing).
@@ -187,26 +174,3 @@ def mock_quote_graph_with_memory_saver():
         graph = factory.create_graph()
         yield graph
 
-
-@pytest.fixture
-def mock_httpx_async_client():
-    """Mock httpx.AsyncClient for testing n8n delivery with retries."""
-    with patch("src.tools.n8n_mcp_tools.httpx.AsyncClient") as mock_client_class:
-        mock_client = AsyncMock()
-        mock_response = MagicMock()
-
-        # Mock sync methods
-        mock_response.json.return_value = {"status": "success"}
-        mock_response.raise_for_status.return_value = None
-        mock_response.status_code = 200
-        mock_response.content = b'{"status": "success"}'
-
-        # Mock async context manager
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
-
-        # Mock async post
-        mock_client.post = AsyncMock(return_value=mock_response)
-
-        mock_client_class.return_value = mock_client
-        yield mock_client_class

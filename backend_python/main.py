@@ -357,7 +357,7 @@ class AppCheckMiddleware:
     # "/health/startup" is the Cloud Run startup probe: it carries no App Check
     # token, and a 403 there would keep every new revision from ever starting.
     _PUBLIC_PATHS = frozenset({
-        "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
+        "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico",
         "/internal/lifecycle/run",
         # Email platform (Phase 128): Cloud Tasks OIDC / Brevo bearer token.
         "/internal/email/sweep", "/webhooks/email/brevo",
@@ -473,11 +473,6 @@ app.include_router(users_router)
 from src.api.routes.feedback import feedback_router
 
 app.include_router(feedback_router)
-
-# Register inbound webhook routes (n8n -> FastAPI callbacks, HMAC-SHA256 auth)
-from src.api.routes.webhook_routes import router as webhook_router
-
-app.include_router(webhook_router)
 
 # Register public content routes (testimonials, portfolio — replaces direct Firestore reads)
 from src.api.routes.content_routes import router as content_router
