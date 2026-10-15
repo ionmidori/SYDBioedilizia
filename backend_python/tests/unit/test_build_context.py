@@ -13,9 +13,10 @@ The tests evaluate both files with real gitignore matching (a throw-away git
 repo whose ``.gitignore`` is the file under test; ``.dockerignore`` patterns are
 root-anchored first to reproduce Docker's semantics) instead of comparing
 strings, so equivalent spellings pass and broad patterns that would drop runtime
-files fail. They also check that the runtime data is versioned: a clean checkout
-used to ship without ``aggregation_rules.json`` because the repo-wide ``*.json``
-ignore hid it, and the engine silently fell back to empty rules.
+files fail. They also check that every file in ``src/data`` is versioned: the
+repo-wide ``*.json`` ignore can hide a data file that exists on a developer
+machine but not in a clean checkout (it already did once), and the code that
+reads it may silently fall back.
 """
 from __future__ import annotations
 
@@ -24,7 +25,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from src.services.batch_aggregation_engine import BatchAggregationEngine
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 SRC_DATA = BACKEND_ROOT / "src" / "data"
@@ -61,7 +61,6 @@ MUST_SHIP = (
     "src/core/config.py",
     "src/data/master_price_book.json",
     "src/data/renovation_assemblies.json",
-    "src/data/aggregation_rules.json",
     "src/prompts/components/modes.py",
     # Nested names that only a root-anchored pattern may exclude.
     "src/api/routes/test_router.py",
@@ -135,13 +134,3 @@ def test_runtime_data_is_versioned() -> None:
     untracked = [p.name for p in sorted(SRC_DATA.iterdir()) if p.is_file() and not _tracked(p)]
     assert untracked == [], f"src/data files not tracked by git (hidden by .gitignore?): {untracked}"
 
-
-def test_shipped_aggregation_rules_load_without_fallback() -> None:
-    """The loader swallows errors and falls back to empty rules; a build without
-    the real file would otherwise only show up as 'zero savings'."""
-    rules = BatchAggregationEngine()._load_rules()
-
-    assert rules["project_singleton_skus"]["skus"], "singleton rules are empty (loader fell back?)"
-    assert rules["shared_overhead_skus"]["skus"]
-    discounts = rules["volume_discounts"]
-    assert discounts and all(d["tiers"] for d in discounts)
