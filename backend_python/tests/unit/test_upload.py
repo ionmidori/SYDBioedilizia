@@ -6,7 +6,7 @@ Tests for the Firebase Storage upload functionality.
 from unittest.mock import MagicMock, patch
 
 import pytest
-from src.storage.upload import upload_base64_image
+from src.storage.upload import upload_base64_image, upload_file_bytes
 
 
 class TestUpload:
@@ -116,5 +116,43 @@ class TestUpload:
                 url = upload_base64_image(raw_base64, "test", prefix="uploads")
 
         # Assert
-        # Assert
         assert "signed-url" in url
+
+
+class TestUploadFileBytes:
+    """upload_file_bytes — non-image documents (PDF, DXF, …) to Firebase Storage."""
+
+    def _client(self):
+        blob = MagicMock()
+        blob.generate_signed_url.return_value = "https://storage.googleapis.com/test-bucket/signed-url"
+        bucket = MagicMock()
+        bucket.blob.return_value = blob
+        client = MagicMock()
+        client.bucket.return_value = bucket
+        return client, blob
+
+    def test_missing_bucket_config(self):
+        with patch('src.storage.upload.settings') as mock_settings:
+            mock_settings.FIREBASE_STORAGE_BUCKET = ""
+            with pytest.raises(Exception, match="FIREBASE_STORAGE_BUCKET"):
+                upload_file_bytes(b"data", "sess1", "file.pdf")
+
+    def test_successful_upload_uses_given_content_type(self):
+        client, blob = self._client()
+        with patch('src.storage.firebase_storage.get_storage_client', return_value=client):
+            with patch('src.storage.upload.settings') as mock_settings:
+                mock_settings.FIREBASE_STORAGE_BUCKET = 'test-bucket'
+                url = upload_file_bytes(b"file content", "sess1", "doc.pdf", "application/pdf")
+
+        assert url == "https://storage.googleapis.com/test-bucket/signed-url"
+        blob.upload_from_string.assert_called_once()
+        assert blob.upload_from_string.call_args.kwargs.get("content_type") == "application/pdf"
+
+    def test_storage_error_is_wrapped(self):
+        client = MagicMock()
+        client.bucket.side_effect = Exception("Storage unavailable")
+        with patch('src.storage.firebase_storage.get_storage_client', return_value=client):
+            with patch('src.storage.upload.settings') as mock_settings:
+                mock_settings.FIREBASE_STORAGE_BUCKET = 'test-bucket'
+                with pytest.raises(Exception, match="Failed to upload file"):
+                    upload_file_bytes(b"data", "sess1", "file.pdf")

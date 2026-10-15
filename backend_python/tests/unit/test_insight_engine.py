@@ -19,11 +19,14 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import src.services.insight_engine as insight_engine_module
+from src.core.models import ModelRole
 from src.services.insight_engine import (
     InsightAnalysis,
     InsightEngine,
     InsightEngineError,
     SKUItemSuggestion,
+    get_insight_engine,
 )
 from src.services.pricing_service import PricingService
 
@@ -262,3 +265,50 @@ class TestAnalyzeProjectForQuote:
 
         assert isinstance(result, InsightAnalysis)
         assert result.suggestions == []
+
+    @pytest.mark.asyncio
+    async def test_markdown_fenced_json_is_unwrapped(self, engine: InsightEngine) -> None:
+        """A response wrapped in a ```json fence must still parse."""
+        body = '{"suggestions": [{"sku": "DEM-001", "qty": 5.0, "ai_reasoning": "test"}], "summary": "ok"}'
+        mock_resp = MagicMock()
+        mock_resp.text = f"```json\n{body}\n```"
+
+        with patch.object(
+            engine.client.aio.models, "generate_content", new_callable=AsyncMock
+        ) as mock_generate:
+            mock_generate.return_value = mock_resp
+            result = await engine.analyze_project_for_quote(
+                chat_history=[{"role": "user", "content": "test"}]
+            )
+
+        assert result.summary == "ok"
+        assert result.suggestions[0].sku == "DEM-001"
+
+
+# ─── Construction & singleton ─────────────────────────────────────────────────
+
+class TestConstruction:
+    def test_model_resolved_from_registry_by_role(self) -> None:
+        with patch("src.services.insight_engine.get_genai_client"), \
+             patch("src.services.insight_engine.get_model_id", return_value="model-from-registry") as model_id:
+            engine = InsightEngine()
+
+        assert engine.model_name == "model-from-registry"
+        model_id.assert_called_once_with(ModelRole.INSIGHT)
+
+    def test_explicit_model_name_wins(self) -> None:
+        with patch("src.services.insight_engine.get_genai_client"), \
+             patch("src.services.insight_engine.get_model_id") as model_id:
+            engine = InsightEngine(model_name="custom-model")
+
+        assert engine.model_name == "custom-model"
+        model_id.assert_not_called()
+
+    def test_get_insight_engine_is_a_singleton(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(insight_engine_module, "_insight_engine", None)
+        with patch("src.services.insight_engine.get_genai_client"):
+            first = get_insight_engine()
+            second = get_insight_engine()
+
+        assert first is second
+        assert isinstance(first, InsightEngine)
