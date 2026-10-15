@@ -18,8 +18,8 @@ def _in_fresh_context(fn):
     return contextvars.Context().run(fn)
 
 
-def test_user_id_default_is_a_string():
-    assert isinstance(_in_fresh_context(get_current_user_id), str)
+def test_user_id_default():
+    assert _in_fresh_context(get_current_user_id) == "default"
 
 
 def test_set_and_get_user_id():
@@ -31,8 +31,12 @@ def test_set_and_get_user_id():
 
 
 def test_media_metadata_default():
-    result = _in_fresh_context(get_current_media_metadata)
-    assert result is None or isinstance(result, dict)
+    assert _in_fresh_context(get_current_media_metadata) is None
+
+
+def test_is_anonymous_defaults_to_guest():
+    """Fail closed: an unset auth context must be treated as an anonymous guest."""
+    assert _in_fresh_context(get_is_anonymous) is True
 
 
 def test_set_and_get_media_metadata():

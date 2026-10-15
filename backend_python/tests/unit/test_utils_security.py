@@ -158,6 +158,8 @@ class TestValidateImageMagicBytes:
         with pytest.raises(HTTPException) as exc:
             await validate_image_magic_bytes(_upload(exe, "image/jpeg"))
         assert exc.value.status_code == 400
+        detail = str(exc.value.detail)
+        assert "File signature not recognized" in detail or "File claims to be" in detail
 
     async def test_file_too_small(self):
         with pytest.raises(HTTPException) as exc:

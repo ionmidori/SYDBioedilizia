@@ -8,7 +8,7 @@ uv run python scripts/ops/<nome>.py    # ispezione dati
 ```
 
 - **Non** fanno parte della test suite: pytest raccoglie solo `tests/`, la CI non li esegue.
-- Sono esclusi dall'immagine Cloud Run e dall'upload di Cloud Build (`.dockerignore`, `.gcloudignore`).
+- Sono esclusi dall'immagine Cloud Run (`.dockerignore`) e, con #470, anche dall'upload di Cloud Build (`.gcloudignore`).
 - Molti agiscono su **dati live** (Firestore, Storage, Pinecone) con le credenziali del `.env`: leggere l'header dello script prima di lanciarlo, soprattutto quelli che scrivono o cancellano.
 - Non sono soggetti a ruff (`pyproject.toml`), ma lo sono alla guardia sui literal di modello Gemini (`tests/unit/test_model_registry.py`): i modelli si risolvono da `src/core/models.py`.
 - Nuovi controlli ripetibili vanno scritti come test in `tests/`, non come script.
@@ -36,6 +36,7 @@ uv run python scripts/ops/<nome>.py    # ispezione dati
 | `cleanup_zombie_projects.py` | Cancella (con la sottocollezione `files`) i documenti `projects` senza `sessions` corrispondente |
 | `repair_project_projections.py` | Ricostruisce le proiezioni denormalizzate dei progetti |
 | `sync_all_covers.py`, `sync_project_names.py` | Risincronizza copertine e nomi dei progetti |
+| `reset_guest_render_quota.py` | **Cancella** `usage_quotas/guest-session-_generate_render` (azzera la quota render degli ospiti). Senza `--yes` fa solo un dry run |
 | `set_admin_claim.py` | Assegna/revoca il custom claim `admin` a un utente |
 | `configure_cors.py` | Imposta il CORS del bucket Storage (legge `firebase-service-account.json` dalla cartella corrente) |
 
@@ -57,6 +58,6 @@ uv run python scripts/ops/<nome>.py    # ispezione dati
 | `debug_projects.py`, `debug_project_status.py`, `verify_projects_query.py` | Progetti recenti, stato, query per utente |
 | `debug_sessions.py` | Sessioni chat recenti |
 | `debug_all_files.py`, `debug_file_timestamps.py`, `debug_image_access.py` | File di progetto, timestamp, raggiungibilità delle immagini |
-| `debug_users.py`, `debug_quotas.py` | Utenti e quote |
+| `debug_users.py` | Elenco utenti |
 | `inspect_feedback.py` | Feedback sui messaggi e messaggi collegati |
 | `check_firebase_credentials.py` | Diagnostica del formato di `FIREBASE_PRIVATE_KEY` e connessione |
