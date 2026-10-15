@@ -106,3 +106,22 @@ def test_unexpected_crash_is_generic(client: TestClient) -> None:
 
     _assert_envelope(response, 500, "INTERNAL_SERVER_ERROR")
     assert "/secrets/sa.json" not in response.text
+
+
+def test_crash_inside_app_check_is_answered_by_the_catcher(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """App Check sits INSIDE GlobalErrorCatcher: its crash must get the
+    catcher's response (with X-Request-ID and security headers). Starlette's
+    last-resort handler would also answer JSON, but from outside those layers
+    and with a different message — this is what pins the layer order."""
+
+    async def explode(_request) -> None:
+        raise RuntimeError("firebase app check backend is down")
+
+    monkeypatch.setattr(main, "validate_app_check_token", explode)
+    response = client.post("/chat/stream", json=VALID_CHAT)
+
+    body = _assert_envelope(response, 500, "INTERNAL_SERVER_ERROR")
+    assert body["message"] == "An unexpected internal error occurred. Our team has been alerted."
+    assert "firebase app check backend" not in response.text

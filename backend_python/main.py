@@ -246,7 +246,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Handles unexpected crashes inside route handlers."""
+    """Last-resort 500 (Starlette's ServerErrorMiddleware, outside every layer).
+
+    GlobalErrorCatcherMiddleware answers first for anything raised inside the
+    stack, so this only runs if RequestID, SecurityHeaders or the catcher
+    itself raise.
+    """
     logger.error(f"🔥 Global Exception (route handler): {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
@@ -277,10 +282,11 @@ class GlobalErrorCatcherMiddleware:
 
     Catches any unhandled exception from the layers it wraps (App Check,
     Idempotency, Metrics, CORS, routes) and returns a standardized
-    APIErrorResponse JSON, preventing Starlette's generic plain-text
-    '500 Internal Server Error' from ever reaching the client. Only RequestID
-    and SecurityHeaders sit outside it, so its 500 still carries X-Request-ID
-    and the security headers.
+    APIErrorResponse JSON. Only RequestID and SecurityHeaders sit outside it,
+    so its 500 carries X-Request-ID and the security headers and its
+    request_id can be correlated with logs. (Without it Starlette's
+    ServerErrorMiddleware would still answer in JSON through
+    global_exception_handler, but from outside those layers.)
 
     Uses raw ASGI __call__ instead of BaseHTTPMiddleware.dispatch() to avoid
     buffering StreamingResponse bodies (which would break /chat/stream SSE).
@@ -421,8 +427,11 @@ class AppCheckMiddleware:
 #   included — carries X-Request-ID, and the error envelope's request_id
 #   (read from the same ContextVar) matches it.
 # - SecurityHeaders next: security headers on every response, errors included.
-# - GlobalErrorCatcher wraps AppCheck and Idempotency: a crash there still
-#   yields the JSON envelope instead of uvicorn's plain-text 500.
+# - GlobalErrorCatcher wraps AppCheck and Idempotency, so a crash there is
+#   answered by it from INSIDE RequestID/SecurityHeaders (X-Request-ID, security
+#   headers, correlatable request_id). Anything that escapes the catcher is
+#   still answered in JSON by Starlette's ServerErrorMiddleware (the
+#   @app.exception_handler(Exception) above), but without those.
 # - AppCheck before Idempotency: a cached replay is never served to an
 #   unverified client; App Check rejections are not counted by Metrics.
 # Guarded by tests/unit/test_middleware_order.py and test_api_error_contract.py.
