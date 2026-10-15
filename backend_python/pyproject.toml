@@ -17,7 +17,6 @@ dependencies = [
     "python-multipart>=0.0.32",
     "uvicorn[standard]>=0.54.0",
     "pydantic-settings>=2.15.0",
-    "ezdxf>=1.4.4",
     "python-dateutil>=2.9.0.post0",
     "slowapi>=0.1.10",
     "google-adk>=2.11.0",
@@ -63,7 +62,7 @@ extend-exclude = ["scripts"]
 # PR #251 the 6 that change runtime semantics: UP042 converted ProjectStatus,
 # PropertyType and _State to StrEnum (safe because all four model_config carry
 # use_enum_values=True, so Firestore already persists .value, and no call-site formats a member
-# with str()/f-string), and UP047 moved parse_enum/run_blocking to PEP 695 generics.
+# with str()/f-string), and UP047 moved parse_enum to PEP 695 generics (run_blocking, since removed, too).
 #
 # B (bugbear): RATCHETED (2026-07-26) in PR #252. B008 (51 findings, all Depends()/File()/
 # Security() in FastAPI signature defaults — the framework's own recommended pattern, not the
