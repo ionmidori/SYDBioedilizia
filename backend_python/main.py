@@ -193,12 +193,8 @@ class RequestIDMiddleware:
 
         await self.app(scope, receive, send_with_request_id)
 
-app.add_middleware(RequestIDMiddleware)
-
 # 📊 Metrics Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
 from src.middleware.metrics import MetricsMiddleware
-
-app.add_middleware(MetricsMiddleware)
 
 
 # 🛡️ Global Exception Handlers
@@ -263,14 +259,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 # 🛡️ Security Headers Middleware (HSTS, CSP, XSS)
 from src.middleware.security_headers import SecurityHeadersMiddleware
 
-app.add_middleware(SecurityHeadersMiddleware)
-
 # 🔥 Global Error Catcher Middleware
-# ─── THIS MUST BE REGISTERED LAST (via add_middleware) ───────────────────────
-# Starlette uses LIFO ordering for add_middleware(), so the LAST registered
-# middleware executes FIRST in the request chain.
-# This gives us a true try/except around the ENTIRE application, catching
-# exceptions that even escape @app.exception_handler (i.e., from other middlewares).
+# A true try/except around App Check, Idempotency and the app, catching
+# exceptions that escape @app.exception_handler (i.e. from other middlewares).
+# Its position in the stack is set in the "Middleware stack" block below.
 #
 # ⚠️  CRITICAL: Uses raw ASGI protocol, NOT BaseHTTPMiddleware.
 # BaseHTTPMiddleware buffers streaming response bodies into memory before
@@ -281,16 +273,17 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 class GlobalErrorCatcherMiddleware:
     """
-    Outermost safety net for the entire application (raw ASGI).
+    Safety net for the application (raw ASGI).
 
-    Catches any unhandled exception from ALL layers (middlewares, routes, etc.)
-    and returns a standardized APIErrorResponse JSON, preventing Starlette's
-    generic plain-text '500 Internal Server Error' from ever reaching the client.
+    Catches any unhandled exception from the layers it wraps (App Check,
+    Idempotency, Metrics, CORS, routes) and returns a standardized
+    APIErrorResponse JSON, preventing Starlette's generic plain-text
+    '500 Internal Server Error' from ever reaching the client. Only RequestID
+    and SecurityHeaders sit outside it, so its 500 still carries X-Request-ID
+    and the security headers.
 
     Uses raw ASGI __call__ instead of BaseHTTPMiddleware.dispatch() to avoid
     buffering StreamingResponse bodies (which would break /chat/stream SSE).
-
-    CRITICAL: Must be added via app.add_middleware() AFTER all others.
     """
     def __init__(self, app: ASGIApp):
         self.app = app
@@ -328,21 +321,14 @@ class GlobalErrorCatcherMiddleware:
                 "body": error_body,
             })
 
-app.add_middleware(GlobalErrorCatcherMiddleware)
-# ─────────────────────────────────────────────────────────────────────────────
-
 # 🔁 Idempotency Middleware (non-streaming POST endpoints only)
-# Replays cached responses for duplicate requests bearing the same Idempotency-Key.
-# Registered AFTER GlobalErrorCatcherMiddleware (LIFO = executes before it)
+# Replays cached responses for duplicate requests bearing the same Idempotency-Key,
 # so duplicate replays skip all downstream processing including auth and rate limiting.
-from src.middleware.idempotency import IdempotencyMiddleware
-
-app.add_middleware(IdempotencyMiddleware)
-
 # 🔒 App Check Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
 # ⚠️  Uses raw ASGI protocol to avoid buffering StreamingResponse for /chat/stream
 from src.core.exceptions import AppCheckError
 from src.middleware.app_check import validate_app_check_token
+from src.middleware.idempotency import IdempotencyMiddleware
 
 
 class AppCheckMiddleware:
@@ -423,7 +409,30 @@ class AppCheckMiddleware:
 
         await self.app(scope, receive, send)
 
+# ─── Middleware stack ─────────────────────────────────────────────────────────
+# add_middleware() is LIFO: the LAST call becomes the OUTERMOST layer. All layers
+# are registered here, innermost first, so the order is explicit (CORS was added
+# above and stays innermost). Request flow, outermost -> innermost:
+#
+#   RequestID -> SecurityHeaders -> GlobalErrorCatcher -> AppCheck -> Idempotency
+#   -> Metrics -> CORS -> routes
+#
+# - RequestID outermost: every response — App Check 403s and catcher 500s
+#   included — carries X-Request-ID, and the error envelope's request_id
+#   (read from the same ContextVar) matches it.
+# - SecurityHeaders next: security headers on every response, errors included.
+# - GlobalErrorCatcher wraps AppCheck and Idempotency: a crash there still
+#   yields the JSON envelope instead of uvicorn's plain-text 500.
+# - AppCheck before Idempotency: a cached replay is never served to an
+#   unverified client; App Check rejections are not counted by Metrics.
+# Guarded by tests/unit/test_middleware_order.py and test_api_error_contract.py.
+app.add_middleware(MetricsMiddleware)
+app.add_middleware(IdempotencyMiddleware)
 app.add_middleware(AppCheckMiddleware)
+app.add_middleware(GlobalErrorCatcherMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIDMiddleware)
+# ─────────────────────────────────────────────────────────────────────────────
 
 # Register Routers
 from src.api.routes.upload import router as upload_router

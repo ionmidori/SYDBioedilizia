@@ -16,11 +16,17 @@ Frontend -> Backend -> ADK Orchestrator is the ONLY flow. Never bypass tiers.
 - `src/adk/tools.py` — 9 async FunctionTools (session_id required for all)
 - `src/adk/session.py` — InMemorySessionService (ephemeral; history injected from Firestore on restart)
 
-## Middleware Stack (execution order)
-1. Request ID injection (`request_id_middleware`)
-2. Metrics tracking (`middleware/metrics.py`)
-3. App Check validation (`middleware/app_check.py`)
-4. Security headers (`middleware/security_headers.py`)
+## Middleware Stack (outermost → innermost)
+Registered in ONE block in `main.py` ("Middleware stack"); `add_middleware()` is LIFO.
+1. `RequestIDMiddleware` — X-Request-ID on every response (errors included)
+2. `SecurityHeadersMiddleware` (`middleware/security_headers.py`)
+3. `GlobalErrorCatcherMiddleware` — JSON envelope for anything that escapes
+4. `AppCheckMiddleware` (`middleware/app_check.py`)
+5. `IdempotencyMiddleware` (`middleware/idempotency.py`)
+6. `MetricsMiddleware` (`middleware/metrics.py`)
+7. `CORSMiddleware`
+All raw ASGI (never `BaseHTTPMiddleware`: it buffers `/chat/stream`). Order guarded by
+`tests/unit/test_middleware_order.py`; error contract by `test_api_error_contract.py`.
 
 ## Code Conventions
 - **Pydantic V2**: Use `model_config`, `Field(alias=...)`, `model_dump()`
