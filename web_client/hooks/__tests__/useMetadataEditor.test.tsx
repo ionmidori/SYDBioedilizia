@@ -1,22 +1,19 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { useMetadataEditor } from '../useMetadataEditor';
 
-const mockRefreshToken = jest.fn();
-jest.mock('@/hooks/useAuth', () => ({
-    useAuth: () => ({ refreshToken: mockRefreshToken }),
+const fetchMock = jest.fn();
+jest.mock('@/lib/api-client', () => ({
+    fetchWithAuth: (...args: unknown[]) => fetchMock(...args),
 }));
-
-const fetchMock = global.fetch as jest.Mock;
 
 const request = { projectId: 'p1', filePath: 'renders/a.png', room: 'cucina', status: 'final' };
 
 beforeEach(() => {
     fetchMock.mockReset();
-    mockRefreshToken.mockReset().mockResolvedValue('tok-1');
 });
 
 describe('useMetadataEditor', () => {
-    it('POSTs the snake_case payload with a fresh token', async () => {
+    it('POSTs the snake_case payload through the authenticated client and the /api/py proxy', async () => {
         fetchMock.mockResolvedValue({
             ok: true,
             json: () =>
@@ -28,10 +25,10 @@ describe('useMetadataEditor', () => {
         await expect(result.current.updateMetadata(request)).resolves.toBe(true);
 
         expect(fetchMock).toHaveBeenCalledWith(
-            expect.stringContaining('/update-file-metadata'),
+            '/api/py/update-file-metadata',
             expect.objectContaining({
                 method: 'POST',
-                headers: expect.objectContaining({ Authorization: 'Bearer tok-1' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     project_id: 'p1',
                     file_path: 'renders/a.png',

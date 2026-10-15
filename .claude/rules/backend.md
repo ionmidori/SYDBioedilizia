@@ -20,11 +20,11 @@ Frontend -> Backend -> ADK Orchestrator is the ONLY flow. Never bypass tiers.
 Registered in ONE block in `main.py` ("Middleware stack"); `add_middleware()` is LIFO.
 1. `RequestIDMiddleware` — X-Request-ID on every response (errors included)
 2. `SecurityHeadersMiddleware` (`middleware/security_headers.py`)
-3. `GlobalErrorCatcherMiddleware` — JSON envelope for anything that escapes
-4. `AppCheckMiddleware` (`middleware/app_check.py`)
-5. `IdempotencyMiddleware` (`middleware/idempotency.py`)
-6. `MetricsMiddleware` (`middleware/metrics.py`)
-7. `CORSMiddleware`
+3. `CORSMiddleware` — outside App Check/catcher, so their 403/500 carry `Access-Control-Allow-Origin` (#482)
+4. `GlobalErrorCatcherMiddleware` — JSON envelope for anything that escapes
+5. `AppCheckMiddleware` (`middleware/app_check.py`)
+6. `IdempotencyMiddleware` (`middleware/idempotency.py`)
+7. `MetricsMiddleware` (`middleware/metrics.py`)
 All raw ASGI (never `BaseHTTPMiddleware`: it buffers `/chat/stream`). Order guarded by
 `tests/unit/test_middleware_order.py`; error contract by `test_api_error_contract.py`.
 

@@ -115,3 +115,22 @@ def test_update_metadata_uses_bucket_directly(metadata_client):
     # Before the fix, storage.bucket() raised AttributeError -> 500.
     assert resp.status_code == 200, resp.text
     fake_bucket.blob.assert_called_once_with("renders/img.png")
+
+
+
+def test_update_metadata_is_reachable_through_the_frontend_proxy(monkeypatch):
+    """The Next rewrite maps /api/py/:path* to the backend's /api/:path* (#482):
+    a route mounted at the root is unreachable from the browser (404)."""
+    import main
+    from fastapi.testclient import TestClient
+
+    async def _app_check_ok(_request) -> None:
+        return None
+
+    monkeypatch.setattr(main, "validate_app_check_token", _app_check_ok)
+    resp = TestClient(main.app, raise_server_exceptions=False).post(
+        "/api/update-file-metadata",
+        json={"project_id": "p", "file_path": "renders/a.png", "room": "Cucina"},
+    )
+    # Route exists and is guarded: no credentials -> 401, never 404.
+    assert resp.status_code == 401, resp.text

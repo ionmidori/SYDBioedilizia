@@ -3,8 +3,10 @@
  * Allows users to update room type and status for project files.
  */
 import { useState } from 'react';
-import { useAuth } from './useAuth';
+import { fetchWithAuth } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
+
+const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py';
 
 interface UpdateMetadataRequest {
     projectId: string;
@@ -22,21 +24,16 @@ interface UpdateMetadataResponse {
 export function useMetadataEditor() {
     const [isUpdating, setIsUpdating] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const { refreshToken } = useAuth();
 
     const updateMetadata = async (request: UpdateMetadataRequest): Promise<boolean> => {
         setIsUpdating(true);
         setError(null);
 
         try {
-            const token = await refreshToken();
-
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/update-file-metadata`, {
+            // fetchWithAuth adds the ID token and the App Check token (#482).
+            const response = await fetchWithAuth(`${API_ROOT}/update-file-metadata`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     project_id: request.projectId,
                     file_path: request.filePath,

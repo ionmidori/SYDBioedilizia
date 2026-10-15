@@ -152,13 +152,8 @@ _allowed_origins = (
     else _production_origins
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_allowed_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Firebase-AppCheck", "X-Request-ID"],
-)
+# Registered in the "Middleware stack" block below (it must wrap App Check and
+# the error catcher, so their 403/500 carry Access-Control-Allow-Origin).
 
 # 🆔 Request ID Middleware (Raw ASGI — no BaseHTTPMiddleware buffering)
 # ⚠️  Uses raw ASGI protocol to avoid buffering StreamingResponse for /chat/stream
@@ -417,16 +412,20 @@ class AppCheckMiddleware:
 
 # ─── Middleware stack ─────────────────────────────────────────────────────────
 # add_middleware() is LIFO: the LAST call becomes the OUTERMOST layer. All layers
-# are registered here, innermost first, so the order is explicit (CORS was added
-# above and stays innermost). Request flow, outermost -> innermost:
+# are registered here, innermost first, so the order is explicit.
+# Request flow, outermost -> innermost:
 #
-#   RequestID -> SecurityHeaders -> GlobalErrorCatcher -> AppCheck -> Idempotency
-#   -> Metrics -> CORS -> routes
+#   RequestID -> SecurityHeaders -> CORS -> GlobalErrorCatcher -> AppCheck
+#   -> Idempotency -> Metrics -> routes
 #
 # - RequestID outermost: every response — App Check 403s and catcher 500s
 #   included — carries X-Request-ID, and the error envelope's request_id
 #   (read from the same ContextVar) matches it.
 # - SecurityHeaders next: security headers on every response, errors included.
+# - CORS outside the catcher and App Check: their 403/500 carry
+#   Access-Control-Allow-Origin, so a browser calling the backend directly can
+#   read error_code/request_id instead of an opaque CORS error (#482). It
+#   answers preflights itself, inside RequestID/SecurityHeaders.
 # - GlobalErrorCatcher wraps AppCheck and Idempotency, so a crash there is
 #   answered by it from INSIDE RequestID/SecurityHeaders (X-Request-ID, security
 #   headers, correlatable request_id). Anything that escapes the catcher is
@@ -439,6 +438,13 @@ app.add_middleware(MetricsMiddleware)
 app.add_middleware(IdempotencyMiddleware)
 app.add_middleware(AppCheckMiddleware)
 app.add_middleware(GlobalErrorCatcherMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Firebase-AppCheck", "X-Request-ID"],
+)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -471,7 +477,8 @@ app.include_router(reports_router)
 # Register metadata update router
 from src.api.routes.update_metadata import router as metadata_router
 
-app.include_router(metadata_router)
+# Under /api: the browser reaches it through the Next rewrite /api/py/* -> /api/* (#482).
+app.include_router(metadata_router, prefix="/api")
 # Register quote HITL router (skill: langgraph-hitl-patterns)
 from src.api.routes.quote_routes import router as quote_router
 
