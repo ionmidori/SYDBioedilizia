@@ -136,9 +136,9 @@ commit_files.txt
 # n8n and Supabase were decommissioned (Phase 129). A local copy of their folders
 # may still hold real secrets (n8n/.env.n8n) or project state: keep them out of
 # git until deleted by hand.
-n8n/
-n8n_workflows/
-supabase/
+/n8n/
+/n8n_workflows/
+/supabase/
 
 # backend runtime data artifacts (extraction logs, scraped HTML, raw PDFs)
 backend_python/data/*.txt
