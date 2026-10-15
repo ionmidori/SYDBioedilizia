@@ -1,5 +1,6 @@
 """Transactional email outbox (Phase 128 — Fase 4): enqueue with the state
 change, idempotency, lease, retry/backoff, dead-letter, sweep, webhook events."""
+import logging
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -196,6 +197,36 @@ async def test_permanent_failure_dead_letters_and_tells_the_admin(db):
     assert _delivery(db, queued.delivery_id)["status"] == "failed"
     assert db.get_data(*QUOTE)["delivery_status"] == "failed"
 
+
+
+# ── Dead-letter alert signal (#478) ───────────────────────────────────────────
+# Cloud Monitoring alerts on jsonPayload.event="email_dead_letter" (log-based
+# metric in deploy/observability/email_dead_letter.yaml). The event name and fields are that contract.
+def _dead_letter_records(caplog):
+    return [r for r in caplog.records if getattr(r, "event", None) == "email_dead_letter"]
+
+
+async def test_dead_letter_emits_one_alert_event_without_pii(db, caplog):
+    caplog.set_level(logging.INFO, logger=outbox.__name__)
+    _seed(db)
+    queued = await _enqueue(db)
+    assert await outbox.dispatch_one(db, queued.delivery_id, FailingProvider(permanent=True), NOW) == "dead"
+
+    [record] = _dead_letter_records(caplog)
+    assert record.levelno == logging.ERROR
+    assert record.outbox_id == queued.delivery_id
+    assert record.kind == "quote_delivery"
+    assert record.attempts == 1
+    assert record.last_error == "permanent:550"
+    assert "mario@example.it" not in str(record.__dict__)
+
+
+async def test_retry_emits_no_alert_event(db, caplog):
+    caplog.set_level(logging.INFO, logger=outbox.__name__)
+    _seed(db)
+    queued = await _enqueue(db)
+    assert await outbox.dispatch_one(db, queued.delivery_id, FailingProvider(), NOW) == "retry"
+    assert _dead_letter_records(caplog) == []
 
 async def test_gives_up_after_max_attempts(db, monkeypatch):
     monkeypatch.setattr(outbox.settings, "EMAIL_MAX_ATTEMPTS", 2)
