@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { BLOG_LOGO_URL } from '@/lib/blog/seo';
 
 /**
  * Guards for static assets served as-is (no next/image optimisation).
@@ -33,6 +34,11 @@ describe('web app manifest icons', () => {
         expect(sizes).toEqual(expect.arrayContaining(['192x192', '512x512']));
     });
 
+    it('provides a maskable icon so Android does not shrink the logo into a white disc', () => {
+        const maskable = manifest.icons.filter((icon) => icon.purpose === 'maskable');
+        expect(maskable.map((icon) => icon.sizes)).toContain('512x512');
+    });
+
     it.each(manifest.icons.map((icon) => [icon.src, icon] as const))(
         '%s exists, is a real PNG and matches its declared size',
         (_src, icon) => {
@@ -63,8 +69,17 @@ describe('public/ hygiene', () => {
             .filter((file) => pngSize(file) === null)
             .map((file) => path.relative(publicDir, file));
 
-        // syd-logo-v2.png is a JPEG kept at its URL for JSON-LD until a clean
-        // logo source replaces it (tracked separately); nothing else may join it.
-        expect(mislabelled).toEqual(['syd-logo-v2.png']);
+        expect(mislabelled).toEqual([]);
+    });
+});
+
+describe('structured-data logo', () => {
+    it('points to a real PNG of at least 112px shipped in public/', () => {
+        // Google requires >= 112x112 for Organization/publisher logos.
+        const file = path.join(publicDir, new URL(BLOG_LOGO_URL).pathname);
+        const size = pngSize(file);
+        expect(size).not.toBeNull();
+        expect(size!.width).toBeGreaterThanOrEqual(112);
+        expect(size!.height).toBeGreaterThanOrEqual(112);
     });
 });

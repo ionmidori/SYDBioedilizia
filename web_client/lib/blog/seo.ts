@@ -11,7 +11,7 @@ import type { BlogPost } from "./types";
  * index) and a publisher logo at /images/logo.png that does not exist.
  */
 
-export const BLOG_LOGO_URL = `${COMPANY.url}/syd-logo-v2.png`;
+export const BLOG_LOGO_URL = `${COMPANY.url}/syd-logo.png`;
 
 /** Articles carry a date only; OG publishedTime keeps the historical 08:00 UTC. */
 const toIsoDateTime = (date: string) => `${date}T08:00:00.000Z`;
