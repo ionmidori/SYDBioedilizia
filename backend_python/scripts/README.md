@@ -12,6 +12,7 @@ uv run python scripts/ops/<nome>.py    # ispezione dati
 - Molti agiscono su **dati live** (Firestore, Storage, Pinecone) con le credenziali del `.env`: leggere l'header dello script prima di lanciarlo, soprattutto quelli che scrivono o cancellano.
 - Non sono soggetti a ruff (`pyproject.toml`), ma lo sono alla guardia sui literal di modello Gemini (`tests/unit/test_model_registry.py`): i modelli si risolvono da `src/core/models.py`.
 - Nuovi controlli ripetibili vanno scritti come test in `tests/`, non come script.
+- Gli script di deploy e di configurazione di Google Cloud (Cloud Run, outbox email, alert) non stanno qui ma in `deploy/`: vedi [`deploy/README.md`](../deploy/README.md).
 
 ## RAG e listino
 

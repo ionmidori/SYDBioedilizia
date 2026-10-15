@@ -48,7 +48,8 @@ Chat flow: `ChatProvider.tsx` (AI SDK) → `app/api/chat/route.ts` (proxy) → `
 - Transactional outbox (`backend_python/src/services/email/`): admin notification on new quote
   requests and quote delivery are recorded with the business change and sent via Brevo or SMTP,
   with retries, dead-lettering and Brevo delivery events. Dispatch runs on Cloud Tasks
-  (`backend_python/deploy/email-outbox.sh`).
+  (`backend_python/deploy/email-outbox.sh`). A dead-lettered email triggers a Cloud Monitoring
+  alert to the admin (`backend_python/deploy/observability/`).
 
 ---
 
@@ -67,7 +68,7 @@ Chat flow: `ChatProvider.tsx` (AI SDK) → `app/api/chat/route.ts` (proxy) → `
 
 ## Security
 
-- Firebase **App Check** middleware and security headers on the backend; nonce-based **CSP** on the frontend (`web_client/lib/security/csp.ts`).
+- Firebase **App Check** middleware and security headers on every backend response (errors included, with CORS answering outside App Check so browsers can read error envelopes); **CSP** on the frontend with a strict nonce policy for dynamic routes (`web_client/lib/security/csp.ts`).
 - Firestore and Storage security rules, with rule tests in CI (`tests/rules/`).
 - Model Armor guardrails (configurable fail-open / fail-closed).
 - HMAC-signed webhooks with timestamp, rate limiting on API routes.
@@ -89,6 +90,9 @@ npm run dev:py         # backend   → http://localhost:8080
 ```
 
 Environment variables are read from `.env` files (see `backend_python/src/core/config.py` for the backend settings).
+
+For the backend alone you can also run `uv sync --extra dev` and
+`uv run uvicorn main:app --reload --port 8080` from `backend_python/`.
 
 ### Tests and checks
 
@@ -112,7 +116,24 @@ Frontend checks, backend tests, E2E smoke, Firestore + Storage rules tests, secu
 ## Deployment
 
 - **Frontend**: Vercel, from `web_client/`.
-- **Backend**: Google Cloud Run (`syd-brain`, `europe-west1`), built by Cloud Build on push to `main`; health check at `/health`.
+- **Backend**: Google Cloud Run (`syd-brain`, `europe-west1`), built by Cloud Build on push to `main`; health check at `/health`. Runtime settings, the email outbox infrastructure and the alerts are applied by the scripts in `backend_python/deploy/` (see [its README](backend_python/deploy/README.md)).
+
+---
+
+## Documentation
+
+| Document | Content |
+| :--- | :--- |
+| [backend_python/README.md](backend_python/README.md) | Backend overview, middleware stack, structure, setup |
+| [backend_python/deploy/README.md](backend_python/deploy/README.md) | Cloud Run, email outbox, Vertex AI and alert scripts |
+| [backend_python/scripts/README.md](backend_python/scripts/README.md) | Manual maintenance and ingestion scripts (in Italian) |
+| [backend_python/tests/README.md](backend_python/tests/README.md) | Backend tests and contract tests |
+| [backend_python/tests/evals/README.md](backend_python/tests/evals/README.md) | ADK agent evaluations |
+| [web_client/README.md](web_client/README.md) | Frontend overview, routes, API access, branding |
+| [web_client/e2e/README.md](web_client/e2e/README.md) | Playwright suites |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, quality gates, commit and dependency rules |
+| [SECURITY.md](SECURITY.md) | Security architecture and vulnerability reporting |
+| [CHANGELOG.md](CHANGELOG.md) | Notable changes |
 
 ---
 

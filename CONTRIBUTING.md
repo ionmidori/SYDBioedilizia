@@ -13,8 +13,11 @@ Next.js 16 (web_client)  →  FastAPI (backend_python)  →  Google ADK orchestr
 ```
 
 **Never bypass a tier.** The frontend talks only to the backend; the backend
-owns all ADK/Vertex/Firebase-admin access. Per-tier rules live in the internal
-architecture docs; ask a maintainer for the current architecture map.
+owns all ADK/Vertex/Firebase-admin access. The per-tier rules live in
+[`.claude/rules/backend.md`](.claude/rules/backend.md) and
+[`.claude/rules/frontend.md`](.claude/rules/frontend.md). Each tier also has a
+README: [`backend_python/README.md`](backend_python/README.md) and
+[`web_client/README.md`](web_client/README.md).
 
 ## Prerequisites
 
@@ -69,20 +72,30 @@ A **pre-commit hook** (husky + lint-staged) runs ESLint/Prettier on staged
 
 ## Type checking (pyright)
 
-The backend uses **pyright in incremental-adoption mode** (`pyrightconfig.json`).
-The CI gate blocks *new* hard type errors. Roughly 186 pre-existing findings in
-`src/` are baselined as warnings (a ratchet). When you touch a module, prefer to
-fix its findings and — where feasible — tighten the relevant rule back to
-`error`. **Do not add new blanket suppressions.**
+The backend runs **pyright in `basic` mode** over `src/` and `main.py`
+(`pyrightconfig.json`). The rules that catch real bugs (`reportArgumentType`,
+`reportAttributeAccessIssue`, `reportCallIssue`, `reportReturnType`, the
+`reportOptional*` family, `reportMissingImports` and others) are set to
+`error`, and `src/` currently reports no findings. The CI gate fails on any new
+error. **Don't add blanket suppressions**; fix the type, or narrow the
+suppression to one line with a reason.
+
+Ruff has a ratchet too: don't add a new `# noqa: BLE001`, and narrow the
+existing ones when you touch a module (the policy is in `pyproject.toml`).
 
 ## Commit & PR conventions
 
-- **Conventional Commits**: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`,
-  `test:`, `ci:`, `build:`. Scope optional, e.g. `fix(backend): …`.
+- **Conventional Commits**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`,
+  `test` and `chore`. Scope optional, e.g. `fix(backend): …`.
 - **Atomic commits** — one logical change each.
 - **Golden Sync**: any change to a Pydantic model must update the matching
   TypeScript interface (1:1 parity), and vice versa.
+- Pull request titles must use one of those types: the `Validate PR title` CI
+  check rejects any other, including `ci` and `build`. Use `chore(ci): …` for
+  workflow changes.
 - Keep PRs focused; include a short "what/why" and note any CORS or env changes.
+- A change to a script in `backend_python/deploy/` that touches Google Cloud
+  isn't applied by CI: say in the PR which command to run after the merge.
 - Update [CHANGELOG.md](CHANGELOG.md) under `## [Unreleased]` for user-visible
   changes.
 
@@ -90,13 +103,19 @@ fix its findings and — where feasible — tighten the relevant rule back to
 
 Dependabot opens grouped version-update PRs (see `.github/dependabot.yml`).
 
-> ⚠️ **Backend (pip) note:** Dependabot raises floors in `pyproject.toml` but
-> does **not** update `uv.lock`. Merging those PRs individually leaves the lock
-> behind, and Cloud Run builds from `uv.lock`. Consolidate backend bumps and
-> re-lock (`uv lock`) in a single PR.
+> ⚠️ **Backend note:** the backend is managed with `uv`, and Cloud Run builds
+> from `uv.lock` with `--locked`. Dependabot uses the `uv` ecosystem for
+> `backend_python/`, so its PRs update the lock; whenever you edit
+> `pyproject.toml` yourself, run `uv lock` and commit `uv.lock` in the same PR.
+> CI runs `uv lock --check` and fails on a stale lock.
 
-> ⚠️ **Windows note:** regenerating `package-lock.json` on Windows strips Linux
-> optional dependencies. Regenerate only with `--package-lock-only` or on Linux.
+> ⚠️ **Frontend lockfile note:** there is one `package-lock.json`, at the
+> repository root, and it must be regenerated with **npm 10** (CI pins it).
+> npm 11, which ships with Node 24, silently prunes optional cross-platform
+> dependencies on Windows and CI then fails at `npm ci`. Use
+> `npx -y npm@10 install --package-lock-only`, keep the 4-space indentation, and
+> check that the diff only touches the bumped package. The details are in
+> [`.claude/rules/frontend.md`](.claude/rules/frontend.md).
 
 ## Security
 

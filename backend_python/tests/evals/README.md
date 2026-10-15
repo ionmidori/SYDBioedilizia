@@ -1,57 +1,69 @@
-# 🧪 ADK Live Evaluation Suite
+# ADK evaluation suite
 
-Enterprise-grade evaluation framework for validating SYD AI agent behavior using Google ADK's native `AgentEvaluator` with LLM-as-Judge rubrics.
+This folder holds the evaluations of the SYD agents, run with the native
+`AgentEvaluator` of Google ADK. Each evaluation replays a scripted conversation
+against the real agents and compares the tool calls and the answer with what's
+expected. The runs call the live Gemini API, so they aren't part of the normal
+test suite or of CI.
 
----
+## Run the evaluations
 
-## 📋 Quick Start
+You need `GOOGLE_API_KEY` in `backend_python/.env` and the dependencies
+installed (`uv sync --extra dev`).
 
-### Prerequisites
-- `GOOGLE_API_KEY` set in `.env` (eval runner calls live Gemini API)
-- Python 3.12+ with `uv`
-- All dependencies: `uv sync`
-
-### Run Evaluations
 ```bash
-# From repo root
-npm run eval:run                    # All flows (quote, triage, design)
-
-# Or from backend_python/
-cd backend_python
-uv run python tests/evals/run_evals.py --output results/
+npm run eval:run              # from the repo root: all flows
+npm run eval:run:quote        # one flow
+npm run eval:run:triage
+npm run eval:run:design
 ```
 
-**Output**: Timestamped JSON files in `results/eval_{timestamp}_{flow}.json` with scores and metadata.
+To use more options, run the runner directly from `backend_python/`:
 
----
-
-## 🏗️ Architecture
-
-### Test Files (Eval Cases)
-
-```
-quote_flow.test.json     → 2 test cases (bagno 6mq, soggiorno 28mq)
-triage_flow.test.json    → 2 test cases (routing decisions)
-design_flow.test.json    → 1 test case (rendering response)
+```bash
+uv run python tests/evals/run_evals.py \
+  --file quote_flow.test.json \
+  --agent quote \
+  --runs 3 \
+  --output results/
 ```
 
-Each `.test.json` follows ADK EvalSet format:
+| Option | Meaning |
+| :--- | :--- |
+| `--file`, `-f` | One `.test.json` file from this folder (default: all) |
+| `--agent`, `-a` | Sub-agent to evaluate: `triage`, `design` or `quote` (default: the root agent) |
+| `--runs`, `-n` | Runs per case, to see the variance (default: 1) |
+| `--output`, `-o` | Folder for the JSON results, relative to this folder |
+
+The runner exits with a non-zero code on any error: an invalid eval file, an
+API failure or a metric below its threshold. A zero exit code means every case
+passed. Results saved with `--output` are timestamped JSON files in
+`results/` and aren't tracked by git.
+
+## Eval sets
+
+| File | Cases |
+| :--- | :--- |
+| `quote_flow.test.json` | `quote_bathroom_6mq`, `quote_livingroom_28mq` |
+| `triage_flow.test.json` | `photo_upload_no_context_intent_first`, `photo_upload_in_quote_flow_no_routing` |
+| `design_flow.test.json` | `design_livingroom_modern` |
+
+The files use the ADK `EvalSet` schema, which **requires snake_case keys**:
+
 ```json
 {
-  "evalSetId": "syd_quote_flow_v1",
+  "eval_set_id": "syd_quote_flow_v1",
   "name": "SYD Quote Flow Scenarios",
-  "evalCases": [
+  "eval_cases": [
     {
-      "evalId": "unique_case_id",
+      "eval_id": "quote_bathroom_6mq",
       "conversation": [
         {
-          "invocationId": "unique_invocation",
-          "userContent": { "parts": [{"text": "user message"}], "role": "user" },
-          "finalResponse": { "parts": [{"text": "expected response"}], "role": "model" },
-          "intermediateData": {
-            "toolUses": [
-              {"name": "suggest_quote_items", "args": {}, "id": "call_001"}
-            ]
+          "invocation_id": "inv_quote_001",
+          "user_content": { "parts": [{ "text": "Vorrei ristrutturare il mio bagno." }], "role": "user" },
+          "final_response": { "parts": [{ "text": "expected answer" }], "role": "model" },
+          "intermediate_data": {
+            "tool_uses": [{ "name": "suggest_quote_items", "args": {}, "id": "call_001" }]
           }
         }
       ]
@@ -60,211 +72,83 @@ Each `.test.json` follows ADK EvalSet format:
 }
 ```
 
-### Rubrics (Custom Evaluators)
+With camelCase keys (`evalSetId`, `userContent`) the installed `google-adk`
+fails validation, falls back to its legacy loader and stops with
+`must contain a list of dictionaries`. `test_eval_infrastructure.py` loads every
+file with `EvalSet` and runs without network access, so a schema problem fails
+the normal test suite instead of the live run.
 
-**File**: `syd_rubrics.py`
+To add a case or a flow, create or edit a `.test.json` file in this folder and
+run it with `--file`. Add a flow script to the root `package.json` if you want
+a shortcut.
 
-Each rubric scores a specific SYD business rule using LLM-as-Judge:
+## Pass criteria
 
-| Rubric | Validates | Score |
-|--------|-----------|-------|
-| `NO_FURNITURE_RUBRIC` | Quotes never include furniture as line items | 1.0 = pass, 0.0 = fail |
-| `ITALIAN_ONLY_RUBRIC` | All responses in Italian | 1.0 = full Italian, 0.5 = mixed, 0.0 = other |
-| `HAS_MQ_RUBRIC` | Quote items include m² quantities | 1.0 = all items, 0.5 = some, 0.0 = none |
-| `SKU_PRESENT_RUBRIC` | All items reference Price Book SKUs | 1.0 = all, 0.5 = some, 0.0 = none |
-| `NO_ROUTING_IN_QUOTE_FLOW_RUBRIC` | Triage doesn't re-ask routing when in quote context | 1.0 = pass, 0.0 = fail |
-| `INTENT_FIRST_RUBRIC` | File uploads without context trigger intent question first | 1.0 = pass, 0.0 = fail |
+`test_config.json` defines what the runner checks for every case:
 
-**Composite Metrics** (combine multiple rubrics):
-- `SYD_QUOTE_QUALITY` — NO_FURNITURE + ITALIAN_ONLY + HAS_MQ + SKU_PRESENT (threshold: 0.7)
-- `SYD_TRIAGE_QUALITY` — ITALIAN_ONLY + NO_ROUTING_IN_QUOTE_FLOW (threshold: 0.8)
-- `SYD_INTENT_FIRST_QUALITY` — INTENT_FIRST + ITALIAN_ONLY (threshold: 0.8)
+| Criterion | Value | Meaning |
+| :--- | :--- | :--- |
+| `tool_trajectory_avg_score` | 1.0, `IN_ORDER` | The expected tools must be called in that order; extra calls are allowed |
+| `response_match_score` | 0.3 | Permissive similarity between the answer and the expected text |
 
-**Judge Model**: `gemini-3.1-flash-lite-preview` (cost-efficient)
+Edit that file to change the thresholds.
 
-### Test Configuration
+## Rubrics
 
-**File**: `test_config.json`
+`syd_rubrics.py` defines LLM-as-judge rubrics for the SYD business rules and
+three composite metrics:
 
-```json
-{
-  "criteria": {
-    "tool_trajectory_avg_score": {
-      "threshold": 1.0,
-      "matchType": "IN_ORDER"
-    },
-    "response_match_score": 0.3
-  }
-}
-```
+| Rubric | Rule |
+| :--- | :--- |
+| `NO_FURNITURE_RUBRIC` | Quotes never include furniture as a line item |
+| `ITALIAN_ONLY_RUBRIC` | Every answer is in Italian |
+| `HAS_MQ_RUBRIC` | Quote items carry quantities in square meters |
+| `SKU_PRESENT_RUBRIC` | Quote items reference price book SKUs |
+| `NO_ROUTING_IN_QUOTE_FLOW_RUBRIC` | Triage doesn't ask the routing question again inside a quote flow |
+| `INTENT_FIRST_RUBRIC` | A file upload without context first triggers the intent question |
 
-- **`tool_trajectory_avg_score`**: Validates tool call sequence (IN_ORDER = tools must appear in expected sequence, extra tools allowed)
-- **`response_match_score`**: Semantic similarity threshold for agent response vs expected (0.3 = permissive)
+| Metric | Rubrics | Threshold |
+| :--- | :--- | :--- |
+| `SYD_QUOTE_QUALITY` | no furniture, Italian, square meters, SKU | 0.7 |
+| `SYD_TRIAGE_QUALITY` | Italian, no routing in quote flow | 0.8 |
+| `SYD_INTENT_FIRST_QUALITY` | intent first, Italian | 0.8 |
 
-### Evaluation Runner
+The judge model is the one resolved for the `INSIGHT` role (`MODEL_INSIGHT`,
+which falls back to `CHAT_MODEL_VERSION`), with 3 samples per rubric.
 
-**File**: `run_evals.py`
+> **Note:** The rubric metrics are defined and tested, but `run_evals.py` and
+> `test_config.json` don't use them yet: a run checks only the criteria in the
+> previous section. Wiring them in means adding them to the evaluation
+> criteria of the runner.
 
-Standalone orchestrator calling `AgentEvaluator.evaluate()` with:
-- **Agent Module**: `src.adk.agents` (root_agent + triage/design/quote sub-agents)
-- **Eval Dataset**: test.json files or directory
-- **Config**: Auto-loaded from `test_config.json` in eval directory
-- **Output**: Optional JSON persistence (`--output results/`)
+To add a rubric, define a `Rubric` in `syd_rubrics.py` and include it in a
+metric:
 
-**CLI Options**:
-```bash
-uv run python tests/evals/run_evals.py \
-  [--file quote_flow.test.json]        # Specific test file (default: all)
-  [--agent quote]                       # Sub-agent name (default: root)
-  [--runs 3]                            # Iterations per case (default: 1)
-  [--output results/]                   # Save JSON results (default: console only)
-```
-
-**Output Format**:
-```json
-{
-  "meta": {
-    "run_at": "2026-03-20T10:30:45.123Z",
-    "agent_module": "src.adk.agents",
-    "file_filter": "quote_flow.test.json",
-    "agent_name": "quote",
-    "num_runs": 1
-  },
-  "results": {
-    "evalSetId": "syd_quote_flow_v1",
-    "evalCaseResults": [
-      {
-        "evalId": "bagno_preventivo_no_furniture",
-        "invocationEvalResults": [...],
-        "score": 0.85,
-        "passedCriteria": ["no_furniture", "italian_only", "has_mq"],
-        "failedCriteria": ["sku_present"]
-      }
-    ]
-  }
-}
-```
-
----
-
-## 🚀 Usage Patterns
-
-### 1. Full Validation (All Flows)
-```bash
-npm run eval:run
-```
-Evaluates 5 test cases across syd_orchestrator, triage, design, quote agents.
-
-### 2. Single-Flow Testing
-```bash
-npm run eval:run:quote
-```
-Tests only `quote_flow.test.json` with quote_agent.
-
-### 3. Multi-Run Confidence Intervals
-```bash
-cd backend_python
-uv run python tests/evals/run_evals.py --runs 5 --output results/
-```
-Runs each case 5 times → compute mean score + variance.
-
-### 4. Sub-Agent Focused Evaluation
-```bash
-uv run python tests/evals/run_evals.py \
-  --file triage_flow.test.json \
-  --agent triage \
-  --output results/
-```
-Isolates triage_agent performance.
-
----
-
-## 📊 Interpreting Results
-
-**Score Breakdown**:
-- **1.0** = Perfect (all rubrics pass, tool trajectory exact, response matches expected)
-- **0.7–0.99** = Good (passes threshold, minor deviations)
-- **0.5–0.69** = Marginal (close to threshold, needs refinement)
-- **<0.5** = Fail (below acceptance criteria)
-
-**Common Failure Modes**:
-1. **Furniture mentioned** → NO_FURNITURE_RUBRIC fails → refine quote system prompt
-2. **English terms** → ITALIAN_ONLY_RUBRIC fails → add IT translation rules
-3. **Missing m²** → HAS_MQ_RUBRIC fails → ensure room area captured in vision analysis
-4. **Wrong tool called** → tool_trajectory_avg_score fails → check tool routing logic
-5. **Extra routing question** → NO_ROUTING_IN_QUOTE_FLOW_RUBRIC fails → fix triage state tracking
-
----
-
-## 🔧 Customization
-
-### Add a New Rubric
-1. Define in `syd_rubrics.py`:
 ```python
 CUSTOM_RUBRIC = Rubric(
     rubric_id="custom_check",
-    rubric_content=RubricContent(
-        text_property="The response does X. Score 1.0 if X occurs, 0.0 otherwise."
-    ),
+    rubric_content=RubricContent(text_property="The response does X."),
     description="Custom validation rule",
     type="FINAL_RESPONSE_QUALITY",
 )
 ```
 
-2. Add to composite metric:
-```python
-SYD_CUSTOM_QUALITY = EvalMetric(
-    metric_name=PrebuiltMetrics.RUBRIC_BASED_FINAL_RESPONSE_QUALITY_V1.value,
-    criterion=RubricsBasedCriterion(
-        threshold=0.8,
-        judge_model_options=SYD_JUDGE_OPTIONS,
-        rubrics=[CUSTOM_RUBRIC, ITALIAN_ONLY_RUBRIC],
-    ),
-)
-```
+## Read the results
 
-### Add a Test Case
-1. Create `.test.json` in this directory with EvalSet format
-2. Run: `npm run eval:run --file your_flow.test.json`
+When a case fails, the cause usually points at one part of the system:
 
-### Adjust Thresholds
-Edit `test_config.json`:
-```json
-{
-  "criteria": {
-    "tool_trajectory_avg_score": 0.8,
-    "response_match_score": 0.5
-  }
-}
-```
+| Failure | Where to look |
+| :--- | :--- |
+| Wrong or missing tool call | The agent prompt and tool routing in `src/adk/agents.py` |
+| English text in an answer | The language rules in the agent prompts |
+| Missing quantities in a quote | Whether the room area reaches the quote agent |
+| Extra routing question | The triage state tracking |
 
----
+Compare runs before and after a prompt change with `--runs 3 --output results/`
+to tell a real regression from model variance. Each live run costs Gemini API
+usage: one agent call per case plus the judge calls.
 
-## 🔐 Security & Cost Considerations
+## References
 
-**API Costs**:
-- Each case calls Gemini API once (user input → agent response)
-- Plus 1 LLM-as-Judge call per rubric per case
-- ~5 cases × 3 rubrics = 15 judge calls per full run
-- **Estimated**: $0.02–0.05 USD per full eval run (Flash Lite pricing)
-
-**Rate Limits**:
-- Gemini: 10 RPM (Tier 1) → eval runner respects this via ADK backoff
-- LLM-as-Judge: 100 RPM (typically sufficient for evals)
-
-**Env Var**:
-- `GOOGLE_API_KEY` must be set (no fallback to GEMINI_API_KEY)
-- Validation fails fast with clear error if missing
-
----
-
-## 📚 References
-
-- [Google ADK AgentEvaluator](https://cloud.google.com/vertex-ai/docs/agent-builder/evaluate)
-- [ADK Rubric-Based Evaluation](https://cloud.google.com/vertex-ai/docs/agent-builder/evaluate#rubric_based)
-- [EvalSet Format](https://cloud.google.com/vertex-ai/docs/agent-builder/evaluate#evalset_format)
-- [SYD Rubrics Pattern](../../.gemini/skills/evaluating-adk-agents/SKILL.md)
-
----
-
-**Updated**: March 22, 2026 — Phase 81e (v4.2.1)
+- [Backend test suite](../README.md)
+- [Google ADK evaluation documentation](https://google.github.io/adk-docs/evaluate/)
