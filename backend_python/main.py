@@ -521,13 +521,6 @@ app.include_router(lifecycle_router)
 
 from datetime import UTC
 
-# 🧪 TEST AUTOMATION ROUTER (Only in development)
-if settings.ENV == "development":
-    from src.api.routes.test_router import router as test_router
-    app.include_router(test_router)
-
-
-
 
 class LeadSubmissionRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)

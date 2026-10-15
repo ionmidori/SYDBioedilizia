@@ -7,8 +7,7 @@ base64 str therefore double-encoded, so the Gemini model received corrupted
 image data. The working references (``measure_room.py``, ``adk_orchestrator.py``)
 pass raw ``image_bytes``.
 
-This test drives ``cad_engine.analyze_floorplan_vector`` (the path wired to the
-generate-cad endpoint) with a mocked genai client and asserts the ``Blob.data``
+This test drives ``cad_engine.analyze_floorplan_vector`` with a mocked genai client and asserts the ``Blob.data``
 handed to ``generate_content`` is the **raw bytes**, not a base64 string.
 """
 import json
