@@ -38,19 +38,19 @@ class TestEvalSetParsing:
     @pytest.mark.parametrize("test_file", list(EVALS_DIR.glob("*.test.json")), ids=lambda p: p.stem)
     def test_json_parses(self, test_file: Path) -> None:
         data = json.loads(test_file.read_text(encoding="utf-8"))
-        assert "eval_set_id" in data, f"Missing evalSetId in {test_file.name}"
-        assert "eval_cases" in data, f"Missing evalCases in {test_file.name}"
-        assert len(data["eval_cases"]) > 0, f"Empty evalCases in {test_file.name}"
+        assert "eval_set_id" in data, f"Missing eval_set_id in {test_file.name}"
+        assert "eval_cases" in data, f"Missing eval_cases in {test_file.name}"
+        assert len(data["eval_cases"]) > 0, f"Empty eval_cases in {test_file.name}"
 
     @pytest.mark.parametrize("test_file", list(EVALS_DIR.glob("*.test.json")), ids=lambda p: p.stem)
     def test_eval_cases_have_required_fields(self, test_file: Path) -> None:
         data = json.loads(test_file.read_text(encoding="utf-8"))
         for case in data["eval_cases"]:
-            assert "eval_id" in case, f"Missing evalId in case from {test_file.name}"
+            assert "eval_id" in case, f"Missing eval_id in case from {test_file.name}"
             assert "conversation" in case, f"Missing conversation in {case.get('eval_id', '?')}"
             for invocation in case["conversation"]:
                 assert "user_content" in invocation, (
-                    f"Missing userContent in invocation {invocation.get('invocation_id', '?')}"
+                    f"Missing user_content in invocation {invocation.get('invocation_id', '?')}"
                 )
 
 
