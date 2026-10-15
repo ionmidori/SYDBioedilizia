@@ -1,13 +1,13 @@
 {
-  "evalSetId": "syd_quote_flow_v1",
+  "eval_set_id": "syd_quote_flow_v1",
   "name": "SYD Quote Flow Scenarios",
-  "evalCases": [
+  "eval_cases": [
     {
-      "evalId": "quote_bathroom_6mq",
+      "eval_id": "quote_bathroom_6mq",
       "conversation": [
         {
-          "invocationId": "inv_quote_001",
-          "userContent": {
+          "invocation_id": "inv_quote_001",
+          "user_content": {
             "parts": [
               {
                 "text": "Vorrei ristrutturare il mio bagno. È un bagno degli anni 80 con piastrelle bianche, pavimento in gres beige e sanitari vecchi. Circa 6 mq. Voglio un preventivo per rifarlo tutto."
@@ -15,7 +15,7 @@
             ],
             "role": "user"
           },
-          "finalResponse": {
+          "final_response": {
             "parts": [
               {
                 "text": "Test"
@@ -23,8 +23,8 @@
             ],
             "role": "model"
           },
-          "intermediateData": {
-            "toolUses": [
+          "intermediate_data": {
+            "tool_uses": [
               {
                 "name": "suggest_quote_items",
                 "args": {},
@@ -36,11 +36,11 @@
       ]
     },
     {
-      "evalId": "quote_livingroom_28mq",
+      "eval_id": "quote_livingroom_28mq",
       "conversation": [
         {
-          "invocationId": "inv_quote_002",
-          "userContent": {
+          "invocation_id": "inv_quote_002",
+          "user_content": {
             "parts": [
               {
                 "text": "Ho un soggiorno di 28 mq con parquet rovinato e pareti con carta da parati degli anni 70. Vorrei un preventivo per rifacimento pavimento e tinteggiatura pareti."
@@ -48,7 +48,7 @@
             ],
             "role": "user"
           },
-          "finalResponse": {
+          "final_response": {
             "parts": [
               {
                 "text": "Test"
@@ -56,8 +56,8 @@
             ],
             "role": "model"
           },
-          "intermediateData": {
-            "toolUses": [
+          "intermediate_data": {
+            "tool_uses": [
               {
                 "name": "suggest_quote_items",
                 "args": {},

@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 
 import pytest
+from google.adk.evaluation.eval_set import EvalSet
 
 EVALS_DIR = Path(__file__).parent
 
@@ -29,21 +30,27 @@ class TestEvalSetParsing:
         assert len(test_files) >= 3, f"Expected at least 3 .test.json files, found {len(test_files)}"
 
     @pytest.mark.parametrize("test_file", list(EVALS_DIR.glob("*.test.json")), ids=lambda p: p.stem)
+    def test_loads_as_adk_eval_set(self, test_file: Path) -> None:
+        """Schema guard: google-adk rejects files its EvalSet model cannot validate (snake_case keys)."""
+        eval_set = EvalSet.model_validate_json(test_file.read_text(encoding="utf-8"))
+        assert eval_set.eval_cases, f"Empty eval_cases in {test_file.name}"
+
+    @pytest.mark.parametrize("test_file", list(EVALS_DIR.glob("*.test.json")), ids=lambda p: p.stem)
     def test_json_parses(self, test_file: Path) -> None:
         data = json.loads(test_file.read_text(encoding="utf-8"))
-        assert "evalSetId" in data, f"Missing evalSetId in {test_file.name}"
-        assert "evalCases" in data, f"Missing evalCases in {test_file.name}"
-        assert len(data["evalCases"]) > 0, f"Empty evalCases in {test_file.name}"
+        assert "eval_set_id" in data, f"Missing eval_set_id in {test_file.name}"
+        assert "eval_cases" in data, f"Missing eval_cases in {test_file.name}"
+        assert len(data["eval_cases"]) > 0, f"Empty eval_cases in {test_file.name}"
 
     @pytest.mark.parametrize("test_file", list(EVALS_DIR.glob("*.test.json")), ids=lambda p: p.stem)
     def test_eval_cases_have_required_fields(self, test_file: Path) -> None:
         data = json.loads(test_file.read_text(encoding="utf-8"))
-        for case in data["evalCases"]:
-            assert "evalId" in case, f"Missing evalId in case from {test_file.name}"
-            assert "conversation" in case, f"Missing conversation in {case.get('evalId', '?')}"
+        for case in data["eval_cases"]:
+            assert "eval_id" in case, f"Missing eval_id in case from {test_file.name}"
+            assert "conversation" in case, f"Missing conversation in {case.get('eval_id', '?')}"
             for invocation in case["conversation"]:
-                assert "userContent" in invocation, (
-                    f"Missing userContent in invocation {invocation.get('invocationId', '?')}"
+                assert "user_content" in invocation, (
+                    f"Missing user_content in invocation {invocation.get('invocation_id', '?')}"
                 )
 
 
@@ -111,3 +118,19 @@ class TestAgentModule:
         assert "triage" in sub_agent_names
         assert "design" in sub_agent_names
         assert "quote" in sub_agent_names
+
+
+class TestRunEvalsExitCode:
+    """run_evals.py must fail loudly: a swallowed error hides broken evals (issue #479)."""
+
+    def test_main_exits_nonzero_when_evaluation_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from tests.evals import run_evals
+
+        async def _boom(*_args: object, **_kwargs: object) -> None:
+            raise ValueError("must contain a list of dictionaries")
+
+        monkeypatch.setattr(run_evals, "run_all", _boom)
+        monkeypatch.setattr("sys.argv", ["run_evals.py"])
+        with pytest.raises(SystemExit) as exc:
+            run_evals.main()
+        assert exc.value.code == 1

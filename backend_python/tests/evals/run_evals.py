@@ -85,6 +85,7 @@ async def run_all(
     if agent_name:
         logger.info(f"Sub-agent: {agent_name}")
 
+    # Any exception (bad schema, below-threshold metric) propagates to main(), which exits non-zero.
     eval_result = await AgentEvaluator.evaluate(
         agent_module=AGENT_MODULE,
         eval_dataset_file_path_or_dir=eval_path,
@@ -148,12 +149,16 @@ def main() -> None:
 
     output_dir = _resolve_output_dir(args.output)
 
-    asyncio.run(run_all(
-        file_filter=args.file,
-        agent_name=args.agent,
-        num_runs=args.runs,
-        output_dir=output_dir,
-    ))
+    try:
+        asyncio.run(run_all(
+            file_filter=args.file,
+            agent_name=args.agent,
+            num_runs=args.runs,
+            output_dir=output_dir,
+        ))
+    except Exception:  # noqa: BLE001 - CI must fail on any eval error (schema, threshold, API)
+        logger.exception("Evaluation failed.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
