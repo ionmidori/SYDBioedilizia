@@ -159,18 +159,3 @@ def sample_image_bytes():
     )
 
 
-@pytest.fixture
-def mock_quote_graph_with_memory_saver():
-    """
-    Real quote graph instance with MemorySaver (for integration testing).
-    Uses MemorySaver, NOT FirestoreSaver, to avoid live Firestore calls.
-    """
-    from langgraph.checkpoint.memory import MemorySaver
-    from src.graph.quote_graph import QuoteGraphFactory
-
-    with patch("src.graph.quote_graph.get_checkpointer") as mock_get_cp:
-        mock_get_cp.return_value = MemorySaver()
-        factory = QuoteGraphFactory()
-        graph = factory.create_graph()
-        yield graph
-
