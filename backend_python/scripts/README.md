@@ -51,12 +51,6 @@ uv run python scripts/ops/<nome>.py    # ispezione dati
 | `chat_latency_bench.py` | Benchmark di latenza della chat su scenari fissi (`--out` salva i risultati) |
 | `chat_quality_ab.py` | Confronto A/B di due configurazioni chat (LLM-as-judge) sui file di `chat_latency_bench.py` |
 
-## Monitoring
-
-| Script | Scopo |
-|---|---|
-| `setup_email_deadletter_alert.sh` | **Scrive su GCP.** Metrica log-based + canale email + alert policy: avvisa l'admin quando un'email dell'outbox va in dead-letter (#478). Idempotente; `TEST_MODE=1` / `CLEANUP_TEST=1` per la prova, runbook nell'header. Uso: `ALERT_EMAIL=... bash scripts/setup_email_deadletter_alert.sh` |
-
 ## `ops/` — ispezione in sola lettura
 
 | Script | Scopo |

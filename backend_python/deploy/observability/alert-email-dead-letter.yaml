@@ -1,0 +1,33 @@
+# Alert: at least one outbox email dead-lettered in 5 minutes (#478).
+# Pages the admin from Cloud Monitoring, so it works even when the email
+# provider itself is what fails. Typical delay 2-5 min (requirement: 15).
+# While the incident is open (auto-close after 30 min without new events)
+# further dead-letters send no new email: the logs list them all.
+displayName: "Email dead-letter (syd-brain)"
+combiner: OR
+conditions:
+- displayName: "email_dead_letter > 0 in 5 min"
+  conditionThreshold:
+    filter: >-
+      metric.type="logging.googleapis.com/user/email_dead_letter"
+      AND resource.type="cloud_run_revision"
+    aggregations:
+    - alignmentPeriod: 300s
+      perSeriesAligner: ALIGN_SUM
+      crossSeriesReducer: REDUCE_SUM
+    comparison: COMPARISON_GT
+    thresholdValue: 0
+    duration: 0s
+    trigger:
+      count: 1
+alertStrategy:
+  autoClose: 1800s
+documentation:
+  content: >-
+    An outbox email was dead-lettered (EMAIL_MAX_ATTEMPTS reached or a
+    permanent provider error). Logs Explorer: `jsonPayload.event="email_dead_letter"`
+    gives outbox_id, kind, project_id and last_error. `permanent:*` = address or
+    content rejected; `transient:*` = provider down for every attempt. The quote
+    shows delivery `failed` in the /admin console: fix the cause, then send it
+    again from there.
+  mimeType: text/markdown

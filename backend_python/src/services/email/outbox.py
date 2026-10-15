@@ -369,8 +369,8 @@ async def _record_failure(db: Any, entry: dict[str, Any], error: ProviderError, 
 
     await _transact(db, _txn)
     if dead:
-        # Alert signal (#478): a log-based metric on jsonPayload.event pages the
-        # admin through Cloud Monitoring, independent of the failing provider.
+        # Alert signal (#478): deploy/observability/email_dead_letter.yaml counts these and
+        # its alert pages the admin through Cloud Monitoring, independent of the failing provider.
         # No recipient address here: ids and the error class are enough to triage.
         logger.error("[Email/Outbox] Dead-letter: delivery abandoned.", extra={
             "event": "email_dead_letter", "outbox_id": entry["id"], "kind": entry.get("kind"),

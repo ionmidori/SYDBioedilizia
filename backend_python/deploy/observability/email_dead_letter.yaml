@@ -1,0 +1,14 @@
+# Log-based counter over the `email_dead_letter` log line emitted once per
+# dead-lettered outbox entry (src/services/email/outbox.py, _record_failure).
+# Filtered on jsonPayload.event, not severity: JsonFormatter writes `level`,
+# so Cloud Logging sees these lines as DEFAULT. Applied by apply.sh.
+name: email_dead_letter
+description: "Outbox emails abandoned after EMAIL_MAX_ATTEMPTS or a permanent provider error (#478)."
+filter: >-
+  resource.type="cloud_run_revision"
+  AND resource.labels.service_name="syd-brain"
+  AND jsonPayload.event="email_dead_letter"
+metricDescriptor:
+  metricKind: DELTA
+  valueType: INT64
+  unit: "1"

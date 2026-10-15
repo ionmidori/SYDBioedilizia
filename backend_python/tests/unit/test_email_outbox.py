@@ -201,7 +201,7 @@ async def test_permanent_failure_dead_letters_and_tells_the_admin(db):
 
 # ── Dead-letter alert signal (#478) ───────────────────────────────────────────
 # Cloud Monitoring alerts on jsonPayload.event="email_dead_letter" (log-based
-# metric, deploy/ops script). The event name and fields are that contract.
+# metric in deploy/observability/email_dead_letter.yaml). The event name and fields are that contract.
 def _dead_letter_records(caplog):
     return [r for r in caplog.records if getattr(r, "event", None) == "email_dead_letter"]
 
