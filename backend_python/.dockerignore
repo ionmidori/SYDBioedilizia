@@ -12,7 +12,6 @@ __pycache__/
 # Exclude test files and cache
 tests/
 tests_manual/
-testsprite_tests/
 .pytest_cache/
 .coverage
 htmlcov/
@@ -42,7 +41,7 @@ scripts/
 # Runtime data lives in src/data/, which stays in the image.
 data/
 
-# Exclude scratch output of local tools (e.g. testsprite tmp/, lock files)
+# Exclude scratch output of local tools (local QA tools write configs with API keys and lock files there)
 **/tmp/
 
 # Exclude documentation and project files

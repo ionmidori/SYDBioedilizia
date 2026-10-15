@@ -42,9 +42,8 @@ htmlcov/
 # Exclude tests and local QA tooling (not needed in production)
 /tests/
 /tests_manual/
-/testsprite_tests/
 
-# Exclude scratch output of local tools (e.g. testsprite tmp/, lock files)
+# Exclude scratch output of local tools (local QA tools write configs with API keys and lock files there)
 **/tmp/
 
 # Exclude operational scripts and their offline ingestion data

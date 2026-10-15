@@ -24,7 +24,7 @@ import pytest
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 # Root-level directories that must never reach Cloud Build nor the image.
-ROOT_DIRS = ("tests/", "tests_manual/", "testsprite_tests/", "scripts/", "data/", "docs/")
+ROOT_DIRS = ("tests/", "tests_manual/", "scripts/", "data/", "docs/")
 # Patterns that are meant to match at any depth.
 ANYWHERE = (".env", ".env.*", ".venv/", "**/tmp/")
 
