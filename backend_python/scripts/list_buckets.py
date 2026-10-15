@@ -1,10 +1,9 @@
 
-import os
 import sys
+from pathlib import Path
 
-# Add src to path
-sys.path.append(os.path.join(os.path.dirname(__file__), "src"))
-sys.path.append(os.path.dirname(__file__))
+# Make `src` importable from any cwd: this file lives in backend_python/scripts/.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dotenv import load_dotenv
 load_dotenv()

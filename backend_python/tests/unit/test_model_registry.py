@@ -152,10 +152,9 @@ def test_agents_resolve_models_from_the_registry():
 # ── Guard: no hardcoded Gemini model IDs outside the registry ────────────────
 
 _MODEL_LITERAL = re.compile(r"""["'/]gemini-[0-9a-z]""")
-# config.py is the registry itself; scripts/debug holds one-off scripts that
-# are not held to project standards (see scripts/debug/README.md).
+# config.py is the registry itself. scripts/ is covered too: operational
+# scripts must resolve models through the registry like the app does.
 _ALLOWED = {BACKEND_ROOT / "src" / "core" / "config.py"}
-_ALLOWED_DIRS = {BACKEND_ROOT / "scripts" / "debug"}
 
 
 def test_no_hardcoded_gemini_model_ids():
@@ -163,7 +162,7 @@ def test_no_hardcoded_gemini_model_ids():
     for root in (BACKEND_ROOT / "src", BACKEND_ROOT / "scripts", BACKEND_ROOT / "main.py"):
         files = [root] if root.is_file() else root.rglob("*.py")
         for path in files:
-            if path in _ALLOWED or any(d in path.parents for d in _ALLOWED_DIRS):
+            if path in _ALLOWED:
                 continue
             for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 if _MODEL_LITERAL.search(line):
