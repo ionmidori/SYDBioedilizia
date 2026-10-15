@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next';
-import { BLOG_POSTS } from '@/lib/blog-posts';
+import { BLOG_POSTS } from '@/lib/blog';
 import { COMPANY } from '@/lib/company';
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -57,8 +57,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ];
 
   const blogRoutes: MetadataRoute.Sitemap = BLOG_POSTS.map((post) => ({
-    url: `${baseUrl}/blog/${post.id}`,
-    lastModified: new Date(post.datePublished),
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: new Date(post.dateModified ?? post.datePublished),
     changeFrequency: 'monthly',
     priority: 0.7,
   }));

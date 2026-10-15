@@ -4,7 +4,9 @@ import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
-import { BLOG_POSTS } from '@/lib/blog-posts';
+import { BLOG_POSTS } from '@/lib/blog';
+import { BLOG_LOGO_URL, serializeJsonLd } from '@/lib/blog/seo';
+import { COMPANY } from '@/lib/company';
 
 export const metadata: Metadata = {
     title: "Blog Ristrutturazioni Roma | SYD Bioedilizia",
@@ -21,13 +23,13 @@ export default function BlogIndexPage() {
         "@type": "Blog",
         "name": "Blog Ristrutturazioni Roma | SYD Bioedilizia",
         "description": "Approfondimenti, guide e consigli sulle ristrutturazioni d'interni, bioedilizia e riqualificazione energetica.",
-        "url": "https://sydbioedilizia.vercel.app/blog",
+        "url": `${COMPANY.url}/blog`,
         "publisher": {
             "@type": "Organization",
-            "name": "SYD Bioedilizia",
+            "name": COMPANY.name,
             "logo": {
                 "@type": "ImageObject",
-                "url": "https://sydbioedilizia.vercel.app/syd-logo-v2.png"
+                "url": BLOG_LOGO_URL
             }
         },
         "blogPost": BLOG_POSTS.map(post => ({
@@ -35,7 +37,8 @@ export default function BlogIndexPage() {
             "headline": post.title,
             "description": post.excerpt,
             "image": post.image,
-            "url": `https://sydbioedilizia.vercel.app/blog/${post.id}`
+            "datePublished": post.datePublished,
+            "url": `${COMPANY.url}/blog/${post.slug}`
         }))
     };
 
@@ -45,7 +48,7 @@ export default function BlogIndexPage() {
             <main className="min-h-screen bg-luxury-bg text-luxury-text py-20 px-4 md:px-8">
                 <script
                     type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                    dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
                 />
                 <div className="max-w-7xl mx-auto">
 
@@ -61,8 +64,8 @@ export default function BlogIndexPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {BLOG_POSTS.map((post) => (
                             <Link
-                                key={post.id}
-                                href={`/blog/${post.id}`}
+                                key={post.slug}
+                                href={`/blog/${post.slug}`}
                                 className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border hover:shadow-xl hover:border-primary/30 transition-all duration-300"
                             >
                                 <div className="relative h-56 w-full overflow-hidden bg-muted">
