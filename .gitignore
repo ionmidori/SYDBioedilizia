@@ -92,6 +92,9 @@ next-env.d.ts
 # used by the authenticated E2E suite. Without it tracked, `firebase
 # emulators:exec` has nothing to read on a fresh CI checkout.
 !firebase.json
+# Blog characterization fixtures (recorded article output, no secrets) — required
+# by web_client/lib/blog/__tests__/blog-characterization.test.tsx in CI
+!web_client/lib/blog/__fixtures__/*.json
 # ADK eval fixtures (test data, no secrets) — required by tests/evals/test_eval_infrastructure.py in CI
 !backend_python/tests/evals/*.test.json
 !backend_python/tests/evals/test_config.json

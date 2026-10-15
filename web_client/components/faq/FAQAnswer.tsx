@@ -1,23 +1,15 @@
-import { Fragment } from "react";
 import type { FaqBlock, FaqInline } from "@/lib/faq-data";
+import { RichInline } from "@/components/content/RichInline";
 
 /**
  * Renders a FAQ answer from structured blocks.
  *
  * Security: content is rendered exclusively through React elements and text
  * nodes — there is NO dangerouslySetInnerHTML anywhere in this path. Inline
- * `**bold**` markers are converted to <strong>; everything else is plain text,
- * so any stray HTML in the source data would be shown literally, never parsed.
+ * `**bold**` markers are converted to <strong> by RichInline; everything else is
+ * plain text, so any stray HTML in the source data would be shown literally.
  */
-
-/** Split `**bold**` markers into <strong> spans; all other text stays literal. */
-function renderInline(text: FaqInline) {
-  // Segments at even indices are plain text, odd indices are bold.
-  const segments = text.split("**");
-  return segments.map((segment, i) =>
-    i % 2 === 1 ? <strong key={i}>{segment}</strong> : <Fragment key={i}>{segment}</Fragment>
-  );
-}
+const renderInline = (text: FaqInline) => <RichInline text={text} />;
 
 export function FAQAnswer({ blocks }: { blocks: FaqBlock[] }) {
   return (
