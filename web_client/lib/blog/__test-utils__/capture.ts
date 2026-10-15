@@ -6,9 +6,14 @@
  * text, and the JSON-LD graph. The fixtures in ../__fixtures__ were recorded
  * from the hand-written pages before the data-driven refactor; the new route
  * must reproduce them (see blog-characterization.test.tsx).
+ *
+ * Line breaks matter to readers but vanish from `textContent`, so every <br>
+ * is replaced by the visible marker BR_MARK before reading text.
  */
 
 const STRUCTURAL_TAGS = new Set(["H1", "H2", "H3", "H4", "P", "LI", "STRONG"]);
+
+export const BR_MARK = "⏎";
 
 export const normalise = (text: string): string =>
   text.replace(/\s+/g, " ").trim();
@@ -20,8 +25,18 @@ export interface ArticleCapture {
 }
 
 export function captureArticle(container: HTMLElement): ArticleCapture {
-  const main = container.querySelector("main");
-  if (!main) throw new Error("article has no <main>");
+  const source = container.querySelector("main");
+  if (!source) throw new Error("article has no <main>");
+
+  const ld = container.querySelector('script[type="application/ld+json"]');
+
+  // Work on a copy: <script> content (the JSON-LD) is not visible text, and
+  // <br> must become text to survive textContent.
+  const main = source.cloneNode(true) as HTMLElement;
+  main.querySelectorAll("script").forEach((s) => s.remove());
+  main
+    .querySelectorAll("br")
+    .forEach((br) => br.replaceWith(document.createTextNode(BR_MARK)));
 
   const structure: string[] = [];
   main.querySelectorAll("*").forEach((el) => {
@@ -31,13 +46,9 @@ export function captureArticle(container: HTMLElement): ArticleCapture {
     }
   });
 
-  const ld = container.querySelector('script[type="application/ld+json"]');
-  // Visible text only: <script> content (the JSON-LD) is not read by anyone.
-  const visible = main.cloneNode(true) as HTMLElement;
-  visible.querySelectorAll("script").forEach((s) => s.remove());
   return {
     structure,
-    text: normalise(visible.textContent ?? ""),
+    text: normalise(main.textContent ?? ""),
     jsonLd: ld ? JSON.parse(ld.innerHTML) : null,
   };
 }

@@ -9,6 +9,9 @@
  *  3. Callout text is wrapped in a <p> (one article had it bare in a <div>).
  *  4. JSON-LD URLs use COMPANY.url (were https://sydbioedilizia.it) and a
  *     publisher logo that exists (was /images/logo.png, a 404).
+ *  5. Articles that had no og:article:author now carry the company name.
+ *
+ * Line breaks are part of the comparison: capture.ts turns <br> into a marker.
  */
 import fs from "fs";
 import path from "path";
@@ -29,11 +32,31 @@ jest.mock("@/components/blog/BlogBackButton", () => ({
 }));
 
 interface Fixture {
-  metadata: Record<string, string | undefined>;
+  metadata: Record<string, string | string[] | undefined>;
   structure: string[];
   text: string;
   jsonLd: { "@graph": Array<Record<string, unknown>> };
 }
+
+/** Card titles of the original index (lib/blog-posts.ts before the refactor). */
+const ORIGINAL_INDEX_TITLES: Record<string, string> = {
+  "costi-ristrutturazione-casa-2026":
+    "Quanto Costa Ristrutturare Casa nel 2026? Prezzi e ROI",
+  "smart-remodel-ristrutturazione-senza-demolire":
+    "Smart Remodel: Ristrutturare Senza Demolire",
+  "tendenze-layout-interni-2026":
+    "Tendenze Layout Interni 2026: Addio Open Space",
+  "bonus-ristrutturazioni-2025-2026":
+    "Bonus Ristrutturazioni 2026: La Guida Completa senza sorprese",
+  "umidita-risalita-roma":
+    "Come eliminare definitivamente l'umidità di risalita nei palazzi storici romani",
+  "tendenze-bagno-2026":
+    "Tendenze 2026 per il Bagno: Materiali Ecologici e Design Minimalista",
+  "isolamento-acustico-interni":
+    "Isolamento Acustico Naturale: Stop ai Rumori del Vicinato",
+  "pavimenti-resina-vantaggi":
+    "Pavimenti in Resina e Microcemento: Vantaggi e Applicazioni",
+};
 
 const fixturesDir = path.resolve(__dirname, "..", "__fixtures__");
 const loadFixture = (slug: string): Fixture =>
@@ -103,6 +126,12 @@ describe.each(BLOG_POSTS.map((p) => [p.slug, p] as const))(
       expect(metadata.alternates?.canonical).toBe(fixture.metadata.canonical);
       if (fixture.metadata.publishedTime)
         expect(og.publishedTime).toBe(fixture.metadata.publishedTime);
+      expect(og.authors).toEqual(fixture.metadata.authors ?? [COMPANY.name]);
+    });
+
+    it("keeps the card title shown on the /blog index", () => {
+      // Titles recorded from the original lib/blog-posts.ts on main.
+      expect(post.indexTitle ?? post.title).toBe(ORIGINAL_INDEX_TITLES[slug]);
     });
 
     it("keeps the JSON-LD content, on the canonical host", async () => {

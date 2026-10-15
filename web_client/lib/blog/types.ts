@@ -61,6 +61,10 @@ export interface BlogPost {
   slug: string;
   /** On-page <h1>. */
   title: string;
+  /** Card title on /blog (and Blog JSON-LD headline); defaults to `title`. */
+  indexTitle?: string;
+  /** og:article:author; defaults to the company name. */
+  author?: string;
   /** Header line under the <h1>. */
   subtitle: string;
   /** Header badge; some articles have none. */

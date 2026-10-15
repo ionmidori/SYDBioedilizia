@@ -47,7 +47,7 @@ export function blogPostMetadata(post: BlogPost): Metadata {
       url: articleUrl(post),
       publishedTime: toIsoDateTime(post.datePublished),
       modifiedTime: toIsoDateTime(seo.dateModified),
-      authors: [COMPANY.name],
+      authors: [post.author ?? COMPANY.name],
       images: [{ url: post.image, alt: post.title }],
     },
     alternates: {

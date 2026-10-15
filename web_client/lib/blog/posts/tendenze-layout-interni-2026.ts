@@ -3,6 +3,8 @@ import type { BlogPost } from "../types";
 export const tendenzeLayoutInterni2026: BlogPost = {
   slug: "tendenze-layout-interni-2026",
   title: "Addio Open Space: Le Nuove Tendenze di Layout per il 2026",
+  indexTitle: "Tendenze Layout Interni 2026: Addio Open Space",
+  author: "Team Ristrutturazioni",
   subtitle:
     "L'open space totale è superato. Spazi flessibili, color drenching e materiali caldi: la guida completa alle tendenze di interior design 2026.",
   badge: "Interior Design",

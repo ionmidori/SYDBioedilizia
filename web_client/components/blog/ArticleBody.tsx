@@ -4,7 +4,11 @@ import type { BlogBlock, KeyPointIcon } from "@/lib/blog/types";
 
 /**
  * Renders an article body from typed blocks (Server Component).
- * Class names match the former hand-written pages, so the visual result is unchanged.
+ * Classes follow the former hand-written pages with a few deliberate
+ * uniformations: one warning-callout style (the "costi" article had its own box
+ * and "bonus" a bare <div>), one spacing for lists, h3 in text-primary, and the
+ * same FAQ card style in every article ("umidita" had richer cards).
+ * Heading levels are unchanged, including the h1 -> h3 jump of key-point boxes.
  */
 
 const ICONS: Record<KeyPointIcon, React.ReactNode> = {

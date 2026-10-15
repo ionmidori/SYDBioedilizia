@@ -3,6 +3,7 @@ import type { BlogPost } from "../types";
 export const costiRistrutturazioneCasa2026: BlogPost = {
   slug: "costi-ristrutturazione-casa-2026",
   title: "Quanto Costa Ristrutturare Casa nel 2026? Prezzi e ROI",
+  author: "Team Ristrutturazioni",
   subtitle:
     "Scopri i costi medi di una ristrutturazione d'interni nel 2026: dai 600€ ai 1.200€/mq. Analisi dei prezzi e quali interventi aumentano davvero il valore dell'immobile.",
   badge: "Costi & Preventivi",

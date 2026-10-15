@@ -3,6 +3,8 @@ import type { BlogPost } from "../types";
 export const smartRemodelRistrutturazioneSenzaDemolire: BlogPost = {
   slug: "smart-remodel-ristrutturazione-senza-demolire",
   title: "Smart Remodel: Ristrutturare Casa Senza Demolire nel 2026",
+  indexTitle: "Smart Remodel: Ristrutturare Senza Demolire",
+  author: "Team Ristrutturazioni",
   subtitle:
     "Scopri lo Smart Remodel: come rinnovare gli interni risparmiando fino al 40% senza interventi strutturali. Microcemento, pavimenti SPC e wrapping architettonico.",
   badge: "Smart Remodel",
