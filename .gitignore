@@ -95,8 +95,6 @@ next-env.d.ts
 !tailwind.config.json
 !package-root.json
 !manifest.json
-# n8n workflow templates — no secrets, only env var references
-!n8n_workflows/*.json
 
 # python
 .venv/
@@ -131,19 +129,18 @@ commit_files.txt
 .git_status.txt
 
 
-# n8n secrets
-n8n/.env.n8n
-!n8n/.env.n8n.example
+# n8n and Supabase were decommissioned (Phase 129). A local copy of their folders
+# may still hold real secrets (n8n/.env.n8n) or project state: keep them out of
+# git until deleted by hand.
+/n8n/
+/n8n_workflows/
+/supabase/
 
 # backend runtime data artifacts (extraction logs, scraped HTML, raw PDFs)
 backend_python/data/*.txt
 backend_python/data/*.html
 backend_python/data/*.pdf
 backend_python/data/*.log
-
-# Supabase CLI local state
-supabase/.temp/
-supabase/.branches/
 
 # agent skills & tooling (local-only, not needed on GitHub)
 .agents/

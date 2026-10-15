@@ -156,17 +156,6 @@ class PDFUploadError(ServiceError):
         )
 
 
-class DeliveryError(ServiceError):
-    """All tenacity retry attempts to the n8n webhook were exhausted."""
-    error_code = "DELIVERY_ERROR"
-
-    def __init__(self, project_id: str, http_status: int | None = None) -> None:
-        super().__init__(
-            message=f"Quote delivery webhook failed for project '{project_id}'.",
-            detail={"project_id": project_id, "http_status": http_status},
-        )
-
-
 # ─── Quote review workflow (Phase 128 — admin HITL) ───────────────────────────
 
 class AdminRequiredError(PermissionDenied):

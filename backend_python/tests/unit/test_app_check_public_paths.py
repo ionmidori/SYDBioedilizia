@@ -27,7 +27,13 @@ def test_machine_endpoints_skip_app_check(path):
 
 @pytest.mark.parametrize(
     "path",
-    ["/internal/email/dispatchX/abc", "/internal/email/", "/api/admin/quotes", "/internal/emailx/dispatch/abc"],
+    [
+        "/internal/email/dispatchX/abc",
+        "/internal/email/",
+        "/api/admin/quotes",
+        "/internal/emailx/dispatch/abc",
+        "/webhooks/n8n",  # decommissioned: no longer exempt from App Check
+    ],
 )
 def test_everything_else_still_needs_app_check(path, monkeypatch):
     async def reject(_request):

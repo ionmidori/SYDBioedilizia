@@ -67,7 +67,7 @@ middleware (`web_client/proxy.ts`) to reduce Cross-Site Scripting (XSS) impact:
 - **Atomic Operations**: Critical resource quotas (AI renders, quotes) use Firestore `Increment()` operations to ensure consistency and prevent race-condition-based abuse.
 - **Ephemeral Processing**: CAD floorplan images and generated DXF files are processed in-memory or temporary storage and wiped immediately after transmission.
 - **PII Redaction**: Logging systems are configured with `log_args=False` by default (via `structlog`/`JsonFormatter`) to prevent PII leakage into centralized logs. Retrieved RAG context is also scrubbed of high-precision PII (email, codice fiscale) before it reaches the model.
-- **Outbound Webhook Egress**: Server-to-server n8n webhooks are HMAC-SHA256 signed with a timestamp (replay protection) and validated against a host allowlist that **fails closed** in production (no arbitrary SSRF destinations).
+- **No Agent-Driven Egress**: No ADK tool can call an external automation endpoint. Outbound email goes through the transactional outbox (fixed providers: Brevo, SMTP); inbound provider events (`/webhooks/email/brevo`) require a bearer token, and Cloud Tasks dispatch requires OIDC.
 - **Structured Logging**: JSON-based logs in production for secure, machine-readable observability with unique `X-Request-ID` tracing.
 - **Input Sanitization**: Client and server-side validation using **Zod** (Frontend) and **Pydantic** (Backend) with strict regex for ID fields.
 

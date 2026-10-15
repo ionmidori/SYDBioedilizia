@@ -25,6 +25,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tooling (pytest/ruff/pyright/pip-audit) is excluded from the production image
   and the build fails on `uv.lock` drift.
 
+### Removed
+- **n8n and Supabase** (Phase 129): the agent tool `trigger_n8n_webhook`, the
+  legacy chat lead form / `POST /api/submit-lead`, the inbound
+  `POST /webhooks/n8n` callback (no caller; it bypassed App Check), the
+  `N8N_*` settings, `DeliveryError`, and the `n8n/`, `n8n_workflows/` and
+  `supabase/` folders. Quote emails already run on the native transactional
+  outbox (Phase 128).
+
 ### Security
 - Dependabot queue drained; `js-yaml` moderate DoS (GHSA-h67p-54hq-rp68)
   resolved via a scoped override; backend `click` command-injection

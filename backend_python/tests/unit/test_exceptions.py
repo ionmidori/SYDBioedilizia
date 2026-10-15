@@ -7,7 +7,6 @@ Rule: Every new Service/Exception set MUST have a test_ counterpart (rule #20).
 from src.core.exceptions import (
     AppException,
     CheckpointError,
-    DeliveryError,
     PDFGenerationError,
     PDFUploadError,
     QuoteAlreadyApprovedError,
@@ -33,9 +32,6 @@ class TestInheritanceHierarchy:
 
     def test_pdf_upload_is_service_error(self):
         assert issubclass(PDFUploadError, ServiceError)
-
-    def test_delivery_is_service_error(self):
-        assert issubclass(DeliveryError, ServiceError)
 
     def test_quote_already_approved_is_app_exception(self):
         assert issubclass(QuoteAlreadyApprovedError, AppException)
@@ -69,15 +65,6 @@ class TestErrorCodes:
         exc = PDFUploadError("proj-789", "Storage bucket not configured")
         assert exc.error_code == "PDF_UPLOAD_ERROR"
 
-    def test_delivery_error_code_with_status(self):
-        exc = DeliveryError("proj-000", http_status=503)
-        assert exc.error_code == "DELIVERY_ERROR"
-        assert exc.detail["http_status"] == 503
-
-    def test_delivery_error_code_without_status(self):
-        exc = DeliveryError("proj-000")
-        assert exc.detail["http_status"] is None
-
 
 # ─── detail is never None ─────────────────────────────────────────────────────
 
@@ -101,7 +88,6 @@ class TestDetailNeverNone:
             CheckpointError("t", "r"),
             PDFGenerationError("p", "r"),
             PDFUploadError("p", "r"),
-            DeliveryError("p"),
         ]
         for err in errors:
             assert isinstance(err, AppException), f"{type(err).__name__} not AppException"

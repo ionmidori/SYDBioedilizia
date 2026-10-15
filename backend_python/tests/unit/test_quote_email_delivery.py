@@ -35,8 +35,6 @@ def smtp_settings(monkeypatch):
     monkeypatch.setattr(settings, "SMTP_USER", "sender@test.local")
     monkeypatch.setattr(settings, "SMTP_PASSWORD", "secret")
     monkeypatch.setattr(settings, "SMTP_FROM_EMAIL", "sender@test.local")
-    monkeypatch.setattr(settings, "N8N_WEBHOOK_DELIVER_QUOTE", None)
-    monkeypatch.setattr(settings, "N8N_WEBHOOK_NOTIFY_ADMIN", None)
 
 
 # ─── _send_email ─────────────────────────────────────────────────────────────
