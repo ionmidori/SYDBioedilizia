@@ -8,6 +8,9 @@
 #   2. un canale di notifica email verso l'admin;
 #   3. una alert policy: almeno un dead-letter in 5 minuti -> email.
 #      Ritardo tipico: 2-5 minuti (criterio dell'issue: entro 15).
+#      Finché l'incidente resta aperto (chiusura automatica dopo 30 minuti
+#      senza nuovi eventi) altri dead-letter NON mandano nuove email: guardare
+#      i log per l'elenco completo.
 #
 # Indipendente dal provider email che sta fallendo: l'avviso parte da Cloud
 # Monitoring, non dall'outbox.
@@ -33,6 +36,13 @@
 #   TEST_MODE=1 ALERT_EMAIL=... bash scripts/setup_email_deadletter_alert.sh
 #   gcloud logging write ... (come sopra)
 #   CLEANUP_TEST=1 bash scripts/setup_email_deadletter_alert.sh
+#
+# TEST_MODE prova la catena metrica -> policy -> email, non il filtro di
+# produzione. Il filtro reale va verificato una volta in Logs Explorer sul
+# primo dead-letter vero: la query
+#   resource.type="cloud_run_revision" resource.labels.service_name="syd-brain"
+#   jsonPayload.event="email_dead_letter"
+# deve restituire la riga. Il canale email resta (è lo stesso della produzione).
 set -euo pipefail
 
 PROJECT="${PROJECT:-chatbotluca-a8a73}"
@@ -42,11 +52,11 @@ CLEANUP_TEST="${CLEANUP_TEST:-0}"
 
 if [[ "$TEST_MODE" == "1" || "$CLEANUP_TEST" == "1" ]]; then
   METRIC="email_dead_letter_test"
-  POLICY_NAME="SYD — email dead-letter (TEST)"
+  POLICY_NAME="SYD - email dead-letter (TEST)"
   FILTER='jsonPayload.event="email_dead_letter"'
 else
   METRIC="email_dead_letter"
-  POLICY_NAME="SYD — email dead-letter"
+  POLICY_NAME="SYD - email dead-letter"
   FILTER="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"${SERVICE}\" AND jsonPayload.event=\"email_dead_letter\""
 fi
 
@@ -89,7 +99,8 @@ else
 fi
 
 # 3. Alert policy
-if [[ -n "$(policy_id)" ]]; then
+EXISTING_POLICY="$(policy_id)"
+if [[ -n "$EXISTING_POLICY" ]]; then
   echo "Policy \"${POLICY_NAME}\": già presente."
   exit 0
 fi
@@ -123,5 +134,17 @@ cat >"$POLICY_FILE" <<JSON
   }
 }
 JSON
-gcloud alpha monitoring policies create --project="$PROJECT" --policy-from-file="$POLICY_FILE"
+# A just-created log-based metric can take a minute to become visible to
+# Monitoring ("Cannot find metric(s) that match type"): retry before failing.
+for attempt in 1 2 3 4 5 6; do
+  if gcloud alpha monitoring policies create --project="$PROJECT" --policy-from-file="$POLICY_FILE"; then
+    break
+  fi
+  if [[ "$attempt" == 6 ]]; then
+    echo "Creazione della policy fallita dopo 6 tentativi." >&2
+    exit 1
+  fi
+  echo "Metrica non ancora visibile a Monitoring, nuovo tentativo tra 15 s ($attempt/6)..."
+  sleep 15
+done
 echo "Policy \"${POLICY_NAME}\": creata."
