@@ -1,155 +1,106 @@
-# Backend Test Suite
+# Backend test suite
 
-Comprehensive test coverage for the Python backend, organized by unit, integration, and offline evaluation tests.
+The backend suite covers the FastAPI app, the ADK tools, the services and the
+Firestore access layer with about 1,200 tests. It runs offline: Firebase,
+Vertex AI, Pinecone and email providers are mocked, so no credentials are
+needed. Tests that need a live API are marked `integration` and are skipped by
+default.
 
-## Quick Start
+## Run the tests
 
-### Install Test Dependencies
+Run the commands from `backend_python/`. Install the test tools first:
+
 ```bash
 uv sync --extra dev
 ```
 
-### Run All Tests
+Then pick what to run:
+
 ```bash
-uv run pytest
+uv run pytest                                  # everything except integration tests
+uv run pytest tests/unit/test_quota.py         # one file
+uv run pytest tests/unit/test_quota.py -k bypass   # tests matching a name
+uv run pytest -m integration                   # live API tests (need credentials)
+uv run pytest --cov=src --cov-report=term      # with coverage
 ```
 
-### Run Specific Test Categories      
-```bash
-# Unit tests only
-uv run pytest tests/unit/
+`pyproject.toml` sets `asyncio_mode = "auto"`, so `async def` tests need no
+decorator, and `addopts = "-m 'not integration'"`.
 
-# Integration tests only
-uv run pytest tests/integration/      
+## Layout
 
-# Offline Evaluation tests
-uv run pytest tests/evals/
-
-# Specific module
-uv run pytest tests/unit/test_quota.py
-
-# Single test
-uv run pytest tests/unit/test_quota.py::TestQuotaCheckDevelopment::test_development_env_bypasses_quota
-```
-
-## Test Coverage
-
-### Generate Coverage Report
-```bash
-# Run tests with coverage
-uv run pytest --cov=src --cov-report=html
-
-# Open report
-start htmlcov/index.html  # Windows   
-```
-
-### Current Coverage
-- **Quota System**: Full coverage (check, increment, dev bypass)
-- **Architect Vision**: JSON parsing, fallback, MIME handling
-- **Render Generation**: T2I, I2I, error handling, fallback
-- **ADK Orchestrator**: Session handling, stream recovery, fallback mechanisms
-- **Batch Processing**: Multi-project aggregation, rules validation, and routing (Phase 74)
-- **Offline Evals**: Built-in evaluation loop for ADK quality (`tests/evals`)
-
-## Test Structure
-
-```
+```text
 tests/
-├── conftest.py              # Shared fixtures (mocks for Firebase, Gemini, etc.)
-├── unit/                    # Unit tests (isolated functions)
-│   ├── test_quota.py        # Quota management
-│   ├── test_architect.py    # Vision/Architect module
-│   └── test_adk_*.py        # ADK Orchestrator internals
-├── integration/             # Integration tests (multi-component flows)    
-│   └── test_tools.py        # Full render generation pipeline
-└── evals/                   # ADK Offline Evaluation Suite (Phase 70)
-    ├── syd_rubrics.py       # Custom evaluation rubrics (e.g. no_furniture, has_mq)
-    └── run_evals.py         # Standalone evaluator for iterative prompt tuning
+├── conftest.py          # Shared fixtures: Firebase, Gemini and settings mocks
+├── unit/                # Isolated tests, one module per area (about 100 files)
+├── integration/         # Multi-component flows (some need a live API)
+├── evals/               # ADK agent evaluations (see evals/README.md)
+├── test_listino_tools.py, test_rag_service.py
+└── benchmark_adk.py, load_test_adk.py, repro_issues.py   # Manual scripts, not tests
 ```
 
-## Best Practices
+`tests/unit/firestore_fakes.py` provides an in-memory fake Firestore
+(`FakeDb`, `FakeTransaction`) used by the outbox, quote and project tests.
 
-### Writing Tests
-1. **AAA Pattern**: Arrange → Act → Assert
-2. **Descriptive Names**: `test_when_X_then_Y`
-3. **Docstrings**: Use GIVEN/WHEN/THEN format
-4. **Mocking**: Mock external APIs (Gemini, Firebase, Storage)
-5. **Isolation**: Each test is independent
+## Contract tests worth knowing
 
-### Example
+These tests protect rules that are easy to break by accident:
+
+| Test | What it pins |
+| :--- | :--- |
+| `test_middleware_order.py` | Order of the ASGI middleware stack in `main.py` |
+| `test_api_error_contract.py` | Every response has `X-Request-ID` and the error envelope; CORS headers on App Check 403 and catcher 500 responses |
+| `test_model_registry.py` | No `gemini-` literal outside `src/core/config.py` |
+| `test_build_context.py` | `.gcloudignore` matches `.dockerignore`; every file in `src/data` is tracked by git |
+| `test_no_debug_routes.py`, `test_n8n_decommissioned.py`, `test_no_legacy_lead_path.py` | Removed routes and integrations stay removed |
+| `test_adk_tools_trusted_identity.py` | Tools trust the user and session from `tool_context`, never from model arguments |
+| `evals/test_eval_infrastructure.py` | Eval files load with the installed `google-adk` |
+
+## Writing tests
+
+1. Follow Arrange, Act, Assert, and give each test a name that states the
+   behavior, such as `test_permanent_failure_dead_letters_and_tells_the_admin`.
+2. Mock every external service (Gemini, Firebase, Storage, Pinecone). Tests must
+   not touch real Firebase.
+3. Keep tests independent: no shared state between tests.
+4. Write a new repeatable check as a test here, not as a script in `scripts/`.
+
+Example:
+
 ```python
-@pytest.mark.asyncio
-async def test_quota_bypass_in_development(mock_env_development):
-    """GIVEN development environment variable set
-    WHEN checking quota for any tool  
-    THEN should bypass limits and allow unlimited usage
-    """
-    # Arrange
-    user_id = "test-user"
+async def test_retry_emits_no_alert_event(db, caplog):
+    caplog.set_level(logging.INFO, logger=outbox.__name__)
+    _seed(db)
+    queued = await _enqueue(db)
 
-    # Act
-    allowed, remaining, reset_at = check_quota(user_id, "generate_render")  
+    outcome = await outbox.dispatch_one(db, queued.delivery_id, FailingProvider(), NOW)
 
-    # Assert
-    assert allowed is True
-    assert remaining == 9999
+    assert outcome == "retry"
+    assert _dead_letter_records(caplog) == []
 ```
 
-## ADK Evaluations (Self-Correction Loop)
-The `tests/evals` directory contains live ADK evaluations for validating agent quality:
+## Continuous integration
 
-### Infrastructure (Phase 80d)
-- **Rubrics** (`syd_rubrics.py`): Custom LLM-as-Judge evaluators (NO_FURNITURE, ITALIAN_ONLY, HAS_MQ, SKU_PRESENT, NO_ROUTING_IN_QUOTE_FLOW, INTENT_FIRST).
-- **Test Cases** (`.test.json`): 5 eval cases across 3 flows:
-  - `quote_flow.test.json` — 2 cases (bathroom + large room quotes)
-  - `triage_flow.test.json` — 2 cases (intent routing)
-  - `design_flow.test.json` — 1 case (rendering)
-- **Config** (`test_config.json`): Tool trajectory matching (IN_ORDER) + response match criteria.
-- **Results** (`results/`): Live eval outputs stored as timestamped JSON (not tracked in git).
-
-### Running Live Evaluations
-**Requires**: `GOOGLE_API_KEY` in `.env` (calls live Gemini API + LLM-as-Judge).
+The `Backend Python Tests` workflow (`.github/workflows/backend-tests.yml`)
+checks that `uv.lock` is in sync with `pyproject.toml`, then runs ruff,
+pyright, `pip-audit` and the suite with a coverage gate on every pull request
+that touches the backend. A separate job builds the Docker image. Run the same
+checks before you push:
 
 ```bash
-# All test flows (quote, triage, design)
-npm run eval:run
-
-# Individual flows
-npm run eval:run:quote      # Quote agent validation
-npm run eval:run:triage     # Triage agent validation
-npm run eval:run:design     # Design agent validation
-
-# Advanced usage (from backend_python/)
-uv run python tests/evals/run_evals.py \
-  --file quote_flow.test.json \
-  --agent quote \
-  --runs 3 \
-  --output results/
-```
-
-### Evaluation Workflow
-1. Define behavior expectations in `syd_rubrics.py` (LLM-as-Judge prompts).
-2. Provide user/agent conversation test cases in `.test.json` files.
-3. Run `npm run eval:run` to launch `AgentEvaluator.evaluate()` (calls live Gemini API).
-4. Results saved to `results/eval_{timestamp}_{flow}.json` for analysis.
-5. Use rubric scores and tool trajectory metrics to drive prompt tuning.
-
-## Continuous Integration
-
-Add to `.github/workflows/test.yml`:  
-```yaml
-- name: Run tests
-  run: uv run pytest --cov=src --cov-report=xml
+uv run ruff check src/ main.py tests/
+uv run pyright
+uv run pytest
 ```
 
 ## Troubleshooting
 
-### Tests fail with "Firebase app not initialized"
-→ Check `conftest.py` mocks are being used. Tests should NOT touch real Firebase.
-
-### Async tests fail
-→ Ensure `pytest-asyncio` is installed and `@pytest.mark.asyncio` is used.  
-
-### Coverage too low
-→ Add tests for uncovered edge cases (error handling, fallbacks).
-
+- **"Firebase app not initialized"**: the test is bypassing the mocks in
+  `conftest.py`. Use the shared fixtures; never initialize the real SDK.
+- **Async test is skipped or fails to collect**: check that `pytest-asyncio` is
+  installed (`uv sync --extra dev`).
+- **`test_runtime_data_is_versioned` fails**: a file in `src/data/` isn't
+  tracked by git. Commit it, or remove it if it's a local leftover.
+- **`uv run pytest` reports "program not found"**: `uv sync` without
+  `--extra dev` removes pytest from the environment. Run
+  `uv sync --extra dev` again.

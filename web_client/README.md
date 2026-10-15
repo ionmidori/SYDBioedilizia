@@ -1,111 +1,120 @@
-# 🎨 SYD Bioedilizia (Web Client)
+# SYD Bioedilizia web client
 
-**Status:** Production-Ready (v4.4.6)
-**Vision:** Luxury Tech Renovation Platform
-**Stack:** Next.js 16.2.11, Tailwind CSS 4, Framer Motion 12, SWR
+The web client is a Next.js App Router application that serves the public
+website of SYD Bioedilizia, the AI chat assistant, the client dashboard and the
+admin console. It's installable as a Progressive Web App and designed
+mobile-first. It never calls AI services directly: every request goes through
+the Python backend.
 
----
+## Technology
 
-## 💎 The "Luxury Tech" Experience
+| Area | Technology |
+| :--- | :--- |
+| Framework | Next.js 16 (App Router, Turbopack), React 19, TypeScript 6 |
+| Styling | Tailwind CSS 4, a Material Design 3 Expressive design system, glassmorphism surfaces |
+| Motion | Framer Motion 14 with the shared variants in `lib/m3-motion.ts`; scroll-linked effects in CSS (`app/scroll-animations.css`) |
+| Chat | Vercel AI SDK 7 (`@ai-sdk/react`), streaming from the backend `/chat/stream` |
+| Data | TanStack Query for server state (`lib/query-client.ts`, `hooks/use-*.ts`) |
+| Forms | React Hook Form with Zod 4 schemas |
+| Auth | Firebase Auth (modular SDK 13), passkeys (WebAuthn) and Firebase App Check |
+| UI primitives | Radix UI, Vaul drawers, Lucide icons |
+| Tests | Jest and React Testing Library; Playwright for end-to-end tests |
 
-This is not just a renovation website; it is a high-fidelity **Progressive Web App (PWA)** designed to feel like a native application.
-It combines the solidity of traditional craftsmanship with the fluidity of modern interface design.
+## What's in the app
 
-### Key UX Pillars
-*   **Golden Glassmorphism:** A custom design system (M3 Expressive) blending deep "Luxury Black" backgrounds with "Gold" accents (`#E9C46A`).
-*   **Elastic Physics:** All interactions (modals, swipes, buttons) use `framer-motion` springs for a tactile, organic feel.
-*   **Adaptive Navigation**:
-    - **Radix UI Sheet**: Accessible, focus-trapped side drawer for main navigation.
-    - **Vaul Drawer**: Native-feeling Bottom Sheets for action-oriented dialogs (Creation, Authentication, Video Trimmer).
-*   **Mobile-First Engine**: A custom-engineered **Swipe Navigation System** (60fps) mimicking native gestures.
+| Route | Content |
+| :--- | :--- |
+| `/` | Homepage: hero with the project gallery, "Cosa facciamo", technology, portfolio and testimonials sections |
+| `/progetti`, `/chi-siamo`, `/faq` | Portfolio, company and FAQ pages |
+| `/blog`, `/blog/[slug]` | Articles, defined as data in `lib/blog/posts/` and rendered by one route |
+| `/privacy`, `/cookie-policy`, `/terms` | Legal pages, with company data from `lib/company.ts` |
+| `/dashboard` | Client area: projects, gallery, quotes, profile and settings |
+| `/admin` | Admin console: quote review, batches, price book, portfolio, testimonials, GDPR tools |
+| `/auth/verify` | Completes the passwordless email (magic link) sign-in |
 
----
+The chat widget is available on every page. Premium actions (renders and
+quotes) ask anonymous visitors to sign in.
 
-## 🛠️ Technology Stack
+## Talking to the backend
 
-| Component | Technology | Version | Role |
-| :--- | :--- | :--- | :--- |
-| **Framework** | Next.js (App Router) | 16.2.11 | Server Components, SEO, Managed Routing, Turbopack |
-| **Styling** | Tailwind CSS | 4.0 | Enterprise Design System, Modern CSS |
-| **Animation** | Framer Motion | 12.23 | Gesture-driven UI, Fluid Transitions |
-| **Data Fetching** | SWR | 2.x | Efficient Server-State synchronization |
-| **AI Streaming** | Vercel AI SDK | 3.x | Real-time "Google ADK" integration via `/chat/stream` |
-| **Auth** | Firebase Auth | 13.x | Zero-Trust (Passkey + JWT + App Check) |
-| **Validation** | Zod | 4.3.6 | Runtime schema validation (Golden Sync) |
+- **Chat**: `components/chat/ChatProvider.tsx` sends messages through
+  `app/api/chat/route.ts`, a pass-through proxy that doesn't buffer the stream.
+- **REST calls**: the API modules in `lib/` (`projects-api.ts`, `quotes-api.ts`,
+  `admin/admin-api.ts` and others) use `NEXT_PUBLIC_API_URL`, which defaults to
+  `/api/py`. The rewrite in `next.config.ts` maps `/api/py/*` to the backend's
+  `/api/*`.
+- **Authenticated calls**: use `fetchWithAuth` or `fetchValidated` from
+  `lib/api-client.ts`. They add the Firebase ID token and, when
+  `NEXT_PUBLIC_ENABLE_APP_CHECK` is `true`, the App Check token. Don't call
+  `fetch` directly for backend endpoints.
+- **Golden Sync**: the TypeScript types in `types/` mirror the backend Pydantic
+  models one to one. Change both sides together.
 
----
+## Security headers
 
-## 🚀 Core Features
+`next.config.ts` sets HSTS, `X-Frame-Options: SAMEORIGIN`, `nosniff`, a
+restrictive `Permissions-Policy` and a referrer policy. `proxy.ts` adds the
+Content Security Policy built in `lib/security/csp.ts`: dynamic routes such as
+`/dashboard/*` get a strict nonce-based policy, and statically pre-rendered
+pages get an allowlist policy because they can't carry a per-request nonce.
 
-### 1. The Reasoning Engine (Chat)
-*   **UI:** `ThinkingIndicator` pulses while the backend plans.
-*   **Feedback Loop:** In-line feedback mechanism (👍/👎) directly integrated into assistant message items for ADK offline evaluation.
-*   **Standard:** Full compliance with Vercel AI Data Stream Protocol.
+## Branding and PWA assets
 
-### 2. Rich Media Handling
-*   **Video Trimmer:** Built-in modal logic for trimming videos before upload to save bandwidth and compute time.
-*   **Media Carousel:** Dynamic "Recent Media" Bento grid section showcasing generated floorplans and renders.
+The site logo is the `SydLogo` component (`components/branding/SydLogo.tsx`).
+Static copies live in `public/`:
 
-### 3. Batch Operations & Management
-*   **BatchSubmitModal**: Multi-step flow for reviewing, confirming, and submitting multiple projects for batch quoting.
-*   **FloatingBatchBar**: Sticky selection interface for cross-project bulk actions.
+- `syd-logo.svg` and `syd-logo.png`: the lockup, used by the structured data
+  (JSON-LD) of the homepage and the blog.
+- `syd-icon.svg`: the square mark. `icon-192.png`, `icon-512.png` and
+  `icon-maskable-512.png` are generated from it and declared in
+  `public/manifest.json`.
 
-### 4. Hybrid Authentication
-*   **Biometric (Passkey):** Native login with FaceID/TouchID (WebAuthn).
-*   **Zero-Trust:** Every request includes a Firebase App Check token (ReCAPTCHA Enterprise).
-*   **Compliance:** All forms migrated to **React Hook Form + Zod** validation.
+`__tests__/public-assets.test.ts` checks that every declared icon exists, is a
+real PNG and matches its declared size.
 
-### 5. The "Golden Sync"
-*   Backend Pydantic Models are mirrored 1:1 in TypeScript Interfaces (`types/`).
-*   **Zero-Drift Policy:** Strict type safety enforced from database to view.
+## Project structure
 
----
-
-## 📦 Project Structure
-
-```bash
+```text
 web_client/
-├── app/                  # Next.js App Router (RSC by default)
-│   ├── api/chat/         # Streaming Proxy
-│   ├── auth/             # Biometric & Magic Link Auth
-│   └── dashboard/        # BENTO Grid Hub
+├── app/                 # Routes (Server Components by default), API proxy, actions
 ├── components/
-│   ├── chat/             # AI Interaction Layer & Feedback UI
-│   ├── mobile/           # SwipeGestureEngine (60fps)
-│   ├── ui/               # Primary Primitives (Sheet, Drawer, Form)
-│   └── providers/        # Auth, QueryClient, Chat Contexts
-├── hooks/                # useAuth, useProjects, useMediaQuery
-├── lib/                  # Modern Firebase, Haptics, API Clients
-├── types/                # Golden Sync (Zod + Interfaces)
-└── public/               # Static High-Res Assets
+│   ├── chat/            # Chat UI, provider, message rendering, feedback
+│   ├── mobile/          # Swipe navigation between dashboard, gallery and chat
+│   ├── admin/, dashboard/, quotes/, projects/, gallery/   # Feature components
+│   ├── sections/        # Homepage sections
+│   ├── branding/        # SydLogo
+│   ├── providers/       # Auth, App Check, query client
+│   └── ui/              # Shared primitives
+├── hooks/               # Chat, auth, upload, data-fetching and viewport hooks
+├── lib/                 # API clients, Firebase, security, motion, blog, validation
+├── schemas/, types/     # Zod schemas and TypeScript types (Golden Sync)
+├── e2e/                 # Playwright suites (see e2e/README.md)
+├── public/              # Static assets, manifest, textures
+└── proxy.ts             # Auth redirects and the Content Security Policy
 ```
 
----
+## Setup and commands
 
-## 🛠️ Setup & Development
+Run `npm install` from the repository root: the project is an npm workspace and
+there is a single lockfile. The root `package.json` requires Node.js 24.12 or
+later. The lockfile must be regenerated with npm 10 (see
+[`CONTRIBUTING.md`](../CONTRIBUTING.md)).
 
-### Installation
 ```bash
+npm run dev:web                 # from the repo root: dev server on http://localhost:3000
 cd web_client
-npm install
+npm run type-check              # tsc --noEmit, must report 0 errors
+npm run lint                    # ESLint
+npm test                        # Jest and React Testing Library
+npm run test:coverage           # Jest with coverage thresholds
+npm run build                   # production build
+npm run test:e2e                # Playwright smoke suite (after a build)
 ```
 
-### Commands
-```bash
-# Start Dev Server (Port 3000)
-npm run dev
+The Jest setup (`jest.setup.js`) mocks every Firebase SDK module, because
+JSDOM can't run the real ones. Tests follow the component implementation.
 
-# Type Check (Zero Tolerance)
-npm run type-check
+## Next steps
 
-# Run Tests (Jest + RTL)
-npm test
-
-# Build for Production (Turbopack)
-npm run build
-```
-
----
-
-_Updated: July 23, 2026 — Phase 96 (v4.4.6)_
-
+- End-to-end tests: [`e2e/README.md`](e2e/README.md)
+- Project overview: [`../README.md`](../README.md)
