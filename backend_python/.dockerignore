@@ -38,6 +38,13 @@ scripts/
 *.sh
 !entrypoint.sh
 
+# Exclude offline ingestion data (prezzario PDFs/JSON read only by scripts/).
+# Runtime data lives in src/data/, which stays in the image.
+data/
+
+# Exclude scratch output of local tools (e.g. testsprite tmp/, lock files)
+**/tmp/
+
 # Exclude documentation and project files
 docs/
 *.md

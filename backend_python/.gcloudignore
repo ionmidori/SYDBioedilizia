@@ -1,5 +1,14 @@
 # This file specifies files that are NOT uploaded to Cloud Build.
-# gcloud builds submit uses this file (not .dockerignore)
+# gcloud builds submit / gcloud run deploy --source use this file (not .dockerignore).
+#
+# Keep it aligned with .dockerignore: anything the image must not contain should
+# not leave the machine either. The upload tarball is stored in the
+# *_cloudbuild bucket, so local tool output (API keys in tmp/ configs, logs)
+# must never be part of it. tests/unit/test_build_context.py enforces this.
+#
+# Syntax differs from .dockerignore: .gcloudignore follows .gitignore rules, so
+# an unanchored "data/" would also drop src/data/ (read at runtime). Root-only
+# directories are therefore anchored with a leading "/".
 
 # Exclude local virtual environments (CRITICAL - this was causing the bug!)
 .venv/
@@ -11,9 +20,11 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Exclude test cache
+# Exclude test cache and coverage output
 .pytest_cache/
+.ruff_cache/
 .coverage
+coverage.xml
 htmlcov/
 
 # Exclude env files (secrets should be injected at runtime)
@@ -28,5 +39,18 @@ htmlcov/
 .vscode/
 .idea/
 
-# Exclude tests (not needed in production)
-tests/
+# Exclude tests and local QA tooling (not needed in production)
+/tests/
+/tests_manual/
+/testsprite_tests/
+
+# Exclude scratch output of local tools (e.g. testsprite tmp/, lock files)
+**/tmp/
+
+# Exclude operational scripts and their offline ingestion data
+/scripts/
+/data/
+
+# Exclude documentation
+/docs/
+*.md
