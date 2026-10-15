@@ -13,7 +13,7 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-import { normalizeMessagesForBackend, type SDKMessage } from './normalize-messages';
+import { buildBackendPayload, type ChatProxyBody } from './backend-payload';
 import { logger } from '@/lib/logger';
 
 const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8080';
@@ -26,13 +26,14 @@ export async function POST(req: Request) {
     try {
         // Extract request body
         const body = await req.json();
-        const { messages, images, imageUrls, mediaUrls, mediaTypes, mediaMetadata, sessionId, projectId, is_authenticated } = body;
+        const { messages, images, imageUrls, mediaUrls, mediaTypes, mediaMetadata, videoFileUris, sessionId, projectId, is_authenticated } = body;
 
         logger.debug('[Proxy] Request details:', {
             messagesCount: messages?.length || 0,
             hasImages: !!images,
             imageUrlsCount: imageUrls?.length || 0,
             mediaUrlsCount: mediaUrls?.length || 0,
+            videoFileUrisCount: videoFileUris?.length || 0,
             mediaTypesCount: mediaTypes?.length || 0,
             hasMediaMetadata: !!mediaMetadata,
             sessionId,
@@ -55,23 +56,11 @@ export async function POST(req: Request) {
         // 🔄 NORMALIZE: Vercel AI SDK v3+ → Backend Contract
         // SDK sends {role, parts: [{type, text}]}, Backend expects {role, content: string}
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // Flatten messages to { role, content } and forward the client AI SDK id
+        // Messages are flattened to { role, content } keeping the client AI SDK id
         // (tool rows are filtered out — their data lives inside the assistant message).
         // Preserving the id lets the backend persist the user message under the same
         // identity the streamed bubble already has, keeping the chat from flickering.
-        const normalizedMessages = normalizeMessagesForBackend(messages as SDKMessage[]);
-
-        // Build payload for Python backend
-        const pythonPayload = {
-            messages: normalizedMessages,
-            sessionId: sessionId,
-            projectId: projectId,
-            is_authenticated: is_authenticated || false,
-            imageUrls: imageUrls || [],
-            mediaUrls: mediaUrls || [],
-            mediaTypes: mediaTypes || [],
-            mediaMetadata: mediaMetadata || {}
-        };
+        const pythonPayload = buildBackendPayload(body as ChatProxyBody);
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // 🔒 AUTH: Forward Token (Verification is in Python)
