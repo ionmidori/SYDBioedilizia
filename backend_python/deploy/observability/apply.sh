@@ -41,14 +41,18 @@ ensure_policy() {
     echo "Alert policy already exists: $existing"
     return
   fi
-  local args=(--project="$PROJECT" --policy-from-file="$file")
-  if [[ -n "${NOTIFICATION_CHANNEL:-}" ]]; then
-    args+=(--notification-channels="$NOTIFICATION_CHANNEL")
-  fi
+  local created
   # A just-created log-based metric can take a minute to become visible to
   # Monitoring ("Cannot find metric(s) that match type"): retry before failing.
   for attempt in 1 2 3 4 5 6; do
-    if gcloud alpha monitoring policies create "${args[@]}"; then
+    if created=$(gcloud alpha monitoring policies create --project="$PROJECT"         --policy-from-file="$file" --format='value(name)'); then
+      echo "Created alert policy: $created"
+      # `create --policy-from-file` ignores --notification-channels: attach
+      # the channel with an update, or the policy fires without notifying.
+      if [[ -n "${NOTIFICATION_CHANNEL:-}" ]]; then
+        gcloud alpha monitoring policies update "$created" --project="$PROJECT"           --add-notification-channels="$NOTIFICATION_CHANNEL" --format='value(name)' >/dev/null
+        echo "  notification channel attached: $NOTIFICATION_CHANNEL"
+      fi
       return
     fi
     if [[ "$attempt" == 6 ]]; then
