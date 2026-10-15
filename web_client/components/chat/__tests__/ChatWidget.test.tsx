@@ -20,6 +20,7 @@ const mockSetProjectId = jest.fn();
 jest.mock('@/hooks/useChatContext', () => ({
     useChatContext: () => ({
         currentProjectId: null,
+        sessionId: 'chat-session-123',
         isRestoringHistory: false,
         isLoading: false,
         messages: [],
@@ -62,6 +63,14 @@ jest.mock('@/hooks/useChatScroll', () => ({ useChatScroll: () => ({ messagesCont
 jest.mock('@/hooks/useMobileViewport', () => ({ useMobileViewport: () => ({ isMobile: false }) }));
 jest.mock('@/hooks/useTypingIndicator', () => ({ useTypingIndicator: () => null }));
 
+const mockUseUpload = jest.fn((_options: { sessionId?: string }) => ({
+    uploads: [], addFiles: jest.fn(), removeFile: jest.fn(), retryUpload: jest.fn(),
+    clearAll: jest.fn(), isUploading: false, successfulUploads: [],
+}));
+jest.mock('@/hooks/useUpload', () => ({
+    useUpload: (options: { sessionId?: string }) => mockUseUpload(options),
+}));
+
 describe('ChatWidget', () => {
     beforeEach(() => {
         jest.clearAllMocks();
@@ -81,5 +90,15 @@ describe('ChatWidget', () => {
 
         // Component should call setProjectId with the provided projectId
         expect(mockSetProjectId).toHaveBeenCalledWith('proj-42');
+    });
+
+    test('uploads go to the chat session, not a shared guest id', () => {
+        mockUseAuth.mockReturnValue({ isInitialized: true, user: null, refreshToken: jest.fn() });
+        render(<ChatWidget variant="inline" />);
+
+        // The backend only passes videos under this session's Storage prefix to
+        // the model: the upload must use the same sessionId as /api/chat.
+        expect(mockUseUpload).toHaveBeenCalledWith({ sessionId: 'chat-session-123' });
+        expect(mockUseUpload).not.toHaveBeenCalledWith({ sessionId: 'global-guest' });
     });
 });

@@ -61,6 +61,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // 1. Consume Global Context
     const {
         currentProjectId: contextProjectId,
+        sessionId,
         setProjectId,
         messages,
         input,
@@ -82,10 +83,10 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     const dragControls = useDragControls();
 
-    // We use a local ID for useUpload to keep file uploads separated by logic "session"
-    // But realistically, the session is determined by the context.
+    // Uploads and feedback use the chat's own sessionId (from the provider). A
+    // locally derived id ("global-guest" for every guest) put guest files under
+    // a shared prefix and made the backend drop attached videos as foreign.
     const { user, isInitialized } = useAuth();
-    const sessionId = contextProjectId || `global-${user?.uid || 'guest'}`;
 
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
