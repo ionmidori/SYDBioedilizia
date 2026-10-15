@@ -9,6 +9,7 @@ could POST arbitrary payloads to an external system. These checks keep it out.
 """
 from __future__ import annotations
 
+import main
 import pytest
 from fastapi.testclient import TestClient
 from main import app
@@ -40,8 +41,15 @@ def test_agent_prompts_do_not_reference_the_legacy_path(agent) -> None:
     assert hits == [], f"{agent.name} prompt still references {hits}"
 
 
-def test_submit_lead_endpoint_removed() -> None:
+def test_submit_lead_endpoint_removed(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "/api/submit-lead" not in app.openapi()["paths"]
+
+    # App Check answers 403 BEFORE routing, which would prove nothing about the
+    # route: let it pass so the request reaches the router.
+    async def app_check_ok(_request) -> None:
+        return None
+
+    monkeypatch.setattr(main, "validate_app_check_token", app_check_ok)
     response = TestClient(app).post("/api/submit-lead", json={})
-    # 403 (App Check, before routing) or 404/405 — never a handled lead submission.
-    assert response.status_code in {403, 404, 405}
+
+    assert response.status_code in {404, 405}
