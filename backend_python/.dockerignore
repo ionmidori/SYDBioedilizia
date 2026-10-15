@@ -4,17 +4,18 @@ venv/
 .python-version
 
 # Exclude python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
 
 # Exclude test files and cache
 tests/
 tests_manual/
-testsprite_tests/
 .pytest_cache/
+.ruff_cache/
 .coverage
+coverage.xml
 htmlcov/
 repro_issues.py
 test_*.py
@@ -38,14 +39,22 @@ scripts/
 *.sh
 !entrypoint.sh
 
+# Exclude offline ingestion data (prezzario PDFs/JSON read only by scripts/).
+# Runtime data lives in src/data/, which stays in the image.
+data/
+
 # Exclude documentation and project files
 docs/
 *.md
 .gcloudignore
 
-# Exclude env files (secrets should be injected at runtime)
+# Exclude env files and credentials (secrets should be injected at runtime)
 .env
 .env.*
+**/firebase-service-account.json
+**/*.pem
+**/*.key
+**/*.p12
 
 # Exclude git
 .git

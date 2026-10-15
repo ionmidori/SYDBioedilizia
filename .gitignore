@@ -80,6 +80,10 @@ next-env.d.ts
 !package.json
 !package-lock.json
 !backend_python/pyrightconfig.json
+# Runtime data read by backend_python/src (price book seed, assemblies,
+# aggregation rules). Must be versioned: a build from a clean checkout would
+# otherwise ship without it (guarded by tests/unit/test_build_context.py).
+!backend_python/src/data/*.json
 !tsconfig.json
 !jsconfig.json
 !vercel.json

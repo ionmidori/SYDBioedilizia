@@ -1,9 +1,21 @@
 # This file specifies files that are NOT uploaded to Cloud Build.
-# gcloud builds submit uses this file (not .dockerignore)
+# gcloud builds submit / gcloud run deploy --source use this file (not .dockerignore).
+#
+# Keep it equivalent to .dockerignore: anything the image must not contain should
+# not leave the machine either. The upload tarball is stored in the *_cloudbuild
+# bucket, so credentials and scratch files must never be part of it.
+# tests/unit/test_build_context.py evaluates both files with real gitignore
+# matching and fails if they diverge or if runtime files would be dropped.
+#
+# Syntax differs from .dockerignore: .gcloudignore follows .gitignore rules, where
+# a pattern without a leading "/" matches at ANY depth. An unanchored "data/"
+# would drop src/data/ (read at runtime), and an unanchored "*.md" or "test_*.py"
+# would drop nested runtime files. Root-only patterns are therefore anchored.
 
 # Exclude local virtual environments (CRITICAL - this was causing the bug!)
 .venv/
 venv/
+/.python-version
 
 # Exclude python cache
 __pycache__/
@@ -11,14 +23,51 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Exclude test cache
+# Exclude test files and cache
+tests/
+/tests_manual/
 .pytest_cache/
+.ruff_cache/
 .coverage
+coverage.xml
 htmlcov/
+/repro_issues.py
+/test_*.py
+/verify_*.py
 
-# Exclude env files (secrets should be injected at runtime)
+# Exclude debug and maintenance scripts in root
+/debug_*.py
+/debug_*.txt
+/fix_*.py
+/list_*.py
+/process_*.py
+/punch_*.py
+/diecut_*.py
+/fade_*.py
+/flood_*.py
+/magic_*.py
+/saturation_*.py
+/targeted_*.py
+/scripts/
+/*.ps1
+/*.sh
+!/entrypoint.sh
+
+# Exclude offline ingestion data (prezzario PDFs/JSON read only by scripts/).
+# Runtime data lives in src/data/, which must stay in the upload.
+/data/
+
+# Exclude documentation and project files
+/docs/
+/*.md
+
+# Exclude env files and credentials (secrets are injected at runtime)
 .env
 .env.*
+firebase-service-account.json
+*.pem
+*.key
+*.p12
 
 # Exclude git
 .git
@@ -27,6 +76,3 @@ htmlcov/
 # Exclude IDE settings
 .vscode/
 .idea/
-
-# Exclude tests (not needed in production)
-tests/
