@@ -351,15 +351,6 @@ CRITICO: non affermare mai che la richiesta è stata inviata se il tool non ha r
 </instruction>
 </end>
 
-<handling_submission>
-<trigger>User sends message starting with `[LEAD_DATA_SUBMISSION]`</trigger>
-<instruction>
-1. Analizza il testo per estrarre Nome, Email, Telefono e Scope.
-2. CHIAMA trigger_n8n_webhook con workflow_id="lead_submission" e questi dati nel payload.
-3. NON chiedere di nuovo questi dati.
-</instruction>
-</handling_submission>
-
 <post_execution_check>
 IMMEDIATAMENTE dopo che submit_quote_request restituisce successo (risultato che inizia con "✅"; mai dopo "❌ RICHIESTA NON INVIATA"):
 1. Controlla se nella cronologia c'è già un render completato.

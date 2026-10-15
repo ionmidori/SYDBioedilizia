@@ -361,71 +361,6 @@ async def suggest_quote_items(session_id: str, tool_context) -> str:
     )
 
 
-# ─── n8n Webhook ─────────────────────────────────────────────────────────────
-
-@instrumented_tool("n8n_webhook")
-async def trigger_n8n_webhook(workflow_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Triggers an n8n automation workflow via signed HMAC webhook.
-
-    Delegates to the production-hardened n8n implementation that includes:
-    - SSRF host allowlist validation (N8N_ALLOWED_WEBHOOK_HOSTS)
-    - HMAC-SHA256 signing with timestamp (replay-attack prevention)
-    - Exponential backoff retry (tenacity)
-    - Idempotency key in payload
-
-    Each workflow_id maps to a dedicated n8n webhook URL (separate workflows):
-    - "lead_submission"  → N8N_WEBHOOK_NOTIFY_ADMIN  (new lead/quote ready for admin review)
-    - "quote_delivery"   → N8N_WEBHOOK_DELIVER_QUOTE (send approved quote PDF to client)
-
-    Args:
-        workflow_id: Logical workflow identifier. Maps to a specific webhook URL in settings.
-        payload: JSON payload to send to the workflow.
-    """
-    import logging
-
-    from src.tools.n8n_mcp_tools import _call_n8n_webhook, _validate_webhook_url
-
-    _logger = logging.getLogger(__name__)
-
-    # Each workflow has its own dedicated n8n webhook URL (not a suffix)
-    _WORKFLOW_URL_MAP = {
-        "lead_submission": settings.N8N_WEBHOOK_NOTIFY_ADMIN,
-        "quote_delivery": settings.N8N_WEBHOOK_DELIVER_QUOTE,
-    }
-
-    webhook_url = _WORKFLOW_URL_MAP.get(workflow_id)
-    if not webhook_url:
-        if workflow_id not in _WORKFLOW_URL_MAP:
-            return {"status": "error", "message": f"Unknown workflow_id '{workflow_id}'. Valid values: {list(_WORKFLOW_URL_MAP.keys())}."}
-        return {"status": "error", "message": f"Webhook URL for '{workflow_id}' is not configured in environment."}
-
-    # F-05 (Excessive Agency guard): bound the payload the model can forward to an
-    # external system. Together with the fixed _WORKFLOW_URL_MAP allowlist (the
-    # agent can only reach the two operator-configured n8n workflows, never an
-    # arbitrary URL) this limits the blast radius of a prompt-injection attempt.
-    import json as _json
-    try:
-        _payload_len = len(_json.dumps(payload, default=str))
-    except (TypeError, ValueError):
-        return {"status": "error", "message": "Invalid payload."}
-    if _payload_len > 8192:
-        _logger.warning("[ADK Tool] n8n webhook payload rejected (too large: %d bytes)", _payload_len)
-        return {"status": "error", "message": "Payload too large."}
-
-    try:
-        _validate_webhook_url(webhook_url)  # SSRF guard — raises ValueError if invalid host
-        result = await _call_n8n_webhook(webhook_url, {"workflow_id": workflow_id, **payload})
-        _logger.info("[ADK Tool] n8n webhook triggered.", extra={"workflow_id": workflow_id})
-        return {"status": "success", "result": result}
-    except ValueError as e:
-        _logger.error("[ADK Tool] n8n webhook blocked — SSRF guard: %s", e)
-        return {"status": "error", "message": "Webhook host not allowed."}
-    except Exception as e:
-        _logger.error("[ADK Tool] n8n webhook failed: %s", e, exc_info=True)
-        return {"status": "error", "message": "Failed to trigger n8n workflow."}
-
-
-
 # ─── Auth / Login ────────────────────────────────────────────────────────────
 
 async def request_login(tool_context) -> str:
@@ -508,7 +443,6 @@ generate_render_adk = FunctionTool(generate_render)
 show_project_gallery_adk = FunctionTool(show_project_gallery)
 list_project_files_adk = FunctionTool(list_project_files)
 suggest_quote_items_adk = FunctionTool(suggest_quote_items)
-trigger_n8n_webhook_adk = FunctionTool(trigger_n8n_webhook)
 request_login_adk = FunctionTool(request_login)
 retrieve_knowledge_adk = FunctionTool(retrieve_knowledge)
 search_listino_adk = FunctionTool(search_listino)
