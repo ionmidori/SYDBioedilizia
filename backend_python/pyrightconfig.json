@@ -30,7 +30,7 @@
   "reportOperatorIssue": "error",
   "//reportGeneralTypeIssues": "RATCHETED to error (2026-07-19): the 1 finding (main.py:78) surfaced a real shutdown bug — `await client.close()` on the async Firestore client, whose close() is synchronous (returns None), so `await None` raised TypeError that the except swallowed and the gRPC channel was never closed. Fixed by dropping await + typing the _async_db_client global. This category now blocks CI.",
   "reportGeneralTypeIssues": "error",
-  "//reportPrivateImportUsage": "RATCHETED to error (2026-07-19): the 3 findings were import-path false-positives (LlmRequest/LlmResponse from google.adk.models package instead of its typed submodules; ezdxf.new not in ezdxf __all__) -> imported from the concrete typed submodules. This category now blocks CI.",
+  "//reportPrivateImportUsage": "RATCHETED to error (2026-07-19): the 3 findings were import-path false-positives (LlmRequest/LlmResponse from google.adk.models package instead of its typed submodules; ezdxf.new not in ezdxf __all__; ezdxf since removed, #480) -> imported from the concrete typed submodules. This category now blocks CI.",
   "reportPrivateImportUsage": "error",
   "//reportMissingImports": "RATCHETED to error (2026-07-19): the only finding was tracing.py importing opentelemetry.exporter.cloud_trace, which was never declared in pyproject/uv.lock -> in production the try/except silently fell back to the console exporter and traces never reached GCP Cloud Trace. Fixed by adding opentelemetry-exporter-gcp-trace as a real dependency. This category now blocks CI.",
   "reportMissingImports": "error"
