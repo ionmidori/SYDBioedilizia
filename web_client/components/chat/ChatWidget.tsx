@@ -158,14 +158,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         if (files.length > 0) addFiles(files);
     }, [addFiles]);
 
-    // Lead Form Handler
-    const handleFormSubmit = useCallback((formData: unknown) => {
-        const data = formData as Record<string, unknown>;
-        // Send hidden message to AI to act as tool output/user confirmation
-        const msg = `[LEAD_DATA_SUBMISSION] Name: ${data.name}, Email: ${data.email}, Phone: ${data.contact}, Scope: ${data.scope}`;
-        sendMessage(msg);
-    }, [sendMessage]);
-
     // Submit Handler
     const submitMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
@@ -272,7 +264,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         messagesEndRef={messagesEndRef}
                         statusMessage={currentStatus}
                         data={data} // 🔥 Pass CoT Data Stream
-                        onFormSubmit={handleFormSubmit}
                     />
 
                     {errorMessage && (

@@ -32,14 +32,6 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
             );
         }
 
-        if (tool.toolName === 'submit_lead_data') {
-            return (
-                <div className="text-sm text-luxury-gold/70 italic mt-2">
-                    📝 Salvando i tuoi dati...
-                </div>
-            );
-        }
-
         if (tool.toolName === 'processing_request') {
             return (
                 <div className="flex items-center gap-3 p-3 mt-2 rounded-lg bg-luxury-gold/5 border border-luxury-gold/10 animate-pulse">

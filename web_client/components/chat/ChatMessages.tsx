@@ -24,7 +24,6 @@ interface ChatMessagesProps {
 
     messagesContainerRef: RefObject<HTMLDivElement | null>;
     messagesEndRef: RefObject<HTMLDivElement | null>;
-    onFormSubmit?: (data: unknown) => void;
 }
 
 const scrollStyle = { WebkitOverflowScrolling: 'touch' as const };
@@ -42,7 +41,6 @@ const ChatMessagesComponent = ({
     data, // Capture data
     messagesContainerRef,
     messagesEndRef,
-    onFormSubmit
 }: ChatMessagesProps) => {
 
     const historyById = React.useMemo(
@@ -98,7 +96,6 @@ const ChatMessagesComponent = ({
                             message={msg}
                             sessionId={sessionId || ""}
                             onImageClick={onImageClick || noopImageClick}
-                            onFormSubmit={onFormSubmit}
                             historyMessage={msg.id ? historyById.get(msg.id) : undefined}
                             animate={!!msg.id && liveReplyIds.has(msg.id)}
                         />

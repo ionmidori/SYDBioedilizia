@@ -14,7 +14,7 @@ Built with **FastAPI**, **Google ADK (Vertex AI Agent Builder)**, and **Google G
 - **Session Hardening:** Robust recovery mechanisms for transient Firestore and Vertex AI Session errors during active streams.
 - **HITL Pipeline:** Human-in-the-Loop quote approval logic with automated PDF generation (WeasyPrint) and deliverable tracking.
 - **Feedback & Evaluation:** Native feedback collection (`/feedback` API) and an integrated **live ADK Evaluation Suite** with SYD-specific rubrics (no-furniture, italian-only, mq-present, sku-present, etc.).
-- **n8n Connectivity:** Native tools for Telegram/Email notifications and document delivery.
+- **Transactional Email Outbox:** Admin notifications and quote delivery are written with the business change and dispatched via Brevo/SMTP with retries and dead-lettering (`src/services/email/`).
 - **Vision Integration:** Automated room analysis and CAD extraction (Gemini 1.5 Pro).
 - **Batch Processing:** `Batch Aggregation Engine` for multi-project cross-optimization and REST endpoints.
 - **Security:** Model Armor guardrails for prompt injection/data leak defense, Pydantic guardrails, strict App Check enforcement, SSRF protections, and **"Golden Sync"** schema matching.
@@ -49,8 +49,6 @@ uv sync
 GOOGLE_CLOUD_PROJECT=chatbotluca-a8a73
 FIREBASE_STORAGE_BUCKET=chatbotluca-a8a73.firebasestorage.app
 PINECONE_API_KEY=your_pinecone_key
-N8N_WEBHOOK_NOTIFY_ADMIN=https://n8n.your-domain.it/webhook/...
-N8N_WEBHOOK_DELIVER_QUOTE=https://n8n.your-domain.it/webhook/...
 ENV=development
 ```
 

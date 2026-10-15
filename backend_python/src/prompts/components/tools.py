@@ -8,7 +8,6 @@ in src/adk/tools.py. DO NOT add tool docs for functions that don't exist.
 Registered tools (from src/adk/tools.py):
   - generate_render(prompt, style)
   - get_market_prices(query)
-  - trigger_n8n_webhook(workflow_id, payload)
   - show_project_gallery(session_id)
   - list_project_files(session_id)
   - suggest_quote_items(session_id)
@@ -63,81 +62,6 @@ The tool returns: "![Design](https://storage...)"
 You MUST copy this EXACTLY into your response. Do NOT paraphrase or summarize.
 Example response: "Ecco il tuo rendering! ![Design](https://...) Ti piace?"
 </workflow>
-</tool>"""
-
-
-TOOL_TRIGGER_N8N = """<tool name="trigger_n8n_webhook">
-<trigger>User has completed the quote interview (all 4 pillars collected: vision, scope, metrics, contact info)</trigger>
-
-<goal>
-Submit collected lead/quote data to the n8n automation workflow for CRM processing and email delivery.
-</goal>
-
-<parameters>
-<param name="workflow_id" required="true">
-Logical workflow identifier — maps to a dedicated n8n webhook URL internally.
-Valid values:
-- "lead_submission"  → notifies admin of new lead/quote (use after contact info collected)
-- "quote_delivery"   → delivers approved quote PDF to client (use only after admin HITL approval)
-</param>
-
-<param name="payload" required="true">
-For "lead_submission": JSON object with all collected data from the 4 pillars:
-{
-  "name": "...",
-  "email": "...",
-  "phone": "...",
-  "project_details": "Rich narrative: room type, scope of work, materials, dimensions, style...",
-  "vision": "What the user wants to achieve",
-  "scope": "What works are needed",
-  "metrics": "Approximate dimensions and constraints",
-  "quote_total": 0.0
-}
-
-For "quote_delivery": JSON object with approved quote delivery info:
-{
-  "project_id": "...",
-  "client_email": "...",
-  "quote_total": 0.0
-}
-</param>
-</parameters>
-
-<approach>
-START: "Ciao! Raccontami del tuo progetto. Cosa vorresti realizzare?"
-
-MIDDLE: Open-ended questions → intelligent follow-ups
-- Ask WHAT they want (vision), not HOW (logistics)
-- Request measurements naturally, accept approximations ("circa 20mq" is fine)
-- Adapt to their answers — be contextual, not bureaucratic
-- Focus on ONE operational category per turn (Demolition OR Systems OR Finishes)
-- Minimum 6-8 back-and-forth exchanges before asking contact info
-
-END: Collect contact info LAST (Name, Email, Phone), then call trigger_n8n_webhook.
-"Perfetto! Per inviarti il preventivo, a chi posso intestarlo? Nome, email e numero di telefono."
-
-DO NOT ask for contact info in the middle of the interview.
-</approach>
-
-<good_questions>
-✅ "Raccontami del tuo progetto: cosa vuoi realizzare?"
-✅ "Che dimensioni ha lo spazio? Anche indicative vanno bene."
-✅ "Quali materiali hai in mente? (Legno, marmo, gres...)"
-✅ "Gli impianti vanno rifatti o aggiornati?"
-</good_questions>
-
-<bad_questions>
-❌ "A che piano è l'appartamento?" (irrilevante)
-❌ "Qual è il tuo budget massimo?" (prematuro)
-❌ "Compilare campo numero 7..." (troppo burocratico)
-</bad_questions>
-
-<handling_submission>
-<trigger>User sends message starting with `[LEAD_DATA_SUBMISSION]`</trigger>
-1. Parse the Name, Email, Phone, and Scope from the message text.
-2. CALL trigger_n8n_webhook with workflow_id="lead_submission" and these details in payload.
-3. DO NOT ask for them again.
-</handling_submission>
 </tool>"""
 
 
@@ -310,7 +234,6 @@ Examples:
 # Combined export — ONLY tools that exist in src/adk/tools.py
 TOOLS = "\n\n".join([
     TOOL_GENERATE_RENDER,
-    TOOL_TRIGGER_N8N,
     TOOL_PRICE_SEARCH,
     TOOL_LIST_PROJECT_FILES,
     TOOL_SHOW_PROJECT_GALLERY,

@@ -349,7 +349,7 @@ class AppCheckMiddleware:
     # "/health/startup" is the Cloud Run startup probe: it carries no App Check
     # token, and a 403 there would keep every new revision from ever starting.
     _PUBLIC_PATHS = frozenset({
-        "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico", "/webhooks/n8n",
+        "/health", "/health/startup", "/api/health", "/ready", "/favicon.ico",
         "/internal/lifecycle/run",
         # Email platform (Phase 128): Cloud Tasks OIDC / Brevo bearer token.
         "/internal/email/sweep", "/webhooks/email/brevo",
@@ -492,11 +492,6 @@ from src.api.routes.feedback import feedback_router
 
 app.include_router(feedback_router)
 
-# Register inbound webhook routes (n8n -> FastAPI callbacks, HMAC-SHA256 auth)
-from src.api.routes.webhook_routes import router as webhook_router
-
-app.include_router(webhook_router)
-
 # Register public content routes (testimonials, portfolio — replaces direct Firestore reads)
 from src.api.routes.content_routes import router as content_router
 
@@ -539,47 +534,6 @@ app.include_router(lifecycle_router)
 
 from datetime import UTC
 
-
-class LeadSubmissionRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=200)
-    email: str = Field(..., max_length=320)
-    phone: str | None = Field(None, max_length=30)
-    quote_summary: str = Field(..., min_length=1, max_length=5000)
-    session_id: str = Field(..., min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
-
-    @field_validator('email')
-    @classmethod
-    def validate_email_format(cls, v: str) -> str:
-        import re
-        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
-            raise ValueError('Invalid email format')
-        return v.lower().strip()
-
-@app.post("/api/submit-lead")
-@limiter.limit("5/minute")
-async def submit_lead_endpoint(
-    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
-    body: LeadSubmissionRequest,
-    user_session: UserSession = Depends(verify_token),
-):
-    """
-    Direct endpoint for the Lead Generation Form widget.
-    Bypasses the agent to save data directly to DB.
-    """
-    from src.tools.submit_lead import submit_lead_wrapper
-
-    user_id = user_session.uid
-
-    result = await submit_lead_wrapper(
-        name=body.name,
-        email=body.email,
-        phone=body.phone,
-        project_details=body.quote_summary,
-        uid=user_id,
-        session_id=body.session_id
-    )
-
-    return {"status": "success", "message": result}
 
 class ChatMessage(BaseModel):
     # Client-supplied AI SDK message id. Persisted as the Firestore document id

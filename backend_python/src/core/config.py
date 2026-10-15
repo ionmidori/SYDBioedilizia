@@ -169,16 +169,6 @@ class Settings(BaseSettings):
     FIREBASE_CLIENT_ID: str | None = None
     FIREBASE_STORAGE_BUCKET: str | None = None
 
-    # n8n MCP Integration (Webhook URLs)
-    N8N_WEBHOOK_NOTIFY_ADMIN: str | None = Field(default=None, description="n8n webhook URL to notify admin of new quote draft")
-    N8N_WEBHOOK_DELIVER_QUOTE: str | None = Field(default=None, description="n8n webhook URL to deliver approved quote to client")
-    N8N_API_KEY: str | None = Field(default=None, description="Optional API key for n8n webhook authentication")
-    # Shared HMAC-SHA256 secret for webhook request signing (prevents replay attacks).
-    # Generate with: python -c "import secrets; print(secrets.token_hex(32))"
-    N8N_WEBHOOK_HMAC_SECRET: str | None = Field(default=None, description="Shared HMAC-SHA256 secret for n8n webhook signature verification")
-    # Comma-separated allowlist of valid n8n hostnames (SSRF prevention).
-    # Example: "n8n.sydbioedilizia.com,n8n-staging.sydbioedilizia.com"
-    N8N_ALLOWED_WEBHOOK_HOSTS: str | None = Field(default=None, description="Comma-separated allowlist of n8n webhook hostnames (SSRF guard)")
     ADMIN_DASHBOARD_URL: str = Field(
         default="http://localhost:3000/admin/quotes",
         description="Base URL of the admin console quote inbox (/admin/quotes); a quote dossier is {url}/{project_id}.",
@@ -252,7 +242,7 @@ class Settings(BaseSettings):
                     "is active — it has no effect if MODEL_ARMOR_TEMPLATE_ID is unset.",
     )
 
-    # Native Notification Service (SMTP — active replacement for n8n when n8n is unavailable)
+    # Native email (SMTP provider for the transactional outbox, src/services/email/)
     SMTP_HOST: str | None = Field(default=None, description="SMTP server hostname (e.g. smtp.gmail.com)")
     SMTP_PORT: int = Field(default=587, description="SMTP server port (587 for STARTTLS, 465 for SSL)")
     SMTP_USER: str | None = Field(default=None, description="SMTP username/email for authentication")
@@ -320,14 +310,14 @@ class Settings(BaseSettings):
     def _warn_weak_secrets_in_prod(self) -> "Settings":
         """F-07: warn (non-blocking) if production security secrets look weak.
 
-        Non-fatal on purpose — optional integrations (n8n, lifecycle scheduler)
-        may legitimately be unconfigured. Rotate any set secret to >=32 random
+        Non-fatal on purpose — optional integrations (lifecycle scheduler, Brevo
+        webhook) may legitimately be unconfigured. Rotate any set secret to >=32 random
         chars and prefer a secret manager over committed/.env values in prod.
         """
         if self.ENV == "production":
             import logging
             _log = logging.getLogger(__name__)
-            for name in ("N8N_WEBHOOK_HMAC_SECRET", "LIFECYCLE_SECRET", "BREVO_WEBHOOK_TOKEN"):
+            for name in ("LIFECYCLE_SECRET", "BREVO_WEBHOOK_TOKEN"):
                 value = getattr(self, name, None)
                 if value and len(value) < 32:
                     _log.warning(

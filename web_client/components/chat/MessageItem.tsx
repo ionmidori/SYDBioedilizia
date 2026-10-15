@@ -7,7 +7,6 @@ import { type Components } from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
 import { ToolStatus } from '@/components/chat/ToolStatus';
-import { LeadCaptureForm } from '@/components/chat/widgets/LeadCaptureForm';
 import { LoginRequest } from '@/components/chat/tools/LoginRequest';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,7 +15,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 import { Message, ToolInvocation } from '@/types/chat';
-import { logger } from '@/lib/logger';
 import { getVisibleText } from '@/lib/chat/message-text';
 import { useSmoothText } from '@/hooks/useSmoothText';
 import { MemoizedMarkdown } from '@/components/chat/MemoizedMarkdown';
@@ -25,7 +23,6 @@ interface MessageItemProps {
     message: Message;
     sessionId?: string; // made optional
     onImageClick: (imageUrl: string) => void;
-    onFormSubmit?: (data: unknown) => void;
     /**
      * Firestore-history version of this message (same id), resolved once by
      * ChatMessages. Passed as a prop instead of reading the chat context here:
@@ -42,7 +39,7 @@ interface MessageItemProps {
  * Handles rendering of one chat message with its avatar, content, and attachments
  * ✅ Memoized to prevent unnecessary re-renders
  */
-export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, onFormSubmit, historyMessage, animate = false }) => {
+export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, onImageClick, historyMessage, animate = false }) => {
     const { user } = useAuth();
     // Vercel AI SDK strips custom fields like "rating" from the messages array during internal state updates.
     // To ensure the thumbs up/down state persists across reloads, we use the raw message from Firestore history.
@@ -157,7 +154,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
 
     // Check if tools have any visual output (Loading state OR Result with Image/Error OR Widgets)
     const hasVisibleTools = toolInvocations.some(tool => {
-        if (tool.toolName === 'display_lead_form') return true; // Always visible
         if (tool.toolName === 'request_login') return true; // 🔥 Login Widget Always visible
 
         // 🧠 Thinking State: Only visible while "calling" (thinking). 
@@ -304,22 +300,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
 
                             {/* Tool Invocations */}
                             {toolInvocations.map((tool, toolIdx) => {
-                                // 💎 PREMIUM WIDGET: Lead Capture Form
-                                if (tool.toolName === 'display_lead_form') {
-                                    const args = tool.args as { quote_summary?: string };
-                                    return (
-                                        <div key={toolIdx} className="mt-4">
-                                            <LeadCaptureForm
-                                                description={args?.quote_summary || "Per generare il render, ho bisogno di questi dati."}
-                                                onSubmit={(data) => {
-                                                    logger.debug("📝 Form Submitted:", data);
-                                                    if (onFormSubmit) onFormSubmit(data);
-                                                }}
-                                            />
-                                        </div>
-                                    );
-                                }
-
                                 // 🔒 AUTH WIDGET: Login Request
                                 // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
                                 const result = tool.result || (tool as { output?: unknown }).output;

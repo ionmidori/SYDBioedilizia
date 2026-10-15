@@ -29,7 +29,6 @@ from src.adk.tools import (
     show_project_gallery_adk,
     submit_quote_request_adk,
     suggest_quote_items_adk,
-    trigger_n8n_webhook_adk,
 )
 from src.core.models import ModelRole, build_generate_content_config
 from src.prompts.components.identity import (
@@ -318,7 +317,6 @@ quote_agent = Agent(
         pricing_engine_tool_adk,
         market_prices_adk,
         suggest_quote_items_adk,
-        trigger_n8n_webhook_adk,
         list_ready_quotes_adk,
         submit_quote_request_adk,
         request_login_adk,

@@ -44,9 +44,11 @@ Chat flow: `ChatProvider.tsx` (AI SDK) → `app/api/chat/route.ts` (proxy) → `
   testimonials, GDPR tools and a KPI dashboard.
 - Approved quotes are rendered to PDF (ReportLab) and delivered by email.
 
-**Automation**
-- n8n workflows (`n8n_workflows/`): admin notification, quote delivery, Firestore status poller,
-  error handler. Webhooks are signed with HMAC-SHA256 (`X-SYD-Timestamp` / `X-SYD-Signature`).
+**Email**
+- Transactional outbox (`backend_python/src/services/email/`): admin notification on new quote
+  requests and quote delivery are recorded with the business change and sent via Brevo or SMTP,
+  with retries, dead-lettering and Brevo delivery events. Dispatch runs on Cloud Tasks
+  (`backend_python/deploy/email-outbox.sh`).
 
 ---
 
@@ -59,7 +61,7 @@ Chat flow: `ChatProvider.tsx` (AI SDK) → `app/api/chat/route.ts` (proxy) → `
 | **AI** | Google ADK 2.x, Gemini via `google-genai` — defaults: `gemini-3.5-flash-lite` (agents), `gemini-3.8-flash` (vision), `gemini-3.1-flash-image-preview` (renders); models are configurable per role in `src/core/config.py` |
 | **RAG** | Pinecone (index `syd-knowledge`) with integrated inference `multilingual-e5-large` and reranker `bge-reranker-v2-m3` |
 | **Data & auth** | Firebase Auth, Firestore, Cloud Storage, App Check |
-| **Hosting** | Vercel (frontend), Google Cloud Run `europe-west1` (backend and n8n), Supabase Postgres (n8n database) |
+| **Hosting** | Vercel (frontend), Google Cloud Run `europe-west1` (backend), Cloud Tasks (email outbox) |
 
 ---
 
@@ -111,7 +113,6 @@ Frontend checks, backend tests, E2E smoke, Firestore + Storage rules tests, secu
 
 - **Frontend**: Vercel, from `web_client/`.
 - **Backend**: Google Cloud Run (`syd-brain`, `europe-west1`), built by Cloud Build on push to `main`; health check at `/health`.
-- **n8n**: Cloud Run (`n8n/`).
 
 ---
 
