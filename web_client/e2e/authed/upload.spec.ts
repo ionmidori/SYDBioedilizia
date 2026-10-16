@@ -132,4 +132,44 @@ test.describe('chat file upload', () => {
 
     await expect(page.getByTestId('file-preview')).toHaveAttribute('data-upload-status', 'error');
   });
+
+  test('tells the user when the daily quota is used up, with no pointless retry', async ({ page }) => {
+    const message = 'Hai raggiunto il limite giornaliero di caricamenti foto. Riprova domani dopo le 09:10.';
+    await page.route('**/api/py/upload/image', (route) =>
+      route.fulfill({
+        status: 429,
+        contentType: 'application/json',
+        headers: { 'Retry-After': '3600' },
+        body: JSON.stringify({ error_code: 'QUOTA_EXCEEDED', message, detail: { period: 'daily' } }),
+      }),
+    );
+
+    await page.getByTestId('chat-file-input').setInputFiles(pngFile('room.png'));
+
+    const preview = page.getByTestId('file-preview');
+    await expect(preview).toHaveAttribute('data-upload-status', 'error');
+    // The full reason sits under the thumbnails (a 80px preview would clip it).
+    await expect(page.getByTestId('upload-errors')).toHaveText(message);
+    await expect(preview.getByRole('button', { name: 'Riprova il caricamento' })).toHaveCount(0);
+  });
+
+  test('keeps the retry button when the quota service is only briefly unavailable', async ({ page }) => {
+    await page.route('**/api/py/upload/image', (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        headers: { 'Retry-After': '300' },
+        body: JSON.stringify({
+          error_code: 'QUOTA_UNAVAILABLE',
+          message: 'Verifica della quota momentaneamente non disponibile. Riprova tra qualche minuto.',
+        }),
+      }),
+    );
+
+    await page.getByTestId('chat-file-input').setInputFiles(pngFile('room.png'));
+
+    const preview = page.getByTestId('file-preview');
+    await expect(preview).toHaveAttribute('data-upload-status', 'error');
+    await expect(preview.getByRole('button', { name: 'Riprova il caricamento' })).toBeVisible();
+  });
 });

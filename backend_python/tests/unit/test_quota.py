@@ -66,12 +66,12 @@ class TestQuotaCheckDevelopment:
         THEN should return unlimited quota without checking database
         """
         # Act: No need to mock Firestore since dev mode returns early
-        allowed, remaining, reset_at = await check_quota("test-user", "generate_render")
+        decision = await check_quota("test-user", "generate_render")
 
         # Assert: Development mode returns unlimited
-        assert allowed is True
-        assert remaining == 9999
-        assert reset_at > utc_now() + timedelta(days=360)
+        assert decision.allowed is True
+        assert decision.remaining == 9999
+        assert decision.reset_at > utc_now() + timedelta(days=360)
 
 
 @pytest.mark.asyncio
@@ -89,13 +89,13 @@ class TestQuotaCheckProduction:
         mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_snapshot
 
         with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-            allowed, remaining, reset_at = await check_quota("authenticatedUser123", "generate_render")
+            decision = await check_quota("authenticatedUser123", "generate_render")
 
         # Assert
-        assert allowed is True
+        assert decision.allowed is True
         # authenticatedUser123 is authenticated, so limit is 2 from QUOTA_LIMITS_AUTHENTICATED
-        assert remaining == 1  # 2 - 1 = 1
-        assert reset_at > utc_now()
+        assert decision.remaining == 1  # 2 - 1 = 1
+        assert decision.reset_at > utc_now()
 
     async def test_within_quota_allowed(self, mock_env_production, mock_async_firestore):
         """GIVEN authenticated user has used 0 out of 2 renders
@@ -113,11 +113,11 @@ class TestQuotaCheckProduction:
         mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_snapshot
 
         with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-            allowed, remaining, reset_at = await check_quota("authenticatedUser123", "generate_render")
+            decision = await check_quota("authenticatedUser123", "generate_render")
 
         # Assert
-        assert allowed is True
-        assert remaining == 2  # Authenticated limit is 2, 0 used
+        assert decision.allowed is True
+        assert decision.remaining == 2  # Authenticated limit is 2, 0 used
 
     async def test_quota_exceeded(self, mock_env_production, mock_async_firestore):
         """GIVEN user has exhausted quota (2/2 renders used)
@@ -135,11 +135,11 @@ class TestQuotaCheckProduction:
         mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_snapshot
 
         with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-            allowed, remaining, reset_at = await check_quota("authenticatedUser123", "generate_render")
+            decision = await check_quota("authenticatedUser123", "generate_render")
 
         # Assert
-        assert allowed is False
-        assert remaining == 0
+        assert decision.allowed is False
+        assert decision.remaining == 0
 
     async def test_weekly_doc_missing_window_start_does_not_crash(
         self, mock_env_production, mock_async_firestore
@@ -165,10 +165,10 @@ class TestQuotaCheckProduction:
         )
 
         with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-            allowed, remaining, reset_at = await check_quota("authenticatedUser123", "generate_render")
+            decision = await check_quota("authenticatedUser123", "generate_render")
 
         # Weekly check skipped (malformed) -> falls through to daily (absent) -> allowed.
-        assert allowed is True
+        assert decision.allowed is True
 
     async def test_quota_window_reset(self, mock_env_production, mock_async_firestore):
         """GIVEN quota window has expired (>24h since window_start)
@@ -186,12 +186,12 @@ class TestQuotaCheckProduction:
         mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_snapshot
 
         with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-            allowed, remaining, reset_at = await check_quota("authenticatedUser123", "generate_render")
+            decision = await check_quota("authenticatedUser123", "generate_render")
 
         # Assert: Window expired, quota reset
-        assert allowed is True
+        assert decision.allowed is True
         # Authenticated user, so limit is 2
-        assert remaining == 1  # 2 - 1 = 1
+        assert decision.remaining == 1  # 2 - 1 = 1
 
 
 @pytest.mark.asyncio

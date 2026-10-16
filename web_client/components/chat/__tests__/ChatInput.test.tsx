@@ -22,6 +22,8 @@ jest.mock('lucide-react', () => ({
     Plus: () => <div data-testid="icon-plus" />,
     Sparkles: () => <div data-testid="icon-sparkles" />,
     Cloud: () => <div data-testid="icon-cloud" />,
+    AlertCircle: () => <div data-testid="icon-alert-circle" />,
+    RefreshCw: () => <div data-testid="icon-refresh" />,
 }));
 
 // Mock framer-motion
@@ -77,6 +79,25 @@ describe('ChatInput', () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
+    });
+
+    it('tells the user why an attachment failed', () => {
+        const reason = 'Hai raggiunto il limite giornaliero di caricamenti video. Riprova domani dopo le 09:10.';
+        const uploads = {
+            v1: {
+                id: 'v1',
+                file: new File(['x'], 'clip.mp4', { type: 'video/mp4' }),
+                previewUrl: 'blob:v1',
+                progress: 0,
+                status: 'error' as const,
+                error: reason,
+                retryable: false,
+            },
+        };
+        render(<ChatInput {...defaultProps} uploads={uploads} />);
+
+        // Below the thumbnails, where it is not clipped to the 80px preview.
+        expect(screen.getByTestId('upload-errors')).toHaveTextContent(reason);
     });
 
     it('should render textarea with placeholder', () => {

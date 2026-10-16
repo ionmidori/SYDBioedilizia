@@ -25,6 +25,7 @@ import { getToken } from 'firebase/app-check';
 import { appCheck } from '@/lib/firebase';
 import { useAuth } from './useAuth';
 import type { UploadItem, UploadStatus, MediaAsset } from '@/types/media';
+import { networkUploadFailure, parseUploadError, UploadError, type UploadFailure } from '@/lib/upload/upload-error';
 import {
     compressImage,
     shouldCompress,
@@ -174,7 +175,8 @@ export function useUpload(options: UseUploadOptions = {}) {
 
                 const token = await refreshToken();
                 if (!token) {
-                    throw new Error('Authentication required');
+                    // Same wording and no-retry as a 401 from the server.
+                    throw new UploadError(parseUploadError(401, ''));
                 }
 
                 // GET APP CHECK TOKEN (⚡ Production Protection)
@@ -213,14 +215,17 @@ export function useUpload(options: UseUploadOptions = {}) {
                                 const response = JSON.parse(xhr.responseText);
                                 resolve(response as MediaAsset);
                             } catch {
-                                reject(new Error('Invalid server response'));
+                                // The server accepted the file (2xx) but the answer is
+                                // unreadable: a retry could store it twice and spend the
+                                // quota again.
+                                reject(new UploadError({ message: 'Risposta del server non valida.', retryable: false }));
                             }
                         } else {
-                            reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+                            reject(new UploadError(parseUploadError(xhr.status, xhr.responseText)));
                         }
                     };
 
-                    xhr.onerror = () => reject(new Error('Network error during upload'));
+                    xhr.onerror = () => reject(new UploadError(networkUploadFailure()));
                     xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'));
 
                     // Handle AbortController
@@ -248,8 +253,11 @@ export function useUpload(options: UseUploadOptions = {}) {
                     return; // Don't update state, item is being removed
                 }
 
-                const error = err instanceof Error ? err.message : 'Upload failed';
-                updateItem(item.id, { status: 'error', error });
+                // Server/network failures were already turned into user-facing text;
+                // anything else (e.g. compression, token) gets the generic one.
+                const failure: UploadFailure =
+                    err instanceof UploadError ? err.failure : parseUploadError(0, '');
+                updateItem(item.id, { status: 'error', error: failure.message, retryable: failure.retryable });
                 console.error(`[useUpload] ❌ Upload failed: ${item.file.name}`, err);
 
             } finally {
@@ -353,6 +361,7 @@ export function useUpload(options: UseUploadOptions = {}) {
                         status: 'idle' as UploadStatus,
                         progress: 0,
                         error: undefined,
+                        retryable: undefined,
                         abortController: undefined,
                     },
                 };

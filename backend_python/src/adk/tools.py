@@ -16,7 +16,7 @@ from google.adk.tools import FunctionTool
 from src.auth.user_lookup import is_anonymous_user
 from src.core.config import settings
 from src.core.telemetry import instrumented_tool
-from src.tools.quota import check_quota, increment_quota
+from src.tools.quota import check_quota, increment_quota, quota_denial
 
 logger = logging.getLogger(__name__)
 
@@ -249,13 +249,10 @@ async def generate_render(
         _logger.warning("[ADK Tool] generate_render blocked: anonymous user")
         return {"status": "error", "error": _RENDER_LOGIN_REQUIRED}
 
-    allowed, _remaining, reset_at = await check_quota(user_id, "generate_render")
-    if not allowed:
-        _logger.warning("[ADK Tool] generate_render blocked: quota exhausted")
-        return {
-            "status": "error",
-            "error": f"Hai raggiunto il limite di render disponibili. Riprova dopo le {reset_at:%H:%M} UTC.",
-        }
+    decision = await check_quota(user_id, "generate_render")
+    if not decision.allowed:
+        _logger.warning(f"[ADK Tool] generate_render blocked: quota {decision.reason}")
+        return {"status": "error", "error": quota_denial("generate_render", decision).message}
 
     from src.tools.generate_render import generate_render_wrapper
     try:

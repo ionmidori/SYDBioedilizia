@@ -185,15 +185,18 @@ export function FilePreviewItem({
                         </span>
                     )}
 
-                    {/* Error message and retry */}
+                    {/* Short label (the full reason is shown by UploadErrorNotice,
+                        which has room for it) and retry, only when it can help */}
                     {item.status === 'error' && (
                         <>
-                            <span className="text-[10px] text-white font-bold">Failed</span>
-                            {onRetry && (
+                            <span title={item.error} className="text-[10px] text-white font-bold">
+                                Non riuscito
+                            </span>
+                            {onRetry && item.retryable !== false && (
                                 <button
                                     onClick={handleRetry}
                                     className="mt-1 p-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors"
-                                    aria-label="Retry upload"
+                                    aria-label="Riprova il caricamento"
                                 >
                                     <RefreshCw className="w-3 h-3 text-white" />
                                 </button>

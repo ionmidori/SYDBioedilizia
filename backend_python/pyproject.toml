@@ -34,6 +34,7 @@ dependencies = [
     # imported but never declared, so the prod try/except silently fell back to
     # the console exporter and traces never reached GCP Cloud Trace.
     "opentelemetry-exporter-gcp-trace>=1.15.0",
+    "tzdata>=2025.2",
 ]
 
 [project.optional-dependencies]

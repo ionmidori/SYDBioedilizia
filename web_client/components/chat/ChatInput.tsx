@@ -19,6 +19,7 @@ import { Send, Paperclip, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { UploadItem } from '@/types/media';
 import { FilePreviewItem } from '@/components/chat/FilePreviewItem';
+import { UploadErrorNotice } from '@/components/chat/UploadErrorNotice';
 import { triggerHaptic } from '@/lib/haptics';
 import { validateFileForUpload } from "@/lib/validation/file-upload-schema";
 import { validateVideo } from "@/lib/media-utils";
@@ -378,6 +379,7 @@ export function ChatInput({
                             </AnimatePresence>
                         </div>
                     )}
+                    <UploadErrorNotice items={uploadItems} />
 
                     {/* Text Input Area */}
                     <div

@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from src.adk import tools
 from src.auth import user_lookup
+from src.tools.quota import QuotaDecision, QuotaReason
 
 _RESET = datetime(2026, 10, 4, 9, 30, tzinfo=UTC)
 
@@ -30,12 +31,26 @@ def _production(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "ALLOW_AUTH_BYPASS", False)
 
 
-async def _render(tool_context, *, anonymous: bool, allowed: bool, result: dict | None = None):
+async def _render(
+    tool_context,
+    *,
+    anonymous: bool,
+    allowed: bool,
+    result: dict | None = None,
+    reason: QuotaReason | None = None,
+):
     wrapper = AsyncMock(return_value=result or {"status": "success", "imageUrl": "https://x/render.png"})
     increment = AsyncMock()
+    decision = QuotaDecision(
+        allowed,
+        0,
+        _RESET,
+        reason or (QuotaReason.OK if allowed else QuotaReason.LIMIT_REACHED),
+        None if allowed or reason is QuotaReason.UNAVAILABLE else "daily",
+    )
     with patch("src.tools.generate_render.generate_render_wrapper", new=wrapper), \
          patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=anonymous)), \
-         patch.object(tools, "check_quota", new=AsyncMock(return_value=(allowed, 0, _RESET))), \
+         patch.object(tools, "check_quota", new=AsyncMock(return_value=decision)), \
          patch.object(tools, "increment_quota", new=increment):
         out = await tools.generate_render(prompt="bagno", session_id="sess-1", tool_context=tool_context)
     return out, wrapper, increment
@@ -54,7 +69,22 @@ async def test_anonymous_user_is_blocked_before_generation(tool_context):
 async def test_exhausted_quota_blocks_generation(tool_context):
     out, wrapper, increment = await _render(tool_context, anonymous=False, allowed=False)
     assert out["status"] == "error"
-    assert "09:30" in out["error"]
+    # 09:30 UTC is 11:30 in Rome (CEST): the user is told local time, not UTC.
+    assert "11:30" in out["error"]
+    assert "UTC" not in out["error"]
+    assert "render" in out["error"]
+    wrapper.assert_not_awaited()
+    increment.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_unavailable_quota_service_is_not_reported_as_a_used_up_limit(tool_context):
+    out, wrapper, increment = await _render(
+        tool_context, anonymous=False, allowed=False, reason=QuotaReason.UNAVAILABLE
+    )
+    assert out["status"] == "error"
+    assert "limite" not in out["error"]
+    assert "Riprova tra qualche minuto" in out["error"]
     wrapper.assert_not_awaited()
     increment.assert_not_awaited()
 

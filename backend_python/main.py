@@ -6,6 +6,7 @@ import inspect
 import time
 import uuid
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from typing import Any, cast
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
@@ -198,9 +199,8 @@ async def app_exception_handler(request: Request, exc: AppException):
     """Handles known application errors."""
     logger.error(f"AppException: {exc.message} ({exc.error_code})")
     headers = {}
-    # RFC 6585: Include Retry-After header on 429 responses
-    if exc.status_code == 429 and exc.detail and exc.detail.get("reset_at"):
-        from datetime import datetime
+    # RFC 6585 / RFC 9110: Retry-After on 429 (quota) and 503 (quota store down)
+    if exc.status_code in (429, 503) and exc.detail and exc.detail.get("reset_at"):
         try:
             reset_at = datetime.fromisoformat(exc.detail["reset_at"])
             delta = (reset_at - datetime.now(reset_at.tzinfo)).total_seconds()
@@ -538,8 +538,6 @@ app.include_router(email_router)
 from src.api.routes.lifecycle_routes import router as lifecycle_router
 
 app.include_router(lifecycle_router)
-
-from datetime import UTC
 
 
 class ChatMessage(BaseModel):

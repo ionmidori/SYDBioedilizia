@@ -17,12 +17,11 @@ from fastapi.concurrency import run_in_threadpool
 from firebase_admin import storage as fb_storage
 from pydantic import BaseModel
 from src.auth.jwt_handler import verify_token
-from src.core.exceptions import QuotaExceeded
 from src.core.logger import get_logger
 from src.models.media import ImageMediaAsset, VideoMediaAsset
 from src.repositories.conversation_repository import get_conversation_repository
 from src.schemas.internal import UserSession
-from src.tools.quota import check_quota, increment_quota
+from src.tools.quota import enforce_quota, increment_quota
 from src.utils.security import sanitize_filename, validate_image_magic_bytes, validate_video_magic_bytes
 
 logger = get_logger(__name__)
@@ -51,17 +50,26 @@ STORAGE_UPLOAD_CHUNK = 8 * 1024 * 1024
 _VIDEO_EXTENSIONS = {"video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm"}
 
 
-# ── Shared Dependencies (DRY) ──────────────────────────────────────────────
+# ── Declared body size (fast fail) ─────────────────────────────────────────
 
-async def _enforce_quota(user_id: str, tool_name: str) -> int:
-    """Check quota and raise QuotaExceeded if limit reached. Returns remaining count."""
-    allowed, remaining, reset_at = await check_quota(user_id, tool_name)
-    if not allowed:
-        raise QuotaExceeded(
-            message=f"Limite {tool_name} raggiunto. Riprova domani.",
-            detail={"tool_name": tool_name, "reset_at": reset_at.isoformat()},
-        )
-    return remaining
+def _reject_oversized_body(request: Request, max_file_size: int) -> None:
+    """Refuse early, on the declared Content-Length, a body clearly too big.
+
+    Advisory only (the header can lie): `_safe_read_file` / the spooled size check
+    enforce the real limit. The 2x allows for multipart framing and the form fields.
+    A malformed header is the client's mistake: 400, not an unhandled ValueError.
+    """
+    raw = request.headers.get("content-length")
+    if not raw:
+        return
+    try:
+        declared = int(raw)
+    except ValueError:
+        declared = -1
+    if declared < 0:
+        raise HTTPException(status_code=400, detail="Invalid Content-Length header.")
+    if declared > max_file_size * 2:
+        raise HTTPException(status_code=413, detail="Request body too large.")
 
 
 # ── Chunked File Reading (Memory Safety) ───────────────────────────────────
@@ -173,106 +181,97 @@ async def upload_image(
         ImageMediaAsset with public URL and metadata
 
     Raises:
-        HTTPException: If upload fails or file type is invalid
+        HTTPException: If the file type or size is invalid.
+        QuotaExceeded (429, Retry-After): the allowance is used up.
+        QuotaUnavailableError (503, Retry-After): the quota store could not answer.
+        Any other failure reaches the global handler as a logged 500.
     """
     # Validate session_id format (prevent path traversal / log injection)
     if not re.match(r'^[a-zA-Z0-9_-]+$', session_id) or len(session_id) > 128:
         raise HTTPException(status_code=422, detail="Invalid session_id format")
 
     # 🛡️ Ownership (security audit M1): never attach files to another user's project.
-    # Outside the try below, so PermissionDenied reaches the handler as a 403.
+    # PermissionDenied reaches the global handler as a 403.
     await get_conversation_repository().assert_session_access(session_id, user_session.uid)
 
-    try:
-        # 1. Early rejection via Content-Length header (fast fail, advisory only)
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_IMAGE_SIZE * 2:
-            raise HTTPException(status_code=413, detail="Request body too large.")
+    # 1. Early rejection via Content-Length header (fast fail, advisory only)
+    _reject_oversized_body(request, MAX_IMAGE_SIZE)
 
-        user_id = user_session.uid
+    user_id = user_session.uid
 
-        # 2. Quota enforcement (DRY)
-        remaining = await _enforce_quota(user_id, "upload_image")
+    # 2. Quota: a denial is a 429/503 raised for the global exception handler
+    remaining = (await enforce_quota(user_id, "upload_image")).remaining
 
-        # 3. Magic Bytes Validation (before reading full body)
-        validated_mime = await validate_image_magic_bytes(file)
-        logger.info(f"Image Magic Bytes check passed: {validated_mime}")
+    # 3. Magic Bytes Validation (before reading full body)
+    validated_mime = await validate_image_magic_bytes(file)
+    logger.info(f"Image Magic Bytes check passed: {validated_mime}")
 
-        safe_filename = await sanitize_filename(file.filename or "upload.jpg")
+    safe_filename = await sanitize_filename(file.filename or "upload.jpg")
 
-        # 4. Chunked read with enforced size limit (memory safety)
-        content = await _safe_read_file(file, MAX_IMAGE_SIZE)
-        file_size = len(content)
+    # 4. Chunked read with enforced size limit (memory safety)
+    content = await _safe_read_file(file, MAX_IMAGE_SIZE)
+    file_size = len(content)
 
-        logger.info(
-            "image_upload_started",
-            extra={
-                "session_id": session_id,
-                "file_size_bytes": file_size,
-                "mime_type": validated_mime,
-                "user_id": user_id,
-                "quota_remaining": remaining,
-            }
-        )
+    logger.info(
+        "image_upload_started",
+        extra={
+            "session_id": session_id,
+            "file_size_bytes": file_size,
+            "mime_type": validated_mime,
+            "user_id": user_id,
+            "quota_remaining": remaining,
+        }
+    )
 
-        # 5. Generate unique storage path
-        asset_id = uuid.uuid4().hex
-        ext = safe_filename.split('.')[-1] if '.' in safe_filename else 'jpg'
-        file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
+    # 5. Generate unique storage path
+    asset_id = uuid.uuid4().hex
+    ext = safe_filename.split('.')[-1] if '.' in safe_filename else 'jpg'
+    file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
 
-        # 6. Firebase upload in threadpool (non-blocking)
-        # Both URLs are short-lived signed URLs (object stays private — H-2).
-        signed_url, _ = await run_in_threadpool(
-            _firebase_upload, file_path, content, validated_mime, safe_filename
-        )
+    # 6. Firebase upload in threadpool (non-blocking)
+    # Both URLs are short-lived signed URLs (object stays private — H-2).
+    signed_url, _ = await run_in_threadpool(
+        _firebase_upload, file_path, content, validated_mime, safe_filename
+    )
 
-        # 7. Increment quota
-        await increment_quota(user_id, "upload_image")
+    # 7. Increment quota
+    await increment_quota(user_id, "upload_image")
 
-        # 8. Persist metadata to Firestore so uploaded photos appear in the gallery.
-        # The gallery regenerates fresh signed URLs from storage_path on read, so
-        # storing a (transient) signed URL here is acceptable.
-        repo = get_conversation_repository()
-        await repo.save_file_metadata(session_id, {
-            "url": signed_url,
-            "type": "image",
-            "name": safe_filename,
-            "size": file_size,
-            "uploadedBy": user_id,
-            "mimeType": validated_mime,
-            "metadata": {"source": "user_upload", "storage_path": file_path},
-        })
+    # 8. Persist metadata to Firestore so uploaded photos appear in the gallery.
+    # The gallery regenerates fresh signed URLs from storage_path on read, so
+    # storing a (transient) signed URL here is acceptable.
+    repo = get_conversation_repository()
+    await repo.save_file_metadata(session_id, {
+        "url": signed_url,
+        "type": "image",
+        "name": safe_filename,
+        "size": file_size,
+        "uploadedBy": user_id,
+        "mimeType": validated_mime,
+        "metadata": {"source": "user_upload", "storage_path": file_path},
+    })
 
-        logger.info(
-            "image_upload_completed",
-            extra={
-                "session_id": session_id,
-                "file_path": file_path,
-                "file_size_bytes": file_size,
-                "mime_type": validated_mime,
-                "user_id": user_id,
-                "storage_url": signed_url.split("?")[0],
-            }
-        )
+    logger.info(
+        "image_upload_completed",
+        extra={
+            "session_id": session_id,
+            "file_path": file_path,
+            "file_size_bytes": file_size,
+            "mime_type": validated_mime,
+            "user_id": user_id,
+            "storage_url": signed_url.split("?")[0],
+        }
+    )
 
-        return ImageMediaAsset(
-            id=asset_id,
-            url=signed_url,
-            filename=safe_filename,
-            mime_type=validated_mime,
-            size_bytes=file_size,
-            file_path=file_path,
-            signed_url=signed_url,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Image upload failed: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail="Upload failed. Please try again."
-        ) from e
+    return ImageMediaAsset(
+        id=asset_id,
+        url=signed_url,
+        filename=safe_filename,
+        mime_type=validated_mime,
+        size_bytes=file_size,
+        file_path=file_path,
+        signed_url=signed_url,
+    )
 
 
 @router.post("/video", response_model=VideoMediaAsset)
@@ -297,72 +296,63 @@ async def upload_video(
         VideoMediaAsset with the gs:// URI (`file_uri`) and a signed preview URL
 
     Raises:
-        HTTPException: If upload fails or file type is invalid
+        HTTPException: If the file type or size is invalid.
+        QuotaExceeded (429, Retry-After): the allowance is used up.
+        QuotaUnavailableError (503, Retry-After): the quota store could not answer.
+        Any other failure reaches the global handler as a logged 500.
     """
     # Validate session_id format (prevent path traversal / log injection)
     if not re.match(r'^[a-zA-Z0-9_-]+$', session_id) or len(session_id) > 128:
         raise HTTPException(status_code=422, detail="Invalid session_id format")
 
-    # 🛡️ Ownership: never attach files to another user's project (403 outside the try).
+    # 🛡️ Ownership: never attach files to another user's project (403).
     await get_conversation_repository().assert_session_access(session_id, user_session.uid)
 
-    try:
-        # 1. Early rejection via Content-Length header (fast fail, advisory only)
-        content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > MAX_VIDEO_SIZE * 2:
-            raise HTTPException(status_code=413, detail="Request body too large.")
+    # 1. Early rejection via Content-Length header (fast fail, advisory only)
+    _reject_oversized_body(request, MAX_VIDEO_SIZE)
 
-        user_id = user_session.uid
+    user_id = user_session.uid
 
-        # 2. Quota enforcement (DRY)
-        await _enforce_quota(user_id, "upload_video")
+    # 2. Quota: a denial is a 429/503 raised for the global exception handler
+    await enforce_quota(user_id, "upload_video")
 
-        # 3. Magic Bytes Validation
-        detected_mime = await validate_video_magic_bytes(file)
-        logger.info(f"Video Magic Bytes check passed: {detected_mime}")
+    # 3. Magic Bytes Validation
+    detected_mime = await validate_video_magic_bytes(file)
+    logger.info(f"Video Magic Bytes check passed: {detected_mime}")
 
-        safe_filename = await sanitize_filename(file.filename or "upload.mp4")
+    safe_filename = await sanitize_filename(file.filename or "upload.mp4")
 
-        # 4. Size from the spooled temp file Starlette already wrote: no copy of
-        #    the body in memory (the File API path held it twice, ~200 MB).
-        file_size = await run_in_threadpool(_spooled_size, file)
-        if file_size > MAX_VIDEO_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large. Maximum size is {MAX_VIDEO_SIZE / 1024 / 1024:.0f}MB.",
-            )
-
-        # 5. Stream to Storage (resumable upload, fixed-size chunks)
-        asset_id = uuid.uuid4().hex
-        ext = _VIDEO_EXTENSIONS.get(detected_mime, "mp4")
-        file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
-        gs_uri, signed_url = await run_in_threadpool(
-            _firebase_upload_stream, file_path, file, detected_mime, safe_filename
-        )
-
-        # 6. Increment quota (only on success)
-        await increment_quota(user_id, "upload_video")
-
-        logger.info(
-            "video_upload_completed",
-            extra={"file_path": file_path, "file_size_bytes": file_size, "mime_type": detected_mime},
-        )
-
-        return VideoMediaAsset(
-            id=asset_id,
-            url=signed_url,
-            filename=safe_filename,
-            mime_type=detected_mime,
-            size_bytes=file_size,
-            file_uri=gs_uri,
-            file_path=file_path,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Video upload handler failed: {str(e)}", exc_info=True)
+    # 4. Size from the spooled temp file Starlette already wrote: no copy of
+    #    the body in memory (the File API path held it twice, ~200 MB).
+    file_size = await run_in_threadpool(_spooled_size, file)
+    if file_size > MAX_VIDEO_SIZE:
         raise HTTPException(
-            status_code=500,
-            detail="Upload failed. Please try again."
-        ) from e
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_VIDEO_SIZE / 1024 / 1024:.0f}MB.",
+        )
+
+    # 5. Stream to Storage (resumable upload, fixed-size chunks)
+    asset_id = uuid.uuid4().hex
+    ext = _VIDEO_EXTENSIONS.get(detected_mime, "mp4")
+    file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
+    gs_uri, signed_url = await run_in_threadpool(
+        _firebase_upload_stream, file_path, file, detected_mime, safe_filename
+    )
+
+    # 6. Increment quota (only on success)
+    await increment_quota(user_id, "upload_video")
+
+    logger.info(
+        "video_upload_completed",
+        extra={"file_path": file_path, "file_size_bytes": file_size, "mime_type": detected_mime},
+    )
+
+    return VideoMediaAsset(
+        id=asset_id,
+        url=signed_url,
+        filename=safe_filename,
+        mime_type=detected_mime,
+        size_bytes=file_size,
+        file_uri=gs_uri,
+        file_path=file_path,
+    )
