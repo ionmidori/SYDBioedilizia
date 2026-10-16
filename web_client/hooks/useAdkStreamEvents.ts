@@ -27,7 +27,7 @@ interface UseAdkStreamEventsReturn {
  * provider.
  */
 export function useAdkStreamEvents(sessionId: string): UseAdkStreamEventsReturn {
-    // ADK custom-data stream (status / interrupt / ui_widget / artifact / reasoning).
+    // ADK custom-data stream (status / notice / interrupt / ui_widget / artifact / reasoning).
     const [streamData, setStreamData] = useState<StreamData[]>([]);
     // How many entries of streamData have already been broadcast. The SDK can
     // append several parts within one React batch, so the effect below must

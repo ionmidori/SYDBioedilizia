@@ -19,6 +19,8 @@ export interface UiMessageStreamOptions {
   text: string;
   /** Emits a transient `data-status` frame (drives the thinking indicator). */
   status?: string;
+  /** Emits a transient `data-notice` frame (e.g. an attached video that was ignored). */
+  notice?: { code: string; message: string };
   /** How finely to split `text` into text-delta frames. */
   chunkSize?: number;
 }
@@ -26,6 +28,7 @@ export interface UiMessageStreamOptions {
 export function uiMessageStream({
   text,
   status,
+  notice,
   chunkSize = 12,
 }: UiMessageStreamOptions): string {
   let out = sse({ type: 'start' });
@@ -34,6 +37,10 @@ export function uiMessageStream({
     // `transient: true` means the frame reaches onData but is NOT appended to
     // message.parts — that is how a status line shows without polluting the bubble.
     out += sse({ type: 'data-status', data: { type: 'status', message: status }, transient: true });
+  }
+  if (notice) {
+    // Same shape as stream_notice() in stream_protocol.py.
+    out += sse({ type: 'data-notice', data: { type: 'notice', level: 'warning', ...notice }, transient: true });
   }
 
   // text-start is mandatory: without it the v7 reducer throws
@@ -63,7 +70,10 @@ export const UI_MESSAGE_STREAM_HEADERS = {
  * `streaming` status can last a single frame — assert on the thinking
  * indicator only with a delay set.
  */
-export function chatStreamHandler(text: string, opts: { status?: string; delayMs?: number } = {}) {
+export function chatStreamHandler(
+  text: string,
+  opts: { status?: string; notice?: UiMessageStreamOptions['notice']; delayMs?: number } = {},
+) {
   return async (route: Route): Promise<void> => {
     if (opts.delayMs) {
       await new Promise((resolve) => setTimeout(resolve, opts.delayMs));
@@ -71,7 +81,7 @@ export function chatStreamHandler(text: string, opts: { status?: string; delayMs
     await route.fulfill({
       status: 200,
       headers: UI_MESSAGE_STREAM_HEADERS,
-      body: uiMessageStream({ text, status: opts.status }),
+      body: uiMessageStream({ text, status: opts.status, notice: opts.notice }),
     });
   };
 }

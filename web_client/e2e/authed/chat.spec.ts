@@ -46,6 +46,23 @@ test.describe('authenticated chat', () => {
     await expect(last).toHaveAttribute('data-message-role', 'assistant');
   });
 
+  test('an unreadable attached video costs the video, not the reply', async ({ page }) => {
+    const reply = 'Non riesco a vedere il video: puoi ricaricarlo? Intanto, per il bagno serve sapere la metratura.';
+    const notice = 'Un video allegato non è leggibile ed è stato ignorato.';
+    await page.route('**/api/chat', chatStreamHandler(reply, { notice: { code: 'VIDEO_SKIPPED', message: notice } }));
+
+    await page.getByLabel('Messaggio chat').fill('Ecco il video del bagno');
+    await page.getByRole('button', { name: 'Invia messaggio' }).click();
+
+    // The reply arrives, with a polite notice — no error banner.
+    await expect(page.getByTestId('chat-message').last()).toContainText(reply);
+    await expect(page.getByRole('status').filter({ hasText: notice })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Chiudi errore' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Chiudi avviso' }).click();
+    await expect(page.getByRole('status').filter({ hasText: notice })).toHaveCount(0);
+  });
+
   test('history survives a full page reload', async ({ page }) => {
     // The single most valuable assertion in the suite: it exercises
     // useChatSync/planHistorySync reconciling the SDK state against the

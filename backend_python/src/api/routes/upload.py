@@ -18,6 +18,7 @@ from firebase_admin import storage as fb_storage
 from pydantic import BaseModel
 from src.auth.jwt_handler import verify_token
 from src.core.logger import get_logger
+from src.core.media_policy import MAX_IMAGE_SIZE, MAX_VIDEO_SIZE, VIDEO_MIME_EXTENSIONS
 from src.models.media import ImageMediaAsset, VideoMediaAsset
 from src.repositories.conversation_repository import get_conversation_repository
 from src.schemas.internal import UserSession
@@ -39,15 +40,10 @@ class ImageUploadResponse(BaseModel):
     size_bytes: int
 
 
-MAX_IMAGE_SIZE = 10 * 1024 * 1024   # 10MB
-MAX_VIDEO_SIZE = 100 * 1024 * 1024  # 100MB
 CHUNK_SIZE = 1024 * 1024            # 1MB read chunks
 # Resumable upload chunk (multiple of 256 KiB). Without it the GCS client
 # buffers up to 100 MB per request.
 STORAGE_UPLOAD_CHUNK = 8 * 1024 * 1024
-
-# Detected MIME (validate_video_magic_bytes) -> stored file extension
-_VIDEO_EXTENSIONS = {"video/mp4": "mp4", "video/quicktime": "mov", "video/webm": "webm"}
 
 
 # ── Declared body size (fast fail) ─────────────────────────────────────────
@@ -333,7 +329,7 @@ async def upload_video(
 
     # 5. Stream to Storage (resumable upload, fixed-size chunks)
     asset_id = uuid.uuid4().hex
-    ext = _VIDEO_EXTENSIONS.get(detected_mime, "mp4")
+    ext = VIDEO_MIME_EXTENSIONS.get(detected_mime, "mp4")
     file_path = f"user-uploads/{session_id}/{asset_id}.{ext}"
     gs_uri, signed_url = await run_in_threadpool(
         _firebase_upload_stream, file_path, file, detected_mime, safe_filename

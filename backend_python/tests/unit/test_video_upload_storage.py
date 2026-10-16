@@ -1,6 +1,7 @@
 """
 /api/upload/video stores the video in Firebase Storage (no Gemini File API, no
-AI Studio key) and returns a gs:// URI that the orchestrator hands to Vertex.
+AI Studio key) and returns a gs:// URI that the orchestrator hands to Vertex
+(which URIs reach the model: tests/unit/test_video_attachments.py).
 """
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -8,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 from main import app
-from src.adk.adk_orchestrator import _video_parts
 from src.auth.jwt_handler import verify_token
 from src.repositories.conversation_repository import ConversationRepository
 from src.schemas.internal import UserSession
@@ -112,43 +112,3 @@ async def test_video_over_size_cap_is_rejected(monkeypatch: pytest.MonkeyPatch):
 async def test_video_upload_requires_session_id():
     resp, _ = await _upload(_repo_with_owner("owner-uid"), _bucket(), data={})
     assert resp.status_code == 422
-
-
-# ── Orchestrator: which video URIs reach the model ───────────────────────────
-
-def _uris(parts) -> list[tuple[str, str]]:
-    return [(p.file_data.file_uri, p.file_data.mime_type) for p in parts]
-
-
-def test_video_parts_accepts_own_session_files_with_mime_from_extension():
-    uris = [
-        f"gs://{_BUCKET}/user-uploads/sess-1/a.mp4",
-        f"gs://{_BUCKET}/projects/sess-1/uploads/b.mov",
-        f"gs://{_BUCKET}/user-uploads/sess-1/c.webm",
-    ]
-    parts = _video_parts(uris, session_id="sess-1", bucket=_BUCKET, vertex=True)
-    assert _uris(parts) == [
-        (uris[0], "video/mp4"),
-        (uris[1], "video/quicktime"),
-        (uris[2], "video/webm"),
-    ]
-
-
-@pytest.mark.parametrize(
-    "uri",
-    [
-        f"gs://{_BUCKET}/user-uploads/other-session/a.mp4",  # another user's session
-        f"gs://{_BUCKET}/user-uploads/sess-10/a.mp4",  # prefix lookalike
-        f"gs://{_BUCKET}/user-uploads/sess-1/../other/a.mp4",  # traversal
-        "gs://foreign-bucket/user-uploads/sess-1/a.mp4",
-        "https://generativelanguage.googleapis.com/v1beta/files/abc",  # old File API URI
-        f"gs://{_BUCKET}/portfolio/a.mp4",
-    ],
-)
-def test_video_parts_rejects_uris_outside_the_session(uri):
-    assert _video_parts([uri], session_id="sess-1", bucket=_BUCKET, vertex=True) == []
-
-
-def test_video_parts_skipped_without_vertex():
-    uri = f"gs://{_BUCKET}/user-uploads/sess-1/a.mp4"
-    assert _video_parts([uri], session_id="sess-1", bucket=_BUCKET, vertex=False) == []

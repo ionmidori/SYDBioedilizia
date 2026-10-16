@@ -20,6 +20,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
 import { useStatusQueue } from '@/hooks/useStatusQueue';
+import { useStreamNotice } from '@/hooks/useStreamNotice';
+import { ChatAlert } from '@/components/chat/ChatAlert';
 import { logger } from '@/lib/logger';
 import { warmBackend } from '@/lib/backend-warmup';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
@@ -118,15 +120,20 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         }
     }, [data, addStatus]);
 
-    // Clear queue and error state on project switch
+    // Notices about the turn that are not errors (e.g. an attached video that
+    // could not be read): the reply still arrives.
+    const { notice, dismiss: dismissNotice } = useStreamNotice(data ?? []);
+
+    // Clear queue, error and notice on project switch
     useEffect(() => {
         clearQueue();
         const timerId = setTimeout(() => {
             setErrorMessage(null);
             setIsRetryableError(false);
+            dismissNotice();
         }, 0);
         return () => clearTimeout(timerId);
-    }, [contextProjectId, clearQueue]);
+    }, [contextProjectId, clearQueue, dismissNotice]);
 
     // 5. Unified Upload Hook
     const { uploads, addFiles, removeFile, retryUpload, clearAll, isUploading, successfulUploads } = useUpload({ sessionId });
@@ -176,8 +183,9 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
         const dataBody = buildMediaPayload(completedUploads);
 
-        // UI Optimistic Clear
+        // UI Optimistic Clear (a notice belongs to the previous turn)
         clearAll();
+        dismissNotice();
         // input cleared by sendMessage typically, but we can do it here if we want optimistic clear
         // setInput('') is called by sendMessage in provider on success. 
         // We can trust provider or force it.
@@ -266,35 +274,27 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         data={data} // 🔥 Pass CoT Data Stream
                     />
 
+                    {notice && (
+                        <ChatAlert
+                            variant="warning"
+                            message={notice.message}
+                            onDismiss={dismissNotice}
+                            dismissLabel="Chiudi avviso"
+                        />
+                    )}
+
                     {errorMessage && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="mx-4 mt-2 p-3 bg-red-900/50 border border-red-500/30 rounded-lg text-red-200 text-sm flex items-center justify-between gap-2 shadow-lg"
-                        >
-                            <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-                                <span className="truncate">{errorMessage}</span>
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                                {isRetryableError && (
-                                    <button
-                                        onClick={() => { setErrorMessage(null); setIsRetryableError(false); reload(); }}
-                                        className="px-2 py-1 text-xs font-bold bg-red-500/20 hover:bg-red-500/40 rounded-md transition-colors whitespace-nowrap"
-                                        aria-label="Riprova ultimo messaggio"
-                                    >
-                                        Riprova
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => { setErrorMessage(null); setIsRetryableError(false); }}
-                                    className="p-1 hover:bg-red-500/20 rounded-full transition-colors"
-                                    aria-label="Chiudi errore"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                            </div>
-                        </motion.div>
+                        <ChatAlert
+                            variant="error"
+                            message={errorMessage}
+                            onDismiss={() => { setErrorMessage(null); setIsRetryableError(false); }}
+                            dismissLabel="Chiudi errore"
+                            action={isRetryableError ? {
+                                label: 'Riprova',
+                                ariaLabel: 'Riprova ultimo messaggio',
+                                onClick: () => { setErrorMessage(null); setIsRetryableError(false); reload(); },
+                            } : undefined}
+                        />
                     )}
                 </div>
 

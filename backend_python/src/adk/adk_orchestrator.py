@@ -11,6 +11,7 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
@@ -23,6 +24,7 @@ from google.adk.agents.run_config import RunConfig, StreamingMode  # pyright: ig
 from google.adk.apps.app import App
 from google.adk.events import Event, EventActions
 from google.adk.runners import Runner
+from google.genai import errors as genai_errors
 from google.genai import types
 
 from src.adk.agents import syd_orchestrator
@@ -30,17 +32,26 @@ from src.adk.filters import MASKED_REPLY, StreamingOutputGuard, filter_agent_out
 from src.adk.latency_plugin import LatencyPlugin
 from src.adk.media_model_plugin import MediaModelPlugin
 from src.adk.session import get_artifact_service, get_session_service
+from src.adk.video_attachments import (
+    UNREADABLE_VIDEOS_STATE_KEY,
+    is_media_rejection,
+    prepare_video_parts,
+    skipped_model_note,
+    skipped_notice_text,
+    video_uris_in,
+)
+from src.adk.video_guard_plugin import VideoGuardPlugin
 from src.core.chat_timing import current_turn
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
 from src.services.base_orchestrator import BaseOrchestrator
 from src.utils.circuit_breaker import vertex_ai_breaker
-from src.utils.download import session_storage_prefixes
 from src.utils.stream_protocol import (
     redact_chunk,
     stream_artifact_event,
     stream_data,
     stream_error,
+    stream_notice,
     stream_status,
     stream_tool_call,
     stream_tool_result,
@@ -61,40 +72,18 @@ _RUN_CONFIG = RunConfig(streaming_mode=StreamingMode.SSE)
 _inflight_saves: set[asyncio.Task[None]] = set()
 
 
-# Extensions written by /api/upload/video (src/api/routes/upload.py)
-_VIDEO_MIME_BY_EXT = {"mp4": "video/mp4", "mov": "video/quicktime", "webm": "video/webm"}
+# data-notice code for attached videos the model could not use (frontend: ChatWidget)
+VIDEO_SKIPPED_NOTICE = "VIDEO_SKIPPED"
 
 
-def _video_parts(video_uris: list[str], *, session_id: str, bucket: str, vertex: bool) -> list[types.Part]:
-    """`file_data` parts for the videos attached to this turn.
+@dataclass(frozen=True)
+class _VideosRefused:
+    """Yielded by the turn runner when the model refused the videos and the turn
+    is retried without them. `notice` is the full user-facing text: it also
+    counts the videos already skipped before the call (the UI shows only the
+    latest notice)."""
 
-    Only gs:// URIs inside this session's own Storage prefixes are passed on:
-    Vertex reads the object with the project's service agent, so an arbitrary
-    path from the request body would let a user point the model at another
-    user's file. AI Studio cannot read gs:// at all, so off Vertex they are skipped.
-    """
-    if not video_uris:
-        return []
-    if not vertex:
-        logger.warning("[ADK] Video attachments need Vertex AI (gs:// input): skipped")
-        return []
-    prefixes = session_storage_prefixes(session_id)
-    parts: list[types.Part] = []
-    for uri in video_uris:
-        parsed = urlparse(uri)
-        path = parsed.path.lstrip("/")
-        if (
-            parsed.scheme != "gs"
-            or not bucket
-            or parsed.netloc != bucket
-            or ".." in path.split("/")
-            or not path.startswith(prefixes)
-        ):
-            logger.warning("[ADK] Rejected video URI outside the session's files")
-            continue
-        mime = _VIDEO_MIME_BY_EXT.get(path.rsplit(".", 1)[-1].lower(), "video/mp4")
-        parts.append(types.Part(file_data=types.FileData(file_uri=uri, mime_type=mime)))
-    return parts
+    notice: str
 
 
 def _save_in_background(coro) -> asyncio.Task[None]:
@@ -181,8 +170,9 @@ class ADKOrchestrator(BaseOrchestrator):
             app=App(
                 name="syd_orchestrator",
                 root_agent=syd_orchestrator,
-                # MediaModelPlugin first: LatencyPlugin then logs the model actually used.
-                plugins=[MediaModelPlugin(), LatencyPlugin()],
+                # VideoGuardPlugin first: MediaModelPlugin then sees only the media
+                # really sent; LatencyPlugin last logs the model actually used.
+                plugins=[VideoGuardPlugin(), MediaModelPlugin(), LatencyPlugin()],
             ),
             session_service=get_session_service(),
             artifact_service=get_artifact_service(),
@@ -344,28 +334,38 @@ class ADKOrchestrator(BaseOrchestrator):
                 logger.error(f"Failed to fetch media {url}: {e}")
                 return None
 
-        # Videos: passed by gs:// reference, the model reads them from Storage
-        content_parts.extend(
-            _video_parts(
-                video_uris,
-                session_id=session_id,
-                bucket=settings.FIREBASE_STORAGE_BUCKET or "",
-                vertex=bool(settings.GOOGLE_GENAI_USE_VERTEXAI),
-            )
-        )
-
-        # Execute parallel fetch using TaskGroup (Python 3.12+): auto-cancels on exception
+        # Media in parallel (TaskGroup, Python 3.12+: auto-cancels on exception):
+        # - videos are passed by gs:// reference after a Storage check; an unusable
+        #   one is dropped with a notice instead of failing the turn (video_attachments.py)
+        # - images are downloaded and sent inline
         if media_urls:
             logger.info(f"[ADK] Parallel fetching {len(media_urls)} media items...")
-            async with asyncio.TaskGroup() as tg:
-                task_objs = [tg.create_task(fetch_media(i, url)) for i, url in enumerate(media_urls)]
-            for t in task_objs:
-                p_list = t.result()
-                if p_list is not None:
-                    if isinstance(p_list, list):
-                        content_parts.extend(p_list)
-                    else:
-                        content_parts.append(p_list)
+        async with asyncio.TaskGroup() as tg:
+            videos_task = tg.create_task(prepare_video_parts(
+                video_uris,
+                session_id=session_id,
+                bucket_name=settings.FIREBASE_STORAGE_BUCKET or "",
+                vertex=bool(settings.GOOGLE_GENAI_USE_VERTEXAI),
+            ))
+            task_objs = [tg.create_task(fetch_media(i, url)) for i, url in enumerate(media_urls)]
+        videos = videos_task.result()
+
+        content_parts.extend(videos.parts)
+        if videos.skipped:
+            content_parts.append(
+                skipped_model_note(len(videos.skipped), reupload_helps=not videos.only_unsupported)
+            )
+            notice = skipped_notice_text(current=len(videos.skipped), unsupported=videos.only_unsupported)
+            async for chunk in stream_notice(VIDEO_SKIPPED_NOTICE, notice):
+                yield chunk
+
+        for t in task_objs:
+            p_list = t.result()
+            if p_list is not None:
+                if isinstance(p_list, list):
+                    content_parts.extend(p_list)
+                else:
+                    content_parts.append(p_list)
 
         try:
             # Ensure session exists — ADK raises SessionNotFoundError otherwise
@@ -446,7 +446,9 @@ class ADKOrchestrator(BaseOrchestrator):
                 actual_message = types.Content(role="user", parts=content_parts)
                 logger.info(f"[ADK] Starting run_async. Session: {session_id}, Parts: {len(content_parts)}")
 
-                async def _run_with_session_recovery():
+                async def _run_with_session_recovery(
+                    message: types.Content, state_delta: dict[str, Any] | None = None
+                ):
                     """
                     Yields ADK events, with a one-time session recovery fallback.
                     If SessionNotFoundError surfaces mid-stream (e.g. race condition after
@@ -459,7 +461,8 @@ class ADKOrchestrator(BaseOrchestrator):
                             async for event in self.runner.run_async(
                                 session_id=session_id,
                                 user_id=user_id,
-                                new_message=actual_message,
+                                new_message=message,
+                                state_delta=state_delta,
                                 run_config=_RUN_CONFIG,
                             ):
                                 yield event
@@ -516,6 +519,70 @@ class ADKOrchestrator(BaseOrchestrator):
                             else:
                                 raise  # second attempt or non-session error
 
+                async def _forget_refusal(previous: list[str]) -> None:
+                    """Undo the record of refused videos (state-only event: no content,
+                    authored by "user", so neither the prompt nor agent routing see it)."""
+                    try:
+                        current = await session_service.get_session(
+                            app_name="syd_orchestrator", user_id=user_id, session_id=session_id
+                        )
+                        if current is not None:
+                            await session_service.append_event(current, Event(
+                                invocation_id=f"video_guard_undo_{int(time.time() * 1000)}",
+                                author="user",
+                                actions=EventActions(state_delta={UNREADABLE_VIDEOS_STATE_KEY: previous}),
+                            ))
+                    except Exception:
+                        logger.warning("[ADK] Could not clear the refused-video record", exc_info=True)
+
+                async def _run_turn():
+                    """Events of the turn. When the model refuses the request before
+                    producing anything (corrupt video, unsupported codec, a video of
+                    an earlier message deleted since) and the request carries videos,
+                    the turn is retried once without them: the user loses the videos,
+                    not the reply, and the breaker does not count the user's bad file
+                    as a Vertex failure.
+
+                    The refused URIs go into the session state, so VideoGuardPlugin
+                    keeps them out of every later request (ADK has already stored this
+                    message, video included, in the session). They stay recorded only
+                    if the turn then works without them; if the retry fails too, the
+                    videos were not the cause and the record is undone."""
+                    started = False
+                    try:
+                        async for event in _run_with_session_recovery(actual_message):
+                            started = True
+                            yield event
+                    except genai_errors.ClientError as exc:
+                        state = getattr(session, "state", None) or {}
+                        recorded = list(state.get(UNREADABLE_VIDEOS_STATE_KEY) or [])
+                        history = video_uris_in(
+                            e.content for e in (getattr(session, "events", None) or []) if e.content
+                        )
+                        earlier = [u for u in history if u not in recorded and u not in videos.uris]
+                        refusable = [*videos.uris, *earlier]
+                        if started or not refusable or not is_media_rejection(exc):
+                            raise
+                        logger.warning(
+                            "[ADK] Model refused the request with videos; retrying the turn without them",
+                            extra={"session_id": session_id, "status": exc.code, "videos": len(refusable)},
+                        )
+                        yield _VideosRefused(notice=skipped_notice_text(
+                            current=len(videos.skipped) + len(videos.uris), earlier=len(earlier)
+                        ))
+                        retry_started = False
+                        try:
+                            async for event in _run_with_session_recovery(
+                                types.Content(role="user", parts=[skipped_model_note(len(refusable))]),
+                                state_delta={UNREADABLE_VIDEOS_STATE_KEY: [*recorded, *refusable]},
+                            ):
+                                retry_started = True
+                                yield event
+                        except Exception:
+                            if not retry_started:
+                                await _forget_refusal(recorded)
+                            raise
+
                 # ── Circuit Breaker: Vertex AI ─────────────────────────────────
                 # If Vertex AI has been failing repeatedly, open the circuit and
                 # return a user-friendly degraded response without hammering the
@@ -540,7 +607,11 @@ class ADKOrchestrator(BaseOrchestrator):
                             f"parts={len(actual_message.parts or [])}, restored={session is not None}"
                         )
 
-                        async for event in _run_with_session_recovery():
+                        async for event in _run_turn():
+                            if isinstance(event, _VideosRefused):
+                                async for chunk in stream_notice(VIDEO_SKIPPED_NOTICE, event.notice):
+                                    yield chunk
+                                continue
                             logger.debug(f"[ADK] Event: {getattr(event, 'event_type', 'content')}")
                             # ── Handle Interrupts (HITL) ──
                             if getattr(event, "event_type", None) == "interrupt":
