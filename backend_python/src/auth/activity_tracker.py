@@ -12,6 +12,7 @@ import logging
 from datetime import datetime, timedelta
 
 from src.db.firebase_client import get_async_firestore_client
+from src.db.session_retention import make_user_sessions_permanent
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -24,10 +25,15 @@ _DEBOUNCE_HOURS = 1
 
 async def touch_last_active(uid: str) -> None:
     """
-    Updates users/{uid}.last_active_at in Firestore, debounced to once per hour.
+    Updates users/{uid}.last_active_at in Firestore, debounced to once per hour,
+    and makes the user's projects permanent (no guest TTL).
+
+    The second step covers an anonymous account upgraded with the same uid: its
+    projects still carry the guest expiry, including the ones the user does not
+    write to again (see src/db/session_retention.py).
 
     Non-fatal: all exceptions are caught and logged. Never raises.
-    Skips anonymous users (no persistent profile).
+    Only called for registered users (verify_token skips anonymous ones).
     """
     try:
         now = utc_now()
@@ -42,6 +48,10 @@ async def touch_last_active(uid: str) -> None:
         )
         _last_touch[uid] = now
         logger.debug("[ActivityTracker] Touched last_active_at for uid=%s", uid)
+
+        made_permanent = await make_user_sessions_permanent(db, uid)
+        if made_permanent:
+            logger.info("[ActivityTracker] %d project(s) of uid=%s made permanent", made_permanent, uid)
 
     except Exception as exc:  # noqa: BLE001
         # Non-fatal: activity tracking must never block a user request

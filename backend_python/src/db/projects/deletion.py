@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from src.db.firebase_client import get_async_firestore_client, get_storage_client
 from src.db.projects.constants import PROJECTS_COLLECTION
+from src.db.session_retention import expire_session_messages
 from src.utils.datetime_utils import utc_now
 from starlette.concurrency import run_in_threadpool
 
@@ -56,6 +57,9 @@ async def soft_delete_project(session_id: str, user_id: str) -> bool:
 
         now = utc_now()
         expire_at = now + timedelta(days=30)  # Firestore TTL auto-purges after retention
+        # TTL does not cascade: the messages get the same purge time, and before the
+        # session, so a failure here leaves the project undeleted (retryable).
+        await expire_session_messages(db, session_id, expire_at)
         await doc_ref.update({
             "is_deleted": True,
             "deleted_at": now,

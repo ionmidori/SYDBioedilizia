@@ -38,6 +38,7 @@ uv run python scripts/ops/<nome>.py    # ispezione dati
 | `repair_project_projections.py` | Ricostruisce le proiezioni denormalizzate dei progetti |
 | `sync_all_covers.py`, `sync_project_names.py` | Risincronizza copertine e nomi dei progetti |
 | `reset_guest_render_quota.py` | **Cancella** `usage_quotas/guest-session-_generate_render` (azzera la quota render degli ospiti). Senza `--yes` fa solo un dry run |
+| `clear_registered_session_expiry.py` | Toglie `expireAt` (TTL 30 giorni) dalle sessioni degli utenti registrati e dai loro messaggi: riparazione una tantum dei dati scritti prima che la scadenza valesse solo per gli ospiti. Senza `--apply` fa solo un dry run |
 | `set_admin_claim.py` | Assegna/revoca il custom claim `admin` a un utente |
 | `configure_cors.py` | Imposta il CORS del bucket Storage (legge `firebase-service-account.json` dalla cartella corrente) |
 

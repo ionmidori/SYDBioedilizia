@@ -8,6 +8,7 @@ from typing import Any
 
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import PROJECTS_COLLECTION
+from src.db.session_retention import clear_session_expiry, needs_permanence
 from src.models.project import ProjectCreate, ProjectDetails, ProjectStatus, ProjectUpdate
 from src.services.quote_drafts import refresh_quote_owner
 from src.utils.datetime_utils import utc_now
@@ -146,13 +147,15 @@ async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> 
         return False
 
 
-async def claim_project(session_id: str, new_user_id: str) -> bool:
+async def claim_project(session_id: str, new_user_id: str, *, is_guest: bool) -> bool:
     """
     Transfer ownership of a guest project to a registered user (Deep Claim).
 
     Args:
         session_id: Project ID (currently owned by guest_*).
         new_user_id: Firebase UID of the newly registered user.
+        is_guest: The claimer has no registered account (anonymous token): the
+            project changes owner but stays a guest one (keeps its TTL).
 
     Returns:
         True if claimed successfully.
@@ -171,9 +174,12 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
         current_data = doc.to_dict() or {}
         current_owner = current_data.get("userId") or ""
 
-        # Idempotent: already owned by this user → success (no-op)
+        # Idempotent: already owned by this user → success. A retry also finishes
+        # an interrupted claim whose expiry cleanup did not complete.
         if current_owner == new_user_id:
             logger.info(f"[Projects] Project {session_id} already owned by {new_user_id}, skipping claim")
+            if not is_guest and needs_permanence(current_data):
+                await clear_session_expiry(db, session_id)
             return True
 
         # Only allow claiming if current owner is a guest
@@ -211,7 +217,12 @@ async def claim_project(session_id: str, new_user_id: str) -> bool:
         # 4. Commit Transition
         await batch.commit()
 
-        # 5. The quote (if any) follows the project: new owner + client snapshot.
+        # 5. A registered user's project must not expire with the guest TTL
+        # (session last, so an interrupted run is finished by a retry).
+        if not is_guest:
+            await clear_session_expiry(db, session_id)
+
+        # 6. The quote (if any) follows the project: new owner + client snapshot.
         await refresh_quote_owner(db, session_id, new_user_id)
 
         logger.info(f"[Projects] DEEP CLAIM completed for project {session_id}. Owner: {new_user_id}")

@@ -151,7 +151,7 @@ class TestProjectDbOperations:
         mock_db.collection.return_value.document.return_value = mock_doc_ref
 
         with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
-            result = await projects_db.claim_project("session-xyz", "new-user-456")
+            result = await projects_db.claim_project("session-xyz", "new-user-456", is_guest=False)
 
         # Assert: Should NOT update
         assert result is False
@@ -195,7 +195,7 @@ class TestProjectDbOperations:
         mock_db.collection.return_value.document.return_value = mock_doc_ref
 
         with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
-            result = await projects_db.claim_project("session-xyz", "new-user-456")
+            result = await projects_db.claim_project("session-xyz", "new-user-456", is_guest=False)
 
         # Assert: Should return True
         assert result is True
@@ -210,6 +210,101 @@ class TestProjectDbOperations:
                 break
         assert found_update is True
 
+    @pytest.mark.asyncio
+    async def test_claimed_project_is_no_longer_subject_to_the_guest_ttl(self):
+        """GIVEN a guest project whose session and messages carry expireAt
+        WHEN a registered user claims it
+        THEN no document of the project keeps expireAt (the TTL would delete it)
+        """
+        from src.db import projects as projects_db
+        from tests.unit.firestore_fakes import FakeDb
+
+        db = FakeDb()
+        expiry = utc_now()
+        db.put("sessions", "s1", {"userId": "guest_abc12345", "expireAt": expiry, "title": "Bagno"})
+        db.put("projects", "s1", {"userId": "guest_abc12345", "expireAt": expiry})
+        db.put("sessions", "s1", "messages", "m1", {"content": "ciao", "expireAt": expiry})
+        db.put("sessions", "s1", "messages", "m2", {"content": "foto", "expireAt": expiry})
+
+        with patch("src.db.projects.mutations.get_async_firestore_client", return_value=db), \
+             patch("src.db.projects.mutations.refresh_quote_owner", AsyncMock()):
+            assert await projects_db.claim_project("s1", "new-user-456", is_guest=False) is True
+
+        session = db.get_data("sessions", "s1")
+        assert session["userId"] == "new-user-456"
+        assert "expireAt" not in session
+        assert "expireAt" not in db.get_data("projects", "s1")
+        for msg_id in ("m1", "m2"):
+            assert "expireAt" not in db.get_data("sessions", "s1", "messages", msg_id)
+
+    @pytest.mark.asyncio
+    async def test_retried_claim_finishes_an_interrupted_one(self):
+        """GIVEN a claim whose ownership change committed but whose expiry
+        cleanup did not (the session is still marked)
+        WHEN the user retries the claim (idempotent path)
+        THEN the project is made permanent
+        """
+        from src.db import projects as projects_db
+        from tests.unit.firestore_fakes import FakeDb
+
+        db = FakeDb()
+        expiry = utc_now()
+        db.put("sessions", "s1", {"userId": "new-user-456", "expireAt": expiry})
+        db.put("sessions", "s1", "messages", "m1", {"content": "ciao", "expireAt": expiry})
+
+        with patch("src.db.projects.mutations.get_async_firestore_client", return_value=db):
+            assert await projects_db.claim_project("s1", "new-user-456", is_guest=False) is True
+
+        assert "expireAt" not in db.get_data("sessions", "s1")
+        assert "expireAt" not in db.get_data("sessions", "s1", "messages", "m1")
+
+    @pytest.mark.asyncio
+    async def test_anonymous_claimer_keeps_the_guest_ttl(self):
+        """GIVEN a guest project claimed by another anonymous account
+        WHEN claim_project runs
+        THEN ownership moves but the project stays a guest one (still expires)
+        """
+        from src.db import projects as projects_db
+        from tests.unit.firestore_fakes import FakeDb
+
+        db = FakeDb()
+        expiry = utc_now()
+        db.put("sessions", "s1", {"userId": "guest_abc12345", "expireAt": expiry})
+        db.put("sessions", "s1", "messages", "m1", {"content": "ciao", "expireAt": expiry})
+
+        with patch("src.db.projects.mutations.get_async_firestore_client", return_value=db), \
+             patch("src.db.projects.mutations.refresh_quote_owner", AsyncMock()):
+            assert await projects_db.claim_project("s1", "anon-uid", is_guest=True) is True
+
+        assert db.get_data("sessions", "s1")["userId"] == "anon-uid"
+        assert db.get_data("sessions", "s1")["expireAt"] == expiry
+        assert db.get_data("sessions", "s1", "messages", "m1")["expireAt"] == expiry
+
+    @pytest.mark.asyncio
+    async def test_soft_delete_schedules_the_messages_with_the_project(self):
+        """GIVEN a registered project whose messages carry no expireAt
+        WHEN it is soft-deleted
+        THEN every message gets the same purge time as the session (Firestore
+        TTL does not cascade to subcollections)
+        """
+        from src.db import projects as projects_db
+        from tests.unit.firestore_fakes import FakeDb
+
+        db = FakeDb()
+        db.put("sessions", "s1", {"userId": "u1"})
+        db.put("projects", "s1", {"userId": "u1"})
+        db.put("sessions", "s1", "messages", "m1", {"content": "a"})
+        db.put("sessions", "s1", "messages", "m2", {"content": "b"})
+
+        with patch("src.db.projects.deletion.get_async_firestore_client", return_value=db):
+            assert await projects_db.soft_delete_project("s1", "u1") is True
+
+        session = db.get_data("sessions", "s1")
+        assert session["is_deleted"] is True
+        purge_at = session["expireAt"]
+        assert db.get_data("projects", "s1")["expireAt"] == purge_at
+        for msg_id in ("m1", "m2"):
+            assert db.get_data("sessions", "s1", "messages", msg_id)["expireAt"] == purge_at
 
     @pytest.mark.asyncio
     async def test_count_user_projects_excludes_deleted(self):

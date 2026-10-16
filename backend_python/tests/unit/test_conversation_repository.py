@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import BaseModel
 from src.core.exceptions import PermissionDenied
+from src.db.session_retention import EXPIRE_AT
 
 _MODULE = "src.repositories.conversation_repository"
 
@@ -98,7 +99,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message(session_id="s1", role="user", content="Hello")
+            await repo.save_message(session_id="s1", role="user", content="Hello", is_guest=False)
 
         msgs_ref.add.assert_called_once()
         data = msgs_ref.add.call_args[0][0]
@@ -118,7 +119,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "assistant", "Hi", message_id="assist-123")
+            await repo.save_message("s1", "assistant", "Hi", message_id="assist-123", is_guest=False)
 
         msgs_ref.document.assert_called_once_with("assist-123")
         doc_ref.set.assert_called_once()
@@ -134,7 +135,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "user", "Hello")
+            await repo.save_message("s1", "user", "Hello", is_guest=False)
 
         msgs_ref.add.assert_called_once()
         msgs_ref.document.assert_not_called()
@@ -147,7 +148,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "assistant", "Hi", timestamp=ts)
+            await repo.save_message("s1", "assistant", "Hi", timestamp=ts, is_guest=False)
 
         msgs_ref = mock_db.collection.return_value.document.return_value.collection.return_value
         data = msgs_ref.add.call_args[0][0]
@@ -160,7 +161,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "user", "msg")
+            await repo.save_message("s1", "user", "msg", is_guest=False)
 
         msgs_ref = mock_db.collection.return_value.document.return_value.collection.return_value
         data = msgs_ref.add.call_args[0][0]
@@ -173,7 +174,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "user", "msg", metadata={"src": "web"})
+            await repo.save_message("s1", "user", "msg", metadata={"src": "web"}, is_guest=False)
 
         msgs_ref = mock_db.collection.return_value.document.return_value.collection.return_value
         data = msgs_ref.add.call_args[0][0]
@@ -186,7 +187,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "user", "msg")
+            await repo.save_message("s1", "user", "msg", is_guest=False)
 
         msgs_ref = mock_db.collection.return_value.document.return_value.collection.return_value
         data = msgs_ref.add.call_args[0][0]
@@ -200,7 +201,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "assistant", "", tool_calls=tcs)
+            await repo.save_message("s1", "assistant", "", tool_calls=tcs, is_guest=False)
 
         msgs_ref = mock_db.collection.return_value.document.return_value.collection.return_value
         data = msgs_ref.add.call_args[0][0]
@@ -219,7 +220,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "assistant", "", tool_calls=[pydantic_tc])
+            await repo.save_message("s1", "assistant", "", tool_calls=[pydantic_tc], is_guest=False)
 
         msgs_ref = mock_db.collection.return_value.document.return_value.collection.return_value
         data = msgs_ref.add.call_args[0][0]
@@ -232,7 +233,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "tool", "result", tool_call_id="tc-1")
+            await repo.save_message("s1", "tool", "result", tool_call_id="tc-1", is_guest=False)
 
         msgs_ref = mock_db.collection.return_value.document.return_value.collection.return_value
         data = msgs_ref.add.call_args[0][0]
@@ -246,7 +247,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("s1", "user", "see image", attachments=atts)
+            await repo.save_message("s1", "user", "see image", attachments=atts, is_guest=False)
 
         msgs_ref = mock_db.collection.return_value.document.return_value.collection.return_value
         data = msgs_ref.add.call_args[0][0]
@@ -259,7 +260,7 @@ class TestSaveMessage:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.save_message("new-sess", "user", "hi")
+            await repo.save_message("new-sess", "user", "hi", is_guest=False)
 
         sess_ref.set.assert_called_once()
         call_data = sess_ref.set.call_args[0][0]
@@ -273,7 +274,7 @@ class TestSaveMessage:
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             # Must not raise
-            await repo.save_message("s1", "user", "msg")
+            await repo.save_message("s1", "user", "msg", is_guest=False)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -397,7 +398,7 @@ class TestEnsureSession:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.ensure_session("new-sess", user_id="user123")
+            await repo.ensure_session("new-sess", user_id="user123", is_guest=False)
 
         sess_ref.set.assert_called_once()
         proj_ref.set.assert_called_once()
@@ -413,7 +414,7 @@ class TestEnsureSession:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.ensure_session("abcdefgh-rest", user_id=None)
+            await repo.ensure_session("abcdefgh-rest", user_id=None, is_guest=True)
 
         sess_data = sess_ref.set.call_args[0][0]
         assert sess_data["userId"].startswith("guest_")
@@ -427,7 +428,7 @@ class TestEnsureSession:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.ensure_session("sess1", user_id="real-uid")
+            await repo.ensure_session("sess1", user_id="real-uid", is_guest=False)
 
         sess_ref.update.assert_called_once()
         update = sess_ref.update.call_args[0][0]
@@ -439,7 +440,7 @@ class TestEnsureSession:
         sess_ref, proj_ref = self._build_collections(mock_db, sess_doc, _doc({}, exists=True))
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db),              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db),              patch(f"{_MODULE}.async_firestore", mock_fs),              pytest.raises(PermissionDenied):
-            await repo.ensure_session("sess1", user_id="attacker-uid")
+            await repo.ensure_session("sess1", user_id="attacker-uid", is_guest=False)
 
         sess_ref.update.assert_not_called()
         proj_ref.update.assert_not_called()
@@ -450,10 +451,10 @@ class TestEnsureSession:
         sess_ref, _ = self._build_collections(mock_db, sess_doc, _doc({}, exists=True))
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db),              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db),              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.ensure_session("sess1", user_id="owner-uid")
+            await repo.ensure_session("sess1", user_id="owner-uid", is_guest=False)
 
-        update = sess_ref.update.call_args[0][0]
-        assert "userId" not in update
+        # Nothing changes for the owner of a permanent session: no write at all.
+        sess_ref.update.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_backfills_missing_project(self, repo, mock_db, mock_fs):
@@ -464,7 +465,7 @@ class TestEnsureSession:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.ensure_session("sess1", user_id="real-user")
+            await repo.ensure_session("sess1", user_id="real-user", is_guest=False)
 
         proj_ref.set.assert_called_once()
 
@@ -475,7 +476,162 @@ class TestEnsureSession:
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
-            await repo.ensure_session("s1", user_id="u1")  # no raise
+            await repo.ensure_session("s1", user_id="u1", is_guest=False)  # no raise
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Retention: only guest sessions carry expireAt (Firestore TTL)
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestGuestOnlyExpiry:
+    """A registered user's project must never be deleted by the 30-day TTL."""
+
+    def _patches(self, mock_db, mock_fs, clear=None):
+        return (
+            patch(f"{_MODULE}.get_firestore_client", return_value=mock_db),
+            patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db),
+            patch(f"{_MODULE}.async_firestore", mock_fs),
+            patch(f"{_MODULE}.clear_session_expiry", clear or AsyncMock(return_value=0)),
+        )
+
+    # ── save_message ────────────────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_guest_message_and_session_expire(self, repo, mock_db, mock_fs):
+        sess_ref, msgs_ref = TestSaveMessage()._setup_db(mock_db)
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs)
+        with p1, p2, p3, p4:
+            await repo.save_message("s1", "user", "hi", is_guest=True)
+
+        assert isinstance(msgs_ref.add.call_args[0][0][EXPIRE_AT], datetime)
+        assert isinstance(sess_ref.set.call_args[0][0][EXPIRE_AT], datetime)
+
+    @pytest.mark.asyncio
+    async def test_registered_message_and_session_never_expire(self, repo, mock_db, mock_fs):
+        sess_ref, msgs_ref = TestSaveMessage()._setup_db(mock_db)
+        clear = AsyncMock(return_value=0)
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
+        with p1, p2, p3, p4:
+            await repo.save_message("s1", "user", "hi", is_guest=False)
+
+        assert EXPIRE_AT not in msgs_ref.add.call_args[0][0]
+        assert EXPIRE_AT not in sess_ref.set.call_args[0][0]
+        clear.assert_not_awaited()  # the session was not marked
+
+    @pytest.mark.asyncio
+    async def test_registered_write_makes_a_marked_session_permanent(self, repo, mock_db, mock_fs):
+        sess_ref, _ = TestSaveMessage()._setup_db(mock_db)
+        sess_ref.get = AsyncMock(return_value=_doc({"userId": "u1", EXPIRE_AT: "old"}))
+        clear = AsyncMock(return_value=4)
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
+        with p1, p2, p3, p4:
+            await repo.save_message("s1", "assistant", "ok", is_guest=False)
+
+        clear.assert_awaited_once_with(mock_db, "s1")
+        assert EXPIRE_AT not in sess_ref.set.call_args[0][0]
+
+    # ── ensure_session ──────────────────────────────────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_new_registered_session_and_project_never_expire(self, repo, mock_db, mock_fs):
+        sess_ref, proj_ref = TestEnsureSession()._build_collections(
+            mock_db, _doc({}, exists=False), _doc({}, exists=False)
+        )
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs)
+        with p1, p2, p3, p4:
+            await repo.ensure_session("s1", user_id="u1", is_guest=False)
+
+        assert EXPIRE_AT not in sess_ref.set.call_args[0][0]
+        assert EXPIRE_AT not in proj_ref.set.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_new_guest_session_expires_but_projection_does_not(self, repo, mock_db, mock_fs):
+        sess_ref, proj_ref = TestEnsureSession()._build_collections(
+            mock_db, _doc({}, exists=False), _doc({}, exists=False)
+        )
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs)
+        with p1, p2, p3, p4:
+            await repo.ensure_session("s1", user_id="anon-uid", is_guest=True)
+
+        assert isinstance(sess_ref.set.call_args[0][0][EXPIRE_AT], datetime)
+        # No TTL policy on `projects`: the field there would be dead data.
+        assert EXPIRE_AT not in proj_ref.set.call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_guest_writer_refreshes_expiry(self, repo, mock_db, mock_fs):
+        sess_ref, _ = TestEnsureSession()._build_collections(
+            mock_db, _doc({"userId": "anon-uid", EXPIRE_AT: "old"}), _doc({}, exists=True)
+        )
+        clear = AsyncMock(return_value=0)
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
+        with p1, p2, p3, p4:
+            await repo.ensure_session("s1", user_id="anon-uid", is_guest=True)
+
+        assert isinstance(sess_ref.update.call_args[0][0][EXPIRE_AT], datetime)
+        clear.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_upgraded_account_makes_its_session_permanent(self, repo, mock_db, mock_fs):
+        # Anonymous account upgraded with the same uid: same owner, now registered.
+        sess_ref, _ = TestEnsureSession()._build_collections(
+            mock_db, _doc({"userId": "uid-1", EXPIRE_AT: "old"}), _doc({}, exists=True)
+        )
+        clear = AsyncMock(return_value=7)
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
+        with p1, p2, p3, p4:
+            await repo.ensure_session("s1", user_id="uid-1", is_guest=False)
+
+        clear.assert_awaited_once_with(mock_db, "s1")
+        # Same owner: clearing the expiry is the only write needed.
+        sess_ref.update.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_claimed_guest_session_becomes_permanent(self, repo, mock_db, mock_fs):
+        sess_ref, _ = TestEnsureSession()._build_collections(
+            mock_db, _doc({"userId": "guest_abcdefgh", EXPIRE_AT: "old"}), _doc({}, exists=True)
+        )
+        clear = AsyncMock(return_value=2)
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
+        with p1, p2, p3, p4:
+            await repo.ensure_session("s1", user_id="real-uid", is_guest=False)
+
+        clear.assert_awaited_once_with(mock_db, "s1")
+        assert sess_ref.update.call_args[0][0]["userId"] == "real-uid"
+
+    @pytest.mark.asyncio
+    async def test_failed_cleanup_never_blocks_the_claim(self, repo, mock_db, mock_fs):
+        # The claim is the essential write; the expiry cleanup runs after it and
+        # is retried on the next registered write if it fails.
+        sess_ref, _ = TestEnsureSession()._build_collections(
+            mock_db, _doc({"userId": "guest_abcdefgh", EXPIRE_AT: "old"}), _doc({}, exists=True)
+        )
+        clear = AsyncMock(side_effect=RuntimeError("batch failed"))
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
+        with p1, p2, p3, p4:
+            await repo.ensure_session("s1", user_id="real-uid", is_guest=False)
+
+        assert sess_ref.update.call_args[0][0]["userId"] == "real-uid"
+
+    @pytest.mark.asyncio
+    async def test_failed_cleanup_never_drops_the_session_update(self, repo, mock_db, mock_fs):
+        sess_ref, _ = TestSaveMessage()._setup_db(mock_db)
+        sess_ref.get = AsyncMock(return_value=_doc({"userId": "u1", EXPIRE_AT: "old"}))
+        clear = AsyncMock(side_effect=RuntimeError("batch failed"))
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
+        with p1, p2, p3, p4:
+            await repo.save_message("s1", "assistant", "ok", is_guest=False)
+
+        assert sess_ref.set.call_args[0][0]["messageCount"] == "Increment(1)"
+
+    @pytest.mark.asyncio
+    async def test_registered_writer_on_permanent_session_skips_clear(self, repo, mock_db, mock_fs):
+        TestEnsureSession()._build_collections(mock_db, _doc({"userId": "u1"}), _doc({}, exists=True))
+        clear = AsyncMock(return_value=0)
+        p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
+        with p1, p2, p3, p4:
+            await repo.ensure_session("s1", user_id="u1", is_guest=False)
+
+        clear.assert_not_awaited()
 
 
 # ════════════════════════════════════════════════════════════════════════════

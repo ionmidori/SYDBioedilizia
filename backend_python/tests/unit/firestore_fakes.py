@@ -49,19 +49,13 @@ class FakeDocRef:
         return FakeSnapshot(self._db.docs.get(self.path), self.path[-1])
 
     async def update(self, data: dict[str, Any]) -> None:
-        if self.path not in self._db.docs:
-            raise AssertionError(f"update() on missing document {self.path}")
-        for key, value in data.items():
-            _set_dotted(self._db.docs[self.path], key, copy.deepcopy(value))
+        self._db.apply_update(self.path, data)
 
     async def delete(self) -> None:
         self._db.docs.pop(self.path, None)
 
     async def set(self, data: dict[str, Any], merge: bool = False) -> None:
-        if merge and self.path in self._db.docs:
-            self._db.docs[self.path].update(copy.deepcopy(data))
-        else:
-            self._db.docs[self.path] = copy.deepcopy(data)
+        self._db.apply_set(self.path, data, merge=merge)
 
 
 class FakeDocSnapshot(FakeDocRef):
@@ -176,6 +170,7 @@ class FakeDb:
     def __init__(self) -> None:
         self.docs: dict[tuple[str, ...], dict[str, Any]] = {}
         self.auto_ids = 0
+        self.batches = 0  # write batches opened (chunking assertions)
 
     def collection(self, name: str) -> FakeCollection:
         return FakeCollection(self, (name,))
@@ -193,20 +188,57 @@ class FakeDb:
         return copy.deepcopy(self.docs.get(tuple(path)))
 
     def batch(self) -> FakeBatch:
+        self.batches += 1
         return FakeBatch(self)
+
+    def apply_set(self, path: tuple[str, ...], data: dict[str, Any], *, merge: bool) -> None:
+        if merge and path in self.docs:
+            for key, value in data.items():
+                _set_dotted(self.docs[path], key, copy.deepcopy(value))
+        else:
+            # A plain set() cannot carry DELETE_FIELD (the real client rejects it).
+            if any(isinstance(v, type(DELETE_FIELD)) for v in data.values()):
+                raise AssertionError(f"DELETE_FIELD in a non-merge set() on {path}")
+            self.docs[path] = copy.deepcopy(data)
+
+    def apply_update(self, path: tuple[str, ...], data: dict[str, Any]) -> None:
+        if path not in self.docs:
+            raise AssertionError(f"update() on missing document {path}")
+        for key, value in data.items():
+            _set_dotted(self.docs[path], key, copy.deepcopy(value))
 
 
 class FakeBatch:
+    """Queues writes and applies them on commit(), like a Firestore WriteBatch."""
+
+    MAX_WRITES = 500  # Firestore's per-batch limit
+
     def __init__(self, db: FakeDb) -> None:
         self._db = db
-        self._deletes: list[tuple[str, ...]] = []
+        self._ops: list[tuple[str, tuple[str, ...], dict[str, Any], bool]] = []
+
+    def _queue(self, op: str, ref: FakeDocRef, data: dict[str, Any], merge: bool = False) -> None:
+        self._ops.append((op, ref.path, copy.deepcopy(data), merge))
+        if len(self._ops) > self.MAX_WRITES:
+            raise AssertionError(f"batch exceeds {self.MAX_WRITES} writes")
 
     def delete(self, ref: FakeDocRef) -> None:
-        self._deletes.append(ref.path)
+        self._queue("delete", ref, {})
+
+    def update(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
+        self._queue("update", ref, data)
+
+    def set(self, ref: FakeDocRef, data: dict[str, Any], merge: bool = False) -> None:
+        self._queue("set", ref, data, merge)
 
     async def commit(self) -> None:
-        for path in self._deletes:
-            self._db.docs.pop(path, None)
+        for op, path, data, merge in self._ops:
+            if op == "delete":
+                self._db.docs.pop(path, None)
+            elif op == "update":
+                self._db.apply_update(path, data)
+            else:
+                self._db.apply_set(path, data, merge=merge)
 
 
 def _set_dotted(target: dict[str, Any], dotted: str, value: Any) -> None:

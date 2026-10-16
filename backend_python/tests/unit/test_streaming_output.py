@@ -10,6 +10,7 @@ Token streaming with output guardrails (chat latency plan, Phase 3).
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
 from google.adk.agents.run_config import StreamingMode
 from src.adk.adk_orchestrator import _TurnText
 from src.adk.filters import MASKED_REPLY, StreamingOutputGuard
@@ -197,3 +198,31 @@ async def test_tool_results_are_saved_concurrently_but_before_the_reply(
 
     roles = [c.kwargs["role"] for c in mock_get_repo.return_value.save_message.call_args_list]
     assert roles == ["tool", "assistant"]
+
+
+@pytest.mark.parametrize(("is_anonymous", "expected_guest"), [(False, False), (True, True)])
+@patch("src.core.config.settings")
+@patch("src.adk.adk_orchestrator.get_conversation_repository")
+@patch("src.adk.adk_orchestrator.get_session_service")
+async def test_saved_messages_follow_the_user_retention(
+    mock_get_session, mock_get_repo, mock_settings, is_anonymous, expected_guest
+):
+    """Tool results and replies of a registered user must never get the guest TTL."""
+    from src.schemas.internal import UserSession
+    from tests.unit.test_adk_orchestrator import _make_function_response_event
+
+    _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
+    events = [
+        _make_function_call_event("search_listino"),
+        _make_function_response_event(),
+        _make_text_event("Fatto.", partial=False),
+    ]
+    orch = _make_orchestrator_with_events(events)
+    req, _ = _make_request_and_user()
+    user = UserSession(uid="test-user-abc", is_authenticated=True, is_anonymous=is_anonymous)
+
+    await _collect_chunks(orch.stream_chat(req, user))
+
+    calls = mock_get_repo.return_value.save_message.call_args_list
+    assert [c.kwargs["role"] for c in calls] == ["tool", "assistant"]
+    assert all(c.kwargs["is_guest"] is expected_guest for c in calls)

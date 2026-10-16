@@ -15,3 +15,11 @@ class UserSession(BaseModel):
     is_anonymous: bool = False # 🔥 Added for Guest Mode
     is_debug_user: bool = False
     claims: dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def is_guest(self) -> bool:
+        """No registered account: Firebase anonymous sign-in or no verified identity.
+
+        Guests get the restricted assistant flow and ephemeral (30-day) sessions.
+        """
+        return self.is_anonymous or not self.is_authenticated

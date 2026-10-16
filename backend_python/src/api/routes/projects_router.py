@@ -179,7 +179,7 @@ async def claim_project(
     """
     user_id = user_session.uid
 
-    success = await projects_db.claim_project(session_id, user_id)
+    success = await projects_db.claim_project(session_id, user_id, is_guest=user_session.is_guest)
 
     if not success:
         raise HTTPException(
