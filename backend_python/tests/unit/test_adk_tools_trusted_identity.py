@@ -8,6 +8,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from src.adk import tools
+from src.tools.quota import QuotaDecision
+from src.utils.datetime_utils import utc_now
 
 TRUSTED_SESSION = "owner-session"
 TRUSTED_UID = "owner-uid"
@@ -57,7 +59,7 @@ async def test_suggest_quote_items_ignores_model_identity(tool_context):
 @pytest.mark.asyncio
 async def test_generate_render_saves_to_verified_session(tool_context):
     wrapper = AsyncMock(return_value={"status": "error"})
-    with patch("src.tools.generate_render.generate_render_wrapper", new=wrapper),          patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=False)),          patch.object(tools, "check_quota", new=AsyncMock(return_value=(True, 1, None))):
+    with patch("src.tools.generate_render.generate_render_wrapper", new=wrapper),          patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=False)),          patch.object(tools, "check_quota", new=AsyncMock(return_value=QuotaDecision(True, 1, utc_now()))):
         await tools.generate_render(prompt="bagno", session_id=FOREIGN_SESSION, tool_context=tool_context)
     assert wrapper.await_args.kwargs["session_id"] == TRUSTED_SESSION
 

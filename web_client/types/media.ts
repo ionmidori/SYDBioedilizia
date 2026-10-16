@@ -110,8 +110,10 @@ export interface UploadItem {
     progress: number;
     /** Current status */
     status: UploadStatus;
-    /** Error message if status === 'error' */
+    /** User-facing (Italian) reason if status === 'error' */
     error?: string;
+    /** Whether a retry can help (false when e.g. the daily quota is used up). Frontend-only. */
+    retryable?: boolean;
     /** Server response data when upload completes */
     serverData?: MediaAsset;
     /** AbortController for cancellation */

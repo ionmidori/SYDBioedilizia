@@ -54,10 +54,10 @@ async def test_check_quota_bypass(mock_datetime, mock_async_firestore, mock_sett
     mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_doc
 
     with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-        allowed, remaining, _ = await check_quota("user123", "generate_render")
+        decision = await check_quota("user123", "generate_render")
 
-    assert allowed is True
-    assert remaining == 9999
+    assert decision.allowed is True
+    assert decision.remaining == 9999
 
 @pytest.mark.asyncio
 async def test_check_quota_override(mock_datetime, mock_async_firestore, mock_settings):
@@ -73,10 +73,10 @@ async def test_check_quota_override(mock_datetime, mock_async_firestore, mock_se
     mock_async_firestore.collection.return_value.document.return_value.get.return_value = mock_doc
 
     with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-        allowed, remaining, _ = await check_quota("user123", "generate_render")
+        decision = await check_quota("user123", "generate_render")
 
-    assert allowed is True
-    assert remaining == 5
+    assert decision.allowed is True
+    assert decision.remaining == 5
 
 @pytest.mark.asyncio
 async def test_check_quota_weekly_limit_exceeded(mock_datetime, mock_async_firestore, mock_settings):
@@ -119,7 +119,7 @@ async def test_check_quota_weekly_limit_exceeded(mock_datetime, mock_async_fires
     mock_async_firestore.collection.return_value.document.side_effect = document_side_effect
 
     with patch('src.tools.quota.get_async_firestore_client', return_value=mock_async_firestore):
-        allowed, remaining, _ = await check_quota("user123", "generate_render")
+        decision = await check_quota("user123", "generate_render")
 
-    assert allowed is False
-    assert remaining == 0
+    assert decision.allowed is False
+    assert decision.remaining == 0

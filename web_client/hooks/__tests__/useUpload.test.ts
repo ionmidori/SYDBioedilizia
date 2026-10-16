@@ -6,10 +6,11 @@ import { useUpload } from '../useUpload';
 // =============================================================================
 
 // Mock useAuth — must include user + signInAnonymously so the hook skips anon sign-in
+const mockRefreshToken = jest.fn();
 jest.mock('../useAuth', () => ({
     useAuth: () => ({
         user: { uid: 'mock-user-123' },
-        refreshToken: jest.fn().mockResolvedValue('mock-jwt-token'),
+        refreshToken: mockRefreshToken,
         signInAnonymously: jest.fn().mockResolvedValue(undefined),
     }),
 }));
@@ -71,6 +72,14 @@ class MockXHR {
         if (this.onerror) this.onerror();
     }
 
+    /** The server answered, with a non-2xx status. */
+    simulateHttpError(status: number, body: object | string) {
+        this.status = status;
+        this.statusText = 'Error';
+        this.responseText = typeof body === 'string' ? body : JSON.stringify(body);
+        if (this.onload) this.onload();
+    }
+
     simulateAbort() {
         if (this.onabort) this.onabort();
     }
@@ -86,6 +95,7 @@ describe('useUpload', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         MockXHR.instances = [];
+        mockRefreshToken.mockResolvedValue('mock-jwt-token');
     });
 
     it('should initialize with empty uploads', () => {
@@ -185,6 +195,104 @@ describe('useUpload', () => {
             const upload = Object.values(result.current.uploads)[0];
             expect(upload.status).toBe('error');
             expect(upload.error).toBeDefined();
+        });
+    });
+
+    describe('server rejections', () => {
+        async function failWith(status: number, body: object | string) {
+            const hook = renderHook(() => useUpload());
+            const mockFile = new File(['test'], 'clip.mp4', { type: 'video/mp4' });
+            await act(async () => {
+                await hook.result.current.addFiles([mockFile]);
+            });
+            await act(async () => {
+                MockXHR.instances[0].simulateHttpError(status, body);
+            });
+            await waitFor(() => {
+                expect(Object.values(hook.result.current.uploads)[0].status).toBe('error');
+            });
+            return Object.values(hook.result.current.uploads)[0];
+        }
+
+        it('shows the reset time of an exhausted quota and offers no retry', async () => {
+            const upload = await failWith(429, {
+                error_code: 'QUOTA_EXCEEDED',
+                message: 'Hai raggiunto il limite giornaliero di caricamenti video. Riprova domani dopo le 09:10.',
+            });
+
+            expect(upload.error).toBe(
+                'Hai raggiunto il limite giornaliero di caricamenti video. Riprova domani dopo le 09:10.'
+            );
+            expect(upload.retryable).toBe(false);
+        });
+
+        it('keeps retry available when the quota service is unavailable', async () => {
+            const upload = await failWith(503, {
+                error_code: 'QUOTA_UNAVAILABLE',
+                message: 'Verifica della quota momentaneamente non disponibile. Riprova tra qualche minuto.',
+            });
+
+            expect(upload.error).toMatch(/non disponibile/);
+            expect(upload.retryable).toBe(true);
+        });
+
+        it('replaces technical bodies with an Italian message', async () => {
+            const upload = await failWith(500, { error_code: 'INTERNAL_SERVER_ERROR', message: 'An internal server error occurred.' });
+
+            expect(upload.error).toBe('Caricamento non riuscito. Riprova.');
+            expect(upload.retryable).toBe(true);
+        });
+
+        it('asks the user to reload when the session token cannot be refreshed, without a pointless retry', async () => {
+            mockRefreshToken.mockResolvedValue(null);
+            const hook = renderHook(() => useUpload());
+            await act(async () => {
+                await hook.result.current.addFiles([new File(['x'], 'a.jpg', { type: 'image/jpeg' })]);
+            });
+
+            await waitFor(() => {
+                const upload = Object.values(hook.result.current.uploads)[0];
+                expect(upload.status).toBe('error');
+                expect(upload.error).toMatch(/sessione scaduta/i);
+                expect(upload.retryable).toBe(false);
+            });
+            expect(MockXHR.instances).toHaveLength(0); // nothing was sent
+        });
+
+        it('does not offer a retry for a 2xx answer it cannot read (the file may be stored already)', async () => {
+            const hook = renderHook(() => useUpload());
+            await act(async () => {
+                await hook.result.current.addFiles([new File(['x'], 'a.jpg', { type: 'image/jpeg' })]);
+            });
+            await act(async () => {
+                const xhr = MockXHR.instances[0];
+                xhr.status = 200;
+                xhr.responseText = 'not json';
+                xhr.onload?.();
+            });
+
+            await waitFor(() => {
+                const upload = Object.values(hook.result.current.uploads)[0];
+                expect(upload.status).toBe('error');
+                expect(upload.error).toMatch(/risposta del server/i);
+                expect(upload.retryable).toBe(false);
+            });
+        });
+
+        it('treats a dropped connection as retryable', async () => {
+            const hook = renderHook(() => useUpload());
+            await act(async () => {
+                await hook.result.current.addFiles([new File(['x'], 'a.jpg', { type: 'image/jpeg' })]);
+            });
+            await act(async () => {
+                MockXHR.instances[0].simulateError();
+            });
+
+            await waitFor(() => {
+                const upload = Object.values(hook.result.current.uploads)[0];
+                expect(upload.error).toMatch(/connessione/i);
+                expect(upload.retryable).toBe(true);
+            });
         });
     });
 

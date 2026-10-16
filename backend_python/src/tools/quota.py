@@ -12,10 +12,15 @@ S3 FIX: Quota is now tracked per-project (not per-user) to match business rules.
 
 import logging
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
+from typing import Literal
+from zoneinfo import ZoneInfo
 
 from google.cloud.firestore_v1 import Increment, async_transactional
 from src.core.config import settings
+from src.core.exceptions import PermissionDenied, ServiceError
 from src.core.exceptions import QuotaExceeded as _AppQuotaExceeded
 from src.db.firebase_client import get_async_firestore_client
 from src.utils.datetime_utils import utc_now
@@ -69,24 +74,123 @@ def _is_authenticated_user(user_id: str) -> bool:
     return bool(_FIREBASE_UID_RE.match(user_id))
 
 
+QuotaPeriod = Literal["daily", "weekly"]
+
+
+class QuotaReason(StrEnum):
+    OK = "ok"
+    LIMIT_REACHED = "limit_reached"  # the user used up the allowance
+    NOT_AVAILABLE = "not_available"  # the account's tier does not include this feature (limit 0)
+    UNAVAILABLE = "unavailable"      # the quota store could not answer (fail-closed)
+
+
+@dataclass(frozen=True)
+class QuotaDecision:
+    """Outcome of a quota check.
+
+    `reset_at` is when the allowance renews (LIMIT_REACHED) or when it is worth
+    trying again (UNAVAILABLE). `period` says which window was exhausted.
+    """
+
+    allowed: bool
+    remaining: int
+    reset_at: datetime
+    reason: QuotaReason = QuotaReason.OK
+    period: QuotaPeriod | None = None
+
+
+_ROME = ZoneInfo("Europe/Rome")
+
+# What each metered tool is called in user-facing text.
+_TOOL_LABELS = {
+    "upload_video": "caricamenti video",
+    "upload_image": "caricamenti foto",
+    "generate_render": "render",
+}
+_PERIOD_LABELS = {"daily": "giornaliero", "weekly": "settimanale"}
+
+
+def format_reset_it(reset_at: datetime, *, now: datetime | None = None) -> str:
+    """When a quota renews, in Italian and in Rome time:
+    "oggi dopo le 14:30", "domani dopo le 09:10", "il 23/10 dopo le 09:10".
+
+    The day is judged in Rome, not in UTC, so late-evening resets say "domani".
+    A naive datetime is read as UTC.
+    """
+    if reset_at.tzinfo is None:
+        reset_at = reset_at.replace(tzinfo=UTC)
+    local = reset_at.astimezone(_ROME)
+    today = (now or utc_now()).astimezone(_ROME).date()
+    days = (local.date() - today).days
+    clock = f"dopo le {local:%H:%M}"
+    if days <= 0:
+        return f"oggi {clock}"
+    if days == 1:
+        return f"domani {clock}"
+    return f"il {local:%d/%m} {clock}"
+
+
 class QuotaExceededError(_AppQuotaExceeded):
     """Raised when a user exceeds their quota for a specific tool.
 
     Extends AppException (status 429) so the global exception handler
-    returns a proper APIErrorResponse instead of a raw 500.
+    returns a proper APIErrorResponse (with Retry-After) instead of a raw 500.
     """
 
-    def __init__(self, tool_name: str, reset_at: datetime, period: str = "giornaliero"):
+    def __init__(
+        self,
+        tool_name: str,
+        reset_at: datetime,
+        period: QuotaPeriod = "daily",
+        *,
+        now: datetime | None = None,
+    ):
         self.tool_name = tool_name
         self.reset_at = reset_at
         self.period = period
+        label = _TOOL_LABELS.get(tool_name, tool_name)
         super().__init__(
-            message=f"Quota {period} esaurita per {tool_name}. Si rinnova alle {reset_at.strftime('%H:%M')} UTC.",
+            message=(
+                f"Hai raggiunto il limite {_PERIOD_LABELS[period]} di {label}. "
+                f"Riprova {format_reset_it(reset_at, now=now)}."
+            ),
             detail={
                 "tool_name": tool_name,
                 "reset_at": reset_at.isoformat(),
                 "period": period,
             },
+        )
+
+
+class QuotaNotAvailableError(PermissionDenied):
+    """The feature is not part of this account's tier (limit 0): a 403, with no
+    reset time — waiting does not help."""
+
+    error_code = "FEATURE_NOT_AVAILABLE"
+
+    def __init__(self, tool_name: str):
+        self.tool_name = tool_name
+        super().__init__(
+            message="Questa funzione non è disponibile per il tuo account.",
+            detail={"tool_name": tool_name},
+        )
+
+
+class QuotaUnavailableError(ServiceError):
+    """The quota store could not answer, so the operation is refused (fail-closed).
+
+    A 503 with the retry time — not a 500, and not a fake "limit reached".
+    """
+
+    status_code = 503
+    error_code = "QUOTA_UNAVAILABLE"
+
+    def __init__(self, tool_name: str, retry_at: datetime):
+        self.tool_name = tool_name
+        self.retry_at = retry_at
+        super().__init__(
+            message="Verifica della quota momentaneamente non disponibile. Riprova tra qualche minuto.",
+            detail={"tool_name": tool_name, "reset_at": retry_at.isoformat()},
         )
 
 
@@ -104,7 +208,7 @@ async def check_quota(
     user_id: str,
     tool_name: str,
     project_id: str | None = None
-) -> tuple[bool, int, datetime]:
+) -> QuotaDecision:
     """
     Check if the user has remaining quota for the specified tool.
     Supports Daily + Weekly limits and Administrator Overrides.
@@ -118,18 +222,19 @@ async def check_quota(
         project_id: Optional project/session ID for per-project tracking.
 
     Returns:
-        Tuple of (allowed, remaining, reset_at).
+        A QuotaDecision. When the quota store cannot answer, the decision denies
+        the operation (fail-closed) with reason UNAVAILABLE — distinct from a
+        genuinely exhausted allowance (LIMIT_REACHED).
     """
     now = utc_now()
 
     # ENVIRONMENT OVERRIDE: Unlimited quota in development
     if settings.ENV == "development":
         logging.info(f"[Quota] Dev mode active: Bypassing quota for {tool_name}")
-        return True, 9999, now + timedelta(days=365)
-
-    db = get_async_firestore_client()
+        return QuotaDecision(True, 9999, now + timedelta(days=365))
 
     try:
+        db = get_async_firestore_client()
         doc_id = _build_quota_doc_id(user_id, tool_name, project_id)
         quota_ref = db.collection("usage_quotas").document(doc_id)
         doc = await quota_ref.get()
@@ -140,7 +245,7 @@ async def check_quota(
             data = doc.to_dict() or {}
             if data.get("bypass_quota") is True:
                 logger.info(f"[Quota] 🛑 BYPASS ACTIVE for {doc_id} on {tool_name}")
-                return True, 9999, now + timedelta(days=365)
+                return QuotaDecision(True, 9999, now + timedelta(days=365))
 
             override_limit = data.get("override_limit")
             if override_limit is not None:
@@ -154,6 +259,11 @@ async def check_quota(
         # count stays int end-to-end and JSON-serializable (Infinity is invalid JSON).
         daily_limit = custom_limit if custom_limit is not None else limits.get(tool_name, _UNLIMITED_QUOTA)
         weekly_limit = QUOTA_LIMITS_WEEKLY.get(tool_name)
+
+        if daily_limit <= 0:
+            # Not part of this tier (or blocked by an admin override): waiting
+            # never helps, so this is not a "limit reached".
+            return QuotaDecision(False, 0, now + timedelta(hours=QUOTA_WINDOW_HOURS), QuotaReason.NOT_AVAILABLE)
 
         logger.info(
             f"[Quota] Checking {doc_id} ({'auth' if is_authenticated else 'anon'}) "
@@ -179,29 +289,28 @@ async def check_quota(
                     if w_count >= weekly_limit and custom_limit is None:
                          reset_at = w_start + timedelta(hours=QUOTA_WINDOW_WEEKLY_HOURS)
                          logger.warning(f"[Quota] Weekly limit reached for {doc_id}")
-                         return False, 0, reset_at
+                         return QuotaDecision(False, 0, reset_at, QuotaReason.LIMIT_REACHED, "weekly")
+
+        def _fresh_window() -> QuotaDecision:
+            # No usage in the current window: the first use is allowed.
+            return QuotaDecision(True, daily_limit - 1, now + timedelta(hours=QUOTA_WINDOW_HOURS))
 
         # Check daily limit
         if not doc.exists:
-            allowed = daily_limit > 0
-            reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
-            return allowed, max(0, daily_limit - 1) if allowed else 0, reset_at
+            return _fresh_window()
 
         data = doc.to_dict() or {}
         count = data.get("count", 0)
         window_start = data.get("window_start")
 
         if not window_start:
-            reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
-            return True, daily_limit - 1, reset_at
+            return QuotaDecision(True, daily_limit - 1, now + timedelta(hours=QUOTA_WINDOW_HOURS))
 
         if hasattr(window_start, 'timestamp'):
             window_start = datetime.fromtimestamp(window_start.timestamp(), tz=UTC)
 
         if now >= window_start + timedelta(hours=QUOTA_WINDOW_HOURS):
-            allowed = daily_limit > 0
-            reset_at = now + timedelta(hours=QUOTA_WINDOW_HOURS)
-            return allowed, max(0, daily_limit - 1) if allowed else 0, reset_at
+            return _fresh_window()
 
         # Window active
         reset_at = window_start + timedelta(hours=QUOTA_WINDOW_HOURS)
@@ -212,14 +321,38 @@ async def check_quota(
             logger.warning(
                 f"[Quota] Daily limit reached for {doc_id} ({count}/{daily_limit})"
             )
+            return QuotaDecision(False, remaining, reset_at, QuotaReason.LIMIT_REACHED, "daily")
 
-        return allowed, remaining, reset_at
+        return QuotaDecision(True, remaining, reset_at)
 
     except Exception as e:
         # SECURITY: fail-closed — deny operations during Firestore outages
         # to prevent quota bypass. Monitor this log for connectivity issues.
         logger.critical(f"[Quota] Firestore error in check_quota (FAIL-CLOSED): {e}", exc_info=True)
-        return False, 0, now + timedelta(minutes=5)
+        return QuotaDecision(False, 0, now + timedelta(minutes=5), QuotaReason.UNAVAILABLE)
+
+
+def quota_denial(
+    tool_name: str, decision: QuotaDecision
+) -> QuotaExceededError | QuotaNotAvailableError | QuotaUnavailableError:
+    """The error for a denied decision (its `.message` is the user-facing text,
+    shared by HTTP endpoints and agent tools)."""
+    if decision.reason is QuotaReason.UNAVAILABLE:
+        return QuotaUnavailableError(tool_name, decision.reset_at)
+    if decision.reason is QuotaReason.NOT_AVAILABLE:
+        return QuotaNotAvailableError(tool_name)
+    return QuotaExceededError(tool_name, decision.reset_at, decision.period or "daily")
+
+
+async def enforce_quota(user_id: str, tool_name: str, project_id: str | None = None) -> QuotaDecision:
+    """check_quota, raising for a denial so an endpoint can let it reach the
+    global handler: QuotaExceededError (429) when the allowance is used up,
+    QuotaUnavailableError (503) when the quota store could not answer.
+    """
+    decision = await check_quota(user_id, tool_name, project_id)
+    if not decision.allowed:
+        raise quota_denial(tool_name, decision)
+    return decision
 
 
 async def increment_quota(

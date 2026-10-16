@@ -12,6 +12,8 @@ from src.adk.adk_orchestrator import _video_parts
 from src.auth.jwt_handler import verify_token
 from src.repositories.conversation_repository import ConversationRepository
 from src.schemas.internal import UserSession
+from src.tools.quota import QuotaDecision
+from src.utils.datetime_utils import utc_now
 
 _MP4 = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 256
 _BUCKET = "app-bucket"
@@ -46,7 +48,7 @@ def _auth(monkeypatch: pytest.MonkeyPatch):
 async def _upload(repo: ConversationRepository, bucket: MagicMock, data: dict[str, str] | None = None):
     increment = AsyncMock()
     with patch("src.api.routes.upload.get_conversation_repository", return_value=repo), \
-         patch("src.api.routes.upload._enforce_quota", new=AsyncMock(return_value=5)), \
+         patch("src.api.routes.upload.enforce_quota", new=AsyncMock(return_value=QuotaDecision(True, 5, utc_now()))), \
          patch("src.api.routes.upload.increment_quota", new=increment), \
          patch("src.api.routes.upload.fb_storage.bucket", return_value=bucket):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

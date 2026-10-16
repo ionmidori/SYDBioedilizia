@@ -11,6 +11,8 @@ from main import app
 from src.auth.jwt_handler import verify_token
 from src.repositories.conversation_repository import ConversationRepository
 from src.schemas.internal import UserSession
+from src.tools.quota import QuotaDecision
+from src.utils.datetime_utils import utc_now
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
@@ -38,7 +40,7 @@ def _auth(monkeypatch: pytest.MonkeyPatch):
 
 async def _upload(repo: ConversationRepository):
     with patch("src.api.routes.upload.get_conversation_repository", return_value=repo), \
-         patch("src.api.routes.upload._enforce_quota", new=AsyncMock(return_value=5)), \
+         patch("src.api.routes.upload.enforce_quota", new=AsyncMock(return_value=QuotaDecision(True, 5, utc_now()))), \
          patch("src.api.routes.upload.increment_quota", new=AsyncMock()), \
          patch("src.api.routes.upload._firebase_upload", return_value=("https://signed", None)) as up:
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

@@ -41,6 +41,7 @@ async def _run(apply: bool) -> int:
     print(f"{verb + ':':<29}{report.made_permanent} sessions, {report.messages} messages")
     print(f"Guest sessions (kept):       {report.guest}")
     print(f"Owner account gone (kept):   {report.orphaned}")
+    print(f"Soft-deleted (purge, kept):  {report.soft_deleted}")
     if not apply:
         print("Dry run. Re-run with --apply to write.")
     return 0
