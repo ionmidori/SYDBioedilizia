@@ -132,6 +132,17 @@ async def stream_status(message: str) -> AsyncGenerator[dict[str, Any], None]:
     }
 
 
+async def stream_notice(code: str, message: str, level: str = "warning") -> AsyncGenerator[dict[str, Any], None]:
+    """Something the user should know about this turn that is not an error (the
+    reply still arrives), e.g. an attached video that could not be read.
+    Transient `data-notice` chunk; `code` is machine-readable, `message` Italian."""
+    yield {
+        "type": "data-notice",
+        "data": {"type": "notice", "level": level, "code": code, "message": message},
+        "transient": True,
+    }
+
+
 async def stream_ui_widget(widget_data: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
     """
     UiWidget event (ADK 1.27+ `render_ui_widget`) as a transient `data-ui_widget` chunk.

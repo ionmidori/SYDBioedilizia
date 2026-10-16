@@ -8,7 +8,7 @@ swap that caused message re-mount flicker).
 import json
 
 import pytest
-from src.utils.stream_protocol import stream_text, to_ui_message_stream
+from src.utils.stream_protocol import stream_notice, stream_text, to_ui_message_stream
 
 
 async def _empty_source():
@@ -62,3 +62,32 @@ async def test_text_turn_still_brackets_and_finishes_with_message_id():
     assert types[0] == "start"
     assert "text-start" in types and "text-delta" in types and "text-end" in types
     assert types[-1] == "finish"
+
+
+@pytest.mark.asyncio
+async def test_notice_is_a_transient_data_part_with_level_code_and_message():
+    chunks = [c async for c in stream_notice("VIDEO_SKIPPED", "Un video allegato non è leggibile.")]
+
+    assert chunks == [
+        {
+            "type": "data-notice",
+            "data": {
+                "type": "notice",
+                "level": "warning",
+                "code": "VIDEO_SKIPPED",
+                "message": "Un video allegato non è leggibile.",
+            },
+            "transient": True,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_notice_passes_through_the_ui_message_stream():
+    async def source():
+        async for c in stream_notice("VIDEO_SKIPPED", "x"):
+            yield c
+
+    frames = [f async for f in to_ui_message_stream(source(), message_id="m1")]
+
+    assert any(c["type"] == "data-notice" for c in _parse_frames(frames))

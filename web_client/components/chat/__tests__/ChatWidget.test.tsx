@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ChatWidget from '../ChatWidget';
 import '@testing-library/jest-dom';
 
@@ -17,6 +18,8 @@ jest.mock('@/hooks/useAuth', () => ({
 }));
 
 const mockSetProjectId = jest.fn();
+// ADK stream data exposed by the chat context (status, notice, ...)
+const mockChatData: { current: unknown[] } = { current: [] };
 jest.mock('@/hooks/useChatContext', () => ({
     useChatContext: () => ({
         currentProjectId: null,
@@ -26,7 +29,7 @@ jest.mock('@/hooks/useChatContext', () => ({
         messages: [],
         input: '',
         error: undefined,
-        data: [],
+        data: mockChatData.current,
         setProjectId: mockSetProjectId,
         handleInputChange: jest.fn(),
         submitMessage: jest.fn(),
@@ -75,6 +78,7 @@ describe('ChatWidget', () => {
     beforeEach(() => {
         jest.clearAllMocks();
         localStorage.clear();
+        mockChatData.current = [];
         mockUseAuth.mockReturnValue({ isInitialized: true, user: { uid: 'u1' }, refreshToken: jest.fn() });
     });
 
@@ -100,5 +104,41 @@ describe('ChatWidget', () => {
         // the model: the upload must use the same sessionId as /api/chat.
         expect(mockUseUpload).toHaveBeenCalledWith({ sessionId: 'chat-session-123' });
         expect(mockUseUpload).not.toHaveBeenCalledWith({ sessionId: 'global-guest' });
+    });
+
+    const VIDEO_NOTICE = {
+        type: 'notice', level: 'warning', code: 'VIDEO_SKIPPED',
+        message: 'Un video allegato non è leggibile ed è stato ignorato.',
+    };
+
+    /** The widget is mounted, then the turn streams a notice. */
+    function renderThenStreamNotice() {
+        const view = render(<ChatWidget variant="inline" />);
+        mockChatData.current = [VIDEO_NOTICE];
+        view.rerender(<ChatWidget variant="inline" />);
+        return view;
+    }
+
+    test('tells the user when an attached video could not be read, without an error', async () => {
+        renderThenStreamNotice();
+
+        const notice = await screen.findByRole('status');
+        expect(notice).toHaveTextContent('Un video allegato non è leggibile ed è stato ignorato.');
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    test('the video notice can be dismissed', async () => {
+        renderThenStreamNotice();
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Chiudi avviso' }));
+
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    test('a notice from before the widget mounted is not replayed', () => {
+        mockChatData.current = [VIDEO_NOTICE];
+        render(<ChatWidget variant="inline" />);
+
+        expect(screen.queryByRole('status')).not.toBeInTheDocument();
     });
 });
