@@ -748,7 +748,7 @@ async def chat_stream(
     # 🛡️ PermissionDenied (session owned by another user) propagates as a 403
     # BEFORE the stream starts — the orchestrator must never load a foreign history.
     try:
-        await repo.ensure_session(body.session_id, user_session.uid)
+        await repo.ensure_session(body.session_id, user_session.uid, is_guest=user_session.is_guest)
     except PermissionDenied:
         raise
     except Exception as e:  # noqa: BLE001
@@ -766,6 +766,7 @@ async def chat_stream(
                 attachments=attachments,
                 timestamp=anchor_timestamp,
                 message_id=user_msg_id,
+                is_guest=user_session.is_guest,
             )
             logger.info(f"[Anchor] User message persisted for session {body.session_id}")
         except Exception as e:  # noqa: BLE001

@@ -270,7 +270,7 @@ class ADKOrchestrator(BaseOrchestrator):
         # ────────── SYSTEM CONTEXT INJECTION (Auth State) ──────────
         # Since ADK agents have static instructions, we must inject dynamic state
         # (like authentication status) into the user's message payload.
-        is_guest = user_session.is_anonymous or not user_session.is_authenticated
+        is_guest = user_session.is_guest
         auth_status_msg = (
             "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO. "
             "REGOLA ASSOLUTA: Prima di chiamare generate_render, suggest_quote_items, pricing_engine, "
@@ -664,6 +664,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                                     tool_call_id=call_id,
                                                     timestamp=datetime.now(UTC),
                                                     user_id=user_id,
+                                                    is_guest=is_guest,
                                                 )
                                             ))
 
@@ -765,6 +766,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             timestamp=assistant_timestamp,
                             message_id=assistant_msg_id,
                             user_id=user_id,
+                            is_guest=is_guest,
                         )
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:  # noqa: BLE001

@@ -1,5 +1,5 @@
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from google.cloud import firestore as async_firestore
@@ -8,11 +8,9 @@ from pydantic import BaseModel
 from src.core.exceptions import PermissionDenied
 from src.db.firebase_client import get_async_firestore_client, get_firestore_client
 from src.db.projects import sync_project_cover
+from src.db.session_retention import clear_session_expiry, expiry_fields, needs_permanence
 
 logger = logging.getLogger(__name__)
-
-# TTL for sessions and messages in days
-SESSION_TTL_DAYS = 30
 
 
 def _check_session_owner(session_id: str, current_owner: str, user_id: str | None) -> None:
@@ -40,6 +38,21 @@ class ConversationRepository:
         """Returns the async Firestore client (google-cloud-firestore)."""
         return get_async_firestore_client()
 
+    async def _make_permanent_if_marked(
+        self, db: Any, session_id: str, session_data: dict[str, Any] | None, *, is_guest: bool
+    ) -> None:
+        """A registered write on a session that still carries a guest expiry
+        (claimed guest session, upgraded anonymous account) makes it permanent,
+        messages included. See src/db/session_retention.py.
+
+        Runs after the caller's essential writes: if it fails, the session stays
+        marked and the next registered write (or activity touch) retries.
+        """
+        if is_guest or not needs_permanence(session_data):
+            return
+        cleared = await clear_session_expiry(db, session_id)
+        logger.info(f"[Repo] Session {session_id} is now permanent ({cleared} messages unmarked)")
+
     async def save_message(
         self,
         session_id: str,
@@ -53,6 +66,8 @@ class ConversationRepository:
         room_id: str | None = None,
         message_id: str | None = None,
         user_id: str | None = None,
+        *,
+        is_guest: bool,
     ) -> None:
         """Save a message to Firestore with tool support and media attachments.
 
@@ -61,6 +76,9 @@ class ConversationRepository:
         lets the streamed message and its persisted row share one identity, so
         the client never has to swap a temporary SDK id for a Firestore id after
         the turn — the swap is what re-mounts the bubble and causes flicker.
+
+        ``is_guest`` (required) decides retention: only guest sessions and their
+        messages carry ``expireAt`` (Firestore TTL).
         """
         try:
             if role == "user":
@@ -77,16 +95,11 @@ class ConversationRepository:
             elif isinstance(attachments, BaseModel):
                 attachments = attachments.model_dump()
 
-            # 🚀 Use correct sentinel for Async Client
-
-            # Calculate expireAt for TTL (30 days from now)
-            expire_at = datetime.now(UTC) + timedelta(days=SESSION_TTL_DAYS)
-
             message_data = {
                 'role': role,
                 'content': content,
                 'timestamp': timestamp if timestamp else async_firestore.SERVER_TIMESTAMP,
-                'expireAt': expire_at
+                **expiry_fields(is_guest=is_guest),
             }
 
             if room_id:
@@ -117,12 +130,13 @@ class ConversationRepository:
             # Update session metadata
             session_ref = db.collection('sessions').document(session_id)
             session_doc = await session_ref.get()
+            session_data = session_doc.to_dict() if session_doc.exists else None
 
             session_update = {
                 'updatedAt': async_firestore.SERVER_TIMESTAMP,
                 'sessionId': session_id,
                 'messageCount': async_firestore.Increment(1),
-                'expireAt': expire_at
+                **expiry_fields(is_guest=is_guest),
             }
 
             if not session_doc.exists:
@@ -134,11 +148,12 @@ class ConversationRepository:
             # direct client reads. Never overwrite an existing owner — that would
             # let one user hijack another's (already claimed) session.
             if user_id:
-                existing_owner = (session_doc.to_dict() or {}).get('userId') if session_doc.exists else None
+                existing_owner = (session_data or {}).get('userId')
                 if not existing_owner:
                     session_update['userId'] = user_id
 
             await session_ref.set(session_update, merge=True)
+            await self._make_permanent_if_marked(db, session_id, session_data, is_guest=is_guest)
 
             logger.info(f"[Repo] Saved {role} message to session {session_id}")
 
@@ -217,18 +232,20 @@ class ConversationRepository:
         if doc.exists:
             _check_session_owner(session_id, (doc.to_dict() or {}).get('userId', ''), user_id)
 
-    async def ensure_session(self, session_id: str, user_id: str | None = None) -> None:
+    async def ensure_session(self, session_id: str, user_id: str | None = None, *, is_guest: bool) -> None:
         """
         Ensure session document exists in Firestore.
         If user_id is provided and the session doesn't exist, it's created with that owner.
+
+        ``is_guest`` (required) decides retention: a guest session expires 30 days
+        after its last write; a registered user's session never does, and one that
+        still carries an expiry becomes permanent here (claim or account upgrade).
         """
         try:
             db = self._get_async_db()
 
             session_ref = db.collection('sessions').document(session_id)
             doc = await session_ref.get()
-
-            expire_at = datetime.now(UTC) + timedelta(days=SESSION_TTL_DAYS)
 
             if not doc.exists:
                 # Determine owner
@@ -242,8 +259,8 @@ class ConversationRepository:
                     'thumbnailUrl': None,
                     'createdAt': async_firestore.SERVER_TIMESTAMP,
                     'updatedAt': async_firestore.SERVER_TIMESTAMP,
-                    'expireAt': expire_at,
-                    'messageCount': 0
+                    'messageCount': 0,
+                    **expiry_fields(is_guest=is_guest),
                 })
                 logger.info(f"[Repo] Created new session {session_id} for user {owner_id}")
 
@@ -257,7 +274,6 @@ class ConversationRepository:
                         'userId': owner_id,
                         'createdAt': async_firestore.SERVER_TIMESTAMP,
                         'updatedAt': async_firestore.SERVER_TIMESTAMP,
-                        'expireAt': expire_at,
                         'status': 'active'
                     })
                     logger.info(f"[Repo] 🚀 Sync: Created project {session_id} from session")
@@ -268,7 +284,8 @@ class ConversationRepository:
 
                 _check_session_owner(session_id, current_owner, user_id)
 
-                update_data: dict[str, Any] = {'expireAt': expire_at}
+                # After the ownership check: a foreign session is never touched.
+                update_data: dict[str, Any] = expiry_fields(is_guest=is_guest)
 
                 if user_id and (not current_owner or current_owner.startswith('guest_')):
                     update_data['userId'] = user_id
@@ -281,7 +298,8 @@ class ConversationRepository:
                         await project_ref.update({'userId': user_id, 'updatedAt': async_firestore.SERVER_TIMESTAMP})
                     logger.info(f"[Repo] 🔄 CLAIM: Session {session_id} migrated from {current_owner} to {user_id}")
 
-                await session_ref.update(update_data)
+                if update_data:
+                    await session_ref.update(update_data)
 
                 # Backfill check
                 project_ref = db.collection('projects').document(session_id)
@@ -294,10 +312,12 @@ class ConversationRepository:
                         'userId': session_data.get('userId', user_id or 'unknown'),
                         'createdAt': session_data.get('createdAt', async_firestore.SERVER_TIMESTAMP),
                         'updatedAt': async_firestore.SERVER_TIMESTAMP,
-                        'expireAt': expire_at,
                         'status': 'active'
                     })
                      logger.info(f"[Repo] 🚀 Sync: Backfilled missing project {session_id}")
+
+                # Last: claim and projection are done even if this cleanup fails.
+                await self._make_permanent_if_marked(db, session_id, session_data, is_guest=is_guest)
 
         except PermissionDenied:
             raise
