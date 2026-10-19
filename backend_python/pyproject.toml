@@ -5,10 +5,10 @@ requires-python = ">=3.12"
 dependencies = [
     "email-validator>=2.3.0",
     "fastapi>=0.141.1",
-    "starlette>=1.7.0",
+    "starlette>=1.8.0",
     "firebase-admin>=7.7.0",
     "google-cloud-firestore>=2.34.1",
-    "google-genai>=2.29.0",
+    "google-genai>=2.31.0",
     "httpx>=0.28.1",
     "pillow>=12.3.0",
     "pinecone>=10.0.0",
@@ -16,10 +16,10 @@ dependencies = [
     "python-dotenv>=1.2.4",
     "python-multipart>=0.0.32",
     "uvicorn[standard]>=0.54.0",
-    "pydantic-settings>=2.15.0",
+    "pydantic-settings>=2.16.0",
     "python-dateutil>=2.9.0.post0",
     "slowapi>=0.1.10",
-    "google-adk>=2.11.0",
+    "google-adk>=2.12.0",
     "aiosmtplib>=5.1.3",
     "reportlab>=5.0.1",
     "google-cloud-modelarmor>=0.7.2",
@@ -132,6 +132,6 @@ exclude_lines = [
 [dependency-groups]
 dev = [
     "pip-audit>=2.10.1",
-    "ruff>=0.17.0",
+    "ruff>=0.17.1",
     "pyright>=1.1.414",
 ]
