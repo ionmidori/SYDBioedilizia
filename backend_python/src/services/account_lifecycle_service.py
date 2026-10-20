@@ -1,31 +1,49 @@
 """
 AccountLifecycleService — GDPR B2C inactivity lifecycle for Italian SaaS.
 
-3-phase automatic pipeline triggered by Cloud Scheduler (daily):
+Daily pass (Cloud Scheduler, or "Run now" in /admin; both hold the lifecycle lease):
 
-  Phase 1 — 12 months inactive  → Warning email (once). Sets lifecycle_warned_at.
-  Phase 2 — 13 months inactive  → Firebase Auth disabled. Sets lifecycle_disabled_at.
-  Phase 3 — 24 months inactive  → Firestore PII anonymized (GDPR Art. 5 minimization).
-                                   Firebase Auth account deleted.
+  0. Erasures left halfway by an earlier run are finished first.
+  1. 12 months inactive → warning email (once). Sets lifecycle_warned_at.
+  2. 13 months inactive, warned at least the notice period ago → Firebase Auth
+     disabled. Sets lifecycle_disabled_at.
+  3. 24 months inactive, disabled at least the notice period ago → every
+     personal datum erased (UserErasureService, inactivity mode); the profile
+     becomes a tombstone and lifecycle_anonymized_at is written last.
 
-Each phase is idempotent: already-processed users are skipped via lifecycle_* timestamps.
-Users who log in between phases reset last_active_at via activity_tracker.py → pipeline exits.
+Selection: users whose `last_active_at` is past the 12-month threshold; the
+phase markers are checked in Python. Firestore `== None` never matches a
+document WITHOUT the field, and no code writes these markers as null: filtering
+on them in the query made the pipeline select nobody.
 
-Pattern: Service Layer (no HTTP logic), python-production-coding (structured logging).
+A user moves at most one phase per run, and every phase waits the notice
+period after the previous one: when the pipeline catches up with a long-inactive
+user, the warning still comes with its full notice before the account is
+disabled. Users who come back reset `last_active_at` (and the warning) via
+activity_tracker.py.
 """
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any, Protocol
+
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from src.core.config import settings
 from src.db.firebase_client import get_async_firestore_client
-from src.db.projects.deletion import delete_quote_data
+from src.services.auth_gateway import AuthGateway, FirebaseAuthGateway
+from src.services.erasure.models import ErasureMode, ErasureReport, ErasureStatus
+from src.services.erasure.service import get_user_erasure_service
+from src.services.notification_service import NotificationService
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
+
+_DAYS_PER_MONTH = 365.25 / 12
+_RESUME_LIMIT = 50
 
 
 # ── Domain types ──────────────────────────────────────────────────────────────
@@ -45,231 +63,164 @@ class LifecycleRunResult:
         )
 
 
+class _Notifier(Protocol):
+    async def send_inactivity_warning(self, email: str, display_name: str, disable_in_days: int) -> bool: ...
+
+
+class _Eraser(Protocol):
+    async def erase(self, uid: str, mode: ErasureMode, *, requested_by: str) -> ErasureReport: ...
+    async def resume_incomplete(self, *, limit: int) -> list[ErasureReport]: ...
+
+
 # ── Service ───────────────────────────────────────────────────────────────────
 
 class AccountLifecycleService:
     """
     GDPR-compliant inactivity lifecycle for SYD Bioedilizia users.
 
-    All phases are idempotent and non-destructive until Phase 3.
-    Phase 3 anonymization is irreversible — data can never be recovered.
+    Phases 1-2 are reversible (a returning user is reactivated by support);
+    phase 3 is not.
     """
 
-    def __init__(self) -> None:
-        self._warn_months: int = settings.LIFECYCLE_WARN_MONTHS
-        self._disable_months: int = settings.LIFECYCLE_DISABLE_MONTHS
-        self._anonymize_months: int = settings.LIFECYCLE_ANONYMIZE_MONTHS
+    def __init__(
+        self,
+        *,
+        db: Any,
+        auth: AuthGateway,
+        erasure: _Eraser,
+        notify: _Notifier,
+        now: Callable[[], datetime] = utc_now,
+        warn_months: int = settings.LIFECYCLE_WARN_MONTHS,
+        disable_months: int = settings.LIFECYCLE_DISABLE_MONTHS,
+        anonymize_months: int = settings.LIFECYCLE_ANONYMIZE_MONTHS,
+    ) -> None:
+        self._db = db
+        self._auth = auth
+        self._erasure = erasure
+        self._notify = notify
+        self._now = now
+        self._warn_months = warn_months
+        self._disable_months = disable_months
+        self._anonymize_months = anonymize_months
+
+    def _months_ago(self, months: float) -> datetime:
+        return self._now() - timedelta(days=months * _DAYS_PER_MONTH)
+
+    @property
+    def _notice(self) -> timedelta:
+        """How long the warning (and then the disable) stands before the next step."""
+        return timedelta(days=(self._disable_months - self._warn_months) * _DAYS_PER_MONTH)
 
     # ── Public entry point ────────────────────────────────────────────────────
 
     async def run_lifecycle_pass(self) -> LifecycleRunResult:
-        """
-        Runs all 3 lifecycle phases in parallel and returns a summary.
-
-        Safe to run multiple times (idempotent). Designed for daily Cloud Scheduler calls.
-        """
+        """One idempotent pass. Callers hold the lifecycle lease. Failures are
+        reported in `errors` (shown in /admin); one never stops the others."""
         result = LifecycleRunResult()
+        await self._resume_erasures(result)
 
-        phase1, phase2, phase3 = await asyncio.gather(
-            self._phase_warn(result),
-            self._phase_disable(result),
-            self._phase_anonymize(result),
-            return_exceptions=True,
-        )
+        # Candidates are read first: the per-user work (Auth calls, emails, whole
+        # erasures) is slow and must not run inside an open query stream.
+        warn_before = self._months_ago(self._warn_months)
+        query = self._db.collection("users").where(filter=FieldFilter("last_active_at", "<=", warn_before))
+        try:
+            candidates = [snap async for snap in query.stream()]
+        except Exception as exc:
+            logger.error("[Lifecycle] Could not read the inactive users", exc_info=True)
+            result.errors.append(f"users:{type(exc).__name__}")
+            return result
 
-        for exc in (phase1, phase2, phase3):
-            if isinstance(exc, Exception):
-                logger.error("[Lifecycle] Phase failed: %s", exc, exc_info=True)
-                result.errors.append(str(exc))
+        for snap in candidates:
+            try:
+                await self._advance(snap, result)
+            except Exception as exc:
+                logger.error("[Lifecycle] Failed for uid=%s", snap.id, exc_info=True)
+                result.errors.append(f"user:{snap.id}:{type(exc).__name__}")
 
         logger.info("[Lifecycle] Pass complete: %s", result)
         return result
 
-    # ── Phase 1: Warning ──────────────────────────────────────────────────────
+    async def _resume_erasures(self, result: LifecycleRunResult) -> None:
+        try:
+            reports = await self._erasure.resume_incomplete(limit=_RESUME_LIMIT)
+        except Exception as exc:
+            logger.error("[Lifecycle] Could not resume the pending erasures", exc_info=True)
+            result.errors.append(f"resume:{type(exc).__name__}")
+            return
+        for report in reports:
+            if report.status is ErasureStatus.COMPLETED:
+                if report.mode is ErasureMode.INACTIVITY:
+                    result.anonymized += 1
+            else:
+                result.errors.append(f"resume:{report.uid}:{report.failed_step}")
 
-    async def _phase_warn(self, result: LifecycleRunResult) -> None:
-        """
-        Finds users inactive ≥ LIFECYCLE_WARN_MONTHS who have NOT yet been warned.
-        Sends a warning email via NotificationService and sets lifecycle_warned_at.
-        """
-        from src.services.notification_service import NotificationService
-        notify = NotificationService()
+    async def _advance(self, snap: Any, result: LifecycleRunResult) -> None:
+        """Move one inactive user at most one phase forward."""
+        uid = snap.id
+        data = snap.to_dict() or {}
+        now = self._now()
+        last_active = data["last_active_at"]
+        warned_at = data.get("lifecycle_warned_at")
+        disabled_at = data.get("lifecycle_disabled_at")
 
-        threshold = _months_ago(self._warn_months)
-        db = get_async_firestore_client()
+        if data.get("lifecycle_anonymized_at") is not None:
+            return
 
-        query = (
-            db.collection("users")
-            .where("last_active_at", "<=", threshold)
-            .where("lifecycle_warned_at", "==", None)
-        )
-
-        async for doc in query.stream():
-            uid = doc.id
-            data = doc.to_dict() or {}
-            email = data.get("email")
-
-            if not email:
-                logger.warning("[Lifecycle/Warn] uid=%s has no email — skipping", uid)
-                continue
-
-            try:
-                await notify.send_inactivity_warning(
-                    email=email,
-                    display_name=data.get("display_name") or "Utente",
-                    disable_in_days=int((self._disable_months - self._warn_months) * 30),
-                )
-                await doc.reference.update({"lifecycle_warned_at": utc_now()})
+        if warned_at is None:
+            problem = await self._warn(uid)
+            if problem is None:
+                await snap.reference.update({"lifecycle_warned_at": now})
                 result.warned += 1
-                logger.info("[Lifecycle/Warn] Warning sent to uid=%s", uid)
-            except Exception as exc:  # noqa: BLE001
-                logger.error("[Lifecycle/Warn] Failed for uid=%s: %s", uid, exc)
-                result.errors.append(f"warn:{uid}:{exc}")
+            else:
+                # Without a delivered notice the countdown never starts: the account
+                # stays (and is reported in /admin) until someone decides.
+                result.errors.append(f"warn:{uid}:{problem}")
+            return
 
-    # ── Phase 2: Disable ──────────────────────────────────────────────────────
-
-    async def _phase_disable(self, result: LifecycleRunResult) -> None:
-        """
-        Finds warned users inactive ≥ LIFECYCLE_DISABLE_MONTHS.
-        Disables Firebase Auth account (reversible). Sets lifecycle_disabled_at.
-        """
-        threshold = _months_ago(self._disable_months)
-        db = get_async_firestore_client()
-
-        query = (
-            db.collection("users")
-            .where("last_active_at", "<=", threshold)
-            .where("lifecycle_warned_at", "!=", None)
-            .where("lifecycle_disabled_at", "==", None)
-        )
-
-        async for doc in query.stream():
-            uid = doc.id
-            try:
-                await asyncio.get_event_loop().run_in_executor(
-                    None, _disable_firebase_auth, uid
-                )
-                await doc.reference.update({"lifecycle_disabled_at": utc_now()})
+        if disabled_at is None:
+            if last_active <= self._months_ago(self._disable_months) and warned_at <= now - self._notice:
+                await self._auth.disable_and_revoke(uid)
+                await snap.reference.update({"lifecycle_disabled_at": now})
                 result.disabled += 1
                 logger.info("[Lifecycle/Disable] Firebase Auth disabled for uid=%s", uid)
-            except Exception as exc:  # noqa: BLE001
-                logger.error("[Lifecycle/Disable] Failed for uid=%s: %s", uid, exc)
-                result.errors.append(f"disable:{uid}:{exc}")
+            return
 
-    # ── Phase 3: Anonymize ────────────────────────────────────────────────────
-
-    async def _phase_anonymize(self, result: LifecycleRunResult) -> None:
-        """
-        Finds disabled users inactive ≥ LIFECYCLE_ANONYMIZE_MONTHS.
-        Anonymizes PII in Firestore (GDPR Art. 5 data minimization).
-        Deletes Firebase Auth account (permanent).
-        Sets lifecycle_anonymized_at.
-
-        What is anonymized:
-          - email      → sha256(email)@anonymized.local  (pseudonymous, not recoverable)
-          - display_name → "Utente Anonimizzato"
-          - phone      → null
-          - All chat sessions + messages deleted
-          - All quote private_data deleted
-          - Firebase Auth account deleted
-
-        What is kept (non-PII aggregate):
-          - uid, created_at, last_active_at, lifecycle_* timestamps
-        """
-        threshold = _months_ago(self._anonymize_months)
-        db = get_async_firestore_client()
-
-        query = (
-            db.collection("users")
-            .where("last_active_at", "<=", threshold)
-            .where("lifecycle_disabled_at", "!=", None)
-            .where("lifecycle_anonymized_at", "==", None)
-        )
-
-        async for doc in query.stream():
-            uid = doc.id
-            data = doc.to_dict() or {}
-            try:
-                await self._anonymize_user(uid, data, db)
+        if last_active <= self._months_ago(self._anonymize_months) and disabled_at <= now - self._notice:
+            report = await self._erasure.erase(uid, ErasureMode.INACTIVITY, requested_by="lifecycle")
+            if report.status is ErasureStatus.COMPLETED:
                 result.anonymized += 1
-                logger.info("[Lifecycle/Anonymize] PII anonymized for uid=%s", uid)
-            except Exception as exc:  # noqa: BLE001
-                logger.error("[Lifecycle/Anonymize] Failed for uid=%s: %s", uid, exc)
-                result.errors.append(f"anonymize:{uid}:{exc}")
+                logger.info("[Lifecycle/Erase] Personal data erased for uid=%s", uid)
+            else:
+                result.errors.append(f"anonymize:{uid}:{report.failed_step}")
 
-    async def _anonymize_user(self, uid: str, data: dict, db) -> None:
-        """Performs the irreversible PII anonymization for a single user."""
-        now = utc_now()
-
-        # ── Anonymize Firestore user profile ──────────────────────────────────
-        email = data.get("email") or ""
-        anonymized_email = (
-            hashlib.sha256(email.encode()).hexdigest() + "@anonymized.local"
-            if email else "unknown@anonymized.local"
+    async def _warn(self, uid: str) -> str | None:
+        """Email the inactivity warning. None if delivered, else why not:
+        `no_account` (missing from Firebase Auth — possibly a misconfiguration,
+        never a reason to erase), `no_email`, `not_delivered`."""
+        contact = await self._auth.get_contact(uid)
+        if contact is None:
+            logger.warning("[Lifecycle/Warn] uid=%s not found in Firebase Auth — not warned", uid)
+            return "no_account"
+        if not contact.email:
+            logger.warning("[Lifecycle/Warn] uid=%s has no email address — not warned", uid)
+            return "no_email"
+        delivered = await self._notify.send_inactivity_warning(
+            email=contact.email,
+            display_name=contact.display_name or "Utente",
+            disable_in_days=round(self._notice.days),
         )
-        await db.collection("users").document(uid).set(
-            {
-                "email": anonymized_email,
-                "display_name": "Utente Anonimizzato",
-                "phone": None,
-                "lifecycle_anonymized_at": now,
-            },
-            merge=True,
-        )
-
-        # ── Delete user preferences subcollection ─────────────────────────────
-        prefs_ref = db.collection("users").document(uid).collection("preferences").document("general")
-        await prefs_ref.delete()
-
-        # ── Delete all chat sessions + messages ───────────────────────────────
-        async for session_doc in db.collection("sessions").where("userId", "==", uid).stream():
-            async for msg_doc in session_doc.reference.collection("messages").stream():
-                await msg_doc.reference.delete()
-            await session_doc.reference.delete()
-
-        # ── Delete private quote data from projects (keep project shell) ──────
-        # (subcollections too: revisions/deliveries hold client data and are
-        # not removed by deleting the parent document)
-        async for project_doc in db.collection("projects").where("userId", "==", uid).stream():
-            await delete_quote_data(db, project_doc.reference)
-
-        # ── Delete Firebase Auth account ──────────────────────────────────────
-        try:
-            await asyncio.get_event_loop().run_in_executor(
-                None, _delete_firebase_auth, uid
-            )
-        except Exception as exc:  # noqa: BLE001
-            # Non-fatal: profile is already anonymized; log for manual cleanup
-            logger.warning("[Lifecycle/Anonymize] Auth deletion failed for uid=%s: %s", uid, exc)
+        if not delivered:
+            return "not_delivered"
+        logger.info("[Lifecycle/Warn] Warning sent to uid=%s", uid)
+        return None
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _months_ago(months: int):
-    """Returns a UTC datetime N months in the past (approx 30 days/month)."""
-    from datetime import timedelta
-    return utc_now() - timedelta(days=months * 30)
-
-
-def _disable_firebase_auth(uid: str) -> None:
-    """Sync: disables Firebase Auth user (reversible)."""
-    import firebase_admin.auth as fb_auth
-    fb_auth.update_user(uid, disabled=True)
-
-
-def _delete_firebase_auth(uid: str) -> None:
-    """Sync: permanently deletes Firebase Auth user."""
-    import firebase_admin.auth as fb_auth
-    fb_auth.delete_user(uid)
-
-
-# ── Singleton factory ─────────────────────────────────────────────────────────
-
-_service: AccountLifecycleService | None = None
-
+# ── Factory ───────────────────────────────────────────────────────────────────
 
 def get_account_lifecycle_service() -> AccountLifecycleService:
-    global _service
-    if _service is None:
-        _service = AccountLifecycleService()
-    return _service
+    return AccountLifecycleService(
+        db=get_async_firestore_client(),
+        auth=FirebaseAuthGateway(),
+        erasure=get_user_erasure_service(),
+        notify=NotificationService(),
+    )

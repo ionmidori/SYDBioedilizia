@@ -11,6 +11,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 
+from google.cloud.firestore_v1 import DELETE_FIELD
 from src.db.firebase_client import get_async_firestore_client
 from src.db.session_retention import make_user_sessions_permanent
 from src.utils.datetime_utils import utc_now
@@ -43,7 +44,10 @@ async def touch_last_active(uid: str) -> None:
 
         db = get_async_firestore_client()
         await db.collection("users").document(uid).set(
-            {"last_active_at": now},
+            # A returning user starts a new inactivity cycle: a later lapse gets
+            # its own warning and disable (account_lifecycle_service.py), not
+            # stale markers. Only an enabled account can reach this point.
+            {"last_active_at": now, "lifecycle_warned_at": DELETE_FIELD, "lifecycle_disabled_at": DELETE_FIELD},
             merge=True,
         )
         _last_touch[uid] = now

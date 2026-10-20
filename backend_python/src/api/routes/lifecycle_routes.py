@@ -2,10 +2,12 @@
 Account Lifecycle Routes — internal endpoint for Cloud Scheduler.
 
 POST /internal/lifecycle/run
-  Triggered by a Cloud Scheduler job (daily). Runs all 3 GDPR inactivity phases:
-    Phase 1 (12 mo) → warning email
-    Phase 2 (13 mo) → Firebase Auth disabled
-    Phase 3 (24 mo) → PII anonymized + Auth deleted
+  Triggered by a Cloud Scheduler job (daily). Runs the GDPR inactivity pass
+  (src/services/account_lifecycle_service.py):
+    Phase 0          → erasures left halfway are finished
+    Phase 1 (12 mo)  → warning email
+    Phase 2 (13 mo)  → Firebase Auth disabled (after the notice period)
+    Phase 3 (24 mo)  → personal data erased, Auth account deleted (after the notice period)
 
 Security:
   - Protected by X-Lifecycle-Secret header (shared secret, stored in Cloud Scheduler job config)

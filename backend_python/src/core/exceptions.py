@@ -53,6 +53,29 @@ class QuotaExceeded(AppException):
     error_code = "QUOTA_EXCEEDED"
 
 
+# ─── GDPR erasure (src/services/erasure) ──────────────────────────────────────
+
+class ErasureInProgressError(AppException):
+    """Another run is erasing this user right now (double request, scheduler)."""
+    status_code = 409
+    error_code = "GDPR_ERASURE_IN_PROGRESS"
+
+    def __init__(self) -> None:
+        super().__init__(message="La cancellazione dell'account è già in corso.")
+
+
+class ErasureIncompleteError(AppException):
+    """The erasure started (the account is disabled) but a step failed: the
+    scheduled job resumes it. Not a final failure, hence 503."""
+    status_code = 503
+    error_code = "GDPR_ERASURE_PENDING"
+
+    def __init__(self) -> None:
+        super().__init__(
+            message="La cancellazione dell'account è stata avviata e verrà completata automaticamente."
+        )
+
+
 # ─── Quote / HITL Domain (skill: error-handling-patterns) ─────────────────────
 
 class QuoteNotFoundError(ResourceNotFound):

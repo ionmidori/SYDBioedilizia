@@ -11,11 +11,12 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from src.auth.jwt_handler import verify_token
-from src.core.exceptions import AppException
+from src.core.exceptions import ErasureIncompleteError
 from src.db import users as users_db
 from src.models.user import UserPreferences, UserPreferencesUpdate
 from src.schemas.internal import UserSession
-from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
+from src.services.erasure.models import ErasureMode, ErasureStatus
+from src.services.erasure.service import get_user_erasure_service
 
 logger = logging.getLogger(__name__)
 
@@ -65,27 +66,22 @@ async def erase_my_account(
     user_session: UserSession = Depends(verify_token),
 ) -> Response:
     """
-    GDPR Art. 17 "Right to Erasure".
+    GDPR Art. 17 "Right to Erasure" (src/services/erasure).
 
-    Permanently and irreversibly deletes all personal data for the authenticated user:
-    - Firestore: chat sessions + messages, projects + files, leads, user profile
-    - Firebase Auth: authentication account (JWT becomes invalid after this call)
+    Permanently and irreversibly deletes the authenticated user's personal data:
+    profile, passkeys, projects and chats (with files, feedback and Storage
+    objects), quotes, leads, batches, reviews, quotas, pending emails and the
+    Firebase Auth account. Quotes already sent to the client are kept under
+    legal hold (src/services/erasure/legal_hold.py).
 
-    The client MUST sign the user out immediately upon receiving 204.
+    - 204: erased. The client MUST sign the user out (the token is revoked).
+    - 503 GDPR_ERASURE_PENDING: started (the account is already disabled) but a
+      step failed; the scheduled lifecycle job completes it.
+    - 409 GDPR_ERASURE_IN_PROGRESS: a request is already being processed.
     """
     uid = user_session.uid
     logger.info(f"[GDPR] Erasure request received for uid={uid}")
-
-    try:
-        summary = await users_db.delete_user_data(uid)
-        logger.info(f"[GDPR] Erasure complete for uid={uid}: {summary}")
-        emit_audit_event(AuditAction.USER_ERASE, AuditResourceType.USER, uid, user_id=uid, metadata=summary)
-        return Response(status_code=204)
-    except Exception as e:
-        logger.error(f"[GDPR] Erasure failed for uid={uid}: {e}", exc_info=True)
-        emit_audit_event(AuditAction.USER_ERASE, AuditResourceType.USER, uid, status="failure", user_id=uid)
-        raise AppException(
-            message="Account deletion failed. Please contact support.",
-            error_code="GDPR_ERASURE_FAILED",
-            status_code=500,
-        ) from e
+    report = await get_user_erasure_service().erase(uid, ErasureMode.ACCOUNT_DELETION, requested_by="self")
+    if report.status is not ErasureStatus.COMPLETED:
+        raise ErasureIncompleteError()
+    return Response(status_code=204)
