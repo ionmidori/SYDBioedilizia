@@ -25,6 +25,7 @@ class AuthGateway(Protocol):
     async def disable_and_revoke(self, uid: str) -> bool: ...
     async def delete_user(self, uid: str) -> bool: ...
     async def get_contact(self, uid: str) -> AuthContact | None: ...
+    async def is_disabled(self, uid: str) -> bool | None: ...
 
 
 class FirebaseAuthGateway:
@@ -62,3 +63,12 @@ class FirebaseAuthGateway:
         except auth.UserNotFoundError:
             return None
         return AuthContact(email=user.email, display_name=user.display_name)
+
+    async def is_disabled(self, uid: str) -> bool | None:
+        """Whether the account is disabled; None if it does not exist."""
+        init_firebase()
+        try:
+            user = await asyncio.to_thread(auth.get_user, uid)
+        except auth.UserNotFoundError:
+            return None
+        return bool(user.disabled)

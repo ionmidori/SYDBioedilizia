@@ -19,14 +19,19 @@ PDF = "projects/p1/quotes/PRV-2026-0001_r1.pdf"
 
 
 class FakeAuth:
-    def __init__(self, *, exists: bool = True) -> None:
+    def __init__(self, *, exists: bool = True, account_disabled: bool = False) -> None:
         self.exists = exists
+        self.account_disabled = account_disabled
         self.disabled: list[str] = []
         self.deleted: list[str] = []
 
     async def disable_and_revoke(self, uid: str) -> bool:
         self.disabled.append(uid)
+        self.account_disabled = True
         return self.exists
+
+    async def is_disabled(self, uid: str) -> bool | None:
+        return self.account_disabled if self.exists else None
 
     async def delete_user(self, uid: str) -> bool:
         self.deleted.append(uid)
@@ -266,6 +271,66 @@ async def test_an_account_already_gone_from_firebase_auth_is_still_erased():
 
     assert report.status is ErasureStatus.COMPLETED
     assert db.get_data("users", "u1") is None
+
+
+# ── An inactivity erasure never outlives the inactivity ──────────────────────
+
+def _failed_inactivity_job(completed: list[str]) -> dict:
+    return {"uid": "u1", "mode": "inactivity", "status": "failed", "project_ids": ["p1"],
+            "completed_steps": completed, "step_counts": {}, "attempts": 1, "requested_by": "lifecycle",
+            "updated_at": NOW - timedelta(days=7)}
+
+
+async def test_a_pending_inactivity_erasure_is_cancelled_when_the_user_came_back():
+    # The run failed after disabling the account; the user was reactivated and
+    # logged in (activity tracker cleared lifecycle_disabled_at).
+    db = FakeDb()
+    _seed_user(db)
+    db.put("users", "u1", {"last_active_at": NOW - timedelta(hours=1)})
+    db.put("erasure_jobs", "u1", _failed_inactivity_job(["auth_disable", "legal_hold"]))
+
+    reports = await _service(db, _bucket(), FakeAuth()).resume_incomplete(limit=10)
+
+    assert [(r.uid, r.status) for r in reports] == [("u1", ErasureStatus.CANCELLED)]
+    assert db.get_data("sessions", "p1", "messages", "m1") is not None  # nothing erased
+    assert db.get_data("erasure_jobs", "u1")["status"] == "cancelled"
+    assert await _service(db, _bucket()).resume_incomplete(limit=10) == []  # never picked up again
+
+
+async def test_a_pending_inactivity_erasure_is_cancelled_when_support_reenabled_the_account():
+    db = FakeDb()
+    _seed_user(db)  # profile still carries lifecycle_disabled_at: the user did not log in yet
+    db.put("erasure_jobs", "u1", _failed_inactivity_job(["auth_disable"]))
+
+    report = await _service(db, _bucket(), FakeAuth(account_disabled=False)).erase(
+        "u1", ErasureMode.INACTIVITY, requested_by="lifecycle"
+    )
+
+    assert report.status is ErasureStatus.CANCELLED
+    assert db.get_data("users", "u1")["phone"] == "+39 333"
+
+
+async def test_a_cancelled_erasure_starts_over_when_the_user_lapses_again():
+    db, auth = FakeDb(), FakeAuth()
+    _seed_user(db)
+    db.put("erasure_jobs", "u1", {**_failed_inactivity_job(["auth_disable", "legal_hold", "email_outbox"]),
+                                  "status": "cancelled"})
+
+    report = await _service(db, _bucket(), auth).erase("u1", ErasureMode.INACTIVITY, requested_by="lifecycle")
+
+    assert report.status is ErasureStatus.COMPLETED
+    assert auth.disabled == ["u1"]  # step re-run, not skipped from the old job
+    assert report.completed_steps[:3] == ["auth_disable", "legal_hold", "email_outbox"]
+
+
+async def test_an_erasure_request_is_never_cancelled():
+    db = FakeDb()
+    _seed_user(db)
+    db.put("users", "u1", {"last_active_at": NOW})  # active, no lifecycle markers
+
+    report = await _service(db, _bucket()).erase("u1", ErasureMode.ACCOUNT_DELETION, requested_by="self")
+
+    assert report.status is ErasureStatus.COMPLETED
 
 
 # ── Concurrency ──────────────────────────────────────────────────────────────

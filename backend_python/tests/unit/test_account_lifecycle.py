@@ -236,6 +236,21 @@ async def test_the_pass_finishes_erasures_left_halfway():
     assert result.errors == ["resume:u8:storage"]
 
 
+async def test_a_cancelled_erasure_is_neither_a_success_nor_an_error():
+    # The user came back while the erasure waited: nothing to report as broken.
+    resumed = [ErasureReport(uid="u9", mode=ErasureMode.INACTIVITY, status=ErasureStatus.CANCELLED,
+                             failed_step="user_active_again")]
+    db = FakeDb()
+    db.put("users", "u1", {"last_active_at": months_ago(25),
+                           "lifecycle_warned_at": months_ago(13), "lifecycle_disabled_at": months_ago(12)})
+
+    result = await _service(
+        db, erasure=FakeErasure(status=ErasureStatus.CANCELLED, resumed=resumed)
+    ).run_lifecycle_pass()
+
+    assert (result.anonymized, result.errors) == (0, [])
+
+
 async def test_a_failing_resume_does_not_stop_the_pass():
     db = FakeDb()
     db.put("users", "u1", {"last_active_at": months_ago(13)})

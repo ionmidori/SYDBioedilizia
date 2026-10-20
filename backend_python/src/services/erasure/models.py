@@ -14,6 +14,7 @@ class ErasureStatus(StrEnum):
     RUNNING = "running"
     FAILED = "failed"        # a step failed; the job is resumed later
     COMPLETED = "completed"
+    CANCELLED = "cancelled"  # inactivity erasure whose user is no longer inactive; never resumed
 
 
 @dataclass

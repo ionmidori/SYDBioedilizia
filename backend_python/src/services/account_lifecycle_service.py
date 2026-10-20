@@ -151,8 +151,9 @@ class AccountLifecycleService:
             if report.status is ErasureStatus.COMPLETED:
                 if report.mode is ErasureMode.INACTIVITY:
                     result.anonymized += 1
-            else:
+            elif report.status is ErasureStatus.FAILED:
                 result.errors.append(f"resume:{report.uid}:{report.failed_step}")
+            # CANCELLED: the user came back while the erasure waited — nothing to do.
 
     async def _advance(self, snap: Any, result: LifecycleRunResult) -> None:
         """Move one inactive user at most one phase forward."""
@@ -190,7 +191,7 @@ class AccountLifecycleService:
             if report.status is ErasureStatus.COMPLETED:
                 result.anonymized += 1
                 logger.info("[Lifecycle/Erase] Personal data erased for uid=%s", uid)
-            else:
+            elif report.status is ErasureStatus.FAILED:
                 result.errors.append(f"anonymize:{uid}:{report.failed_step}")
 
     async def _warn(self, uid: str) -> str | None:

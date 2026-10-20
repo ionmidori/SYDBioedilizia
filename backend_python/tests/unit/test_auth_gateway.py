@@ -53,6 +53,17 @@ async def test_contact_of_a_missing_account_is_none():
         assert await FirebaseAuthGateway().get_contact("u1") is None
 
 
+@pytest.mark.parametrize("disabled", [True, False])
+async def test_is_disabled_reads_the_account_state(disabled):
+    with patch.object(auth_gateway.auth, "get_user", return_value=MagicMock(disabled=disabled)):
+        assert await FirebaseAuthGateway().is_disabled("u1") is disabled
+
+
+async def test_is_disabled_of_a_missing_account_is_none():
+    with patch.object(auth_gateway.auth, "get_user", side_effect=_missing):
+        assert await FirebaseAuthGateway().is_disabled("u1") is None
+
+
 async def test_other_errors_propagate():
     with patch.object(auth_gateway.auth, "delete_user", side_effect=RuntimeError("network")), \
          pytest.raises(RuntimeError):

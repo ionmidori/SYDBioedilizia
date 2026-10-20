@@ -87,6 +87,9 @@ class UserErasureService:
             lease_until = job.get("lease_until")
             if job.get("status") == ErasureStatus.RUNNING and lease_until is not None and lease_until > now:
                 raise ErasureInProgressError()
+            if job.get("status") == ErasureStatus.CANCELLED:
+                # A new lapse is a new erasure: nothing of the cancelled run is reused.
+                job = {"created_at": job.get("created_at"), "attempts": job.get("attempts")}
             # A deletion request upgrades a pending inactivity erasure, never the reverse.
             upgraded = ErasureMode.ACCOUNT_DELETION in (mode, job.get("mode"))
             job = {
@@ -119,8 +122,13 @@ class UserErasureService:
         job_mode = ErasureMode(job["mode"])
         completed: list[str] = job["completed_steps"]
         counts: dict[str, int] = job["step_counts"]
-        stage = "discovery"
+        stage = "eligibility"
         try:
+            if job_mode is ErasureMode.INACTIVITY:
+                reason = await self._no_longer_inactive(uid, completed)
+                if reason is not None:
+                    return await self._cancel(uid, job_mode, completed, counts, reason, requested_by)
+            stage = "discovery"
             # Saved before anything is deleted: the discovery sources are erased too.
             project_ids = sorted(set(job["project_ids"]) | await discover_project_ids(self._db, uid))
             await self._job_ref(uid).update({"project_ids": project_ids, "updated_at": self._now()})
@@ -154,6 +162,37 @@ class UserErasureService:
         report = ErasureReport(
             uid=uid, mode=job_mode, status=ErasureStatus.COMPLETED,
             completed_steps=list(completed), counts=dict(counts),
+        )
+        self._audit(report, requested_by)
+        return report
+
+    async def _no_longer_inactive(self, uid: str, completed: list[str]) -> str | None:
+        """Why an inactivity erasure must not go on, re-checked at every (re)start:
+        a job can wait days for its resumption while the user comes back. None
+        if it still applies. An explicit erasure request is never re-checked."""
+        if "user_profile" not in completed:
+            snapshot = await self._db.collection("users").document(uid).get()
+            profile = (snapshot.to_dict() or {}) if snapshot.exists else {}
+            if profile.get("lifecycle_disabled_at") is None:
+                return "user_active_again"  # the activity tracker cleared the marker
+        if "auth_disable" in completed and "auth_delete" not in completed:
+            if await self._auth.is_disabled(uid) is False:
+                return "account_reenabled"  # support re-enabled the account
+        return None
+
+    async def _cancel(
+        self, uid: str, mode: ErasureMode, completed: list[str], counts: dict[str, int],
+        reason: str, requested_by: str,
+    ) -> ErasureReport:
+        logger.warning("[Erasure] Inactivity erasure cancelled: the user is active again",
+                       extra={"reason": reason})
+        await self._job_ref(uid).update({
+            "status": ErasureStatus.CANCELLED.value, "lease_until": None,
+            "cancel_reason": reason, "updated_at": self._now(),
+        })
+        report = ErasureReport(
+            uid=uid, mode=mode, status=ErasureStatus.CANCELLED, completed_steps=list(completed),
+            counts=dict(counts), failed_step=reason,
         )
         self._audit(report, requested_by)
         return report
@@ -234,7 +273,11 @@ class UserErasureService:
             AuditAction.USER_ERASE,
             AuditResourceType.USER,
             report.uid,
-            status="success" if report.status is ErasureStatus.COMPLETED else "failure",
+            status=(
+                "success" if report.status is ErasureStatus.COMPLETED
+                else "cancelled" if report.status is ErasureStatus.CANCELLED
+                else "failure"
+            ),
             user_id=report.uid if requested_by == "self" else "system",
             metadata={
                 "mode": report.mode.value if report.mode else None,
