@@ -1,15 +1,17 @@
-"""Low-level, idempotent erasure helpers (Firestore trees, queries, Storage prefixes).
+"""Low-level, idempotent erasure helpers (Firestore trees, queries, Storage
+prefixes and objects) and the listings that find what is left to erase.
 
 Firestore never cascades: deleting a document leaves its subcollections, and a
-"missing" document can still have children. `delete_document_tree` walks the
-real tree (`collections()` / `list_documents()`), so it also reaches data under
-parents that were already deleted, and it deletes children before parents: an
-interrupted run leaves the parent in place, still discoverable for a retry.
+"missing" document can still have children. `iter_tree` walks the real tree
+(`collections()` / `list_documents()`), so it also reaches data under parents
+that were already deleted, and `delete_document_tree` deletes children before
+parents: an interrupted run leaves the parent in place, still discoverable for
+a retry.
 """
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable, Iterable
 from typing import Any
 
 # Deletes per write batch (Firestore allows 500 writes per batch).
@@ -26,16 +28,22 @@ async def _delete_refs(db: Any, refs: list[Any]) -> int:
     return len(refs)
 
 
-async def _collect_tree(ref: Any, keep: Callable[[Any], bool] | None, out: list[Any]) -> None:
-    """Append to `out` every existing document under `ref`, children first."""
+async def iter_tree(ref: Any, *, keep: Callable[[Any], bool] | None = None) -> AsyncIterator[Any]:
+    """Snapshots (id, reference, update_time) of every existing document below
+    `ref` — not `ref` itself — children before their parent.
+
+    `keep(child_ref)` skips a nested document together with its own subtree.
+    Snapshots come from a field-less projection: only metadata, never data.
+    """
     async for sub in ref.collections():
-        existing = {snap.id async for snap in sub.select([]).stream()}
+        existing = {snap.id: snap async for snap in sub.select([]).stream()}
         async for child in sub.list_documents():
             if keep is not None and keep(child):
                 continue
-            await _collect_tree(child, keep, out)
+            async for snap in iter_tree(child, keep=keep):
+                yield snap
             if child.id in existing:
-                out.append(child)
+                yield existing[child.id]
 
 
 async def delete_document_tree(db: Any, ref: Any, *, keep: Callable[[Any], bool] | None = None) -> int:
@@ -44,8 +52,7 @@ async def delete_document_tree(db: Any, ref: Any, *, keep: Callable[[Any], bool]
     `keep(child_ref)` spares a nested document together with its own subtree
     (e.g. a quote under legal hold). The root itself is always deleted.
     """
-    refs: list[Any] = []
-    await _collect_tree(ref, keep, refs)
+    refs = [snap.reference async for snap in iter_tree(ref, keep=keep)]
     if (await ref.get()).exists:
         refs.append(ref)  # parent last
     return await _delete_refs(db, refs)
@@ -74,3 +81,28 @@ async def delete_storage_prefix(bucket: Any, prefix: str, *, keep: frozenset[str
         return len(blobs)
 
     return await asyncio.to_thread(_delete)
+
+
+def _already_gone(_blob: Any) -> None:
+    """`delete_blobs` error callback: an object already deleted is not an error."""
+
+
+async def delete_storage_paths(bucket: Any, paths: Iterable[str]) -> None:
+    """Delete the named Storage objects. Idempotent: objects already gone are
+    skipped; any other error propagates (fail closed)."""
+    names = sorted(set(paths))
+    if names:
+        await asyncio.to_thread(bucket.delete_blobs, names, on_error=_already_gone)
+
+
+async def storage_folder_ids(bucket: Any, root: str) -> set[str]:
+    """Names of the "folders" directly under `root` ("user-uploads/" → the
+    session ids that have uploads), listed without walking every object."""
+
+    def _list() -> set[str]:
+        listing = bucket.list_blobs(prefix=root, delimiter="/")
+        for _blob in listing:  # prefixes are collected while the pages are read
+            pass
+        return {prefix[len(root):].rstrip("/") for prefix in listing.prefixes}
+
+    return await asyncio.to_thread(_list)

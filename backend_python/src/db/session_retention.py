@@ -1,11 +1,14 @@
 """Retention of chat sessions: only guest sessions expire.
 
-Firestore deletes `sessions` and `messages` documents once their `expireAt` has
-passed (TTL policies on both collection groups; TTL never cascades to
-subcollections). A registered user's project is kept for as long as the account
-lives — the privacy policy promises it and the account lifecycle (12/13/24
-months) governs it — so only guest sessions may carry `expireAt`, with one
-exception: a soft-deleted project, where `expireAt` is the 30-day purge.
+`expireAt` marks a guest session for erasure once it has passed: the retention
+job (src/services/retention) then erases the whole project — session,
+messages, files, projection and Storage. (The Firestore TTL policies on
+`sessions`/`messages` that used to do it are being retired: TTL never cascades
+to subcollections or Storage.) A registered user's project is kept for as long
+as the account lives — the privacy policy promises it and the account
+lifecycle (12/13/24 months) governs it — so only guest sessions may carry
+`expireAt`. Projects soft-deleted by older code carry one too; the bin's own
+30 days (`deleted_at`) apply to them.
 
 A session stops being a guest one when it is claimed by a registered user or when
 an anonymous account is upgraded (same uid). It must then lose `expireAt` on the
@@ -111,12 +114,6 @@ async def clear_session_expiry(db: Any, session_id: str) -> int:
     if session_data is not None and EXPIRE_AT in session_data:
         await session_ref.update({EXPIRE_AT: DELETE_FIELD})
     return cleared
-
-
-async def expire_session_messages(db: Any, session_id: str, expire_at: datetime) -> int:
-    """Stamp `expire_at` on every message of a session, so the TTL purges them with
-    the session (soft delete). Returns the messages updated."""
-    return await _update_all(db, _messages(db, session_id).stream(), {EXPIRE_AT: expire_at})
 
 
 async def make_user_sessions_permanent(db: Any, uid: str) -> int:

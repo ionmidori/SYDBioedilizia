@@ -2,10 +2,10 @@
 Admin dashboard and GDPR monitor — /api/admin/kpis, /api/admin/gdpr/*
 (Phase 128, Fase 6.1b).
 
-The GDPR lifecycle pass (warn at 12 months, disable at 13, anonymise at 24) is
-still run daily by Cloud Scheduler through `/internal/lifecycle/run`
-(shared secret). The admin can also run it on demand here, with the admin
-token: the secret never reaches a browser.
+The GDPR lifecycle pass (warn at 12 months, disable at 13, anonymise at 24,
+then the retention phase) is run by Cloud Scheduler through
+`/internal/lifecycle/run` (shared secret). The admin can also run it on demand
+here, with the admin token: the secret never reaches a browser.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from src.auth.admin import require_admin
 from src.core.config import settings
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
-from src.schemas.admin_content import AdminKpis, GdprPhase, GdprRunResult, GdprStatus
+from src.schemas.admin_content import AdminKpis, GdprPhase, GdprRunResult, GdprStatus, RetentionSummary
 from src.schemas.internal import UserSession
 from src.services.account_lifecycle_service import get_account_lifecycle_service
 from src.services.admin_kpis import compute_kpis
@@ -99,4 +99,5 @@ async def run_gdpr_lifecycle(
         disabled=result.disabled,
         anonymized=result.anonymized,
         errors=sanitize_errors(result.errors),
+        retention=RetentionSummary.model_validate(result.retention) if result.retention else None,
     )

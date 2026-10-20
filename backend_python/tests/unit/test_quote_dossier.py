@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from src.db.projects.deletion import delete_quote_data
 from src.schemas.quote import ClientSnapshot, QuoteRequest
 from src.services.client_profile import ClientProfile, build_client_snapshot, build_search_keys, get_client_profile
+from src.services.erasure.project_purge import purge_projection
 from src.services.quote_dossier import (
     BlobInfo,
     DossierInputs,
@@ -149,15 +149,15 @@ async def test_regeneration_writes_revision_2_with_the_admin_notes_in_force():
 
 
 async def test_gdpr_deletion_removes_quote_revisions_deliveries_and_hitl_tokens():
+    # A quote that never reached the client: nothing is under legal hold.
     db = FakeDb()
-    project = db.collection("projects").document(PID)
-    db.put(*QUOTE_PATH, {"status": "sent", "client_snapshot": {"email": "mario@example.it"}})
+    db.put(*QUOTE_PATH, {"status": "in_review", "client_snapshot": {"email": "mario@example.it"}})
     db.put(*QUOTE_PATH, "revisions", "1", {"version": 1})
-    db.put(*QUOTE_PATH, "deliveries", "d1", {"to": "mario@example.it"})
+    db.put(*QUOTE_PATH, "deliveries", "d1", {"to": "mario@example.it", "status": "failed"})
     db.put("projects", PID, "quotes", "active", {"nonce": "x"})
     db.put("projects", "other", "private_data", "quote", {"status": "draft"})
 
-    await delete_quote_data(db, project)
+    await purge_projection(db, PID, held=[])
 
     assert [p for p in db.docs if p[:2] == ("projects", PID)] == []
     assert db.get_data("projects", "other", "private_data", "quote") == {"status": "draft"}

@@ -1,10 +1,21 @@
 """Low-level erasure helpers: whole document trees, queries, Storage prefixes."""
+from datetime import UTC, datetime
+
 import pytest
 from src.db import purge
-from src.db.purge import delete_document_tree, delete_query, delete_storage_prefix
-from src.db.storage_paths import project_storage_prefixes, user_storage_prefixes
+from src.db.purge import (
+    delete_document_tree,
+    delete_query,
+    delete_storage_paths,
+    delete_storage_prefix,
+    iter_tree,
+    storage_folder_ids,
+)
+from src.db.storage_paths import PROJECT_STORAGE_ROOTS, project_storage_prefixes, user_storage_prefixes
 from src.utils.download import session_storage_prefixes
-from tests.unit.firestore_fakes import FakeBucket, FakeDb
+from tests.unit.firestore_fakes import LONG_AGO, FakeBucket, FakeDb
+
+RECENT = datetime(2026, 10, 19, tzinfo=UTC)
 
 
 def _project(db: FakeDb, pid: str = "p1") -> None:
@@ -64,6 +75,58 @@ class TestDeleteDocumentTree:
         assert await delete_document_tree(db, db.collection("projects").document("nope")) == 0
 
 
+class TestIterTree:
+    async def test_yields_every_existing_document_below_with_its_write_time(self):
+        db = FakeDb()
+        db.put("sessions", "s1", "files", "f1", {"name": "a.jpg"})  # parent session missing
+        db.clock = RECENT
+        db.put("sessions", "s1", "feedback", "fb1", {"ok": True})
+        db.put("sessions", "s1", "messages", "m1", "parts", "x1", {"t": 1})  # under a missing message
+
+        times = {snap.id: snap.update_time async for snap in iter_tree(db.collection("sessions").document("s1"))}
+
+        assert times == {"f1": LONG_AGO, "fb1": RECENT, "x1": RECENT}
+
+    async def test_children_come_before_their_parent(self):
+        db = FakeDb()
+        _project(db)
+
+        order = [snap.id async for snap in iter_tree(db.collection("projects").document("p1"))]
+
+        assert order.index("1") < order.index("quote") and order.index("d1") < order.index("quote")
+        assert "p1" not in order  # the root itself is not part of the walk
+
+
+class TestDeleteStoragePaths:
+    async def test_deletes_exactly_the_named_objects(self):
+        bucket = FakeBucket(["projects/p1/quotes/a.pdf", "projects/p1/quotes/b.pdf"])
+
+        await delete_storage_paths(bucket, ["projects/p1/quotes/a.pdf"])
+
+        assert bucket.names == {"projects/p1/quotes/b.pdf"}
+
+    async def test_objects_already_gone_are_not_an_error(self):
+        # Idempotent: a retried run finds part of the objects already deleted.
+        bucket = FakeBucket(["projects/p1/quotes/b.pdf"])
+
+        await delete_storage_paths(bucket, ["projects/p1/quotes/a.pdf", "projects/p1/quotes/b.pdf"])
+
+        assert bucket.names == set()
+
+
+class TestStorageFolderIds:
+    async def test_lists_the_folder_ids_directly_under_a_root(self):
+        bucket = FakeBucket([
+            "user-uploads/p1/a.jpg", "user-uploads/p1/b.jpg", "user-uploads/p2/deep/c.jpg",
+            "user-uploads/stray.jpg", "renders/p3/r.png",
+        ])
+
+        assert await storage_folder_ids(bucket, "user-uploads/") == {"p1", "p2"}
+
+    async def test_an_empty_root_has_no_folders(self):
+        assert await storage_folder_ids(FakeBucket([]), "renders/") == set()
+
+
 class TestDeleteQuery:
     async def test_deletes_only_the_matching_documents(self):
         db = FakeDb()
@@ -116,6 +179,9 @@ class TestStoragePaths:
             "renders/p1/",
             "documents/p1/",
         )
+
+    def test_project_prefixes_are_one_folder_per_root(self):
+        assert project_storage_prefixes("p1") == tuple(f"{root}p1/" for root in PROJECT_STORAGE_ROOTS)
 
     def test_project_prefixes_include_what_the_session_may_read(self):
         assert set(session_storage_prefixes("p1")) <= set(project_storage_prefixes("p1"))

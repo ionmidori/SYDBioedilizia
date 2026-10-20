@@ -10,6 +10,9 @@ Daily pass (Cloud Scheduler, or "Run now" in /admin; both hold the lifecycle lea
   3. 24 months inactive, disabled at least the notice period ago → every
      personal datum erased (UserErasureService, inactivity mode); the profile
      becomes a tombstone and lifecycle_anonymized_at is written last.
+  4. Retention (RetentionService): expired guest sessions, projects in the
+     bin for more than 30 days, orphaned remains and expired legal holds are
+     erased — or only counted, until RETENTION_PURGE_ENABLED is set.
 
 Selection: users whose `last_active_at` is past the 12-month threshold; the
 phase markers are checked in Python. Firestore `== None` never matches a
@@ -38,6 +41,8 @@ from src.services.auth_gateway import AuthGateway, FirebaseAuthGateway
 from src.services.erasure.models import ErasureMode, ErasureReport, ErasureStatus
 from src.services.erasure.service import get_user_erasure_service
 from src.services.notification_service import NotificationService
+from src.services.retention.models import RetentionReport
+from src.services.retention.service import get_retention_service
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -55,11 +60,12 @@ class LifecycleRunResult:
     disabled: int = 0
     anonymized: int = 0
     errors: list[str] = field(default_factory=list)
+    retention: RetentionReport | None = None  # None: the retention phase did not run
 
     def __str__(self) -> str:  # pragma: no cover
         return (
             f"LifecycleRun: warned={self.warned}, disabled={self.disabled}, "
-            f"anonymized={self.anonymized}, errors={len(self.errors)}"
+            f"anonymized={self.anonymized}, errors={len(self.errors)}, retention={self.retention}"
         )
 
 
@@ -70,6 +76,10 @@ class _Notifier(Protocol):
 class _Eraser(Protocol):
     async def erase(self, uid: str, mode: ErasureMode, *, requested_by: str) -> ErasureReport: ...
     async def resume_incomplete(self, *, limit: int) -> list[ErasureReport]: ...
+
+
+class _Retention(Protocol):
+    async def run(self) -> RetentionReport: ...
 
 
 # ── Service ───────────────────────────────────────────────────────────────────
@@ -89,6 +99,7 @@ class AccountLifecycleService:
         auth: AuthGateway,
         erasure: _Eraser,
         notify: _Notifier,
+        retention: _Retention,
         now: Callable[[], datetime] = utc_now,
         warn_months: int = settings.LIFECYCLE_WARN_MONTHS,
         disable_months: int = settings.LIFECYCLE_DISABLE_MONTHS,
@@ -98,6 +109,7 @@ class AccountLifecycleService:
         self._auth = auth
         self._erasure = erasure
         self._notify = notify
+        self._retention = retention
         self._now = now
         self._warn_months = warn_months
         self._disable_months = disable_months
@@ -118,7 +130,12 @@ class AccountLifecycleService:
         reported in `errors` (shown in /admin); one never stops the others."""
         result = LifecycleRunResult()
         await self._resume_erasures(result)
+        await self._advance_inactive_users(result)
+        await self._run_retention(result)
+        logger.info("[Lifecycle] Pass complete: %s", result)
+        return result
 
+    async def _advance_inactive_users(self, result: LifecycleRunResult) -> None:
         # Candidates are read first: the per-user work (Auth calls, emails, whole
         # erasures) is slow and must not run inside an open query stream.
         warn_before = self._months_ago(self._warn_months)
@@ -128,7 +145,7 @@ class AccountLifecycleService:
         except Exception as exc:
             logger.error("[Lifecycle] Could not read the inactive users", exc_info=True)
             result.errors.append(f"users:{type(exc).__name__}")
-            return result
+            return
 
         for snap in candidates:
             try:
@@ -137,8 +154,14 @@ class AccountLifecycleService:
                 logger.error("[Lifecycle] Failed for uid=%s", snap.id, exc_info=True)
                 result.errors.append(f"user:{snap.id}:{type(exc).__name__}")
 
-        logger.info("[Lifecycle] Pass complete: %s", result)
-        return result
+    async def _run_retention(self, result: LifecycleRunResult) -> None:
+        try:
+            result.retention = await self._retention.run()
+        except Exception as exc:
+            logger.error("[Lifecycle] The retention phase failed", exc_info=True)
+            result.errors.append(f"retention:{type(exc).__name__}")
+            return
+        result.errors.extend(result.retention.errors)
 
     async def _resume_erasures(self, result: LifecycleRunResult) -> None:
         try:
@@ -224,4 +247,5 @@ def get_account_lifecycle_service() -> AccountLifecycleService:
         auth=FirebaseAuthGateway(),
         erasure=get_user_erasure_service(),
         notify=NotificationService(),
+        retention=get_retention_service(),
     )

@@ -199,6 +199,7 @@ async def test_a_quote_sent_to_the_client_is_kept_intact_with_its_pdf():
     quote = db.get_data("projects", "p1", "private_data", "quote")
     assert quote["client_snapshot"] == {"email": "mario@example.it"}  # intact, not anonymised
     assert quote["legal_hold"]["retain_until"] == SENT + SENT_QUOTE_RETENTION
+    assert db.get_data("legal_holds", "p1:quote")["retain_until"] == SENT + SENT_QUOTE_RETENTION
     assert db.get_data("projects", "p1", "private_data", "quote", "deliveries", "d1") is not None
     assert db.get_data("projects", "p1", "private_data", "quote", "revisions", "1") is not None
     assert PDF in bucket.names

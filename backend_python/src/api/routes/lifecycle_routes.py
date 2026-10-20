@@ -2,12 +2,14 @@
 Account Lifecycle Routes — internal endpoint for Cloud Scheduler.
 
 POST /internal/lifecycle/run
-  Triggered by a Cloud Scheduler job (daily). Runs the GDPR inactivity pass
-  (src/services/account_lifecycle_service.py):
+  Triggered by the Cloud Scheduler job `syd-account-lifecycle`. Runs the GDPR
+  pass (src/services/account_lifecycle_service.py):
     Phase 0          → erasures left halfway are finished
     Phase 1 (12 mo)  → warning email
     Phase 2 (13 mo)  → Firebase Auth disabled (after the notice period)
     Phase 3 (24 mo)  → personal data erased, Auth account deleted (after the notice period)
+    Phase 4          → retention: expired guest sessions, projects binned > 30 days,
+                       orphaned remains, expired legal holds (src/services/retention)
 
 Security:
   - Protected by X-Lifecycle-Secret header (shared secret, stored in Cloud Scheduler job config)
@@ -17,7 +19,9 @@ Security:
 Deployment:
   Cloud Scheduler → POST https://api.sydbioedilizia.com/internal/lifecycle/run
   Headers: { "X-Lifecycle-Secret": "<LIFECYCLE_SECRET env var>" }
-  Schedule: every day at 03:00 Europe/Rome (low-traffic window)
+  Schedule: set on the Cloud Scheduler job, at 03:00 Europe/Rome (low-traffic
+  window). The guest retention is 30 days: a daily schedule erases expired
+  sessions within a day, a weekly one within a week.
 """
 from __future__ import annotations
 
@@ -28,6 +32,7 @@ from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel
 from src.core.config import settings
 from src.db.firebase_client import get_async_firestore_client
+from src.schemas.admin_content import RetentionSummary
 from src.services.account_lifecycle_service import get_account_lifecycle_service
 from src.services.lifecycle_lock import LifecycleAlreadyRunningError, lifecycle_lease
 
@@ -42,6 +47,7 @@ class LifecycleRunResponse(BaseModel):
     disabled: int
     anonymized: int
     errors: list[str]
+    retention: RetentionSummary | None = None  # None: the retention phase did not run
 
 
 @router.post(
@@ -96,4 +102,5 @@ async def run_lifecycle(
         disabled=result.disabled,
         anonymized=result.anonymized,
         errors=result.errors,
+        retention=RetentionSummary.model_validate(result.retention) if result.retention else None,
     )

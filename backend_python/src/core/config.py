@@ -182,6 +182,14 @@ class Settings(BaseSettings):
     LIFECYCLE_WARN_MONTHS: int = Field(default=12, description="Months of inactivity before warning email is sent.")
     LIFECYCLE_DISABLE_MONTHS: int = Field(default=13, description="Months of inactivity before Firebase Auth is disabled.")
     LIFECYCLE_ANONYMIZE_MONTHS: int = Field(default=24, description="Months of inactivity before Firestore PII is anonymized.")
+    RETENTION_PURGE_ENABLED: bool = Field(
+        default=False,
+        description=(
+            "Let the retention phase of the lifecycle pass erase data (expired guest sessions, "
+            "projects binned > 30 days, orphaned remains, expired legal holds). Off: dry run, "
+            "it only counts what it would erase (shown in /admin)."
+        ),
+    )
 
     # Room measurement from the client photo (quote InsightEngine input).
     # Gemini + code execution: observed 40–143 s in production; the tool is
