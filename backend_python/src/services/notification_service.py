@@ -32,12 +32,15 @@ class NotificationService:
         email: str,
         display_name: str,
         disable_in_days: int,
-    ) -> str:
+    ) -> bool:
         """
         Sends a GDPR inactivity warning to a user informing them that their
         account will be disabled in N days unless they log in again.
 
-        Returns a status message. Never raises.
+        Returns True only if the provider accepted the email. On failure the
+        warning is flagged in `pending_notifications` and False is returned:
+        the lifecycle must not start the countdown on an undelivered notice.
+        Never raises.
         """
         subject = "Il tuo account SYD Bioedilizia verrà disattivato"
         body = (
@@ -56,16 +59,17 @@ class NotificationService:
         )
         try:
             await self._send_email(to=email, subject=subject, body=body, list_unsubscribe_email=_PRIVACY_MAILBOX)
-            return "✅ Inactivity warning sent"
+            return True
         except ProviderError as exc:
             logger.warning(
                 "[Notification] Inactivity warning not sent.",
                 extra={"permanent": exc.permanent, "status_code": exc.status_code},
             )
-        return await self._firestore_flag_notification(
+        await self._firestore_flag_notification(
             event_type="account_inactivity_warning",
             metadata={"email": email, "disable_in_days": disable_in_days},
         )
+        return False
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 

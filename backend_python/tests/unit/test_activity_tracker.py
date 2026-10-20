@@ -38,6 +38,33 @@ async def test_touch_makes_the_users_sessions_permanent():
         assert "expireAt" not in db.get_data("sessions", sid, "messages", "m0")
 
 
+async def test_a_returning_user_gets_a_fresh_warning_cycle():
+    # Warned at 12 months, back at 12.5: the next inactivity period must start
+    # with a new warning, not with a disable based on the old one.
+    db = FakeDb()
+    db.put("users", "uid-1", {"last_active_at": EXPIRY - timedelta(days=400), "lifecycle_warned_at": EXPIRY})
+
+    with patch.object(activity_tracker, "get_async_firestore_client", return_value=db):
+        await activity_tracker.touch_last_active("uid-1")
+
+    user = db.get_data("users", "uid-1")
+    assert "lifecycle_warned_at" not in user
+    assert user["last_active_at"] > EXPIRY - timedelta(days=400)
+
+
+async def test_a_user_reactivated_by_support_loses_the_stale_disable_marker():
+    # Only an enabled account can authenticate: an old disabled_at would make a
+    # later lapse skip the disable and erase on the stale date.
+    db = FakeDb()
+    db.put("users", "uid-1", {"last_active_at": EXPIRY - timedelta(days=500),
+                              "lifecycle_warned_at": EXPIRY, "lifecycle_disabled_at": EXPIRY})
+
+    with patch.object(activity_tracker, "get_async_firestore_client", return_value=db):
+        await activity_tracker.touch_last_active("uid-1")
+
+    assert "lifecycle_disabled_at" not in db.get_data("users", "uid-1")
+
+
 async def test_touch_is_debounced():
     db = _db_with_marked_sessions()
 

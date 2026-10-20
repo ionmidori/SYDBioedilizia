@@ -31,6 +31,14 @@ class FakeDocRef:
     def collection(self, name: str) -> FakeCollection:
         return FakeCollection(self._db, (*self.path, name))
 
+    async def collections(self):
+        """Subcollections holding at least one document — found even when this
+        document itself does not exist (Firestore keeps orphaned subcollections)."""
+        depth = len(self.path)
+        names = sorted({p[depth] for p in self._db.docs if len(p) > depth + 1 and p[:depth] == self.path})
+        for name in names:
+            yield self.collection(name)
+
     @property
     def reference(self) -> FakeDocRef:
         return self
@@ -89,6 +97,18 @@ class FakeCollection:
     def parent(self) -> FakeDocRef | None:
         return FakeDocRef(self._db, self.path[:-1]) if len(self.path) > 1 else None
 
+    @property
+    def id(self) -> str:
+        return self.path[-1]
+
+    async def list_documents(self):
+        """References of every document id in this collection, including "missing"
+        documents that only have subcollections (like Firestore's list_documents)."""
+        depth = len(self.path)
+        ids = sorted({p[depth] for p in self._db.docs if len(p) > depth and p[:depth] == self.path})
+        for doc_id in ids:
+            yield self.document(doc_id)
+
     async def add(self, data: dict[str, Any]) -> tuple[None, FakeDocRef]:
         ref = self.document()
         self._db.docs[ref.path] = copy.deepcopy(data)
@@ -106,15 +126,30 @@ class FakeCollection:
 
     def _matches(self, data: dict[str, Any]) -> bool:
         for field, op, value in self._filters:
-            actual = data.get(field)
-            if op == "==" and actual != value:
-                return False
-            if op == "<=" and (actual is None or actual > value):
-                return False
-            if op == ">=" and (actual is None or actual < value):
-                return False
-            if op == "in" and actual not in value:
-                return False
+            # Like Firestore: a document WITHOUT the field never matches a filter
+            # on it — not even `== None` (which matches only an explicit null).
+            # Dotted paths reach into maps ("metadata.email").
+            node: Any = data
+            for part in field.split("."):
+                if not isinstance(node, dict) or part not in node:
+                    return False
+                node = node[part]
+            actual = node
+            if op == "==":
+                if actual != value:
+                    return False
+            elif op == "<=":
+                if actual is None or actual > value:
+                    return False
+            elif op == ">=":
+                if actual is None or actual < value:
+                    return False
+            elif op == "in":
+                if actual not in value:
+                    return False
+            else:
+                # Never silently match everything on an operator the fake lacks.
+                raise NotImplementedError(f"FakeCollection.where: operator {op!r} not supported")
         return True
 
     def select(self, _fields: list[str]) -> FakeCollection:
@@ -192,9 +227,11 @@ class FakeDb:
         return FakeBatch(self)
 
     def apply_set(self, path: tuple[str, ...], data: dict[str, Any], *, merge: bool) -> None:
-        if merge and path in self.docs:
+        if merge:
+            # Merge creates a missing document; DELETE_FIELD on an absent field is a no-op.
+            target = self.docs.setdefault(path, {})
             for key, value in data.items():
-                _set_dotted(self.docs[path], key, copy.deepcopy(value))
+                _set_dotted(target, key, copy.deepcopy(value))
         else:
             # A plain set() cannot carry DELETE_FIELD (the real client rejects it).
             if any(isinstance(v, type(DELETE_FIELD)) for v in data.values()):
@@ -281,3 +318,29 @@ class FakeTransaction:
         doc = self._db.docs[ref.path]
         for key, value in data.items():
             _set_dotted(doc, key, copy.deepcopy(value))
+
+
+class FakeBlob:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class FakeBucket:
+    """Storage bucket double: `list_blobs(prefix=)` / `delete_blobs()`.
+
+    `fail_on` makes listing a prefix starting with that string raise, to test
+    fail-closed paths.
+    """
+
+    def __init__(self, names: list[str] | None = None, fail_on: str | None = None) -> None:
+        self.names: set[str] = set(names or [])
+        self.fail_on = fail_on
+
+    def list_blobs(self, prefix: str = "") -> list[FakeBlob]:
+        if self.fail_on is not None and prefix.startswith(self.fail_on):
+            raise RuntimeError(f"storage unavailable for {prefix}")
+        return [FakeBlob(n) for n in sorted(self.names) if n.startswith(prefix)]
+
+    def delete_blobs(self, blobs: list[FakeBlob]) -> None:
+        for blob in blobs:
+            self.names.discard(blob.name)
