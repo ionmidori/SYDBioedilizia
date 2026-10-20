@@ -89,7 +89,9 @@ def _bucket(*extra: str) -> FakeBucket:
 
 
 def _service(db: FakeDb, bucket: FakeBucket, auth: FakeAuth | None = None) -> UserErasureService:
-    return UserErasureService(db=db, bucket=bucket, auth=auth or FakeAuth(), now=lambda: NOW)
+    # Default: the account was disabled by lifecycle phase 2, as in production
+    # (an inactivity erasure of an ENABLED account is cancelled).
+    return UserErasureService(db=db, bucket=bucket, auth=auth or FakeAuth(account_disabled=True), now=lambda: NOW)
 
 
 def _remaining_paths(db: FakeDb) -> set[tuple[str, ...]]:
@@ -209,7 +211,7 @@ async def test_a_quote_sent_to_the_client_is_kept_intact_with_its_pdf():
 # ── Resumption ───────────────────────────────────────────────────────────────
 
 async def test_a_failed_step_is_resumed_without_redoing_the_finished_ones():
-    db, auth = FakeDb(), FakeAuth()
+    db, auth = FakeDb(), FakeAuth(account_disabled=True)
     _seed_user(db)
     broken = _bucket()
     broken.fail_on = "renders/"
@@ -311,7 +313,7 @@ async def test_a_pending_inactivity_erasure_is_cancelled_when_support_reenabled_
 
 
 async def test_a_cancelled_erasure_starts_over_when_the_user_lapses_again():
-    db, auth = FakeDb(), FakeAuth()
+    db, auth = FakeDb(), FakeAuth(account_disabled=True)
     _seed_user(db)
     db.put("erasure_jobs", "u1", {**_failed_inactivity_job(["auth_disable", "legal_hold", "email_outbox"]),
                                   "status": "cancelled"})
@@ -321,6 +323,53 @@ async def test_a_cancelled_erasure_starts_over_when_the_user_lapses_again():
     assert report.status is ErasureStatus.COMPLETED
     assert auth.disabled == ["u1"]  # step re-run, not skipped from the old job
     assert report.completed_steps[:3] == ["auth_disable", "legal_hold", "email_outbox"]
+
+
+async def test_a_fresh_inactivity_erasure_never_touches_an_account_support_reenabled():
+    # Phase 2 disabled the account; support re-enabled it; the user has not
+    # logged in, so the profile still says "disabled". A FRESH erasure must not
+    # disable the account again and erase it.
+    db, auth = FakeDb(), FakeAuth(account_disabled=False)
+    _seed_user(db)
+
+    report = await _service(db, _bucket(), auth).erase("u1", ErasureMode.INACTIVITY, requested_by="lifecycle")
+
+    assert report.status is ErasureStatus.CANCELLED
+    assert auth.disabled == []
+    assert db.get_data("sessions", "p1", "messages", "m1") is not None
+
+
+async def test_a_restart_after_cancel_keeps_the_projects_found_before():
+    # The cancelled run already erased the lead that was the only pointer to a
+    # legacy ownerless projection: the restart must still reach it.
+    db = FakeDb()
+    _seed_user(db)
+    db.put("projects", "legacy", {"name": "Cucina in via Verdi 3"})
+    db.put("erasure_jobs", "u1", {**_failed_inactivity_job(["auth_disable", "legal_hold", "email_outbox", "leads"]),
+                                  "status": "cancelled", "project_ids": ["legacy", "p1"]})
+
+    report = await _service(db, _bucket()).erase("u1", ErasureMode.INACTIVITY, requested_by="lifecycle")
+
+    assert report.status is ErasureStatus.COMPLETED
+    assert db.get_data("projects", "legacy") is None
+
+
+async def test_cancelling_for_a_reenabled_account_restarts_the_cycle_cleanly():
+    # Support re-enabled the account but the user did not log in: the stale
+    # markers would otherwise re-trigger (and re-cancel) phase 3 on every run,
+    # without the user ever getting a new warning.
+    db = FakeDb()
+    _seed_user(db)
+    db.put("erasure_jobs", "u1", _failed_inactivity_job(["auth_disable"]))
+
+    await _service(db, _bucket(), FakeAuth(account_disabled=False)).erase(
+        "u1", ErasureMode.INACTIVITY, requested_by="lifecycle"
+    )
+
+    profile = db.get_data("users", "u1")
+    assert "lifecycle_disabled_at" not in profile
+    assert "lifecycle_warned_at" not in profile
+    assert profile["last_active_at"] == NOW - timedelta(days=800)  # untouched: the new cycle starts from it
 
 
 async def test_an_erasure_request_is_never_cancelled():

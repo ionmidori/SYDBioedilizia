@@ -18,7 +18,7 @@ from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
-from google.cloud.firestore_v1 import async_transactional
+from google.cloud.firestore_v1 import DELETE_FIELD, async_transactional
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from src.core.exceptions import ErasureInProgressError
@@ -88,8 +88,14 @@ class UserErasureService:
             if job.get("status") == ErasureStatus.RUNNING and lease_until is not None and lease_until > now:
                 raise ErasureInProgressError()
             if job.get("status") == ErasureStatus.CANCELLED:
-                # A new lapse is a new erasure: nothing of the cancelled run is reused.
-                job = {"created_at": job.get("created_at"), "attempts": job.get("attempts")}
+                # A new lapse is a new erasure: every step runs again. The project
+                # ids are kept — the cancelled run may have erased the pointers
+                # (leads, batches) that were the only way to find some of them.
+                job = {
+                    "created_at": job.get("created_at"),
+                    "attempts": job.get("attempts"),
+                    "project_ids": job.get("project_ids") or [],
+                }
             # A deletion request upgrades a pending inactivity erasure, never the reverse.
             upgraded = ErasureMode.ACCOUNT_DELETION in (mode, job.get("mode"))
             job = {
@@ -167,17 +173,21 @@ class UserErasureService:
         return report
 
     async def _no_longer_inactive(self, uid: str, completed: list[str]) -> str | None:
-        """Why an inactivity erasure must not go on, re-checked at every (re)start:
-        a job can wait days for its resumption while the user comes back. None
-        if it still applies. An explicit erasure request is never re-checked."""
+        """Why an inactivity erasure must not go on, checked at every start and
+        resumption (a job can wait days while the user comes back). None if it
+        still applies. An explicit erasure request is never re-checked.
+
+        An inactivity erasure only ever applies to an account the lifecycle
+        DISABLED: an enabled one means support re-enabled it — even if the user
+        has not logged in yet and the profile still says disabled.
+        """
         if "user_profile" not in completed:
             snapshot = await self._db.collection("users").document(uid).get()
             profile = (snapshot.to_dict() or {}) if snapshot.exists else {}
             if profile.get("lifecycle_disabled_at") is None:
                 return "user_active_again"  # the activity tracker cleared the marker
-        if "auth_disable" in completed and "auth_delete" not in completed:
-            if await self._auth.is_disabled(uid) is False:
-                return "account_reenabled"  # support re-enabled the account
+        if "auth_delete" not in completed and await self._auth.is_disabled(uid) is False:
+            return "account_reenabled"
         return None
 
     async def _cancel(
@@ -186,6 +196,12 @@ class UserErasureService:
     ) -> ErasureReport:
         logger.warning("[Erasure] Inactivity erasure cancelled: the user is active again",
                        extra={"reason": reason})
+        if reason == "account_reenabled" and "user_profile" not in completed:
+            # The stale markers would re-trigger (and re-cancel) phase 3 on every
+            # run, and the user would never get a new warning: restart the cycle.
+            profile_ref = self._db.collection("users").document(uid)
+            if (await profile_ref.get()).exists:
+                await profile_ref.update({"lifecycle_warned_at": DELETE_FIELD, "lifecycle_disabled_at": DELETE_FIELD})
         await self._job_ref(uid).update({
             "status": ErasureStatus.CANCELLED.value, "lease_until": None,
             "cancel_reason": reason, "updated_at": self._now(),
