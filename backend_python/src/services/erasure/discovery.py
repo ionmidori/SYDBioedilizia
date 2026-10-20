@@ -7,18 +7,22 @@ Sources, because no single field is reliable on its own:
 - `quote_batches.projects[].project_id` — projects sent together in a batch;
 - `leads.session_id` — legacy quote requests.
 
-The last two are only POINTERS (legacy leads were never validated): a project
-they name is erased only if it does not belong to another user — one bad
-reference must never erase someone else's data. Owned projects and ownerless /
-guest ones (a lead written while the user chatted as a guest) qualify.
+Plus the ids a previous run of the same erasure found (`known`): the service
+persists the scope before deleting anything, so a resumed job still reaches
+projects whose owner documents — or the pointers to them — were already erased.
 
-The erasure service persists the result before deleting anything and merges
-it with every later discovery, so a resumed job still reaches projects whose
-owner documents a previous run already deleted.
+One rule decides the scope, on every run and for every candidate: a project is
+in scope only if neither its session nor its projection names ANOTHER real
+owner. Owned, ownerless and guest projects (a lead written while the user
+chatted as a guest) qualify. Pointers are unverified (legacy leads were never
+validated) and ownership changes over time (`claim_project` hands a guest
+project to whoever claims it), so neither a reference nor a past run's verdict
+is trusted: one stale or forged id must never erase someone else's data.
 """
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import Any
 
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -59,20 +63,22 @@ async def _referenced_project_ids(db: Any, uid: str) -> set[str]:
     return refs
 
 
-async def discover_project_ids(db: Any, uid: str) -> set[str]:
-    ids: set[str] = set()
+async def discover_project_ids(db: Any, uid: str, *, known: Iterable[str] = ()) -> set[str]:
+    """The projects to erase for `uid` as of NOW. Call it at the start of every
+    run, right before the steps: the scope is only as fresh as this check."""
+    candidates = set(known) | await _referenced_project_ids(db, uid)
     for collection, field in _OWNER_FIELDS:
         query = db.collection(collection).where(filter=FieldFilter(field, "==", uid)).select([])
         async for snap in query.stream():
-            ids.add(snap.id)
+            candidates.add(snap.id)
 
-    for pid in await _referenced_project_ids(db, uid) - ids:
+    ids: set[str] = set()
+    for pid in sorted(candidates):
         if not is_safe_id(pid):
             # Not an id our code creates; a "/" would even address another document.
             logger.warning("[Erasure] Ignoring a malformed project reference")
         elif await _not_someone_elses(db, pid, uid):
             ids.add(pid)
         else:
-            logger.warning("[Erasure] Ignoring a reference to a project owned by another user", extra={"project_id": pid})
-
+            logger.warning("[Erasure] Ignoring a project owned by another user", extra={"project_id": pid})
     return ids

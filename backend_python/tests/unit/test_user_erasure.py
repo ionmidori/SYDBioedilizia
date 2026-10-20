@@ -354,6 +354,26 @@ async def test_a_restart_after_cancel_keeps_the_projects_found_before():
     assert db.get_data("projects", "legacy") is None
 
 
+@pytest.mark.parametrize("status", ["failed", "cancelled"])
+async def test_saved_project_ids_are_reverified_before_every_run(status):
+    # Saved when the guest project was still the user's; since then another
+    # user claimed it. A later run must not erase the new owner's project.
+    db = FakeDb()
+    _seed_user(db)
+    db.put("sessions", "claimed", {"userId": "u2", "title": "Ora di u2"})
+    db.put("projects", "claimed", {"userId": "u2"})
+    db.put("erasure_jobs", "u1", {**_failed_inactivity_job([]), "status": status,
+                                  "project_ids": ["claimed", "p1"]})
+
+    report = await _service(db, _bucket()).erase("u1", ErasureMode.INACTIVITY, requested_by="lifecycle")
+
+    assert report.status is ErasureStatus.COMPLETED
+    assert db.get_data("sessions", "claimed") == {"userId": "u2", "title": "Ora di u2"}
+    assert db.get_data("projects", "claimed") == {"userId": "u2"}
+    assert "claimed" not in db.get_data("erasure_jobs", "u1")["project_ids"]
+    assert db.get_data("sessions", "p1") is None
+
+
 async def test_cancelling_for_a_reenabled_account_restarts_the_cycle_cleanly():
     # Support re-enabled the account but the user did not log in: the stale
     # markers would otherwise re-trigger (and re-cancel) phase 3 on every run,
@@ -551,7 +571,7 @@ async def test_pending_notifications_holding_the_users_email_are_erased():
 
 
 async def test_a_failure_before_the_first_step_is_a_resumable_failure(_audit, monkeypatch):
-    async def broken_discovery(db, uid):
+    async def broken_discovery(db, uid, *, known):
         raise RuntimeError("firestore down")
 
     monkeypatch.setattr(erasure_service, "discover_project_ids", broken_discovery)

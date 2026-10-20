@@ -89,8 +89,9 @@ class UserErasureService:
                 raise ErasureInProgressError()
             if job.get("status") == ErasureStatus.CANCELLED:
                 # A new lapse is a new erasure: every step runs again. The project
-                # ids are kept — the cancelled run may have erased the pointers
-                # (leads, batches) that were the only way to find some of them.
+                # ids are kept (discovery re-verifies them) — the cancelled run may
+                # have erased the pointers (leads, batches) that were the only way
+                # to find some of them.
                 job = {
                     "created_at": job.get("created_at"),
                     "attempts": job.get("attempts"),
@@ -135,8 +136,9 @@ class UserErasureService:
                 if reason is not None:
                     return await self._cancel(uid, job_mode, completed, counts, reason, requested_by)
             stage = "discovery"
-            # Saved before anything is deleted: the discovery sources are erased too.
-            project_ids = sorted(set(job["project_ids"]) | await discover_project_ids(self._db, uid))
+            # Re-verified on every run (a saved id may have changed owner since) and
+            # saved before anything is deleted: the discovery sources are erased too.
+            project_ids = sorted(await discover_project_ids(self._db, uid, known=job["project_ids"]))
             await self._job_ref(uid).update({"project_ids": project_ids, "updated_at": self._now()})
             ctx = ErasureContext(
                 db=self._db, bucket=self._bucket, auth=self._auth, uid=uid,
