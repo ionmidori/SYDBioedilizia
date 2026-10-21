@@ -35,7 +35,7 @@ interface AuthDialogProps {
 }
 
 export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthDialogProps) {
-    const { loginWithGoogle, loginWithApple, user } = useAuth();
+    const { loginWithGoogle, user } = useAuth();
     const router = useRouter();
 
     // Modern State Management
@@ -101,27 +101,23 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
 
     // Phones / PWA / in-app browsers may leave for the provider (redirect): the
     // claim and the dashboard redirect then complete in AuthProvider on return.
-    const handleSocialSignIn = async (kind: 'google' | 'apple') => {
+    const handleGoogleSignIn = async () => {
         if (loading) return;
-        setLoading(kind);
+        setLoading('google');
         try {
-            const login = kind === 'google' ? loginWithGoogle : loginWithApple;
-            const outcome = await login({ redirectTo: redirectOnLogin ? '/dashboard' : undefined });
+            const outcome = await loginWithGoogle({ redirectTo: redirectOnLogin ? '/dashboard' : undefined });
             if (outcome === 'redirecting') return;
             await handleLoginSuccess();
         } catch (error) {
             const code = (error as { code?: string })?.code ?? 'unknown';
             if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
-                console.error(`[AuthDialog] ${kind} login failed:`, code, error);
+                console.error('[AuthDialog] Google login failed:', code, error);
                 alert(mapAuthError(code));
             }
         } finally {
             setLoading(null);
         }
     };
-
-    const handleGoogleSignIn = () => handleSocialSignIn('google');
-    const handleAppleSignIn = () => handleSocialSignIn('apple');
 
     const isDesktop = useMediaQuery('(min-width: 768px)');
 
@@ -222,13 +218,6 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
                                                 loading={loading === 'google'}
                                                 disabled={loading !== null}
                                                 className="h-14 bg-slate-800/50 border-white/5 hover:bg-slate-800 text-white hover:scale-[1.01] transition-transform duration-200"
-                                            />
-                                            <ProviderButton
-                                                provider="apple"
-                                                onClick={handleAppleSignIn}
-                                                loading={loading === 'apple'}
-                                                disabled={loading !== null}
-                                                className="h-14 bg-white/5 border-white/5 hover:bg-white/10 text-white hover:scale-[1.01] transition-transform duration-200"
                                             />
                                         </div>
 

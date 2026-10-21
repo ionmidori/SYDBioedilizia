@@ -1,7 +1,7 @@
 /**
  * Social login on phones: popup vs redirect.
  *
- * Apple/Google sign-in used only signInWithPopup. Popups fail on in-app browsers
+ * Google sign-in used only signInWithPopup. Popups fail on in-app browsers
  * (Instagram, Gmail…) and in the installed PWA, and on iOS the failure often
  * surfaces as `auth/popup-closed-by-user`, which the dialog ignored: the user
  * saw nothing. signInWithRedirect is Firebase's answer for those environments,

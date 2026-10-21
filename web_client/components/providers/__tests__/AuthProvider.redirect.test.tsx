@@ -12,7 +12,6 @@ jest.mock('firebase/auth', () => ({
     signInWithRedirect: jest.fn(),
     getRedirectResult: jest.fn(),
     GoogleAuthProvider: jest.fn(),
-    OAuthProvider: jest.fn().mockImplementation(() => ({ addScope: jest.fn() })),
     signOut: jest.fn(),
     sendSignInLinkToEmail: jest.fn(),
     isSignInWithEmailLink: jest.fn(),
@@ -78,7 +77,7 @@ describe('social login: popup or redirect', () => {
     it('keeps the popup on desktop', async () => {
         mockPopup.mockResolvedValue({});
         const ctx = await renderAuthReady();
-        await expect(ctx().loginWithApple()).resolves.toBe('done');
+        await expect(ctx().loginWithGoogle()).resolves.toBe('done');
         expect(mockRedirect).not.toHaveBeenCalled();
     });
 
@@ -87,7 +86,7 @@ describe('social login: popup or redirect', () => {
         localStorage.setItem('chatSessionId', 'guest-1');
         const ctx = await renderAuthReady();
 
-        await expect(ctx().loginWithApple({ redirectTo: '/dashboard' })).resolves.toBe('redirecting');
+        await expect(ctx().loginWithGoogle({ redirectTo: '/dashboard' })).resolves.toBe('redirecting');
 
         expect(mockPopup).not.toHaveBeenCalled();
         expect(mockRedirect).toHaveBeenCalled();
@@ -98,7 +97,7 @@ describe('social login: popup or redirect', () => {
         mockCanRedirect.mockReturnValue(true);
         mockPopup.mockRejectedValue({ code: 'auth/operation-not-supported-in-this-environment' });
         const ctx = await renderAuthReady();
-        await expect(ctx().loginWithApple()).resolves.toBe('redirecting');
+        await expect(ctx().loginWithGoogle()).resolves.toBe('redirecting');
         expect(mockRedirect).toHaveBeenCalled();
     });
 
@@ -119,7 +118,7 @@ describe('completeRedirectLogin', () => {
     it('claims the guest chat for the account that came back', async () => {
         redirectLogin.savePendingRedirect({ guestSessionId: 'guest-1', redirectTo: null });
         localStorage.setItem('chatSessionId', 'guest-1');
-        mockGetRedirectResult.mockResolvedValue({ user: { uid: 'apple-uid' } });
+        mockGetRedirectResult.mockResolvedValue({ user: { uid: 'google-uid' } });
         mockClaim.mockResolvedValue({});
 
         await completeRedirectLogin();
