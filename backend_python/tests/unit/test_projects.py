@@ -281,11 +281,12 @@ class TestProjectDbOperations:
         assert db.get_data("sessions", "s1", "messages", "m1")["expireAt"] == expiry
 
     @pytest.mark.asyncio
-    async def test_soft_delete_schedules_the_messages_with_the_project(self):
-        """GIVEN a registered project whose messages carry no expireAt
+    async def test_soft_delete_bins_the_project_for_the_retention_job(self):
+        """GIVEN a registered project
         WHEN it is soft-deleted
-        THEN every message gets the same purge time as the session (Firestore
-        TTL does not cascade to subcollections)
+        THEN session and projection are marked deleted (hidden at once) and no
+        expiry is written: the retention job erases the whole project, trees and
+        Storage, 30 days after `deleted_at` — the Firestore TTL never cascaded
         """
         from src.db import projects as projects_db
         from tests.unit.firestore_fakes import FakeDb
@@ -294,17 +295,16 @@ class TestProjectDbOperations:
         db.put("sessions", "s1", {"userId": "u1"})
         db.put("projects", "s1", {"userId": "u1"})
         db.put("sessions", "s1", "messages", "m1", {"content": "a"})
-        db.put("sessions", "s1", "messages", "m2", {"content": "b"})
 
         with patch("src.db.projects.deletion.get_async_firestore_client", return_value=db):
             assert await projects_db.soft_delete_project("s1", "u1") is True
 
         session = db.get_data("sessions", "s1")
-        assert session["is_deleted"] is True
-        purge_at = session["expireAt"]
-        assert db.get_data("projects", "s1")["expireAt"] == purge_at
-        for msg_id in ("m1", "m2"):
-            assert db.get_data("sessions", "s1", "messages", msg_id)["expireAt"] == purge_at
+        projection = db.get_data("projects", "s1")
+        assert session["is_deleted"] is True and projection["is_deleted"] is True
+        assert session["deleted_at"] == projection["deleted_at"]
+        assert "expireAt" not in session and "expireAt" not in projection
+        assert db.get_data("sessions", "s1", "messages", "m1") == {"content": "a"}
 
     @pytest.mark.asyncio
     async def test_count_user_projects_excludes_deleted(self):
@@ -468,47 +468,4 @@ class TestProjectsFailClosed:
             record.levelno == logging.WARNING and "project-abc" in record.getMessage()
             for record in caplog.records
         ), "Expected a warning naming the project whose quote lookup failed"
-
-    @pytest.mark.asyncio
-    async def test_delete_project_fails_closed_when_storage_cleanup_fails(self):
-        """GIVEN the Storage blob cleanup fails during a hard delete
-        WHEN delete_project is called
-        THEN it must return False AND leave the project document in place.
-
-        Reporting True would mark a GDPR erasure as complete while orphaned blobs
-        survive on GCS; keeping the document makes the purge retryable.
-        """
-        from src.db import projects as projects_db
-
-        mock_doc = MagicMock()
-        mock_doc.exists = True
-        mock_doc.to_dict.return_value = {"userId": "user-123"}
-
-        mock_doc_ref = MagicMock()
-        mock_doc_ref.get = AsyncMock(return_value=mock_doc)
-        mock_doc_ref.delete = AsyncMock()
-
-        mock_frontend_ref = MagicMock()
-        mock_frontend_ref.delete = AsyncMock()
-
-        mock_sessions_col = MagicMock()
-        mock_sessions_col.document.return_value = mock_doc_ref
-        mock_frontend_col = MagicMock()
-        mock_frontend_col.document.return_value = mock_frontend_ref
-
-        mock_db = MagicMock()
-        mock_db.collection.side_effect = lambda name: (
-            mock_frontend_col if name == "projects" else mock_sessions_col
-        )
-
-        with (
-            patch('src.db.projects.deletion.get_async_firestore_client', return_value=mock_db),
-            patch('src.db.projects.deletion._delete_collection_batch', AsyncMock()),
-            patch('src.db.projects.deletion.get_storage_client', side_effect=Exception("storage down")),
-        ):
-            result = await projects_db.delete_project("project-abc", "user-123")
-
-        assert result is False, "A partial hard-delete must not report success"
-        # The project doc must survive so the purge can be retried
-        mock_doc_ref.delete.assert_not_awaited()
 

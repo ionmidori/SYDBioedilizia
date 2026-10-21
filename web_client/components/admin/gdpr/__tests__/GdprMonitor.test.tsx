@@ -18,6 +18,12 @@ const STATUS = {
   scheduler_secret_configured: true,
 };
 
+const RETENTION = {
+  orphans_applied: true, guest_sessions: 0, deleted_projects: 0, expired_holds: 0, orphans: 0,
+  orphans_kept: 0, made_permanent: 0, truncated: false,
+};
+const RESULT = { status: 'ok', warned: 0, disabled: 0, anonymized: 0, errors: [] as string[], retention: null };
+
 const run = { mutate: jest.fn(), reset: jest.fn(), isPending: false, error: null as unknown, data: undefined as unknown };
 
 function setup(overrides: Record<string, unknown> = {}) {
@@ -50,18 +56,50 @@ describe('GdprMonitor', () => {
     render(<GdprMonitor />);
     fireEvent.click(screen.getByTestId('gdpr-run'));
     expect(run.mutate).not.toHaveBeenCalled();
-    expect(screen.getByRole('dialog')).toHaveTextContent('non si può annullare');
+    expect(screen.getByRole('dialog')).toHaveTextContent('non si possono annullare');
     fireEvent.click(screen.getByTestId('gdpr-confirm'));
     expect(run.mutate).toHaveBeenCalledTimes(1);
   });
 
   it('shows the outcome per phase and the (sanitised) errors', () => {
-    setup({ data: { status: 'partial_errors', warned: 3, disabled: 1, anonymized: 0, errors: ['warn: 2 errori (dettagli nei log del server)'] } });
+    setup({ data: { ...RESULT, status: 'partial_errors', warned: 3, disabled: 1, errors: ['warn: 2 errori (dettagli nei log del server)'] } });
     render(<GdprMonitor />);
     const result = screen.getByTestId('gdpr-result');
     expect(result).toHaveTextContent('errori parziali');
     expect(result).toHaveTextContent('3');
     expect(screen.getByTestId('gdpr-errors')).toHaveTextContent('warn: 2 errori');
+  });
+
+  it('shows what the retention phase erased', () => {
+    setup({ data: { ...RESULT, retention: { ...RETENTION, guest_sessions: 7, orphans: 2 } } });
+    render(<GdprMonitor />);
+    const retention = screen.getByTestId('gdpr-retention');
+    expect(retention).toHaveTextContent('Sessioni ospite');
+    expect(retention).toHaveTextContent('7');
+    expect(retention).not.toHaveTextContent('Simulazione');
+  });
+
+  it('makes clear that orphans are only counted while their purge is off', () => {
+    setup({ data: { ...RESULT, retention: { ...RETENTION, orphans_applied: false, orphans: 36, orphans_kept: 2, truncated: true } } });
+    render(<GdprMonitor />);
+    const retention = screen.getByTestId('gdpr-retention');
+    expect(retention).toHaveTextContent('Residui orfani: solo conteggiati');
+    expect(retention).toHaveTextContent('36');
+    expect(retention).toHaveTextContent('2 residui di account registrati');
+    expect(retention).toHaveTextContent('prossima esecuzione');
+  });
+
+  it('says when the retention phase failed', () => {
+    setup({ data: { ...RESULT, status: 'partial_errors', errors: ['retention: 1 errori (dettagli nei log del server)'] } });
+    render(<GdprMonitor />);
+    expect(screen.getByTestId('gdpr-retention')).toHaveTextContent('non è stata eseguita');
+  });
+
+  it('shows no retention section when the backend did not report one and nothing failed', () => {
+    // A backend older than this page (during a release) sends no summary: not an error.
+    setup({ data: RESULT });
+    render(<GdprMonitor />);
+    expect(screen.queryByTestId('gdpr-retention')).not.toBeInTheDocument();
   });
 
   it('tells the admin that a pass is already running', () => {

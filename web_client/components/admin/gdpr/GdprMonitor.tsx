@@ -6,11 +6,63 @@ import { Loader2, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { ErrorBanner } from '@/components/admin/dossier/ErrorBanner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useGdprStatus, useRunGdprLifecycle } from '@/hooks/admin/use-admin';
+import type { RetentionSummary } from '@/types/admin-content';
 
 /**
- * Account inactivity pipeline (GDPR). It runs by itself once a week; here an
- * admin can run it now. It really emails users, disables accounts and erases
- * personal data, so it asks for confirmation first.
+ * Outcome of the retention phase: data past its retention period, erased.
+ * Orphaned remains are only counted until their purge is switched on.
+ */
+function RetentionOutcome({ retention, failed }: { retention: RetentionSummary | null; failed: boolean }) {
+  if (!retention) {
+    // No summary and no retention error: a backend older than this page, nothing to report.
+    return failed ? (
+      <p className="text-sm text-amber-300" data-testid="gdpr-retention">
+        La pulizia dei dati scaduti non è stata eseguita (vedi errori).
+      </p>
+    ) : null;
+  }
+  return (
+    <div className="space-y-2" data-testid="gdpr-retention">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-luxury-gold">Pulizia dei dati scaduti</h3>
+      {!retention.orphans_applied && (
+        <p className="text-xs text-amber-300">
+          Residui orfani: solo conteggiati, non cancellati. La loro pulizia va attivata dopo aver verificato i numeri.
+        </p>
+      )}
+      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+        {(
+          [
+            ['Sessioni ospite (oltre 30 giorni)', retention.guest_sessions],
+            ['Progetti nel cestino (oltre 30 giorni)', retention.deleted_projects],
+            ['Residui orfani', retention.orphans],
+            ['Preventivi oltre i 10 anni', retention.expired_holds],
+          ] as const
+        ).map(([label, value]) => (
+          <div key={label} className="flex flex-col-reverse rounded-xl border border-white/10 py-2">
+            <dt className="text-xs text-luxury-text/60">{label}</dt>
+            <dd className="text-2xl font-semibold tabular-nums">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <ul className="space-y-1 text-xs text-luxury-text/60">
+        {retention.orphans_kept > 0 && (
+          <li>{retention.orphans_kept} residui di account registrati lasciati intatti.</li>
+        )}
+        {retention.made_permanent > 0 && (
+          <li>{retention.made_permanent} sessioni di utenti registrati con una scadenza da ospite: scadenza rimossa.</li>
+        )}
+        {retention.truncated && <li className="text-amber-300">Parziale: il resto alla prossima esecuzione.</li>}
+      </ul>
+    </div>
+  );
+}
+
+/**
+ * GDPR pipeline: account inactivity (warn, disable, anonymise) and the
+ * retention phase (expired guest sessions, the bin, orphaned remains, expired
+ * legal holds). It runs by itself once a week; here an admin can run it now.
+ * It really emails users, disables accounts and erases data, so it asks for
+ * confirmation first.
  */
 export function GdprMonitor() {
   const status = useGdprStatus();
@@ -24,7 +76,8 @@ export function GdprMonitor() {
           GDPR
         </h1>
         <p className="text-sm text-luxury-text/60">
-          Controllo automatico degli account inattivi. Parte da solo ogni domenica alle 03:00; qui puoi farlo partire subito.
+          Controllo automatico degli account inattivi e pulizia dei dati scaduti. Parte da solo ogni domenica alle 03:00;
+          qui puoi farlo partire subito.
         </p>
       </div>
 
@@ -93,6 +146,10 @@ export function GdprMonitor() {
                   </div>
                 ))}
               </dl>
+              <RetentionOutcome
+                retention={run.data.retention}
+                failed={run.data.errors.some((message) => message.startsWith('retention'))}
+              />
               {run.data.errors.length > 0 && (
                 <ul className="space-y-1 text-sm text-amber-300" data-testid="gdpr-errors">
                   {run.data.errors.map((message) => (
@@ -113,7 +170,8 @@ export function GdprMonitor() {
             <DialogTitle>Eseguire il controllo ora?</DialogTitle>
             <DialogDescription>
               Gli utenti inattivi riceveranno l&apos;email di avviso, gli account oltre la soglia saranno disabilitati e i dati
-              personali dopo 24 mesi saranno anonimizzati. L&apos;anonimizzazione non si può annullare.
+              personali dopo 24 mesi saranno anonimizzati; i dati scaduti (sessioni ospite e cestino oltre 30 giorni,
+              preventivi oltre i 10 anni) saranno eliminati. Anonimizzazione ed eliminazione non si possono annullare.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">

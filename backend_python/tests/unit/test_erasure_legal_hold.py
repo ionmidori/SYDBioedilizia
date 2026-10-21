@@ -5,11 +5,13 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from src.services.erasure.legal_hold import (
     SENT_QUOTE_RETENTION,
+    expired_holds,
     find_held_quotes,
     is_sent,
     mark_legal_hold,
+    release_hold,
 )
-from tests.unit.firestore_fakes import FakeDb
+from tests.unit.firestore_fakes import FakeBucket, FakeDb
 
 NOW = datetime(2026, 10, 17, 9, 0, tzinfo=UTC)
 SENT = datetime(2026, 3, 1, 10, 0, tzinfo=UTC)
@@ -100,3 +102,110 @@ class TestMarkLegalHold:
             "retain_until": SENT + SENT_QUOTE_RETENTION,
         }
         assert quote["status"] == "approved"  # nothing else touched
+
+    async def test_registers_the_hold_where_the_retention_job_finds_it(self):
+        # The project document is gone by then: the registry is the index of
+        # everything kept, and until when.
+        db = FakeDb()
+        _quote(db, sent_at=SENT, pdf_blob_path=PDF)
+        [held] = await find_held_quotes(db, "p1", now=NOW)
+
+        await mark_legal_hold(db, "p1", held, now=NOW)
+
+        assert db.get_data("legal_holds", "p1:quote") == {
+            "project_id": "p1",
+            "quote_id": "quote",
+            "reason": "preventivo_inviato",
+            "since": NOW,
+            "retain_until": SENT + SENT_QUOTE_RETENTION,
+            "blob_paths": [PDF],
+        }
+
+    async def test_marking_again_keeps_the_original_start(self):
+        db = FakeDb()
+        _quote(db, sent_at=SENT)
+        [held] = await find_held_quotes(db, "p1", now=NOW)
+        await mark_legal_hold(db, "p1", held, now=NOW)
+
+        [again] = await find_held_quotes(db, "p1", now=NOW + timedelta(days=7))
+        await mark_legal_hold(db, "p1", again, now=NOW + timedelta(days=7))
+
+        assert db.get_data("projects", "p1", "private_data", "quote")["legal_hold"]["since"] == NOW
+        assert db.get_data("legal_holds", "p1:quote")["since"] == NOW
+
+    async def test_an_undated_send_keeps_its_retention_end_when_marked_again(self):
+        # Sent (provider status) but no timestamp: the retention starts when first
+        # held, and must not slide forward on every later pass.
+        db = FakeDb()
+        _quote(db, delivery_status="delivered")
+        [held] = await find_held_quotes(db, "p1", now=NOW)
+        await mark_legal_hold(db, "p1", held, now=NOW)
+
+        [again] = await find_held_quotes(db, "p1", now=NOW + timedelta(days=7))
+        await mark_legal_hold(db, "p1", again, now=NOW + timedelta(days=7))
+
+        assert again.retain_until == NOW + SENT_QUOTE_RETENTION
+        assert db.get_data("legal_holds", "p1:quote")["retain_until"] == NOW + SENT_QUOTE_RETENTION
+
+
+PDF = "projects/p1/quotes/PRV-2026-0001_r1.pdf"
+EXPIRED = SENT + SENT_QUOTE_RETENTION + timedelta(days=1)
+
+
+async def _held_project(db: FakeDb, bucket: FakeBucket) -> None:
+    """What an erasure leaves of a project with a sent quote."""
+    _quote(db, sent_at=SENT, pdf_blob_path=PDF, client_snapshot={"email": "mario@example.it"})
+    db.put("projects", "p1", "private_data", "quote", "deliveries", "d1", {"sent_at": SENT, "pdf_blob_path": PDF})
+    db.put("projects", "p1", "private_data", "quote", "revisions", "1", {"items": []})
+    bucket.names.add(PDF)
+    [held] = await find_held_quotes(db, "p1", now=NOW)
+    await mark_legal_hold(db, "p1", held, now=NOW)
+
+
+class TestExpiredHolds:
+    async def test_a_running_hold_is_not_expired(self):
+        db, bucket = FakeDb(), FakeBucket()
+        await _held_project(db, bucket)
+
+        assert await expired_holds(db, now=NOW, limit=10) == []
+
+    async def test_a_hold_past_its_retention_is_listed(self):
+        db, bucket = FakeDb(), FakeBucket()
+        await _held_project(db, bucket)
+
+        [hold] = await expired_holds(db, now=EXPIRED, limit=10)
+
+        assert (hold.project_id, hold.quote_id, hold.blob_paths) == ("p1", "quote", (PDF,))
+
+    async def test_a_malformed_record_is_skipped_not_fatal(self):
+        db, bucket = FakeDb(), FakeBucket()
+        await _held_project(db, bucket)
+        db.put("legal_holds", "broken", {"retain_until": SENT})  # no project/quote id, sorts first
+
+        [hold] = await expired_holds(db, now=EXPIRED, limit=10)
+
+        assert (hold.project_id, hold.quote_id) == ("p1", "quote")
+
+    async def test_release_erases_the_quote_its_history_its_pdfs_and_the_record(self):
+        db, bucket = FakeDb(), FakeBucket(["projects/p2/quotes/other.pdf"])
+        await _held_project(db, bucket)
+        db.put("projects", "p2", "private_data", "quote", {"user_id": "u2"})
+        [hold] = await expired_holds(db, now=EXPIRED, limit=10)
+
+        await release_hold(db, bucket, hold)
+
+        assert [p for p in db.docs if p[:2] == ("projects", "p1")] == []
+        assert db.get_data("legal_holds", "p1:quote") is None
+        assert bucket.names == {"projects/p2/quotes/other.pdf"}
+        assert db.get_data("projects", "p2", "private_data", "quote") == {"user_id": "u2"}
+
+    async def test_release_is_idempotent(self):
+        db, bucket = FakeDb(), FakeBucket()
+        await _held_project(db, bucket)
+        [hold] = await expired_holds(db, now=EXPIRED, limit=10)
+        bucket.names.clear()  # an earlier, interrupted release already removed the PDF
+
+        await release_hold(db, bucket, hold)
+        await release_hold(db, bucket, hold)
+
+        assert db.get_data("legal_holds", "p1:quote") is None

@@ -23,10 +23,16 @@ from google.cloud.firestore_v1 import DELETE_FIELD
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from src.db.purge import delete_document_tree, delete_query, delete_storage_prefix
-from src.db.storage_paths import project_storage_prefixes, user_storage_prefixes
+from src.db.storage_paths import user_storage_prefixes
 from src.services.auth_gateway import AuthGateway
-from src.services.erasure.legal_hold import HeldQuote, find_held_quotes, mark_legal_hold
+from src.services.erasure.legal_hold import HeldQuote, find_held_quotes
 from src.services.erasure.models import ErasureMode
+from src.services.erasure.project_purge import (
+    hold_sent_quotes,
+    purge_project_storage,
+    purge_projection,
+    purge_session,
+)
 
 # Firestore `in` queries accept at most 30 values.
 _IN_LIMIT = 30
@@ -71,9 +77,7 @@ async def _auth_disable(ctx: ErasureContext) -> int:
 async def _legal_hold(ctx: ErasureContext) -> int:
     marked = 0
     for pid in ctx.project_ids:
-        for held in await ctx.held_quotes(pid):
-            await mark_legal_hold(ctx.db, pid, held, now=ctx.now)
-            marked += 1
+        marked += await hold_sent_quotes(ctx.db, pid, await ctx.held_quotes(pid), now=ctx.now)
     return marked
 
 
@@ -115,9 +119,7 @@ async def _testimonials(ctx: ErasureContext) -> int:
 async def _storage(ctx: ErasureContext) -> int:
     deleted = 0
     for pid in ctx.project_ids:
-        keep = frozenset().union(*(h.blob_paths for h in await ctx.held_quotes(pid)))
-        for prefix in project_storage_prefixes(pid):
-            deleted += await delete_storage_prefix(ctx.bucket, prefix, keep=keep)
+        deleted += await purge_project_storage(ctx.bucket, pid, await ctx.held_quotes(pid))
     for prefix in user_storage_prefixes(ctx.uid):
         deleted += await delete_storage_prefix(ctx.bucket, prefix)
     return deleted
@@ -127,20 +129,14 @@ async def _projects(ctx: ErasureContext) -> int:
     """`projects/{pid}` and everything under it, except quotes under legal hold."""
     deleted = 0
     for pid in ctx.project_ids:
-        held_ids = {h.doc_id for h in await ctx.held_quotes(pid)}
-
-        def keep(ref: Any, held_ids: set[str] = held_ids) -> bool:
-            return ref.parent.id == "private_data" and ref.id in held_ids
-
-        deleted += await delete_document_tree(ctx.db, ctx.db.collection("projects").document(pid), keep=keep)
+        deleted += await purge_projection(ctx.db, pid, await ctx.held_quotes(pid))
     return deleted
 
 
 async def _sessions(ctx: ErasureContext) -> int:
-    """`sessions/{pid}`: messages, files, feedback and the session itself."""
     deleted = 0
     for pid in ctx.project_ids:
-        deleted += await delete_document_tree(ctx.db, ctx.db.collection("sessions").document(pid))
+        deleted += await purge_session(ctx.db, pid)
     return deleted
 
 

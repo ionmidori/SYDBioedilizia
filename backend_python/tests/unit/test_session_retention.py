@@ -10,7 +10,6 @@ from src.db.session_retention import (
     BackfillReport,
     backfill_registered_sessions,
     clear_session_expiry,
-    expire_session_messages,
     expiry_fields,
     make_user_sessions_permanent,
 )
@@ -118,23 +117,6 @@ class TestClearSessionExpiry:
         await clear_session_expiry(db, "s1")
         assert await clear_session_expiry(db, "s1") == 0
         assert db.get_data("sessions", "s1") == {"userId": "u1", "title": "Cucina"}
-
-
-class TestExpireSessionMessages:
-    async def test_stamps_every_message_of_the_session(self):
-        # Firestore TTL does not cascade: each message needs its own expireAt to be
-        # purged together with a soft-deleted session.
-        db = FakeDb()
-        db.put("sessions", "s1", "messages", "m0", {"content": "a"})
-        db.put("sessions", "s1", "messages", "m1", {"content": "b", EXPIRE_AT: OLD_EXPIRY})
-        db.put("sessions", "other", "messages", "m0", {"content": "c"})
-        purge_at = NOW + timedelta(days=30)
-
-        assert await expire_session_messages(db, "s1", purge_at) == 2
-
-        assert db.get_data("sessions", "s1", "messages", "m0")[EXPIRE_AT] == purge_at
-        assert db.get_data("sessions", "s1", "messages", "m1")[EXPIRE_AT] == purge_at
-        assert EXPIRE_AT not in db.get_data("sessions", "other", "messages", "m0")
 
 
 class TestMakeUserSessionsPermanent:

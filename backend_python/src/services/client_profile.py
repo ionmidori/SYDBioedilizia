@@ -15,12 +15,11 @@ from firebase_admin import auth as fb_auth
 from starlette.concurrency import run_in_threadpool
 
 from src.db.firebase_client import get_async_firestore_client
+from src.db.ownership import is_guest_placeholder
 from src.schemas.quote import ClientSnapshot
 
 logger = logging.getLogger(__name__)
 # Logs carry no uid or contact data (CodeQL py/clear-text-logging).
-
-GUEST_UID_PREFIX = "guest_"
 
 
 @dataclass(frozen=True)
@@ -34,7 +33,7 @@ class ClientProfile:
 
 async def get_client_profile(uid: str) -> ClientProfile:
     """Resolve contact data for `uid`. Never raises; missing fields are ""."""
-    if not uid or uid.startswith(GUEST_UID_PREFIX):
+    if is_guest_placeholder(uid):
         return ClientProfile(is_guest=True)
 
     name = email = phone = ""

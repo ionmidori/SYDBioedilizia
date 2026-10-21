@@ -22,14 +22,16 @@ def _checked(value: str, kind: str) -> str:
     return value
 
 
-def project_storage_prefixes(project_id: str) -> tuple[str, ...]:
-    """Every Storage folder of a project (= chat session id).
+# The top-level folders that hold one sub-folder per project (= chat session id):
+# user-uploads/: chat photos and videos · projects/: dashboard uploads and
+# quote PDFs · renders/: generated renders · documents/: legacy documents.
+PROJECT_STORAGE_ROOTS = ("user-uploads/", "projects/", "renders/", "documents/")
 
-    user-uploads/: chat photos and videos · projects/: dashboard uploads and
-    quote PDFs · renders/: generated renders · documents/: legacy documents.
-    """
+
+def project_storage_prefixes(project_id: str) -> tuple[str, ...]:
+    """Every Storage folder of a project (= chat session id)."""
     pid = _checked(project_id, "project id")
-    return (f"user-uploads/{pid}/", f"projects/{pid}/", f"renders/{pid}/", f"documents/{pid}/")
+    return tuple(f"{root}{pid}/" for root in PROJECT_STORAGE_ROOTS)
 
 
 def user_storage_prefixes(uid: str) -> tuple[str, ...]:

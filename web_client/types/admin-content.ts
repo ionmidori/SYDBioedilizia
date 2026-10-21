@@ -225,11 +225,27 @@ export const gdprStatusSchema = z.object({
 });
 export type GdprStatus = z.infer<typeof gdprStatusSchema>;
 
+/** What the retention phase erased. With `orphans_applied` false the orphan purge is off and `orphans` is what it would erase. */
+export const retentionSummarySchema = z.object({
+  orphans_applied: z.boolean(),
+  guest_sessions: z.number(),
+  deleted_projects: z.number(),
+  expired_holds: z.number(),
+  orphans: z.number(),
+  orphans_kept: z.number(),
+  made_permanent: z.number(),
+  truncated: z.boolean(),
+});
+export type RetentionSummary = z.infer<typeof retentionSummarySchema>;
+
 export const gdprRunResultSchema = z.object({
   status: z.string(),
   warned: z.number(),
   disabled: z.number(),
   anonymized: z.number(),
   errors: z.array(z.string()),
+  // null: the retention phase did not run. Absent (a backend older than this
+  // frontend, e.g. while a release rolls out) means the same.
+  retention: retentionSummarySchema.nullable().default(null),
 });
 export type GdprRunResult = z.infer<typeof gdprRunResultSchema>;

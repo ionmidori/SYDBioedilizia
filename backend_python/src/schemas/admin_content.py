@@ -308,9 +308,27 @@ class GdprStatus(BaseModel):
     scheduler_secret_configured: bool
 
 
+class RetentionSummary(BaseModel):
+    """What the retention phase erased. With `orphans_applied` false the orphan
+    purge is off and `orphans` is what it would erase. Its errors are part of
+    the run's `errors`."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    orphans_applied: bool
+    guest_sessions: int
+    deleted_projects: int
+    expired_holds: int
+    orphans: int
+    orphans_kept: int
+    made_permanent: int
+    truncated: bool
+
+
 class GdprRunResult(BaseModel):
     status: str
     warned: int
     disabled: int
     anonymized: int
     errors: list[str]
+    retention: RetentionSummary | None  # None: the retention phase did not run

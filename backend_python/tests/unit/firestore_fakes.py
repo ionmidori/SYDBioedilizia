@@ -8,16 +8,22 @@ rule that a transaction may not read after it has written.
 from __future__ import annotations
 
 import copy
+from datetime import UTC, datetime
 from typing import Any
 
 from google.cloud.firestore_v1 import DELETE_FIELD
 
+# Default write time of fake documents and blobs: long ago, so age-based rules
+# (retention grace periods) see them as old unless a test says otherwise.
+LONG_AGO = datetime(2020, 1, 1, tzinfo=UTC)
+
 
 class FakeSnapshot:
-    def __init__(self, data: dict[str, Any] | None, doc_id: str = "") -> None:
+    def __init__(self, data: dict[str, Any] | None, doc_id: str = "", update_time: datetime | None = None) -> None:
         self._data = copy.deepcopy(data)
         self.exists = data is not None
         self.id = doc_id
+        self.update_time = update_time if data is not None else None
 
     def to_dict(self) -> dict[str, Any] | None:
         return copy.deepcopy(self._data)
@@ -54,7 +60,7 @@ class FakeDocRef:
     async def get(self, transaction: FakeTransaction | None = None) -> FakeSnapshot:
         if transaction is not None:
             transaction.record_read(self.path)
-        return FakeSnapshot(self._db.docs.get(self.path), self.path[-1])
+        return FakeSnapshot(self._db.docs.get(self.path), self.path[-1], self._db.update_times.get(self.path))
 
     async def update(self, data: dict[str, Any]) -> None:
         self._db.apply_update(self.path, data)
@@ -75,6 +81,10 @@ class FakeDocSnapshot(FakeDocRef):
 
     def to_dict(self) -> dict[str, Any] | None:
         return copy.deepcopy(self._db.docs.get(self.path))
+
+    @property
+    def update_time(self) -> datetime | None:
+        return self._db.update_times.get(self.path)
 
 
 class FakeCollection:
@@ -112,6 +122,7 @@ class FakeCollection:
     async def add(self, data: dict[str, Any]) -> tuple[None, FakeDocRef]:
         ref = self.document()
         self._db.docs[ref.path] = copy.deepcopy(data)
+        self._db._touch(ref.path)
         return None, ref
 
     def count(self, alias: str = "count") -> _FakeAggregation:
@@ -206,6 +217,13 @@ class FakeDb:
         self.docs: dict[tuple[str, ...], dict[str, Any]] = {}
         self.auto_ids = 0
         self.batches = 0  # write batches opened (chunking assertions)
+        # Server write time of each document (snapshot.update_time): every write
+        # stamps `clock`, which tests move to model recent activity.
+        self.clock: datetime = LONG_AGO
+        self.update_times: dict[tuple[str, ...], datetime] = {}
+
+    def _touch(self, path: tuple[str, ...]) -> None:
+        self.update_times[path] = self.clock
 
     def collection(self, name: str) -> FakeCollection:
         return FakeCollection(self, (name,))
@@ -218,6 +236,7 @@ class FakeDb:
     def put(self, *path_and_data: Any) -> None:
         *path, data = path_and_data
         self.docs[tuple(path)] = copy.deepcopy(data)
+        self._touch(tuple(path))
 
     def get_data(self, *path: str) -> dict[str, Any] | None:
         return copy.deepcopy(self.docs.get(tuple(path)))
@@ -237,12 +256,14 @@ class FakeDb:
             if any(isinstance(v, type(DELETE_FIELD)) for v in data.values()):
                 raise AssertionError(f"DELETE_FIELD in a non-merge set() on {path}")
             self.docs[path] = copy.deepcopy(data)
+        self._touch(path)
 
     def apply_update(self, path: tuple[str, ...], data: dict[str, Any]) -> None:
         if path not in self.docs:
             raise AssertionError(f"update() on missing document {path}")
         for key, value in data.items():
             _set_dotted(self.docs[path], key, copy.deepcopy(value))
+        self._touch(path)
 
 
 class FakeBatch:
@@ -306,6 +327,7 @@ class FakeTransaction:
     def set(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
         self.writes.append(("set", ref.path, copy.deepcopy(data)))
         self._db.docs[ref.path] = copy.deepcopy(data)
+        self._db._touch(ref.path)
 
     def delete(self, ref: FakeDocRef) -> None:
         self.writes.append(("delete", ref.path, {}))
@@ -318,29 +340,55 @@ class FakeTransaction:
         doc = self._db.docs[ref.path]
         for key, value in data.items():
             _set_dotted(doc, key, copy.deepcopy(value))
+        self._db._touch(ref.path)
 
 
 class FakeBlob:
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, updated: datetime = LONG_AGO) -> None:
         self.name = name
+        self.updated = updated
+
+
+class _FakeBlobListing(list):
+    """What `list_blobs` returns: iterable blobs plus, with a delimiter, the
+    `prefixes` ("folders") rolled up under the listed prefix."""
+
+    prefixes: set[str]
 
 
 class FakeBucket:
-    """Storage bucket double: `list_blobs(prefix=)` / `delete_blobs()`.
+    """Storage bucket double: `list_blobs(prefix=, delimiter=)` / `delete_blobs()`.
 
     `fail_on` makes listing a prefix starting with that string raise, to test
-    fail-closed paths.
+    fail-closed paths. `updated` overrides the default (old) write time per blob.
     """
 
-    def __init__(self, names: list[str] | None = None, fail_on: str | None = None) -> None:
+    def __init__(
+        self,
+        names: list[str] | None = None,
+        fail_on: str | None = None,
+        updated: dict[str, datetime] | None = None,
+    ) -> None:
         self.names: set[str] = set(names or [])
         self.fail_on = fail_on
+        self.updated: dict[str, datetime] = dict(updated or {})
 
-    def list_blobs(self, prefix: str = "") -> list[FakeBlob]:
+    def list_blobs(self, prefix: str = "", delimiter: str | None = None) -> _FakeBlobListing:
         if self.fail_on is not None and prefix.startswith(self.fail_on):
             raise RuntimeError(f"storage unavailable for {prefix}")
-        return [FakeBlob(n) for n in sorted(self.names) if n.startswith(prefix)]
+        listing = _FakeBlobListing()
+        listing.prefixes = set()
+        for name in sorted(n for n in self.names if n.startswith(prefix)):
+            rest = name[len(prefix):]
+            if delimiter is not None and delimiter in rest:
+                listing.prefixes.add(prefix + rest.split(delimiter, 1)[0] + delimiter)
+            else:
+                listing.append(FakeBlob(name, self.updated.get(name, LONG_AGO)))
+        return listing
 
-    def delete_blobs(self, blobs: list[FakeBlob]) -> None:
+    def delete_blobs(self, blobs: list[FakeBlob | str], on_error: Any = None) -> None:
         for blob in blobs:
-            self.names.discard(blob.name)
+            name = blob if isinstance(blob, str) else blob.name
+            if name not in self.names and on_error is None:
+                raise RuntimeError(f"404 No such object: {name}")  # like google.api_core NotFound
+            self.names.discard(name)

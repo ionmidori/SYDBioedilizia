@@ -1,46 +1,26 @@
 """
-Soft/hard deletion of Projects and associated data (Firestore + Storage).
+Deletion of Projects: the user's soft delete (the bin).
+
+The hard purge is not here: the retention job (src/services/retention) erases a
+binned project completely — Firestore trees and Storage, keeping a quote that
+reached the client under legal hold — 30 days after `deleted_at`.
 """
 import logging
-from datetime import timedelta
 
-from src.db.firebase_client import get_async_firestore_client, get_storage_client
+from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import PROJECTS_COLLECTION
-from src.db.session_retention import expire_session_messages
 from src.utils.datetime_utils import utc_now
-from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
 
 
-async def _delete_storage_blobs(bucket, prefix: str) -> int:
-    """
-    Delete all blobs under a storage prefix without blocking the event loop.
-
-    S5 FIX: Uses run_in_threadpool to wrap the synchronous GCS SDK calls
-    (list_blobs, delete_blobs) which would otherwise block the FastAPI
-    event loop during project deletion.
-
-    Args:
-        bucket: GCS bucket instance
-        prefix: Storage path prefix to delete
-
-    Returns:
-        Number of blobs deleted
-    """
-    blobs = await run_in_threadpool(lambda: list(bucket.list_blobs(prefix=prefix)))
-    if blobs:
-        await run_in_threadpool(bucket.delete_blobs, blobs)
-    return len(blobs)
-
-
 async def soft_delete_project(session_id: str, user_id: str) -> bool:
     """
-    Soft-delete a project by setting is_deleted=True and deleted_at timestamp.
+    Soft-delete a project by setting is_deleted=True and the deleted_at timestamp.
 
-    The project is hidden from list queries immediately but the underlying data
-    (messages, files, storage) is preserved for the 30-day GDPR retention window.
-    Hard purge is handled by a scheduled Cloud Function after the retention period.
+    The project is hidden from list queries immediately; the data (messages,
+    files, storage) stays for the 30-day bin period, after which the retention
+    job erases it.
     """
     try:
         db = get_async_firestore_client()
@@ -56,15 +36,10 @@ async def soft_delete_project(session_id: str, user_id: str) -> bool:
             return False
 
         now = utc_now()
-        expire_at = now + timedelta(days=30)  # Firestore TTL auto-purges after retention
-        # TTL does not cascade: the messages get the same purge time, and before the
-        # session, so a failure here leaves the project undeleted (retryable).
-        await expire_session_messages(db, session_id, expire_at)
         await doc_ref.update({
             "is_deleted": True,
             "deleted_at": now,
             "updatedAt": now,
-            "expireAt": expire_at,
         })
 
         # Mirror soft-delete on the frontend 'projects' collection
@@ -74,7 +49,6 @@ async def soft_delete_project(session_id: str, user_id: str) -> bool:
             await frontend_ref.update({
                 "is_deleted": True,
                 "deleted_at": now,
-                "expireAt": expire_at,
             })
 
         logger.info(f"[Projects] Soft-deleted project {session_id} for user {user_id}")
@@ -83,96 +57,6 @@ async def soft_delete_project(session_id: str, user_id: str) -> bool:
     except Exception as e:
         logger.error(f"[Projects] Error soft-deleting project {session_id}: {e}", exc_info=True)
         return False
-
-
-async def delete_project(session_id: str, user_id: str) -> bool:
-    """
-    Hard-delete a project and all its associated data (messages, files, storage blobs).
-    Reserved for admin purge after the GDPR retention window.
-    """
-    try:
-        db = get_async_firestore_client()
-
-        doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
-        doc = await doc_ref.get()
-
-        if not doc.exists:
-            logger.warning(f"[Projects] Cannot delete non-existent project {session_id}")
-            return False
-
-        # Ownership check
-        if (doc.to_dict() or {}).get("userId") != user_id:
-            logger.warning(f"[Projects] User {user_id} not authorized to delete {session_id}")
-            return False
-
-        # 1. Clean up Firestore Subcollections (Deep Delete)
-        # A. Backend 'sessions' collection
-        subcollections = ["messages", "files"]
-        for subcol_name in subcollections:
-            subcol_ref = doc_ref.collection(subcol_name)
-            await _delete_collection_batch(db, subcol_ref)
-
-        # B. Frontend 'projects' collection
-        frontend_project_ref = db.collection("projects").document(session_id)
-        await _delete_collection_batch(db, frontend_project_ref.collection("files"))
-        await delete_quote_data(db, frontend_project_ref)
-        await frontend_project_ref.delete()
-
-        # 2. Delete Firebase Storage Blobs (S5 FIX: non-blocking)
-        try:
-            bucket = get_storage_client()
-
-            storage_prefixes = [
-                f"user-uploads/{session_id}/",   # Backend Generator
-                f"projects/{session_id}/uploads/",  # Frontend Uploader
-                f"renders/{session_id}/",           # Backend Renders
-                f"documents/{session_id}/",         # Backend Documents
-            ]
-
-            for prefix in storage_prefixes:
-                await _delete_storage_blobs(bucket, prefix)
-
-            logger.info(f"[Projects] Deep delete: Storage cleaned for {session_id}")
-
-        except Exception as storage_e:  # noqa: BLE001 — any storage failure aborts the purge
-            # FAIL CLOSED. This is the GDPR hard purge: reporting success while blobs
-            # survive on GCS would mark the erasure as complete and stop anyone retrying.
-            # We deliberately leave the project document in place so the purge stays
-            # discoverable and re-runnable (every step above is idempotent).
-            logger.error(
-                f"[Projects] Storage cleanup FAILED for {session_id}, aborting purge: {storage_e}",
-                exc_info=True,
-            )
-            return False
-
-        # 3. Delete Project Document (Backend)
-        await doc_ref.delete()
-
-        logger.info(f"[Projects] DEEP DELETE completed for {session_id}")
-        return True
-
-    except Exception as e:
-        logger.error(f"[Projects] Error deleting project {session_id}: {str(e)}", exc_info=True)
-        return False
-
-
-# Subcollections hanging under projects/{pid}/private_data/{doc}.
-_PRIVATE_DATA_SUBCOLLECTIONS = ("revisions", "deliveries")
-
-
-async def delete_quote_data(db, project_ref) -> None:
-    """Delete every private quote document of a project, subcollections first.
-
-    Firestore does NOT cascade: deleting `private_data/quote` (or the project
-    document) leaves `revisions`/`deliveries` behind, and those hold the
-    client's data (snapshot, recipient email). Same for the legacy HITL
-    resumption tokens in `projects/{pid}/quotes`.
-    """
-    async for private_doc in project_ref.collection("private_data").stream():
-        for name in _PRIVATE_DATA_SUBCOLLECTIONS:
-            await _delete_collection_batch(db, private_doc.reference.collection(name))
-        await private_doc.reference.delete()
-    await _delete_collection_batch(db, project_ref.collection("quotes"))
 
 
 async def _delete_collection_batch(db, coll_ref, batch_size=50):

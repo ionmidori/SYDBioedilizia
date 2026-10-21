@@ -18,6 +18,7 @@ from src.schemas.internal import UserSession
 from src.services import admin_content, admin_kpis, batch_sync, lifecycle_lock
 from src.services.account_lifecycle_service import LifecycleRunResult
 from src.services.client_profile import ClientProfile
+from src.services.retention.models import RetentionReport
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
 
 BUCKET = "test-bucket.appspot.com"
@@ -577,9 +578,43 @@ def test_the_admin_can_run_the_lifecycle_pass_without_the_shared_secret(db, monk
     service = _lifecycle_service(monkeypatch, LifecycleRunResult(warned=2, disabled=1, anonymized=0, errors=[]))
     resp = _client().post("/api/admin/gdpr/lifecycle/run")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok", "warned": 2, "disabled": 1, "anonymized": 0, "errors": []}
+    assert resp.json() == {
+        "status": "ok", "warned": 2, "disabled": 1, "anonymized": 0, "errors": [], "retention": None,
+    }
     assert service.run_lifecycle_pass.await_count == 1
     assert db.get_data("app_config", "gdpr_lifecycle_lock") is None  # the lease is released
+
+
+_RETENTION = RetentionReport(
+    orphans_applied=False, guest_sessions=4, deleted_projects=1, expired_holds=0, orphans=36, orphans_kept=2,
+    made_permanent=0, truncated=True, errors=["retention:orphan:RuntimeError"],
+)
+_RETENTION_SUMMARY = {
+    "orphans_applied": False, "guest_sessions": 4, "deleted_projects": 1, "expired_holds": 0, "orphans": 36,
+    "orphans_kept": 2, "made_permanent": 0, "truncated": True,
+}
+
+
+def test_the_run_reports_what_retention_erased_or_would_erase(db, monkeypatch):
+    _lifecycle_service(monkeypatch, LifecycleRunResult(retention=_RETENTION, errors=list(_RETENTION.errors)))
+
+    body = _client().post("/api/admin/gdpr/lifecycle/run").json()
+
+    assert body["retention"] == _RETENTION_SUMMARY
+    assert body["errors"] == ["retention: 1 errori (dettagli nei log del server)"]
+
+
+def test_the_scheduler_run_reports_retention_too(db, monkeypatch):
+    _lifecycle_service(monkeypatch, LifecycleRunResult(retention=_RETENTION, errors=list(_RETENTION.errors)))
+    monkeypatch.setattr(lifecycle_routes, "get_async_firestore_client", lambda: db)
+    monkeypatch.setattr(lifecycle_routes.settings, "LIFECYCLE_SECRET", "s" * 40)
+    app = FastAPI()
+    app.include_router(lifecycle_routes.router)
+
+    body = TestClient(app).post("/internal/lifecycle/run", headers={"X-Lifecycle-Secret": "s" * 40}).json()
+
+    assert body["status"] == "partial_errors"
+    assert body["retention"] == _RETENTION_SUMMARY
 
 
 def test_raw_error_text_never_reaches_the_browser(db, monkeypatch):

@@ -79,4 +79,18 @@ describe('admin content schemas (Golden Sync with admin_content.py)', () => {
     ).toBe(false);
     expect(gdprRunResultSchema.parse({ status: 'ok', warned: 1, disabled: 0, anonymized: 0, errors: [] }).warned).toBe(1);
   });
+
+  it('reads the retention summary of a GDPR run', () => {
+    const retention = {
+      orphans_applied: false, guest_sessions: 4, deleted_projects: 1, expired_holds: 0, orphans: 36,
+      orphans_kept: 2, made_permanent: 0, truncated: true,
+    };
+    const parsed = gdprRunResultSchema.parse({ status: 'ok', warned: 0, disabled: 0, anonymized: 0, errors: [], retention });
+    expect(parsed.retention).toEqual(retention);
+  });
+
+  it('treats a missing retention summary as "not run" (backend deployed after the frontend)', () => {
+    expect(gdprRunResultSchema.parse({ status: 'ok', warned: 0, disabled: 0, anonymized: 0, errors: [] }).retention).toBeNull();
+    expect(gdprRunResultSchema.parse({ status: 'ok', warned: 0, disabled: 0, anonymized: 0, errors: [], retention: null }).retention).toBeNull();
+  });
 });

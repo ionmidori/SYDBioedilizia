@@ -9,9 +9,10 @@ semantics as Firestore.
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from src.services.account_lifecycle_service import AccountLifecycleService
+from src.services.account_lifecycle_service import PASS_BUDGET_SECONDS, AccountLifecycleService
 from src.services.auth_gateway import AuthContact
 from src.services.erasure.models import ErasureMode, ErasureReport, ErasureStatus
+from src.services.retention.models import RetentionReport
 from tests.unit.firestore_fakes import FakeDb
 
 NOW = datetime(2026, 10, 17, 3, 0, tzinfo=UTC)
@@ -65,9 +66,25 @@ class FakeErasure:
         return self.resumed
 
 
-def _service(db, *, notify=None, auth=None, erasure=None) -> AccountLifecycleService:
+class FakeRetention:
+    def __init__(self, report: RetentionReport | None = None, error: Exception | None = None) -> None:
+        self.report = report or RetentionReport(orphans_applied=True)
+        self.error = error
+        self.calls = 0
+        self.budgets: list[float] = []
+
+    async def run(self, *, budget_seconds: float) -> RetentionReport:
+        self.calls += 1
+        self.budgets.append(budget_seconds)
+        if self.error is not None:
+            raise self.error
+        return self.report
+
+
+def _service(db, *, notify=None, auth=None, erasure=None, retention=None, monotonic=None) -> AccountLifecycleService:
     return AccountLifecycleService(
         db=db, notify=notify or FakeNotify(), auth=auth or FakeAuth(), erasure=erasure or FakeErasure(),
+        retention=retention or FakeRetention(), monotonic=monotonic or (lambda: 0.0),
         now=lambda: NOW, warn_months=12, disable_months=13, anonymize_months=24,
     )
 
@@ -279,6 +296,52 @@ async def test_a_broken_user_query_is_reported_not_raised(monkeypatch):
 class _QueryRoot:
     def where(self, *args, **kwargs):
         return _BrokenStream()
+
+
+# ── Retention (last phase) ───────────────────────────────────────────────────
+
+async def test_the_retention_phase_report_and_errors_are_part_of_the_pass():
+    report = RetentionReport(orphans_applied=True, guest_sessions=3, errors=["retention:orphan:RuntimeError"])
+
+    result = await _service(FakeDb(), retention=FakeRetention(report)).run_lifecycle_pass()
+
+    assert result.retention is report
+    assert result.errors == ["retention:orphan:RuntimeError"]
+
+
+async def test_retention_runs_even_when_the_users_cannot_be_read(monkeypatch):
+    db, retention = FakeDb(), FakeRetention()
+    monkeypatch.setattr(db, "collection", lambda name: _QueryRoot())
+
+    result = await _service(db, retention=retention).run_lifecycle_pass()
+
+    assert retention.calls == 1
+    assert result.errors == ["users:RuntimeError"]
+
+
+async def test_retention_gets_only_the_time_left_in_the_request():
+    readings = iter([0.0, 200.0])  # pass start, then retention start
+    retention = FakeRetention()
+
+    await _service(FakeDb(), retention=retention, monotonic=lambda: next(readings)).run_lifecycle_pass()
+
+    assert retention.budgets == [PASS_BUDGET_SECONDS - 200.0]
+
+
+async def test_retention_gets_no_time_when_the_earlier_phases_used_it_all():
+    readings = iter([0.0, PASS_BUDGET_SECONDS + 30])
+    retention = FakeRetention()
+
+    await _service(FakeDb(), retention=retention, monotonic=lambda: next(readings)).run_lifecycle_pass()
+
+    assert retention.budgets == [0.0]
+
+
+async def test_a_crashing_retention_is_reported_not_raised():
+    result = await _service(FakeDb(), retention=FakeRetention(error=RuntimeError("bucket gone"))).run_lifecycle_pass()
+
+    assert result.retention is None  # "did not run", never a misleading all-zero report
+    assert result.errors == ["retention:RuntimeError"]
 
 
 @pytest.mark.parametrize("months", [12, 13, 24])
