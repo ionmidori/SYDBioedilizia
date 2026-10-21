@@ -5,6 +5,7 @@ import { projectsApi } from '../projects-api';
 jest.mock('@/lib/api-client', () => ({
     fetchWithAuth: jest.fn(),
     fetchValidated: jest.fn(),
+    describeApiError: jest.requireActual('@/lib/api-client').describeApiError,
 }));
 
 const mockFetchWithAuth = fetchWithAuth as jest.Mock;
@@ -54,6 +55,13 @@ describe('projectsApi.getProject', () => {
     it('wraps other errors in an Italian message', async () => {
         mockFetchValidated.mockRejectedValue({ status: 500, message: 'boom' });
         await expect(projectsApi.getProject('s1')).rejects.toThrow('boom');
+    });
+
+    it('never shows the raw App Check rejection to the user', async () => {
+        mockFetchValidated.mockRejectedValue({
+            status: 403, error_code: 'APP_CHECK_FAILED', message: 'Missing App Check token',
+        });
+        await expect(projectsApi.getProject('s1')).rejects.toThrow(/verifica di sicurezza/);
     });
 
     it('falls back to a generic message when the error carries none', async () => {
@@ -156,5 +164,27 @@ describe('projectsApi.addProjectFile', () => {
         await expect(projectsApi.addProjectFile('s1', metadata)).rejects.toThrow(
             'Impossibile salvare i metadati del file'
         );
+    });
+});
+
+describe('projectsApi.updateProjectDetails', () => {
+    const details = {
+        id: 's1', footage_sqm: 80, property_type: 'apartment' as const,
+        address: { street: 'Via Roma 1', city: 'Roma', zip: '00100' },
+        budget_cap: 30000, renovation_constraints: [],
+    };
+
+    it('PATCHes the details through fetchWithAuth (carries App Check)', async () => {
+        mockFetchWithAuth.mockResolvedValue(res({ success: true }));
+        await projectsApi.updateProjectDetails('s1', details);
+        expect(mockFetchWithAuth).toHaveBeenCalledWith(
+            expect.stringMatching(/\/projects\/s1\/details$/),
+            expect.objectContaining({ method: 'PATCH', body: JSON.stringify(details) })
+        );
+    });
+
+    it('throws the backend message on failure', async () => {
+        mockFetchWithAuth.mockResolvedValue(res({ message: 'Progetto non trovato' }, { ok: false }));
+        await expect(projectsApi.updateProjectDetails('s1', details)).rejects.toThrow('Progetto non trovato');
     });
 });

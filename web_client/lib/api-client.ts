@@ -8,6 +8,48 @@ interface FetchOptions extends RequestInit {
     skipAuth?: boolean;
 }
 
+/**
+ * App Check header for a backend call.
+ *
+ * Safari on iPhone failed every token request (reCAPTCHA), and the request went
+ * out without a header: the dashboard showed "Missing App Check token". One retry
+ * with a forced refresh; if that fails too, `X-AppCheck-Error` carries the SDK
+ * error code so the backend log says WHY the token is missing.
+ */
+async function getAppCheckHeader(): Promise<Record<string, string>> {
+    if (!appCheck) {
+        console.error('[ApiClient] ❌ Header Injection Blocked: appCheck instance is null. Site key might be missing.');
+        return { 'X-AppCheck-Error': 'no-instance' };
+    }
+    let lastError = 'empty-token';
+    for (const forceRefresh of [false, true]) {
+        try {
+            const result = await getToken(appCheck, forceRefresh);
+            if (result.token) return { 'X-Firebase-AppCheck': result.token };
+            console.warn('[ApiClient] ⚠️ App Check token is empty!');
+            lastError = 'empty-token';
+        } catch (error) {
+            console.error('[ApiClient] ❌ App Check token retrieval failed:', error);
+            const code = (error as { code?: unknown })?.code;
+            lastError = typeof code === 'string' ? code : (error as Error)?.name ?? 'unknown';
+        }
+    }
+    return { 'X-AppCheck-Error': lastError.slice(0, 80) };
+}
+
+/**
+ * User-facing text for a backend error body (APIErrorResponse) or any thrown value.
+ * App Check rejections are a device/browser problem, not something the user can
+ * read in technical terms.
+ */
+export function describeApiError(error: unknown): string {
+    const body = error as { error_code?: unknown; message?: unknown } | null | undefined;
+    if (body?.error_code === 'APP_CHECK_FAILED') {
+        return 'La verifica di sicurezza del browser non è riuscita. Ricarica la pagina; se il problema continua, disattiva i blocchi dei contenuti per questo sito.';
+    }
+    return typeof body?.message === 'string' && body.message ? body.message : 'Errore di caricamento. Riprova.';
+}
+
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Core Fetch Utility
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -50,23 +92,8 @@ export async function fetchWithAuth(url: string, options: FetchOptions = {}): Pr
 
     // Inject App Check Token (⚡ Production Protection)
     if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
-        if (!appCheck) {
-            console.error('[ApiClient] ❌ Header Injection Blocked: appCheck instance is null. Site key might be missing.');
-        } else {
-            try {
-                const result = await getToken(appCheck, false);
-                if (result.token) {
-                    finalHeaders['X-Firebase-AppCheck'] = result.token;
-                    // console.debug('[ApiClient] 🔐 App Check token injected');
-                } else {
-                    console.warn('[ApiClient] ⚠️ App Check token is empty!');
-                }
-            } catch (error) {
-                console.error('[ApiClient] ❌ App Check token retrieval failed:', error);
-            }
-        }
-    } else {
-        // console.debug('[ApiClient] 🛡️ App Check injection skipped (Disabled via Env)');
+        const appCheckHeader = await getAppCheckHeader();
+        Object.assign(finalHeaders, appCheckHeader);
     }
 
     // Execute Request

@@ -1,5 +1,6 @@
 "use client"
 
+import { describeApiError } from '@/lib/api-client';
 import { FolderKanban, Plus, ListChecks, X } from "lucide-react"
 import { ScallopedInlineLoader } from "@/components/ui/ScallopedPageTransition"
 import { useCallback, useMemo, useState } from 'react';
@@ -20,7 +21,7 @@ import { BatchSubmitModal } from "@/components/dashboard/BatchSubmitModal"
 
 export function ProjectListClient() {
     const { data: projects = [], isLoading, isError, error: queryError, refetch } = useProjects();
-    const error = isError ? (queryError as Error)?.message ?? 'Errore caricamento' : null;
+    const error = isError ? describeApiError(queryError) : null;
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
     // ── Multi-select state ──────────────────────────────────────────────

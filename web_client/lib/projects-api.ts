@@ -1,8 +1,9 @@
-import { fetchWithAuth, fetchValidated } from '@/lib/api-client';
+import { describeApiError, fetchWithAuth, fetchValidated } from '@/lib/api-client';
 import { ProjectListItem, ProjectCreate, ProjectUpdate } from '@/types/projects';
 import { projectListResponseSchema, projectSchema } from '@/lib/validation/project-list-schema';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import type { ProjectDetailsFormData } from '@/lib/validation/project-details-schema';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py'; // Use proxy or direct URL
 
@@ -34,7 +35,7 @@ export const projectsApi = {
                 logger.debug('[ProjectsApi] Project not found (404), returning null');
                 return null;
             }
-            throw new Error(typedError?.message || 'Errore nel recupero del progetto');
+            throw new Error(typedError?.message ? describeApiError(typedError) : 'Errore nel recupero del progetto');
         }
     },
 
@@ -74,6 +75,26 @@ export const projectsApi = {
 
         if (!response.ok) {
             throw new Error('Impossibile aggiornare il progetto');
+        }
+    },
+
+    /**
+     * Update the construction site details (PATCH /projects/{id}/details).
+     * Called from the browser so the request carries the App Check token: the
+     * former Server Action reached the backend without one and got 403.
+     */
+    updateProjectDetails: async (sessionId: string, details: ProjectDetailsFormData): Promise<void> => {
+        const response = await fetchWithAuth(
+            `${API_ROOT}/projects/${encodeURIComponent(sessionId)}/details`,
+            {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(details),
+            }
+        );
+        if (!response.ok) {
+            const body: unknown = await response.json().catch(() => undefined);
+            throw new Error(describeApiError(body));
         }
     },
 

@@ -73,6 +73,7 @@ jest.mock('firebase/storage', () => ({
 jest.mock('firebase/app-check', () => ({
     initializeAppCheck: jest.fn(() => ({})),
     ReCaptchaV3Provider: jest.fn(),
+    ReCaptchaEnterpriseProvider: jest.fn(),
 }));
 
 // Mock localStorage

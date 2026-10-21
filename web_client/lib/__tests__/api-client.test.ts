@@ -1,6 +1,6 @@
 import { getToken } from 'firebase/app-check';
 import { z } from 'zod';
-import { fetchValidated, fetchWithAuth } from '../api-client';
+import { describeApiError, fetchValidated, fetchWithAuth } from '../api-client';
 
 jest.mock('@/lib/firebase', () => ({
     // Mutable holder: tests swap currentUser / appCheck per scenario.
@@ -147,6 +147,51 @@ describe('fetchWithAuth', () => {
             expect(fetchMock).toHaveBeenCalled();
             errorSpy.mockRestore();
         });
+
+        it('retries once with a forced refresh before giving up', async () => {
+            firebase.appCheck = {};
+            mockGetToken
+                .mockRejectedValueOnce(new Error('first try'))
+                .mockResolvedValueOnce({ token: 'ac-retry' });
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+            await fetchWithAuth('/api/py/projects');
+            expect(mockGetToken).toHaveBeenNthCalledWith(2, firebase.appCheck, true);
+            expect(sentHeaders()).toHaveProperty('X-Firebase-AppCheck', 'ac-retry');
+            expect(sentHeaders()).not.toHaveProperty('X-AppCheck-Error');
+        });
+
+        it('tells the backend why the token is missing (diagnosis on iPhone)', async () => {
+            firebase.appCheck = {};
+            mockGetToken.mockRejectedValue(
+                Object.assign(new Error('throttled'), { code: 'appCheck/throttled' })
+            );
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+            await fetchWithAuth('/api/py/projects');
+            expect(sentHeaders()).toHaveProperty('X-AppCheck-Error', 'appCheck/throttled');
+        });
+
+        it('reports a missing App Check instance to the backend', async () => {
+            jest.spyOn(console, 'error').mockImplementation(() => {});
+            await fetchWithAuth('/api/py/projects');
+            expect(sentHeaders()).toHaveProperty('X-AppCheck-Error', 'no-instance');
+        });
+    });
+});
+
+describe('describeApiError', () => {
+    it('turns an App Check rejection into a readable Italian message', () => {
+        const msg = describeApiError({ error_code: 'APP_CHECK_FAILED', message: 'Missing App Check token' });
+        expect(msg).not.toMatch(/App Check/);
+        expect(msg).toMatch(/verifica di sicurezza/i);
+    });
+
+    it('keeps other backend messages', () => {
+        expect(describeApiError({ error_code: 'NOT_FOUND', message: 'Progetto non trovato' }))
+            .toBe('Progetto non trovato');
+    });
+
+    it('falls back for unknown shapes', () => {
+        expect(describeApiError(undefined)).toBe('Errore di caricamento. Riprova.');
     });
 });
 
