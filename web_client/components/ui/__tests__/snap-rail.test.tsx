@@ -52,6 +52,8 @@ function reportRailVisibility(isVisible: boolean) {
 beforeEach(() => {
     (global as unknown as { __intersectionObservers: unknown[] }).__intersectionObservers = [];
     jest.clearAllMocks();
+    // The rail scrolls itself horizontally (scrollBy); jsdom has no element scrolling.
+    Element.prototype.scrollBy = jest.fn();
     // `clearAllMocks` clears call history but not a `mockImplementation` a previous
     // test installed — without resetting it here, a reduced-motion override from one
     // test silently leaks into every test that runs after it in this file.
@@ -195,11 +197,12 @@ describe('SnapRail', () => {
 
         fireEvent.click(screen.getAllByRole('button', { name: /Vai all'elemento/ })[1]);
 
-        expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({
-            behavior: 'smooth',
-            inline: 'center',
-            block: 'nearest',
-        });
+        // Horizontal only: scrollIntoView({ block: 'nearest' }) also scrolled the
+        // PAGE, which fought the user scrolling up after clicking "Progetti".
+        expect(Element.prototype.scrollBy).toHaveBeenCalledWith(
+            expect.objectContaining({ top: 0, behavior: 'smooth' }),
+        );
+        expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
     });
 
     it('jumps without animation when reduced motion is requested', () => {
@@ -219,7 +222,7 @@ describe('SnapRail', () => {
 
         fireEvent.click(screen.getAllByRole('button', { name: /Vai all'elemento/ })[1]);
 
-        expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith(
+        expect(Element.prototype.scrollBy).toHaveBeenCalledWith(
             expect.objectContaining({ behavior: 'auto' }),
         );
     });
@@ -260,7 +263,7 @@ describe('SnapRail', () => {
                 jest.advanceTimersByTime(5000);
             });
 
-            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
         });
 
         it('advances to the next card after the delay once visible', () => {
@@ -276,12 +279,62 @@ describe('SnapRail', () => {
             act(() => {
                 jest.advanceTimersByTime(999);
             });
-            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
 
             act(() => {
                 jest.advanceTimersByTime(1);
             });
-            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+            expect(Element.prototype.scrollBy).toHaveBeenCalledTimes(1);
+        });
+
+        it('never scrolls the page (only the rail, horizontally)', () => {
+            render(
+                <SnapRail ariaLabel="Rail" autoPlay autoPlayDelayMs={1000}>
+                    <div>Uno</div>
+                    <div>Due</div>
+                </SnapRail>,
+            );
+            reportRailVisibility(true);
+
+            act(() => {
+                jest.advanceTimersByTime(1000);
+            });
+
+            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).toHaveBeenCalledWith(expect.objectContaining({ top: 0 }));
+        });
+
+        it('pauses while the user scrolls the page, then resumes', () => {
+            render(
+                <SnapRail ariaLabel="Rail" autoPlay autoPlayDelayMs={1000} autoPlayResumeDelayMs={2000}>
+                    <div>Uno</div>
+                    <div>Due</div>
+                </SnapRail>,
+            );
+            reportRailVisibility(true);
+
+            act(() => {
+                jest.advanceTimersByTime(500);
+            });
+            act(() => {
+                window.dispatchEvent(new Event('scroll'));
+            });
+            act(() => {
+                jest.advanceTimersByTime(1500);
+            });
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
+
+            // Quiet period (2 s from the scroll) ends on its own act() boundary…
+            act(() => {
+                jest.advanceTimersByTime(500);
+            });
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
+
+            // …then the re-armed advance fires.
+            act(() => {
+                jest.advanceTimersByTime(1000);
+            });
+            expect(Element.prototype.scrollBy).toHaveBeenCalledTimes(1);
         });
 
         it('pauses after a pointerdown, then resumes once the quiet period elapses', () => {
@@ -302,12 +355,12 @@ describe('SnapRail', () => {
             act(() => {
                 jest.advanceTimersByTime(2000);
             });
-            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
 
             act(() => {
                 jest.advanceTimersByTime(1000);
             });
-            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+            expect(Element.prototype.scrollBy).toHaveBeenCalledTimes(1);
         });
 
         it('pauses after a swipe (touchstart), then resumes once the quiet period elapses', () => {
@@ -324,12 +377,12 @@ describe('SnapRail', () => {
             act(() => {
                 jest.advanceTimersByTime(2000);
             });
-            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
 
             act(() => {
                 jest.advanceTimersByTime(1000);
             });
-            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+            expect(Element.prototype.scrollBy).toHaveBeenCalledTimes(1);
         });
 
         it('pauses after a dot is pressed, then resumes once the quiet period elapses', () => {
@@ -343,17 +396,17 @@ describe('SnapRail', () => {
 
             reportRailVisibility(true);
             fireEvent.click(screen.getAllByRole('button', { name: /Vai all'elemento/ })[1]);
-            const callsFromTheClick = (Element.prototype.scrollIntoView as jest.Mock).mock.calls.length;
+            const callsFromTheClick = (Element.prototype.scrollBy as jest.Mock).mock.calls.length;
 
             act(() => {
                 jest.advanceTimersByTime(2000);
             });
-            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(callsFromTheClick);
+            expect(Element.prototype.scrollBy).toHaveBeenCalledTimes(callsFromTheClick);
 
             act(() => {
                 jest.advanceTimersByTime(1000);
             });
-            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(callsFromTheClick + 1);
+            expect(Element.prototype.scrollBy).toHaveBeenCalledTimes(callsFromTheClick + 1);
         });
 
         it('pushes the resume back out on a fresh interaction during the quiet period', () => {
@@ -378,12 +431,12 @@ describe('SnapRail', () => {
             act(() => {
                 jest.advanceTimersByTime(2000);
             });
-            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
 
             act(() => {
                 jest.advanceTimersByTime(1000);
             });
-            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+            expect(Element.prototype.scrollBy).toHaveBeenCalledTimes(1);
         });
 
         it('pauses while scrolled out of view and resumes when back on screen', () => {
@@ -400,13 +453,13 @@ describe('SnapRail', () => {
             act(() => {
                 jest.advanceTimersByTime(5000);
             });
-            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
 
             reportRailVisibility(true);
             act(() => {
                 jest.advanceTimersByTime(1000);
             });
-            expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+            expect(Element.prototype.scrollBy).toHaveBeenCalledTimes(1);
         });
 
         it('stops on the last card instead of looping back to the first', () => {
@@ -425,7 +478,7 @@ describe('SnapRail', () => {
                 jest.advanceTimersByTime(5000);
             });
 
-            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
         });
 
         it('never starts when reduced motion is requested', () => {
@@ -449,7 +502,7 @@ describe('SnapRail', () => {
                 jest.advanceTimersByTime(5000);
             });
 
-            expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+            expect(Element.prototype.scrollBy).not.toHaveBeenCalled();
         });
 
         it('never mounts the visibility observer when autoPlay is off', () => {

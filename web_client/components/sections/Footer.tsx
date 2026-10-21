@@ -29,10 +29,12 @@ export function Footer() {
             <div className="absolute bottom-0 left-0 w-full h-[500px] bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
 
             <div className="container mx-auto px-4 md:px-6 relative z-10">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 mb-16">
+                {/* Esplora and Contatti always side by side (2 columns under the brand
+                    on phone/tablet, 3 columns on desktop), with the same row rhythm. */}
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 md:gap-x-12 gap-y-12 mb-16">
 
                     {/* Brand Column */}
-                    <div className="space-y-6">
+                    <div className="col-span-2 lg:col-span-1 space-y-6">
                         <Link href="/" className="group">
                             <SydLogo className="group-hover:opacity-90 transition-opacity" />
                         </Link>
@@ -57,9 +59,9 @@ export function Footer() {
                     </div>
 
                     {/* Quick Links */}
-                    <div>
+                    <div className="min-w-0">
                         <h4 className="text-luxury-text font-serif font-bold mb-6 text-lg">Esplora</h4>
-                        <ul className="space-y-4">
+                        <ul className="space-y-3 text-sm leading-6">
                             {[
                                 { label: 'Home', href: '/' },
                                 { label: 'Servizi', href: pathname === '/' ? '#services' : '/#services' },
@@ -69,7 +71,7 @@ export function Footer() {
                                 { label: 'FAQ', href: '/faq' },
                             ].map((item) => (
                                 <li key={item.label}>
-                                    <Link href={item.href} className="text-luxury-text/70 hover:text-luxury-gold transition-colors text-sm font-light">
+                                    <Link href={item.href} className="text-luxury-text/70 hover:text-luxury-gold transition-colors font-light">
                                         {item.label}
                                     </Link>
                                 </li>
@@ -77,21 +79,28 @@ export function Footer() {
                         </ul>
                     </div>
 
-                    {/* Contact Info */}
-                    <div>
+                    {/* Contact Info — icons sit on the first text line (mt-1 on a 24px line) */}
+                    <div className="min-w-0">
                         <h4 className="text-luxury-text font-serif font-bold mb-6 text-lg">Contatti</h4>
-                        <ul className="space-y-4">
-                            <li className="flex items-start gap-3 text-luxury-text/70 text-sm font-light">
-                                <MapPin className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>{COMPANY.address.street},<br />{COMPANY.address.postalCode} {COMPANY.address.city}<br /><span className="text-luxury-gold/60 text-xs mt-1 block">P.IVA: {COMPANY.vatId}</span></span>
+                        <ul className="space-y-3 text-sm leading-6 text-luxury-text/70 font-light">
+                            <li className="flex items-start gap-2 md:gap-3">
+                                <MapPin className="w-4 h-4 mt-1 text-luxury-teal shrink-0" aria-hidden="true" />
+                                <address className="not-italic min-w-0">
+                                    {COMPANY.address.street},<br />{COMPANY.address.postalCode} {COMPANY.address.city}
+                                    <span className="text-luxury-gold/60 text-xs block">P.IVA: {COMPANY.vatId}</span>
+                                </address>
                             </li>
-                            <li className="flex items-center gap-3 text-luxury-text/70 text-sm font-light">
-                                <Phone className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>{COMPANY.phone}</span>
+                            <li className="flex items-start gap-2 md:gap-3">
+                                <Phone className="w-4 h-4 mt-1 text-luxury-teal shrink-0" aria-hidden="true" />
+                                <span className="min-w-0">{COMPANY.phone}</span>
                             </li>
-                            <li className="flex items-center gap-3 text-luxury-text/70 text-sm font-light">
-                                <Mail className="w-5 h-5 text-luxury-teal shrink-0" />
-                                <span>{COMPANY.email}</span>
+                            <li className="flex items-start gap-2 md:gap-3">
+                                <Mail className="w-4 h-4 mt-1 text-luxury-teal shrink-0" aria-hidden="true" />
+                                {/* <wbr> after "@": on a narrow column it wraps as "name@ / domain",
+                                    not mid-word ("gmail.co / m"). */}
+                                <span className="min-w-0 [overflow-wrap:anywhere]">
+                                    {COMPANY.email.split('@')[0]}@<wbr />{COMPANY.email.split('@')[1]}
+                                </span>
                             </li>
                         </ul>
                     </div>
