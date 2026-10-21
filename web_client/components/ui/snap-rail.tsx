@@ -128,11 +128,17 @@ export function SnapRail({
         if (!rail) return;
 
         const target = rail.querySelector<HTMLElement>(`[data-rail-index="${index}"]`);
-        target?.scrollIntoView({
-            behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-            inline: align,
-            block: 'nearest',
-        });
+        if (!target) return;
+        // Scroll the rail only, horizontally. scrollIntoView({ block: 'nearest' })
+        // also scrolled the PAGE to bring the card fully into view: every autoplay
+        // tick pulled the page back down while the user was scrolling up (after
+        // clicking "Progetti" the page seemed stuck). Snap points finish the alignment.
+        const railBox = rail.getBoundingClientRect();
+        const targetBox = target.getBoundingClientRect();
+        const left = align === 'center'
+            ? targetBox.left + targetBox.width / 2 - (railBox.left + railBox.width / 2)
+            : targetBox.left - railBox.left;
+        rail.scrollBy({ left, top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
     }, [align]);
 
     // Pauses auto-play and (re)starts the quiet-period timer that resumes it. Called
@@ -171,7 +177,8 @@ export function SnapRail({
 
     // ── Auto-play: pause trigger for non-touch input ─────────────────────────
     // pointerdown covers mouse/pen drag-scroll, wheel covers trackpad/shift-scroll,
-    // keydown covers tabbing into a card and using arrow keys.
+    // keydown covers tabbing into a card and using arrow keys, window scroll covers
+    // the page being scrolled.
     useEffect(() => {
         if (!autoPlay) return;
         const rail = railRef.current;
@@ -180,11 +187,14 @@ export function SnapRail({
         rail.addEventListener('pointerdown', pauseAndScheduleResume, { passive: true });
         rail.addEventListener('wheel', pauseAndScheduleResume, { passive: true });
         rail.addEventListener('keydown', pauseAndScheduleResume);
+        // The user scrolling the page: no card changes under them meanwhile.
+        window.addEventListener('scroll', pauseAndScheduleResume, { passive: true });
 
         return () => {
             rail.removeEventListener('pointerdown', pauseAndScheduleResume);
             rail.removeEventListener('wheel', pauseAndScheduleResume);
             rail.removeEventListener('keydown', pauseAndScheduleResume);
+            window.removeEventListener('scroll', pauseAndScheduleResume);
         };
     }, [autoPlay, pauseAndScheduleResume]);
 

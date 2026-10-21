@@ -80,7 +80,9 @@ export function Portfolio({ className }: { className?: string }) {
         <section
             id="portfolio"
             aria-label="I nostri capolavori"
-            className={cn('relative scroll-mt-24', className)}
+            // No scroll-mt: html's scroll-padding-top (globals.css) already clears
+            // the fixed navbar; the two added up to a 176px offset.
+            className={cn('relative', className)}
         >
             {/* Row controls — desktop only, where the gallery is a horizontal row. */}
             <div className="hidden lg:flex justify-end gap-2 mb-4">
@@ -157,8 +159,11 @@ export function Portfolio({ className }: { className?: string }) {
                 {projects.map((project, idx) => (
                     <motion.div
                         key={project.id}
-                        initial={{ opacity: 0, y: 40 }}
-                        whileInView={{ opacity: 1, y: 0 }}
+                        // Opacity only: on lg the row scrolls horizontally, so it also
+                        // clips vertically (overflow-x: auto forces overflow-y) and a
+                        // slide-up entry showed the cards with their bottom cut off.
+                        initial={{ opacity: 0 }}
+                        whileInView={{ opacity: 1 }}
                         // Capped: cards further along the row reveal as they are scrolled in,
                         // and shouldn't then wait a second for their turn.
                         transition={{ duration: 0.5, delay: Math.min(idx, 3) * 0.1, ease: 'easeOut' }}
