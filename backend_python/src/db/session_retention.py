@@ -23,6 +23,7 @@ from typing import Any
 from google.cloud.firestore_v1 import DELETE_FIELD
 from google.cloud.firestore_v1.base_query import FieldFilter
 from src.auth.user_lookup import AccountKind
+from src.db.ownership import is_guest_placeholder
 from src.utils.datetime_utils import utc_now
 
 EXPIRE_AT = "expireAt"
@@ -36,8 +37,6 @@ _BATCH_SIZE = 400
 _SESSIONS = "sessions"
 _PROJECTS = "projects"
 
-# Owner placeholder of a session created without a user (conversation_repository).
-_GUEST_OWNER_PREFIX = "guest_"
 
 
 def expiry_fields(*, is_guest: bool, now: datetime | None = None) -> dict[str, Any]:
@@ -170,7 +169,7 @@ async def backfill_registered_sessions(
             report.soft_deleted += 1
             continue
         owner = data.get("userId") or ""
-        if not owner or owner.startswith(_GUEST_OWNER_PREFIX):
+        if is_guest_placeholder(owner):
             report.guest += 1
             continue
         if owner not in kinds:

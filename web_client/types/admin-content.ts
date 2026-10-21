@@ -225,9 +225,9 @@ export const gdprStatusSchema = z.object({
 });
 export type GdprStatus = z.infer<typeof gdprStatusSchema>;
 
-/** What the retention phase erased — or, with `applied` false (dry run), would erase. */
+/** What the retention phase erased. With `orphans_applied` false the orphan purge is off and `orphans` is what it would erase. */
 export const retentionSummarySchema = z.object({
-  applied: z.boolean(),
+  orphans_applied: z.boolean(),
   guest_sessions: z.number(),
   deleted_projects: z.number(),
   expired_holds: z.number(),

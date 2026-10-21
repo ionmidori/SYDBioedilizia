@@ -133,6 +133,20 @@ class TestMarkLegalHold:
         assert db.get_data("projects", "p1", "private_data", "quote")["legal_hold"]["since"] == NOW
         assert db.get_data("legal_holds", "p1:quote")["since"] == NOW
 
+    async def test_an_undated_send_keeps_its_retention_end_when_marked_again(self):
+        # Sent (provider status) but no timestamp: the retention starts when first
+        # held, and must not slide forward on every later pass.
+        db = FakeDb()
+        _quote(db, delivery_status="delivered")
+        [held] = await find_held_quotes(db, "p1", now=NOW)
+        await mark_legal_hold(db, "p1", held, now=NOW)
+
+        [again] = await find_held_quotes(db, "p1", now=NOW + timedelta(days=7))
+        await mark_legal_hold(db, "p1", again, now=NOW + timedelta(days=7))
+
+        assert again.retain_until == NOW + SENT_QUOTE_RETENTION
+        assert db.get_data("legal_holds", "p1:quote")["retain_until"] == NOW + SENT_QUOTE_RETENTION
+
 
 PDF = "projects/p1/quotes/PRV-2026-0001_r1.pdf"
 EXPIRED = SENT + SENT_QUOTE_RETENTION + timedelta(days=1)
@@ -162,6 +176,15 @@ class TestExpiredHolds:
         [hold] = await expired_holds(db, now=EXPIRED, limit=10)
 
         assert (hold.project_id, hold.quote_id, hold.blob_paths) == ("p1", "quote", (PDF,))
+
+    async def test_a_malformed_record_is_skipped_not_fatal(self):
+        db, bucket = FakeDb(), FakeBucket()
+        await _held_project(db, bucket)
+        db.put("legal_holds", "broken", {"retain_until": SENT})  # no project/quote id, sorts first
+
+        [hold] = await expired_holds(db, now=EXPIRED, limit=10)
+
+        assert (hold.project_id, hold.quote_id) == ("p1", "quote")
 
     async def test_release_erases_the_quote_its_history_its_pdfs_and_the_record(self):
         db, bucket = FakeDb(), FakeBucket(["projects/p2/quotes/other.pdf"])

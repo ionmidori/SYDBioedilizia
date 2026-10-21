@@ -309,12 +309,13 @@ class GdprStatus(BaseModel):
 
 
 class RetentionSummary(BaseModel):
-    """What the retention phase erased — or, with `applied` false (dry run),
-    would erase. Its errors are part of the run's `errors`."""
+    """What the retention phase erased. With `orphans_applied` false the orphan
+    purge is off and `orphans` is what it would erase. Its errors are part of
+    the run's `errors`."""
 
     model_config = ConfigDict(from_attributes=True)
 
-    applied: bool
+    orphans_applied: bool
     guest_sessions: int
     deleted_projects: int
     expired_holds: int

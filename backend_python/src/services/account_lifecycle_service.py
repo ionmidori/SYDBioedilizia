@@ -10,9 +10,10 @@ Daily pass (Cloud Scheduler, or "Run now" in /admin; both hold the lifecycle lea
   3. 24 months inactive, disabled at least the notice period ago → every
      personal datum erased (UserErasureService, inactivity mode); the profile
      becomes a tombstone and lifecycle_anonymized_at is written last.
-  4. Retention (RetentionService): expired guest sessions, projects in the
-     bin for more than 30 days, orphaned remains and expired legal holds are
-     erased — or only counted, until RETENTION_PURGE_ENABLED is set.
+  4. Retention (RetentionService), with the time the pass has left: expired
+     guest sessions, projects in the bin for more than 30 days and expired
+     legal holds are erased; orphaned remains too, once
+     RETENTION_ORPHAN_PURGE_ENABLED is set (until then they are counted).
 
 Selection: users whose `last_active_at` is past the 12-month threshold; the
 phase markers are checked in Python. Firestore `== None` never matches a
@@ -28,6 +29,7 @@ activity_tracker.py.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -49,6 +51,10 @@ logger = logging.getLogger(__name__)
 
 _DAYS_PER_MONTH = 365.25 / 12
 _RESUME_LIMIT = 50
+
+# Wall time a whole pass may use: Cloud Run ends the request at 300 s. The
+# retention phase gets what the earlier phases left of it.
+PASS_BUDGET_SECONDS = 240.0
 
 
 # ── Domain types ──────────────────────────────────────────────────────────────
@@ -79,7 +85,7 @@ class _Eraser(Protocol):
 
 
 class _Retention(Protocol):
-    async def run(self) -> RetentionReport: ...
+    async def run(self, *, budget_seconds: float) -> RetentionReport: ...
 
 
 # ── Service ───────────────────────────────────────────────────────────────────
@@ -101,6 +107,7 @@ class AccountLifecycleService:
         notify: _Notifier,
         retention: _Retention,
         now: Callable[[], datetime] = utc_now,
+        monotonic: Callable[[], float] = time.monotonic,
         warn_months: int = settings.LIFECYCLE_WARN_MONTHS,
         disable_months: int = settings.LIFECYCLE_DISABLE_MONTHS,
         anonymize_months: int = settings.LIFECYCLE_ANONYMIZE_MONTHS,
@@ -111,6 +118,7 @@ class AccountLifecycleService:
         self._notify = notify
         self._retention = retention
         self._now = now
+        self._monotonic = monotonic
         self._warn_months = warn_months
         self._disable_months = disable_months
         self._anonymize_months = anonymize_months
@@ -128,10 +136,11 @@ class AccountLifecycleService:
     async def run_lifecycle_pass(self) -> LifecycleRunResult:
         """One idempotent pass. Callers hold the lifecycle lease. Failures are
         reported in `errors` (shown in /admin); one never stops the others."""
+        started = self._monotonic()
         result = LifecycleRunResult()
         await self._resume_erasures(result)
         await self._advance_inactive_users(result)
-        await self._run_retention(result)
+        await self._run_retention(result, time_left=PASS_BUDGET_SECONDS - (self._monotonic() - started))
         logger.info("[Lifecycle] Pass complete: %s", result)
         return result
 
@@ -154,9 +163,9 @@ class AccountLifecycleService:
                 logger.error("[Lifecycle] Failed for uid=%s", snap.id, exc_info=True)
                 result.errors.append(f"user:{snap.id}:{type(exc).__name__}")
 
-    async def _run_retention(self, result: LifecycleRunResult) -> None:
+    async def _run_retention(self, result: LifecycleRunResult, *, time_left: float) -> None:
         try:
-            result.retention = await self._retention.run()
+            result.retention = await self._retention.run(budget_seconds=max(0.0, time_left))
         except Exception as exc:
             logger.error("[Lifecycle] The retention phase failed", exc_info=True)
             result.errors.append(f"retention:{type(exc).__name__}")

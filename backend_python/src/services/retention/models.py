@@ -5,9 +5,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class RetentionReport:
-    """What one retention run erased — or, in a dry run (`applied=False`), would erase."""
+    """What one retention run erased. Orphans are only counted while their
+    purge is off (`orphans_applied` false): the number is what would be erased."""
 
-    applied: bool
+    orphans_applied: bool
     guest_sessions: int = 0    # guest projects past their 30-day expiry
     deleted_projects: int = 0  # projects in the bin for more than 30 days
     expired_holds: int = 0     # sent quotes past their 10-year legal hold

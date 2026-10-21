@@ -8,21 +8,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useGdprStatus, useRunGdprLifecycle } from '@/hooks/admin/use-admin';
 import type { RetentionSummary } from '@/types/admin-content';
 
-/** Outcome of the retention phase: data past its retention period, erased (or counted, in a dry run). */
-function RetentionOutcome({ retention }: { retention: RetentionSummary | null }) {
+/**
+ * Outcome of the retention phase: data past its retention period, erased.
+ * Orphaned remains are only counted until their purge is switched on.
+ */
+function RetentionOutcome({ retention, failed }: { retention: RetentionSummary | null; failed: boolean }) {
   if (!retention) {
-    return (
+    // No summary and no retention error: a backend older than this page, nothing to report.
+    return failed ? (
       <p className="text-sm text-amber-300" data-testid="gdpr-retention">
         La pulizia dei dati scaduti non è stata eseguita (vedi errori).
       </p>
-    );
+    ) : null;
   }
   return (
     <div className="space-y-2" data-testid="gdpr-retention">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-luxury-gold">Pulizia dei dati scaduti</h3>
-      {!retention.applied && (
+      {!retention.orphans_applied && (
         <p className="text-xs text-amber-300">
-          Simulazione: non è stato cancellato nulla. Sono i dati che verranno eliminati quando la pulizia sarà attivata.
+          Residui orfani: solo conteggiati, non cancellati. La loro pulizia va attivata dopo aver verificato i numeri.
         </p>
       )}
       <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
@@ -142,7 +146,10 @@ export function GdprMonitor() {
                   </div>
                 ))}
               </dl>
-              <RetentionOutcome retention={run.data.retention} />
+              <RetentionOutcome
+                retention={run.data.retention}
+                failed={run.data.errors.some((message) => message.startsWith('retention'))}
+              />
               {run.data.errors.length > 0 && (
                 <ul className="space-y-1 text-sm text-amber-300" data-testid="gdpr-errors">
                   {run.data.errors.map((message) => (
@@ -163,8 +170,8 @@ export function GdprMonitor() {
             <DialogTitle>Eseguire il controllo ora?</DialogTitle>
             <DialogDescription>
               Gli utenti inattivi riceveranno l&apos;email di avviso, gli account oltre la soglia saranno disabilitati e i dati
-              personali dopo 24 mesi saranno anonimizzati; se la pulizia è attiva, i dati scaduti (sessioni ospite, cestino
-              oltre 30 giorni) saranno eliminati. Anonimizzazione ed eliminazione non si possono annullare.
+              personali dopo 24 mesi saranno anonimizzati; i dati scaduti (sessioni ospite e cestino oltre 30 giorni,
+              preventivi oltre i 10 anni) saranno eliminati. Anonimizzazione ed eliminazione non si possono annullare.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">

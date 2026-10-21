@@ -27,26 +27,20 @@ from typing import Any
 
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+from src.db.ownership import OWNER_KEYS, real_owners
 from src.db.storage_paths import is_safe_id
 
 logger = logging.getLogger(__name__)
 
-_OWNER_FIELDS = (("sessions", "userId"), ("projects", "userId"), ("projects", "user_id"), ("projects", "uid"))
-_OWNER_KEYS = ("userId", "user_id", "uid")
-_GUEST_OWNER_PREFIX = "guest_"
+_OWNER_FIELDS = (("sessions", "userId"), *(("projects", key) for key in OWNER_KEYS))
 
 
 async def _not_someone_elses(db: Any, project_id: str, uid: str) -> bool:
     """True unless the session or its projection names another real owner."""
     for collection in ("sessions", "projects"):
         snap = await db.collection(collection).document(project_id).get()
-        if not snap.exists:
-            continue
-        data = snap.to_dict() or {}
-        for key in _OWNER_KEYS:
-            owner = data.get(key)
-            if isinstance(owner, str) and owner and owner != uid and not owner.startswith(_GUEST_OWNER_PREFIX):
-                return False
+        if snap.exists and any(owner != uid for owner in real_owners(snap.to_dict() or {})):
+            return False
     return True
 
 

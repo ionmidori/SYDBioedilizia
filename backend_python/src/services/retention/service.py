@@ -18,22 +18,24 @@ and a quote that reached the client always stays under legal hold:
                    the session), and never when the projection names a
                    registered account — unless the project was binned.
 
-Until RETENTION_PURGE_ENABLED is set a run is a dry run: it counts what it
-would erase (shown in /admin) and writes nothing, so the first real purge
-comes after the numbers were checked.
+The first three are fixed rules — what the Firestore TTL already deleted, now
+done completely — and always apply. The orphan rule is a heuristic over
+leftovers: until RETENTION_ORPHAN_PURGE_ENABLED is set it only counts (shown
+in /admin), so its first real run comes after the numbers were checked.
 
-Bounded: at most `limit` items and `budget_seconds` per run (Cloud Run ends
-the request at 300 s, the lifecycle phases run first). The rest waits for the
-next run, and the report says `truncated`.
+Bounded: the caller passes the time left in its request (Cloud Run ends it at
+300 s) and at most `limit` items are erased per run; what is left waits for the
+next run and the report says `truncated`. The orphan scan lists every session
+id once per run (a field-less projection): fine for a weekly job at this
+scale, the first thing to revisit if it grows by orders of magnitude.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime, timedelta
-from enum import StrEnum
 from typing import Any
 
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -41,12 +43,20 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from src.auth.user_lookup import AccountKind, account_kind
 from src.core.config import settings
 from src.db.firebase_client import get_async_firestore_client, get_storage_client
+from src.db.ownership import real_owners
 from src.db.purge import iter_tree, storage_folder_ids
-from src.db.session_retention import GUEST_SESSION_TTL, clear_session_expiry
+from src.db.session_retention import EXPIRE_AT, GUEST_SESSION_TTL, clear_session_expiry
 from src.db.storage_paths import PROJECT_STORAGE_ROOTS, is_safe_id, project_storage_prefixes
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
-from src.services.erasure.legal_hold import HoldRecord, expired_holds, held_project_ids, release_hold
-from src.services.erasure.project_purge import purge_project
+from src.services.erasure.legal_hold import (
+    HeldQuote,
+    HoldRecord,
+    expired_holds,
+    find_held_quotes,
+    held_project_ids,
+    release_hold,
+)
+from src.services.erasure.project_purge import hold_sent_quotes, purge_project
 from src.services.retention.models import RetentionReport
 from src.utils.datetime_utils import utc_now
 
@@ -57,18 +67,9 @@ ORPHAN_GRACE = GUEST_SESSION_TTL
 RUN_BUDGET_SECONDS = 150.0
 RUN_LIMIT = 300
 
-_GUEST_OWNER_PREFIX = "guest_"
-_OWNER_KEYS = ("userId", "user_id", "uid")  # the legacy spellings too (erasure/discovery.py)
 
-
-class _Verdict(StrEnum):
-    ERASE = "erase"
-    REGISTERED = "registered"  # belongs to a live registered account: not ours to erase
-    WAIT = "wait"              # written to recently (or nothing left): look again next run
-
-
-def _blob_times(bucket: Any, prefix: str) -> list[datetime]:
-    return [blob.updated for blob in bucket.list_blobs(prefix=prefix) if blob.updated is not None]
+def _blob_times(bucket: Any, prefix: str, skip: frozenset[str]) -> list[datetime]:
+    return [b.updated for b in bucket.list_blobs(prefix=prefix) if b.name not in skip and b.updated is not None]
 
 
 class RetentionService:
@@ -78,33 +79,31 @@ class RetentionService:
         db: Any,
         bucket: Any,
         account_kind: Callable[[str], Awaitable[AccountKind]],
-        apply: bool,
+        erase_orphans: bool,
         now: Callable[[], datetime] = utc_now,
         monotonic: Callable[[], float] = time.monotonic,
-        budget_seconds: float = RUN_BUDGET_SECONDS,
         limit: int = RUN_LIMIT,
     ) -> None:
         self._db = db
         self._bucket = bucket
         self._account_kind = account_kind
-        self._apply = apply
+        self._erase_orphans = erase_orphans
         self._now = now
         self._monotonic = monotonic
-        self._budget_seconds = budget_seconds
         self._limit = limit
         # Per-run state, reset by run().
         self._at = utc_now()
         self._deadline = 0.0
-        self._handled = 0
+        self._erased = 0
         self._kinds: dict[str, AccountKind] = {}
 
-    async def run(self) -> RetentionReport:
-        """One bounded pass over the four categories. Failures are reported in
-        `errors`; one never stops the others."""
-        report = RetentionReport(applied=self._apply)
+    async def run(self, *, budget_seconds: float = RUN_BUDGET_SECONDS) -> RetentionReport:
+        """One bounded pass over the four categories, within `budget_seconds`.
+        Failures are reported in `errors`; one never stops the others."""
+        report = RetentionReport(orphans_applied=self._erase_orphans)
         self._at = self._now()
-        self._deadline = self._monotonic() + self._budget_seconds
-        self._handled = 0
+        self._deadline = self._monotonic() + budget_seconds
+        self._erased = 0
         self._kinds = {}
         phases = (
             ("guest_session", self._guest_sessions),
@@ -126,13 +125,14 @@ class RetentionService:
 
     # ── Budget ────────────────────────────────────────────────────────────────
 
-    def _take(self, report: RetentionReport) -> bool:
-        """Claim one item of the run's budget; False (and `truncated`) when spent."""
-        if self._handled >= self._limit or self._monotonic() >= self._deadline:
+    def _stop(self, report: RetentionReport) -> bool:
+        """Out of time, or erased as much as one run may: stop (and say so).
+        Only erasures count against the limit — remains left in place cost a
+        look, not a slot, so they can never starve the ones to erase."""
+        if self._erased >= self._limit or self._monotonic() >= self._deadline:
             report.truncated = True
-            return False
-        self._handled += 1
-        return True
+            return True
+        return False
 
     async def _attempt(self, report: RetentionReport, category: str, project_id: str, work: Awaitable[None]) -> None:
         """Run one item; a failure is logged and reported, never raised — the
@@ -150,84 +150,101 @@ class RetentionService:
     # ── Phases ────────────────────────────────────────────────────────────────
 
     async def _guest_sessions(self, report: RetentionReport) -> None:
-        query = (
-            self._db.collection("sessions")
-            .where(filter=FieldFilter("expireAt", "<=", self._at))
-            .select(["userId", "is_deleted"])
-        )
-        expired = [snap async for snap in query.stream()]  # read first: the erasures are slow
+        query = self._db.collection("sessions").where(filter=FieldFilter(EXPIRE_AT, "<=", self._at))
+        expired = [snap async for snap in query.select(["is_deleted"]).stream()]  # read first: erasures are slow
         for snap in expired:
-            data = snap.to_dict() or {}
-            if data.get("is_deleted") is True:
+            if (snap.to_dict() or {}).get("is_deleted") is True:
                 continue  # binned: the bin's own 30 days apply (older soft deletes stamped an expiry too)
-            if not self._take(report):
+            if self._stop(report):
                 return
-            await self._attempt(report, "guest_session", snap.id, self._expire_guest(snap.id, data.get("userId"), report))
+            await self._attempt(report, "guest_session", snap.id, self._expire_guest(snap.id, report))
 
-    async def _expire_guest(self, project_id: str, owner: Any, report: RetentionReport) -> None:
-        if await self._is_registered(owner):
-            if self._apply:
-                await clear_session_expiry(self._db, project_id)
+    async def _expire_guest(self, project_id: str, report: RetentionReport) -> None:
+        # Read again right before acting: since the list was read the session may
+        # have been claimed by a registered user, written to, or binned.
+        snap = await self._db.collection("sessions").document(project_id).get()
+        data = (snap.to_dict() or {}) if snap.exists else {}
+        expire_at = data.get(EXPIRE_AT)
+        if data.get("is_deleted") is True or not isinstance(expire_at, datetime) or expire_at > self._at:
+            return
+        if await self._any_registered(real_owners(data)):
+            await clear_session_expiry(self._db, project_id)
             report.made_permanent += 1
         else:
-            await self._erase(project_id)
+            await self._purge(project_id)
             report.guest_sessions += 1
 
     async def _binned_projects(self, report: RetentionReport) -> None:
+        # `deleted_at` is written only by the soft delete: a single-field range
+        # query (automatic index) selects just the projects past the bin period.
         cutoff = self._at - BIN_RETENTION
-        query = self._db.collection("sessions").where(filter=FieldFilter("is_deleted", "==", True))
-        binned = [snap async for snap in query.select(["deleted_at"]).stream()]
+        query = self._db.collection("sessions").where(filter=FieldFilter("deleted_at", "<=", cutoff))
+        binned = [snap async for snap in query.select(["is_deleted"]).stream()]
         for snap in binned:
-            deleted_at = (snap.to_dict() or {}).get("deleted_at")
-            if not isinstance(deleted_at, datetime) or deleted_at > cutoff:
-                continue  # still recoverable (or undated: never guessed)
-            if not self._take(report):
+            if (snap.to_dict() or {}).get("is_deleted") is not True:
+                continue
+            if self._stop(report):
                 return
             await self._attempt(report, "deleted_project", snap.id, self._erase_binned(snap.id, report))
 
     async def _erase_binned(self, project_id: str, report: RetentionReport) -> None:
-        await self._erase(project_id)
+        await self._purge(project_id)
         report.deleted_projects += 1
 
     async def _expired_holds(self, report: RetentionReport) -> None:
         for hold in await expired_holds(self._db, now=self._at, limit=self._limit):
-            if not self._take(report):
+            if self._stop(report):
                 return
             await self._attempt(report, "expired_hold", hold.project_id, self._release(hold, report))
 
     async def _release(self, hold: HoldRecord, report: RetentionReport) -> None:
-        if self._apply:
-            await release_hold(self._db, self._bucket, hold)
+        await release_hold(self._db, self._bucket, hold)
+        self._erased += 1
         report.expired_holds += 1
 
     async def _orphans(self, report: RetentionReport) -> None:
+        if self._stop(report):  # the scan itself is the expensive part
+            return
         for project_id in await self._orphan_ids():
-            if not self._take(report):
+            if self._stop(report):
                 return
             await self._attempt(report, "orphan", project_id, self._settle_orphan(project_id, report))
 
     async def _settle_orphan(self, project_id: str, report: RetentionReport) -> None:
-        verdict = await self._orphan_verdict(project_id)
-        if verdict is _Verdict.REGISTERED:
+        projection = await self._db.collection("projects").document(project_id).get()
+        data = (projection.to_dict() or {}) if projection.exists else {}
+        if data.get("is_deleted") is not True and await self._any_registered(real_owners(data)):
             report.orphans_kept += 1
-        elif verdict is _Verdict.ERASE:
-            await self._erase(project_id)
-            report.orphans += 1
+            return
+        held = await find_held_quotes(self._db, project_id, now=self._at)
+        last_write = await self._last_write(project_id, projection, held)
+        if last_write is None:
+            # Only what a legal hold keeps is left. A hold marked before the
+            # registry existed gets its record now (it is then skipped by the scan).
+            if self._erase_orphans and held:
+                await hold_sent_quotes(self._db, project_id, held, now=self._at)
+            return
+        if last_write > self._at - ORPHAN_GRACE:
+            return  # written to recently: look again next run
+        if self._erase_orphans:
+            await self._purge(project_id)
+        report.orphans += 1
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    async def _erase(self, project_id: str) -> None:
-        if self._apply:
-            await purge_project(self._db, self._bucket, project_id, now=self._at)
+    async def _purge(self, project_id: str) -> None:
+        await purge_project(self._db, self._bucket, project_id, now=self._at)
+        self._erased += 1
 
-    async def _is_registered(self, owner: Any) -> bool:
-        """Whether `owner` is a live registered account. Guest placeholders,
-        anonymous and deleted accounts are not; a failed lookup raises."""
-        if not isinstance(owner, str) or not owner or owner.startswith(_GUEST_OWNER_PREFIX):
-            return False
-        if owner not in self._kinds:
-            self._kinds[owner] = await self._account_kind(owner)
-        return self._kinds[owner] is AccountKind.REGISTERED
+    async def _any_registered(self, owners: Sequence[str]) -> bool:
+        """Whether any of `owners` is a live registered account (anonymous and
+        deleted accounts are not). A failed lookup raises: never guessed."""
+        for owner in owners:
+            if owner not in self._kinds:
+                self._kinds[owner] = await self._account_kind(owner)
+            if self._kinds[owner] is AccountKind.REGISTERED:
+                return True
+        return False
 
     async def _orphan_ids(self) -> list[str]:
         """Ids with remains (Firestore or Storage) but no session document."""
@@ -235,45 +252,40 @@ class RetentionService:
         projects = self._db.collection("projects")
         live = {snap.id async for snap in sessions.select([]).stream()}
         session_remains = {ref.id async for ref in sessions.list_documents()} - live
-        projections = {snap.id async for snap in projects.select([]).stream()}
-        project_remains = {ref.id async for ref in projects.list_documents()}
+        project_refs = {ref.id async for ref in projects.list_documents()}
         stored: set[str] = set()
         for root in PROJECT_STORAGE_ROOTS:
             stored |= await storage_folder_ids(self._bucket, root)
+        candidates = (session_remains | project_refs | stored) - live
 
-        candidates = (session_remains | project_remains | stored) - live
-        # A legal hold keeps the quote (under the deleted projection) and its
-        # PDFs on purpose: only something else left beside them is an orphan.
-        held = await held_project_ids(self._db)
-        candidates = {pid for pid in candidates if pid not in held or pid in session_remains or pid in projections}
+        # A registered legal hold keeps the quote (under the deleted projection)
+        # and its PDFs on purpose: such a project is an orphan only if a session
+        # remain or the projection itself is still there (an interrupted purge).
+        for pid in (candidates & await held_project_ids(self._db)) - session_remains:
+            if not (await projects.document(pid).get()).exists:
+                candidates.discard(pid)
+
         malformed = {pid for pid in candidates if not is_safe_id(pid)}
         if malformed:
             logger.warning("[Retention] Ignoring remains with a malformed id", extra={"count": len(malformed)})
         return sorted(candidates - malformed)
 
-    async def _orphan_verdict(self, project_id: str) -> _Verdict:
-        projection = await self._db.collection("projects").document(project_id).get()
-        data = (projection.to_dict() or {}) if projection.exists else {}
-        if data.get("is_deleted") is not True:
-            for key in _OWNER_KEYS:
-                if await self._is_registered(data.get(key)):
-                    return _Verdict.REGISTERED
-        last_write = await self._last_write(project_id)
-        if last_write is None or last_write > self._at - ORPHAN_GRACE:
-            return _Verdict.WAIT
-        return _Verdict.ERASE
+    async def _last_write(self, project_id: str, projection: Any, held: Sequence[HeldQuote]) -> datetime | None:
+        """The newest write among what is left of the project, the held quotes
+        excluded. None: nothing but held quotes is left."""
+        held_ids = {quote.doc_id for quote in held}
+        held_blobs = frozenset().union(*(quote.blob_paths for quote in held))
 
-    async def _last_write(self, project_id: str) -> datetime | None:
-        """The newest write among everything left of the project."""
+        def keep(ref: Any) -> bool:
+            return ref.parent.id == "private_data" and ref.id in held_ids
+
         times: list[datetime] = []
-        for collection in ("sessions", "projects"):
-            ref = self._db.collection(collection).document(project_id)
-            snap = await ref.get()
-            if snap.exists:
-                times.append(snap.update_time)
-            times += [doc.update_time async for doc in iter_tree(ref)]
+        if projection.exists:
+            times.append(projection.update_time)
+        times += [doc.update_time async for doc in iter_tree(self._db.collection("sessions").document(project_id))]
+        times += [doc.update_time async for doc in iter_tree(self._db.collection("projects").document(project_id), keep=keep)]
         for prefix in project_storage_prefixes(project_id):
-            times += await asyncio.to_thread(_blob_times, self._bucket, prefix)
+            times += await asyncio.to_thread(_blob_times, self._bucket, prefix, held_blobs)
         return max((t for t in times if t is not None), default=None)
 
     def _audit(self, report: RetentionReport) -> None:
@@ -283,7 +295,7 @@ class RetentionService:
             "retention",
             status="success" if not report.errors else "partial_errors",
             metadata={
-                "applied": report.applied,
+                "orphans_applied": report.orphans_applied,
                 "guest_sessions": report.guest_sessions,
                 "deleted_projects": report.deleted_projects,
                 "expired_holds": report.expired_holds,
@@ -301,5 +313,5 @@ def get_retention_service() -> RetentionService:
         db=get_async_firestore_client(),
         bucket=get_storage_client(),
         account_kind=account_kind,
-        apply=settings.RETENTION_PURGE_ENABLED,
+        erase_orphans=settings.RETENTION_ORPHAN_PURGE_ENABLED,
     )

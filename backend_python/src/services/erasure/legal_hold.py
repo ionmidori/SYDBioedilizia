@@ -21,6 +21,7 @@ quote is revised, so the deliveries are the authoritative record.
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -29,6 +30,9 @@ from typing import Any
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from src.db.purge import delete_document_tree, delete_storage_paths
+from src.db.storage_paths import is_safe_id
+
+logger = logging.getLogger(__name__)
 
 SENT_QUOTE_RETENTION = timedelta(days=3653)  # 10 years
 LEGAL_HOLD_REASON = "preventivo_inviato"
@@ -83,12 +87,19 @@ async def find_held_quotes(db: Any, project_id: str, *, now: datetime) -> list[H
             continue
         times = _send_times(quote, deliveries)
         blobs = {p for p in (quote.get("pdf_blob_path"), *(d.get("pdf_blob_path") for d in deliveries)) if p}
-        existing = quote.get("legal_hold")
+        marker = quote.get("legal_hold")
+        existing: dict[str, Any] = marker if isinstance(marker, dict) else {}
+        if times:
+            retain_until = max(times) + SENT_QUOTE_RETENTION
+        elif isinstance(existing.get("retain_until"), datetime):
+            retain_until = existing["retain_until"]  # undated send: the first hold fixed its end
+        else:
+            retain_until = now + SENT_QUOTE_RETENTION
         held.append(HeldQuote(
             doc_id=snap.id,
-            retain_until=(max(times) if times else now) + SENT_QUOTE_RETENTION,
+            retain_until=retain_until,
             blob_paths=frozenset(blobs),
-            held_since=existing.get("since") if isinstance(existing, dict) else None,
+            held_since=existing.get("since"),
         ))
     return held
 
@@ -132,11 +143,17 @@ async def expired_holds(db: Any, *, now: datetime, limit: int) -> list[HoldRecor
     records: list[HoldRecord] = []
     async for snap in query.stream():
         data = snap.to_dict() or {}
+        project_id, quote_id = data.get("project_id"), data.get("quote_id")
+        if not (isinstance(project_id, str) and is_safe_id(project_id)
+                and isinstance(quote_id, str) and is_safe_id(quote_id)):
+            # Never guess what to erase; one bad record must not block the others.
+            logger.warning("[LegalHold] Skipping a malformed hold record", extra={"record_id": snap.id})
+            continue
         records.append(HoldRecord(
-            project_id=data["project_id"],
-            quote_id=data["quote_id"],
+            project_id=project_id,
+            quote_id=quote_id,
             retain_until=data["retain_until"],
-            blob_paths=tuple(data.get("blob_paths") or ()),
+            blob_paths=tuple(p for p in data.get("blob_paths") or () if isinstance(p, str) and p),
         ))
     return records
 

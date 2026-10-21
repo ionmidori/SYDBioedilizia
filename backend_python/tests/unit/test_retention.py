@@ -16,15 +16,20 @@ PDF = "projects/d1/quotes/PRV-2026-0007_r1.pdf"
 
 
 class FakeAccounts:
-    """Firebase Auth lookups: unknown uids are registered accounts."""
+    """Firebase Auth lookups: unknown uids are registered accounts. `on_lookup`
+    runs on each lookup — to model something happening meanwhile."""
 
-    def __init__(self, kinds: dict[str, AccountKind] | None = None, broken: frozenset[str] = frozenset()) -> None:
+    def __init__(self, kinds: dict[str, AccountKind] | None = None, broken: frozenset[str] = frozenset(),
+                 on_lookup=None) -> None:
         self.kinds = kinds or {}
         self.broken = broken
+        self.on_lookup = on_lookup
         self.calls: list[str] = []
 
     async def __call__(self, uid: str) -> AccountKind:
         self.calls.append(uid)
+        if self.on_lookup is not None:
+            self.on_lookup(uid)
         if uid in self.broken:
             raise RuntimeError("auth unavailable")
         return self.kinds.get(uid, AccountKind.REGISTERED)
@@ -47,10 +52,10 @@ def _audit():
         yield emit
 
 
-def _service(db: FakeDb, bucket: FakeBucket, *, apply: bool = True, accounts: FakeAccounts | None = None,
+def _service(db: FakeDb, bucket: FakeBucket, *, erase_orphans: bool = True, accounts: FakeAccounts | None = None,
              monotonic=None, limit: int = 100) -> RetentionService:
     return RetentionService(
-        db=db, bucket=bucket, account_kind=accounts or FakeAccounts(), apply=apply,
+        db=db, bucket=bucket, account_kind=accounts or FakeAccounts(), erase_orphans=erase_orphans,
         now=lambda: NOW, monotonic=monotonic or SteppingClock(0), limit=limit,
     )
 
@@ -123,6 +128,25 @@ async def test_a_registered_users_project_is_never_erased_by_a_stale_guest_expir
     assert "expireAt" not in db.get_data("sessions", "s1", "messages", "m1")
 
 
+async def test_a_session_claimed_while_the_run_waited_is_not_erased():
+    # The expired list is read first; by the time g2's turn comes, its guest
+    # signed up and claimed it (owner changed, expiry cleared).
+    db, bucket = FakeDb(), FakeBucket()
+    _guest_project(db, bucket, "g1", owner="anon-1")
+    _guest_project(db, bucket, "g2")
+
+    def claim_g2(_uid: str) -> None:
+        db.put("sessions", "g2", {"userId": "u9", "title": "Bagno"})
+
+    accounts = FakeAccounts({"anon-1": AccountKind.ANONYMOUS}, on_lookup=claim_g2)
+    report = await _service(db, bucket, accounts=accounts).run()
+
+    assert report.guest_sessions == 1
+    assert _gone(db, bucket, "g1")
+    assert db.get_data("sessions", "g2") == {"userId": "u9", "title": "Bagno"}
+    assert db.get_data("projects", "g2") is not None
+
+
 async def test_an_owner_that_cannot_be_looked_up_keeps_the_project_and_is_reported():
     db, bucket = FakeDb(), FakeBucket()
     _guest_project(db, bucket, "g1", owner="anon-uid")
@@ -185,6 +209,25 @@ async def test_what_a_legal_hold_keeps_is_never_taken_for_an_orphan():
     assert (report.orphans, report.deleted_projects) == (0, 0)
     assert bucket.names == {PDF}
     assert db.get_data("legal_holds", "d1:quote") == hold
+
+
+@pytest.mark.parametrize("erase_orphans", [False, True])
+async def test_a_hold_marked_before_the_registry_existed_is_not_an_orphan(erase_orphans):
+    # Erasures made before this release marked the quote but wrote no registry record.
+    db, bucket = FakeDb(), FakeBucket([PDF])
+    db.put("projects", "d1", "private_data", "quote", {
+        "status": "sent", "sent_at": SENT, "pdf_blob_path": PDF,
+        "legal_hold": {"reason": "preventivo_inviato", "since": SENT, "retain_until": SENT + SENT_QUOTE_RETENTION},
+    })
+
+    report = await _service(db, bucket, erase_orphans=erase_orphans).run()
+
+    assert report.orphans == 0
+    assert db.get_data("projects", "d1", "private_data", "quote") is not None and bucket.names == {PDF}
+    registered = db.get_data("legal_holds", "d1:quote")
+    assert (registered is not None) is erase_orphans  # registered on the first real run
+    if registered:
+        assert registered["since"] == SENT
 
 
 # ── Legal holds past their 10 years ──────────────────────────────────────────
@@ -277,17 +320,20 @@ def _one_of_each(db: FakeDb, bucket: FakeBucket) -> None:
                                        "retain_until": NOW - timedelta(days=1), "blob_paths": []})
 
 
-async def test_a_dry_run_counts_everything_and_changes_nothing():
+async def test_orphans_are_only_counted_until_their_purge_is_enabled():
+    # The fixed rules (guest expiry, the bin, legal holds) always apply; the
+    # orphan rule is a heuristic and starts as a dry run.
     db, bucket = FakeDb(), FakeBucket()
     _one_of_each(db, bucket)
-    docs, blobs = dict(db.docs), set(bucket.names)
 
-    report = await _service(db, bucket, apply=False).run()
+    report = await _service(db, bucket, erase_orphans=False).run()
 
-    assert report.applied is False
+    assert report.orphans_applied is False
     assert (report.guest_sessions, report.deleted_projects, report.orphans, report.expired_holds) == (1, 1, 1, 1)
     assert (report.orphans_kept, report.made_permanent) == (1, 1)
-    assert db.docs == docs and bucket.names == blobs
+    assert bucket.names >= {"renders/o2/render.png"}  # counted, not erased
+    assert _gone(db, bucket, "g1") and _gone(db, bucket, "d1")
+    assert db.get_data("legal_holds", "h1:quote") is None
 
 
 async def test_the_run_stops_at_its_time_budget_and_says_so():
@@ -296,10 +342,32 @@ async def test_the_run_stops_at_its_time_budget_and_says_so():
         _guest_project(db, bucket, pid)
 
     # 100 s per clock reading against a 150 s budget: one project fits.
-    report = await _service(db, bucket, monotonic=SteppingClock(100)).run()
+    report = await _service(db, bucket, monotonic=SteppingClock(100)).run(budget_seconds=150)
 
     assert report.guest_sessions == 1
     assert report.truncated is True
+
+
+async def test_no_time_left_means_no_scan_and_no_erasure():
+    db, bucket = FakeDb(), FakeBucket(["renders/o2/render.png"])
+    _guest_project(db, bucket, "g1")
+
+    report = await _service(db, bucket).run(budget_seconds=0)
+
+    assert (report.guest_sessions, report.orphans, report.truncated) == (0, 0, True)
+    assert db.get_data("sessions", "g1") is not None and "renders/o2/render.png" in bucket.names
+
+
+async def test_orphans_left_in_place_do_not_use_up_the_erasure_limit():
+    # "a…" sorts first and belongs to a registered account: kept every run.
+    db, bucket = FakeDb(), FakeBucket(["user-uploads/a1/x.jpg", "user-uploads/a2/x.jpg", "renders/b1/r.png"])
+    db.put("projects", "a1", {"userId": "u1"})
+    db.put("projects", "a2", {"userId": "u2"})
+
+    report = await _service(db, bucket, limit=1).run()
+
+    assert (report.orphans_kept, report.orphans) == (2, 1)
+    assert "renders/b1/r.png" not in bucket.names
 
 
 async def test_the_run_handles_at_most_its_limit():
@@ -333,5 +401,5 @@ async def test_the_audit_records_counts_and_never_identifiers(_audit):
 
     kwargs = _audit.call_args.kwargs
     assert kwargs["metadata"]["guest_sessions"] == 1
-    assert kwargs["metadata"]["applied"] is True
+    assert kwargs["metadata"]["orphans_applied"] is True
     assert "g1" not in repr(_audit.call_args)

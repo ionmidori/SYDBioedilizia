@@ -19,7 +19,7 @@ const STATUS = {
 };
 
 const RETENTION = {
-  applied: true, guest_sessions: 0, deleted_projects: 0, expired_holds: 0, orphans: 0,
+  orphans_applied: true, guest_sessions: 0, deleted_projects: 0, expired_holds: 0, orphans: 0,
   orphans_kept: 0, made_permanent: 0, truncated: false,
 };
 const RESULT = { status: 'ok', warned: 0, disabled: 0, anonymized: 0, errors: [] as string[], retention: null };
@@ -79,20 +79,27 @@ describe('GdprMonitor', () => {
     expect(retention).not.toHaveTextContent('Simulazione');
   });
 
-  it('makes clear that a dry run erased nothing', () => {
-    setup({ data: { ...RESULT, retention: { ...RETENTION, applied: false, orphans: 36, orphans_kept: 2, truncated: true } } });
+  it('makes clear that orphans are only counted while their purge is off', () => {
+    setup({ data: { ...RESULT, retention: { ...RETENTION, orphans_applied: false, orphans: 36, orphans_kept: 2, truncated: true } } });
     render(<GdprMonitor />);
     const retention = screen.getByTestId('gdpr-retention');
-    expect(retention).toHaveTextContent('Simulazione: non è stato cancellato nulla');
+    expect(retention).toHaveTextContent('Residui orfani: solo conteggiati');
     expect(retention).toHaveTextContent('36');
     expect(retention).toHaveTextContent('2 residui di account registrati');
     expect(retention).toHaveTextContent('prossima esecuzione');
   });
 
-  it('says when the retention phase did not run', () => {
+  it('says when the retention phase failed', () => {
     setup({ data: { ...RESULT, status: 'partial_errors', errors: ['retention: 1 errori (dettagli nei log del server)'] } });
     render(<GdprMonitor />);
     expect(screen.getByTestId('gdpr-retention')).toHaveTextContent('non è stata eseguita');
+  });
+
+  it('shows no retention section when the backend did not report one and nothing failed', () => {
+    // A backend older than this page (during a release) sends no summary: not an error.
+    setup({ data: RESULT });
+    render(<GdprMonitor />);
+    expect(screen.queryByTestId('gdpr-retention')).not.toBeInTheDocument();
   });
 
   it('tells the admin that a pass is already running', () => {
