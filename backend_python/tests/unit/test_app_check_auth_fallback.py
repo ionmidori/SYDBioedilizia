@@ -17,6 +17,8 @@ ANONYMOUS = {"uid": "a1", "aud": "proj", "firebase": {"sign_in_provider": "anony
 def _strict(monkeypatch):
     monkeypatch.setattr(app_check, "ENABLE_APP_CHECK", True)
     monkeypatch.setattr(app_check.settings, "GOOGLE_CLOUD_PROJECT", "proj")
+    # No Firebase credentials in CI: the SDK init is not what these tests exercise.
+    monkeypatch.setattr(app_check, "init_firebase", lambda: None)
 
 
 def _request(method: str, path: str, bearer: str | None = "tok") -> Request:
