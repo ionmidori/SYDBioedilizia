@@ -10,7 +10,6 @@ import {
     getRedirectResult,
     GoogleAuthProvider,
     type AuthProvider as FirebaseAuthProvider,
-    OAuthProvider,
     signOut,
     sendSignInLinkToEmail,
     isSignInWithEmailLink,
@@ -58,7 +57,6 @@ interface AuthContextValue {
     // Methods
     signInAnonymously: () => Promise<void>;
     loginWithGoogle: (options?: SocialLoginOptions) => Promise<SocialLoginOutcome>;
-    loginWithApple: (options?: SocialLoginOptions) => Promise<SocialLoginOutcome>;
     logout: () => Promise<void>;
     sendMagicLink: (email: string) => Promise<void>;
     completeMagicLink: (emailLink: string, email?: string) => Promise<void>;
@@ -290,16 +288,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithProvider(new GoogleAuthProvider(), options);
 
     /**
-     * Sign in with Apple
-     */
-    const loginWithApple = (options?: SocialLoginOptions): Promise<SocialLoginOutcome> => {
-        const provider = new OAuthProvider('apple.com');
-        provider.addScope('email');
-        provider.addScope('name');
-        return signInWithProvider(provider, options);
-    };
-
-    /**
      * Sign out
      */
     /**
@@ -438,7 +426,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAnonymous: user?.isAnonymous ?? false,
         signInAnonymously,
         loginWithGoogle,
-        loginWithApple,
         logout,
         sendMagicLink,
         completeMagicLink,

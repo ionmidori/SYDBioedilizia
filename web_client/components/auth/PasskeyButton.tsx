@@ -167,7 +167,7 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                         <DialogDescription className="text-luxury-text/70 pt-2">
                             Non abbiamo trovato credenziali biometriche associate a questo dispositivo.
                             <br /><br />
-                            Per usare FaceID o TouchID, devi prima accedere con <strong>Email</strong> o <strong>Google/Apple</strong>, e poi attivare la biometria dal tuo Profilo.
+                            Per usare FaceID o TouchID, devi prima accedere con <strong>Email</strong> o <strong>Google</strong>, e poi attivare la biometria dal tuo Profilo.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="sm:justify-center mt-4">
