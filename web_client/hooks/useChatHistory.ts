@@ -3,6 +3,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { auth } from '@/lib/firebase';
 import type { Message } from '@/types/chat';
 
+// Re-listen delay after a permission-denied snapshot (session not created yet).
+const DENIED_RETRY_START_MS = 2_000;
+const DENIED_RETRY_MAX_MS = 30_000;
+
 interface UseChatHistoryOptions {
     /**
      * Number of messages to fetch per page.
@@ -60,7 +64,9 @@ export function useChatHistory(
 
     useEffect(() => {
         let isMounted = true;
-        let unsubscribe: () => void;
+        let unsubscribe: (() => void) | undefined;
+        let retryTimer: ReturnType<typeof setTimeout> | undefined;
+        let retryDelay = DENIED_RETRY_START_MS;
 
         async function setupListener() {
             if (!shouldFetch) {
@@ -103,162 +109,181 @@ export function useChatHistory(
                     firestoreLimit(limit)
                 );
 
-                unsubscribe = firestoreOnSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
-                    // Docs are Newest -> Oldest (DESC)
-                    // We map them, then reverse to get Oldest -> Newest for UI
+                const subscribe = () => {
+                    unsubscribe = firestoreOnSnapshot(q, { includeMetadataChanges: false }, (snapshot) => {
+                        // Docs are Newest -> Oldest (DESC)
+                        // We map them, then reverse to get Oldest -> Newest for UI
 
-                    // 🕒 Stable snapshot time for all pending messages in THIS pass.
-                    // This prevents micro-timestamp differences from breaking the tie-breaker.
-                    const snapshotTime = new Date();
+                        // 🕒 Stable snapshot time for all pending messages in THIS pass.
+                        // This prevents micro-timestamp differences from breaking the tie-breaker.
+                        const snapshotTime = new Date();
 
-                    const rawMessages = snapshot.docs.map(doc => {
-                        const data = doc.data();
+                        const rawMessages = snapshot.docs.map(doc => {
+                            const data = doc.data();
 
-                        // Parse tool_calls
-                        let toolInvocations = undefined;
-                        if (data.tool_calls && Array.isArray(data.tool_calls)) {
-                            toolInvocations = (data.tool_calls as { id?: string; tool_call_id?: string; name?: string; function?: { name?: string; arguments?: string | Record<string, unknown> }; args?: Record<string, unknown> }[]).map((tc) => ({
-                                toolCallId: tc.id || tc.tool_call_id || '',
-                                toolName: tc.function?.name || tc.name || 'unknown',
-                                args: typeof tc.function?.arguments === 'string'
-                                    ? JSON.parse(tc.function.arguments)
-                                    : (tc.function?.arguments || tc.args || {}),
-                                state: 'result' as const,
-                                result: 'See tool output'
-                            }));
-                        }
+                            // Parse tool_calls
+                            let toolInvocations = undefined;
+                            if (data.tool_calls && Array.isArray(data.tool_calls)) {
+                                toolInvocations = (data.tool_calls as { id?: string; tool_call_id?: string; name?: string; function?: { name?: string; arguments?: string | Record<string, unknown> }; args?: Record<string, unknown> }[]).map((tc) => ({
+                                    toolCallId: tc.id || tc.tool_call_id || '',
+                                    toolName: tc.function?.name || tc.name || 'unknown',
+                                    args: typeof tc.function?.arguments === 'string'
+                                        ? JSON.parse(tc.function.arguments)
+                                        : (tc.function?.arguments || tc.args || {}),
+                                    state: 'result' as const,
+                                    result: 'See tool output'
+                                }));
+                            }
 
-                        // 📎 Attachment Transformation Resilience Layer
-                        // Handles:
-                        // 1. Legacy: List of objects [{url: string, type: string}]
-                        // 2. Structured: { images: string[], videos: string[] } (Preferred)
-                        // 3. Fallback: message.parts (AI SDK v7) handled in MessageItem
-                        let attachments = undefined;
-                        const rawAttachments = data.attachments;
+                            // 📎 Attachment Transformation Resilience Layer
+                            // Handles:
+                            // 1. Legacy: List of objects [{url: string, type: string}]
+                            // 2. Structured: { images: string[], videos: string[] } (Preferred)
+                            // 3. Fallback: message.parts (AI SDK v7) handled in MessageItem
+                            let attachments = undefined;
+                            const rawAttachments = data.attachments;
                         
-                        if (rawAttachments) {
-                            if (Array.isArray(rawAttachments)) {
-                                // Convert Legacy Array -> Structured Object
-                                attachments = {
-                                    images: rawAttachments.filter(a => a.type === 'image').map(a => a.url),
-                                    videos: rawAttachments.filter(a => a.type === 'video').map(a => a.url),
-                                    documents: rawAttachments.filter(a => a.type === 'document').map(a => a.url)
-                                };
-                            } else if (typeof rawAttachments === 'object') {
-                                // Use as-is, ensuring arrays exist
-                                attachments = {
-                                    images: Array.isArray(rawAttachments.images) ? rawAttachments.images : [],
-                                    videos: Array.isArray(rawAttachments.videos) ? rawAttachments.videos : [],
-                                    documents: Array.isArray(rawAttachments.documents) ? rawAttachments.documents : []
+                            if (rawAttachments) {
+                                if (Array.isArray(rawAttachments)) {
+                                    // Convert Legacy Array -> Structured Object
+                                    attachments = {
+                                        images: rawAttachments.filter(a => a.type === 'image').map(a => a.url),
+                                        videos: rawAttachments.filter(a => a.type === 'video').map(a => a.url),
+                                        documents: rawAttachments.filter(a => a.type === 'document').map(a => a.url)
+                                    };
+                                } else if (typeof rawAttachments === 'object') {
+                                    // Use as-is, ensuring arrays exist
+                                    attachments = {
+                                        images: Array.isArray(rawAttachments.images) ? rawAttachments.images : [],
+                                        videos: Array.isArray(rawAttachments.videos) ? rawAttachments.videos : [],
+                                        documents: Array.isArray(rawAttachments.documents) ? rawAttachments.documents : []
+                                    };
+                                }
+                            }
+
+                            // Clean content (strip internal attachment markers)
+                            let content = (data.content || '') as string;
+                            if (content && (attachments?.images?.length || attachments?.videos?.length)) {
+                                content = content
+                                    .replace(/\[(Immagine|Video) allegata:.*?\]/g, '')
+                                    .replace(/\[https?:\/\/.*?\]/g, '')
+                                    .trim();
+                            }
+
+                            // Parse timestamp
+                            const createdAt = data.timestamp?.toDate() || snapshotTime;
+
+                            return {
+                                id: doc.id,
+                                role: (data.role || 'user').toLowerCase() as 'user' | 'assistant' | 'system' | 'tool',
+                                content,
+                                createdAt,
+                                timestamp: createdAt.toISOString(),
+                                toolInvocations,
+                                tool_call_id: data.tool_call_id,
+                                attachments,
+                                rating: data.rating
+                            } as Message;
+                        });
+
+                        // 3. Consistent Sorting Logic
+                        // Sort by timestamp ASCENDING (Oldest first).
+                        // Tie-breaker: role priority (user < assistant) for messages within 500ms.
+                        // The backend saves user at t-100ms and assistant at t+Nms, so 500ms
+                        // covers any realistic same-turn gap while preserving cross-turn order.
+                        const rolePriority: Record<string, number> = {
+                            system: 0,
+                            user: 1,
+                            assistant: 2,
+                            tool: 3
+                        };
+                        const messages = rawMessages.sort((a, b) => {
+                            const timeA = (a.createdAt as Date).getTime();
+                            const timeB = (b.createdAt as Date).getTime();
+                            const diff = timeA - timeB;
+
+                            // If messages differ by more than 500ms, use chronological order
+                            if (Math.abs(diff) > 500) {
+                                return diff;
+                            }
+
+                            // Within 500ms: apply role priority (user always before assistant)
+                            const priorityA = rolePriority[a.role] ?? 5;
+                            const priorityB = rolePriority[b.role] ?? 5;
+                            if (priorityA !== priorityB) {
+                                return priorityA - priorityB;
+                            }
+
+                            // Same role and timestamp: stable sort by document ID
+                            return (a.id || '').localeCompare(b.id || '');
+                        });
+
+                        // Link Tool Results (Smart Merge)
+                        const linkedMessages = messages.map(msg => {
+                            if (msg.role === 'assistant' && msg.toolInvocations) {
+                                return {
+                                    ...msg,
+                                    toolInvocations: msg.toolInvocations.map((tool) => {
+                                        const toolResultMsg = messages.find(m =>
+                                            m.role === 'tool' && m.tool_call_id === tool.toolCallId
+                                        );
+
+                                        if (toolResultMsg) {
+                                            let parsedResult = toolResultMsg.content;
+                                            try {
+                                                if (typeof toolResultMsg.content === 'string' &&
+                                                    (toolResultMsg.content.startsWith('{') || toolResultMsg.content.startsWith('['))) {
+                                                    parsedResult = JSON.parse(toolResultMsg.content);
+                                                }
+                                            } catch { /* ignore */ }
+
+                                            return {
+                                                ...tool,
+                                                state: 'result',
+                                                result: parsedResult
+                                            };
+                                        }
+                                        return tool;
+                                    })
                                 };
                             }
+                            return msg;
+                        });
+
+                        setHistoryMessages(linkedMessages as Message[]);
+                        setLoadedForSessionId(sessionId as string);
+                        setIsLoading(false);
+                    }, (err) => {
+                        // During logout, there is a brief window where auth.currentUser is null
+                        // but the existing Firestore listener hasn't been cleaned up yet.
+                        // Firestore fires 'permission-denied' during this window.
+                        // We suppress it here — the listener will be unsubscribed on the next
+                        // React render when shouldFetch becomes false.
+                        if (err.code === 'permission-denied' && !auth.currentUser) {
+                            return;
                         }
-
-                        // Clean content (strip internal attachment markers)
-                        let content = (data.content || '') as string;
-                        if (content && (attachments?.images?.length || attachments?.videos?.length)) {
-                            content = content
-                                .replace(/\[(Immagine|Video) allegata:.*?\]/g, '')
-                                .replace(/\[https?:\/\/.*?\]/g, '')
-                                .trim();
+                        // Signed-in (often anonymous) user whose session document does
+                        // not exist yet: the backend creates it with the first message.
+                        // That is an empty new chat, not an error — mark it loaded so the
+                        // welcome message appears, and listen again later (a failed
+                        // listener is closed for good).
+                        if (err.code === 'permission-denied') {
+                            if (!isMounted) return;
+                            setHistoryMessages([]);
+                            setLoadedForSessionId(sessionId as string);
+                            setIsLoading(false);
+                            retryTimer = setTimeout(() => {
+                                if (isMounted) subscribe();
+                            }, retryDelay);
+                            retryDelay = Math.min(retryDelay * 2, DENIED_RETRY_MAX_MS);
+                            return;
                         }
-
-                        // Parse timestamp
-                        const createdAt = data.timestamp?.toDate() || snapshotTime;
-
-                        return {
-                            id: doc.id,
-                            role: (data.role || 'user').toLowerCase() as 'user' | 'assistant' | 'system' | 'tool',
-                            content,
-                            createdAt,
-                            timestamp: createdAt.toISOString(),
-                            toolInvocations,
-                            tool_call_id: data.tool_call_id,
-                            attachments,
-                            rating: data.rating
-                        } as Message;
+                        console.error('[useChatHistory] Snapshot Error:', err);
+                        setError(err);
+                        setIsLoading(false);
                     });
-
-                    // 3. Consistent Sorting Logic
-                    // Sort by timestamp ASCENDING (Oldest first).
-                    // Tie-breaker: role priority (user < assistant) for messages within 500ms.
-                    // The backend saves user at t-100ms and assistant at t+Nms, so 500ms
-                    // covers any realistic same-turn gap while preserving cross-turn order.
-                    const rolePriority: Record<string, number> = {
-                        system: 0,
-                        user: 1,
-                        assistant: 2,
-                        tool: 3
-                    };
-                    const messages = rawMessages.sort((a, b) => {
-                        const timeA = (a.createdAt as Date).getTime();
-                        const timeB = (b.createdAt as Date).getTime();
-                        const diff = timeA - timeB;
-
-                        // If messages differ by more than 500ms, use chronological order
-                        if (Math.abs(diff) > 500) {
-                            return diff;
-                        }
-
-                        // Within 500ms: apply role priority (user always before assistant)
-                        const priorityA = rolePriority[a.role] ?? 5;
-                        const priorityB = rolePriority[b.role] ?? 5;
-                        if (priorityA !== priorityB) {
-                            return priorityA - priorityB;
-                        }
-
-                        // Same role and timestamp: stable sort by document ID
-                        return (a.id || '').localeCompare(b.id || '');
-                    });
-
-                    // Link Tool Results (Smart Merge)
-                    const linkedMessages = messages.map(msg => {
-                        if (msg.role === 'assistant' && msg.toolInvocations) {
-                            return {
-                                ...msg,
-                                toolInvocations: msg.toolInvocations.map((tool) => {
-                                    const toolResultMsg = messages.find(m =>
-                                        m.role === 'tool' && m.tool_call_id === tool.toolCallId
-                                    );
-
-                                    if (toolResultMsg) {
-                                        let parsedResult = toolResultMsg.content;
-                                        try {
-                                            if (typeof toolResultMsg.content === 'string' &&
-                                                (toolResultMsg.content.startsWith('{') || toolResultMsg.content.startsWith('['))) {
-                                                parsedResult = JSON.parse(toolResultMsg.content);
-                                            }
-                                        } catch { /* ignore */ }
-
-                                        return {
-                                            ...tool,
-                                            state: 'result',
-                                            result: parsedResult
-                                        };
-                                    }
-                                    return tool;
-                                })
-                            };
-                        }
-                        return msg;
-                    });
-
-                    setHistoryMessages(linkedMessages as Message[]);
-                    setLoadedForSessionId(sessionId as string);
-                    setIsLoading(false);
-                }, (err) => {
-                    // During logout, there is a brief window where auth.currentUser is null
-                    // but the existing Firestore listener hasn't been cleaned up yet.
-                    // Firestore fires 'permission-denied' during this window.
-                    // We suppress it here — the listener will be unsubscribed on the next
-                    // React render when shouldFetch becomes false.
-                    if (err.code === 'permission-denied' && !auth.currentUser) {
-                        return;
-                    }
-                    console.error('[useChatHistory] Snapshot Error:', err);
-                    setError(err);
-                    setIsLoading(false);
-                });
+                };
+                subscribe();
 
             } catch (err: unknown) {
                 console.error('[useChatHistory] Setup Error:', err);
@@ -271,6 +296,7 @@ export function useChatHistory(
 
         return () => {
             isMounted = false;
+            if (retryTimer) clearTimeout(retryTimer);
             if (unsubscribe) unsubscribe();
         };
     }, [sessionId, shouldFetch, limit, authLoading]);
