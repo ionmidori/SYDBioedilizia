@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 import createBundleAnalyzer from '@next/bundle-analyzer';
 
+// Firebase domain that serves the Auth handler (`/__/auth/*`).
+const FIREBASE_AUTH_HANDLER_DOMAIN = `${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'chatbotluca-a8a73'}.firebaseapp.com`;
+
 const nextConfig: NextConfig = {
   // The authenticated E2E suite needs its own build (NEXT_PUBLIC_* are inlined
   // at build time, so emulator mode cannot be toggled on an existing artifact).
@@ -144,6 +147,14 @@ const nextConfig: NextConfig = {
           destination: process.env.NODE_ENV === 'development'
             ? 'http://127.0.0.1:8080/api/:path*' // Local Python Backend (8080 on Windows)
             : 'https://syd-brain-w6yrkh3gfa-ew.a.run.app/api/:path*', // Cloud Run (Active)
+        },
+        // Firebase Auth handler served from the site's own domain, so
+        // signInWithRedirect works on Safari/iOS (no third-party storage).
+        // Active once NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN is the site host —
+        // see lib/auth/redirect-login.ts.
+        {
+          source: '/__/auth/:path*',
+          destination: `https://${FIREBASE_AUTH_HANDLER_DOMAIN}/__/auth/:path*`,
         },
         {
           source: '/chat/stream',

@@ -17,7 +17,14 @@ export function mapAuthError(firebaseErrorCode: string): string {
         'auth/popup-closed-by-user': 'Login annullato.',
         'auth/cancelled-popup-request': 'Login annullato.',
         'auth/popup-blocked': 'Popup bloccato. Controlla le impostazioni del browser.',
-        'auth/account-exists-with-different-credential': 'Hai già un account con questa email.',
+        'auth/account-exists-with-different-credential':
+            'Hai già un account con questa email: accedi con il metodo usato la prima volta (es. Google o email).',
+        'auth/operation-not-supported-in-this-environment':
+            'Questo browser non supporta l\'accesso. Apri il sito in Safari o Chrome.',
+        'auth/web-storage-unsupported':
+            'Il browser blocca i dati del sito. Disattiva la navigazione privata o apri il sito in Safari o Chrome.',
+        'auth/unauthorized-domain': 'Accesso non abilitato su questo indirizzo. Contatta il supporto.',
+        'auth/user-cancelled': 'Login annullato.',
 
         // Network Errors
         'auth/network-request-failed': 'Nessuna connessione. Controlla la rete.',
