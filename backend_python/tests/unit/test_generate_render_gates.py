@@ -20,6 +20,7 @@ def tool_context() -> MagicMock:
     ctx.session.id = "sess-1"
     ctx.user_id = "uid-1"
     ctx.save_artifact = AsyncMock(return_value=1)
+    ctx.state = {}
     return ctx
 
 
@@ -51,7 +52,7 @@ async def _render(
     with patch("src.tools.generate_render.generate_render_wrapper", new=wrapper), \
          patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=anonymous)), \
          patch.object(tools, "check_quota", new=AsyncMock(return_value=decision)), \
-         patch.object(tools, "increment_quota", new=increment):
+         patch.object(tools, "increment_quota", new=increment),          patch.object(tools, "latest_uploaded_photo_url", new=AsyncMock(return_value=None)):
         out = await tools.generate_render(prompt="bagno", session_id="sess-1", tool_context=tool_context)
     return out, wrapper, increment
 

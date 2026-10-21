@@ -1,4 +1,4 @@
-import { getVisibleText, hasVisibleText } from '../message-text';
+import { getVisibleText, hasVisibleText, stripDuplicateImages } from '../message-text';
 
 describe('getVisibleText', () => {
     it('joins the streamed text parts', () => {
@@ -26,5 +26,33 @@ describe('getVisibleText', () => {
     it('handles missing parts', () => {
         expect(getVisibleText(undefined)).toBe('');
         expect(hasVisibleText([])).toBe(false);
+    });
+});
+
+describe('stripDuplicateImages', () => {
+    // Same object, two different signed URLs (signature/date differ per request).
+    const TOOL_URL = 'https://storage.googleapis.com/bucket/renders/s1/r.png?X-Goog-Signature=aaa';
+    const TEXT_URL = 'https://storage.googleapis.com/bucket/renders/s1/r.png?X-Goog-Signature=bbb';
+
+    it('drops a markdown image already shown by the render tool (production: shown twice)', () => {
+        const text = `Ecco il rendering!\n\n![Render Cucina](${TEXT_URL})\n\nTi piace?`;
+        const out = stripDuplicateImages(text, [TOOL_URL]);
+        expect(out).not.toContain('![');
+        expect(out).toContain('Ecco il rendering!');
+        expect(out).toContain('Ti piace?');
+    });
+
+    it('keeps images of other files', () => {
+        const other = '![foto](https://storage.googleapis.com/bucket/user-uploads/s1/k.jpg?sig=1)';
+        expect(stripDuplicateImages(other, [TOOL_URL])).toBe(other);
+    });
+
+    it('is a no-op without tool images', () => {
+        const text = `![x](${TEXT_URL})`;
+        expect(stripDuplicateImages(text, [])).toBe(text);
+    });
+
+    it('ignores malformed urls', () => {
+        expect(stripDuplicateImages('![x](not a url)', [TOOL_URL])).toBe('![x](not a url)');
     });
 });

@@ -15,7 +15,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 import { Message, ToolInvocation } from '@/types/chat';
-import { getVisibleText } from '@/lib/chat/message-text';
+import { getVisibleText, stripDuplicateImages } from '@/lib/chat/message-text';
 import { useSmoothText } from '@/hooks/useSmoothText';
 import { MemoizedMarkdown } from '@/components/chat/MemoizedMarkdown';
 
@@ -109,7 +109,17 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
     // Live replies are revealed progressively (useSmoothText); visibility
     // decisions below still use the full text.
     const displayText = useSmoothText(text, animate);
-    const formattedText = formatMessageText(displayText);
+    // Images the tools already show (ToolStatus renders `imageUrl`): the same
+    // image repeated by the model in its markdown would appear twice.
+    const toolImageUrls = toolInvocations.flatMap((tool) => {
+        let result: unknown = tool.result ?? (tool as { output?: unknown }).output;
+        if (typeof result === 'string') {
+            try { result = JSON.parse(result); } catch { return []; }
+        }
+        const url = (result as { imageUrl?: unknown } | null | undefined)?.imageUrl;
+        return typeof url === 'string' ? [url] : [];
+    });
+    const formattedText = stripDuplicateImages(formatMessageText(displayText), toolImageUrls);
 
     // ✅ Memoize ReactMarkdown components to prevent re-creation on every render
     const markdownComponents = useMemo<Components>(() => ({
