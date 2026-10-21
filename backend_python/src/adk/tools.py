@@ -12,10 +12,12 @@ import logging
 from typing import Any
 
 from google.adk.tools import FunctionTool
+from google.api_core.exceptions import GoogleAPIError
 
 from src.auth.user_lookup import is_anonymous_user
 from src.core.config import settings
 from src.core.telemetry import instrumented_tool
+from src.db.projects.media import latest_uploaded_photo_url
 from src.tools.quota import check_quota, increment_quota, quota_denial
 
 logger = logging.getLogger(__name__)
@@ -218,6 +220,10 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
 
 # ─── Render Generation ───────────────────────────────────────────────────────
 
+# Invocation-scoped ("temp:" is never persisted) record of this turn's render,
+# keyed by invocation_id as well so it can never leak into a later turn.
+_RENDER_DONE_KEY = "temp:render_done"
+
 @instrumented_tool("generate_render")
 async def generate_render(
     prompt: str,
@@ -227,6 +233,7 @@ async def generate_render(
     room_type: str = "interior",
     mode: str = "creation",
     source_image_url: str = "",
+    ignore_uploaded_photo: bool = False,
 ) -> dict:
     """Generates a photorealistic 3D render of a room using Gemini + Imagen 3.
 
@@ -237,7 +244,10 @@ async def generate_render(
         style: Design style (e.g. 'modern', 'industrial', 'minimalist', 'rustic').
         room_type: Type of room (e.g. 'living room', 'kitchen', 'bathroom').
         mode: 'creation' for text-to-image, 'modification' to transform an uploaded photo.
-        source_image_url: Firebase Storage URL of the room photo (required if mode='modification').
+        source_image_url: Firebase Storage URL of the room photo. Optional: when the
+            user uploaded a photo to this project it is found automatically.
+        ignore_uploaded_photo: True ONLY if the user explicitly asks for a design from
+            scratch, NOT based on the photo they uploaded.
     """
     import logging as _logging
     _logger = _logging.getLogger(__name__)
@@ -254,6 +264,35 @@ async def generate_render(
         _logger.warning(f"[ADK Tool] generate_render blocked: quota {decision.reason}")
         return {"status": "error", "error": quota_denial("generate_render", decision).message}
 
+    # One render per turn: a repeated call (same invocation) returns the first
+    # image instead of generating — and showing in chat — a second one.
+    previous = tool_context.state.get(_RENDER_DONE_KEY)
+    if previous and previous.get("invocation_id") == tool_context.invocation_id:
+        _logger.warning("[ADK Tool] generate_render called twice in one turn: reusing the first render")
+        return previous["result"]
+
+    # The photo is the user's room: render FROM it (I2I) unless they asked for a
+    # design from scratch. Not left to the model, which only sees the photo URL
+    # in the upload turn and fell back to text-only on later turns.
+    source: str | None = None
+    reason = "from_scratch_requested"
+    if not ignore_uploaded_photo:
+        source = source_image_url or None
+        reason = "model_url"
+        if not source:
+            try:
+                source = await latest_uploaded_photo_url(session_id)
+                reason = "project_photo" if source else "no_photo"
+            except GoogleAPIError as lookup_err:
+                _logger.warning(f"[ADK Tool] generate_render: project photo lookup failed ({lookup_err})")
+                reason = "photo_lookup_failed"
+    render_mode = "modification" if source else "creation"
+    _logger.info(
+        f"[ADK Tool] generate_render mode={render_mode} reason={reason}",
+        extra={"event": "render_mode", "render_mode": "i2i" if source else "t2i",
+               "reason": reason, "requested_mode": mode},
+    )
+
     from src.tools.generate_render import generate_render_wrapper
     try:
         result = await generate_render_wrapper(
@@ -261,8 +300,8 @@ async def generate_render(
             room_type=room_type or "interior",
             style=style,
             session_id=session_id,
-            mode=mode if mode in ("creation", "modification") else "creation",
-            source_image_url=source_image_url or None,
+            mode=render_mode,
+            source_image_url=source,
         )
         _logger.info(f"[ADK Tool] generate_render completed. Status: {result.get('status')}, session: {session_id}")
         if result.get("status") == "success":
@@ -274,7 +313,7 @@ async def generate_render(
             try:
                 from google.genai import types as genai_types
                 image_url = result["imageUrl"]
-                artifact_filename = f"render_{session_id}_{mode}.png"
+                artifact_filename = f"render_{session_id}_{render_mode}.png"
                 artifact = genai_types.Part(
                     file_data=genai_types.FileData(
                         file_uri=image_url,
@@ -291,6 +330,10 @@ async def generate_render(
                 # Non-fatal: image is already in Firebase Storage
                 _logger.warning(f"[ADK Tool] generate_render: artifact save skipped ({art_err})")
 
+        if result.get("status") == "success":
+            tool_context.state[_RENDER_DONE_KEY] = {
+                "invocation_id": tool_context.invocation_id, "result": result,
+            }
         return result
     except Exception as e:
         _logger.error(f"[ADK Tool] generate_render FAILED for session {session_id}: {e}", exc_info=True)

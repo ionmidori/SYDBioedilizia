@@ -10,6 +10,23 @@ from src.utils.datetime_utils import utc_now
 logger = logging.getLogger(__name__)
 
 
+async def latest_uploaded_photo_url(session_id: str) -> str | None:
+    """URL of the most recent photo uploaded to the project (renders excluded).
+
+    The render tool reads it so a room the user photographed is rendered from
+    that photo even when its URL is no longer in the model's context (it is
+    only attached to the upload turn). The URL may be an expired signed URL:
+    download_image_smart reads the object by its path.
+    """
+    db = get_async_firestore_client()
+    files_ref = db.collection(PROJECTS_COLLECTION).document(session_id).collection('files')
+    async for doc in files_ref.order_by('uploadedAt', direction='DESCENDING').stream():
+        data = doc.to_dict() or {}
+        if data.get('type') == 'image' and data.get('url'):
+            return data['url']
+    return None
+
+
 async def sync_project_cover(session_id: str) -> bool:
     """
     Scans the project's 'files' container to determine the best cover.

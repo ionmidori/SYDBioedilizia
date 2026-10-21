@@ -69,3 +69,32 @@ describe('MessageItem — render image attachment', () => {
         expect(screen.getByTestId('tool-status')).toHaveTextContent(IMAGE_URL);
     });
 });
+
+describe('MessageItem — render shown once', () => {
+    it('drops the markdown copy of the render the tool already shows', () => {
+        const signed = (sig: string) =>
+            `https://storage.googleapis.com/bucket/renders/s1/r.png?X-Goog-Signature=${sig}`;
+        const message = {
+            id: 'm2',
+            role: 'assistant',
+            parts: [{ type: 'text', text: `Ecco il rendering!\n\n![Render](${signed('b')})` }],
+            toolInvocations: [
+                {
+                    toolCallId: 'c2',
+                    toolName: 'generate_render',
+                    state: 'result',
+                    args: {},
+                    result: { imageUrl: signed('a'), status: 'success' },
+                },
+            ],
+        } as unknown as Message;
+
+        const { container } = render(
+            <MessageItem message={message} sessionId="s1" onImageClick={jest.fn()} />
+        );
+
+        expect(container).toHaveTextContent('Ecco il rendering!');
+        expect(container.textContent).not.toContain('![Render]');
+        expect(screen.getByTestId('tool-status')).toHaveTextContent(signed('a'));
+    });
+});
