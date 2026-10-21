@@ -3,9 +3,8 @@
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-    updateProjectDetails,
-} from "@/app/actions/project-details";
+import { useRouter } from "next/navigation";
+import { projectsApi } from "@/lib/projects-api";
 import { projectDetailsSchema, type ProjectDetailsFormData } from "@/lib/validation/project-details-schema";
 import type { ProjectDetails } from "@/types/projects";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -20,6 +19,7 @@ export default function ConstructionDetailsForm({
     sessionId,
     initialData,
 }: ConstructionDetailsFormProps) {
+    const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [submitMessage, setSubmitMessage] = useState<{
         type: "success" | "error";
@@ -63,37 +63,14 @@ export default function ConstructionDetailsForm({
     const onSubmit = (data: ProjectDetailsFormData) => {
         startTransition(async () => {
             try {
-                // Convert to FormData for server action
-                const formData = new FormData();
-                formData.append("footage_sqm", data.footage_sqm.toString());
-                formData.append("property_type", data.property_type);
-                formData.append("address_street", data.address.street);
-                formData.append("address_city", data.address.city);
-                formData.append("address_zip", data.address.zip);
-                formData.append("budget_cap", data.budget_cap.toString());
-                if (data.technical_notes) {
-                    formData.append("technical_notes", data.technical_notes);
-                }
-                formData.append(
-                    "renovation_constraints",
-                    JSON.stringify(data.renovation_constraints)
-                );
-
-                const result = await updateProjectDetails(sessionId, formData);
-
-                if (result.success) {
-                    setSubmitMessage({ type: "success", text: result.message });
-                    setTimeout(() => setSubmitMessage(null), 5000);
-                } else {
-                    setSubmitMessage({
-                        type: "error",
-                        text: result.message,
-                    });
-                }
-            } catch {
+                await projectsApi.updateProjectDetails(sessionId, data);
+                router.refresh();
+                setSubmitMessage({ type: "success", text: "Dettagli del cantiere aggiornati." });
+                setTimeout(() => setSubmitMessage(null), 5000);
+            } catch (error) {
                 setSubmitMessage({
                     type: "error",
-                    text: "Si è verificato un errore imprevisto.",
+                    text: error instanceof Error ? error.message : "Si è verificato un errore imprevisto.",
                 });
             }
         });

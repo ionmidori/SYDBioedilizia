@@ -1,0 +1,15 @@
+# Log-based counter over client-area requests accepted WITHOUT an App Check
+# token because the caller is a verified, non-anonymous Firebase user
+# (src/middleware/app_check.py, _AUTH_FALLBACK_ROUTES). Expected on Safari iOS
+# while reCAPTCHA fails there; a sudden rise on other user agents is worth a look.
+# Filtered on jsonPayload.event (JsonFormatter writes `level`, not severity).
+name: app_check_auth_fallback
+description: "Dashboard reads accepted without App Check for signed-in users."
+filter: >-
+  resource.type="cloud_run_revision"
+  AND resource.labels.service_name="syd-brain"
+  AND jsonPayload.event="app_check_auth_fallback"
+metricDescriptor:
+  metricKind: DELTA
+  valueType: INT64
+  unit: "1"

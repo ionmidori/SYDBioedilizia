@@ -2,6 +2,7 @@
 # Observability for syd-brain: log-based metrics + alert policies.
 #   - chat latency (`chat_turn_timing`, chat latency plan): 4 metrics + TTFT alert
 #   - email outbox (`email_dead_letter`, #478): 1 metric + dead-letter alert
+#   - App Check fallback (`app_check_auth_fallback`): 1 metric, no alert
 #
 # Run AFTER the code emitting those log lines is deployed. Idempotent: metrics
 # are created or updated, policies created only if missing (by displayName).
@@ -22,7 +23,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 PROJECT="${PROJECT:-chatbotluca-a8a73}"
 
-for spec in chat_ttft_ms chat_total_ms chat_llm_ms chat_queued_ms email_dead_letter; do
+for spec in chat_ttft_ms chat_total_ms chat_llm_ms chat_queued_ms email_dead_letter app_check_auth_fallback; do
   if gcloud logging metrics describe "$spec" --project="$PROJECT" >/dev/null 2>&1; then
     gcloud logging metrics update "$spec" --project="$PROJECT" --config-from-file="$spec.yaml"
   else

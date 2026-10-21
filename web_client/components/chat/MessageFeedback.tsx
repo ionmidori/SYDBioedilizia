@@ -6,6 +6,7 @@ import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerHaptic } from '@/lib/haptics';
+import { fetchWithAuth } from '@/lib/api-client';
 import type { FeedbackRequest } from '@/types/feedback';
 
 interface MessageFeedbackProps {
@@ -51,8 +52,11 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                 rating: newRating,
             };
 
-            const res = await fetch('/api/feedback', {
+            // fetchWithAuth adds the App Check header: without it the backend
+            // answered every rating 403. Auth stays the freshly refreshed token.
+            const res = await fetchWithAuth('/api/feedback', {
                 method: 'POST',
+                skipAuth: true,
                 headers: {
                     'Content-Type': 'application/json',
                     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),

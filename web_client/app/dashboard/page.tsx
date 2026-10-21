@@ -1,6 +1,7 @@
 'use client';
 
 import { useProjects } from '@/hooks/use-projects';
+import { describeApiError } from '@/lib/api-client';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAuth } from '@/hooks/useAuth';
 import { StatsGrid } from '@/components/dashboard/StatsGrid';
@@ -18,7 +19,7 @@ import { createStaggerVariants, M3Spring } from '@/lib/m3-motion';
 export default function DashboardPage() {
     const { user } = useAuth();
     const { data: projects = [], isLoading: projectsLoading, isError, error: queryError } = useProjects();
-    const error = isError ? (queryError as Error)?.message ?? 'Errore caricamento' : null;
+    const error = isError ? describeApiError(queryError) : null;
     const { stats, loading: statsLoading } = useDashboardStats();
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const router = useRouter();

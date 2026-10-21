@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth, setPersistence, browserLocalPersistence, connectAuthEmulator } from 'firebase/auth';
-import { initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
 import { logger } from '@/lib/logger';
 
 /**
@@ -118,7 +118,11 @@ let appCheck: AppCheck | undefined;
 if (typeof window !== 'undefined') {
     if (process.env.NEXT_PUBLIC_ENABLE_APP_CHECK === 'true') {
         const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-        if (!siteKey) {
+        // reCAPTCHA Enterprise when its key is configured (register the
+        // provider in Firebase Console > App Check first): v3 kept failing on
+        // Safari iOS and every client-area call went out without a token.
+        const enterpriseKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY;
+        if (!siteKey && !enterpriseKey) {
             console.error('[Firebase] ❌ App Check initialization FAILED: NEXT_PUBLIC_RECAPTCHA_SITE_KEY is missing!');
         } else {
             try {
@@ -131,7 +135,9 @@ if (typeof window !== 'undefined') {
                     }
 
                     appCheck = initializeAppCheck(app, {
-                        provider: new ReCaptchaV3Provider(siteKey),
+                        provider: enterpriseKey
+                            ? new ReCaptchaEnterpriseProvider(enterpriseKey)
+                            : new ReCaptchaV3Provider(siteKey as string),
                         isTokenAutoRefreshEnabled: true
                     });
                     // @ts-expect-error - Mark as initialized
