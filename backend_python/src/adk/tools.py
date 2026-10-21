@@ -290,7 +290,7 @@ async def generate_render(
     _logger.info(
         f"[ADK Tool] generate_render mode={render_mode} reason={reason}",
         extra={"event": "render_mode", "render_mode": "i2i" if source else "t2i",
-               "reason": reason, "requested_mode": mode, "session_id": session_id},
+               "reason": reason, "requested_mode": mode},
     )
 
     from src.tools.generate_render import generate_render_wrapper
