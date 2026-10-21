@@ -24,7 +24,7 @@ dependencies = [
     "reportlab>=5.0.1",
     "google-cloud-modelarmor>=0.7.2",
     "fido2>=2.2.1",
-    "pypdf>=6.20.1",
+    "pypdf>=6.21.1",
     "cryptography>=50.0.2",
     # Transitive of the google-cloud / vertex / firestore stack. Pinned above the
     # YANKED 1.78.1 ("caused major outage with gcloud serverless environments"),
