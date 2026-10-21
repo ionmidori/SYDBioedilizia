@@ -6,7 +6,10 @@ import {
     signInAnonymously as firebaseSignInAnonymously,
     onAuthStateChanged,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider,
+    type AuthProvider as FirebaseAuthProvider,
     OAuthProvider,
     signOut,
     sendSignInLinkToEmail,
@@ -18,6 +21,26 @@ import { tokenManager } from '@/lib/auth/token-manager';
 import { setAuthCookie, removeAuthCookie } from '@/app/actions/auth-session';
 import { queryClient } from '@/lib/query-client';
 import { logger } from '@/lib/logger';
+import { projectsApi } from '@/lib/projects-api';
+import {
+    canRedirectHere,
+    isPopupUnsupported,
+    savePendingRedirect,
+    shouldRedirectFirst,
+    takePendingRedirect,
+} from '@/lib/auth/redirect-login';
+import { mapAuthError } from '@/utils/auth-utils';
+
+/**
+ * 'redirecting': the browser is leaving for the provider; the login completes
+ * when the page loads again (see completeRedirectLogin).
+ */
+export type SocialLoginOutcome = 'done' | 'redirecting';
+
+export interface SocialLoginOptions {
+    /** Local path to open after a redirect login (popup callers navigate themselves). */
+    redirectTo?: string;
+}
 
 /**
  * AuthContext Interface
@@ -34,8 +57,8 @@ interface AuthContextValue {
 
     // Methods
     signInAnonymously: () => Promise<void>;
-    loginWithGoogle: () => Promise<void>;
-    loginWithApple: () => Promise<void>;
+    loginWithGoogle: (options?: SocialLoginOptions) => Promise<SocialLoginOutcome>;
+    loginWithApple: (options?: SocialLoginOptions) => Promise<SocialLoginOutcome>;
     logout: () => Promise<void>;
     sendMagicLink: (email: string) => Promise<void>;
     completeMagicLink: (emailLink: string, email?: string) => Promise<void>;
@@ -44,6 +67,35 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/**
+ * Finish a social login started with signInWithRedirect: claim the anonymous
+ * chat (what AuthDialog does after a popup login) and open the requested page.
+ * No-op when no redirect was started from this tab.
+ */
+export async function completeRedirectLogin(): Promise<void> {
+    const pending = takePendingRedirect();
+    if (!pending) return;
+    try {
+        const result = await getRedirectResult(auth);
+        if (!result?.user) return;
+        if (pending.guestSessionId) {
+            try {
+                await projectsApi.claimProject(pending.guestSessionId);
+                window.localStorage.removeItem('chatSessionId');
+            } catch (claimErr) {
+                console.warn('[AuthProvider] Claim after redirect login failed:', claimErr);
+            }
+        }
+        if (pending.redirectTo && window.location.pathname !== pending.redirectTo) {
+            window.location.assign(pending.redirectTo);
+        }
+    } catch (err) {
+        const code = (err as { code?: string })?.code ?? 'unknown';
+        console.error('[AuthProvider] Redirect login failed:', code, err);
+        window.alert(mapAuthError(code));
+    }
+}
 
 /**
  * AuthProvider Component
@@ -71,6 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 // Wait for persistence to be configured
                 await waitForAuth();
                 logger.debug('[AuthProvider] Firebase persistence ready');
+
+                // Back from a social-login redirect (phones, PWA, in-app browsers).
+                await completeRedirectLogin();
 
                 // Subscribe to auth state changes
                 const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -195,21 +250,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     /**
+     * Social login: popup on desktop, redirect on phones / PWA / in-app browsers
+     * (and when the popup is refused) — only where redirect is configured, see
+     * lib/auth/redirect-login.ts.
+     */
+    const signInWithProvider = async (
+        provider: FirebaseAuthProvider,
+        options: SocialLoginOptions = {}
+    ): Promise<SocialLoginOutcome> => {
+        const redirect = async (): Promise<SocialLoginOutcome> => {
+            // The anonymous chat to claim once the new account is back.
+            let guestSessionId: string | null = null;
+            if (auth.currentUser?.isAnonymous) {
+                try {
+                    guestSessionId = window.localStorage.getItem('chatSessionId');
+                } catch {
+                    // localStorage unavailable: nothing to claim
+                }
+            }
+            savePendingRedirect({ guestSessionId, redirectTo: options.redirectTo ?? null });
+            await signInWithRedirect(auth, provider);
+            return 'redirecting';
+        };
+
+        if (shouldRedirectFirst()) return redirect();
+        try {
+            await signInWithPopup(auth, provider);
+            return 'done';
+        } catch (err) {
+            if (isPopupUnsupported(err) && canRedirectHere()) return redirect();
+            throw err;
+        }
+    };
+
+    /**
      * Sign in with Google
      */
-    const loginWithGoogle = async (): Promise<void> => {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
-    };
+    const loginWithGoogle = (options?: SocialLoginOptions): Promise<SocialLoginOutcome> =>
+        signInWithProvider(new GoogleAuthProvider(), options);
 
     /**
      * Sign in with Apple
      */
-    const loginWithApple = async (): Promise<void> => {
+    const loginWithApple = (options?: SocialLoginOptions): Promise<SocialLoginOutcome> => {
         const provider = new OAuthProvider('apple.com');
         provider.addScope('email');
         provider.addScope('name');
-        await signInWithPopup(auth, provider);
+        return signInWithProvider(provider, options);
     };
 
     /**

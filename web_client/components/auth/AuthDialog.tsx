@@ -26,6 +26,7 @@ import { useClaimProject } from '@/hooks/use-claim-project';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
+import { mapAuthError } from '@/utils/auth-utils';
 
 interface AuthDialogProps {
     open: boolean;
@@ -98,37 +99,29 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
         }
     };
 
-    const handleGoogleSignIn = async () => {
+    // Phones / PWA / in-app browsers may leave for the provider (redirect): the
+    // claim and the dashboard redirect then complete in AuthProvider on return.
+    const handleSocialSignIn = async (kind: 'google' | 'apple') => {
         if (loading) return;
-        setLoading('google');
+        setLoading(kind);
         try {
-            await loginWithGoogle();
+            const login = kind === 'google' ? loginWithGoogle : loginWithApple;
+            const outcome = await login({ redirectTo: redirectOnLogin ? '/dashboard' : undefined });
+            if (outcome === 'redirecting') return;
             await handleLoginSuccess();
         } catch (error) {
-            const err = error as { code?: string };
-            if (err.code !== 'auth/popup-closed-by-user') {
-                alert('Errore durante il login con Google. Riprova.');
+            const code = (error as { code?: string })?.code ?? 'unknown';
+            if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+                console.error(`[AuthDialog] ${kind} login failed:`, code, error);
+                alert(mapAuthError(code));
             }
         } finally {
             setLoading(null);
         }
     };
 
-    const handleAppleSignIn = async () => {
-        if (loading) return;
-        setLoading('apple');
-        try {
-            await loginWithApple();
-            await handleLoginSuccess();
-        } catch (error) {
-            const err = error as { code?: string };
-            if (err.code !== 'auth/popup-closed-by-user') {
-                alert('Errore durante il login con Apple. Riprova.');
-            }
-        } finally {
-            setLoading(null);
-        }
-    };
+    const handleGoogleSignIn = () => handleSocialSignIn('google');
+    const handleAppleSignIn = () => handleSocialSignIn('apple');
 
     const isDesktop = useMediaQuery('(min-width: 768px)');
 

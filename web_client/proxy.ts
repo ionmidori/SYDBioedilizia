@@ -88,7 +88,9 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
-      source: '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|robots.txt|sitemap.xml).*)',
+      // `__/` = Firebase Auth handler proxied to firebaseapp.com (next.config.ts):
+      // our CSP and `X-Frame-Options: DENY` would break its iframe and scripts.
+      source: '/((?!api|__/|_next/static|_next/image|favicon.ico|manifest.json|robots.txt|sitemap.xml).*)',
       missing: [
         { type: 'header', key: 'next-router-prefetch' },
         { type: 'header', key: 'purpose', value: 'prefetch' },
