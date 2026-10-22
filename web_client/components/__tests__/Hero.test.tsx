@@ -32,4 +32,16 @@ describe('Hero', () => {
         expect(screen.queryByText(/Esplora una selezione/)).not.toBeInTheDocument();
         expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Casa dei Sogni/);
     });
+
+    it('is not a scroll container, so the #portfolio anchor cannot hide the title', () => {
+        // Production bug: "Progetti" (#portfolio, which lives inside the hero) made the
+        // browser scroll the overflow-hidden hero itself by 500px (its decorative glows
+        // overflow it) — the h1 vanished and could not be scrolled back. overflow: clip
+        // clips the same way but is never programmatically scrollable.
+        render(<Hero />);
+
+        const hero = screen.getByRole('heading', { level: 1 }).closest('section');
+        expect(hero).toHaveClass('overflow-clip');
+        expect(hero).not.toHaveClass('overflow-hidden');
+    });
 });
