@@ -283,7 +283,9 @@ async def test_photo_reaches_the_model_with_its_label_not_its_url():
     parts = kwargs["new_message"].parts
     texts = [p.text for p in parts if p.text]
     assert any("[Foto f_bagno_1 · Bagno]" in t for t in texts)
-    assert not any("X-Goog-Signature" in t or "storage.googleapis.com" in t for t in texts)
+    # Neither the signed URL nor its signature reach the model (whole-URL check:
+    # a hostname substring check reads as URL sanitization to CodeQL).
+    assert not any(signed in t or "X-Goog-Signature" in t for t in texts)
     label_at = next(i for i, p in enumerate(parts) if p.text and "[Foto f_bagno_1" in p.text)
     assert parts[label_at + 1].inline_data is not None  # the label comes right before the image
 
