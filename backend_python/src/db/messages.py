@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 from typing import Any
 
 # Firestore sentinels/classes (SERVER_TIMESTAMP, Increment, Query) come from the
@@ -7,7 +6,6 @@ from typing import Any
 # runtime via a dynamic globals() loop that static type-checkers can't follow.
 from google.cloud import firestore
 from src.db.firebase_client import get_firestore_client
-from src.db.projects import sync_project_cover
 
 logger = logging.getLogger(__name__)
 
@@ -219,48 +217,3 @@ async def ensure_session(session_id: str, user_id: str | None = None) -> None:
     except Exception as e:
         logger.error(f"[Firestore] Error ensuring session: {str(e)}", exc_info=True)
         pass
-
-async def save_file_metadata(
-    project_id: str,
-    file_data: dict[str, Any]
-) -> None:
-    """
-    Save file metadata to the project's 'files' subcollection.
-    This ensures files appear in the Global Gallery.
-    """
-    try:
-        db = get_firestore_client()
-
-        # Ensure 'files' subcollection under the project
-        # Using projects/{project_id}/files ensures compatibility with GlobalGallery
-        files_ref = db.collection('projects').document(project_id).collection('files')
-
-        # Check if file already exists (by URL) to prevent duplicates
-        # This is a basic check; stricter checks could rely on hash or storage ID
-        existing_docs = files_ref.where('url', '==', file_data['url']).limit(1).get()
-        if len(existing_docs) > 0:
-            logger.info(f"[Firestore] File already exists in gallery: {file_data.get('name', 'unknown')}")
-            return
-
-        # Prepare Document
-        doc_data = {
-            'url': file_data['url'],
-            'type': file_data.get('type', 'image'), # image, video, document
-            'name': file_data.get('name', f"File {datetime.now().isoformat()}"),
-            'size': file_data.get('size', 0),
-            'uploadedBy': file_data.get('uploadedBy', 'system'),
-            'uploadedAt': firestore.SERVER_TIMESTAMP,
-            'mimeType': file_data.get('mimeType', 'application/octet-stream'),
-            'metadata': file_data.get('metadata', {}), # For source_image_id etc.
-            'thumbnailUrl': file_data.get('thumbnailUrl') # Video thumbnails
-        }
-
-        files_ref.add(doc_data)
-        logger.info(f"[Firestore] 🖼️ Saved file metadata to project {project_id}: {doc_data['name']}")
-
-        # 🔄 Trigger Smart Cover Sync
-        await sync_project_cover(project_id)
-
-    except Exception as e:
-        logger.error(f"[Firestore] Error saving file metadata: {str(e)}", exc_info=True)
-

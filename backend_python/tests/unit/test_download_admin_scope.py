@@ -70,3 +70,62 @@ from src.utils.download import storage_path_from_url  # noqa: E402
 )
 def test_storage_path_from_url(url, expected):
     assert storage_path_from_url(url) == expected
+
+
+# ── session_media_path / download_session_media (Phase 138: read by path) ────
+
+from src.utils.download import MediaUnavailableError, download_session_media, session_media_path  # noqa: E402
+
+
+@_pytest.mark.parametrize(
+    "ref,expected",
+    [
+        (f"https://storage.googleapis.com/{BUCKET}/user-uploads/s1/a.jpg?X-Goog-Expires=3600", "user-uploads/s1/a.jpg"),
+        (f"https://firebasestorage.googleapis.com/v0/b/{BUCKET}/o/projects%2Fs1%2Fuploads%2Fa.jpg?alt=media",
+         "projects/s1/uploads/a.jpg"),
+        (f"https://{BUCKET}/renders/s1/r.png", "renders/s1/r.png"),
+        (f"gs://{BUCKET}/user-uploads/s1/clip.mp4", "user-uploads/s1/clip.mp4"),
+        ("user-uploads/s1/a.jpg", "user-uploads/s1/a.jpg"),
+        (f"https://storage.googleapis.com/{BUCKET}/user-uploads/s2/a.jpg", None),  # another session
+        ("gs://other-bucket/user-uploads/s1/a.jpg", None),
+        ("https://evil.example.com/user-uploads/s1/a.jpg", None),
+        ("user-uploads/s1/../s2/a.jpg", None),
+        ("files/abc", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_session_media_path(ref, expected):
+    assert session_media_path(ref, "s1") == expected
+
+
+def _storage_with(blob):
+    storage = MagicMock()
+    storage.bucket.return_value.get_blob.return_value = blob
+    return storage
+
+
+async def test_download_session_media_reads_by_path():
+    blob = MagicMock(size=3, content_type="image/png")
+    blob.download_as_bytes.return_value = b"png"
+    storage = _storage_with(blob)
+    with patch("src.utils.download.storage", storage):
+        assert await download_session_media(f"gs://{BUCKET}/renders/s1/r.png", "s1") == (b"png", "image/png")
+    storage.bucket.assert_called_once_with(BUCKET)
+    storage.bucket.return_value.get_blob.assert_called_once_with("renders/s1/r.png")
+
+
+@_pytest.mark.parametrize(
+    ("ref", "blob"),
+    [
+        ("user-uploads/s2/a.jpg", MagicMock(size=1)),  # outside the session
+        ("user-uploads/s1/a.jpg", None),  # deleted
+        ("user-uploads/s1/a.jpg", MagicMock(size=10)),  # larger than the cap
+    ],
+)
+async def test_download_session_media_refuses(ref, blob):
+    storage = _storage_with(blob)
+    with patch("src.utils.download.storage", storage), _pytest.raises(MediaUnavailableError):
+        await download_session_media(ref, "s1", max_bytes=5)
+    if blob is not None:
+        blob.download_as_bytes.assert_not_called()

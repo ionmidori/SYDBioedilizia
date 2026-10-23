@@ -21,7 +21,9 @@ from src.core.logger import get_logger
 from src.core.media_policy import MAX_IMAGE_SIZE, MAX_VIDEO_SIZE, VIDEO_MIME_EXTENSIONS
 from src.models.media import ImageMediaAsset, VideoMediaAsset
 from src.repositories.conversation_repository import get_conversation_repository
+from src.repositories.room_repository import get_room_repository
 from src.schemas.internal import UserSession
+from src.schemas.room import ROOM_ID_PATTERN
 from src.tools.quota import enforce_quota, increment_quota
 from src.utils.security import sanitize_filename, validate_image_magic_bytes, validate_video_magic_bytes
 
@@ -66,6 +68,23 @@ def _reject_oversized_body(request: Request, max_file_size: int) -> None:
         raise HTTPException(status_code=400, detail="Invalid Content-Length header.")
     if declared > max_file_size * 2:
         raise HTTPException(status_code=413, detail="Request body too large.")
+
+
+# ── Project checks ─────────────────────────────────────────────────────────
+
+async def _check_target(session_id: str, room_id: str | None, user_id: str) -> None:
+    """The session is a project of this user (403) and the room one of its rooms (404)."""
+    # Validate session_id format (prevent path traversal / log injection)
+    if not re.match(r'^[a-zA-Z0-9_-]+$', session_id) or len(session_id) > 128:
+        raise HTTPException(status_code=422, detail="Invalid session_id format")
+
+    # 🛡️ Ownership (security audit M1): never attach files to another user's project.
+    # PermissionDenied reaches the global handler as a 403.
+    await get_conversation_repository().assert_session_access(session_id, user_id)
+
+    # RoomNotFoundError reaches the global handler as a 404.
+    if room_id is not None:
+        await get_room_repository().require_room(session_id, room_id)
 
 
 # ── Chunked File Reading (Memory Safety) ───────────────────────────────────
@@ -163,6 +182,7 @@ async def upload_image(
     request: Request,
     file: UploadFile = File(...),
     session_id: str = Form(...),
+    room_id: str | None = Form(None, pattern=ROOM_ID_PATTERN),
     user_session: UserSession = Depends(verify_token),
 ) -> ImageMediaAsset:
     """
@@ -171,6 +191,7 @@ async def upload_image(
     Args:
         file: Image file (jpeg, png, webp, gif)
         session_id: Chat session ID for organizing uploads
+        room_id: Optional room of the project the photo belongs to
         user_session: JWT verified user session
 
     Returns:
@@ -182,13 +203,7 @@ async def upload_image(
         QuotaUnavailableError (503, Retry-After): the quota store could not answer.
         Any other failure reaches the global handler as a logged 500.
     """
-    # Validate session_id format (prevent path traversal / log injection)
-    if not re.match(r'^[a-zA-Z0-9_-]+$', session_id) or len(session_id) > 128:
-        raise HTTPException(status_code=422, detail="Invalid session_id format")
-
-    # 🛡️ Ownership (security audit M1): never attach files to another user's project.
-    # PermissionDenied reaches the global handler as a 403.
-    await get_conversation_repository().assert_session_access(session_id, user_session.uid)
+    await _check_target(session_id, room_id, user_session.uid)
 
     # 1. Early rejection via Content-Length header (fast fail, advisory only)
     _reject_oversized_body(request, MAX_IMAGE_SIZE)
@@ -235,7 +250,8 @@ async def upload_image(
 
     # 8. Persist metadata to Firestore so uploaded photos appear in the gallery.
     # The gallery regenerates fresh signed URLs from storage_path on read, so
-    # storing a (transient) signed URL here is acceptable.
+    # storing a (transient) signed URL here is acceptable. The document id is
+    # the asset id: the file has one stable identity everywhere.
     repo = get_conversation_repository()
     await repo.save_file_metadata(session_id, {
         "url": signed_url,
@@ -245,7 +261,7 @@ async def upload_image(
         "uploadedBy": user_id,
         "mimeType": validated_mime,
         "metadata": {"source": "user_upload", "storage_path": file_path},
-    })
+    }, file_id=asset_id, room_id=room_id)
 
     logger.info(
         "image_upload_completed",
@@ -267,6 +283,7 @@ async def upload_image(
         size_bytes=file_size,
         file_path=file_path,
         signed_url=signed_url,
+        room_id=room_id,
     )
 
 
@@ -275,6 +292,7 @@ async def upload_video(
     request: Request,
     file: UploadFile = File(...),
     session_id: str = Form(...),
+    room_id: str | None = Form(None, pattern=ROOM_ID_PATTERN),
     user_session: UserSession = Depends(verify_token),
 ) -> VideoMediaAsset:
     """
@@ -286,6 +304,7 @@ async def upload_video(
     Args:
         file: Video file (mp4, mov, webm)
         session_id: Chat session ID (= project id) that owns the upload
+        room_id: Optional room of the project the video belongs to
         user_session: JWT verified user session
 
     Returns:
@@ -297,12 +316,7 @@ async def upload_video(
         QuotaUnavailableError (503, Retry-After): the quota store could not answer.
         Any other failure reaches the global handler as a logged 500.
     """
-    # Validate session_id format (prevent path traversal / log injection)
-    if not re.match(r'^[a-zA-Z0-9_-]+$', session_id) or len(session_id) > 128:
-        raise HTTPException(status_code=422, detail="Invalid session_id format")
-
-    # 🛡️ Ownership: never attach files to another user's project (403).
-    await get_conversation_repository().assert_session_access(session_id, user_session.uid)
+    await _check_target(session_id, room_id, user_session.uid)
 
     # 1. Early rejection via Content-Length header (fast fail, advisory only)
     _reject_oversized_body(request, MAX_VIDEO_SIZE)
@@ -338,6 +352,17 @@ async def upload_video(
     # 6. Increment quota (only on success)
     await increment_quota(user_id, "upload_video")
 
+    # 7. Register the video in the project files, like photos (gallery, rooms).
+    await get_conversation_repository().save_file_metadata(session_id, {
+        "url": signed_url,
+        "type": "video",
+        "name": safe_filename,
+        "size": file_size,
+        "uploadedBy": user_id,
+        "mimeType": detected_mime,
+        "metadata": {"source": "user_upload", "storage_path": file_path},
+    }, file_id=asset_id, room_id=room_id)
+
     logger.info(
         "video_upload_completed",
         extra={"file_path": file_path, "file_size_bytes": file_size, "mime_type": detected_mime},
@@ -351,4 +376,5 @@ async def upload_video(
         size_bytes=file_size,
         file_uri=gs_uri,
         file_path=file_path,
+        room_id=room_id,
     )

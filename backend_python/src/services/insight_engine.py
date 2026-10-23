@@ -17,11 +17,14 @@ from typing import Any, Literal
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 
-from src.core.config import settings
 from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
 from src.services.pricing_service import PricingService
+from src.utils.download import download_session_media
 
 logger = logging.getLogger(__name__)
+
+# Media are sent inline in one request: a larger file (a long video) is skipped.
+_INLINE_MEDIA_MAX_BYTES = 15 * 1024 * 1024
 
 
 # ── Domain Models ─────────────────────────────────────────────────────────────
@@ -345,6 +348,8 @@ Analizza la conversazione e produci la risposta strutturata.
         self,
         chat_history: list[dict[str, Any]],
         media_urls: list[str] | None = None,
+        *,
+        session_id: str | None = None,
     ) -> InsightAnalysis:
         """
         Analyzes chat history and optional media to suggest renovation SKUs.
@@ -355,7 +360,10 @@ Analizza la conversazione e produci la risposta strutturata.
 
         Args:
             chat_history: List of {role, content} dicts from conversation.
-            media_urls: Optional Firebase Storage URLs for images/videos.
+            media_urls: Optional references (URLs, gs:// URIs, paths) of the
+                session's images/videos.
+            session_id: Project whose files may be attached; without it no
+                media is attached.
 
         Returns:
             InsightAnalysis with validated suggestions and summary.
@@ -380,51 +388,21 @@ Analizza la conversazione e produci la risposta strutturata.
             genai_types.Part(text="\n".join(history_lines)),
         ]
 
-        # Attach media (SSRF-protected to Firebase Storage domain only)
-        if media_urls:
-            from urllib.parse import urlparse
-
-            import httpx
-
-            async with httpx.AsyncClient(timeout=10.0) as http_client:
-                for url in media_urls:
-                    try:
-                        parsed = urlparse(url)
-                        # SSRF guard: only fetch from our Firebase Storage bucket.
-                        # Mirrors the pattern in quote_tools._run_measurement_vision —
-                        # the bucket may be the virtual-hosted host, or the leading
-                        # path segment under storage.googleapis.com (where signed URLs
-                        # actually live). Fail-closed when the bucket is unconfigured.
-                        bucket = settings.FIREBASE_STORAGE_BUCKET or ""
-                        hostname_ok = parsed.hostname == bucket
-                        path_ok = (
-                            bool(bucket)
-                            and parsed.hostname == "storage.googleapis.com"
-                            and parsed.path.startswith(f"/{bucket}/")
-                        )
-                        if not (hostname_ok or path_ok):
-                            logger.warning(
-                                "[InsightEngine] Unauthorized media URL blocked.",
-                                extra={"host": parsed.netloc},
-                            )
-                            continue
-
-                        resp = await http_client.get(url)
-                        resp.raise_for_status()
-                        mime = "video/mp4" if "video" in url.lower() else "image/jpeg"
-                        parts.append(
-                            genai_types.Part(
-                                inline_data=genai_types.Blob(mime_type=mime, data=resp.content)
-                            )
-                        )
-                        logger.debug("[InsightEngine] Media attached.", extra={"url": url})
-                    except Exception as exc:  # noqa: BLE001
-                        # Graceful degradation: skip broken media, continue analysis
-                        logger.error(
-                            "[InsightEngine] Failed to fetch media.",
-                            extra={"url": url, "error": str(exc)},
-                        )
-                        parts.append(genai_types.Part(text=f"[Immagine non accessibile: {url}]"))
+        # Attach media, read by Storage path among the session's own files
+        # (signed URLs in the history expire after an hour).
+        if media_urls and session_id:
+            for index, ref in enumerate(media_urls, start=1):
+                try:
+                    data, mime = await download_session_media(ref, session_id, max_bytes=_INLINE_MEDIA_MAX_BYTES)
+                    parts.append(genai_types.Part(inline_data=genai_types.Blob(mime_type=mime, data=data)))
+                except Exception as exc:  # noqa: BLE001
+                    # Graceful degradation: skip broken media, continue analysis.
+                    # Never log or forward the reference: it may be a signed URL.
+                    logger.warning(
+                        "[InsightEngine] Media not attached.",
+                        extra={"error_type": type(exc).__name__, "index": index},
+                    )
+                    parts.append(genai_types.Part(text=f"[Allegato {index} non accessibile]"))
 
         # ── Gemini call with native structured output ──────────────────────────
         try:

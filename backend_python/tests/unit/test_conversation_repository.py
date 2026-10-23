@@ -707,7 +707,9 @@ class TestSaveFileMetadata:
         files_ref.where.return_value = files_ref
         files_ref.limit.return_value = files_ref
         files_ref.get = AsyncMock(return_value=existing_docs)
-        files_ref.add = AsyncMock()
+        files_ref.add = AsyncMock(return_value=(None, MagicMock(id="auto1")))
+        files_ref.document.return_value.set = AsyncMock()
+        files_ref.document.return_value.id = "asset1"
 
         proj_ref = MagicMock()
         proj_ref.collection.return_value = files_ref
@@ -767,7 +769,39 @@ class TestSaveFileMetadata:
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs), \
              patch(f"{_MODULE}.sync_project_cover", mock_sync):
-            await repo.save_file_metadata("proj1", {"url": "gs://x"})  # no raise
+            assert await repo.save_file_metadata("proj1", {"url": "gs://x"}) is None  # no raise
+
+    @pytest.mark.asyncio
+    async def test_returns_the_auto_id(self, repo, mock_db, mock_fs, mock_sync):
+        self._setup_db(mock_db, [])
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.async_firestore", mock_fs), patch(f"{_MODULE}.sync_project_cover", mock_sync):
+            assert await repo.save_file_metadata("proj1", {"url": "gs://b/f.jpg"}) == "auto1"
+
+    @pytest.mark.asyncio
+    async def test_file_id_room_and_storage_path(self, repo, mock_db, mock_fs, mock_sync):
+        """Phase 138: stable document id (the asset id), room, and always a storage path."""
+        files_ref = self._setup_db(mock_db, [])
+        url = "https://storage.googleapis.com/bkt/user-uploads/proj1/asset1.jpg?X-Goog-Signature=s"
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.async_firestore", mock_fs), patch(f"{_MODULE}.sync_project_cover", mock_sync):
+            file_id = await repo.save_file_metadata("proj1", {"url": url}, file_id="asset1", room_id="r1")
+
+        assert file_id == "asset1"
+        files_ref.document.assert_called_with("asset1")
+        files_ref.add.assert_not_called()
+        data = files_ref.document.return_value.set.call_args[0][0]
+        assert data["roomId"] == "r1"
+        assert data["metadata"]["storage_path"] == "user-uploads/proj1/asset1.jpg"
+
+    @pytest.mark.asyncio
+    async def test_no_room_field_when_unknown(self, repo, mock_db, mock_fs, mock_sync):
+        """Unassigned files have NO roomId (the default room collects them)."""
+        files_ref = self._setup_db(mock_db, [])
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.async_firestore", mock_fs), patch(f"{_MODULE}.sync_project_cover", mock_sync):
+            await repo.save_file_metadata("proj1", {"url": "gs://b/f.jpg"})
+        assert "roomId" not in files_ref.add.call_args[0][0]
 
 
 # ════════════════════════════════════════════════════════════════════════════

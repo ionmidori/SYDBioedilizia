@@ -100,6 +100,29 @@ class RoomNotFoundError(ResourceNotFound):
         )
 
 
+class RoomLimitError(AppException):
+    """The project already has the maximum number of rooms."""
+    status_code = 409
+    error_code = "ROOM_LIMIT_REACHED"
+
+    def __init__(self, project_id: str, limit: int) -> None:
+        super().__init__(
+            message=f"Project '{project_id}' already has {limit} rooms.",
+            detail={"project_id": project_id, "limit": limit},
+        )
+
+
+class ProjectFileNotFoundError(ResourceNotFound):
+    """File does not exist within the given project."""
+    error_code = "FILE_NOT_FOUND"
+
+    def __init__(self, project_id: str, file_id: str) -> None:
+        super().__init__(
+            message=f"File '{file_id}' not found in project '{project_id}'.",
+            detail={"project_id": project_id, "file_id": file_id},
+        )
+
+
 class QuoteAlreadyApprovedError(AppException):
     """Attempt to approve an already-approved quote (idempotency guard)."""
     status_code = 409

@@ -178,73 +178,64 @@ class TestAnalyzeProjectForQuote:
                     chat_history=[{"role": "user", "content": "test"}]
                 )
 
+    def _storage(self, data: bytes = b"jpeg-bytes", content_type: str = "image/jpeg") -> MagicMock:
+        blob = MagicMock(size=len(data), content_type=content_type)
+        blob.download_as_bytes.return_value = data
+        storage = MagicMock()
+        storage.bucket.return_value.get_blob.return_value = blob
+        return storage
+
+    async def _analyze(self, engine: InsightEngine, storage: MagicMock, media_urls: list[str]) -> list:
+        """Run the analysis with the given Storage double; return the parts sent to Gemini."""
+        from src.utils import download
+
+        expected = InsightAnalysis(suggestions=[], summary="ok", completeness_score=0.5, missing_info=[])
+        with patch.object(download, "storage", storage),              patch.object(download.settings, "FIREBASE_STORAGE_BUCKET", self.BUCKET),              patch.object(engine.client.aio.models, "generate_content", new_callable=AsyncMock) as mock_generate:
+            mock_generate.return_value = self._make_mock_response(expected)
+            result = await engine.analyze_project_for_quote(
+                chat_history=[{"role": "user", "content": "Hai visto le foto?"}],
+                media_urls=media_urls,
+                session_id="s1",
+            )
+        assert isinstance(result, InsightAnalysis)
+        return mock_generate.await_args.kwargs["contents"][0].parts
+
+    BUCKET = "test-bucket.firebasestorage.app"
+
     @pytest.mark.asyncio
     async def test_media_ssrf_protection(self, engine: InsightEngine) -> None:
-        """Media URLs pointing to external (non-Firebase) hosts must be skipped."""
-        expected = InsightAnalysis(
-            suggestions=[],
-            summary="No works identified.",
-            completeness_score=0.5,
-            missing_info=["Puoi descrivere meglio il progetto?"],
-        )
-
-        with patch.object(
-            engine.client.aio.models, "generate_content", new_callable=AsyncMock
-        ) as mock_generate:
-            mock_generate.return_value = self._make_mock_response(expected)
-
-            # Should not raise — unauthorized URL gets logged and skipped
-            result = await engine.analyze_project_for_quote(
-                chat_history=[{"role": "user", "content": "Hai visto le foto?"}],
-                # This external URL must be blocked by the SSRF guard
-                media_urls=["https://evil.example.com/fake-image.jpg"],
-            )
-
-        # Analysis still returns (graceful degradation), URL was skipped
-        assert isinstance(result, InsightAnalysis)
+        """External hosts and other sessions' files are never read; the analysis goes on."""
+        storage = self._storage()
+        parts = await self._analyze(engine, storage, [
+            "https://evil.example.com/fake-image.jpg",
+            f"https://storage.googleapis.com/{self.BUCKET}/user-uploads/s2/img.jpg",
+        ])
+        storage.bucket.assert_not_called()
+        notes = [p.text for p in parts if p.text and p.text.startswith("[Allegato")]
+        assert notes == ["[Allegato 1 non accessibile]", "[Allegato 2 non accessibile]"]
+        assert not any("evil" in (p.text or "") for p in parts)
 
     @pytest.mark.asyncio
-    async def test_legit_storage_url_is_fetched_not_overblocked(self, engine: InsightEngine) -> None:
-        """A signed URL under storage.googleapis.com/<bucket>/... must be fetched.
+    async def test_session_photo_is_read_by_path(self, engine: InsightEngine) -> None:
+        """Phase 138: the photo is read by its Storage path, even with an expired signed URL."""
+        storage = self._storage()
+        parts = await self._analyze(engine, storage, [
+            f"https://storage.googleapis.com/{self.BUCKET}/user-uploads/s1/img.jpg?X-Goog-Expires=3600",
+        ])
+        storage.bucket.return_value.get_blob.assert_called_once_with("user-uploads/s1/img.jpg")
+        inline = [p.inline_data for p in parts if p.inline_data]
+        assert len(inline) == 1 and inline[0].mime_type == "image/jpeg"
 
-        Regression: the SSRF guard previously checked `bucket not in netloc`, but
-        signed URLs carry the bucket in the PATH (netloc == storage.googleapis.com),
-        so every legitimate media URL was blocked and the analysis silently lost
-        image context. The fix mirrors quote_tools (host + leading-path-segment).
-        """
+    @pytest.mark.asyncio
+    async def test_oversized_media_is_skipped(self, engine: InsightEngine) -> None:
+        """A long video is not sent inline (one request carries every attachment)."""
         from src.services import insight_engine as ie_mod
 
-        bucket = "test-bucket.firebasestorage.app"
-        expected = InsightAnalysis(
-            suggestions=[],
-            summary="ok",
-            completeness_score=0.5,
-            missing_info=[],
-        )
-
-        mock_resp = MagicMock()
-        mock_resp.content = b"\xff\xd8\xff\xe0"  # jpeg magic bytes
-        mock_resp.raise_for_status = MagicMock()
-        mock_http = MagicMock()
-        mock_http.get = AsyncMock(return_value=mock_resp)
-        mock_cm = MagicMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_http)
-        mock_cm.__aexit__ = AsyncMock(return_value=False)
-
-        with patch("httpx.AsyncClient", return_value=mock_cm), \
-             patch.object(ie_mod.settings, "FIREBASE_STORAGE_BUCKET", bucket), \
-             patch.object(
-                 engine.client.aio.models, "generate_content", new_callable=AsyncMock
-             ) as mock_generate:
-            mock_generate.return_value = self._make_mock_response(expected)
-            result = await engine.analyze_project_for_quote(
-                chat_history=[{"role": "user", "content": "Hai visto le foto?"}],
-                media_urls=[f"https://storage.googleapis.com/{bucket}/o/img.jpg"],
-            )
-
-        assert isinstance(result, InsightAnalysis)
-        # The legit URL was fetched (not over-blocked by the SSRF guard).
-        mock_http.get.assert_awaited_once()
+        storage = self._storage()
+        storage.bucket.return_value.get_blob.return_value.size = ie_mod._INLINE_MEDIA_MAX_BYTES + 1
+        parts = await self._analyze(engine, storage, [f"gs://{self.BUCKET}/user-uploads/s1/clip.mp4"])
+        storage.bucket.return_value.get_blob.return_value.download_as_bytes.assert_not_called()
+        assert not any(p.inline_data for p in parts)
 
     @pytest.mark.asyncio
     async def test_empty_chat_history_does_not_crash(self, engine: InsightEngine) -> None:

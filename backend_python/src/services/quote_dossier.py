@@ -73,16 +73,27 @@ def _list_blobs_sync(session_id: str) -> list[BlobInfo]:
 
 
 async def _render_sources(db: Any, project_id: str) -> dict[str, str]:
-    """render blob path → source photo blob path, from the files metadata."""
-    sources: dict[str, str] = {}
+    """render blob path → source photo blob path, from the files metadata.
+
+    A render names its photo by `files` document id (`source_file_id`, Phase 138);
+    older renders by the photo's signed URL (`source_image_id`).
+    """
+    paths_by_id: dict[str, str] = {}
+    renders: list[tuple[str, dict[str, Any]]] = []
     async for doc in db.collection("projects").document(project_id).collection("files").stream():
         data = doc.to_dict() or {}
-        if data.get("type") != "render":
-            continue
         meta = data.get("metadata") or {}
-        render_path = meta.get("storage_path") or storage_path_from_url(data.get("url"))
-        source_path = storage_path_from_url(meta.get("source_image_id"))
-        if render_path and source_path:
+        path = meta.get("storage_path") or storage_path_from_url(data.get("url"))
+        if path:
+            paths_by_id[doc.id] = path
+        if data.get("type") == "render" and path:
+            renders.append((path, meta))
+    sources: dict[str, str] = {}
+    for render_path, meta in renders:
+        source_path = paths_by_id.get(meta.get("source_file_id") or "") or storage_path_from_url(
+            meta.get("source_image_id")
+        )
+        if source_path:
             sources[render_path] = source_path
     return sources
 

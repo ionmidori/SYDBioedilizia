@@ -3,14 +3,20 @@ from datetime import datetime
 from typing import Any
 
 from google.cloud import firestore as async_firestore
+from google.cloud.firestore_v1 import FieldFilter
 from pydantic import BaseModel
 
 from src.core.exceptions import PermissionDenied
 from src.db.firebase_client import get_async_firestore_client, get_firestore_client
 from src.db.projects import sync_project_cover
+from src.db.projects.constants import FILE_ROOM_FIELD
 from src.db.session_retention import clear_session_expiry, expiry_fields, needs_permanence
+from src.utils.download import storage_path_from_url
 
 logger = logging.getLogger(__name__)
+
+# Room of a message (queried with `timestamp`, see firestore.indexes.json).
+MESSAGE_ROOM_FIELD = 'metadata.room_id'
 
 
 def _check_session_owner(session_id: str, current_owner: str, user_id: str | None) -> None:
@@ -174,18 +180,22 @@ class ConversationRepository:
 
         Args:
             session_id: Session to fetch messages from.
-            limit: Max messages to return.
-            room_id: If provided, only return messages tagged with this room_id
-                     (via metadata.room_id). Messages without a room_id tag are
-                     always included (they belong to the project-level context).
+            limit: Max messages to return (the newest ones).
+            room_id: If provided, only messages tagged with this room
+                     (`metadata.room_id`): the filter runs in the query, before
+                     the limit (composite index in firestore.indexes.json).
+                     Untagged messages (project-wide talk, every turn before
+                     Phase 138) are NOT included: callers that need them add an
+                     unscoped read.
         """
         try:
             db = self._get_async_db()
 
+            messages_ref = db.collection('sessions').document(session_id).collection('messages')
+            if room_id:
+                messages_ref = messages_ref.where(filter=FieldFilter(MESSAGE_ROOM_FIELD, '==', room_id))
             messages_ref = (
-                db.collection('sessions')
-                .document(session_id)
-                .collection('messages')
+                messages_ref
                 .order_by('timestamp', direction=async_firestore.Query.DESCENDING)
                 .limit(limit)
             )
@@ -194,14 +204,6 @@ class ConversationRepository:
             messages_reversed = []
             async for doc in messages_ref.stream():
                 data = doc.to_dict()
-
-                # Room filtering: if room_id is specified, skip messages tagged
-                # with a *different* room_id. Untagged messages (project-level
-                # context) are always included.
-                if room_id:
-                    msg_room = (data.get('metadata') or {}).get('room_id')
-                    if msg_room and msg_room != room_id:
-                        continue
 
                 msg = {
                     'id': doc.id,
@@ -355,10 +357,19 @@ class ConversationRepository:
     async def save_file_metadata(
         self,
         project_id: str,
-        file_data: dict[str, Any]
-    ) -> None:
+        file_data: dict[str, Any],
+        *,
+        file_id: str | None = None,
+        room_id: str | None = None,
+    ) -> str | None:
         """
         Save file metadata to the project's 'files' subcollection.
+
+        Every file carries `metadata.storage_path` (media are read by path, the
+        signed `url` expires) and, when known, the room it belongs to (`roomId`,
+        see src/repositories/room_repository.py). `file_id` becomes the document
+        id (stable: the upload's asset id). Returns the document id, or None
+        when the file was already registered or the write failed (logged).
         """
         try:
             db = self._get_async_db()
@@ -369,7 +380,13 @@ class ConversationRepository:
             existing_docs = await files_ref.where('url', '==', file_data['url']).limit(1).get()
             if len(existing_docs) > 0:
                 logger.debug(f"[Repo] File already exists: {file_data.get('name')}")
-                return
+                return None
+
+            metadata = dict(file_data.get('metadata') or {})
+            if not metadata.get('storage_path'):
+                path = storage_path_from_url(file_data['url'])
+                if path:
+                    metadata['storage_path'] = path
 
             doc_data = {
                 'url': file_data['url'],
@@ -379,18 +396,27 @@ class ConversationRepository:
                 'uploadedBy': file_data.get('uploadedBy', 'system'),
                 'uploadedAt': async_firestore.SERVER_TIMESTAMP,
                 'mimeType': file_data.get('mimeType', 'application/octet-stream'),
-                'metadata': file_data.get('metadata', {}),
+                'metadata': metadata,
                 'thumbnailUrl': file_data.get('thumbnailUrl')
             }
+            # Absent (not null) when unknown: the default room picks up files without it.
+            if room_id:
+                doc_data[FILE_ROOM_FIELD] = room_id
 
-            await files_ref.add(doc_data)
+            if file_id:
+                doc_ref = files_ref.document(file_id)
+                await doc_ref.set(doc_data)
+            else:
+                _, doc_ref = await files_ref.add(doc_data)
             logger.info(f"[Repo] 🖼️ Saved file metadata: {doc_data['name']}")
 
             # Trigger sync (Coupled for now)
             await sync_project_cover(project_id)
+            return doc_ref.id
 
         except Exception as e:
             logger.error(f"[Repo] Error saving file metadata: {str(e)}", exc_info=True)
+            return None
 
     def get_history_sync(self, session_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """

@@ -7,11 +7,12 @@ from datetime import datetime
 from typing import Any
 
 from src.db.firebase_client import get_async_firestore_client
-from src.db.projects.constants import PROJECTS_COLLECTION
+from src.db.projects.constants import FILE_ROOM_FIELD, FILES_PARENT_COLLECTION, PROJECTS_COLLECTION
 from src.db.session_retention import clear_session_expiry, needs_permanence
 from src.models.project import ProjectCreate, ProjectDetails, ProjectStatus, ProjectUpdate
 from src.services.quote_drafts import refresh_quote_owner
 from src.utils.datetime_utils import utc_now
+from src.utils.download import storage_path_from_url
 
 logger = logging.getLogger(__name__)
 
@@ -291,6 +292,15 @@ async def update_project_details(session_id: str, user_id: str, details: Project
         return False
 
 
+def is_dashboard_upload_path(session_id: str, path: str) -> bool:
+    """A file the client uploaded from the dashboard into this project (useFileUpload).
+
+    The path comes from the client; the gallery signs URLs from it and tools
+    read by it, so it may never point into another project.
+    """
+    return path.startswith(f"projects/{session_id}/uploads/") and ".." not in path.split("/")
+
+
 async def save_project_file_metadata(session_id: str, user_id: str, file_metadata: dict) -> bool:
     """
     Save metadata for an uploaded file to the project's 'files' subcollection.
@@ -323,19 +333,31 @@ async def save_project_file_metadata(session_id: str, user_id: str, file_metadat
             logger.error("[Projects] file_id is required in file_metadata")
             return False
 
-        # Prepare the document data
-        doc_data = {
+        # Prepare the document data (same shape as the chat uploads: the path
+        # in metadata.storage_path, the room in a top-level roomId)
+        doc_data: dict[str, Any] = {
             "url": file_metadata.get("url"),
             "name": file_metadata.get("name"),
             "type": file_metadata.get("type"),
             "size": file_metadata.get("size"),
             "uploadedAt": utc_now(),
             "uploadedBy": user_id,
-            "projectId": session_id
+            "projectId": session_id,
+            "metadata": {"source": "dashboard_upload"},
         }
+        # Explicit or read from the client's URL: kept only if it is this project's upload.
+        storage_path = file_metadata.get("storage_path") or storage_path_from_url(file_metadata.get("url"))
+        if storage_path and is_dashboard_upload_path(session_id, storage_path):
+            doc_data["metadata"]["storage_path"] = storage_path
+        elif storage_path:
+            logger.warning(f"[Projects] Ignored storage path outside project {session_id} uploads")
+        if file_metadata.get("room_id"):
+            doc_data[FILE_ROOM_FIELD] = file_metadata["room_id"]
 
-        # Save to the 'files' subcollection
-        files_ref = doc_ref.collection("files").document(file_id)
+        # Save to the 'files' subcollection of the projection, with every other file
+        files_ref = (
+            db.collection(FILES_PARENT_COLLECTION).document(session_id).collection("files").document(file_id)
+        )
         await files_ref.set(doc_data)
 
         # Also update the project's updatedAt timestamp

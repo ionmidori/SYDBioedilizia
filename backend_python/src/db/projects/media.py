@@ -4,7 +4,7 @@ Project cover-image synchronization from uploaded/rendered files.
 import logging
 
 from src.db.firebase_client import get_async_firestore_client
-from src.db.projects.constants import PROJECTS_COLLECTION
+from src.db.projects.constants import FILES_PARENT_COLLECTION, PROJECTS_COLLECTION
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ async def latest_uploaded_photo_url(session_id: str) -> str | None:
     download_image_smart reads the object by its path.
     """
     db = get_async_firestore_client()
-    files_ref = db.collection(PROJECTS_COLLECTION).document(session_id).collection('files')
+    files_ref = db.collection(FILES_PARENT_COLLECTION).document(session_id).collection('files')
     async for doc in files_ref.order_by('uploadedAt', direction='DESCENDING').stream():
         data = doc.to_dict() or {}
         if data.get('type') == 'image' and data.get('url'):
@@ -32,7 +32,7 @@ async def sync_project_cover(session_id: str) -> bool:
     Scans the project's 'files' container to determine the best cover.
 
     Priority:
-    1. Latest Render (Before/After) - if 'source_image_id' present
+    1. Latest Render (Before/After) - if it names its source photo
     2. Latest Render (Single)
     3. First uploaded Photo
     4. First uploaded Video
@@ -54,7 +54,7 @@ async def sync_project_cover(session_id: str) -> bool:
 
         files = []
         async for doc in docs:
-            files.append(doc.to_dict())
+            files.append({**(doc.to_dict() or {}), 'id': doc.id})
 
         if not files:
             return False
@@ -68,17 +68,17 @@ async def sync_project_cover(session_id: str) -> bool:
             latest_render = renders[0]
             new_thumbnail = latest_render.get('url')
 
-            # Check for source image id in metadata
+            # Before/after: the source photo is a `files` document (source_file_id,
+            # Phase 138); older renders stored its signed URL (source_image_id).
             meta = latest_render.get('metadata') or {}
-            source_id = meta.get('source_image_id')
-            if source_id:
-                # Ideally source_id IS the URL if we set it that way.
-                # Let's verify if it's a URL or ID. In generate_render we set it as source_image_url.
-                if source_id.startswith('http'):
-                    new_original = source_id
-                else:
-                    # Find the file with that ID/Name? For now assume it's URL.
-                    pass
+            source_file_id = meta.get('source_file_id')
+            legacy_source = meta.get('source_image_id')
+            if source_file_id:
+                source = next((f for f in files if f.get('id') == source_file_id), None)
+                if source and source.get('url'):
+                    new_original = source['url']
+            elif isinstance(legacy_source, str) and legacy_source.startswith('http'):
+                new_original = legacy_source
 
         # 2. If no renders, look for Photos (Oldest/First first? Or Latest?)
         # User said "create project and upload photo -> cover". Usually "First" uploaded is cover?

@@ -28,3 +28,16 @@ export const projectUpdateSchema = z.object({
     original_image_url: z.string().optional(),
 });
 export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
+
+/** Body of POST /api/projects/{id}/files — Golden Sync with ProjectFileMetadata (models/project.py). */
+export interface ProjectFileMetadata {
+    file_id: string;
+    url: string;
+    name: string;
+    type: string;
+    size: number;
+    /** Object path in the bucket: must be under projects/{id}/uploads/ */
+    storage_path?: string | null;
+    /** Room the file belongs to (see types/room.ts) */
+    room_id?: string | null;
+}

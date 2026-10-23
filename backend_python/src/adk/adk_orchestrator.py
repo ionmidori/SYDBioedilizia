@@ -14,9 +14,6 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urlparse
-
-import httpx
 
 # Documented ADK import path (adk.dev RunConfig); StreamingMode is re-exported
 # there without being listed in __all__.
@@ -48,6 +45,7 @@ from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
 from src.services.base_orchestrator import BaseOrchestrator
 from src.utils.circuit_breaker import vertex_ai_breaker
+from src.utils.download import download_session_media
 from src.utils.stream_protocol import (
     redact_chunk,
     stream_artifact_event,
@@ -357,6 +355,9 @@ class ADKOrchestrator(BaseOrchestrator):
 
         session_id = request.session_id
         user_id = user_session.uid
+        # Room of this turn, already checked against the project by /chat/stream:
+        # tool results and the reply are tagged with it, like the user message.
+        room_id = getattr(request, "room_id", None)
 
         # 0. Stream status immediately to unlock UI
         async for chunk in stream_status("Syd sta analizzando la tua richiesta..."):
@@ -412,30 +413,18 @@ class ADKOrchestrator(BaseOrchestrator):
         # Optimized Media Fetching: Parallelize using asyncio.gather
         async def fetch_media(i, url, mime=None):
             try:
-                parsed_url = urlparse(url)
-                bucket = settings.FIREBASE_STORAGE_BUCKET or ""
-                # Firebase Storage URLs can be either:
-                # - https://storage.googleapis.com/{bucket}/{path}  (bucket in path)
-                # - https://{bucket}.firebasestorage.app/{path}     (bucket in hostname)
-                # Both must reference our configured bucket for security.
-                hostname_ok = parsed_url.hostname == bucket
-                path_ok = bucket and parsed_url.hostname == "storage.googleapis.com" and parsed_url.path.startswith(f"/{bucket}/")
-                if not (hostname_ok or path_ok):
-                    logger.warning(f"Rejected invalid media URL source: {url}")
-                    return None
-
-                async with httpx.AsyncClient(timeout=15.0) as client:
-                    response = await client.get(url)
-                    response.raise_for_status()
-                    image_bytes = response.content
-                    final_mime = mime or (media_types[i] if i < len(media_types) else "image/jpeg")
-                    logger.info(f"[ADK] Fetched media {i}: {len(image_bytes)} bytes ({final_mime})")
-                    # Return both the image data and a text hint so the agent knows the source URL
-                    img_part = types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
-                    hint_part = types.Part(text=f"\n[URL Immagine Caricata per riferimento o tool: {url}]\n")
-                    return [img_part, hint_part]
+                # Read by Storage path, only among this session's files (a URL
+                # of another project or bucket is refused).
+                image_bytes, stored_mime = await download_session_media(url, session_id)
+                final_mime = mime or (media_types[i] if i < len(media_types) else stored_mime)
+                logger.info(f"[ADK] Fetched media {i}: {len(image_bytes)} bytes ({final_mime})")
+                # Return both the image data and a text hint so the agent knows the source URL
+                img_part = types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
+                hint_part = types.Part(text=f"\n[URL Immagine Caricata per riferimento o tool: {url}]\n")
+                return [img_part, hint_part]
             except Exception as e:  # noqa: BLE001
-                logger.error(f"Failed to fetch media {url}: {e}")
+                # Never log the URL: it is a signed URL (a bearer credential).
+                logger.error(f"Failed to fetch media {i}: {type(e).__name__}: {e}")
                 return None
 
         # Media in parallel (TaskGroup, Python 3.12+: auto-cancels on exception):
@@ -776,6 +765,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                                     content=content_str,
                                                     tool_call_id=call_id,
                                                     timestamp=datetime.now(UTC),
+                                                    room_id=room_id,
                                                     user_id=user_id,
                                                     is_guest=is_guest,
                                                 )
@@ -877,6 +867,7 @@ class ADKOrchestrator(BaseOrchestrator):
                             content=full_response,
                             tool_calls=accumulated_tool_calls if accumulated_tool_calls else None,
                             timestamp=assistant_timestamp,
+                            room_id=room_id,
                             message_id=assistant_msg_id,
                             user_id=user_id,
                             is_guest=is_guest,

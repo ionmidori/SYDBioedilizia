@@ -181,6 +181,77 @@ def _admin_read_allowed(bucket_name: str, blob_path: str, owner_session_id: str 
     return blob_path.startswith(session_storage_prefixes(owner_session_id))
 
 
+class MediaUnavailableError(Exception):
+    """A project media file cannot be read: outside the session, missing or too large."""
+
+
+def _parse_storage_ref(ref: str) -> tuple[str | None, str] | None:
+    """(bucket, object path) of a media reference; bucket None means the app bucket.
+
+    Accepts what the chat stores as a media reference: Firebase/GCS URLs (signed
+    or not), bucket-hosted URLs (`https://<bucket>/<path>`), `gs://` URIs and
+    bare object paths.
+    """
+    if ref.startswith("gs://"):
+        bucket, _, path = ref[len("gs://"):].partition("/")
+        return (bucket, path) if bucket and path else None
+    if "://" not in ref:
+        return (None, ref.lstrip("/")) if ref.strip("/") else None
+    parsed = _parse_firebase_url(ref)
+    if parsed:
+        return parsed
+    url = urlparse(ref)
+    bucket = settings.FIREBASE_STORAGE_BUCKET or ""
+    if bucket and (url.hostname or "").lower() == bucket.lower():
+        path = unquote(url.path.lstrip("/"))
+        return (bucket, path) if path else None
+    return None
+
+
+def session_media_path(ref: str | None, session_id: str) -> str | None:
+    """Object path of a media reference if it is a file of this session in the app bucket.
+
+    Persist and read media by this path: signed URLs expire after an hour, the
+    path does not. None for anything else (another session, another bucket).
+    """
+    if not ref:
+        return None
+    parsed = _parse_storage_ref(ref)
+    if parsed is None:
+        return None
+    bucket, path = parsed
+    bucket = bucket or settings.FIREBASE_STORAGE_BUCKET or ""
+    return path if _admin_read_allowed(bucket, path, session_id) else None
+
+
+def _read_blob_sync(bucket_name: str, path: str, max_bytes: int) -> tuple[bytes, str]:
+    blob = storage.bucket(bucket_name).get_blob(path)
+    if blob is None:
+        raise MediaUnavailableError("media file not found")
+    if blob.size is not None and blob.size > max_bytes:
+        raise MediaUnavailableError(f"media file too large ({blob.size} bytes)")
+    data = blob.download_as_bytes()
+    return data, blob.content_type or mimetypes.guess_type(path)[0] or "application/octet-stream"
+
+
+async def download_session_media(
+    ref: str, session_id: str, *, max_bytes: int = _MAX_DOWNLOAD_BYTES
+) -> tuple[bytes, str]:
+    """Read a project media file by its Storage path (Admin SDK), never through its URL.
+
+    The one way tools read chat photos, videos and renders: works hours after the
+    signed URL expired, and only for the session's own files (`_admin_read_allowed`),
+    so a reference planted in the chat cannot reach another project.
+
+    Returns (bytes, mime type); raises MediaUnavailableError.
+    """
+    path = session_media_path(ref, session_id)
+    if path is None:
+        raise MediaUnavailableError("media reference outside the session's files")
+    bucket_name = settings.FIREBASE_STORAGE_BUCKET or ""
+    return await run_in_threadpool(_read_blob_sync, bucket_name, path, max_bytes)
+
+
 async def download_image_smart(
     url: str, timeout: float = 30.0, *, owner_session_id: str | None = None
 ) -> tuple[bytes, str]:

@@ -23,6 +23,8 @@ interface MediaAssetBase {
     size_bytes: number;
     /** ISO timestamp of upload */
     created_at?: string;
+    /** Room of the project the file was filed under (null = not filed yet) */
+    room_id?: string | null;
 }
 
 /**

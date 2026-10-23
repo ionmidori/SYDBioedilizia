@@ -11,6 +11,7 @@ from datetime import datetime as _datetime_type
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer
+from src.schemas.room import ROOM_ID_PATTERN
 
 
 class ProjectStatus(StrEnum):
@@ -148,4 +149,8 @@ class ProjectFileMetadata(BaseModel):
     name: str = Field(..., description="Original file name")
     type: str = Field(..., description="File type (e.g. image, document, video)")
     size: int = Field(..., description="File size in bytes")
+    storage_path: str | None = Field(
+        None, max_length=512, description="Object path in the bucket (projects/{id}/uploads/...)"
+    )
+    room_id: str | None = Field(None, pattern=ROOM_ID_PATTERN, description="Room the file belongs to")
 

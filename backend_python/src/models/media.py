@@ -27,6 +27,7 @@ class MediaAssetBase(BaseModel):
     mime_type: str = Field(..., description="Validated MIME type from Magic Bytes")
     size_bytes: int = Field(..., ge=0, description="File size in bytes")
     created_at: datetime = Field(default_factory=utc_now, description="Upload timestamp")
+    room_id: str | None = Field(default=None, description="Room of the project the file was filed under")
 
 
 class ImageMediaAsset(MediaAssetBase):

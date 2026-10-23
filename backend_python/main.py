@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")  # Load .env into os.environ before any other imports (required by google-adk, google-genai)
 
+import asyncio
 import inspect
 import time
 import uuid
@@ -12,7 +13,8 @@ from typing import Any, cast
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import BaseModel, Field, field_validator, model_validator
+from google.api_core.exceptions import GoogleAPICallError
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from src.auth.jwt_handler import verify_token
@@ -23,7 +25,9 @@ from src.core.exceptions import AppException, PermissionDenied
 from src.core.logger import get_logger, setup_logging
 from src.core.rate_limit import charge_extra, limiter
 from src.core.schemas import APIErrorResponse
+from src.repositories.room_repository import get_room_repository
 from src.schemas.internal import UserSession
+from src.schemas.room import ROOM_ID_PATTERN
 from src.services.base_orchestrator import BaseOrchestrator
 from src.services.orchestrator_factory import get_orchestrator
 
@@ -571,6 +575,9 @@ class ChatRequest(BaseModel):
 
     # 🌍 CONTEXT AWARENESS (Renovation-Next)
     project_id: str | None = Field(None, alias="projectId", max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
+    # 🏠 Room of the project this turn is about (Phase 138). Checked against the
+    # project before use; an unknown room is dropped, never trusted.
+    room_id: str | None = Field(None, alias="roomId", pattern=ROOM_ID_PATTERN)
     # is_authenticated removed: auth state is derived exclusively from the verified JWT
     # via Depends(verify_token) → user_session.is_authenticated. Accepting it from the body
     # was redundant and opened a spoofing vector (client-controlled field bypassing JWT).
@@ -670,6 +677,15 @@ async def chat_stream_generator(
 
 
 
+async def _is_project_room(project_id: str, room_id: str) -> bool:
+    """True if the room belongs to the project; a failed lookup leaves the turn untagged."""
+    try:
+        return await get_room_repository().get_room(project_id, room_id) is not None
+    except (GoogleAPICallError, ValidationError) as e:
+        logger.error(f"Failed to check the room of the turn: {type(e).__name__}")
+        return False
+
+
 @app.post("/chat/stream")
 @limiter.limit("30/minute")
 async def chat_stream(
@@ -743,14 +759,22 @@ async def chat_stream(
     # save_message creates the doc first (without userId) and ensure_session
     # in the background task sees doc.exists=True and skips setting userId.
     repo = get_conversation_repository()
+    # Only a room of this project tags the turn (the orchestrator reads body.room_id).
+    # Looked up alongside ensure_session: no extra round-trip before the first token.
+    room_check = asyncio.create_task(_is_project_room(body.session_id, body.room_id)) if body.room_id else None
     # 🛡️ PermissionDenied (session owned by another user) propagates as a 403
     # BEFORE the stream starts — the orchestrator must never load a foreign history.
     try:
         await repo.ensure_session(body.session_id, user_session.uid, is_guest=user_session.is_guest)
     except PermissionDenied:
+        if room_check is not None:
+            room_check.cancel()
         raise
     except Exception as e:  # noqa: BLE001
         logger.error(f"Failed to ensure session before stream: {e}")
+    if room_check is not None and not await room_check:
+        logger.warning("Unknown room for this project: turn not tagged", extra={"session_id": body.session_id})
+        body.room_id = None
     turn.mark("session_ready")
 
     async def _persist_user_message():
@@ -763,6 +787,7 @@ async def chat_stream(
                 metadata={"user_id": user_session.uid, "source": "chat_stream_route"},
                 attachments=attachments,
                 timestamp=anchor_timestamp,
+                room_id=body.room_id,
                 message_id=user_msg_id,
                 is_guest=user_session.is_guest,
             )

@@ -4,9 +4,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 from src.api.gemini_imagen import generate_image_i2i, generate_image_t2i
-from src.db.messages import save_file_metadata
+from src.db.projects.constants import FILE_ROOM_FIELD
+from src.repositories.conversation_repository import get_conversation_repository
+from src.repositories.room_repository import get_room_repository
 from src.storage.upload import upload_base64_image as _upload_base64_image_sync
-from src.utils.download import download_image_smart, storage_path_from_url
+from src.utils.download import download_image_smart, session_media_path, storage_path_from_url
 from src.vision.triage import analyze_image_triage
 
 logger = logging.getLogger(__name__)
@@ -147,8 +149,14 @@ async def generate_render_wrapper(
         # 🚀 AUTOMATIC SLIDER UPDATE
         # 🚀 REGISTER FILE & SYNC COVER
         # Instead of manually updating, we save the file metadata.
-        # The hook in save_file_metadata will trigger sync_project_cover automatically.
+        # The repository's save_file_metadata triggers sync_project_cover.
         try:
+            # The render points at the photo's `files` document (a stable id, not
+            # its expiring signed URL) and belongs to the same room.
+            source_file = None
+            source_path = session_media_path(source_image_url, session_id) if mode == "modification" else None
+            if source_path:
+                source_file = await get_room_repository().find_file_by_storage_path(session_id, source_path)
             file_meta = {
                 "url": image_url,
                 "type": "render",
@@ -156,7 +164,10 @@ async def generate_render_wrapper(
                 "mimeType": f"image/{result.get('mime_type', 'png')}",
                 "uploadedBy": "assistant",
                 "metadata": {
-                    "source_image_id": source_image_url if mode == "modification" else None,
+                    "source_file_id": source_file["id"] if source_file else None,
+                    # Photo with no `files` document (older uploads): keep the
+                    # legacy link, read by the cover sync and the admin dossier.
+                    "source_image_id": source_image_url if mode == "modification" and not source_file else None,
                     "prompt": prompt,
                     "style": style,
                     # The signed URL above expires in 7 days; the path lets the
@@ -165,7 +176,9 @@ async def generate_render_wrapper(
                 }
             }
 
-            await save_file_metadata(session_id, file_meta)
+            await get_conversation_repository().save_file_metadata(
+                session_id, file_meta, room_id=(source_file or {}).get(FILE_ROOM_FIELD)
+            )
             logger.info(f"[Render] 📂 Registered render file in project {session_id}")
 
         except Exception as file_error:  # noqa: BLE001

@@ -105,6 +105,8 @@ export function useFileUpload(): UseFileUploadResult {
                             name: fileToUpload.name,
                             type: fileType,
                             size: fileToUpload.size,
+                            // The backend reads media by path (the download URL is not a stable id)
+                            storage_path: storagePath,
                         });
 
                         // Update progress to success
