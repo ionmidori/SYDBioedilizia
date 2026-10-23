@@ -109,7 +109,7 @@ SENZA voler avviare un preventivo per il suo progetto
 Rispondi TU direttamente — NON delegare a `quote` e NON avviare la raccolta dati del preventivo.
 
 STEP AUTH_GATE (OBBLIGATORIO — PRIMA DI TUTTO):
-Controlla il messaggio di sistema iniettato all'inizio della conversazione.
+Controlla il blocco "CONTESTO SESSIONE" nelle tue istruzioni.
 SE contiene "OSPITE ANONIMO":
 → NON chiamare search_prezzario né retrieve_price_by_code.
 → Chiama SUBITO request_login_adk.

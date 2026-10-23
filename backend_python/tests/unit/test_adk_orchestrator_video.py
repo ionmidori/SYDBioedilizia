@@ -168,7 +168,7 @@ async def test_refused_video_is_retried_once_without_it_and_the_breaker_is_untou
 
     assert turn.run_async.call_count == 2
     retry = turn.run_async.call_args_list[1].kwargs
-    assert retry["state_delta"] == {UNREADABLE_VIDEOS_STATE_KEY: [GOOD]}
+    assert retry["state_delta"][UNREADABLE_VIDEOS_STATE_KEY] == [GOOD]
     retry_parts = list(retry["new_message"].parts)
     assert all(p.file_data is None for p in retry_parts)
     assert any("NOTA DI SISTEMA" in (p.text or "") for p in retry_parts)
@@ -188,7 +188,7 @@ async def test_already_refused_videos_stay_recorded():
         session=_session(state={UNREADABLE_VIDEOS_STATE_KEY: [old]}),
     )
 
-    assert turn.run_async.call_args_list[1].kwargs["state_delta"] == {UNREADABLE_VIDEOS_STATE_KEY: [old, GOOD]}
+    assert turn.run_async.call_args_list[1].kwargs["state_delta"][UNREADABLE_VIDEOS_STATE_KEY] == [old, GOOD]
 
 
 async def test_one_notice_counts_skipped_and_refused_videos():
@@ -212,7 +212,7 @@ async def test_a_video_from_an_earlier_message_no_longer_blocks_the_session():
     )
 
     assert turn.run_async.call_count == 2
-    assert turn.run_async.call_args_list[1].kwargs["state_delta"] == {UNREADABLE_VIDEOS_STATE_KEY: [GONE]}
+    assert turn.run_async.call_args_list[1].kwargs["state_delta"][UNREADABLE_VIDEOS_STATE_KEY] == [GONE]
     assert _notices(turn.parsed)[-1]["message"] == (
         "Un video inviato in precedenza non è più leggibile ed è stato escluso dalla conversazione."
     )

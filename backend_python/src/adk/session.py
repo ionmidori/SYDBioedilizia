@@ -1,15 +1,15 @@
 """
 Session & Artifact Services for ADK runner.
 
-ADK 1.27 ships VertexAiSessionService (managed by Vertex AI Agent Engine)
-and InMemorySessionService (dev/test only).
+Sessions live in process memory (InMemorySessionService): they are lost on
+restart and not shared between Cloud Run instances. Firestore
+(`sessions/{id}/messages`) is the source of truth; the orchestrator rebuilds an
+ADK session from it when the instance has none or holds an outdated one
+(`adk_orchestrator._rehydrate_session`).
 
-Artifact Service (ADK 1.27+): InMemoryArtifactService stores tool-generated
-artifacts (renders, PDFs) keyed by filename. Tools save via
-tool_context.save_artifact(); cross-agent access is automatic.
-
-GDPR note: VertexAiSessionService respects the region set in vertexai.init()
-(ADK_LOCATION=europe-west1 in .env), so data stays in EU.
+Artifact Service: InMemoryArtifactService stores tool-generated artifacts
+(renders, PDFs) keyed by filename. Tools save via tool_context.save_artifact();
+cross-agent access is automatic.
 """
 import logging
 
