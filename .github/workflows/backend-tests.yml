@@ -7,6 +7,8 @@ on:
       - 'develop'
     paths:
       - 'backend_python/**'
+      # Golden vectors shared with the frontend (tests/unit/test_money_golden.py).
+      - 'contracts/**'
       - '.github/workflows/backend-tests.yml'
   pull_request:
     branches:
@@ -14,6 +16,8 @@ on:
       - 'develop'
     paths:
       - 'backend_python/**'
+      # Golden vectors shared with the frontend (tests/unit/test_money_golden.py).
+      - 'contracts/**'
       - '.github/workflows/backend-tests.yml'
 
 # Least privilege: this workflow only reads the repo and uploads coverage.

@@ -3,12 +3,15 @@
 Only what the quote domain code uses: collection/document paths, `get` with a
 transaction, and `set` / `update` (dotted field paths) on a transaction.
 Writes are applied on commit-like `apply()`; the fake also enforces the real
-rule that a transaction may not read after it has written.
+rule that a transaction may not read after it has written, and rejects
+`Decimal` values (the real client cannot encode them: amounts are written as
+numbers, see src/core/money.py).
 """
 from __future__ import annotations
 
 import copy
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 from google.cloud.firestore_v1 import DELETE_FIELD
@@ -16,6 +19,23 @@ from google.cloud.firestore_v1 import DELETE_FIELD
 # Default write time of fake documents and blobs: long ago, so age-based rules
 # (retention grace periods) see them as old unless a test says otherwise.
 LONG_AGO = datetime(2020, 1, 1, tzinfo=UTC)
+
+
+def _assert_storable(value: Any, where: str) -> None:
+    """The real client raises on a Decimal (it is not a Firestore type); so does the fake."""
+    if isinstance(value, Decimal):
+        raise AssertionError(f"Decimal value written to Firestore at {where}: dump amounts as numbers")
+    if isinstance(value, dict):
+        for key, item in value.items():
+            _assert_storable(item, f"{where}.{key}")
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            _assert_storable(item, f"{where}[{index}]")
+
+
+def _storable(path: tuple[str, ...], data: dict[str, Any]) -> dict[str, Any]:
+    _assert_storable(data, "/".join(path))
+    return data
 
 
 class FakeSnapshot:
@@ -121,7 +141,7 @@ class FakeCollection:
 
     async def add(self, data: dict[str, Any]) -> tuple[None, FakeDocRef]:
         ref = self.document()
-        self._db.docs[ref.path] = copy.deepcopy(data)
+        self._db.docs[ref.path] = copy.deepcopy(_storable(ref.path, data))
         self._db._touch(ref.path)
         return None, ref
 
@@ -235,7 +255,7 @@ class FakeDb:
 
     def put(self, *path_and_data: Any) -> None:
         *path, data = path_and_data
-        self.docs[tuple(path)] = copy.deepcopy(data)
+        self.docs[tuple(path)] = copy.deepcopy(_storable(tuple(path), data))
         self._touch(tuple(path))
 
     def get_data(self, *path: str) -> dict[str, Any] | None:
@@ -246,6 +266,7 @@ class FakeDb:
         return FakeBatch(self)
 
     def apply_set(self, path: tuple[str, ...], data: dict[str, Any], *, merge: bool) -> None:
+        _storable(path, data)
         if merge:
             # Merge creates a missing document; DELETE_FIELD on an absent field is a no-op.
             target = self.docs.setdefault(path, {})
@@ -261,6 +282,7 @@ class FakeDb:
     def apply_update(self, path: tuple[str, ...], data: dict[str, Any]) -> None:
         if path not in self.docs:
             raise AssertionError(f"update() on missing document {path}")
+        _storable(path, data)
         for key, value in data.items():
             _set_dotted(self.docs[path], key, copy.deepcopy(value))
         self._touch(path)
@@ -276,7 +298,7 @@ class FakeBatch:
         self._ops: list[tuple[str, tuple[str, ...], dict[str, Any], bool]] = []
 
     def _queue(self, op: str, ref: FakeDocRef, data: dict[str, Any], merge: bool = False) -> None:
-        self._ops.append((op, ref.path, copy.deepcopy(data), merge))
+        self._ops.append((op, ref.path, copy.deepcopy(_storable(ref.path, data)), merge))
         if len(self._ops) > self.MAX_WRITES:
             raise AssertionError(f"batch exceeds {self.MAX_WRITES} writes")
 
@@ -325,6 +347,7 @@ class FakeTransaction:
         self.reads.append(path)
 
     def set(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
+        _storable(ref.path, data)
         self.writes.append(("set", ref.path, copy.deepcopy(data)))
         self._db.docs[ref.path] = copy.deepcopy(data)
         self._db._touch(ref.path)
@@ -336,6 +359,7 @@ class FakeTransaction:
     def update(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
         if ref.path not in self._db.docs:
             raise AssertionError(f"update() on missing document {ref.path}")
+        _storable(ref.path, data)
         self.writes.append(("update", ref.path, copy.deepcopy(data)))
         doc = self._db.docs[ref.path]
         for key, value in data.items():

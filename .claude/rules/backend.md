@@ -35,6 +35,7 @@ All raw ASGI (never `BaseHTTPMiddleware`: it buffers `/chat/stream`). Order guar
 - **Async**: Prefer `async def` for I/O. Wrap sync Firebase SDK calls in `run_in_threadpool()` or `asyncio.to_thread()`
 - **No inline imports**: All imports at module top-level unless resolving circular deps
 - **BLE001 ratchet**: never add a new `# noqa: BLE001`; narrow existing ones when touching a module (canonical policy: `pyproject.toml`, ruff section)
+- **Money**: amounts are `Decimal` through `src/core/money.py` (`Money` field type, `line_total` / `compute_totals` / `sum_amounts` / `to_cents`, ROUND_HALF_UP to the cent) and stay JSON numbers in Firestore and the API. Never `round(…, 2)` or float arithmetic on an amount (guard: `tests/unit/test_money_guard.py`). Same rule as `web_client/lib/money.ts`, pinned by `contracts/money/golden_vectors.json` (regenerate with `scripts/generate_money_vectors.py`)
 
 ## Firebase Schema ("Golden Sync")
 MUST maintain 1:1 parity between Pydantic (Python) and TypeScript interfaces.

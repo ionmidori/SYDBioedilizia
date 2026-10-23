@@ -14,6 +14,8 @@ import asyncio
 import logging
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
+from typing import Any
 
 from src.core.config import settings
 from src.core.exceptions import (
@@ -22,6 +24,7 @@ from src.core.exceptions import (
     NoEligibleProjectsError,
     PermissionDenied,
 )
+from src.core.money import sum_amounts, to_cents, vat_amount
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.quote import BatchProject, QuoteBatch, QuoteItem
 from src.services.batch_aggregation_engine import (
@@ -41,8 +44,17 @@ class BatchSummary:
     """Result of a create/submit operation (mirrors CreateBatchResponse)."""
     batch_id: str
     total_projects: int
-    batch_subtotal: float
+    batch_subtotal: Decimal
     status: str
+
+
+def _project_total(financials: dict[str, Any]) -> Decimal:
+    """A quote's total with VAT at its own rate (recomputed if not stored)."""
+    if financials.get("grand_total") is not None:
+        return to_cents(financials["grand_total"])
+    subtotal = to_cents(financials.get("subtotal") or 0)
+    rate = financials.get("vat_rate")
+    return subtotal + vat_amount(subtotal, rate if rate is not None else 0.22)  # QuoteFinancials default
 
 
 def _batch_ref(batch_id: str):
@@ -61,6 +73,7 @@ async def create_batch(user_id: str, project_ids: list[str]) -> BatchSummary:
     """
     db = get_async_firestore_client()
     batch_project_objects: list[BatchProject] = []
+    project_totals: list[Decimal] = []
     quote_summaries: list[ProjectQuoteSummary] = []
 
     for pid in project_ids:
@@ -101,9 +114,10 @@ async def create_batch(user_id: str, project_ids: list[str]) -> BatchSummary:
                 project_name=project_name,
                 status="draft",
                 item_count=len(raw_items),
-                subtotal=financials.get("subtotal", 0.0),
+                subtotal=to_cents(financials.get("subtotal") or 0),
             )
         )
+        project_totals.append(_project_total(financials))
 
         # Parse items for aggregation preview
         parsed_items = []
@@ -122,7 +136,7 @@ async def create_batch(user_id: str, project_ids: list[str]) -> BatchSummary:
     engine = get_batch_aggregation_engine()
     preview = engine.preview(quote_summaries)
 
-    batch_subtotal = sum(p.subtotal for p in batch_project_objects)
+    batch_subtotal = sum_amounts(p.subtotal for p in batch_project_objects)
     n_projects = len(batch_project_objects)
     batch_id = str(uuid.uuid4())
     now = utc_now()
@@ -134,7 +148,7 @@ async def create_batch(user_id: str, project_ids: list[str]) -> BatchSummary:
         projects=batch_project_objects,
         total_projects=n_projects,
         batch_subtotal=batch_subtotal,
-        batch_grand_total=round(batch_subtotal * 1.22, 2),
+        batch_grand_total=sum_amounts(project_totals),
         submitted_at=None,
         created_at=now,
         updated_at=now,
@@ -146,7 +160,7 @@ async def create_batch(user_id: str, project_ids: list[str]) -> BatchSummary:
 
     logger.info(
         "Batch created.",
-        extra={"batch_id": batch_id, "projects": n_projects, "subtotal": batch_subtotal},
+        extra={"batch_id": batch_id, "projects": n_projects, "subtotal": float(batch_subtotal)},
     )
 
     return BatchSummary(
@@ -160,7 +174,7 @@ async def create_batch(user_id: str, project_ids: list[str]) -> BatchSummary:
 _background_tasks: set[asyncio.Task] = set()
 
 
-async def _notify_admin(db, digests: list[RequestDigest], grand_total: float) -> None:
+async def _notify_admin(db, digests: list[RequestDigest], grand_total: Decimal) -> None:
     """Queue the 'new request(s)' email for the admin. Never raises."""
     if not settings.ADMIN_EMAIL:
         logger.warning("Admin notification skipped: ADMIN_EMAIL not configured.")
@@ -237,7 +251,7 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
     # Admin notification through the transactional outbox: the email is
     # recorded first, then sent in the background; if the instance stops before
     # sending, the sweeper (Cloud Scheduler, every 5 min) sends it.
-    await _notify_admin(db, digests, float(data.get("batch_grand_total", 0.0)))
+    await _notify_admin(db, digests, to_cents(data.get("batch_grand_total") or 0))
 
     logger.info(
         "Batch submitted to admin.",
@@ -247,6 +261,6 @@ async def submit_batch(user_id: str, batch_id: str, *, is_admin: bool = False) -
     return BatchSummary(
         batch_id=batch_id,
         total_projects=data.get("total_projects", 0),
-        batch_subtotal=data.get("batch_subtotal", 0.0),
+        batch_subtotal=to_cents(data.get("batch_subtotal") or 0),
         status="submitted",
     )

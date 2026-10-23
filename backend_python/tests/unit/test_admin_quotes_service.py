@@ -4,6 +4,7 @@ Transaction bodies run against the in-memory Firestore fake: version checks,
 review lock, state machine, revisions with diff, server-side totals.
 """
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from src.core.exceptions import (
@@ -214,7 +215,7 @@ def test_list_row_shows_who_and_what():
     row = svc.list_row(PID, quote)
     assert row["client_display_name"] == "Mario Rossi" and row["quote_number"] == "PRV-2026-0001"
     assert row["thumbnail_media_id"] == "f1"  # the client's photo first
-    assert row["grand_total"] == 816.91 and row["item_count"] == 2
+    assert row["grand_total"] == Decimal("816.91") and row["item_count"] == 2
     assert len(row["summary"]) <= 161
 
 
@@ -260,3 +261,30 @@ def test_pdf_never_named_or_titled_with_personal_data():
     data = svc.pdf_input({"user_id": "uid-1", "client_snapshot": {"display_name": "Mario Rossi"}}, PID)
     assert data["client_name"] == "Mario Rossi"
     assert svc.pdf_input({"user_id": "uid-1"}, PID)["client_name"] == "Cliente"  # never the uid
+
+
+async def test_edit_rounds_half_cents_up_and_stores_numbers():
+    """The admin preview (web_client/lib/admin/quote-math.ts) shows 11,13 € for 0.5 × 22.25:
+    the saved quote must say the same, and Firestore gets floats, never Decimal."""
+    db = FakeDb()
+    _seed(db)
+    await svc.edit_tx(tx(db), db, PID, ADMIN, 2, NOW, items=[QuoteItem(**_item("POS-001", 0.5, 22.25))])
+    doc = db.get_data(*QUOTE)
+    assert doc["items"][0]["total"] == 11.13
+    assert doc["financials"] == {"subtotal": 11.13, "vat_rate": 0.22, "vat_amount": 2.45, "grand_total": 13.58}
+    assert all(type(v) is float for v in doc["financials"].values())
+
+
+async def test_an_edit_without_items_still_recomputes_every_line():
+    """A VAT- or notes-only edit sends no items. Lines saved with the old
+    float rounding (0.5 × 22.25 → 11.12) are recomputed anyway, so the saved
+    quote matches the admin preview, which always recomputes them (11.13)."""
+    db = FakeDb()
+    _seed(db, items=[{**_item("POS-001", 0.5, 22.25), "total": 11.12}])
+    await svc.edit_tx(tx(db), db, PID, ADMIN, 2, NOW, vat_rate=0.10)
+    doc = db.get_data(*QUOTE)
+    assert doc["items"][0]["total"] == 11.13
+    assert doc["items"][0]["manual_override"] is False  # an unchanged line keeps its flag
+    assert doc["financials"]["grand_total"] == 12.24  # 11.13 + 1.11 (1.113)
+    (change,) = db.get_data(*QUOTE, "revisions", "3")["diff"]
+    assert change["change"] == "changed" and change["before"]["total"] == 11.12

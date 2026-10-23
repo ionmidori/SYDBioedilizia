@@ -16,6 +16,7 @@ from google.api_core.exceptions import GoogleAPIError
 
 from src.auth.user_lookup import is_anonymous_user
 from src.core.config import settings
+from src.core.money import line_total, to_json_number
 from src.core.telemetry import instrumented_tool
 from src.db.projects.media import latest_uploaded_photo_url
 from src.tools.quota import check_quota, increment_quota, quota_denial
@@ -86,7 +87,7 @@ async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
         "unit": item.get("unit", ""),
         "unit_price": unit_price,
         "qty": qty,
-        "total": round(unit_price * qty, 2),
+        "total": to_json_number(line_total(qty, unit_price)),
     }
 
 

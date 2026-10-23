@@ -37,6 +37,7 @@ from src.core.exceptions import (
     QuoteNotFoundError,
     QuoteVersionConflictError,
 )
+from src.core.money import line_total, to_cents
 from src.schemas.quote import QuoteFinancials, QuoteItem, RevisionChange
 from src.services.pdf_service import quote_pdf_blob_path
 from src.services.pricing_service import PricingService
@@ -133,7 +134,7 @@ def normalise_items(new_items: list[QuoteItem], previous: list[dict[str, Any]]) 
     out: list[QuoteItem] = []
     for item in new_items:
         data = item.model_dump()
-        data["total"] = round(item.qty * item.unit_price, 2)
+        data["total"] = line_total(item.qty, item.unit_price)
         same = previous_by_key.get(_item_key(data))
         data["manual_override"] = bool(same.get("manual_override")) if same is not None else True
         out.append(QuoteItem(**data))
@@ -204,10 +205,10 @@ async def edit_tx(
     status = transition(quote.get("status", ""), QuoteEvent.EDIT)
 
     previous_items: list[dict[str, Any]] = list(quote.get("items") or [])
-    new_items = (
-        normalise_items(items, previous_items)
-        if items is not None
-        else [QuoteItem(**i) for i in previous_items]
+    # Lines are recomputed on every edit, even a VAT- or notes-only one: a line
+    # saved with the old float rounding must not survive next to new totals.
+    new_items = normalise_items(
+        items if items is not None else [QuoteItem(**i) for i in previous_items], previous_items
     )
     rate = vat_rate if vat_rate is not None else float((quote.get("financials") or {}).get("vat_rate", 0.22))
     financials = PricingService.calculate_financials(new_items, vat_rate=rate)
@@ -391,7 +392,7 @@ def list_row(project_id: str, quote: dict[str, Any]) -> dict[str, Any]:
         "client_is_guest": bool(snapshot.get("is_guest")),
         "status": quote.get("status", "draft"),
         "delivery_status": quote.get("delivery_status", "none"),
-        "grand_total": float((quote.get("financials") or {}).get("grand_total", 0.0)),
+        "grand_total": to_cents((quote.get("financials") or {}).get("grand_total") or 0),
         "item_count": len(quote.get("items") or []),
         "channel": request.get("channel"),
         "summary": summary[:160] + ("…" if len(summary) > 160 else ""),

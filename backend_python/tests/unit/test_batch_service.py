@@ -5,6 +5,7 @@ The service is the single submission path shared by the REST routes and the
 chat tool submit_quote_request. Logic extracted 1:1 from batch_routes.py.
 """
 import asyncio
+from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -95,6 +96,39 @@ class TestCreateBatch:
         assert saved["user_id"] == USER
         assert [p["project_id"] for p in saved["projects"]] == ["p1"]
 
+    async def test_batch_total_adds_each_project_total_with_its_own_vat_rate(self, mock_engine):
+        """A 10% project and a 22% project: the batch total is the sum of the two
+        totals (110 + 244), not the summed subtotals × 1.22 (366)."""
+        project_docs = {pid: _doc(True, {"userId": USER, "name": pid}) for pid in ("p1", "p2")}
+        quote_docs = {
+            "p1": _doc(True, {"status": "draft", "items": [], "financials": {
+                "subtotal": 100.0, "vat_rate": 0.10, "vat_amount": 10.0, "grand_total": 110.0}}),
+            "p2": _doc(True, {"status": "draft", "items": [], "financials": {
+                "subtotal": 200.0, "vat_rate": 0.22, "vat_amount": 44.0, "grand_total": 244.0}}),
+        }
+        db, batch_ref, _ = _make_db(project_docs, quote_docs)
+
+        with patch("src.services.batch_service.get_async_firestore_client", return_value=db):
+            summary = await batch_service.create_batch(USER, ["p1", "p2"])
+
+        saved = batch_ref.set.await_args.args[0]
+        assert saved["batch_subtotal"] == 300.0
+        assert saved["batch_grand_total"] == 354.0
+        assert type(saved["batch_grand_total"]) is float
+        assert summary.batch_subtotal == Decimal("300.00")
+
+    async def test_a_quote_without_a_grand_total_counts_its_subtotal_plus_vat(self, mock_engine):
+        """A partial financials map must not add 0 € to the batch total."""
+        project_docs = {"p1": _doc(True, {"userId": USER, "name": "p1"})}
+        quote_docs = {"p1": _doc(True, {"status": "draft", "items": [], "financials": {
+            "subtotal": 100.0, "vat_rate": 0.10}})}
+        db, batch_ref, _ = _make_db(project_docs, quote_docs)
+
+        with patch("src.services.batch_service.get_async_firestore_client", return_value=db):
+            await batch_service.create_batch(USER, ["p1"])
+
+        assert batch_ref.set.await_args.args[0]["batch_grand_total"] == 110.0
+
     async def test_no_eligible_projects_raises(self, mock_engine):
         project_docs = {"p1": _doc(True, {"userId": USER})}
         quote_docs = {"p1": _doc(True, {"status": "approved", "items": []})}
@@ -164,7 +198,7 @@ class TestSubmitBatch:
 
         digests = notify.await_args.args[1]
         assert [(d.quote_number, d.client_name, d.grand_total, d.summary) for d in digests] == [
-            ("PRV-2026-0042", "Mario Rossi", 816.91, "Pittura cucina")
+            ("PRV-2026-0042", "Mario Rossi", Decimal("816.91"), "Pittura cucina")
         ]
     async def test_submit_missing_batch_raises_not_found(self):
         db, _, _ = _make_db({}, {}, batch_doc=_doc(False))
@@ -207,13 +241,13 @@ class TestNotifyAdmin:
         dispatch = AsyncMock(return_value="sent")
         digest = batch_service.RequestDigest(
             quote_number="PRV-2026-0042", client_name="Mario Rossi", client_email="m@x.it",
-            client_is_guest=False, grand_total=816.91, summary="Pittura",
+            client_is_guest=False, grand_total=Decimal("816.91"), summary="Pittura",
         )
         with (
             patch("src.services.batch_service.enqueue_message", new=enqueue),
             patch("src.services.batch_service.dispatch_one", new=dispatch),
         ):
-            await batch_service._notify_admin(MagicMock(), [digest], 816.91)
+            await batch_service._notify_admin(MagicMock(), [digest], Decimal("816.91"))
             await asyncio.gather(*batch_service._background_tasks)
 
         kwargs = enqueue.await_args.kwargs

@@ -20,6 +20,7 @@ from typing import Any
 from google.cloud.firestore_v1 import Query
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+from src.core.money import sum_amounts, to_cents
 from src.schemas.admin_content import AdminKpis, RecentApproval, TestimonialStats, WeeklyApprovals
 
 STATUSES = ("draft", "pending_review", "in_review", "approved", "sent", "rejected")
@@ -135,8 +136,8 @@ async def compute_kpis(db: Any, now: datetime) -> AdminKpis:
     )
 
     truncated = len(open_docs) > OPEN_CAP
-    pending_value = sum(
-        float(((doc.to_dict() or {}).get("financials") or {}).get("grand_total", 0.0)) for doc in open_docs[:OPEN_CAP]
+    pending_value = sum_amounts(
+        ((doc.to_dict() or {}).get("financials") or {}).get("grand_total") or 0 for doc in open_docs[:OPEN_CAP]
     )
 
     decided = [(doc, doc.to_dict() or {}) for doc in decided_docs]
@@ -151,7 +152,7 @@ async def compute_kpis(db: Any, now: datetime) -> AdminKpis:
             project_id=doc.reference.parent.parent.id,
             quote_number=quote.get("quote_number"),
             client_display_name=(quote.get("client_snapshot") or {}).get("display_name"),
-            grand_total=float((quote.get("financials") or {}).get("grand_total", 0.0)),
+            grand_total=to_cents((quote.get("financials") or {}).get("grand_total") or 0),
             approved_at=when,
         )
         for when, doc, quote in latest
@@ -159,7 +160,7 @@ async def compute_kpis(db: Any, now: datetime) -> AdminKpis:
 
     return AdminKpis(
         by_status=dict(zip(STATUSES, counts, strict=True)),
-        pending_value=round(pending_value, 2),
+        pending_value=pending_value,
         pending_truncated=truncated,
         weekly_approvals=weekly_buckets(times, now),
         recent_approvals=recent,

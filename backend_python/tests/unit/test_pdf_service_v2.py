@@ -1,6 +1,7 @@
 """Quote PDF v2 (Phase 128 PR 3.2): content read back from the generated PDF."""
 import re
 from datetime import UTC, datetime
+from decimal import Decimal
 from io import BytesIO
 
 import pytest
@@ -157,3 +158,30 @@ def test_italian_formatting_helpers():
     assert format_number(1234.5) == "1.234,50"
     assert format_eur(0.5) == "€ 0,50"
     assert [format_qty(v) for v in (40.0, 40.7, 0.25, 1234.5, "x")] == ["40", "40,7", "0,25", "1.234,5", "x"]
+
+
+def test_amounts_are_printed_rounded_half_up_like_they_are_computed():
+    """`f"{x:.2f}"` rounds the binary value half-even: 11.125 → "11,12", 2.675 → "2,67".
+    The PDF must print the cents the quote was computed with (src/core/money.py)."""
+    assert format_eur(11.125) == "€ 11,13"
+    assert format_number(2.675) == "2,68"
+    assert format_eur(Decimal("1859560.91")) == "€ 1.859.560,91"
+    assert format_number(0.25, 1) == "0,3"
+    assert format_number(-0.004) == "0,00"
+
+
+def test_a_non_finite_quantity_is_printed_as_is_instead_of_failing_the_pdf():
+    assert format_qty(float("inf")) == "inf"
+    assert format_qty("nan") == "nan"
+
+
+def test_multi_room_savings_list_only_positive_lines_and_their_exact_sum():
+    text = _flat(PdfService().generate_pdf_bytes(_quote(aggregation_adjustments=[
+        {"description": "Smaltimento unificato", "savings": 0.1},
+        {"description": "Quadro elettrico unico", "savings": 0.2},
+        {"description": "Nessun risparmio", "savings": 0},
+    ])))
+    assert "Smaltimento unificato — risparmio € 0,10" in text
+    assert "Quadro elettrico unico — risparmio € 0,20" in text
+    assert "Nessun risparmio" not in text
+    assert "Risparmio totale aggregazione: € 0,30" in text

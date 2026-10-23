@@ -42,6 +42,7 @@ from reportlab.platypus import (
 )
 
 from src.core.company import COMPANY, QUOTE_TERMS
+from src.core.money import sum_amounts, to_cents
 from src.utils.format_it import format_date, format_eur, format_number, format_qty
 
 logger = logging.getLogger(__name__)
@@ -268,7 +269,7 @@ class PdfService:
                 if room.get("walls_mq"):
                     details.append(f"Pareti: ~{format_number(room['walls_mq'], 1)} mq")
                 details.append(f"Voci: {len(room.get('items', []))}")
-                details.append(f"Subtotale: {format_eur(float(room.get('room_subtotal', 0)))}")
+                details.append(f"Subtotale: {format_eur(room.get('room_subtotal') or 0)}")
                 story.append(Paragraph(" · ".join(details), small))
 
         # ── Items table ──────────────────────────────────────────────────────
@@ -289,8 +290,8 @@ class PdfService:
                 Paragraph(_txt(item.get("description", "")), cell),
                 Paragraph(_txt(item.get("unit", "")), cell),
                 Paragraph(format_qty(item.get("qty", "")), cell_right),
-                Paragraph(format_eur(float(item.get("unit_price", 0))), cell_right),
-                Paragraph(format_eur(float(item.get("total", 0))), cell_right),
+                Paragraph(format_eur(item.get("unit_price") or 0), cell_right),
+                Paragraph(format_eur(item.get("total") or 0), cell_right),
             ])
         col_widths = [_USABLE_W * w for w in (0.43, 0.08, 0.13, 0.18, 0.18)]
         items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -307,14 +308,16 @@ class PdfService:
 
         # ── Aggregation adjustments (multi-room savings) ─────────────────────
         adjustments = quote_data.get("aggregation_adjustments", [])
-        savings_lines = [adj for adj in adjustments if float(adj.get("savings", 0)) > 0]
+        savings_lines = [
+            (adj, saving) for adj in adjustments if (saving := to_cents(adj.get("savings") or 0)) > 0
+        ]
         if savings_lines:
             story.append(Paragraph("Ottimizzazioni multi-stanza", h2))
-            total_savings = 0.0
-            for adj in savings_lines:
-                sav = float(adj.get("savings", 0))
-                story.append(Paragraph(f"• {_txt(adj.get('description', ''))} — risparmio {format_eur(sav)}", normal))
-                total_savings += sav
+            for adj, saving in savings_lines:
+                story.append(
+                    Paragraph(f"• {_txt(adj.get('description', ''))} — risparmio {format_eur(saving)}", normal)
+                )
+            total_savings = sum_amounts(saving for _, saving in savings_lines)
             story.append(Spacer(1, 1.5 * mm))
             story.append(Paragraph(f"<b>Risparmio totale aggregazione: {format_eur(total_savings)}</b>", normal))
             story.append(Spacer(1, 4 * mm))
@@ -323,9 +326,9 @@ class PdfService:
         financials = quote_data.get("financials", {})
         vat_rate = float(financials.get("vat_rate", 0.22))
         fin_data = [
-            ["", "Imponibile:", format_eur(float(financials.get("subtotal", 0)))],
-            ["", f"IVA ({vat_rate * 100:.0f}%):", format_eur(float(financials.get("vat_amount", 0)))],
-            ["", "TOTALE (IVA inclusa):", format_eur(float(financials.get("grand_total", 0)))],
+            ["", "Imponibile:", format_eur(financials.get("subtotal") or 0)],
+            ["", f"IVA ({vat_rate * 100:.0f}%):", format_eur(financials.get("vat_amount") or 0)],
+            ["", "TOTALE (IVA inclusa):", format_eur(financials.get("grand_total") or 0)],
         ]
         fin_table = Table(fin_data, colWidths=[_USABLE_W * 0.46, _USABLE_W * 0.32, _USABLE_W * 0.22])
         fin_table.setStyle(TableStyle([
