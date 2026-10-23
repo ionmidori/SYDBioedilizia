@@ -143,3 +143,20 @@ dev = [
     "ruff>=0.17.1",
     "pyright>=1.1.414",
 ]
+
+[tool.uv]
+# CVE-2026-114603: opentelemetry-api <=1.45.0 parses an inbound `tracestate`
+# header with an O(N^2) regex (fix: 1.45.1). google-adk 2.12.0 caps
+# opentelemetry-api/sdk at <=1.42.1 (upstream main only raises it to <=1.44),
+# so the fix is unreachable without overriding that cap. Verified on 1.45.1
+# (2026-10-23): all 652 importable google.adk modules import with the same
+# failures as on 1.42.1 (only uninstalled optional extras), an end-to-end
+# Runner run with a fake model emits identical spans, gen_ai.* attributes,
+# metrics and log records on both versions (ADK uses the private
+# opentelemetry.sdk._logs and semconv._incubating modules, which is why it
+# caps), and the full pytest suite passes. semantic-conventions follows the
+# sdk pin (0.66b1). Remove once google-adk allows opentelemetry>=1.45.1.
+override-dependencies = [
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
+]
