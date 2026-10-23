@@ -158,4 +158,5 @@ backend_python/data/*.log
 .gemini/skills/
 skills_dev/
 skills_pkg/
+/skills/
 backend_python/deploy/.vertex-previous-revision
