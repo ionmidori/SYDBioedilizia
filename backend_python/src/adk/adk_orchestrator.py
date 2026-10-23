@@ -42,7 +42,6 @@ from src.adk.video_attachments import (
 )
 from src.adk.video_guard_plugin import VideoGuardPlugin
 from src.core.chat_timing import current_turn
-from src.core.tracing import flush_spans
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
 from src.services.base_orchestrator import BaseOrchestrator
@@ -221,12 +220,6 @@ class ADKOrchestrator(BaseOrchestrator):
             if turn is not None:
                 turn.mark("finish")
                 turn.emit(outcome=outcome)
-            # Export this turn's spans while the request is still open: Cloud Run
-            # throttles CPU once the response ends, and the batch processor's
-            # background export then rarely runs (see src/core/tracing.py).
-            # Skipped on disconnect: nobody is waiting and aclose() must not block.
-            if outcome != "client_disconnected":
-                await flush_spans()
 
     async def _stream_events(
         self,

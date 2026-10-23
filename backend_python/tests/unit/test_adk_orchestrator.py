@@ -344,57 +344,11 @@ class TestADKOrchestratorTurnTiming:
     @patch("src.core.config.settings")
     @patch("src.adk.adk_orchestrator.get_conversation_repository")
     @patch("src.adk.adk_orchestrator.get_session_service")
-    async def test_spans_are_flushed_once_at_end_of_turn_after_timing_closed_them(
-        self, mock_get_session, mock_get_repo, mock_settings
-    ):
-        # Cloud Run throttles CPU once the response ends: the turn's spans must be
-        # exported while the stream is still open, after chat_timing ended them.
-        from src.core.chat_timing import start_turn
-
-        _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
-        orch = _make_orchestrator_with_events([_make_text_event("Ciao!")])
-        req, user = _make_request_and_user()
-        turn = start_turn(req.session_id)
-        emitted_at_flush: list[bool] = []
-
-        async def _flush(*_a, **_k):
-            emitted_at_flush.append(turn.emitted)
-
-        with patch("src.adk.adk_orchestrator.flush_spans", side_effect=_flush) as flush:
-            chunks = await _collect_chunks(orch.stream_chat(req, user))
-
-        assert _parse_sse(chunks)[-1] == "[DONE]"
-        flush.assert_awaited_once()
-        assert emitted_at_flush == [True]
-
-    @patch("src.core.config.settings")
-    @patch("src.adk.adk_orchestrator.get_conversation_repository")
-    @patch("src.adk.adk_orchestrator.get_session_service")
-    async def test_spans_are_not_flushed_when_the_client_disconnects(
-        self, mock_get_session, mock_get_repo, mock_settings
-    ):
-        from src.core.chat_timing import start_turn
-
-        _setup_mocks(mock_get_session, mock_get_repo, mock_settings)
-        orch = _make_orchestrator_with_events([_make_text_event("Ciao!")])
-        req, user = _make_request_and_user()
-        start_turn(req.session_id)
-
-        with patch("src.adk.adk_orchestrator.flush_spans", new_callable=AsyncMock) as flush:
-            stream = orch.stream_chat(req, user)
-            await stream.__anext__()
-            await stream.aclose()  # what Starlette does when the client goes away
-
-        flush.assert_not_awaited()
-
-    @patch("src.core.config.settings")
-    @patch("src.adk.adk_orchestrator.get_conversation_repository")
-    @patch("src.adk.adk_orchestrator.get_session_service")
-    async def test_cancelled_stream_counts_as_disconnect_and_skips_the_flush(
+    async def test_cancelled_stream_counts_as_client_disconnected(
         self, mock_get_session, mock_get_repo, mock_settings, caplog
     ):
-        # Starlette/anyio cancel the response task when the client disconnects;
-        # awaiting the flush inside a cancelled scope would be cut short anyway.
+        # Starlette/anyio cancel the response task when the client disconnects:
+        # the turn must be logged as a disconnect, not as "ok".
         import asyncio
         import logging
 
@@ -406,15 +360,11 @@ class TestADKOrchestratorTurnTiming:
         req, user = _make_request_and_user()
         start_turn(req.session_id)
 
-        with (
-            patch("src.adk.adk_orchestrator.flush_spans", new_callable=AsyncMock) as flush,
-            caplog.at_level(logging.INFO, logger="src.core.chat_timing"),
-        ):
+        with caplog.at_level(logging.INFO, logger="src.core.chat_timing"):
             stream = orch.stream_chat(req, user)
             await stream.__anext__()
             with pytest.raises(asyncio.CancelledError):
                 await stream.athrow(asyncio.CancelledError())
 
-        flush.assert_not_awaited()
         timing = [r for r in caplog.records if r.getMessage() == "chat_turn_timing"]
         assert [r.outcome for r in timing] == ["client_disconnected"]
