@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, Path, Query, Request
 from google.cloud.firestore_v1.base_query import FieldFilter
 from src.auth.admin import require_admin
 from src.core.exceptions import ResourceNotFound
+from src.core.money import to_cents
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.admin_content import (
@@ -76,8 +77,8 @@ async def list_batches(
                 client_email=profile.email or None,
                 total_projects=int(data.get("total_projects") or len(projects)),
                 decided_projects=_decided(projects),
-                batch_grand_total=float(data.get("batch_grand_total") or 0.0),
-                potential_savings=float(data.get("potential_savings") or 0.0),
+                batch_grand_total=to_cents(data.get("batch_grand_total") or 0),
+                potential_savings=to_cents(data.get("potential_savings") or 0),
                 submitted_at=data.get("submitted_at"),
             )
         )
@@ -114,7 +115,7 @@ async def get_batch(
                 delivery_status=quote.get("delivery_status", "none"),
                 quote_number=quote.get("quote_number"),
                 item_count=len(quote.get("items") or []) or int(project.get("item_count") or 0),
-                grand_total=float((quote.get("financials") or {}).get("grand_total") or 0.0),
+                grand_total=to_cents((quote.get("financials") or {}).get("grand_total") or 0),
                 admin_notes=project.get("admin_notes"),
             )
         )
@@ -123,9 +124,9 @@ async def get_batch(
         status=data.get("status", "submitted"),
         client_display_name=profile.name or None,
         client_email=profile.email or None,
-        batch_subtotal=float(data.get("batch_subtotal") or 0.0),
-        batch_grand_total=float(data.get("batch_grand_total") or 0.0),
-        potential_savings=float(data.get("potential_savings") or 0.0),
+        batch_subtotal=to_cents(data.get("batch_subtotal") or 0),
+        batch_grand_total=to_cents(data.get("batch_grand_total") or 0),
+        potential_savings=to_cents(data.get("potential_savings") or 0),
         submitted_at=data.get("submitted_at"),
         aggregation_preview=list(data.get("aggregation_preview") or []),
         projects=rows,

@@ -7,6 +7,8 @@ on:
       - 'develop'
     paths:
       - 'web_client/**'
+      # Golden vectors shared with the backend (lib/__tests__/money.golden.test.ts).
+      - 'contracts/**'
       # Workspace root: lockfile + npm config that resolve web_client deps.
       - 'package.json'
       - 'package-lock.json'
@@ -19,6 +21,8 @@ on:
       - 'develop'
     paths:
       - 'web_client/**'
+      # Golden vectors shared with the backend (lib/__tests__/money.golden.test.ts).
+      - 'contracts/**'
       # Workspace root: lockfile + npm config that resolve web_client deps.
       - 'package.json'
       - 'package-lock.json'

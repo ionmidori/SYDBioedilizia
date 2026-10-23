@@ -7,7 +7,10 @@ Rule #20: When creating a Service, create tests/unit/test_{service}.py
 Verifies: SKU loading, per-item calculation, financial aggregation, and
 full quote construction from an AI-provided SKU list.
 """
+from decimal import Decimal
+
 import pytest
+from pydantic import ValidationError
 from src.schemas.quote import QuoteItem
 from src.services.pricing_service import PricingService
 
@@ -106,3 +109,60 @@ class TestCreateQuoteFromSkus:
         skus_in_quote = [item.sku for item in quote.items]
         assert "DEM-001" in skus_in_quote
         assert "UNKNOWN-999" not in skus_in_quote
+
+
+# ─── Amounts: Decimal, half-up to the cent (src/core/money.py) ────────────────
+
+class TestHalfUpAmounts:
+    def test_a_half_cent_line_rounds_up(self):
+        """0.5 × 22.25 = 11.125 → 11.13 (Python round() gave 11.12, the admin preview 11.13)."""
+        item = QuoteItem(sku="T", description="d", unit="mq", qty=0.5, unit_price=22.25, total=0)
+        assert PricingService.calculate_item_total(item) == Decimal("11.13")
+
+    def test_financials_are_decimal_in_the_model_and_numbers_when_dumped(self):
+        items = [
+            QuoteItem(sku="A", description="A", unit="x", qty=1, unit_price=0.1, total=0.1),
+            QuoteItem(sku="B", description="B", unit="x", qty=1, unit_price=0.2, total=0.2),
+        ]
+        financials = PricingService.calculate_financials(items, vat_rate=0.22)
+        # 0.1 + 0.2 as floats is 0.30000000000000004: the subtotal is now exact cents.
+        assert (financials.subtotal, financials.vat_amount, financials.grand_total) == (
+            Decimal("0.30"), Decimal("0.07"), Decimal("0.37"),
+        )
+        dumped = financials.model_dump()
+        assert dumped == {"subtotal": 0.3, "vat_rate": 0.22, "vat_amount": 0.07, "grand_total": 0.37}
+        assert all(type(v) is float for v in dumped.values())
+
+    def test_quote_from_skus_uses_the_same_rule(self, monkeypatch):
+        monkeypatch.setattr(
+            PricingService, "get_item_by_sku",
+            classmethod(lambda cls, sku: {"sku": sku, "description": "Posa", "unit": "mq", "unit_price": 22.25}),
+        )
+        quote = PricingService.create_quote_from_skus("p", "u", [{"sku": "POS-001", "qty": 0.5}])
+        assert quote.items[0].total == Decimal("11.13")
+        assert quote.financials.grand_total == Decimal("13.58")  # 11.13 + 2.45 (11.13 × 0.22 = 2.4486)
+
+
+async def test_pricing_engine_tool_returns_a_json_number_rounded_half_up(monkeypatch):
+    from src.adk.tools import pricing_engine_tool
+
+    async def fresh() -> None:
+        return None
+
+    monkeypatch.setattr(PricingService, "ensure_fresh", fresh)
+    monkeypatch.setattr(
+        PricingService, "get_item_by_sku",
+        classmethod(lambda cls, sku: {"sku": sku, "description": "Posa", "unit": "mq", "unit_price": 22.25}),
+    )
+    result = await pricing_engine_tool("POS-001", 0.5)
+    assert result["total"] == 11.13 and type(result["total"]) is float
+
+
+@pytest.mark.parametrize("field", ["qty", "unit_price"])
+@pytest.mark.parametrize("bad", [float("inf"), float("nan")])
+def test_a_line_rejects_non_finite_quantities_and_prices(field, bad):
+    """Python's json accepts `Infinity`/`NaN`: the schema must answer 422, not let
+    the money arithmetic raise later (500)."""
+    data = {"sku": "T", "description": "d", "unit": "mq", "qty": 1, "unit_price": 1, "total": 0, field: bad}
+    with pytest.raises(ValidationError):
+        QuoteItem(**data)

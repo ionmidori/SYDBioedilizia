@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.core.money import Money
 from src.utils.datetime_utils import utc_now
 
 # Canonical status lifecycle — transitions enforced by src/services/quote_state.py:
@@ -25,20 +27,22 @@ class QuoteItem(BaseModel):
     sku: str = Field(..., description="Unique Identifier from Master Price Book")
     description: str = Field(..., description="Item description")
     unit: str = Field(..., description="Measurement unit (mq, cad, m, etc.)")
-    qty: float = Field(..., ge=0, description="Quantity to be executed")
-    unit_price: float = Field(..., ge=0, description="Price per unit")
-    total: float = Field(..., ge=0, description="Total price for the item (qty * unit_price)")
+    # allow_inf_nan=False: JSON `Infinity` is a 422 here, not a failure of the money arithmetic.
+    qty: float = Field(..., ge=0, allow_inf_nan=False, description="Quantity to be executed")
+    unit_price: float = Field(..., ge=0, allow_inf_nan=False, description="Price per unit")
+    total: Money = Field(..., ge=0, description="qty x unit_price, to the cent (src/core/money.py)")
     ai_reasoning: str | None = Field(None, description="Why the AI suggested this item")
     category: str | None = Field(None, description="Category of the work (e.g., Demolitions)")
     manual_override: bool = Field(False, description="Whether the item was manually edited by admin")
 
 
 class QuoteFinancials(BaseModel):
+    """Totals computed by `src.core.money.compute_totals` (amounts to the cent)."""
     model_config = {"extra": "forbid"}
-    subtotal: float = Field(0.0)
+    subtotal: Money = Field(default=Decimal("0.00"))
     vat_rate: float = Field(0.22)
-    vat_amount: float = Field(0.0)
-    grand_total: float = Field(0.0)
+    vat_amount: Money = Field(default=Decimal("0.00"))
+    grand_total: Money = Field(default=Decimal("0.00"))
 
 
 
@@ -53,9 +57,9 @@ class AggregationAdjustment(BaseModel):
     ] = Field(..., description="Type of cross-room optimization")
     description: str = Field(..., description="Human-readable Italian explanation")
     sku: str | None = Field(None, description="SKU affected (if applicable)")
-    original_total: float = Field(..., description="Total before adjustment")
-    adjusted_total: float = Field(..., description="Total after adjustment")
-    savings: float = Field(..., ge=0, description="Amount saved")
+    original_total: Money = Field(..., description="Total before adjustment")
+    adjusted_total: Money = Field(..., description="Total after adjustment")
+    savings: Money = Field(..., ge=0, description="Amount saved")
     affected_rooms: list[str] = Field(default_factory=list, description="room_ids involved")
 
 
@@ -233,7 +237,7 @@ class BatchProject(BaseModel):
     project_name: str = Field(..., description="Human label (e.g., 'Bagno Via Roma')")
     status: QuoteStatusType = Field("draft", description="Per-project approval status within the batch")
     item_count: int = Field(0, ge=0, description="Number of quote items")
-    subtotal: float = Field(0.0, ge=0, description="Project quote subtotal (pre-VAT)")
+    subtotal: Money = Field(Decimal("0.00"), ge=0, description="Project quote subtotal (pre-VAT)")
     admin_notes: str | None = Field(None, description="Per-project admin notes")
 
 
@@ -245,13 +249,17 @@ class QuoteBatch(BaseModel):
     status: BatchStatusType = Field("draft", description="Overall batch lifecycle status")
     projects: list[BatchProject] = Field(default_factory=list, description="Individual project snapshots")
     total_projects: int = Field(0, ge=0, description="Number of projects in batch")
-    batch_subtotal: float = Field(0.0, ge=0, description="Sum of all project subtotals")
-    batch_grand_total: float = Field(0.0, ge=0, description="Batch total with VAT")
+    batch_subtotal: Money = Field(Decimal("0.00"), ge=0, description="Sum of all project subtotals")
+    batch_grand_total: Money = Field(
+        Decimal("0.00"), ge=0, description="Sum of the project totals (each with its own VAT rate)"
+    )
     submitted_at: datetime | None = Field(None, description="When batch was submitted to admin")
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     # Cross-project aggregation preview (advisory, not mutating)
-    potential_savings: float = Field(0.0, ge=0, description="Total potential savings from cross-project optimization")
+    potential_savings: Money = Field(
+        Decimal("0.00"), ge=0, description="Total potential savings from cross-project optimization"
+    )
     aggregation_preview: list[AggregationAdjustment] = Field(
         default_factory=list, description="Advisory cross-project optimizations (read-only preview)"
     )

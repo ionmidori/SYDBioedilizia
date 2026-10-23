@@ -14,9 +14,11 @@ import json
 import logging
 import math
 from collections import defaultdict
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from src.core.money import discounted_line_total, line_total, sum_amounts
 from src.schemas.quote import AggregationAdjustment, QuoteItem
 
 logger = logging.getLogger(__name__)
@@ -39,9 +41,9 @@ class BatchAggregationPreview:
     def __init__(
         self,
         adjustments: list[AggregationAdjustment],
-        total_savings: float,
-        original_combined_subtotal: float,
-        optimized_subtotal: float,
+        total_savings: Decimal,
+        original_combined_subtotal: Decimal,
+        optimized_subtotal: Decimal,
     ):
         self.adjustments = adjustments
         self.total_savings = total_savings
@@ -90,10 +92,10 @@ class BatchAggregationEngine:
         Does NOT modify any items — returns a read-only preview.
         """
         if len(project_quotes) < 2:
-            combined = sum(item.total for pq in project_quotes for item in pq.items)
+            combined = sum_amounts(item.total for pq in project_quotes for item in pq.items)
             return BatchAggregationPreview(
                 adjustments=[],
-                total_savings=0.0,
+                total_savings=Decimal("0.00"),
                 original_combined_subtotal=combined,
                 optimized_subtotal=combined,
             )
@@ -113,7 +115,7 @@ class BatchAggregationEngine:
             for item in pq.items:
                 by_sku[item.sku].append((pq.project_id, item))
 
-        original_combined = sum(item.total for pq in project_quotes for item in pq.items)
+        original_combined = sum_amounts(item.total for pq in project_quotes for item in pq.items)
 
         for sku, project_items in by_sku.items():
             # Only cross-project items (appears in 2+ projects)
@@ -128,9 +130,9 @@ class BatchAggregationEngine:
                 total_qty = sum(item.qty for _, item in project_items)
                 containers_needed = max(1, math.ceil(total_qty / container_capacity))
                 unit_price = project_items[0][1].unit_price
-                original_total = sum(item.total for _, item in project_items)
-                optimized_total = round(containers_needed * unit_price, 2)
-                savings = round(original_total - optimized_total, 2)
+                original_total = sum_amounts(item.total for _, item in project_items)
+                optimized_total = line_total(containers_needed, unit_price)
+                savings = original_total - optimized_total
 
                 if savings > 0:
                     adjustments.append(AggregationAdjustment(
@@ -149,9 +151,9 @@ class BatchAggregationEngine:
 
             # ── Shared overhead: once across all projects ──────────────
             if sku in overhead_skus:
-                original_total = sum(item.total for _, item in project_items)
-                unit_price = project_items[0][1].unit_price
-                savings = round(original_total - unit_price, 2)
+                original_total = sum_amounts(item.total for _, item in project_items)
+                once = line_total(1, project_items[0][1].unit_price)
+                savings = original_total - once
 
                 if savings > 0:
                     adjustments.append(AggregationAdjustment(
@@ -162,7 +164,7 @@ class BatchAggregationEngine:
                         ),
                         sku=sku,
                         original_total=original_total,
-                        adjusted_total=unit_price,
+                        adjusted_total=once,
                         savings=savings,
                         affected_rooms=affected,
                     ))
@@ -170,10 +172,10 @@ class BatchAggregationEngine:
 
             # ── Singleton dedup: 1 per dwelling ────────────────────────
             if sku in singleton_skus:
-                original_total = sum(item.total for _, item in project_items)
+                original_total = sum_amounts(item.total for _, item in project_items)
                 max_item = max(project_items, key=lambda pi: pi[1].qty)
                 optimized_total = max_item[1].total
-                savings = round(original_total - optimized_total, 2)
+                savings = original_total - optimized_total
 
                 if savings > 0:
                     adjustments.append(AggregationAdjustment(
@@ -224,12 +226,11 @@ class BatchAggregationEngine:
             if applicable_discount <= 0:
                 continue
 
-            original_total = sum(item.total for _, item in matching)
-            optimized_total = round(sum(
-                round(item.qty * item.unit_price * (1 - applicable_discount), 2)
-                for _, item in matching
-            ), 2)
-            savings = round(original_total - optimized_total, 2)
+            original_total = sum_amounts(item.total for _, item in matching)
+            optimized_total = sum_amounts(
+                discounted_line_total(item.qty, item.unit_price, applicable_discount) for _, item in matching
+            )
+            savings = original_total - optimized_total
 
             if savings > 0:
                 adjustments.append(AggregationAdjustment(
@@ -245,15 +246,15 @@ class BatchAggregationEngine:
                     affected_rooms=list(unique_projects),
                 ))
 
-        total_savings = sum(adj.savings for adj in adjustments)
-        optimized_subtotal = round(original_combined - total_savings, 2)
+        total_savings = sum_amounts(adj.savings for adj in adjustments)
+        optimized_subtotal = original_combined - total_savings
 
         logger.info(
             "[BatchAggregation] Preview complete.",
             extra={
                 "projects": len(project_quotes),
                 "adjustments": len(adjustments),
-                "total_savings": total_savings,
+                "total_savings": float(total_savings),
             },
         )
 

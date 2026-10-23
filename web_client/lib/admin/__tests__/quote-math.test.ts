@@ -30,6 +30,19 @@ describe('totals', () => {
     expect(totals).toEqual({ subtotal: 191.66, vatAmount: 42.17, grandTotal: 233.83 });
   });
 
+  it('gives the cents the backend saves (contracts/money/golden_vectors.json)', () => {
+    expect(lineTotal({ qty: 0.5, unit_price: 22.25 })).toBe(11.13);
+    expect(lineTotal({ qty: 1, unit_price: 1.005 })).toBe(1.01);
+    // 301.25 × 101.46 = 30564.825 exactly, but 30564.824999999997 as a float product:
+    // rounding the float (even with Number.EPSILON) gave 30564.82, the backend 30564.83.
+    expect(lineTotal({ qty: 301.25, unit_price: 101.46 })).toBe(30564.83);
+    expect(computeTotals([item({ qty: 301.25, unit_price: 101.46 }), item({ qty: 0.5, unit_price: 22.25 })], 0.1)).toEqual({
+      subtotal: 30575.96,
+      vatAmount: 3057.6,
+      grandTotal: 33633.56,
+    });
+  });
+
   it('treats a half-typed number as zero instead of NaN', () => {
     expect(lineTotal({ qty: Number.NaN, unit_price: 5 })).toBe(0);
     expect(computeTotals([{ qty: Number.NaN, unit_price: 5 }], 0.22).grandTotal).toBe(0);

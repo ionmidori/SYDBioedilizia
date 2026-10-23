@@ -7,7 +7,10 @@ Tests cover:
 - Volume discounts: Bulk pricing on materials across projects
 - Smaltimento consolidation: Debris container consolidation
 """
+from decimal import Decimal
+
 import pytest
+from src.core.money import line_total
 from src.schemas.quote import QuoteItem
 from src.services.batch_aggregation_engine import (
     BatchAggregationEngine,
@@ -272,3 +275,66 @@ class TestSingletonFactory:
         """Singleton instance is a BatchAggregationEngine."""
         engine = get_batch_aggregation_engine()
         assert isinstance(engine, BatchAggregationEngine)
+
+
+# ── Every rule, with the rules file injected (it is not versioned) ────────────
+
+_RULES = {
+    "project_singleton_skus": {"skus": ["QUAD-001"]},
+    "shared_overhead_skus": {"skus": ["SETUP-001"]},
+    "smaltimento_rule": {"container_sku": "SMAL-001", "capacity_mc": 7.0},
+    "volume_discounts": [{"sku_prefix": "PIT", "tiers": [{"min_qty": 100, "discount_pct": 0.1}]}],
+}
+
+
+def _line(sku: str, qty: float, price: float) -> QuoteItem:
+    return QuoteItem(sku=sku, description=sku, unit="u", qty=qty, unit_price=price, total=line_total(qty, price))
+
+
+def _two_projects(a: list[QuoteItem], b: list[QuoteItem]) -> list[ProjectQuoteSummary]:
+    return [ProjectQuoteSummary("p1", "A", a), ProjectQuoteSummary("p2", "B", b)]
+
+
+class TestRulesWithExactAmounts:
+    """Savings are Decimal cents: no float noise, no Decimal/float mixing."""
+
+    @pytest.fixture
+    def ruled(self, engine):
+        engine._rules = _RULES
+        return engine
+
+    def test_shared_overhead(self, ruled):
+        preview = ruled.preview(_two_projects([_line("SETUP-001", 1, 500.005)], [_line("SETUP-001", 1, 500.005)]))
+        (adj,) = preview.adjustments
+        assert (adj.original_total, adj.adjusted_total, adj.savings) == (
+            Decimal("1000.02"), Decimal("500.01"), Decimal("500.01"),
+        )
+
+    def test_singleton_dedup(self, ruled):
+        preview = ruled.preview(_two_projects([_line("QUAD-001", 1, 300)], [_line("QUAD-001", 1, 300)]))
+        (adj,) = preview.adjustments
+        assert adj.savings == Decimal("300.00") and adj.adjustment_type == "dedup_singleton"
+
+    def test_smaltimento_consolidation(self, ruled):
+        preview = ruled.preview(_two_projects([_line("SMAL-001", 3, 150.125)], [_line("SMAL-001", 3, 150.125)]))
+        (adj,) = preview.adjustments
+        # 2 × 450.38 (3 × 150.125 = 450.375) → 1 container at 150.13
+        assert (adj.original_total, adj.adjusted_total, adj.savings) == (
+            Decimal("900.76"), Decimal("150.13"), Decimal("750.63"),
+        )
+
+    def test_volume_discount_rounds_each_discounted_line_once(self, ruled):
+        preview = ruled.preview(_two_projects([_line("PIT-001", 99, 0.335)], [_line("PIT-002", 1, 0.335)]))
+        (adj,) = preview.adjustments
+        # lines 33.17 + 0.34 = 33.51; discounted 29.8485 → 29.85 and 0.3015 → 0.30
+        assert (adj.original_total, adj.adjusted_total, adj.savings) == (
+            Decimal("33.51"), Decimal("30.15"), Decimal("3.36"),
+        )
+
+    def test_totals_are_exact(self, ruled):
+        preview = ruled.preview(
+            _two_projects([_line("QUAD-001", 1, 300), _line("X", 1, 0.1)], [_line("QUAD-001", 1, 300), _line("Y", 1, 0.2)])
+        )
+        assert preview.original_combined_subtotal == Decimal("600.30")
+        assert preview.total_savings == Decimal("300.00")
+        assert preview.optimized_subtotal == Decimal("300.30")

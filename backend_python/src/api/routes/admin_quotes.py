@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, Header, Path, Query, Request, Response
 from google.cloud.firestore_v1 import async_transactional
 from src.auth.admin import has_second_factor, require_admin
 from src.core.exceptions import IdempotencyKeyRequiredError, InvalidQuoteTransitionError, ResourceNotFound
+from src.core.money import to_cents
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.admin_quote import (
@@ -348,7 +349,7 @@ async def send_defaults(
     content = client_quote_email(
         client_name=snapshot.get("display_name"),
         quote_number=quote.get("quote_number"),
-        grand_total=float((quote.get("financials") or {}).get("grand_total", 0.0)),
+        grand_total=to_cents((quote.get("financials") or {}).get("grand_total") or 0),
         valid_until=resolve_validity(quote)[2],
         revision=revision,
     )

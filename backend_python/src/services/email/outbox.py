@@ -42,6 +42,7 @@ from google.cloud.firestore_v1 import FieldFilter, async_transactional
 
 from src.core.config import settings
 from src.core.exceptions import AppException, QuoteNotFoundError
+from src.core.money import to_cents
 from src.services.email.scheduling import schedule_dispatch
 from src.services.email.types import (
     Attachment,
@@ -283,7 +284,7 @@ async def build_quote_email(db: Any, entry: dict[str, Any]) -> tuple[OutboundEma
     content = client_quote_email(
         client_name=snapshot.get("display_name"),
         quote_number=quote.get("quote_number"),
-        grand_total=float((quote.get("financials") or {}).get("grand_total", 0.0)),
+        grand_total=to_cents((quote.get("financials") or {}).get("grand_total") or 0),
         valid_until=resolve_validity(quote)[2],
         revision=int(delivery.get("revision") or 1),
         has_attachment=True,

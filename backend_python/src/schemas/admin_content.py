@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import re
 from datetime import datetime
+from decimal import Decimal
 from typing import Literal
 from urllib.parse import unquote, urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from src.core.money import Money
 from src.schemas.quote import QuoteDeliveryStatusType, QuoteStatusType
 
 # ── Portfolio ─────────────────────────────────────────────────────────────────
@@ -228,8 +230,8 @@ class AdminBatchListItem(BaseModel):
     client_email: str | None = None
     total_projects: int = 0
     decided_projects: int = 0
-    batch_grand_total: float = 0.0
-    potential_savings: float = 0.0
+    batch_grand_total: Money = Decimal("0.00")
+    potential_savings: Money = Decimal("0.00")
     submitted_at: datetime | None = None
 
 
@@ -251,7 +253,7 @@ class AdminBatchProject(BaseModel):
     delivery_status: QuoteDeliveryStatusType = "none"
     quote_number: str | None = None
     item_count: int = 0
-    grand_total: float = 0.0
+    grand_total: Money = Decimal("0.00")
     admin_notes: str | None = None
 
 
@@ -260,9 +262,9 @@ class AdminBatchDetail(BaseModel):
     status: BatchStatus
     client_display_name: str | None = None
     client_email: str | None = None
-    batch_subtotal: float = 0.0
-    batch_grand_total: float = 0.0
-    potential_savings: float = 0.0
+    batch_subtotal: Money = Decimal("0.00")
+    batch_grand_total: Money = Decimal("0.00")
+    potential_savings: Money = Decimal("0.00")
     submitted_at: datetime | None = None
     aggregation_preview: list[dict[str, object]] = Field(default_factory=list)
     projects: list[AdminBatchProject]
@@ -275,7 +277,7 @@ class RecentApproval(BaseModel):
     project_id: str
     quote_number: str | None = None
     client_display_name: str | None = None
-    grand_total: float = 0.0
+    grand_total: Money = Decimal("0.00")
     approved_at: datetime | None = None
 
 
@@ -286,7 +288,7 @@ class WeeklyApprovals(BaseModel):
 
 class AdminKpis(BaseModel):
     by_status: dict[str, int]
-    pending_value: float
+    pending_value: Money
     pending_truncated: bool = False
     weekly_approvals: list[WeeklyApprovals]
     recent_approvals: list[RecentApproval]

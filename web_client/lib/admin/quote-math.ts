@@ -3,9 +3,12 @@
  *
  * The backend is the authority (`normalise_items` + `PricingService`): it
  * recomputes every total and flags `manual_override`. This mirror exists only
- * so the admin sees the effect of an edit before saving; it rounds exactly
- * like the backend (each line to cents, VAT to cents).
+ * so the admin sees the effect of an edit before saving. Both sides use the
+ * same money rule (`lib/money.ts` here, `src/core/money.py` there, pinned by
+ * `contracts/money/golden_vectors.json`), so the preview shows the cents the
+ * saved quote and its PDF will have.
  */
+import * as money from '@/lib/money';
 import type { QuoteItem } from '@/types/quote';
 
 export interface Totals {
@@ -14,16 +17,23 @@ export interface Totals {
   grandTotal: number;
 }
 
-const round2 = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100;
+/** A half-typed field (NaN) counts as zero, so the preview never shows NaN. */
+const finite = (value: number): number => (Number.isFinite(value) ? value : 0);
+
+const lineCents = (item: Pick<QuoteItem, 'qty' | 'unit_price'>): money.Cents =>
+  money.lineTotal(finite(item.qty), finite(item.unit_price));
 
 export function lineTotal(item: Pick<QuoteItem, 'qty' | 'unit_price'>): number {
-  return round2((Number.isFinite(item.qty) ? item.qty : 0) * (Number.isFinite(item.unit_price) ? item.unit_price : 0));
+  return money.centsToNumber(lineCents(item));
 }
 
 export function computeTotals(items: readonly Pick<QuoteItem, 'qty' | 'unit_price'>[], vatRate: number): Totals {
-  const subtotal = round2(items.reduce((sum, item) => sum + lineTotal(item), 0));
-  const vatAmount = round2(subtotal * vatRate);
-  return { subtotal, vatAmount, grandTotal: round2(subtotal + vatAmount) };
+  const totals = money.computeTotals(items.map(lineCents), finite(vatRate));
+  return {
+    subtotal: money.centsToNumber(totals.subtotal),
+    vatAmount: money.centsToNumber(totals.vatAmount),
+    grandTotal: money.centsToNumber(totals.grandTotal),
+  };
 }
 
 /** Fields the admin can change (the rest of a line is carried over untouched). */

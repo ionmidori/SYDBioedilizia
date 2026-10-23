@@ -20,10 +20,12 @@ from __future__ import annotations
 import datetime
 import re
 from dataclasses import dataclass
+from decimal import Decimal
 from html import escape
 from typing import Any
 
 from src.core.company import COMPANY
+from src.core.money import Amount, to_cents
 from src.utils.format_it import format_date, format_eur
 
 _DARK = "#2C3E50"
@@ -46,7 +48,7 @@ class RequestDigest:
     client_name: str | None
     client_email: str | None
     client_is_guest: bool
-    grand_total: float
+    grand_total: Decimal
     summary: str
 
 
@@ -72,7 +74,7 @@ def digest_from_quote(quote: dict[str, Any]) -> RequestDigest:
         client_name=snapshot.get("display_name"),
         client_email=snapshot.get("email"),
         client_is_guest=bool(snapshot.get("is_guest")),
-        grand_total=float((quote.get("financials") or {}).get("grand_total", 0.0)),
+        grand_total=to_cents((quote.get("financials") or {}).get("grand_total") or 0),
         summary=str((quote.get("request") or {}).get("summary") or ""),
     )
 
@@ -108,7 +110,7 @@ def client_quote_email(
     *,
     client_name: str | None,
     quote_number: str | None,
-    grand_total: float,
+    grand_total: Amount,
     valid_until: datetime.date | datetime.datetime | None = None,
     revision: int = 1,
     has_attachment: bool = True,

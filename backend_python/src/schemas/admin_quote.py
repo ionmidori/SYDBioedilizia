@@ -6,9 +6,11 @@ Golden Sync: web_client/types/admin-quote.ts mirrors every model here.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from src.core.money import Money
 from src.schemas.quote import (
     DeliveryRecordStatusType,
     MediaRef,
@@ -34,7 +36,7 @@ class AdminQuoteListItem(BaseModel):
     client_is_guest: bool = False
     status: QuoteStatusType
     delivery_status: QuoteDeliveryStatusType = "none"
-    grand_total: float = 0.0
+    grand_total: Money = Decimal("0.00")
     item_count: int = 0
     channel: str | None = None
     summary: str = ""
@@ -67,7 +69,7 @@ class RevisionSummary(BaseModel):
     actor_uid: str | None = None
     reason: str | None = None
     created_at: datetime | None = None
-    grand_total: float | None = None
+    grand_total: Money | None = None
     change_count: int = 0
 
 

@@ -1,5 +1,7 @@
 import type { Route } from '@playwright/test';
 
+import { centsToNumber, computeTotals, lineTotal } from '../../lib/money';
+
 import { test, expect } from './fixtures/authed-test';
 
 /**
@@ -40,13 +42,11 @@ interface Fake {
 
 const UNIT_PRICE = 12.5;
 
-function money(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 function dossier(f: Fake) {
-  const subtotal = money(f.qty * UNIT_PRICE);
-  const vat = money(subtotal * 0.22);
+  // Same rule as the backend (src/core/money.py) and the admin preview.
+  const totals = computeTotals([lineTotal(f.qty, UNIT_PRICE)], 0.22);
+  const subtotal = centsToNumber(totals.subtotal);
+  const vat = centsToNumber(totals.vatAmount);
   return {
     project_id: PID,
     project_name: 'Bagno Trastevere',
@@ -90,7 +90,7 @@ function dossier(f: Fake) {
           manual_override: false,
         },
       ],
-      financials: { subtotal, vat_rate: 0.22, vat_amount: vat, grand_total: money(subtotal + vat) },
+      financials: { subtotal, vat_rate: 0.22, vat_amount: vat, grand_total: centsToNumber(totals.grandTotal) },
       media: [],
       search_keys: [],
       request: { summary: 'Ridipingere il bagno di 6 mq', address: 'Via Roma 1, Roma', channel: 'chat' },

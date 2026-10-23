@@ -30,6 +30,7 @@ from src.core.exceptions import (
     NoEligibleProjectsError,
     PermissionDenied,
 )
+from src.core.money import Money, to_cents
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
@@ -62,7 +63,7 @@ class CreateBatchResponse(BaseModel):
     model_config = {"extra": "ignore"}
     batch_id: str
     total_projects: int
-    batch_subtotal: float
+    batch_subtotal: Money
     status: str
 
 
@@ -71,16 +72,16 @@ class BatchListItemResponse(BaseModel):
     batch_id: str
     status: str
     total_projects: int
-    batch_subtotal: float
+    batch_subtotal: Money
     created_at: str
 
 
 class AggregationPreviewResponse(BaseModel):
     model_config = {"extra": "ignore"}
     batch_id: str
-    total_savings: float
-    original_combined_subtotal: float
-    optimized_subtotal: float
+    total_savings: Money
+    original_combined_subtotal: Money
+    optimized_subtotal: Money
     adjustments: list[AggregationAdjustment]
 
 
@@ -182,7 +183,7 @@ async def list_user_batches(
                 batch_id=doc.id,
                 status=data.get("status", "draft"),
                 total_projects=data.get("total_projects", 0),
-                batch_subtotal=data.get("batch_subtotal", 0.0),
+                batch_subtotal=to_cents(data.get("batch_subtotal") or 0),
                 created_at=str(created),
             )
         )
@@ -226,13 +227,13 @@ async def get_aggregation_preview(
     data = await _get_batch_or_404(batch_id)
     await _verify_batch_ownership(data, user_session)
 
+    subtotal = to_cents(data.get("batch_subtotal") or 0)
+    savings = to_cents(data.get("potential_savings") or 0)
     return AggregationPreviewResponse(
         batch_id=batch_id,
-        total_savings=data.get("potential_savings", 0.0),
-        original_combined_subtotal=data.get("batch_subtotal", 0.0),
-        optimized_subtotal=round(
-            data.get("batch_subtotal", 0.0) - data.get("potential_savings", 0.0), 2
-        ),
+        total_savings=savings,
+        original_combined_subtotal=subtotal,
+        optimized_subtotal=subtotal - savings,
         adjustments=[
             AggregationAdjustment(**adj) for adj in data.get("aggregation_preview", [])
         ],

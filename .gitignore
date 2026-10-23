@@ -95,6 +95,9 @@ next-env.d.ts
 # Blog characterization fixtures (recorded article output, no secrets) — required
 # by web_client/lib/blog/__tests__/blog-characterization.test.tsx in CI
 !web_client/lib/blog/__fixtures__/*.json
+# Contracts shared by backend and frontend tests (generated test data, no secrets),
+# e.g. contracts/money/golden_vectors.json — required by pytest and jest in CI
+!contracts/**/*.json
 # ADK eval fixtures (test data, no secrets) — required by tests/evals/test_eval_infrastructure.py in CI
 !backend_python/tests/evals/*.test.json
 !backend_python/tests/evals/test_config.json

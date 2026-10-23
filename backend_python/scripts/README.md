@@ -54,6 +54,7 @@ Gli script che leggono PDF (`extract_prezzario.py`, `pinecone_upload_pdf.py`) us
 | `drain_check.py` | Drenaggio dei preventivi in volo durante un rollout (`--dry-run`, `--ttl-hours`, `--expire`) |
 | `chat_latency_bench.py` | Benchmark di latenza della chat su scenari fissi (`--out` salva i risultati) |
 | `chat_quality_ab.py` | Confronto A/B di due configurazioni chat (LLM-as-judge) sui file di `chat_latency_bench.py` |
+| `generate_money_vectors.py` | Rigenera `contracts/money/golden_vectors.json`: i casi di arrotondamento degli importi su cui backend (`src/core/money.py`) e frontend (`web_client/lib/money.ts`) devono dare lo stesso risultato. Non tocca dati; un test fallisce se il file non è aggiornato |
 
 ## `ops/` — ispezione in sola lettura
 

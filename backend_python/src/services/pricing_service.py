@@ -2,11 +2,13 @@ import asyncio
 import logging
 import time
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from google.api_core.exceptions import GoogleAPIError
 from google.auth.exceptions import GoogleAuthError
 
+from src.core.money import compute_totals, line_total
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
 from src.services import price_book
@@ -140,19 +142,18 @@ class PricingService:
         return None
 
     @classmethod
-    def calculate_item_total(cls, item: QuoteItem) -> float:
-        return round(item.qty * item.unit_price, 2)
+    def calculate_item_total(cls, item: QuoteItem) -> Decimal:
+        return line_total(item.qty, item.unit_price)
 
     @classmethod
     def calculate_financials(cls, items: list[QuoteItem], vat_rate: float = 0.22) -> QuoteFinancials:
-        subtotal = sum(item.total for item in items)
-        vat_amount = round(subtotal * vat_rate, 2)
-        grand_total = round(subtotal + vat_amount, 2)
+        """Totals from the line totals already on the items (see src/core/money.py)."""
+        totals = compute_totals((item.total for item in items), vat_rate)
         return QuoteFinancials(
-            subtotal=subtotal,
+            subtotal=totals.subtotal,
             vat_rate=vat_rate,
-            vat_amount=vat_amount,
-            grand_total=grand_total
+            vat_amount=totals.vat_amount,
+            grand_total=totals.grand_total,
         )
 
     @classmethod
@@ -169,7 +170,7 @@ class PricingService:
             master_item = cls.get_item_by_sku(sku)
             if master_item:
                 unit_price = master_item["unit_price"]
-                total = round(qty * unit_price, 2)
+                total = line_total(qty, unit_price)
 
                 item = QuoteItem(
                     sku=sku,

@@ -29,6 +29,7 @@ from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from src.auth.admin import has_admin_role
 from src.auth.jwt_handler import verify_token
+from src.core.money import Money, to_cents
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
@@ -64,7 +65,7 @@ class QuoteListItemResponse(BaseModel):
     status: str
     # Confidential until admin approval: masked to 0.0 for non-admin callers
     # when status != "approved" (the draft is reviewed by the admin first).
-    grand_total: float
+    grand_total: Money
     item_count: int
     updated_at: str
     pdf_available: bool = False
@@ -210,9 +211,8 @@ async def list_user_quotes(
 
             # Confidentiality: the draft is reviewed by the admin first —
             # non-admin callers see the total only once approved.
-            grand_total = financials.get("grand_total", 0.0)
-            if not is_admin and quote_status not in ("approved", "sent"):
-                grand_total = 0.0
+            shown = is_admin or quote_status in ("approved", "sent")
+            grand_total = to_cents(financials.get("grand_total") or 0) if shown else to_cents(0)
 
             proj_data = proj_doc.to_dict() or {}
             results.append(
