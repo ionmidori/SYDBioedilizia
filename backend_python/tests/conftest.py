@@ -60,6 +60,17 @@ def _reset_genai_client_cache():
     get_genai_client.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _reset_adk_session_sync():
+    """The orchestrator's session sync markers are process state: a session one
+    test "served" must not look stale to the next. Cleared only when the module
+    is already loaded (importing ADK for every test would be slow)."""
+    yield
+    orchestrator = sys.modules.get("src.adk.adk_orchestrator")
+    if orchestrator is not None:
+        orchestrator._synced_marker.clear()
+
+
 
 @pytest.fixture
 def mock_env_development(monkeypatch):

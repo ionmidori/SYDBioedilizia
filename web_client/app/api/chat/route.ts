@@ -13,6 +13,7 @@ export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+import { affinityCookieForBackend, affinityCookieForBrowser } from './affinity-cookie';
 import { buildBackendPayload, type ChatProxyBody } from './backend-payload';
 import { logger } from '@/lib/logger';
 
@@ -92,6 +93,11 @@ export async function POST(req: Request) {
         if (appCheckToken) {
             proxyHeaders['X-Firebase-AppCheck'] = appCheckToken;
         }
+        // Route the turn to the Cloud Run instance holding this conversation.
+        const affinityCookie = affinityCookieForBackend(req.headers.get('Cookie'));
+        if (affinityCookie) {
+            proxyHeaders['Cookie'] = affinityCookie;
+        }
 
         // 60s timeout for headers (backend must start streaming within 60s).
         // The stream itself is unlimited (AbortController is only for initial connect).
@@ -149,19 +155,25 @@ export async function POST(req: Request) {
 
         logger.debug('[Proxy] ✅ Streaming response from Python backend');
 
+        const streamHeaders: Record<string, string> = {
+            // AI SDK v7 UI Message Stream protocol (SSE). The backend emits
+            // `data: {...}\n\n` frames; @ai-sdk/react parses them via this header.
+            'Content-Type': 'text/event-stream; charset=utf-8',
+            'x-vercel-ai-ui-message-stream': 'v1',
+            'X-Accel-Buffering': 'no',
+            'Cache-Control': 'no-cache, no-transform, no-store',
+            'Connection': 'keep-alive',
+        };
+        const browserAffinityCookie = affinityCookieForBrowser(pythonResponse.headers.getSetCookie());
+        if (browserAffinityCookie) {
+            streamHeaders['Set-Cookie'] = browserAffinityCookie;
+        }
+
         // Pass the backend SSE body straight through: no re-framing, no
         // per-chunk copy or decoding.
         return new Response(pythonResponse.body, {
             status: 200,
-            headers: {
-                // AI SDK v7 UI Message Stream protocol (SSE). The backend emits
-                // `data: {...}\n\n` frames; @ai-sdk/react parses them via this header.
-                'Content-Type': 'text/event-stream; charset=utf-8',
-                'x-vercel-ai-ui-message-stream': 'v1',
-                'X-Accel-Buffering': 'no',
-                'Cache-Control': 'no-cache, no-transform, no-store',
-                'Connection': 'keep-alive',
-            },
+            headers: streamHeaders,
         });
 
 

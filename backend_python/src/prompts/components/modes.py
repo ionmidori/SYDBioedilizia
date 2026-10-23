@@ -139,7 +139,7 @@ Tutto corretto? Se mi dai l'ok, procedo subito con la generazione."
 <trigger>User explicitly confirms the summary from Phase 4 (e.g., "Sì", "Procedi", "Vai")</trigger>
 <action>
 STEP AUTH_GATE (OBBLIGATORIO — ESEGUIRE PRIMA DI TUTTO):
-Controlla il messaggio di sistema iniettato all'inizio della conversazione.
+Controlla il blocco "CONTESTO SESSIONE" nelle tue istruzioni.
 SE contiene "OSPITE ANONIMO":
 → NON chiamare generate_render.
 → Chiama SUBITO request_login_adk.
@@ -319,7 +319,7 @@ Massimo: Tutto il tempo necessario (Qualità)
 "Perfetto! Ho tutto quello che mi serve. Preparo il preventivo ora."
 
 PHONE CHECK (opzionale — esegui PRIMA del HITL QUOTE WORKFLOW):
-Controlla il messaggio di sistema: cerca "PHONE_ON_FILE: true".
+Controlla il blocco "CONTESTO SESSIONE" nelle tue istruzioni: cerca "PHONE_ON_FILE: true".
 - SE presente → salta la domanda sul telefono, procedi direttamente al STEP 1.
 - SE assente → chiedi UNA VOLTA:
   "Vuoi ricevere aggiornamenti anche su WhatsApp? Se sì, lasciami il numero

@@ -68,8 +68,10 @@ class ConversationRepository:
         user_id: str | None = None,
         *,
         is_guest: bool,
-    ) -> None:
+    ) -> bool:
         """Save a message to Firestore with tool support and media attachments.
+
+        Never raises: errors are logged and reported as False.
 
         When ``message_id`` is provided it is used as the Firestore document id
         (via ``document(id).set(...)``) instead of an auto-generated id. This
@@ -156,9 +158,11 @@ class ConversationRepository:
             await self._make_permanent_if_marked(db, session_id, session_data, is_guest=is_guest)
 
             logger.info(f"[Repo] Saved {role} message to session {session_id}")
+            return True
 
         except Exception as e:
             logger.error(f"[Repo] Error saving message: {str(e)}", exc_info=True)
+            return False
 
     async def get_context(
         self,
@@ -200,6 +204,7 @@ class ConversationRepository:
                         continue
 
                 msg = {
+                    'id': doc.id,
                     'role': data.get('role', 'user'),
                     'content': data.get('content', '')
                 }
@@ -221,6 +226,29 @@ class ConversationRepository:
         except Exception as e:
             logger.error(f"[Repo] Error retrieving messages: {str(e)}", exc_info=True)
             return []
+
+    async def latest_assistant_message_id(self, session_id: str) -> str | None:
+        """Id of the newest assistant message of the session (None if there is none).
+
+        The ADK orchestrator compares it with the last reply its in-memory
+        session knows: a mismatch means another instance served later turns.
+        Reads only the `role` of the last messages (single-field timestamp index),
+        enough to step over the tool rows and unanswered user turns that can follow
+        a reply; errors propagate so the caller decides how to degrade.
+        """
+        db = self._get_async_db()
+        messages_ref = (
+            db.collection('sessions')
+            .document(session_id)
+            .collection('messages')
+            .order_by('timestamp', direction=async_firestore.Query.DESCENDING)
+            .select(['role'])
+            .limit(20)
+        )
+        async for doc in messages_ref.stream():
+            if (doc.to_dict() or {}).get('role') == 'assistant':
+                return doc.id
+        return None
 
     async def assert_session_access(self, session_id: str, user_id: str) -> None:
         """Raise PermissionDenied if the session exists and belongs to another user.

@@ -362,6 +362,68 @@ class TestGetContext:
 
         assert result == []
 
+    @pytest.mark.asyncio
+    async def test_includes_document_id(self, repo, mock_db, mock_fs):
+        doc = _doc({"role": "assistant", "content": "Ciao"})
+        doc.id = "msg-1"
+        self._setup_db(mock_db, [doc])
+
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.async_firestore", mock_fs):
+            result = await repo.get_context("s1")
+
+        assert result[0]["id"] == "msg-1"
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# latest_assistant_message_id
+# ════════════════════════════════════════════════════════════════════════════
+
+class TestLatestAssistantMessageId:
+
+    def _setup_db(self, mock_db, stream_docs):
+        msgs_ref = MagicMock()
+        msgs_ref.order_by.return_value = msgs_ref
+        msgs_ref.select.return_value = msgs_ref
+        msgs_ref.limit.return_value = msgs_ref
+        msgs_ref.stream.return_value = AsyncIter(stream_docs)
+        mock_db.collection.return_value.document.return_value.collection.return_value = msgs_ref
+        return msgs_ref
+
+    @staticmethod
+    def _message(role: str, msg_id: str):
+        doc = _doc({"role": role, "content": "x"})
+        doc.id = msg_id
+        return doc
+
+    @pytest.mark.asyncio
+    async def test_returns_the_newest_assistant_message(self, repo, mock_db, mock_fs):
+        # newest first, as the DESC query returns them
+        msgs_ref = self._setup_db(mock_db, [
+            self._message("tool", "t2"),
+            self._message("assistant", "a2"),
+            self._message("assistant", "a1"),
+        ])
+
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.async_firestore", mock_fs):
+            result = await repo.latest_assistant_message_id("s1")
+
+        assert result == "a2"
+        msgs_ref.order_by.assert_called_once_with("timestamp", direction="DESCENDING")
+        msgs_ref.select.assert_called_once_with(["role"])
+        msgs_ref.limit.assert_called_once_with(20)
+
+    @pytest.mark.asyncio
+    async def test_none_without_assistant_messages(self, repo, mock_db, mock_fs):
+        self._setup_db(mock_db, [self._message("user", "u1")])
+
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.async_firestore", mock_fs):
+            result = await repo.latest_assistant_message_id("s1")
+
+        assert result is None
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # ensure_session

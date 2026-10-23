@@ -24,6 +24,7 @@ from google.adk.agents.run_config import RunConfig, StreamingMode  # pyright: ig
 from google.adk.apps.app import App
 from google.adk.events import Event, EventActions
 from google.adk.runners import Runner
+from google.adk.sessions import BaseSessionService, Session
 from google.genai import errors as genai_errors
 from google.genai import types
 
@@ -32,6 +33,7 @@ from src.adk.filters import MASKED_REPLY, StreamingOutputGuard, filter_agent_out
 from src.adk.latency_plugin import LatencyPlugin
 from src.adk.media_model_plugin import MediaModelPlugin
 from src.adk.session import get_artifact_service, get_session_service
+from src.adk.session_context_plugin import SessionContextPlugin, session_context_delta
 from src.adk.video_attachments import (
     UNREADABLE_VIDEOS_STATE_KEY,
     is_media_rejection,
@@ -91,6 +93,117 @@ def _save_in_background(coro) -> asyncio.Task[None]:
     _inflight_saves.add(task)
     task.add_done_callback(_inflight_saves.discard)
     return task
+
+
+_APP_NAME = "syd_orchestrator"
+
+# History restored into a new ADK session: the last _HISTORY_MESSAGES chat
+# messages plus the tool results between them (render URLs, room analysis, quote
+# items live only there), read from a larger window. Tool results are capped.
+_HISTORY_FETCH_LIMIT = 60
+_HISTORY_MESSAGES = 30
+_TOOL_RESULT_MAX_CHARS = 2000
+
+# (user_id, session_id) → id of the newest assistant reply the in-memory session
+# of THIS instance contains (None: no reply yet). Process-local like the sessions
+# themselves: a key is present exactly while this instance holds the session.
+# When Firestore has a newer reply, another instance served later turns and the
+# session is rebuilt from Firestore (see `_stream_events`).
+_synced_marker: dict[tuple[str, str], str | None] = {}
+
+
+async def _get_session(session_service: BaseSessionService, user_id: str, session_id: str) -> Session | None:
+    try:
+        return await session_service.get_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
+    except Exception as e:
+        if type(e).__name__ == "SessionNotFoundError" or "Session not found" in str(e):
+            return None
+        raise
+
+
+def _history_events(history: list[dict[str, Any]]) -> list[Event]:
+    """ADK events for Firestore messages: the last _HISTORY_MESSAGES user /
+    assistant messages and the tool results between them.
+
+    Assistant replies are authored by the root agent with role "model": under
+    any other author ADK would replay them to the model as user text
+    ("For context: [assistant] said: ..."). Tool results go in as context notes
+    (their function calls are not stored, so they cannot be replayed as such).
+    """
+    rows = [
+        m for m in history
+        if m.get("role") in ("user", "assistant", "tool")
+        and isinstance(m.get("content"), str) and m["content"].strip()
+    ]
+    chat_positions = [i for i, m in enumerate(rows) if m["role"] != "tool"]
+    if not chat_positions:
+        return []
+    stamp = int(time.time() * 1000)
+    events = []
+    for idx, msg in enumerate(rows[chat_positions[-_HISTORY_MESSAGES:][0]:]):
+        text = msg["content"].strip()
+        if msg["role"] == "assistant":
+            author, role = syd_orchestrator.name, "model"
+        else:
+            author = role = "user"
+            if msg["role"] == "tool":
+                text = f"[Risultato di uno strumento usato in precedenza]\n{text[:_TOOL_RESULT_MAX_CHARS]}"
+        events.append(Event(
+            invocation_id=f"history_restore_{stamp}_{idx}",
+            author=author,
+            content=types.Content(role=role, parts=[types.Part(text=text)]),
+            actions=EventActions(),
+        ))
+    return events
+
+
+async def _rehydrate_session(session_service: BaseSessionService, session: Session, session_id: str) -> str | None:
+    """Re-inject the Firestore history into a freshly created ADK session, so the
+    agent continues mid-conversation after a restart or on another instance.
+
+    Returns the id of the newest assistant reply in Firestore (the sync marker).
+    """
+    history = await get_conversation_repository().get_context(session_id, limit=_HISTORY_FETCH_LIMIT)
+    events = _history_events(history)
+    # One at a time: the append order is the order the model reads.
+    for event in events:
+        await session_service.append_event(session, event)
+    logger.info(
+        f"[ADK] Injected {len(events)} history events into restored session",
+        extra={"session_id": session_id},
+    )
+    return next((m.get("id") for m in reversed(history) if m.get("role") == "assistant"), None)
+
+
+async def _open_restored_session(
+    session_service: BaseSessionService,
+    user_id: str,
+    session_id: str,
+    state: dict[str, Any] | None = None,
+) -> Session:
+    """Create the ADK session and restore its Firestore history; records the sync
+    marker. A half-built session never survives: if the restore fails it is
+    deleted, so the next turn tries again instead of answering without history."""
+    session = await session_service.create_session(
+        app_name=_APP_NAME, user_id=user_id, session_id=session_id, state=state
+    )
+    try:
+        marker = await _rehydrate_session(session_service, session, session_id)
+    except Exception:
+        await session_service.delete_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
+        raise
+    _synced_marker[(user_id, session_id)] = marker
+    return session
+
+
+async def _latest_reply_id(session_id: str) -> str | None:
+    """Newest assistant reply id in Firestore; None when it cannot be read (the
+    turn then trusts the in-memory session). Never raises."""
+    try:
+        return await get_conversation_repository().latest_assistant_message_id(session_id)
+    except Exception:
+        logger.warning("[ADK] Could not check the session for newer turns", exc_info=True)
+        return None
 
 
 class _TurnText:
@@ -168,11 +281,11 @@ class ADKOrchestrator(BaseOrchestrator):
         # cold start while having no effect on the ADK model client.
         self.runner = Runner(
             app=App(
-                name="syd_orchestrator",
+                name=_APP_NAME,
                 root_agent=syd_orchestrator,
                 # VideoGuardPlugin first: MediaModelPlugin then sees only the media
                 # really sent; LatencyPlugin last logs the model actually used.
-                plugins=[VideoGuardPlugin(), MediaModelPlugin(), LatencyPlugin()],
+                plugins=[VideoGuardPlugin(), SessionContextPlugin(), MediaModelPlugin(), LatencyPlugin()],
             ),
             session_service=get_session_service(),
             artifact_service=get_artifact_service(),
@@ -259,20 +372,12 @@ class ADKOrchestrator(BaseOrchestrator):
         # FIX: Use the client's session_id to ensure chats don't mix up across projects
         session_id = getattr(request, "session_id", "default-session")
 
-        # ────────── SYSTEM CONTEXT INJECTION (Auth State) ──────────
-        # Since ADK agents have static instructions, we must inject dynamic state
-        # (like authentication status) into the user's message payload.
         is_guest = user_session.is_guest
-        auth_status_msg = (
-            "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO. "
-            "REGOLA ASSOLUTA: Prima di chiamare generate_render, suggest_quote_items, pricing_engine, "
-            "search_listino, search_prezzario, retrieve_price_by_code o qualsiasi tool premium, "
-            "DEVI OBBLIGATORIAMENTE chiamare request_login_adk. "
-            "NON chiamare MAI generate_render per un utente OSPITE. "
-            "Questo vale per rendering 3D, preventivi, salvataggi e qualsiasi azione premium. "
-            "Sequenza corretta: 1) chiama request_login_adk, 2) rispondi all'utente che deve autenticarsi."
-            if is_guest else
-            "STATO AUTENTICAZIONE: L'utente è GIA' LOGGATO con un account verificato. NON DEVI MAI USARE il tool request_login_adk per nessun motivo."
+        sync_key = (user_id, session_id)
+        # When this instance already holds the session, check in parallel with the
+        # profile lookup whether another instance served newer turns.
+        latest_reply_task = (
+            asyncio.create_task(_latest_reply_id(session_id)) if sync_key in _synced_marker else None
         )
         # Check if phone is already on file (avoids asking again in quote flow)
         phone_on_file = False
@@ -287,18 +392,15 @@ class ADKOrchestrator(BaseOrchestrator):
         if turn is not None:
             turn.mark("user_profile_ready")
 
-        logger.info(f"[ADK] Auth injection: is_guest={is_guest}, uid={user_id}, phone_on_file={phone_on_file}")
-        system_context = (
-            f"[SYSTEM_MESSAGE]\n"
-            f"{auth_status_msg}\n"
-            f"USER_UID: {user_id}\n"
-            f"SESSION_ID: {session_id}\n"
-            f"PHONE_ON_FILE: {'true' if phone_on_file else 'false'}\n"
-            f"[END_SYSTEM_MESSAGE]\n\n"
+        logger.info(f"[ADK] Session context: is_guest={is_guest}, uid={user_id}, phone_on_file={phone_on_file}")
+        # Login state, phone and session id reach the model through the session
+        # state (SessionContextPlugin → system instruction), not the user message.
+        context_delta = session_context_delta(
+            is_guest=is_guest, phone_on_file=phone_on_file, session_id=session_id
         )
 
         # Apply the Sandwich Defense boundary delimiters to the clean input
-        delimited_input = f"{system_context}###\n{sanitized_input}\n###"
+        delimited_input = f"###\n{sanitized_input}\n###"
 
         # Multimodal Injection & Triage Trigger
         content_parts = [types.Part(text=delimited_input)]
@@ -372,73 +474,40 @@ class ADKOrchestrator(BaseOrchestrator):
         try:
             # Ensure session exists — ADK raises SessionNotFoundError otherwise
             session_service = get_session_service()
-            try:
-                session = await session_service.get_session(
-                    app_name="syd_orchestrator",
-                    user_id=user_id,
-                    session_id=session_id,
-                )
-            except Exception as e:
-                if type(e).__name__ == "SessionNotFoundError" or "Session not found" in str(e):
-                    session = None
-                else:
-                    raise e
+            session = await _get_session(session_service, user_id, session_id)
+            # The freshness check ran alongside the profile lookup and media fetch.
+            latest_reply_id = await latest_reply_task if latest_reply_task is not None else None
+
+            # Another instance served newer turns (Firestore has a reply this
+            # session does not): rebuild it from Firestore instead of answering
+            # from an outdated history. Its state (e.g. refused videos) carries over.
+            carried_state: dict[str, Any] | None = None
+            if (
+                session is not None
+                and latest_reply_id is not None
+                and latest_reply_id != _synced_marker.get(sync_key)
+            ):
+                logger.info("[ADK] Stale session resynced", extra={"session_id": session_id})
+                carried_state = dict(session.state)
+                await session_service.delete_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
+                _synced_marker.pop(sync_key, None)
+                session = None
 
             if session is None:
-                session = await session_service.create_session(
-                    app_name="syd_orchestrator",
-                    user_id=user_id,
-                    session_id=session_id,
-                )
+                # InMemorySessionService loses everything on restart and is not
+                # shared between instances: continue from the Firestore history.
+                session = await _open_restored_session(session_service, user_id, session_id, carried_state)
                 logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
-
-                # ── HISTORY INJECTION (Restart Recovery) ──
-                # On server restart, InMemorySessionService loses all context.
-                # Re-inject the last 30 Firestore messages as ADK Events so the
-                # agent can continue mid-conversation (e.g., knows the room analysis
-                # for generate_render) without asking the user to repeat themselves.
-                try:
-                    repo = get_conversation_repository()
-                    history = await repo.get_context(session_id, limit=30)
-                    if history:
-                        events_to_inject = []
-                        for idx, msg in enumerate(history):
-                            role = msg.get("role", "user")
-                            text = msg.get("content", "").strip()
-                            if not text:
-                                continue
-                            hist_event = Event(
-                                invocation_id=f"history_restore_{int(time.time() * 1000)}_{idx}",
-                                author=role,
-                                content=types.Content(
-                                    role=role,
-                                    parts=[types.Part(text=text)],
-                                ),
-                                actions=EventActions(),
-                            )
-                            events_to_inject.append(hist_event)
-                        # Parallel injection: ~10x faster than sequential await loop
-                        if events_to_inject:
-                            await asyncio.gather(*(
-                                session_service.append_event(session, evt)
-                                for evt in events_to_inject
-                            ))
-                        logger.info(
-                            f"[ADK] Injected {len(events_to_inject)} history events into restored session",
-                            extra={"session_id": session_id},
-                        )
-                except Exception as hist_err:  # noqa: BLE001
-                    # Non-fatal: agent starts fresh if history injection fails
-                    logger.warning(f"[ADK] History injection failed (session starts fresh): {hist_err}")
 
             if turn is not None:
                 turn.mark("adk_session_ready")
             turn_text = _TurnText(stream=settings.OUTPUT_GUARDRAIL_STREAMING)
             pending_saves: list[asyncio.Task[None]] = []
             accumulated_tool_calls = []
-            # Map tool_name → call_id so we can correlate function_response
-            # with the correct call_id (ADK may not preserve call_id on responses)
-            pending_tool_calls: dict[str, str] = {}
+            # tool_name → call_ids in call order, to correlate a function_response
+            # that comes without an id (ADK may not preserve it); a queue so two
+            # parallel calls of the same tool keep their own ids.
+            pending_tool_calls: dict[str, list[str]] = {}
             try:
                 # Pass user message directly via new_message parameter (ADK 1.x API)
                 if not content_parts:
@@ -456,6 +525,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     If SessionNotFoundError surfaces mid-stream (e.g. race condition after
                     server restart), we recreate the session, re-inject history from
                     Firestore and retry run_async exactly once.
+                    Every run carries this turn's session context (`context_delta`).
                     """
                     nonlocal session
                     for attempt in range(2):
@@ -464,7 +534,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                 session_id=session_id,
                                 user_id=user_id,
                                 new_message=message,
-                                state_delta=state_delta,
+                                state_delta={**context_delta, **(state_delta or {})},
                                 run_config=_RUN_CONFIG,
                             ):
                                 yield event
@@ -482,38 +552,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                     extra={"session_id": session_id, "restored": True},
                                 )
                                 try:
-                                    session = await session_service.create_session(
-                                        app_name="syd_orchestrator",
-                                        user_id=user_id,
-                                        session_id=session_id,
-                                    )
-                                    _repo = get_conversation_repository()
-                                    _history = await _repo.get_context(session_id, limit=30)
-                                    if _history:
-                                        _events = []
-                                        for _idx, _msg in enumerate(_history):
-                                            _role = _msg.get("role", "user")
-                                            _text = _msg.get("content", "").strip()
-                                            if not _text:
-                                                continue
-                                            _events.append(Event(
-                                                invocation_id=f"recovery_restore_{int(time.time()*1000)}_{_idx}",
-                                                author=_role,
-                                                content=types.Content(
-                                                    role=_role,
-                                                    parts=[types.Part(text=_text)],
-                                                ),
-                                                actions=EventActions(),
-                                            ))
-                                        if _events:
-                                            await asyncio.gather(*(
-                                                session_service.append_event(session, e)
-                                                for e in _events
-                                            ))
-                                        logger.info(
-                                            f"[ADK] Recovery: injected {len(_events)} history events",
-                                            extra={"session_id": session_id},
-                                        )
+                                    session = await _open_restored_session(session_service, user_id, session_id)
                                 except Exception as recovery_err:  # noqa: BLE001
                                     logger.error(f"[ADK] Session recovery failed: {recovery_err}")
                                     raise run_err from None  # surface original error, not the recovery failure
@@ -526,7 +565,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     authored by "user", so neither the prompt nor agent routing see it)."""
                     try:
                         current = await session_service.get_session(
-                            app_name="syd_orchestrator", user_id=user_id, session_id=session_id
+                            app_name=_APP_NAME, user_id=user_id, session_id=session_id
                         )
                         if current is not None:
                             await session_service.append_event(current, Event(
@@ -668,7 +707,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                             fname = fc.name or "unknown_tool"
 
                                             # Track call_id so tool results can be correlated
-                                            pending_tool_calls[fname] = call_id
+                                            pending_tool_calls.setdefault(fname, []).append(call_id)
 
                                             status_msg = f"Syd sta usando {fname}..."
                                             if fname == "generate_render":
@@ -703,10 +742,11 @@ class ADKOrchestrator(BaseOrchestrator):
                                                 continue
 
                                             # Resolve call_id: try ADK attribute first, then our tracked mapping
+                                            queued = pending_tool_calls.get(getattr(fr, 'name', None) or '')
                                             call_id = (
                                                 getattr(fr, 'call_id', None)
                                                 or getattr(fr, 'id', None)
-                                                or pending_tool_calls.pop(getattr(fr, 'name', ''), None)
+                                                or (queued.pop(0) if queued else None)
                                                 or 'unknown'
                                             )
                                             # Ensure response is JSON-serializable (ADK may return protobuf MapComposite)
@@ -831,7 +871,7 @@ class ADKOrchestrator(BaseOrchestrator):
                     try:
                         repo = get_conversation_repository()
                         assistant_timestamp = datetime.now(UTC)
-                        await repo.save_message(
+                        saved = await repo.save_message(
                             session_id=session_id,
                             role="assistant",
                             content=full_response,
@@ -841,6 +881,11 @@ class ADKOrchestrator(BaseOrchestrator):
                             user_id=user_id,
                             is_guest=is_guest,
                         )
+                        # Firestore and the in-memory session now share this reply.
+                        # On a failed save the marker stays on the last reply Firestore
+                        # has, so the next turn does not throw this session away.
+                        if saved:
+                            _synced_marker[sync_key] = assistant_msg_id
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:  # noqa: BLE001
                         logger.error(f"Failed to persist assistant message: {e}")
@@ -863,7 +908,7 @@ class ADKOrchestrator(BaseOrchestrator):
         try:
             session_service = get_session_service()
             # Attempt a lightweight Firestore read to verify connectivity
-            await session_service.list_sessions(user_id="__healthcheck__", app_name="syd_orchestrator")
+            await session_service.list_sessions(user_id="__healthcheck__", app_name=_APP_NAME)
             return True
         except Exception as e:  # noqa: BLE001
             logger.warning(f"[ADKOrchestrator] Health check failed: {e}")
