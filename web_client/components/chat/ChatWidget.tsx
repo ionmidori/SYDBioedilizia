@@ -5,6 +5,7 @@ import { ChatHeader } from '@/components/chat/ChatHeader';
 import { useRouter } from 'next/navigation';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
+import { RoomChips } from '@/components/chat/RoomChips';
 import { ChatToggleButton } from '@/components/chat/ChatToggleButton';
 import { ImageLightbox } from '@/components/chat/ImageLightbox';
 import { ChatErrorBoundary } from '@/components/ui/ChatErrorBoundary';
@@ -74,7 +75,10 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         reload,
         data,
         isRestoringHistory,
-        historyMessages
+        historyMessages,
+        rooms,
+        activeRoomId,
+        setActiveRoomId,
     } = useChatContext();
 
     // 2. State & Refs
@@ -136,7 +140,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     }, [contextProjectId, clearQueue, dismissNotice]);
 
     // 5. Unified Upload Hook
-    const { uploads, addFiles, removeFile, retryUpload, clearAll, isUploading, successfulUploads } = useUpload({ sessionId });
+    const { uploads, addFiles, removeFile, retryUpload, clearAll, isUploading, successfulUploads } = useUpload({ sessionId, roomId: activeRoomId });
 
     // 6. Scroll & Viewport
     // We filter messages to show welcome message vs real messages
@@ -181,7 +185,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             url: u.serverData?.url?.substring(0, 60),
         })));
 
-        const dataBody = buildMediaPayload(completedUploads);
+        const dataBody = buildMediaPayload(completedUploads, activeRoomId);
 
         // UI Optimistic Clear (a notice belongs to the previous turn)
         clearAll();
@@ -297,6 +301,15 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         />
                     )}
                 </div>
+
+                {contextProjectId && rooms.length > 0 && (
+                    <RoomChips
+                        projectId={contextProjectId}
+                        rooms={rooms}
+                        activeRoomId={activeRoomId}
+                        onSelect={setActiveRoomId}
+                    />
+                )}
 
                 <ChatInput
                     inputValue={input}

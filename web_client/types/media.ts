@@ -118,6 +118,8 @@ export interface UploadItem {
     retryable?: boolean;
     /** Server response data when upload completes */
     serverData?: MediaAsset;
+    /** Room of the project the file was filed in (Phase 138). Frontend-only. */
+    roomId?: string | null;
     /** AbortController for cancellation */
     abortController?: AbortController;
 }

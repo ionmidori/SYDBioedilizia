@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from src.adk import tools
+from src.tools.project_files_view import ProjectFilesView
 from src.tools.quota import QuotaDecision
 from src.utils.datetime_utils import utc_now
 
@@ -85,9 +86,33 @@ async def test_save_contact_phone_writes_verified_owner(tool_context):
 
 @pytest.mark.asyncio
 async def test_gallery_and_files_use_verified_session(tool_context):
-    with patch("src.tools.gallery.show_project_gallery", return_value="g") as g, \
+    repo = MagicMock()
+    repo.list_rooms = AsyncMock(return_value=[])
+    repo.list_files = AsyncMock(return_value=[])
+    with patch.object(tools, "get_room_repository", return_value=repo), \
+         patch("src.tools.gallery.show_project_gallery", return_value="g") as g, \
          patch("src.tools.project_files.list_project_files", return_value="f") as f:
         await tools.show_project_gallery(session_id=FOREIGN_SESSION, tool_context=tool_context)
         await tools.list_project_files(session_id=FOREIGN_SESSION, tool_context=tool_context)
-    g.assert_called_once_with(session_id=TRUSTED_SESSION, user_id=tool_context.user_id)
-    f.assert_called_once_with(TRUSTED_SESSION, user_id=tool_context.user_id)
+    view = ProjectFilesView()
+    g.assert_called_once_with(session_id=TRUSTED_SESSION, user_id=tool_context.user_id, view=view)
+    f.assert_called_once_with(TRUSTED_SESSION, user_id=tool_context.user_id, view=view)
+    assert {c.args[0] for c in repo.list_rooms.await_args_list} == {TRUSTED_SESSION}
+    assert {c.args[0] for c in repo.list_files.await_args_list} == {TRUSTED_SESSION}
+
+
+@pytest.mark.asyncio
+async def test_room_tools_use_verified_session(tool_context):
+    tool_context.state = {}
+    ok = {"status": "success", "room_id": "r1", "label": "Bagno", "room_type": "bagno"}
+    with patch.object(tools.room_tools, "select_room", new=AsyncMock(return_value=(ok, []))) as sel, \
+         patch.object(tools.room_tools, "assign_media", new=AsyncMock(return_value={})) as assign, \
+         patch.object(tools.room_tools, "room_context", new=AsyncMock(return_value={})) as ctx:
+        await tools.select_room(name="Bagno", room_type="bagno", session_id=FOREIGN_SESSION, tool_context=tool_context)
+        await tools.assign_media_to_room(
+            file_id="f1", room_id="r1", session_id=FOREIGN_SESSION, tool_context=tool_context
+        )
+        await tools.get_room_context(room_id="r1", session_id=FOREIGN_SESSION, tool_context=tool_context)
+    sel.assert_awaited_once_with(TRUSTED_SESSION, "Bagno", "bagno")
+    assign.assert_awaited_once_with(TRUSTED_SESSION, "f1", "r1")
+    ctx.assert_awaited_once_with(TRUSTED_SESSION, "r1")

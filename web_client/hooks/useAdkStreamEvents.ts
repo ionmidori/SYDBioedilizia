@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ACTIVE_ROOM_EVENT } from '@/hooks/useActiveRoom';
 import { logger } from '@/lib/logger';
 
 export interface StreamData {
@@ -74,6 +75,15 @@ export function useAdkStreamEvents(sessionId: string): UseAdkStreamEventsReturn 
                 logger.debug('[ChatProvider] ADK UiWidget Received:', data);
                 if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('adk-ui-widget', { detail: data }));
+                }
+            }
+
+            // Phase 138: the agent made another room active (select_room); the
+            // room chips follow so the next turns are sent for that room.
+            if (data.type === 'active_room') {
+                logger.debug('[ChatProvider] ADK Active Room:', data);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent(ACTIVE_ROOM_EVENT, { detail: data }));
                 }
             }
 

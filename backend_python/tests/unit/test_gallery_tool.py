@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from src.tools.gallery import show_project_gallery
+from src.tools.project_files_view import ProjectFilesView
 
 # Mock Data
 MOCK_USER_ID = "user_123"
@@ -257,3 +258,54 @@ def test_gallery_owner_field_is_userid_as_stored_by_the_backend(mock_firebase):
     mock_bucket.return_value.list_blobs.return_value = [create_mock_blob("a.jpg", "image/jpeg")]
 
     assert "Access Denied" not in show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID)
+
+
+def _authorized(mock_db):
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = MOCK_PROJECT_DATA
+    mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
+
+
+def test_gallery_items_carry_file_id_and_room(mock_context_user, mock_firebase, mocker):
+    """Phase 138: the model passes file ids to the room tools."""
+    mock_db, mock_bucket = mock_firebase
+    _authorized(mock_db)
+    mock_bucket.return_value.list_blobs.return_value = [
+        create_mock_blob("bagno.jpg", "image/jpeg"), create_mock_blob("other.jpg", "image/jpeg"),
+    ]
+    view = ProjectFilesView(
+        room_labels={"r_bagno": "Bagno"},
+        files=[{"id": "f1", "roomId": "r_bagno", "metadata": {"storage_path": f"projects/{MOCK_SESSION_ID}/bagno.jpg"}}],
+    )
+    data = json.loads(show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID, view=view))
+    assert [(i["id"], i["room"]) for i in data["items"]] == [("f1", "Bagno"), (None, None)]
+
+
+def test_gallery_of_one_room_lists_only_its_photos_and_renders(mock_context_user, mock_firebase, mocker):
+    mock_db, mock_bucket = mock_firebase
+    _authorized(mock_db)
+    signed = mocker.patch("src.tools.gallery.signed_url", side_effect=lambda p: f"https://signed/{p}")
+    view = ProjectFilesView(
+        room_labels={"r_bagno": "Bagno"},
+        room_only=True,
+        files=[
+            {"id": "f1", "type": "image", "roomId": "r_bagno", "name": "a.jpg", "metadata": {"storage_path": "u/a.jpg"}},
+            {"id": "v1", "type": "video", "roomId": "r_bagno", "metadata": {"storage_path": "u/v.mp4"}},
+            {"id": "r1", "type": "render", "roomId": "r_bagno", "metadata": {"storage_path": "renders/r.png"}},
+            {"id": "f2", "type": "image", "roomId": "r_bagno", "metadata": {}},  # no path: cannot be signed
+        ],
+    )
+    data = json.loads(show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID, view=view))
+    assert [i["id"] for i in data["items"]] == ["f1", "r1"]
+    assert data["items"][0]["url"] == "https://signed/u/a.jpg" and data["items"][0]["room"] == "Bagno"
+    mock_bucket.return_value.list_blobs.assert_not_called()
+    assert signed.call_count == 2
+
+
+def test_gallery_of_an_empty_room(mock_context_user, mock_firebase):
+    mock_db, _ = mock_firebase
+    _authorized(mock_db)
+    assert show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID, view=ProjectFilesView(room_only=True)) == (
+        "No images found for this room"
+    )

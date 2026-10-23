@@ -15,7 +15,9 @@ from google.adk.agents import Agent
 from src.adk.guardrails import model_armor_after_model, model_armor_before_model
 from src.adk.model_factory import build_adk_model
 from src.adk.tools import (
+    assign_media_to_room_adk,
     generate_render_adk,
+    get_room_context_adk,
     list_project_files_adk,
     list_ready_quotes_adk,
     market_prices_adk,
@@ -26,6 +28,7 @@ from src.adk.tools import (
     save_contact_phone_adk,
     search_listino_adk,
     search_prezzario_adk,
+    select_room_adk,
     show_project_gallery_adk,
     submit_quote_request_adk,
     suggest_quote_items_adk,
@@ -38,7 +41,7 @@ from src.prompts.components.identity import (
     QUESTION_LIMIT_PROTOCOL,
     REASONING_INSTRUCTIONS,
 )
-from src.prompts.components.modes import MODE_A_DESIGNER, MODE_B_SURVEYOR
+from src.prompts.components.modes import MODE_A_DESIGNER, MODE_B_SURVEYOR, ROOMS_PROTOCOL
 from src.prompts.components.protocol import PROTOCOL
 
 # ── Prompt Components ─────────────────────────────────────────────────────────
@@ -151,6 +154,7 @@ SYD_ORCHESTRATOR_INSTRUCTION = "\n\n".join([
     OUTPUT_RULES,
     CRITICAL_PROTOCOLS,
     _ORCHESTRATOR_ROUTING,
+    ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     PROTOCOL,
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LAST — LLM Sandwich Defense (bottom)
 ])
@@ -238,6 +242,7 @@ TRIAGE_AGENT_INSTRUCTION = "\n\n".join([
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
     VIDEO_ANALYSIS_PROTOCOL,    # 🎬 Analisi video temporale
+    ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     _TRIAGE_SPECIFIC,
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
@@ -251,6 +256,7 @@ DESIGN_AGENT_INSTRUCTION = "\n\n".join([
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
     QUESTION_LIMIT_PROTOCOL,    # Una domanda alla volta
+    ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     MODE_A_DESIGNER,            # Flusso completo 5 fasi render
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
@@ -264,6 +270,7 @@ QUOTE_AGENT_INSTRUCTION = "\n\n".join([
     OUTPUT_RULES,
     REASONING_INSTRUCTIONS,
     QUESTION_LIMIT_PROTOCOL,    # Una domanda alla volta
+    ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     MODE_B_SURVEYOR,            # Flusso completo 4 pilastri preventivo
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
@@ -287,7 +294,13 @@ triage_agent = Agent(
     ),
     model=build_adk_model(ModelRole.TRIAGE),
     generate_content_config=build_generate_content_config(ModelRole.TRIAGE),
-    tools=[show_project_gallery_adk, retrieve_knowledge_adk],
+    tools=[
+        show_project_gallery_adk,
+        retrieve_knowledge_adk,
+        select_room_adk,
+        assign_media_to_room_adk,
+        get_room_context_adk,
+    ],
     instruction=TRIAGE_AGENT_INSTRUCTION,
     **_GUARDRAILS,
 )
@@ -300,7 +313,15 @@ design_agent = Agent(
     ),
     model=build_adk_model(ModelRole.DESIGN),
     generate_content_config=build_generate_content_config(ModelRole.DESIGN),
-    tools=[generate_render_adk, list_project_files_adk, market_prices_adk, request_login_adk, retrieve_knowledge_adk],
+    tools=[
+        generate_render_adk,
+        list_project_files_adk,
+        market_prices_adk,
+        request_login_adk,
+        retrieve_knowledge_adk,
+        select_room_adk,
+        get_room_context_adk,
+    ],
     instruction=DESIGN_AGENT_INSTRUCTION,
     **_GUARDRAILS,
 )
@@ -324,6 +345,8 @@ quote_agent = Agent(
         search_prezzario_adk,
         retrieve_price_by_code_adk,
         save_contact_phone_adk,
+        select_room_adk,
+        get_room_context_adk,
     ],
     instruction=QUOTE_AGENT_INSTRUCTION,
     **_GUARDRAILS,
@@ -334,7 +357,14 @@ syd_orchestrator = Agent(
     model=build_adk_model(ModelRole.ROUTER),
     generate_content_config=build_generate_content_config(ModelRole.ROUTER),
     sub_agents=[triage_agent, design_agent, quote_agent],
-    tools=[request_login_adk, search_listino_adk, search_prezzario_adk, retrieve_price_by_code_adk],
+    tools=[
+        request_login_adk,
+        search_listino_adk,
+        search_prezzario_adk,
+        retrieve_price_by_code_adk,
+        select_room_adk,
+        assign_media_to_room_adk,
+    ],
     instruction=SYD_ORCHESTRATOR_INSTRUCTION,
     **_GUARDRAILS,
 )

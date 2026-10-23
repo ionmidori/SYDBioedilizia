@@ -1,0 +1,75 @@
+{
+  "eval_set_id": "syd_multi_room_flow_v1",
+  "name": "SYD Multi-Room Chat (Phase 138)",
+  "description": "One chat for the whole home: kitchen and bathroom photos alternate, the kitchen chip is active, then the user asks for a bathroom render. The agent must switch room (select_room) and the render must start from the bathroom photo, not from the newest photo (kitchen). The runner checks the render source (tests/evals/multi_room/fakes.py).",
+  "eval_cases": [
+    {
+      "eval_id": "bathroom_render_after_kitchen_photo",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": false,
+            "session_id": "eval-multi-room"
+          },
+          "syd_rooms": [
+            { "room_id": "r_cucina", "label": "Cucina", "room_type": "cucina", "summary": "" },
+            { "room_id": "r_bagno", "label": "Bagno", "room_type": "bagno", "summary": "" }
+          ],
+          "syd_active_room_id": "r_cucina"
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_rooms_001",
+          "user_content": {
+            "parts": [{ "text": "###\nCiao! Sto ristrutturando casa: cucina e bagno. Questa è la cucina.\n###\n[Foto f_cucina_1 · Cucina]" }],
+            "role": "user"
+          },
+          "final_response": { "parts": [{ "text": "Come vuoi procedere con la foto?" }], "role": "model" },
+          "intermediate_data": { "tool_uses": [] }
+        },
+        {
+          "invocation_id": "inv_rooms_002",
+          "user_content": {
+            "parts": [{ "text": "###\nQuesto invece è il bagno, ha le piastrelle anni '80.\n###\n[Foto f_bagno_1 · Bagno]" }],
+            "role": "user"
+          },
+          "final_response": { "parts": [{ "text": "Ho visto il bagno." }], "role": "model" },
+          "intermediate_data": { "tool_uses": [] }
+        },
+        {
+          "invocation_id": "inv_rooms_003",
+          "user_content": {
+            "parts": [{ "text": "###\nTorniamo alla cucina: ecco un'altra foto, dall'altro lato.\n###\n[Foto f_cucina_2 · Cucina]" }],
+            "role": "user"
+          },
+          "final_response": { "parts": [{ "text": "Ho visto la cucina." }], "role": "model" },
+          "intermediate_data": { "tool_uses": [] }
+        },
+        {
+          "invocation_id": "inv_rooms_004",
+          "user_content": {
+            "parts": [{ "text": "###\nAdesso fammi vedere un render del bagno: stile moderno, gres effetto marmo bianco, doccia walk-in e mobile sospeso in rovere. Mantieni la finestra dov'è.\n###" }],
+            "role": "user"
+          },
+          "final_response": { "parts": [{ "text": "Ecco il render del bagno." }], "role": "model" },
+          "intermediate_data": {
+            "tool_uses": [{ "name": "select_room", "args": {}, "id": "call_rooms_001" }]
+          }
+        },
+        {
+          "invocation_id": "inv_rooms_005",
+          "user_content": {
+            "parts": [{ "text": "###\nSì, va benissimo così: procedi con il render.\n###" }],
+            "role": "user"
+          },
+          "final_response": { "parts": [{ "text": "Ecco il render del bagno." }], "role": "model" },
+          "intermediate_data": { "tool_uses": [] }
+        }
+      ]
+    }
+  ]
+}

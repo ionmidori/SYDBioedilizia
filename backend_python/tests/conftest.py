@@ -6,7 +6,7 @@ Shared test fixtures for mocking external dependencies.
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -58,6 +58,23 @@ def _reset_genai_client_cache():
     get_genai_client.cache_clear()
     yield
     get_genai_client.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _orchestrator_without_rooms():
+    """A chat turn reads the project's rooms and looks up its media in Firestore:
+    tests that drive the orchestrator get a project without rooms or registered
+    files (room tests patch `get_room_repository` themselves). Patched only when
+    the module is already loaded, like `_reset_adk_session_sync`."""
+    orchestrator = sys.modules.get("src.adk.adk_orchestrator")
+    if orchestrator is None:
+        yield
+        return
+    repo = MagicMock()
+    repo.list_rooms = AsyncMock(return_value=[])
+    repo.find_file_by_storage_path = AsyncMock(return_value=None)
+    with patch.object(orchestrator, "get_room_repository", return_value=repo):
+        yield
 
 
 @pytest.fixture(autouse=True)

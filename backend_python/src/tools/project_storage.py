@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterator
+from datetime import timedelta
 
 from firebase_admin import firestore, storage
 from src.utils.download import session_storage_prefixes
@@ -43,3 +44,8 @@ def iter_project_blobs(session_id: str) -> Iterator:
         for blob in bucket.list_blobs(prefix=prefix):
             if not blob.name.endswith("/"):
                 yield blob
+
+
+def signed_url(path: str) -> str:
+    """Fresh 1-hour V4 URL of a project object (stored URLs expire)."""
+    return storage.bucket().blob(path).generate_signed_url(expiration=timedelta(hours=1), version="v4")

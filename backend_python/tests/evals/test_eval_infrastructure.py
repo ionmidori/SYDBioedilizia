@@ -134,3 +134,38 @@ class TestRunEvalsExitCode:
         with pytest.raises(SystemExit) as exc:
             run_evals.main()
         assert exc.value.code == 1
+
+
+class TestMultiRoomEval:
+    """Phase 138: the multi-room set has its own agent module and in-memory backend."""
+
+    MULTI_ROOM = EVALS_DIR / "multi_room" / "multi_room_flow.test.json"
+
+    def test_loads_as_adk_eval_set_with_seeded_session(self) -> None:
+        eval_set = EvalSet.model_validate_json(self.MULTI_ROOM.read_text(encoding="utf-8"))
+        session = eval_set.eval_cases[0].session_input
+        assert session is not None
+        assert session.state["syd_active_room_id"] == "r_cucina"
+        assert session.state["syd_session_context"]["is_guest"] is False
+
+    def test_agent_module_exposes_app_with_session_plugin(self) -> None:
+        from google.adk.apps.app import App
+        from src.adk.session_context_plugin import SessionContextPlugin
+        from tests.evals.multi_room import agent
+
+        assert isinstance(agent.app, App)
+        assert any(isinstance(p, SessionContextPlugin) for p in agent.app.plugins)
+        assert agent.root_agent is agent.app.root_agent
+
+    async def test_fake_backend_records_the_render_source(self) -> None:
+        from src.adk import tools
+        from tests.evals.multi_room.fakes import BATH_ROOM_ID, multi_room_backend, photo_url
+
+        with multi_room_backend() as renders:
+            assert await tools._render_source_photo("p", BATH_ROOM_ID) == (photo_url("f_bagno_1"), "room_photo")
+            # Without an active room the newest project photo (kitchen) would be used.
+            source, _ = await tools._render_source_photo("p", None)
+            await renders.render(source_image_url=source)
+        assert renders.problems() == [
+            f"render 1 started from {photo_url('f_cucina_2')!r}, expected {photo_url('f_bagno_1')!r}"
+        ]

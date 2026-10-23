@@ -17,7 +17,8 @@
         "eval:run": "cd backend_python && uv run python tests/evals/run_evals.py --output results/",
         "eval:run:quote": "cd backend_python && uv run python tests/evals/run_evals.py --file quote_flow.test.json --output results/",
         "eval:run:triage": "cd backend_python && uv run python tests/evals/run_evals.py --file triage_flow.test.json --output results/",
-        "eval:run:design": "cd backend_python && uv run python tests/evals/run_evals.py --file design_flow.test.json --output results/"
+        "eval:run:design": "cd backend_python && uv run python tests/evals/run_evals.py --file design_flow.test.json --output results/",
+        "eval:run:rooms": "cd backend_python && uv run python tests/evals/run_evals.py --file multi_room/multi_room_flow.test.json --output results/"
     },
     "dependencies": {
         "minimatch": "10.2.6",

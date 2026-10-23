@@ -107,3 +107,40 @@ describe('buildMediaPayload', () => {
         });
     });
 });
+
+describe('buildMediaPayload — rooms (Phase 138)', () => {
+    it('carries the active room of the turn', () => {
+        expect(buildMediaPayload([], 'r_bagno').roomId).toBe('r_bagno');
+    });
+
+    it('leaves the room out when there is none', () => {
+        expect(buildMediaPayload([], null).roomId).toBeUndefined();
+        expect(buildMediaPayload([]).roomId).toBeUndefined();
+    });
+});
+
+describe('buildMediaPayload — room of the uploads (Phase 138)', () => {
+    const uploaded = (roomId: string | null): UploadItem => ({
+        id: `u-${roomId}`,
+        file: new File([], 'a.jpg'),
+        previewUrl: 'blob:a',
+        progress: 100,
+        status: 'success',
+        roomId,
+        serverData: {
+            asset_type: 'image',
+            url: 'https://cdn.example.com/a.jpg',
+            mime_type: 'image/jpeg',
+            size_bytes: 1,
+            filename: 'a.jpg',
+        } as UploadItem['serverData'],
+    });
+
+    it('sends the turn to the room the photo was filed in, not the room active now', () => {
+        expect(buildMediaPayload([uploaded('r_bagno')], 'r_cucina').roomId).toBe('r_bagno');
+    });
+
+    it('falls back to the active room for uploads without a room', () => {
+        expect(buildMediaPayload([uploaded(null)], 'r_cucina').roomId).toBe('r_cucina');
+    });
+});

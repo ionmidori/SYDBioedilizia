@@ -17,9 +17,15 @@ export type ChatMediaPayload = {
     mediaUrls: string[];
     mediaMetadata: Record<string, { mimeType: string; fileSize: number; originalFileName: string }>;
     videoFileUris?: string[];
+    /** Room of the project the turn (and its uploads) is about (Phase 138). */
+    roomId?: string;
 };
 
-export function buildMediaPayload(completedUploads: UploadItem[]): ChatMediaPayload {
+/**
+ * `roomId` is the active room; when the uploads were filed in a room, the turn
+ * goes to that room instead (the chip may have moved since the upload).
+ */
+export function buildMediaPayload(completedUploads: UploadItem[], roomId?: string | null): ChatMediaPayload {
     const mediaUrls = completedUploads
         .filter(u => u.serverData?.asset_type === 'image')
         .map(u => u.serverData!.url);
@@ -43,5 +49,6 @@ export function buildMediaPayload(completedUploads: UploadItem[]): ChatMediaPayl
         mediaUrls,
         mediaMetadata,
         videoFileUris: videoFileUris.length > 0 ? videoFileUris : undefined,
+        roomId: completedUploads.find((u) => u.serverData && u.roomId)?.roomId ?? roomId ?? undefined,
     };
 }

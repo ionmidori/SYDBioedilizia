@@ -25,3 +25,18 @@ describe('buildBackendPayload', () => {
         expect(payload.messages).toHaveLength(1);
     });
 });
+
+describe('buildBackendPayload — rooms (Phase 138)', () => {
+    const base = {
+        messages: [{ id: 'm1', role: 'user' as const, parts: [{ type: 'text' as const, text: 'ciao' }] }],
+        sessionId: 's1',
+    };
+
+    test('forwards the room of the turn', () => {
+        expect(buildBackendPayload({ ...base, roomId: 'r_bagno' }).roomId).toBe('r_bagno');
+    });
+
+    test('sends null without a room', () => {
+        expect(buildBackendPayload(base).roomId).toBeNull();
+    });
+});

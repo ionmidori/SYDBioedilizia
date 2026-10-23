@@ -32,12 +32,23 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 from google.adk.evaluation import AgentEvaluator
+from tests.evals.multi_room.fakes import multi_room_backend
+
+# AgentEvaluator prints the agents' replies (emoji included): on a Windows
+# console (cp1252) that print would raise UnicodeEncodeError mid-run.
+for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+        stream.reconfigure(encoding="utf-8", errors="replace")
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s  %(name)s  %(message)s")
 logger = logging.getLogger("syd.evals")
 
 EVALS_DIR = Path(__file__).parent
 AGENT_MODULE = "src.adk.agents"
+# Multi-room chat (Phase 138): own agent module (App with SessionContextPlugin)
+# and an in-memory backend that records the render source photo.
+MULTI_ROOM_DIR = EVALS_DIR / "multi_room"
+MULTI_ROOM_AGENT_MODULE = "tests.evals.multi_room.agent"
 
 
 def _resolve_output_dir(output_arg: str | None) -> Path | None:
@@ -64,6 +75,53 @@ def _build_run_meta(
     }
 
 
+def _serialize(eval_result: object) -> object:
+    """ADK eval result as JSON data (Pydantic model, plain object or None)."""
+    if eval_result is None:
+        return None
+    try:
+        if hasattr(eval_result, "model_dump"):
+            return eval_result.model_dump(mode="json")  # pyright: ignore[reportAttributeAccessIssue]
+        if hasattr(eval_result, "__dict__"):
+            return vars(eval_result)
+        return eval_result
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Could not serialize eval result: {e}")
+        return str(eval_result)
+
+
+def _eval_targets(file_filter: str | None) -> list[Path]:
+    """Eval set files to run: one, or every set (top-level and multi_room/)."""
+    if file_filter:
+        target = EVALS_DIR / file_filter
+        if not target.exists():
+            logger.error(f"Test file not found: {target}")
+            sys.exit(1)
+        return [target]
+    return sorted(EVALS_DIR.glob("*.test.json")) + sorted(MULTI_ROOM_DIR.glob("*.test.json"))
+
+
+async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object:
+    """Run one eval set. Raises on a schema error, an API failure or a metric
+    below threshold. The multi-room sets run against an in-memory backend and
+    also fail when a render did not start from the bathroom photo."""
+    common = {
+        "eval_dataset_file_path_or_dir": str(path),
+        "num_runs": num_runs,
+        "agent_name": agent_name,
+        "print_detailed_results": True,
+    }
+    if path.parent != MULTI_ROOM_DIR:
+        return await AgentEvaluator.evaluate(agent_module=AGENT_MODULE, **common)
+    with multi_room_backend() as renders:
+        result = await AgentEvaluator.evaluate(agent_module=MULTI_ROOM_AGENT_MODULE, **common)
+    problems = renders.problems()
+    if problems:
+        raise AssertionError(f"{path.name}: " + "; ".join(problems))
+    logger.info(f"{path.name}: every render started from the bathroom photo ({len(renders.sources)})")
+    return result
+
+
 async def run_all(
     file_filter: str | None = None,
     agent_name: str | None = None,
@@ -71,28 +129,15 @@ async def run_all(
     output_dir: Path | None = None,
 ) -> None:
     """Run ADK evaluation suite and optionally persist results as JSON."""
-    if file_filter:
-        target = EVALS_DIR / file_filter
-        if not target.exists():
-            logger.error(f"Test file not found: {target}")
-            sys.exit(1)
-        eval_path = str(target)
-    else:
-        eval_path = str(EVALS_DIR)
-
-    logger.info(f"Running evals from: {eval_path}")
-    logger.info(f"Agent module: {AGENT_MODULE}")
+    targets = _eval_targets(file_filter)
+    logger.info(f"Running evals: {', '.join(str(t.relative_to(EVALS_DIR)) for t in targets)}")
     if agent_name:
         logger.info(f"Sub-agent: {agent_name}")
 
     # Any exception (bad schema, below-threshold metric) propagates to main(), which exits non-zero.
-    eval_result = await AgentEvaluator.evaluate(
-        agent_module=AGENT_MODULE,
-        eval_dataset_file_path_or_dir=eval_path,
-        num_runs=num_runs,
-        agent_name=agent_name,
-        print_detailed_results=True,
-    )
+    results = {}
+    for target in targets:
+        results[str(target.relative_to(EVALS_DIR))] = await _evaluate(target, agent_name, num_runs)
 
     logger.info("Evaluation complete.")
 
@@ -100,24 +145,11 @@ async def run_all(
     if output_dir is not None:
         meta = _build_run_meta(file_filter, agent_name, num_runs)
         timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        suffix = f"_{file_filter.replace('.test.json', '')}" if file_filter else ""
+        suffix = f"_{Path(file_filter).name.replace('.test.json', '')}" if file_filter else ""
         suffix += f"_{agent_name}" if agent_name else ""
         output_file = output_dir / f"eval_{timestamp}{suffix}.json"
 
-        payload: dict = {"meta": meta, "results": None}
-        if eval_result is not None:
-            try:
-                # ADK eval result may be a Pydantic model or plain dict
-                if hasattr(eval_result, "model_dump"):
-                    payload["results"] = eval_result.model_dump(mode="json")
-                elif hasattr(eval_result, "__dict__"):
-                    payload["results"] = vars(eval_result)
-                else:
-                    payload["results"] = eval_result
-            except Exception as e:  # noqa: BLE001
-                logger.warning(f"Could not serialize eval result: {e}")
-                payload["results"] = str(eval_result)
-
+        payload = {"meta": meta, "results": {name: _serialize(r) for name, r in results.items()}}
         output_file.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         logger.info(f"Results saved to: {output_file}")
 
