@@ -98,9 +98,9 @@ dependencies = [
     { name = "opentelemetry-exporter-gcp-trace" },
     { name = "pillow" },
     { name = "pinecone" },
+    { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyjwt" },
-    { name = "pypdf" },
     { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "python-multipart" },
@@ -113,6 +113,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "pypdf" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -143,9 +144,10 @@ requires-dist = [
     { name = "opentelemetry-exporter-gcp-trace", specifier = ">=1.15.0" },
     { name = "pillow", specifier = ">=13.0.0" },
     { name = "pinecone", specifier = ">=10.0.0" },
+    { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pydantic-settings", specifier = ">=2.16.0" },
     { name = "pyjwt", specifier = ">=2.15.1" },
-    { name = "pypdf", specifier = ">=6.21.1" },
+    { name = "pypdf", marker = "extra == 'dev'", specifier = ">=6.21.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.4.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.1.0" },

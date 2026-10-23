@@ -24,8 +24,11 @@ dependencies = [
     "reportlab>=5.0.1",
     "google-cloud-modelarmor>=0.7.2",
     "fido2>=2.2.1",
-    "pypdf>=6.21.1",
     "cryptography>=50.0.2",
+    # Imported directly by ~35 modules (models, schemas, routes). Was only a
+    # transitive of fastapi/pydantic-settings, so a change in their tree could
+    # drop or move it without notice.
+    "pydantic>=2.12.5",
     # Transitive of the google-cloud / vertex / firestore stack. Pinned above the
     # YANKED 1.78.1 ("caused major outage with gcloud serverless environments"),
     # which uv would otherwise keep resolving on Cloud Run.
@@ -43,6 +46,11 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "pytest-mock>=3.16.0",
+    # Not used at runtime: only scripts/ (Prezzario ingestion, excluded from the
+    # Cloud Run image) and tests/unit/test_pdf_service_v2.py read PDFs with it.
+    # The Dockerfile's `uv sync --no-dev` installs no extras, so it stays out of
+    # the production image; CI installs it via `uv sync --all-extras`.
+    "pypdf>=6.21.1",
 ]
 
 [tool.ruff]
