@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, Auth, setPersistence, browserLocalPersistence, connectAuthEmulator } from 'firebase/auth';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider, ReCaptchaV3Provider, type AppCheck } from 'firebase/app-check';
 import { logger } from '@/lib/logger';
+import { withTokenTimeout } from '@/lib/app-check-timeout';
 
 /**
  * Firebase Client SDK Configuration
@@ -134,10 +135,12 @@ if (typeof window !== 'undefined') {
                         logger.debug('[Firebase] 🔧 App Check Debug mode enabled for localhost');
                     }
 
+                    // Bounded: a reCAPTCHA that never answers would hold the
+                    // Google login (and every backend call) forever.
                     appCheck = initializeAppCheck(app, {
-                        provider: enterpriseKey
+                        provider: withTokenTimeout(enterpriseKey
                             ? new ReCaptchaEnterpriseProvider(enterpriseKey)
-                            : new ReCaptchaV3Provider(siteKey as string),
+                            : new ReCaptchaV3Provider(siteKey as string)),
                         isTokenAutoRefreshEnabled: true
                     });
                     // @ts-expect-error - Mark as initialized
