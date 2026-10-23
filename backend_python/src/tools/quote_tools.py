@@ -3,9 +3,7 @@ import hashlib
 import logging
 from collections import OrderedDict
 from typing import Any
-from urllib.parse import urlparse
 
-import httpx
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 from src.core.config import settings
@@ -18,6 +16,7 @@ from src.services.pricing_service import PricingService
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, save_ai_draft
 from src.utils.datetime_utils import utc_now
+from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
 from src.vision.measure_room import (
     MeasurementError,
     format_measurements_for_insight,
@@ -156,8 +155,8 @@ def _extract_vision_context(history: list[dict[str, Any]]) -> str:
 # Measurements per photo (sha256 of the image bytes → formatted block). A photo
 # does not change, but every regeneration of the draft used to re-measure it
 # (40–143 s each). In-process LRU: Cloud Run session affinity keeps a chat on
-# one instance. The key is the content hash, so a hit requires having
-# downloaded the bytes through a valid signed URL first.
+# one instance. The key is the content hash, so a hit requires having read the
+# bytes from one of the session's own files first.
 _MEASURE_CACHE_MAX = 128
 _measure_cache: OrderedDict[str, str] = OrderedDict()
 
@@ -176,54 +175,46 @@ def _remember_measurement(key: str, value: str) -> None:
         _measure_cache.popitem(last=False)
 
 
-async def _run_measurement_vision(media_urls: list[str]) -> str:
+def _is_render_path(path: str) -> bool:
+    return path.startswith("renders/")
+
+
+async def _run_measurement_vision(media_urls: list[str], session_id: str) -> str:
     """
-    Downloads the first accessible image and runs the RoomMeasurementAgent on it.
+    Reads the first accessible photo and runs the RoomMeasurementAgent on it.
 
     Returns a formatted measurements block for injection into InsightEngine context,
     or an empty string on failure (non-fatal — InsightEngine falls back to defaults).
 
-    SSRF protection: Only fetches URLs from the configured Firebase Storage bucket.
+    Photos are read by Storage path (download_session_media): only this session's
+    files, and still readable after the signed URL in the history has expired.
     """
-    bucket = settings.FIREBASE_STORAGE_BUCKET or ""
     for url in media_urls:
-        parsed = urlparse(url)
-        hostname_ok = parsed.hostname == bucket
-        path_ok = (
-            bucket
-            and parsed.hostname == "storage.googleapis.com"
-            and parsed.path.startswith(f"/{bucket}/")
-        )
-        if not (hostname_ok or path_ok):
-            logger.warning("[MeasureRoom] Skipping unauthorized URL: %s", parsed.hostname)
+        path = session_media_path(url, session_id)
+        if path is None:
+            logger.warning("[MeasureRoom] Skipping media outside the session's files.")
             continue
 
         # Skip renders (they're the target, not the source photo)
-        if "/renders/" in url:
+        if _is_render_path(path):
             continue
 
         try:
-            # Download FIRST: only a valid signed URL proves access to the photo.
-            async with httpx.AsyncClient(timeout=15.0) as http_client:
-                resp = await http_client.get(url)
-                resp.raise_for_status()
-
-            mime_type = resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+            content, mime_type = await download_session_media(path, session_id)
             if not mime_type.startswith("image/"):
                 continue
 
-            # Keyed by the image CONTENT, never by its path/URL: a path-keyed
-            # lookup before the download would hand another client's
-            # measurement to anyone who knows (or guesses) the object path,
-            # skipping the signature check (security review of this PR).
-            cache_key = hashlib.sha256(resp.content).hexdigest()
+            # Keyed by the image CONTENT, never by its path/URL: the same photo
+            # re-uploaded is measured once, and a cached measurement is only
+            # returned for bytes this session actually holds.
+            cache_key = hashlib.sha256(content).hexdigest()
             cached = _cached_measurement(cache_key)
             if cached is not None:
                 logger.info("[MeasureRoom] Reusing the measurement of this photo.")
                 return cached
 
             measurements = await asyncio.wait_for(
-                measure_room_from_photo(resp.content, mime_type),
+                measure_room_from_photo(content, mime_type),
                 timeout=settings.MEASURE_ROOM_TIMEOUT_SECONDS,
             )
             block = format_measurements_for_insight(measurements)
@@ -238,9 +229,8 @@ async def _run_measurement_vision(media_urls: list[str]) -> str:
             )
             return ""
         except Exception as exc:  # noqa: BLE001
-            # Never log the URL nor str(exc): it is a signed URL (a bearer
-            # credential) and httpx errors embed the request URL.
-            msg = str(exc) if isinstance(exc, MeasurementError) else ""
+            # Never log the URL: the history holds signed URLs (bearer credentials).
+            msg = str(exc) if isinstance(exc, (MeasurementError, MediaUnavailableError)) else ""
             logger.warning(
                 "[MeasureRoom] Measurement failed.",
                 extra={"error_type": type(exc).__name__, "error": msg[:200]},
@@ -278,6 +268,7 @@ _STRUCTURAL_VISION_PROMPT = (
 async def _run_render_structural_vision(
     media_urls: list[str],
     history: list[dict[str, Any]],
+    session_id: str,
 ) -> str:
     """
     Visually compares the original room photo with the generated render using Gemini
@@ -286,68 +277,41 @@ async def _run_render_structural_vision(
     Returns a structural delta context block for InsightEngine injection,
     or an empty string if either image is unavailable or the call fails (non-fatal).
 
-    SSRF protection: Only fetches URLs from the configured Firebase Storage bucket.
+    Both images are read by Storage path, and only among this session's files.
     """
-    bucket = settings.FIREBASE_STORAGE_BUCKET or ""
+    paths = [p for p in (session_media_path(url, session_id) for url in media_urls) if p]
 
-    def _is_allowed_url(url: str) -> bool:
-        parsed = urlparse(url)
-        return bool(
-            parsed.hostname == bucket
-            or (
-                bucket
-                and parsed.hostname == "storage.googleapis.com"
-                and parsed.path.startswith(f"/{bucket}/")
-            )
-        )
-
-    # Find render URL from media_urls or from history text hints
-    render_url: str | None = None
-    for url in media_urls:
-        if _is_allowed_url(url) and "/renders/" in url:
-            render_url = url
-            break
-
-    # Fallback: scan history for render URL hint injected by orchestrator
-    if not render_url:
+    # Find the render among the attachments, or in the history text hints
+    render_path = next((p for p in paths if _is_render_path(p)), None)
+    if not render_path:
         for msg in reversed(history):
             content = str(msg.get("content", ""))
-            if "/renders/" in content:
-                for token in content.split():
-                    if "/renders/" in token and token.startswith("http"):
-                        candidate = token.strip("[]().,")
-                        if _is_allowed_url(candidate):
-                            render_url = candidate
-                            break
-            if render_url:
+            if "/renders/" not in content:
+                continue
+            for token in content.split():
+                if "/renders/" in token and token.startswith("http"):
+                    candidate = session_media_path(token.strip("[]().,"), session_id)
+                    if candidate and _is_render_path(candidate):
+                        render_path = candidate
+                        break
+            if render_path:
                 break
 
-    if not render_url:
-        logger.info("[StructuralVision] No render URL found — skipping structural delta.")
+    if not render_path:
+        logger.info("[StructuralVision] No render found — skipping structural delta.")
         return ""
 
-    # Find original photo URL (user upload, not a render)
-    photo_url: str | None = None
-    for url in media_urls:
-        if _is_allowed_url(url) and "/renders/" not in url:
-            photo_url = url
-            break
-
-    if not photo_url:
+    # Original photo: a user upload, not a render
+    photo_path = next((p for p in paths if not _is_render_path(p)), None)
+    if not photo_path:
         logger.info("[StructuralVision] No original photo found — skipping structural delta.")
         return ""
 
     try:
-        async with httpx.AsyncClient(timeout=20.0) as http_client:
-            photo_resp, render_resp = await asyncio.gather(
-                http_client.get(photo_url),
-                http_client.get(render_url),
-            )
-            photo_resp.raise_for_status()
-            render_resp.raise_for_status()
-
-        photo_mime = photo_resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
-        render_mime = render_resp.headers.get("content-type", "image/jpeg").split(";")[0].strip()
+        (photo_bytes, photo_mime), (render_bytes, render_mime) = await asyncio.gather(
+            download_session_media(photo_path, session_id),
+            download_session_media(render_path, session_id),
+        )
 
         if not photo_mime.startswith("image/") or not render_mime.startswith("image/"):
             logger.warning("[StructuralVision] Non-image content-type, skipping.")
@@ -361,12 +325,12 @@ async def _run_render_structural_vision(
                     genai_types.Part(text=_STRUCTURAL_VISION_PROMPT),
                     genai_types.Part(
                         inline_data=genai_types.Blob(
-                            mime_type=photo_mime, data=photo_resp.content
+                            mime_type=photo_mime, data=photo_bytes
                         )
                     ),
                     genai_types.Part(
                         inline_data=genai_types.Blob(
-                            mime_type=render_mime, data=render_resp.content
+                            mime_type=render_mime, data=render_bytes
                         )
                     ),
                 ]
@@ -415,7 +379,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # 3. Agentic Vision: measure room surfaces from original photo
         # Runs Gemini 2.5 Flash + Python code execution to get real mq values.
         # Non-fatal: if no photo or analysis fails, InsightEngine uses Italian averages.
-        measurement_context = await _run_measurement_vision(media_urls)
+        measurement_context = await _run_measurement_vision(media_urls, session_id)
         if measurement_context:
             logger.info("[QuoteTool] Room measurements injected from agentic vision.")
         else:
@@ -424,7 +388,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # 4. Agentic Vision: structural delta from render vs original photo comparison
         # Gemini 2.5 Flash visually compares both images and extracts ONLY structural
         # construction work needed (furniture/arredi are explicitly excluded).
-        structural_delta = await _run_render_structural_vision(media_urls, history)
+        structural_delta = await _run_render_structural_vision(media_urls, history, session_id)
         if structural_delta:
             logger.info("[QuoteTool] Structural delta from render comparison injected.")
         else:
@@ -447,7 +411,9 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         engine = get_insight_engine()
         summary_message = [{"role": "user", "content": enriched_summary}]
         try:
-            analysis = await engine.analyze_project_for_quote(summary_message, media_urls[-_QUOTE_MEDIA_MAX:])
+            analysis = await engine.analyze_project_for_quote(
+                summary_message, media_urls[-_QUOTE_MEDIA_MAX:], session_id=session_id
+            )
         except InsightEngineError as exc:
             logger.error("[QuoteTool] InsightEngine failed.", extra={"error": str(exc)})
             return (

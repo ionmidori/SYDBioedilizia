@@ -98,6 +98,20 @@ service cloud.firestore {
     }
 
     // ==========================================
+    // PROJECT ROOMS (Phase 138)
+    // ==========================================
+    // One chat per home: each room ("scheda stanza") of the project. The owner
+    // reads them (room chips, onSnapshot); only the backend writes (Admin SDK),
+    // through /api/projects/{id}/rooms and the agent tools.
+    match /projects/{projectId}/rooms/{roomId} {
+      allow read: if request.auth != null
+        && exists(/databases/$(database)/documents/projects/$(projectId))
+        && get(/databases/$(database)/documents/projects/$(projectId)).data.userId == request.auth.uid;
+
+      allow write: if false;
+    }
+
+    // ==========================================
     // COLLECTION GROUP: FILES
     // ==========================================
     // Global Gallery queries restricted to files the user uploaded.

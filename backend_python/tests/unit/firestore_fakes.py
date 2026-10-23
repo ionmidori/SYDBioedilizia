@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore_v1 import DELETE_FIELD
 
 # Default write time of fake documents and blobs: long ago, so age-based rules
@@ -90,6 +91,12 @@ class FakeDocRef:
 
     async def set(self, data: dict[str, Any], merge: bool = False) -> None:
         self._db.apply_set(self.path, data, merge=merge)
+
+    async def create(self, data: dict[str, Any]) -> None:
+        """Like Firestore: fails with AlreadyExists when the document exists."""
+        if self.path in self._db.docs:
+            raise AlreadyExists(f"Document already exists: {'/'.join(self.path)}")
+        self._db.apply_set(self.path, data, merge=False)
 
 
 class FakeDocSnapshot(FakeDocRef):

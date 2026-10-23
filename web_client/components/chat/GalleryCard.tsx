@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ZoomIn, Download, Edit2, Check, XCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useMetadataEditor } from '@/hooks/useMetadataEditor';
+import { ROOM_TYPES } from '@/types/room';
 
 interface GalleryImage {
     url: string;
@@ -20,7 +21,6 @@ interface GalleryCardProps {
  * GalleryCard - Visual Grid for Project Images
  * Displays images in a responsive grid with lightbox functionality.
  */
-const ROOM_OPTIONS = ['cucina', 'soggiorno', 'camera', 'bagno', 'corridoio', 'altro'];
 const STATUS_OPTIONS = ['approvato', 'bozza', 'in_revisione', 'scartato'];
 
 export function GalleryCard({ items, projectId }: GalleryCardProps) {
@@ -122,7 +122,7 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                                     className="w-full bg-luxury-bg/50 border border-luxury-gold/20 rounded-lg px-3 py-2 text-luxury-text focus:border-luxury-gold/40 focus:outline-none"
                                 >
                                     <option value="">-- Seleziona --</option>
-                                    {ROOM_OPTIONS.map(room => (
+                                    {ROOM_TYPES.map(room => (
                                         <option key={room} value={room}>{room}</option>
                                     ))}
                                 </select>

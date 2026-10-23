@@ -1,5 +1,5 @@
 import { describeApiError, fetchWithAuth, fetchValidated } from '@/lib/api-client';
-import { ProjectListItem, ProjectCreate, ProjectUpdate } from '@/types/projects';
+import { ProjectListItem, ProjectCreate, ProjectUpdate, ProjectFileMetadata } from '@/types/projects';
 import { projectListResponseSchema, projectSchema } from '@/lib/validation/project-list-schema';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
@@ -136,7 +136,7 @@ export const projectsApi = {
     /**
      * Add file metadata to a project.
      */
-    addProjectFile: async (sessionId: string, fileMetadata: { file_id: string, url: string, name: string, type: string, size: number }): Promise<void> => {
+    addProjectFile: async (sessionId: string, fileMetadata: ProjectFileMetadata): Promise<void> => {
         const response = await fetchWithAuth(`${API_ROOT}/projects/${sessionId}/files`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

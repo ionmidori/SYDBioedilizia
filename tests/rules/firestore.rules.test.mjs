@@ -29,6 +29,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'app_config/price_book'), { version: 1, items: [] });
   await setDoc(doc(db, 'app_config/price_book/history/1'), { version: 1 });
   await setDoc(doc(db, 'email_messages/m1'), { project_id: 'p1', delivery_id: 'd1' });
+  await setDoc(doc(db, 'projects/p1/rooms/bagno'), { room_id: 'bagno', label: 'Bagno', room_type: 'bagno' });
 });
 
 const owner = env.authenticatedContext('owner', google).firestore();
@@ -62,6 +63,14 @@ const cases = [
   ['user reads the price book history', false, () => getDoc(doc(owner, 'app_config/price_book/history/1'))],
   ['user enqueues an email', false, () => setDoc(doc(owner, 'email_outbox/o2'), { kind: 'admin_notification' })],
   ['user reads message index', false, () => getDoc(doc(owner, 'email_messages/m1'))],
+  // rooms (Phase 138): the owner reads them (room chips), only the backend writes
+  ['owner reads a room', true, () => getDoc(doc(owner, 'projects/p1/rooms/bagno'))],
+  ['owner lists rooms', true, () => getDocs(collection(owner, 'projects/p1/rooms'))],
+  ['other reads a room', false, () => getDoc(doc(other, 'projects/p1/rooms/bagno'))],
+  ['signed-out lists rooms', false, () => getDocs(collection(guest, 'projects/p1/rooms'))],
+  ['owner creates a room', false, () => setDoc(doc(owner, 'projects/p1/rooms/cucina'), { label: 'Cucina' })],
+  ['owner renames a room', false, () => updateDoc(doc(owner, 'projects/p1/rooms/bagno'), { label: 'X' })],
+  ['owner reads a room of a missing project', false, () => getDoc(doc(owner, 'projects/p9/rooms/bagno'))],
 ];
 
 let failed = 0;
