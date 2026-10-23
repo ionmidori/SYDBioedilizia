@@ -48,6 +48,26 @@ npm run dev:py              # backend on :8080
 
 These mirror CI — a PR will not merge until they pass.
 
+### One command: `npm run preflight`
+From the repo root, on your work branch:
+```bash
+npm run preflight                 # what CI runs, only for the areas your branch touches
+npm run preflight:fast            # while working: lint + types + tests (no coverage, build, audit)
+npm run preflight -- --only fe-types,be-ruff   # re-run just the steps that failed
+npm run preflight -- --list       # show the plan without running it
+```
+It picks frontend and/or backend from the changed files (same path filters as CI),
+runs cheap checks before tests and the build, and prints one line per step. For a
+failure it shows only the tail of the output plus the path of the full log. It also
+warns about things CI cannot see: uncommitted files, secrets in the diff, a package
+lock written by npm other than 10, a Pydantic model changed without its TypeScript
+type, and agent/prompt changes whose evals (`npm run eval:run`, needs
+`GOOGLE_API_KEY`) CI never runs. E2E (Playwright) and the Docker image build are left
+to CI. `npm run test:preflight` checks the script against the workflows and fails
+when their commands drift apart.
+
+The steps it runs are listed individually below.
+
 ### Frontend (`web_client/`)
 ```bash
 cd web_client
