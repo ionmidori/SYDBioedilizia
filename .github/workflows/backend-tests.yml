@@ -83,7 +83,14 @@ jobs:
         # CVE-2026-28277: langgraph msgpack deserialization (transitive via google-adk).
         # Post-exploitation only — requires checkpoint-store write access. No fix available yet.
         # We do not use LangGraph checkpointing; ADK uses InMemorySessionService.
-        run: uv run pip-audit --strict --desc --ignore-vuln CVE-2026-28277
+        # CVE-2026-114603: opentelemetry-api <=1.45.0, O(N^2) regex in
+        # TraceState.from_header on an inbound `tracestate` header (fix: 1.45.1).
+        # Fix blocked: google-adk 2.12.0 (latest) requires opentelemetry-api<=1.42.1.
+        # Not reachable: nothing calls propagate.extract() on inbound requests (no
+        # opentelemetry-instrumentation-* installed, ADK does not extract either);
+        # OpenTelemetry is only used to export spans to Cloud Trace.
+        # Remove this ignore once google-adk allows opentelemetry-api>=1.45.1.
+        run: uv run pip-audit --strict --desc --ignore-vuln CVE-2026-28277 --ignore-vuln CVE-2026-114603
 
       - name: 'Run tests + coverage gate'
         env:
