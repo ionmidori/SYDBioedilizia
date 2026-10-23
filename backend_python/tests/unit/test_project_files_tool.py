@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from src.tools.project_files import list_project_files
+from src.tools.project_files_view import ProjectFilesView
 
 # Mock Data
 MOCK_USER_ID = "user_123"
@@ -110,3 +111,45 @@ def test_category_filtering(mock_context_user, mock_firebase):
 
     assert "img.png" in result
     assert "doc.pdf" not in result
+
+
+def _authorize(mock_db):
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = MOCK_PROJECT_DATA
+    mock_db.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
+
+
+def test_lines_carry_file_id_and_room(mock_context_user, mock_firebase):
+    """Phase 138: the room of the `files` document wins over the legacy Storage tag."""
+    mock_db, mock_bucket = mock_firebase
+    _authorize(mock_db)
+    blob = MagicMock()
+    blob.name = "projects/x/bagno.jpg"
+    blob.content_type = "image/jpeg"
+    blob.metadata = {"room": "vecchio tag"}
+    mock_bucket.return_value.list_blobs.return_value = [blob]
+    view = ProjectFilesView(
+        room_labels={"r_bagno": "Bagno"},
+        files=[{"id": "f1", "roomId": "r_bagno", "metadata": {"storage_path": "projects/x/bagno.jpg"}}],
+    )
+    assert list_project_files(MOCK_SESSION_ID, MOCK_USER_ID, view=view) == "- [Bagno] f1 · bagno.jpg (image/jpeg)"
+
+
+def test_files_of_one_room(mock_context_user, mock_firebase):
+    mock_db, mock_bucket = mock_firebase
+    _authorize(mock_db)
+    view = ProjectFilesView(
+        room_labels={"r_bagno": "Bagno"},
+        room_only=True,
+        files=[
+            {"id": "f1", "type": "image", "roomId": "r_bagno", "name": "a.jpg", "mimeType": "image/jpeg"},
+            {"id": "v1", "type": "video", "roomId": "r_bagno", "name": "v.mp4", "mimeType": "video/mp4"},
+        ],
+    )
+    result = list_project_files(MOCK_SESSION_ID, MOCK_USER_ID, category="video", view=view)
+    assert result == "- [Bagno] v1 · v.mp4 (video/mp4)"
+    mock_bucket.return_value.list_blobs.assert_not_called()
+    assert list_project_files(MOCK_SESSION_ID, MOCK_USER_ID, view=ProjectFilesView(room_only=True)) == (
+        "No files found for this room."
+    )

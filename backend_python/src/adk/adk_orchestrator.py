@@ -22,15 +22,23 @@ from google.adk.apps.app import App
 from google.adk.events import Event, EventActions
 from google.adk.runners import Runner
 from google.adk.sessions import BaseSessionService, Session
+from google.api_core.exceptions import GoogleAPIError
 from google.genai import errors as genai_errors
 from google.genai import types
+from pydantic import ValidationError
 
 from src.adk.agents import syd_orchestrator
 from src.adk.filters import MASKED_REPLY, StreamingOutputGuard, filter_agent_output, sanitize_before_agent
 from src.adk.latency_plugin import LatencyPlugin
 from src.adk.media_model_plugin import MediaModelPlugin
 from src.adk.session import get_artifact_service, get_session_service
-from src.adk.session_context_plugin import SessionContextPlugin, session_context_delta
+from src.adk.session_context_plugin import (
+    ACTIVE_ROOM_STATE_KEY,
+    ROOMS_STATE_KEY,
+    SessionContextPlugin,
+    room_index_entry,
+    session_context_delta,
+)
 from src.adk.video_attachments import (
     UNREADABLE_VIDEOS_STATE_KEY,
     is_media_rejection,
@@ -43,11 +51,15 @@ from src.adk.video_guard_plugin import VideoGuardPlugin
 from src.core.chat_timing import current_turn
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
+from src.repositories.room_repository import get_room_repository
+from src.schemas.room import RoomSchema
 from src.services.base_orchestrator import BaseOrchestrator
+from src.tools.room_tools import media_label, room_of
 from src.utils.circuit_breaker import vertex_ai_breaker
-from src.utils.download import download_session_media
+from src.utils.download import download_session_media, session_media_path
 from src.utils.stream_protocol import (
     redact_chunk,
+    stream_active_room,
     stream_artifact_event,
     stream_data,
     stream_error,
@@ -202,6 +214,37 @@ async def _latest_reply_id(session_id: str) -> str | None:
     except Exception:
         logger.warning("[ADK] Could not check the session for newer turns", exc_info=True)
         return None
+
+
+async def _project_rooms(session_id: str) -> list[RoomSchema] | None:
+    """Rooms of the project for the room index; None when they cannot be read
+    (the session keeps the index of the previous turn). Never raises."""
+    try:
+        return await get_room_repository().list_rooms(session_id)
+    except (GoogleAPIError, ValidationError) as e:
+        logger.warning(f"[ADK] Could not read the project rooms: {type(e).__name__}")
+        return None
+
+
+async def _media_label_part(ref: str, file_type: str, session_id: str, room_labels: dict[str, str]) -> types.Part:
+    """`[Foto <file_id> · <stanza>]` before a media of the turn: the model knows
+    which file and which room it is looking at, and passes the id to the room
+    tools. Never the URL: a signed URL is a bearer credential and expires."""
+    doc: dict[str, Any] | None = None
+    path = session_media_path(ref, session_id)
+    if path:
+        try:
+            doc = await get_room_repository().find_file_by_storage_path(session_id, path)
+        except GoogleAPIError as e:
+            # The label falls back to "senza stanza": the media itself still goes to the model.
+            logger.warning(f"[ADK] Could not look up a media of the turn: {type(e).__name__}")
+    room_id = room_of(doc)
+    label = media_label(
+        (doc or {}).get("type") or file_type,
+        (doc or {}).get("id"),
+        room_labels.get(room_id, room_id) if room_id else None,
+    )
+    return types.Part(text=f"\n{label}\n")
 
 
 class _TurnText:
@@ -380,6 +423,8 @@ class ADKOrchestrator(BaseOrchestrator):
         latest_reply_task = (
             asyncio.create_task(_latest_reply_id(session_id)) if sync_key in _synced_marker else None
         )
+        # Room index (session block and media labels), read alongside the profile lookup.
+        rooms_task = asyncio.create_task(_project_rooms(session_id))
         # Check if phone is already on file (avoids asking again in quote flow)
         phone_on_file = False
         if not is_guest:
@@ -396,9 +441,20 @@ class ADKOrchestrator(BaseOrchestrator):
         logger.info(f"[ADK] Session context: is_guest={is_guest}, uid={user_id}, phone_on_file={phone_on_file}")
         # Login state, phone and session id reach the model through the session
         # state (SessionContextPlugin → system instruction), not the user message.
-        context_delta = session_context_delta(
+        context_delta: dict[str, Any] = session_context_delta(
             is_guest=is_guest, phone_on_file=phone_on_file, session_id=session_id
         )
+        # Rooms of the project and the room chosen in the client (already checked
+        # against the project); without a chip the room picked by `select_room`
+        # in an earlier turn stays active.
+        rooms = await rooms_task
+        room_labels = {r.room_id: r.label for r in rooms or []}
+        if rooms is not None:
+            context_delta[ROOMS_STATE_KEY] = [
+                room_index_entry(r.room_id, r.label, r.room_type, r.summary) for r in rooms
+            ]
+        if room_id:
+            context_delta[ACTIVE_ROOM_STATE_KEY] = room_id
 
         # Apply the Sandwich Defense boundary delimiters to the clean input
         delimited_input = f"###\n{sanitized_input}\n###"
@@ -415,13 +471,15 @@ class ADKOrchestrator(BaseOrchestrator):
             try:
                 # Read by Storage path, only among this session's files (a URL
                 # of another project or bucket is refused).
-                image_bytes, stored_mime = await download_session_media(url, session_id)
+                (image_bytes, stored_mime), label_part = await asyncio.gather(
+                    download_session_media(url, session_id),
+                    _media_label_part(url, "image", session_id, room_labels),
+                )
                 final_mime = mime or (media_types[i] if i < len(media_types) else stored_mime)
                 logger.info(f"[ADK] Fetched media {i}: {len(image_bytes)} bytes ({final_mime})")
-                # Return both the image data and a text hint so the agent knows the source URL
+                # The label goes before the image: "[Foto f_123 · Bagno]".
                 img_part = types.Part(inline_data=types.Blob(mime_type=final_mime, data=image_bytes))
-                hint_part = types.Part(text=f"\n[URL Immagine Caricata per riferimento o tool: {url}]\n")
-                return [img_part, hint_part]
+                return [label_part, img_part]
             except Exception as e:  # noqa: BLE001
                 # Never log the URL: it is a signed URL (a bearer credential).
                 logger.error(f"Failed to fetch media {i}: {type(e).__name__}: {e}")
@@ -443,7 +501,13 @@ class ADKOrchestrator(BaseOrchestrator):
             task_objs = [tg.create_task(fetch_media(i, url)) for i, url in enumerate(media_urls)]
         videos = videos_task.result()
 
-        content_parts.extend(videos.parts)
+        # Each video gets its label too, right before it.
+        video_labels = await asyncio.gather(*(
+            _media_label_part((p.file_data.file_uri if p.file_data else None) or "", "video", session_id, room_labels)
+            for p in videos.parts
+        ))
+        for label_part, video_part in zip(video_labels, videos.parts, strict=True):
+            content_parts.extend((label_part, video_part))
         if videos.skipped:
             content_parts.append(
                 skipped_model_note(len(videos.skipped), reupload_helps=not videos.only_unsupported)
@@ -749,6 +813,19 @@ class ADKOrchestrator(BaseOrchestrator):
                                             )
                                             async for chunk in stream_tool_result(call_id, raw_response):
                                                 yield chunk
+
+                                            # The agent moved the conversation to another room:
+                                            # the rest of the turn is tagged with it and the
+                                            # client's room chip follows.
+                                            if (
+                                                getattr(fr, "name", None) == "select_room"
+                                                and isinstance(raw_response, dict)
+                                                and raw_response.get("status") == "success"
+                                                and isinstance(raw_response.get("room_id"), str)
+                                            ):
+                                                room_id = raw_response["room_id"]
+                                                async for chunk in stream_active_room(room_id):
+                                                    yield chunk
 
                                             # ── Persist Tool Result to Firestore ──
                                             # Saved concurrently: the next model call (which

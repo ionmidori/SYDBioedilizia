@@ -32,6 +32,8 @@ DEFAULT_ROOM_LABEL = "Generale"
 MAX_ROOMS_PER_PROJECT = 30
 # Writes per batch when filing a legacy project's files (Firestore limit: 500).
 _BATCH_WRITES = 400
+# Newest files searched for a photo without a room (render source fallback).
+_UNFILED_SCAN = 50
 
 
 def _new_room_id() -> str:
@@ -147,10 +149,38 @@ class RoomRepository:
             query = query.limit(limit)
         return [{**(doc.to_dict() or {}), "id": doc.id} async for doc in query.stream()]
 
+    async def list_files(self, project_id: str) -> list[dict[str, Any]]:
+        """Every file of the project, each with its document `id` (unordered)."""
+        return [
+            {**(doc.to_dict() or {}), "id": doc.id}
+            async for doc in self._project(project_id).collection(FILES).stream()
+        ]
+
     async def latest_room_photo(self, project_id: str, room_id: str) -> dict[str, Any] | None:
         """The newest photo uploaded for the room (renders are type "render", not "image")."""
         photos = await self.files_for_room(project_id, room_id, file_type="image", limit=1)
         return photos[0] if photos else None
+
+    async def latest_unclassified_photo(self, project_id: str) -> dict[str, Any] | None:
+        """The newest photo not classified in a named room: without a room, or in
+        "Generale" (files from before rooms, uploads made with the default room
+        active). It may show any room. Unfiled photos are looked for only among
+        the newest `_UNFILED_SCAN` files (a missing field cannot be queried)."""
+        generale = await self.latest_room_photo(project_id, DEFAULT_ROOM_ID)
+        unfiled = None
+        query = (
+            self._project(project_id).collection(FILES)
+            .order_by("uploadedAt", direction="DESCENDING").limit(_UNFILED_SCAN)
+        )
+        async for doc in query.stream():
+            data = doc.to_dict() or {}
+            if data.get("type") == "image" and not data.get(FILE_ROOM_FIELD):
+                unfiled = {**data, "id": doc.id}
+                break
+        if generale is None or unfiled is None:
+            return generale or unfiled
+        newer_unfiled = (unfiled.get("uploadedAt") or 0) > (generale.get("uploadedAt") or 0)
+        return unfiled if newer_unfiled else generale
 
     async def find_file_by_storage_path(self, project_id: str, storage_path: str) -> dict[str, Any] | None:
         """The `files` document of an object path (with its `id`), if registered."""

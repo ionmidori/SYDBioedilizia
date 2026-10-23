@@ -9,15 +9,18 @@ import { logger } from '@/lib/logger';
 interface UseChatTransportOptions {
     sessionId: string;
     currentProjectId: string | null;
+    /** Room of the project the turn is about (Phase 138). */
+    activeRoomId?: string | null;
 }
 
 /**
  * Build the AI SDK transport: authenticated headers plus the request body
- * enrichment that every chat call needs (sessionId / projectId).
+ * enrichment that every chat call needs (sessionId / projectId / roomId).
  */
 export function useChatTransport({
     sessionId,
     currentProjectId,
+    activeRoomId = null,
 }: UseChatTransportOptions): DefaultChatTransport<Message> {
     const { refreshToken } = useAuth();
 
@@ -85,6 +88,9 @@ export function useChatTransport({
                 ...extra,
                 projectId: currentProjectId,
                 sessionId,
+                // A room set by the caller wins: buildMediaPayload sends the room the
+                // photos of this turn were filed in.
+                roomId: extra.roomId ?? activeRoomId ?? undefined,
             };
 
             const msgs = body.messages as Message[];
@@ -103,5 +109,5 @@ export function useChatTransport({
             }
             return { body };
         },
-    }), [resolveHeaders, currentProjectId, sessionId]);
+    }), [resolveHeaders, currentProjectId, sessionId, activeRoomId]);
 }

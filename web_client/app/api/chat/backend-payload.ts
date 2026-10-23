@@ -11,6 +11,8 @@ export interface ChatProxyBody {
     mediaTypes?: string[];
     mediaMetadata?: Record<string, unknown>;
     videoFileUris?: string[];
+    /** Room of the project the turn is about (Phase 138); checked by the backend. */
+    roomId?: string | null;
 }
 
 /**
@@ -30,5 +32,6 @@ export function buildBackendPayload(body: ChatProxyBody) {
         mediaTypes: body.mediaTypes || [],
         mediaMetadata: body.mediaMetadata || {},
         videoFileUris: body.videoFileUris || [],
+        roomId: body.roomId || null,
     };
 }

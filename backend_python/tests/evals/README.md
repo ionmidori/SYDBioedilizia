@@ -8,14 +8,23 @@ test suite or of CI.
 
 ## Run the evaluations
 
-You need `GOOGLE_API_KEY` in `backend_python/.env` and the dependencies
-installed (`uv sync --extra dev`).
+You need a Gemini backend and the ADK eval dependencies:
+
+- **Backend**: a valid `GOOGLE_API_KEY` in `backend_python/.env` (AI Studio), or
+  Vertex AI with your gcloud credentials (`gcloud auth application-default login`).
+  For Vertex, set the variables for the run only and blank the keys, so an
+  inactive key in `.env` is not used:
+  `GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=<project> GOOGLE_CLOUD_LOCATION=eu GOOGLE_API_KEY= GEMINI_API_KEY= npm run eval:run:rooms`
+- **Dependencies**: `uv sync --extra dev`, plus the ADK eval extra, which is not
+  in the lock file: `uv pip install "google-adk[eval]==<installed google-adk version>"`
+  (a later `uv sync` removes it again).
 
 ```bash
 npm run eval:run              # from the repo root: all flows
 npm run eval:run:quote        # one flow
 npm run eval:run:triage
 npm run eval:run:design
+npm run eval:run:rooms        # multi-room chat (Phase 138)
 ```
 
 To use more options, run the runner directly from `backend_python/`:
@@ -47,6 +56,7 @@ passed. Results saved with `--output` are timestamped JSON files in
 | `quote_flow.test.json` | `quote_bathroom_6mq`, `quote_livingroom_28mq` |
 | `triage_flow.test.json` | `photo_upload_no_context_intent_first`, `photo_upload_in_quote_flow_no_routing` |
 | `design_flow.test.json` | `design_livingroom_modern` |
+| `multi_room/multi_room_flow.test.json` | `bathroom_render_after_kitchen_photo` |
 
 The files use the ADK `EvalSet` schema, which **requires snake_case keys**:
 
@@ -81,6 +91,26 @@ the normal test suite instead of the live run.
 To add a case or a flow, create or edit a `.test.json` file in this folder and
 run it with `--file`. Add a flow script to the root `package.json` if you want
 a shortcut.
+
+## Multi-room set (Phase 138)
+
+`multi_room/` checks one chat for the whole home: kitchen and bathroom photos
+alternate (as the orchestrator labels them, `[Foto <id> · <stanza>]`), the
+kitchen is the active room, then the user asks for a bathroom render. It runs
+differently from the other sets:
+
+- **Agent module** `tests.evals.multi_room.agent`: the production agents in an
+  `App` with `SessionContextPlugin`, so the model reads "CONTESTO SESSIONE"
+  (login, STANZE DEL PROGETTO, STANZA ATTIVA). The case seeds that state with
+  `session_input.state`.
+- **In-memory backend** (`multi_room/fakes.py`): rooms, project files, login,
+  quota and the image backend are fakes. The run writes nothing to Firestore or
+  Storage and spends no render quota.
+- **Render source check**: the runner fails unless at least one render was
+  generated and every render started from the bathroom photo (`f_bagno_1`),
+  not from the newest project photo (`f_cucina_2`).
+- **Own criteria** (`multi_room/test_config.json`): tool trajectory `IN_ORDER`
+  with `ignoreArgs` (`select_room` in the render turn), no response match.
 
 ## Pass criteria
 

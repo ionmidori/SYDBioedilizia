@@ -1,10 +1,45 @@
 import logging
+from typing import Any
 
+from src.tools.project_files_view import ProjectFilesView
 from src.tools.project_storage import ProjectAccessError, assert_project_owner, iter_project_blobs
 
 logger = logging.getLogger(__name__)
 
-def list_project_files(session_id: str, user_id: str, category: str | None = None, limit: int = 20) -> str:
+_CATEGORY_FILE_TYPES = {"image": ("image", "render"), "video": ("video",), "document": ("document",)}
+
+
+def _line(tags: list[str], file_id: str | None, filename: str, content_type: str) -> str:
+    """`- [room | status] f_123 · filename (type)`: the id is what the room tools take."""
+    tag_prefix = f"[{' | '.join(tags)}] " if tags else ""
+    id_prefix = f"{file_id} · " if file_id else ""
+    return f"- {tag_prefix}{id_prefix}{filename} ({content_type})"
+
+
+def _room_lines(view: ProjectFilesView, category: str | None, limit: int) -> list[str]:
+    """One room's `files` documents (newest first)."""
+    wanted = _CATEGORY_FILE_TYPES.get(category or "")
+    lines = []
+    for doc in view.files:
+        if wanted and doc.get("type") not in wanted:
+            continue
+        path = (doc.get("metadata") or {}).get("storage_path") or ""
+        filename = doc.get("name") or path.split("/")[-1]
+        room_label = view.room_label(doc)
+        lines.append(_line([room_label] if room_label else [], doc["id"], filename, doc.get("mimeType") or ""))
+        if len(lines) >= limit:
+            break
+    return lines
+
+
+def list_project_files(
+    session_id: str,
+    user_id: str,
+    category: str | None = None,
+    limit: int = 20,
+    *,
+    view: ProjectFilesView | None = None,
+) -> str:
     """
     Lists the files available in the current project (images, documents, videos).
 
@@ -16,10 +51,13 @@ def list_project_files(session_id: str, user_id: str, category: str | None = Non
         user_id: The verified caller (ADK tool_context.user_id).
         category: Optional filter. 'image', 'video', 'document' (pdfs), 'plan' (planimetries).
         limit: Max number of files to return (default 20).
+        view: The project's `files` documents and rooms: each line gets its file
+            id and room; with `room_only` only that room's files are listed.
 
     Returns:
-        A formatted string list of filenames with their types and URLs.
+        A formatted string list of filenames with their ids, rooms and types.
     """
+    view = view or ProjectFilesView()
     logger.info("📂 [Tool] list_project_files requested")
 
     try:
@@ -29,8 +67,15 @@ def list_project_files(session_id: str, user_id: str, category: str | None = Non
         except ProjectAccessError as e:
             return f"Error: {e}."
 
+        if view.room_only:
+            file_list = _room_lines(view, category, limit)
+            if not file_list:
+                return "No files found for this room."
+            return "\n".join(file_list)
+
         # 2. LIST FILES from every storage prefix of the project (uploads, renders, PDFs)
         file_list = []
+        docs: dict[str, dict[str, Any]] = view.by_storage_path()
 
         count = 0
         for blob in iter_project_blobs(session_id):
@@ -57,7 +102,9 @@ def list_project_files(session_id: str, user_id: str, category: str | None = Non
             if is_match:
                 # Read metadata from Firebase Storage
                 metadata = blob.metadata or {}
-                room_tag = (metadata.get('room') or '').strip()
+                doc = docs.get(blob.name)
+                # The room of the `files` document wins over the legacy Storage tag.
+                room_tag = view.room_label(doc) or (metadata.get('room') or '').strip()
                 status_tag = (metadata.get('status') or '').strip()
 
                 # Build tag prefix for smart display
@@ -67,10 +114,8 @@ def list_project_files(session_id: str, user_id: str, category: str | None = Non
                 if status_tag:
                     tags.append(status_tag)
 
-                tag_prefix = f"[{' | '.join(tags)}] " if tags else ""
-
-                # Format: [room | status] filename (type)
-                file_list.append(f"- {tag_prefix}{filename} ({content_type})")
+                # Format: [room | status] id · filename (type)
+                file_list.append(_line(tags, doc["id"] if doc else None, filename, content_type))
                 count += 1
                 if count >= limit:
                     break

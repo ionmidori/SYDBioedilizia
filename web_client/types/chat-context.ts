@@ -1,6 +1,7 @@
 import { UIMessage as Message } from 'ai'; // Vercel AI SDK Type
 import { Message as FirestoreMessage } from './chat';
 import { FormEvent, ChangeEvent } from 'react';
+import type { RoomChip } from '@/hooks/useProjectRooms';
 
 /**
  * Global Chat Context Interface
@@ -106,4 +107,21 @@ export interface ChatContextType {
      * Data stream from the AI (used for status updates, protocol v2).
      */
     data?: unknown[];
+
+    /**
+     * Rooms of the current project (Phase 138), in creation order. Empty when
+     * the chat has no project (guest, global chat).
+     */
+    rooms: RoomChip[];
+
+    /**
+     * Room the next message and uploads belong to (`null` without rooms).
+     * Follows the agent when it picks another room (`select_room`).
+     */
+    activeRoomId: string | null;
+
+    /**
+     * Make a room active (room chip tapped, room just created).
+     */
+    setActiveRoomId: (roomId: string) => void;
 }

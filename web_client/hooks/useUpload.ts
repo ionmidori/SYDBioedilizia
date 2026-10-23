@@ -45,12 +45,15 @@ interface UseUploadOptions {
     allowedTypes?: string[];
     /** Session ID for image uploads */
     sessionId?: string;
+    /** Room of the project the uploaded photos/videos belong to (Phase 138) */
+    roomId?: string | null;
 }
 
 const DEFAULT_OPTIONS: Required<UseUploadOptions> = {
     maxSize: 100 * 1024 * 1024, // 100MB
     allowedTypes: ['image/*', 'video/*'],
     sessionId: '',
+    roomId: null,
 };
 
 // =============================================================================
@@ -58,7 +61,7 @@ const DEFAULT_OPTIONS: Required<UseUploadOptions> = {
 // =============================================================================
 
 export function useUpload(options: UseUploadOptions = {}) {
-    const { maxSize, allowedTypes, sessionId } = { ...DEFAULT_OPTIONS, ...options };
+    const { maxSize, allowedTypes, sessionId, roomId } = { ...DEFAULT_OPTIONS, ...options };
     const { user, refreshToken, signInAnonymously } = useAuth();
 
     // State: Record of uploads keyed by ID
@@ -196,6 +199,8 @@ export function useUpload(options: UseUploadOptions = {}) {
                 // Images and videos are stored under the session's Storage prefix.
                 if (sessionId && (item.file.type.startsWith('image/') || item.file.type.startsWith('video/'))) {
                     formData.append('session_id', sessionId);
+                    // The room active when the file was added (the backend checks it belongs to the project).
+                    if (roomId) formData.append('room_id', roomId);
                 }
 
                 // UPLOAD with XHR for progress tracking
@@ -244,6 +249,7 @@ export function useUpload(options: UseUploadOptions = {}) {
                     status: 'success',
                     progress: 100,
                     serverData: result,
+                    roomId,
                 });
                 logger.debug(`[useUpload] ✅ Upload complete: ${item.file.name}`);
 
@@ -267,7 +273,7 @@ export function useUpload(options: UseUploadOptions = {}) {
                 }
             }
         },
-        [refreshToken, sessionId, updateItem, requestWakeLock, releaseWakeLock, signInAnonymously, user]
+        [refreshToken, sessionId, roomId, updateItem, requestWakeLock, releaseWakeLock, signInAnonymously, user]
     );
 
     // ==========================================================================

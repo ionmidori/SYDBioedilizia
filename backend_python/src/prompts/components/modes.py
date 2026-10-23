@@ -8,6 +8,29 @@ IMPORTANT: All tool references here must match the actual registered FunctionToo
 in src/adk/tools.py. There is NO analyze_room, NO submit_lead, NO display_lead_form.
 """
 
+# Phase 138: one chat for the whole home. Shared by the router and every sub-agent.
+ROOMS_PROTOCOL = """## UNA CASA, PIÙ STANZE (Mandatorio)
+Una sola chat copre tutta la casa. Il blocco "CONTESTO SESSIONE" elenca le STANZE DEL PROGETTO
+(id · nome · tipo · sintesi) e la STANZA ATTIVA. Ogni foto o video arriva preceduto da un'etichetta:
+`[Foto <file_id> · <stanza>]`, `[Video <file_id> · <stanza>]`; "senza stanza" e "Generale" = non ancora
+classificato in una stanza precisa.
+
+1. CAMBIO STANZA → select_room. Quando l'utente parla di una stanza diversa dalla STANZA ATTIVA
+   ("passiamo alla cucina", "e il bagno?", "fammi il render del bagno"), chiama PRIMA
+   select_room(name="<nome come lo dice l'utente>", room_type="<cucina|soggiorno|camera|bagno|corridoio|altro>",
+   session_id=SESSION_ID), POI prosegui con analisi, render o preventivo. Se è già la stanza attiva, prosegui.
+2. FOTO SENZA STANZA → assegnala. Per ogni etichetta "senza stanza" o "Generale", riconosci la stanza dall'immagine
+   o da ciò che dice l'utente: usa il suo id da STANZE DEL PROGETTO (se manca, crea la stanza con
+   select_room) e chiama assign_media_to_room(file_id="<id dell'etichetta>", room_id="<id stanza>",
+   session_id=SESSION_ID). Se l'immagine è ambigua, chiedi all'utente di quale stanza si tratta.
+3. OGNI STANZA HA I SUOI DATI. Analisi, misure, render e voci di preventivo riguardano SOLO la stanza
+   di cui si parla: usa solo le foto con l'etichetta di quella stanza e i dati detti per quella stanza.
+   Misure, materiali e difetti di una stanza restano a quella stanza, mai a un'altra.
+4. Per riprendere una stanza (misure, decisioni, foto) chiama get_room_context(room_id="<id>",
+   session_id=SESSION_ID).
+5. Chiama le stanze per nome: gli id di stanze e file sono tecnici e restano fuori dal testo per l'utente.
+"""
+
 MODE_A_DESIGNER = """<mode name="A_Designer">
 <trigger>User wants to visualize, imagine, see ideas, style advice, "render"</trigger>
 <goal>Generate photorealistic interior design renderings via the generate_render tool</goal>
@@ -176,11 +199,9 @@ Changes: [new_materials_surfaces], [new_furniture_style], [lighting_atmosphere].
 Style: [style_keyword]. Photorealistic interior design render."
 
 CRITICO — SELEZIONE MODALITÀ:
-generate_render usa AUTOMATICAMENTE l'ultima foto caricata dall'utente in questo progetto,
-anche se il suo URL non è più nella conversazione: il render parte dalla stanza reale.
-- Se trovi un testo del tipo `[URL Immagine Caricata per riferimento o tool: ...]`, passalo:
-  generate_render(prompt="...", style="...", mode="modification", source_image_url="https://...")
-- Altrimenti chiama semplicemente generate_render(prompt="...", style="...").
+generate_render usa AUTOMATICAMENTE l'ultima foto della STANZA ATTIVA: il render parte dalla
+stanza reale. Se l'utente chiede il render di un'altra stanza, chiama PRIMA select_room.
+- Chiama semplicemente generate_render(prompt="...", style="..."): NON passare source_image_url.
 - Passa ignore_uploaded_photo=true SOLO se l'utente chiede esplicitamente un progetto da zero,
   NON basato sulla foto che ha caricato.
 </action>

@@ -143,6 +143,17 @@ async def stream_notice(code: str, message: str, level: str = "warning") -> Asyn
     }
 
 
+async def stream_active_room(room_id: str) -> AsyncGenerator[dict[str, Any], None]:
+    """The agent made another room active (`select_room`): the client moves its
+    room chip there, so the next turns are sent for that room. Transient
+    `data-active_room` chunk."""
+    yield {
+        "type": "data-active_room",
+        "data": {"type": "active_room", "roomId": room_id},
+        "transient": True,
+    }
+
+
 async def stream_ui_widget(widget_data: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
     """
     UiWidget event (ADK 1.27+ `render_ui_widget`) as a transient `data-ui_widget` chunk.

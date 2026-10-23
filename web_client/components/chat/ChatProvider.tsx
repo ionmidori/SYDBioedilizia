@@ -10,6 +10,8 @@ import { useChatSession } from '@/hooks/useChatSession';
 import { useChatSync } from '@/hooks/useChatSync';
 import { useChatTransport } from '@/hooks/useChatTransport';
 import { useAdkStreamEvents } from '@/hooks/useAdkStreamEvents';
+import { useProjectRooms } from '@/hooks/useProjectRooms';
+import { useActiveRoom } from '@/hooks/useActiveRoom';
 import { auth } from '@/lib/firebase';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
@@ -52,8 +54,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // -- HISTORY SYNC --
     const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId);
 
+    // -- ROOMS (Phase 138: one chat for the whole home) --
+    // Only a signed-in user's project has rooms the client can read (owner-only
+    // rules on projects/{id}); guest and global chats get no chips.
+    const roomsProjectId = user && !user.isAnonymous ? currentProjectId : null;
+    const { rooms } = useProjectRooms(roomsProjectId);
+    const { activeRoomId, setActiveRoomId } = useActiveRoom(roomsProjectId, rooms);
+
     // -- AI SDK v7 TRANSPORT (auth headers + request body enrichment) --
-    const transport = useChatTransport({ sessionId, currentProjectId });
+    const transport = useChatTransport({ sessionId, currentProjectId, activeRoomId });
 
     const chatHelpers = useChat({
         id: sessionId,
@@ -231,6 +240,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setInput,
         refreshHistory,
         data: streamData,
+        rooms,
+        activeRoomId,
+        setActiveRoomId,
     }), [
         currentProjectId,
         sessionId,
@@ -250,7 +262,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         stop,
         setInput,
         refreshHistory,
-        streamData
+        streamData,
+        rooms,
+        activeRoomId,
+        setActiveRoomId,
     ]);
     return (
         <ChatContext.Provider value={value}>

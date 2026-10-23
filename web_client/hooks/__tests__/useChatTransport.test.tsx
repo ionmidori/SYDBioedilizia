@@ -165,3 +165,27 @@ describe('useChatTransport — memoisation', () => {
         expect(result.current).not.toBe(first);
     });
 });
+
+describe('useChatTransport — room of the turn (Phase 138)', () => {
+    function buildWithRoom(activeRoomId: string | null) {
+        const { result } = renderHook(() => useChatTransport({ sessionId: 'p1', currentProjectId: 'p1', activeRoomId }));
+        return (result.current as unknown as { options: TransportOptions }).options;
+    }
+
+    it('sends the active room', () => {
+        const { body } = buildWithRoom('r_cucina').prepareSendMessagesRequest({ id: 'c', messages: [] });
+        expect(body.roomId).toBe('r_cucina');
+    });
+
+    it('keeps the room the uploads were made for', () => {
+        const { body } = buildWithRoom('r_cucina').prepareSendMessagesRequest({
+            id: 'c', messages: [], body: { roomId: 'r_bagno' },
+        });
+        expect(body.roomId).toBe('r_bagno');
+    });
+
+    it('sends no room without rooms', () => {
+        const { body } = buildWithRoom(null).prepareSendMessagesRequest({ id: 'c', messages: [] });
+        expect(body.roomId).toBeUndefined();
+    });
+});

@@ -13,12 +13,17 @@ from typing import Any
 
 from google.adk.tools import FunctionTool
 from google.api_core.exceptions import GoogleAPIError
+from pydantic import ValidationError
 
+from src.adk.session_context_plugin import ACTIVE_ROOM_STATE_KEY, ROOMS_STATE_KEY, room_index_entry
 from src.auth.user_lookup import is_anonymous_user
 from src.core.config import settings
 from src.core.money import line_total, to_json_number
 from src.core.telemetry import instrumented_tool
 from src.db.projects.media import latest_uploaded_photo_url
+from src.repositories.room_repository import get_room_repository
+from src.tools import gallery, project_files, room_tools
+from src.tools.project_files_view import ProjectFilesView
 from src.tools.quota import check_quota, increment_quota, quota_denial
 
 logger = logging.getLogger(__name__)
@@ -225,6 +230,23 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
 # keyed by invocation_id as well so it can never leak into a later turn.
 _RENDER_DONE_KEY = "temp:render_done"
 
+
+async def _render_source_photo(session_id: str, active_room_id: object) -> tuple[str | None, str]:
+    """Photo a render starts from, and why. With an active room: its newest photo,
+    else the newest photo not classified in a named room (no room, "Generale") —
+    never a photo of another named room. Without rooms: the project's newest photo."""
+    if not isinstance(active_room_id, str) or not active_room_id:
+        source = await latest_uploaded_photo_url(session_id)
+        return source, "project_photo" if source else "no_photo"
+    repo = get_room_repository()
+    photo = await repo.latest_room_photo(session_id, active_room_id)
+    if photo and photo.get("url"):
+        return photo["url"], "room_photo"
+    photo = await repo.latest_unclassified_photo(session_id)
+    if photo and photo.get("url"):
+        return photo["url"], "unclassified_photo"
+    return None, "room_without_photo"
+
 @instrumented_tool("generate_render")
 async def generate_render(
     prompt: str,
@@ -245,8 +267,8 @@ async def generate_render(
         style: Design style (e.g. 'modern', 'industrial', 'minimalist', 'rustic').
         room_type: Type of room (e.g. 'living room', 'kitchen', 'bathroom').
         mode: 'creation' for text-to-image, 'modification' to transform an uploaded photo.
-        source_image_url: Firebase Storage URL of the room photo. Optional: when the
-            user uploaded a photo to this project it is found automatically.
+        source_image_url: Leave empty: the newest photo of the ACTIVE ROOM is used
+            automatically (call select_room first when the user means another room).
         ignore_uploaded_photo: True ONLY if the user explicitly asks for a design from
             scratch, NOT based on the photo they uploaded.
     """
@@ -273,8 +295,8 @@ async def generate_render(
         return previous["result"]
 
     # The photo is the user's room: render FROM it (I2I) unless they asked for a
-    # design from scratch. Not left to the model, which only sees the photo URL
-    # in the upload turn and fell back to text-only on later turns.
+    # design from scratch. Not left to the model, which never sees photo URLs
+    # (only labels like "[Foto f_1 · Bagno]").
     source: str | None = None
     reason = "from_scratch_requested"
     if not ignore_uploaded_photo:
@@ -282,8 +304,7 @@ async def generate_render(
         reason = "model_url"
         if not source:
             try:
-                source = await latest_uploaded_photo_url(session_id)
-                reason = "project_photo" if source else "no_photo"
+                source, reason = await _render_source_photo(session_id, tool_context.state.get(ACTIVE_ROOM_STATE_KEY))
             except GoogleAPIError as lookup_err:
                 _logger.warning(f"[ADK Tool] generate_render: project photo lookup failed ({lookup_err})")
                 reason = "photo_lookup_failed"
@@ -343,35 +364,125 @@ async def generate_render(
 
 # ─── Project Gallery ─────────────────────────────────────────────────────────
 
-async def show_project_gallery(session_id: str, tool_context) -> str:
-    """Displays the project gallery (past renders and uploaded photos).
+async def _project_files_view(project_id: str, room_id: str) -> ProjectFilesView | str:
+    """Rooms and `files` documents the gallery / file list need; an error text
+    for an unknown room. With a room: only its files (newest first)."""
+    repo = get_room_repository()
+    try:
+        rooms = await repo.list_rooms(project_id)
+        labels = {r.room_id: r.label for r in rooms}
+        if not room_id:
+            return ProjectFilesView(room_labels=labels, files=await repo.list_files(project_id))
+        if room_id not in labels:
+            return "Stanza non trovata in questo progetto: usa un id da STANZE DEL PROGETTO."
+        return ProjectFilesView(
+            room_labels=labels, files=await repo.files_for_room(project_id, room_id), room_only=True
+        )
+    except (GoogleAPIError, ValidationError) as e:
+        logger.error(f"[ADK Tool] project files lookup failed: {type(e).__name__}")
+        return "Errore nel caricamento dei file del progetto. Riprova."
+
+
+async def show_project_gallery(session_id: str, tool_context, room_id: str = "") -> str:
+    """Displays the project gallery (past renders and uploaded photos), each with its file id.
 
     Args:
         session_id: The project/session identifier to load gallery for.
         tool_context: ADK ToolContext injected automatically by the runner.
+        room_id: Optional room id (from STANZE DEL PROGETTO): only that room's photos and renders.
     """
-    from src.tools.gallery import show_project_gallery as _gallery
+    project_id = _trusted_session_id(tool_context, session_id)
+    view = await _project_files_view(project_id, room_id)
+    if isinstance(view, str):
+        return view
     # Owner = the verified session's user; Firebase SDK calls are sync -> thread.
     return await asyncio.to_thread(
-        _gallery,
-        session_id=_trusted_session_id(tool_context, session_id),
-        user_id=tool_context.user_id,
+        gallery.show_project_gallery, session_id=project_id, user_id=tool_context.user_id, view=view
     )
 
 
 # ─── Project Files ───────────────────────────────────────────────────────────
 
-async def list_project_files(session_id: str, tool_context) -> str:
-    """Lists DXF/CAD files and images attached to a project in Firebase Storage.
+async def list_project_files(session_id: str, tool_context, room_id: str = "") -> str:
+    """Lists the files of the project (photos, videos, renders, documents) with their ids and rooms.
 
     Args:
         session_id: The project identifier.
         tool_context: ADK ToolContext injected automatically by the runner.
+        room_id: Optional room id (from STANZE DEL PROGETTO): only that room's files.
     """
-    from src.tools.project_files import list_project_files as _lp
-    return await asyncio.to_thread(
-        _lp, _trusted_session_id(tool_context, session_id), user_id=tool_context.user_id
-    )
+    project_id = _trusted_session_id(tool_context, session_id)
+    view = await _project_files_view(project_id, room_id)
+    if isinstance(view, str):
+        return view
+    return await asyncio.to_thread(project_files.list_project_files, project_id, user_id=tool_context.user_id, view=view)
+
+
+# ─── Rooms (Phase 138: one chat for the whole home) ──────────────────────────
+
+# Rooms belong to a registered user's project: a guest session has none, and the
+# model is told to carry on without them (re-checked here, not only in the prompt).
+_ROOMS_LOGIN_REQUIRED = {
+    "status": "error",
+    "message": "Le stanze sono disponibili solo agli utenti registrati: prosegui senza select_room.",
+}
+
+@instrumented_tool("select_room")
+async def select_room(name: str, room_type: str, session_id: str, tool_context) -> dict:
+    """Makes a room the ACTIVE ROOM of the conversation: finds it by name, or creates it.
+
+    Call it as soon as the user talks about a room other than the active one
+    ("passiamo alla cucina", "e il bagno?", "render del bagno"), BEFORE analysing,
+    rendering or quoting that room. Renders and analyses then use only that room's media.
+
+    Args:
+        name: Room name as the user says it (e.g. 'Bagno', 'Camera dei bambini').
+        room_type: One of 'cucina', 'soggiorno', 'camera', 'bagno', 'corridoio', 'altro'.
+        session_id: The current session identifier.
+        tool_context: ADK ToolContext injected automatically by the runner.
+    """
+    project_id = _trusted_session_id(tool_context, session_id)
+    if await _is_guest(tool_context.user_id):
+        return dict(_ROOMS_LOGIN_REQUIRED)
+    result, rooms = await room_tools.select_room(project_id, name, room_type)
+    if result["status"] == "success":
+        tool_context.state[ACTIVE_ROOM_STATE_KEY] = result["room_id"]
+        tool_context.state[ROOMS_STATE_KEY] = [
+            room_index_entry(r.room_id, r.label, r.room_type, r.summary) for r in rooms
+        ]
+    return result
+
+
+@instrumented_tool("assign_media_to_room")
+async def assign_media_to_room(file_id: str, room_id: str, session_id: str, tool_context) -> dict:
+    """Files a photo, video or render in a room of the project.
+
+    Use it for media labelled "senza stanza" (e.g. "[Foto f_123 · senza stanza]")
+    once you know from the image which room it shows, or when the user says a
+    media belongs to another room.
+
+    Args:
+        file_id: Id from the media label (e.g. 'f_123' in "[Foto f_123 · ...]").
+        room_id: Id of the room, from STANZE DEL PROGETTO (call select_room first if it does not exist).
+        session_id: The current session identifier.
+        tool_context: ADK ToolContext injected automatically by the runner.
+    """
+    project_id = _trusted_session_id(tool_context, session_id)
+    if await _is_guest(tool_context.user_id):
+        return dict(_ROOMS_LOGIN_REQUIRED)
+    return await room_tools.assign_media(project_id, file_id, room_id)
+
+
+@instrumented_tool("get_room_context")
+async def get_room_context(room_id: str, session_id: str, tool_context) -> dict:
+    """Returns a room's brief (measures, state, decisions) and its media with ids and labels.
+
+    Args:
+        room_id: Id of the room, from STANZE DEL PROGETTO.
+        session_id: The current session identifier.
+        tool_context: ADK ToolContext injected automatically by the runner.
+    """
+    return await room_tools.room_context(_trusted_session_id(tool_context, session_id), room_id)
 
 
 # ─── Quote Item Suggestions ──────────────────────────────────────────────────
@@ -484,6 +595,9 @@ generate_render_adk = FunctionTool(generate_render)
 show_project_gallery_adk = FunctionTool(show_project_gallery)
 list_project_files_adk = FunctionTool(list_project_files)
 suggest_quote_items_adk = FunctionTool(suggest_quote_items)
+select_room_adk = FunctionTool(select_room)
+assign_media_to_room_adk = FunctionTool(assign_media_to_room)
+get_room_context_adk = FunctionTool(get_room_context)
 request_login_adk = FunctionTool(request_login)
 retrieve_knowledge_adk = FunctionTool(retrieve_knowledge)
 search_listino_adk = FunctionTool(search_listino)
