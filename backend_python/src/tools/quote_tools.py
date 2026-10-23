@@ -30,6 +30,14 @@ logger = logging.getLogger(__name__)
 _MIN_QTY = 0.01   # Allow fractional units (e.g. 0.5 m²)
 _MAX_QTY = 10_000  # Hard cap — anything above is almost certainly an AI hallucination
 
+# Messages read to build the quote: enough for a long, multi-room conversation.
+# Each one is cut to 500 chars in the summary (build_chat_summary), so the text
+# stays far below the model's context.
+_QUOTE_HISTORY_MESSAGES = 150
+# Photos/videos sent inline to the InsightEngine: the most recent ones. A long
+# chat can hold dozens, and every one is downloaded and sent in a single request.
+_QUOTE_MEDIA_MAX = 8
+
 
 class SuggestQuoteItemsInput(BaseModel):
     model_config = {"extra": "forbid"}
@@ -397,9 +405,9 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
     Use this when the user asks for a preliminary quote, cost estimation, or 'what needs to be done'.
     """
     try:
-        # 1. Load context (increased limit to capture original photo analysis)
+        # 1. Load context (wide window: the original photo analysis and every room discussed)
         repo = ConversationRepository()
-        history = await repo.get_context(session_id, limit=40)
+        history = await repo.get_context(session_id, limit=_QUOTE_HISTORY_MESSAGES)
 
         # 2. Extract media URLs (handles dict and legacy list format)
         media_urls = _extract_media_urls(history)
@@ -439,7 +447,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         engine = get_insight_engine()
         summary_message = [{"role": "user", "content": enriched_summary}]
         try:
-            analysis = await engine.analyze_project_for_quote(summary_message, media_urls)
+            analysis = await engine.analyze_project_for_quote(summary_message, media_urls[-_QUOTE_MEDIA_MAX:])
         except InsightEngineError as exc:
             logger.error("[QuoteTool] InsightEngine failed.", extra={"error": str(exc)})
             return (
