@@ -17,12 +17,10 @@
         "eval:run:design": "cd backend_python && uv run python tests/evals/run_evals.py --file design_flow.test.json --output results/"
     },
     "dependencies": {
-        "form-data": "^4.0.6",
         "minimatch": "10.2.6",
         "next": "^16.4.2",
-        "opencode-ai": "^1.19.0",
-        "react": "19.3.0",
-        "react-dom": "19.3.0"
+        "react": "19.3.1",
+        "react-dom": "19.3.1"
     },
     "overrides": {
         "@istanbuljs/load-nyc-config": {

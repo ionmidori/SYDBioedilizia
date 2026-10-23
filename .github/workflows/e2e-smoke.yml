@@ -50,7 +50,7 @@ jobs:
     # by hand with Playwright. If they drift, the install step below downloads
     # the matching browser from Playwright's CDN instead of failing.
     container:
-      image: 'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'
+      image: 'mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea'
     # Fail fast instead of hanging for the 6 h default (normal run: ~3 min).
     timeout-minutes: 20
 
@@ -109,7 +109,7 @@ jobs:
     runs-on: 'ubuntu-latest'
     # Same image and pin as the smoke job — keep the two in sync.
     container:
-      image: 'mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27'
+      image: 'mcr.microsoft.com/playwright:v1.64.1-noble@sha256:47b510dd9230bf0b9bfc9b20102241e577ea7a99334ab4c3ca19f19770e9b8ea'
     timeout-minutes: 25
     # Intentionally NOT `needs: smoke` — the two run in parallel and fail
     # independently, so a broken login can never mask the public smoke result

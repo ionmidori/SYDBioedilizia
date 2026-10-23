@@ -7,6 +7,8 @@ uv run python scripts/<nome>.py        # top-level
 uv run python scripts/ops/<nome>.py    # ispezione dati
 ```
 
+Gli script che leggono PDF (`extract_prezzario.py`, `pinecone_upload_pdf.py`) usano `pypdf`, che sta nell'extra `dev` e non è installata in produzione: lanciali con `uv run --extra dev python scripts/<nome>.py`.
+
 - **Non** fanno parte della test suite: pytest raccoglie solo `tests/`, la CI non li esegue.
 - Sono esclusi dall'immagine Cloud Run (`.dockerignore`) e, con #470, anche dall'upload di Cloud Build (`.gcloudignore`).
 - Molti agiscono su **dati live** (Firestore, Storage, Pinecone) con le credenziali del `.env`: leggere l'header dello script prima di lanciarlo, soprattutto quelli che scrivono o cancellano.
