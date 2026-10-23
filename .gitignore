@@ -28,6 +28,8 @@ web_client/e2e/**/.auth/
 **/.next/
 # Separate build artifact for the authenticated E2E suite (NEXT_DIST_DIR)
 **/.next-e2e/
+# Build made by scripts/preflight.mjs (NEXT_DIST_DIR), apart from a running `next dev`
+**/.next-preflight/
 /out/
 
 # production

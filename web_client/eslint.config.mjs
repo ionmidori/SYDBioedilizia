@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Build artifact of the authenticated E2E suite (NEXT_DIST_DIR=.next-e2e).
     ".next-e2e/**",
+    // Build artifact of scripts/preflight.mjs (NEXT_DIST_DIR=.next-preflight): left on
+    // disk, the next run's lint would analyse the previous build's bundled chunks.
+    ".next-preflight/**",
     // Generated coverage report (gitignored): its bundled JS trips
     // unused-eslint-disable warnings when linting after `npm run test:coverage`.
     "coverage/**",

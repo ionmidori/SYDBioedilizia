@@ -11,6 +11,9 @@
     "scripts": {
         "dev:web": "npm run dev --workspace=web_client",
         "dev:py": "cd backend_python && uv run uvicorn main:app --reload --port 8080",
+        "preflight": "node scripts/preflight.mjs",
+        "preflight:fast": "node scripts/preflight.mjs --fast",
+        "test:preflight": "node --test scripts/preflight.test.mjs",
         "eval:run": "cd backend_python && uv run python tests/evals/run_evals.py --output results/",
         "eval:run:quote": "cd backend_python && uv run python tests/evals/run_evals.py --file quote_flow.test.json --output results/",
         "eval:run:triage": "cd backend_python && uv run python tests/evals/run_evals.py --file triage_flow.test.json --output results/",
