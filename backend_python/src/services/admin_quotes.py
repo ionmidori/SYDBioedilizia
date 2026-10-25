@@ -38,11 +38,12 @@ from src.core.exceptions import (
     QuoteVersionConflictError,
 )
 from src.core.money import line_total, to_cents
-from src.schemas.quote import QuoteFinancials, QuoteItem, RevisionChange
+from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteRoom, RevisionChange
 from src.services.pdf_service import quote_pdf_blob_path
 from src.services.pricing_service import PricingService
 from src.services.quote_drafts import build_revision, quote_doc_ref, revision_ref
 from src.services.quote_state import QuoteEvent, QuoteStatus, transition
+from src.services.room_aggregation import assign_sections, with_subtotals
 from src.utils.download import session_storage_prefixes
 
 logger = logging.getLogger(__name__)
@@ -120,7 +121,7 @@ def _result(project_id: str, quote: dict[str, Any], status: str, version: int) -
 
 # ── Line items ────────────────────────────────────────────────────────────────
 
-_ITEM_FIELDS = ("description", "unit", "qty", "unit_price")
+_ITEM_FIELDS = ("description", "unit", "qty", "unit_price", "room_id")
 
 
 def _item_key(item: dict[str, Any]) -> tuple[Any, ...]:
@@ -146,22 +147,28 @@ def _summary(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def diff_items(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> list[RevisionChange]:
-    """Line-item diff, matched by SKU (positionally among lines with the same SKU)."""
+    """Line-item diff, matched by room and SKU (positionally among lines with the
+    same room and SKU): the same SKU in two rooms is two different lines, and a
+    line moved to another room is removed from one and added to the other."""
     changes: list[RevisionChange] = []
-    remaining: dict[str, list[dict[str, Any]]] = {}
+    remaining: dict[tuple[str | None, str], list[dict[str, Any]]] = {}
     for item in before:
-        remaining.setdefault(str(item.get("sku")), []).append(item)
+        remaining.setdefault((item.get("room_id"), str(item.get("sku"))), []).append(item)
     for item in after:
-        sku = str(item.get("sku"))
-        pool = remaining.get(sku) or []
+        room_id, sku = key = (item.get("room_id"), str(item.get("sku")))
+        pool = remaining.get(key) or []
         if not pool:
-            changes.append(RevisionChange(change="added", sku=sku, after=_summary(item)))
+            changes.append(RevisionChange(change="added", sku=sku, room_id=room_id, after=_summary(item)))
             continue
         old = pool.pop(0)
         if _summary(old) != _summary(item):
-            changes.append(RevisionChange(change="changed", sku=sku, before=_summary(old), after=_summary(item)))
-    for sku, pool in remaining.items():
-        changes.extend(RevisionChange(change="removed", sku=sku, before=_summary(old)) for old in pool)
+            changes.append(RevisionChange(
+                change="changed", sku=sku, room_id=room_id, before=_summary(old), after=_summary(item)
+            ))
+    for (room_id, sku), pool in remaining.items():
+        changes.extend(
+            RevisionChange(change="removed", sku=sku, room_id=room_id, before=_summary(old)) for old in pool
+        )
     return changes
 
 
@@ -207,9 +214,14 @@ async def edit_tx(
     previous_items: list[dict[str, Any]] = list(quote.get("items") or [])
     # Lines are recomputed on every edit, even a VAT- or notes-only one: a line
     # saved with the old float rounding must not survive next to new totals.
-    new_items = normalise_items(
-        items if items is not None else [QuoteItem(**i) for i in previous_items], previous_items
-    )
+    edited = items if items is not None else [QuoteItem(**i) for i in previous_items]
+    # Multi-room quote: every line in a section, subtotals recomputed.
+    sections = [QuoteRoom(**r) for r in quote.get("rooms") or []]
+    if sections:
+        edited = assign_sections(edited, sections)
+    new_items = normalise_items(edited, previous_items)
+    if sections:
+        sections = with_subtotals(sections, new_items)
     rate = vat_rate if vat_rate is not None else float((quote.get("financials") or {}).get("vat_rate", 0.22))
     financials = PricingService.calculate_financials(new_items, vat_rate=rate)
     notes = admin_notes if admin_notes is not None else quote.get("admin_notes")
@@ -220,6 +232,7 @@ async def edit_tx(
         ref,
         {
             "items": items_dump,
+            "rooms": [s.model_dump(exclude_none=True) for s in sections],
             "financials": financials.model_dump(),
             "admin_notes": notes,
             "version": version,
@@ -228,7 +241,9 @@ async def edit_tx(
             **_lock_fields(admin_uid, now),
         },
     )
-    revision = build_revision(version, new_items, financials, notes, "admin", admin_uid, now, reason=reason)
+    revision = build_revision(
+        version, new_items, financials, notes, "admin", admin_uid, now, reason=reason, rooms=sections
+    )
     revision["diff"] = [c.model_dump(exclude_none=True) for c in diff_items(previous_items, items_dump)]
     transaction.set(revision_ref(ref, version), revision)
     return _result(project_id, quote, status.value, version)
@@ -323,6 +338,7 @@ async def reopen_tx(
             admin_uid,
             now,
             reason=reason,
+            rooms=[QuoteRoom(**r) for r in quote.get("rooms") or []],
         )
         revision["diff"] = []
         transaction.set(revision_ref(ref, version), revision)

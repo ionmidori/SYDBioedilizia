@@ -159,7 +159,8 @@ class PricingService:
     @classmethod
     def create_quote_from_skus(cls, project_id: str, user_id: str, sku_list: list[dict[str, Any]]) -> QuoteSchema:
         """
-        sku_list: List of dicts with {"sku": str, "qty": float, "ai_reasoning": Optional[str]}
+        sku_list: List of dicts with {"sku": str, "qty": float, "ai_reasoning": Optional[str],
+        "room_id": Optional[str]}
         """
         items = []
         for sku_data in sku_list:
@@ -181,7 +182,8 @@ class PricingService:
                     total=total,
                     ai_reasoning=reasoning,
                     category=master_item.get("category"),
-                    manual_override=False
+                    manual_override=False,
+                    room_id=sku_data.get("room_id"),
                 )
                 items.append(item)
             else:

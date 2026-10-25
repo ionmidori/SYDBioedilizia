@@ -32,7 +32,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent.parent.parent / ".env")
 
 from google.adk.evaluation import AgentEvaluator
-from tests.evals.multi_room.fakes import multi_room_backend
+from tests.evals.multi_room.fakes import BACKEND_CHECKS, multi_room_backend
 
 # AgentEvaluator prints the agents' replies (emoji included): on a Windows
 # console (cp1252) that print would raise UnicodeEncodeError mid-run.
@@ -97,14 +97,15 @@ def _eval_targets(file_filter: str | None) -> list[Path]:
         if not target.exists():
             logger.error(f"Test file not found: {target}")
             sys.exit(1)
-        return [target]
+        return sorted(target.glob("*.test.json")) if target.is_dir() else [target]
     return sorted(EVALS_DIR.glob("*.test.json")) + sorted(MULTI_ROOM_DIR.glob("*.test.json"))
 
 
 async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object:
     """Run one eval set. Raises on a schema error, an API failure or a metric
     below threshold. The multi-room sets run against an in-memory backend and
-    also fail when a render did not start from the bathroom photo."""
+    also fail on its check: a render that did not start from the bathroom
+    photo, a quote without a correct section per room."""
     common = {
         "eval_dataset_file_path_or_dir": str(path),
         "num_runs": num_runs,
@@ -113,12 +114,12 @@ async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object
     }
     if path.parent != MULTI_ROOM_DIR:
         return await AgentEvaluator.evaluate(agent_module=AGENT_MODULE, **common)
-    with multi_room_backend() as renders:
+    with multi_room_backend() as run:
         result = await AgentEvaluator.evaluate(agent_module=MULTI_ROOM_AGENT_MODULE, **common)
-    problems = renders.problems()
+    problems = BACKEND_CHECKS[path.name](run)
     if problems:
         raise AssertionError(f"{path.name}: " + "; ".join(problems))
-    logger.info(f"{path.name}: every render started from the bathroom photo ({len(renders.sources)})")
+    logger.info(f"{path.name}: backend check passed (renders {len(run.renders.sources)}, quotes {len(run.quotes.quotes)})")
     return result
 
 

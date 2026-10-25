@@ -1,8 +1,9 @@
-import type { QuoteItem } from '@/types/quote';
+import type { QuoteItem, QuoteRoom } from '@/types/quote';
 
 import {
   computeTotals,
   emptyManualItem,
+  groupByRoom,
   isChangedLine,
   itemsEqual,
   lineTotal,
@@ -78,5 +79,44 @@ describe('manual lines', () => {
     expect(nextManualSku([])).toBe('MANUALE-001');
     expect(nextManualSku([{ sku: 'MANUALE-001' }, { sku: 'MANUALE-003' }])).toBe('MANUALE-002');
     expect(emptyManualItem([{ sku: 'MANUALE-001' }])).toMatchObject({ sku: 'MANUALE-002', qty: 1, unit_price: 0 });
+  });
+});
+
+describe('multi-room quotes', () => {
+  const line = (sku: string, qty: number, unit_price: number, room_id?: string | null): QuoteItem => ({
+    sku, description: sku, unit: 'mq', qty, unit_price, total: 0, manual_override: false, room_id,
+  });
+  const rooms: QuoteRoom[] = [
+    { room_id: 'bagno1', room_label: 'Bagno', room_type: 'bagno', room_subtotal: 0 },
+    { room_id: 'cucina1', room_label: 'Cucina', room_type: 'cucina', room_subtotal: 0 },
+  ];
+
+  it('groups the lines by room with live subtotals, unknown rooms in Generale', () => {
+    const items = [line('A', 2, 10.005, 'bagno1'), line('B', 1, 5, 'cantina'), line('C', 3, 1.1, 'bagno1'), line('D', 1, 2)];
+    const groups = groupByRoom(items, rooms);
+    expect(groups.map((g) => [g.room.room_id, g.indices, g.subtotal])).toEqual([
+      ['bagno1', [0, 2], 23.31],
+      ['cucina1', [], 0],
+      ['generale', [1, 3], 7],
+    ]);
+  });
+
+  it('always offers Generale (to move or add a common line there), and no sections without rooms', () => {
+    expect(groupByRoom([line('A', 1, 1, 'bagno1')], rooms).map((g) => [g.room.room_id, g.indices])).toEqual([
+      ['bagno1', [0]],
+      ['cucina1', []],
+      ['generale', []],
+    ]);
+    expect(groupByRoom([line('A', 1, 1)], [])).toEqual([]);
+  });
+
+  it('treats a line moved to another room as changed, null and absent rooms as the same', () => {
+    expect(isChangedLine(line('A', 1, 1, 'cucina1'), [line('A', 1, 1, 'bagno1')], 0)).toBe(true);
+    expect(isChangedLine(line('A', 1, 1, null), [line('A', 1, 1)], 0)).toBe(false);
+  });
+
+  it('creates a manual line in the room it is added to', () => {
+    expect(emptyManualItem([], 'cucina1')).toMatchObject({ sku: 'MANUALE-001', room_id: 'cucina1' });
+    expect(emptyManualItem([])).not.toHaveProperty('room_id');
   });
 });

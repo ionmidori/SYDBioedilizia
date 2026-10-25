@@ -5,6 +5,8 @@
  */
 import { z } from 'zod';
 
+import { roomTypeSchema } from '@/types/room';
+
 // ── Enums ────────────────────────────────────────────────────────────────────
 
 // Transitions are enforced by backend_python/src/services/quote_state.py.
@@ -46,8 +48,25 @@ export const quoteItemSchema = z.object({
   ai_reasoning: z.string().nullable().optional(),
   category: z.string().nullable().optional(),
   manual_override: z.boolean().default(false),
+  // Room section of the line (see QuoteRoom); null on a quote without rooms
+  room_id: z.string().nullable().optional(),
 });
 export type QuoteItem = z.infer<typeof quoteItemSchema>;
+
+// ── QuoteRoom (section of a multi-room quote) ────────────────────────────────
+
+// One per room with lines, plus "Generale" (room_id "generale") for the project-wide ones.
+export const GENERAL_ROOM_ID = 'generale';
+
+export const quoteRoomSchema = z.object({
+  room_id: z.string(),
+  room_label: z.string(),
+  room_type: roomTypeSchema,
+  floor_mq: z.number().min(0).nullable().optional(),
+  walls_mq: z.number().min(0).nullable().optional(),
+  room_subtotal: z.number().min(0).default(0),
+});
+export type QuoteRoom = z.infer<typeof quoteRoomSchema>;
 
 // ── QuoteFinancials ──────────────────────────────────────────────────────────
 
@@ -127,6 +146,7 @@ export const revisionActorSchema = z.enum(['ai', 'admin', 'system']);
 export const revisionChangeSchema = z.object({
   change: z.enum(['added', 'removed', 'changed']),
   sku: z.string(),
+  room_id: z.string().nullable().optional(),
   before: z.record(z.string(), z.unknown()).nullable().optional(),
   after: z.record(z.string(), z.unknown()).nullable().optional(),
 });
@@ -146,6 +166,7 @@ export type QuoteReview = z.infer<typeof quoteReviewSchema>;
 export const quoteRevisionSchema = z.object({
   version: z.number().min(1),
   items: z.array(quoteItemSchema).default([]),
+  rooms: z.array(quoteRoomSchema).default([]),
   financials: quoteFinancialsSchema.default({
     subtotal: 0,
     vat_rate: 0.22,
@@ -214,6 +235,8 @@ export const quoteSchema = z.object({
   status: quoteStatusSchema.default('draft'),
   delivery_status: quoteDeliveryStatusSchema.default('none'),
   items: z.array(quoteItemSchema).default([]),
+  // Sections of a multi-room quote, in display order (empty: a quote without rooms)
+  rooms: z.array(quoteRoomSchema).default([]),
   financials: quoteFinancialsSchema.default({
     subtotal: 0,
     vat_rate: 0.22,

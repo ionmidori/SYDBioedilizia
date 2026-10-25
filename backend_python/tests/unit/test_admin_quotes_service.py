@@ -288,3 +288,63 @@ async def test_an_edit_without_items_still_recomputes_every_line():
     assert doc["financials"]["grand_total"] == 12.24  # 11.13 + 1.11 (1.113)
     (change,) = db.get_data(*QUOTE, "revisions", "3")["diff"]
     assert change["change"] == "changed" and change["before"]["total"] == 11.12
+
+
+# ── Multi-room quotes (Phase 138) ─────────────────────────────────────────────
+
+_ROOMS = [
+    {"room_id": "bagno1", "room_label": "Bagno", "room_type": "bagno", "room_subtotal": 120.0},
+    {"room_id": "cucina1", "room_label": "Cucina", "room_type": "cucina", "room_subtotal": 120.0},
+    {"room_id": "generale", "room_label": "Generale", "room_type": "altro", "room_subtotal": 0.0},
+]
+
+
+def _room_item(room_id, sku="PIT-001", qty=10.0, price=12.0):
+    return {**_item(sku, qty, price), "room_id": room_id}
+
+
+async def test_editing_a_multi_room_quote_recomputes_the_room_subtotals():
+    db = FakeDb()
+    _seed(db, rooms=_ROOMS, items=[_room_item("bagno1"), _room_item("cucina1")])
+    items = [
+        QuoteItem(**_room_item("bagno1", qty=20.0)),
+        QuoteItem(**_room_item("cucina1")),
+        # A line added without a room (or with an unknown one) goes to "Generale".
+        QuoteItem(**{**_item("MANUALE-001", 1.0, 50.0), "room_id": "cantina"}),
+    ]
+
+    await svc.edit_tx(tx(db), db, PID, ADMIN, 2, NOW, items=items)
+
+    doc = db.get_data(*QUOTE)
+    assert [i["room_id"] for i in doc["items"]] == ["bagno1", "cucina1", "generale"]
+    assert [(r["room_id"], r["room_subtotal"]) for r in doc["rooms"]] == [
+        ("bagno1", 240.0), ("cucina1", 120.0), ("generale", 50.0),
+    ]
+    assert sum(r["room_subtotal"] for r in doc["rooms"]) == doc["financials"]["subtotal"]
+    QuoteSchema(**doc)
+    revision = db.get_data(*QUOTE, "revisions", "3")
+    assert [r["room_subtotal"] for r in revision["rooms"]] == [240.0, 120.0, 50.0]
+
+
+async def test_the_same_sku_in_two_rooms_is_two_lines_in_the_diff():
+    db = FakeDb()
+    _seed(db, rooms=_ROOMS, items=[_room_item("bagno1"), _room_item("cucina1")])
+    # Kitchen line changed, bathroom line moved to "Generale".
+    items = [QuoteItem(**_room_item("generale")), QuoteItem(**_room_item("cucina1", qty=12.0))]
+
+    await svc.edit_tx(tx(db), db, PID, ADMIN, 2, NOW, items=items)
+
+    doc = db.get_data(*QUOTE)
+    assert [i["manual_override"] for i in doc["items"]] == [True, True]
+    diff = {(c["change"], c["sku"], c["room_id"]) for c in db.get_data(*QUOTE, "revisions", "3")["diff"]}
+    assert diff == {
+        ("added", "PIT-001", "generale"), ("changed", "PIT-001", "cucina1"), ("removed", "PIT-001", "bagno1"),
+    }
+
+
+async def test_a_quote_without_rooms_keeps_no_sections():
+    db = FakeDb()
+    _seed(db)
+    await svc.edit_tx(tx(db), db, PID, ADMIN, 2, NOW, items=[QuoteItem(**_item())])
+    doc = db.get_data(*QUOTE)
+    assert doc["rooms"] == [] and doc["items"][0].get("room_id") is None

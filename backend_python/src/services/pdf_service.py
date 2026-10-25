@@ -42,7 +42,8 @@ from reportlab.platypus import (
 )
 
 from src.core.company import COMPANY, QUOTE_TERMS
-from src.core.money import sum_amounts, to_cents
+from src.core.money import sum_amounts
+from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL
 from src.utils.format_it import format_date, format_eur, format_number, format_qty
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,25 @@ _DOC_TITLE = "Bozza di preventivo"
 
 
 # ─── Formatting helpers ────────────────────────────────────────────────────────
+
+def room_sections(quote_data: dict[str, Any]) -> list[tuple[dict[str, Any], list[dict[str, Any]]]]:
+    """The sections of a multi-room quote that have lines, each with its lines
+    (a line of an unknown room counts in "Generale", like its subtotal)."""
+    rooms = [r for r in quote_data.get("rooms") or [] if r.get("room_id")]
+    if not rooms:
+        return []
+    known = {r["room_id"] for r in rooms}
+    lines: dict[str, list[dict[str, Any]]] = {}
+    for item in quote_data.get("items") or []:
+        room_id = item.get("room_id") if item.get("room_id") in known else DEFAULT_ROOM_ID
+        lines.setdefault(room_id, []).append(item)
+    if DEFAULT_ROOM_ID in lines and DEFAULT_ROOM_ID not in known:
+        rooms.append({
+            "room_id": DEFAULT_ROOM_ID, "room_label": DEFAULT_ROOM_LABEL, "room_type": "altro",
+            "room_subtotal": sum_amounts(item.get("total") or 0 for item in lines[DEFAULT_ROOM_ID]),
+        })
+    return [(room, lines[room["room_id"]]) for room in rooms if lines.get(room["room_id"])]
+
 
 def _txt(value: Any) -> str:
     """User-controlled text → safe Paragraph markup."""
@@ -255,20 +275,21 @@ class PdfService:
                 story.append(Paragraph(f"<b>Note tecniche:</b> {_txt(request['technical_notes'])}", normal))
 
         # ── Multi-room: per-room breakdown (if present) ──────────────────────
-        rooms = quote_data.get("rooms", [])
-        if rooms:
+        sections = room_sections(quote_data)
+        if sections:
             room_heading = ParagraphStyle("RH", parent=styles["Heading3"], fontSize=11, textColor=_DARK,
                                           spaceBefore=3 * mm, spaceAfter=1.5 * mm)
             story.append(Paragraph("Dettaglio per ambiente", h2))
-            for room in rooms:
-                story.append(Paragraph(f"{_txt(room.get('room_label', 'Stanza'))} ({_txt(room.get('room_type', ''))})",
-                                       room_heading))
+            for room, lines in sections:
+                room_type = room.get("room_type")
+                kind = f" ({_txt(room_type)})" if room_type and room_type != "altro" else ""
+                story.append(Paragraph(f"{_txt(room.get('room_label', 'Stanza'))}{kind}", room_heading))
                 details = []
                 if room.get("floor_mq"):
                     details.append(f"Pavimento: ~{format_number(room['floor_mq'], 1)} mq")
                 if room.get("walls_mq"):
                     details.append(f"Pareti: ~{format_number(room['walls_mq'], 1)} mq")
-                details.append(f"Voci: {len(room.get('items', []))}")
+                details.append(f"Voci: {len(lines)}")
                 details.append(f"Subtotale: {format_eur(room.get('room_subtotal') or 0)}")
                 story.append(Paragraph(" · ".join(details), small))
 
@@ -285,14 +306,34 @@ class PdfService:
             Paragraph("Prezzo unit.", header_right_style),
             Paragraph("Totale", header_right_style),
         ]]
-        for item in quote_data.get("items", []):
-            table_data.append([
-                Paragraph(_txt(item.get("description", "")), cell),
-                Paragraph(_txt(item.get("unit", "")), cell),
-                Paragraph(format_qty(item.get("qty", "")), cell_right),
-                Paragraph(format_eur(item.get("unit_price") or 0), cell_right),
-                Paragraph(format_eur(item.get("total") or 0), cell_right),
-            ])
+        section_style = ParagraphStyle("TSEC", parent=cell, fontName="Helvetica-Bold", textColor=_DARK)
+        section_rows: list[int] = []
+        subtotal_rows: list[int] = []
+
+        def add_rows(lines: list[dict[str, Any]]) -> None:
+            for item in lines:
+                table_data.append([
+                    Paragraph(_txt(item.get("description", "")), cell),
+                    Paragraph(_txt(item.get("unit", "")), cell),
+                    Paragraph(format_qty(item.get("qty", "")), cell_right),
+                    Paragraph(format_eur(item.get("unit_price") or 0), cell_right),
+                    Paragraph(format_eur(item.get("total") or 0), cell_right),
+                ])
+
+        if sections:
+            # One block per room: its name, its lines, its subtotal.
+            for room, lines in sections:
+                room_label = _txt(room.get("room_label", "Stanza"))
+                section_rows.append(len(table_data))
+                table_data.append([Paragraph(room_label, section_style), "", "", "", ""])
+                add_rows(lines)
+                subtotal_rows.append(len(table_data))
+                table_data.append([
+                    Paragraph(f"Subtotale {room_label}", section_style), "", "", "",
+                    Paragraph(f"<b>{format_eur(room.get('room_subtotal') or 0)}</b>", cell_right),
+                ])
+        else:
+            add_rows(quote_data.get("items", []))
         col_widths = [_USABLE_W * w for w in (0.43, 0.08, 0.13, 0.18, 0.18)]
         items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
         items_table.setStyle(TableStyle([
@@ -302,25 +343,15 @@ class PdfService:
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            *(cmd for row in section_rows for cmd in (
+                ("SPAN", (0, row), (-1, row)), ("BACKGROUND", (0, row), (-1, row), _BORDER),
+            )),
+            *(cmd for row in subtotal_rows for cmd in (
+                ("SPAN", (0, row), (3, row)), ("BACKGROUND", (0, row), (-1, row), colors.white),
+            )),
         ]))
         story.append(items_table)
         story.append(Spacer(1, 4 * mm))
-
-        # ── Aggregation adjustments (multi-room savings) ─────────────────────
-        adjustments = quote_data.get("aggregation_adjustments", [])
-        savings_lines = [
-            (adj, saving) for adj in adjustments if (saving := to_cents(adj.get("savings") or 0)) > 0
-        ]
-        if savings_lines:
-            story.append(Paragraph("Ottimizzazioni multi-stanza", h2))
-            for adj, saving in savings_lines:
-                story.append(
-                    Paragraph(f"• {_txt(adj.get('description', ''))} — risparmio {format_eur(saving)}", normal)
-                )
-            total_savings = sum_amounts(saving for _, saving in savings_lines)
-            story.append(Spacer(1, 1.5 * mm))
-            story.append(Paragraph(f"<b>Risparmio totale aggregazione: {format_eur(total_savings)}</b>", normal))
-            story.append(Spacer(1, 4 * mm))
 
         # ── Financials ───────────────────────────────────────────────────────
         financials = quote_data.get("financials", {})

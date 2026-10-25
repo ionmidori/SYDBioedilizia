@@ -33,6 +33,7 @@ class SentCopy:
     revision: int
     pdf_blob_path: str | None
     items: list[dict[str, Any]]
+    rooms: list[dict[str, Any]]
     financials: dict[str, Any]
     admin_notes: str | None
     sent_at: Any
@@ -72,6 +73,7 @@ async def last_sent_copy(db: Any, project_id: str) -> SentCopy | None:
         revision=revision,
         pdf_blob_path=latest.get("pdf_blob_path"),
         items=list(rev.get("items") or []),
+        rooms=list(rev.get("rooms") or []),
         financials=dict(rev.get("financials") or {}),
         admin_notes=rev.get("admin_notes"),
         sent_at=latest["sent_at"],
@@ -85,6 +87,7 @@ def apply_sent_copy(quote: dict[str, Any], copy: SentCopy) -> dict[str, Any]:
         "status": "sent",
         "version": copy.revision,
         "items": copy.items,
+        "rooms": copy.rooms,
         "financials": copy.financials,
         "admin_notes": copy.admin_notes,
         "pdf_blob_path": copy.pdf_blob_path,
