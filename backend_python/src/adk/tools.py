@@ -9,6 +9,7 @@ Pydantic validation is enforced via the function's argument types.
 """
 import asyncio
 import logging
+import re
 from typing import Any
 
 from google.adk.tools import FunctionTool
@@ -22,6 +23,7 @@ from src.core.money import line_total, to_json_number
 from src.core.telemetry import instrumented_tool
 from src.db.projects.media import latest_uploaded_photo_url
 from src.repositories.room_repository import get_room_repository
+from src.schemas.room import ROOM_ID_PATTERN
 from src.tools import gallery, project_files, room_tools
 from src.tools.project_files_view import ProjectFilesView
 from src.tools.quota import check_quota, increment_quota, quota_denial
@@ -226,15 +228,18 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
 
 # ─── Render Generation ───────────────────────────────────────────────────────
 
+_ROOM_ID = re.compile(ROOM_ID_PATTERN)
+
 # Invocation-scoped ("temp:" is never persisted) record of this turn's render,
 # keyed by invocation_id as well so it can never leak into a later turn.
 _RENDER_DONE_KEY = "temp:render_done"
 
 
 async def _render_source_photo(session_id: str, active_room_id: object) -> tuple[str | None, str]:
-    """Photo a render starts from, and why. With an active room: its newest photo,
-    else the newest photo not classified in a named room (no room, "Generale") —
-    never a photo of another named room. Without rooms: the project's newest photo."""
+    """Photo a render starts from, and why. With a room (asked for, or the active
+    one): its newest photo, else the newest photo not classified in a named room
+    (no room, "Generale") — never a photo of another named room. Without rooms:
+    the project's newest photo."""
     if not isinstance(active_room_id, str) or not active_room_id:
         source = await latest_uploaded_photo_url(session_id)
         return source, "project_photo" if source else "no_photo"
@@ -247,6 +252,17 @@ async def _render_source_photo(session_id: str, active_room_id: object) -> tuple
         return photo["url"], "unclassified_photo"
     return None, "room_without_photo"
 
+
+async def _render_artifact_name(tool_context: Any, room_id: str | None) -> str:
+    """`render_{room_id}_{n}.png`, n = the room's next render: renders of
+    different rooms (or a second one of the same room) never overwrite each other."""
+    prefix = f"render_{room_id or 'progetto'}_"
+    # Exact match: the renders of room "camera" are not those of "camera_2".
+    pattern = re.compile(rf"^{re.escape(prefix)}(\d+)\.png$")
+    numbers = [int(m.group(1)) for name in await tool_context.list_artifacts() if (m := pattern.match(name))]
+    return f"{prefix}{max(numbers, default=0) + 1}.png"
+
+
 @instrumented_tool("generate_render")
 async def generate_render(
     prompt: str,
@@ -257,6 +273,7 @@ async def generate_render(
     mode: str = "creation",
     source_image_url: str = "",
     ignore_uploaded_photo: bool = False,
+    room_id: str = "",
 ) -> dict:
     """Generates a photorealistic 3D render of a room using Gemini + Imagen 3.
 
@@ -271,6 +288,8 @@ async def generate_render(
             automatically (call select_room first when the user means another room).
         ignore_uploaded_photo: True ONLY if the user explicitly asks for a design from
             scratch, NOT based on the photo they uploaded.
+        room_id: Leave empty to render the ACTIVE ROOM; or the id (from STANZE DEL
+            PROGETTO) of the room to render. The render is filed in that room.
     """
     import logging as _logging
     _logger = _logging.getLogger(__name__)
@@ -294,6 +313,20 @@ async def generate_render(
         _logger.warning("[ADK Tool] generate_render called twice in one turn: reusing the first render")
         return previous["result"]
 
+    # The room rendered: the one asked for (it must be a room of this project), else the active one.
+    target_room: str | None = None
+    if room_id:
+        try:
+            if not _ROOM_ID.match(room_id) or await get_room_repository().get_room(session_id, room_id) is None:
+                return {"status": "error", "error": "Stanza non trovata in questo progetto: usa un id da STANZE DEL PROGETTO."}
+        except (GoogleAPIError, ValidationError) as lookup_err:
+            _logger.warning(f"[ADK Tool] generate_render: room lookup failed ({type(lookup_err).__name__})")
+            return {"status": "error", "error": "Non riesco a leggere la stanza in questo momento. Riprova."}
+        target_room = room_id
+    else:
+        active = tool_context.state.get(ACTIVE_ROOM_STATE_KEY)
+        target_room = active if isinstance(active, str) and active else None
+
     # The photo is the user's room: render FROM it (I2I) unless they asked for a
     # design from scratch. Not left to the model, which never sees photo URLs
     # (only labels like "[Foto f_1 · Bagno]").
@@ -304,7 +337,7 @@ async def generate_render(
         reason = "model_url"
         if not source:
             try:
-                source, reason = await _render_source_photo(session_id, tool_context.state.get(ACTIVE_ROOM_STATE_KEY))
+                source, reason = await _render_source_photo(session_id, target_room)
             except GoogleAPIError as lookup_err:
                 _logger.warning(f"[ADK Tool] generate_render: project photo lookup failed ({lookup_err})")
                 reason = "photo_lookup_failed"
@@ -324,6 +357,7 @@ async def generate_render(
             session_id=session_id,
             mode=render_mode,
             source_image_url=source,
+            room_id=target_room,
         )
         _logger.info(f"[ADK Tool] generate_render completed. Status: {result.get('status')}, session: {session_id}")
         if result.get("status") == "success":
@@ -335,7 +369,7 @@ async def generate_render(
             try:
                 from google.genai import types as genai_types
                 image_url = result["imageUrl"]
-                artifact_filename = f"render_{session_id}_{render_mode}.png"
+                artifact_filename = await _render_artifact_name(tool_context, target_room)
                 artifact = genai_types.Part(
                     file_data=genai_types.FileData(
                         file_uri=image_url,

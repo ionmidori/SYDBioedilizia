@@ -5,6 +5,7 @@ Shared test fixtures for mocking external dependencies.
 """
 import os
 import sys
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -62,18 +63,20 @@ def _reset_genai_client_cache():
 
 @pytest.fixture(autouse=True)
 def _orchestrator_without_rooms():
-    """A chat turn reads the project's rooms and looks up its media in Firestore:
-    tests that drive the orchestrator get a project without rooms or registered
-    files (room tests patch `get_room_repository` themselves). Patched only when
-    the module is already loaded, like `_reset_adk_session_sync`."""
-    orchestrator = sys.modules.get("src.adk.adk_orchestrator")
-    if orchestrator is None:
-        yield
-        return
+    """A chat turn (and a quote) reads the project's rooms and looks up its media
+    in Firestore: tests that drive the orchestrator or `suggest_quote_items` get a
+    project without rooms or registered files (room tests patch
+    `get_room_repository` themselves). Patched only in the modules already
+    loaded, like `_reset_adk_session_sync`."""
+    modules = [sys.modules.get(name) for name in ("src.adk.adk_orchestrator", "src.tools.quote_tools")]
     repo = MagicMock()
     repo.list_rooms = AsyncMock(return_value=[])
+    repo.list_files = AsyncMock(return_value=[])
     repo.find_file_by_storage_path = AsyncMock(return_value=None)
-    with patch.object(orchestrator, "get_room_repository", return_value=repo):
+    with ExitStack() as stack:
+        for module in modules:
+            if module is not None:
+                stack.enter_context(patch.object(module, "get_room_repository", return_value=repo))
         yield
 
 

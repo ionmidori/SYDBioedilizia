@@ -415,6 +415,7 @@ export function DossierView({ projectId }: { projectId: string }) {
             readOnly={!editable}
             onChange={(next) => touch({ items: next })}
             onPickFromPriceBook={() => setPickerOpen(true)}
+            rooms={quote.rooms}
           />
           <section className="glass-premium rounded-2xl p-4 border border-white/5 space-y-4" data-testid="totals-panel">
             <label className="block space-y-1.5">
@@ -476,7 +477,12 @@ export function DossierView({ projectId }: { projectId: string }) {
 
         <div className="space-y-4 min-w-0">
           <ClientCard client={quote.client_snapshot} live={dossier.data.client_live} profileChanged={dossier.data.client_profile_changed} />
-          <RevisionTimeline projectId={projectId} revisions={dossier.data.revisions} approvedRevision={approvedRevision} />
+          <RevisionTimeline
+            projectId={projectId}
+            revisions={dossier.data.revisions}
+            approvedRevision={approvedRevision}
+            rooms={quote.rooms}
+          />
           <DeliveryLog deliveries={dossier.data.deliveries} />
         </div>
       </div>

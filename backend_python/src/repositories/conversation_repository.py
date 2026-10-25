@@ -216,6 +216,9 @@ class ConversationRepository:
                     msg['tool_call_id'] = data['tool_call_id']
                 if 'attachments' in data:
                     msg['attachments'] = data['attachments']
+                room_id = (data.get('metadata') or {}).get('room_id')
+                if room_id:
+                    msg['room_id'] = room_id
 
                 messages_reversed.append(msg)
 

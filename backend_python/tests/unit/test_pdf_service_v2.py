@@ -175,13 +175,38 @@ def test_a_non_finite_quantity_is_printed_as_is_instead_of_failing_the_pdf():
     assert format_qty("nan") == "nan"
 
 
-def test_multi_room_savings_list_only_positive_lines_and_their_exact_sum():
-    text = _flat(PdfService().generate_pdf_bytes(_quote(aggregation_adjustments=[
-        {"description": "Smaltimento unificato", "savings": 0.1},
-        {"description": "Quadro elettrico unico", "savings": 0.2},
-        {"description": "Nessun risparmio", "savings": 0},
-    ])))
-    assert "Smaltimento unificato — risparmio € 0,10" in text
-    assert "Quadro elettrico unico — risparmio € 0,20" in text
-    assert "Nessun risparmio" not in text
-    assert "Risparmio totale aggregazione: € 0,30" in text
+def test_multi_room_quote_prints_each_room_with_its_lines_and_subtotal():
+    rooms = [
+        {"room_id": "bagno1", "room_label": "Bagno", "room_type": "bagno", "floor_mq": 6.5, "room_subtotal": 550.0},
+        {"room_id": "cucina1", "room_label": "Cucina", "room_type": "cucina", "room_subtotal": 488.4},
+        {"room_id": "camera1", "room_label": "Camera", "room_type": "camera", "room_subtotal": 0},
+        {"room_id": "generale", "room_label": "Generale", "room_type": "altro", "room_subtotal": 380.0},
+    ]
+    items = [
+        {**_item("Sanitari completi", 1, 550.0), "room_id": "bagno1"},
+        {**_item(), "room_id": "cucina1"},
+        {**_item("Smaltimento macerie", 1, 380.0), "room_id": "generale"},
+    ]
+    text = _flat(PdfService().generate_pdf_bytes(_quote(rooms=rooms, items=items)))
+    assert "Dettaglio per ambiente" in text
+    assert "Bagno (bagno)" in text and "Pavimento: ~6,5 mq" in text
+    assert "Subtotale Bagno € 550,00" in text
+    assert "Subtotale Cucina € 488,40" in text
+    assert "Subtotale Generale € 380,00" in text
+    # A room without lines is not printed; no "combined savings" for the client.
+    assert "Camera" not in text
+    assert "risparmio" not in text.lower()
+    assert text.index("Sanitari completi") < text.index("Subtotale Bagno") < text.index("Tinteggiatura pareti")
+
+
+def test_a_quote_without_rooms_has_no_room_sections():
+    text = _flat(PdfService().generate_pdf_bytes(_quote()))
+    assert "Dettaglio per ambiente" not in text and "Subtotale" not in text
+
+
+def test_a_line_of_an_unknown_room_is_printed_under_generale():
+    rooms = [{"room_id": "bagno1", "room_label": "Bagno", "room_type": "bagno", "room_subtotal": 550.0}]
+    items = [{**_item("Sanitari completi", 1, 550.0), "room_id": "bagno1"}, {**_item("Voce senza stanza", 1, 80.0)}]
+    text = _flat(PdfService().generate_pdf_bytes(_quote(rooms=rooms, items=items)))
+    assert "Voce senza stanza" in text
+    assert "Subtotale Generale € 80,00" in text

@@ -32,6 +32,7 @@ from src.schemas.quote import (
     QuoteItem,
     QuoteRequest,
     QuoteRevision,
+    QuoteRoom,
     QuoteSchema,
     RevisionActorType,
 )
@@ -76,10 +77,12 @@ def build_revision(
     actor_uid: str | None,
     when: datetime,
     reason: str | None = None,
+    rooms: list[QuoteRoom] | None = None,
 ) -> dict[str, Any]:
     return QuoteRevision(
         version=version,
         items=items,
+        rooms=rooms or [],
         financials=financials,
         admin_notes=admin_notes,
         actor_kind=actor_kind,
@@ -141,7 +144,7 @@ async def apply_ai_draft(
         transaction.set(ref, payload)
         transaction.set(
             revision_ref(ref, 1),
-            build_revision(1, quote.items, quote.financials, None, "ai", None, when),
+            build_revision(1, quote.items, quote.financials, None, "ai", None, when, rooms=quote.rooms),
         )
         return DraftSaveResult(DraftSaveOutcome.CREATED, "draft", number.formatted)
 
@@ -149,6 +152,8 @@ async def apply_ai_draft(
     version = int(current.get("version") or 1) + 1
     updates: dict[str, Any] = {
         "items": [item.model_dump(exclude_none=True) for item in quote.items],
+        # Replaced, not merged: a quote regenerated without rooms has no sections.
+        "rooms": [room.model_dump(exclude_none=True) for room in quote.rooms],
         "financials": quote.financials.model_dump(),
         "user_id": quote.user_id,
         "doc_type": "quote",
@@ -173,7 +178,9 @@ async def apply_ai_draft(
     transaction.update(ref, updates)
     transaction.set(
         revision_ref(ref, version),
-        build_revision(version, quote.items, quote.financials, current.get("admin_notes"), "ai", None, when),
+        build_revision(
+            version, quote.items, quote.financials, current.get("admin_notes"), "ai", None, when, rooms=quote.rooms
+        ),
     )
     return DraftSaveResult(DraftSaveOutcome.UPDATED, "draft", quote_number)
 

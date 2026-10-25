@@ -182,8 +182,9 @@ def _full_quote_doc(status_: str):
         "status": status_,
         "items": [{
             "sku": "A1", "description": "Demolizione", "unit": "mq",
-            "qty": 10, "unit_price": 25.0, "total": 250.0,
+            "qty": 10, "unit_price": 25.0, "total": 250.0, "room_id": "bagno1",
         }],
+        "rooms": [{"room_id": "bagno1", "room_label": "Bagno", "room_type": "bagno", "room_subtotal": 250.0}],
         "financials": {"subtotal": 250.0, "vat_rate": 0.22, "vat_amount": 55.0, "grand_total": 305.0},
     }
     return doc
@@ -214,6 +215,12 @@ class TestGetQuoteConfidentiality:
         body = self._get("approved").json()
         assert body["items"][0]["unit_price"] == 25.0
         assert body["financials"]["grand_total"] == 305.0
+        assert body["rooms"][0]["room_subtotal"] == 250.0
+
+    def test_owner_sees_the_room_sections_of_a_draft_without_their_subtotals(self):
+        body = self._get("pending_review").json()
+        assert body["items"][0]["room_id"] == "bagno1"
+        assert [(r["room_label"], r["room_subtotal"]) for r in body["rooms"]] == [("Bagno", 0.0)]
 
     def test_admin_sees_draft_prices(self):
         body = self._get("draft", role="admin").json()

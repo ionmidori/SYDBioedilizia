@@ -329,6 +329,20 @@ class TestGetContext:
         assert result[0]["attachments"] == [{"url": "gs://x"}]
 
     @pytest.mark.asyncio
+    async def test_includes_the_room_of_a_tagged_message(self, repo, mock_db, mock_fs):
+        """The quote splits one read of the chat into project-wide and per-room talk."""
+        tagged = _doc({"role": "user", "content": "doccia", "metadata": {"room_id": "bagno1"}})
+        untagged = _doc({"role": "user", "content": "casa", "metadata": {"user_id": "u1"}})
+        self._setup_db(mock_db, [tagged, untagged])
+
+        with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.async_firestore", mock_fs):
+            result = await repo.get_context("s1")
+
+        assert [m.get("room_id") for m in result] == [None, "bagno1"]
+
+    @pytest.mark.asyncio
     async def test_defaults_role_to_user(self, repo, mock_db, mock_fs):
         doc = _doc({"content": "msg"})  # no 'role'
         self._setup_db(mock_db, [doc])

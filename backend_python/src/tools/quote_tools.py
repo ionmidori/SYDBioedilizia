@@ -2,19 +2,25 @@ import asyncio
 import hashlib
 import logging
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import Any
 
+from google.api_core.exceptions import GoogleAPIError
 from google.genai import types as genai_types
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from src.core.config import settings
 from src.core.models import ModelRole, get_genai_client, get_model_id
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import ConversationRepository
+from src.repositories.room_repository import get_room_repository
 from src.schemas.quote import QuoteRequest
-from src.services.insight_engine import InsightEngineError, get_insight_engine
+from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
+from src.services.insight_engine import InsightAnalysis, InsightEngineError, SKUItemSuggestion, get_insight_engine
 from src.services.pricing_service import PricingService
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, save_ai_draft
+from src.services.room_aggregation import aggregate_rooms, load_rules, room_sections
+from src.tools.room_tools import room_of
 from src.utils.datetime_utils import utc_now
 from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
 from src.vision.measure_room import (
@@ -33,8 +39,9 @@ _MAX_QTY = 10_000  # Hard cap — anything above is almost certainly an AI hallu
 # Each one is cut to 500 chars in the summary (build_chat_summary), so the text
 # stays far below the model's context.
 _QUOTE_HISTORY_MESSAGES = 150
-# Photos/videos sent inline to the InsightEngine: the most recent ones. A long
-# chat can hold dozens, and every one is downloaded and sent in a single request.
+# Photos/videos sent inline to the InsightEngine: the most recent ones (per room
+# when the project has rooms). A long chat can hold dozens, and every one is
+# downloaded and sent in a single request.
 _QUOTE_MEDIA_MAX = 8
 
 
@@ -307,10 +314,15 @@ async def _run_render_structural_vision(
         logger.info("[StructuralVision] No original photo found — skipping structural delta.")
         return ""
 
+    return await _structural_delta(photo_path, render_path, session_id)
+
+
+async def _structural_delta(photo_ref: str, render_ref: str, session_id: str) -> str:
+    """The structural works between a photo and a render of the same room ("" if none)."""
     try:
         (photo_bytes, photo_mime), (render_bytes, render_mime) = await asyncio.gather(
-            download_session_media(photo_path, session_id),
-            download_session_media(render_path, session_id),
+            download_session_media(photo_ref, session_id),
+            download_session_media(render_ref, session_id),
         )
 
         if not photo_mime.startswith("image/") or not render_mime.startswith("image/"):
@@ -363,117 +375,345 @@ async def _run_render_structural_vision(
         return ""
 
 
+# ── One quote, a section per room (Phase 138) ─────────────────────────────────
+
+# Rooms analysed at the same time: each one is a measurement, a render delta and
+# an InsightEngine call, all on the same model quota.
+_ROOM_ANALYSIS_CONCURRENCY = 3
+# A room's own messages (tagged with it) read for its analysis.
+_ROOM_HISTORY_MESSAGES = 80
+# Untagged / "Generale" messages given to every room as background.
+_GENERAL_CONTEXT_MESSAGES = 40
+# Files that make a room worth quoting (renders count: they are the target).
+_ROOM_MEDIA_TYPES = frozenset({"image", "video", "render"})
+COMPLETENESS_THRESHOLD = 0.70
+
+
+@dataclass(frozen=True)
+class _QuoteUnit:
+    """What one InsightEngine call analyses: the whole chat, or one room."""
+    room: RoomSchema | None
+    context: str
+    media: list[str]
+
+
+@dataclass(frozen=True)
+class _UnitResult:
+    unit: _QuoteUnit
+    analysis: InsightAnalysis
+    suggestions: list[SKUItemSuggestion]
+    unknown_skus: list[str]
+
+    @property
+    def needs_info(self) -> bool:
+        """Completeness gate: not enough data for this unit (questions instead of a quote)."""
+        if not self.analysis.missing_info:
+            return False
+        return not self.analysis.suggestions or self.analysis.completeness_score < COMPLETENESS_THRESHOLD
+
+
+def _file_ref(file_doc: dict[str, Any]) -> str:
+    """How a `files` document is read: its Storage path (signed URLs expire)."""
+    return str((file_doc.get("metadata") or {}).get("storage_path") or file_doc.get("url") or "")
+
+
+async def _single_unit(history: list[dict[str, Any]], session_id: str) -> _QuoteUnit:
+    """The whole chat as one unit (a project without rooms)."""
+    # 2. Extract media URLs (handles dict and legacy list format)
+    media_urls = _extract_media_urls(history)
+
+    # 3. Agentic Vision: measure room surfaces from original photo
+    # Runs Gemini 2.5 Flash + Python code execution to get real mq values.
+    # Non-fatal: if no photo or analysis fails, InsightEngine uses Italian averages.
+    measurement_context = await _run_measurement_vision(media_urls, session_id)
+    if measurement_context:
+        logger.info("[QuoteTool] Room measurements injected from agentic vision.")
+    else:
+        logger.info("[QuoteTool] No measurement data — InsightEngine will use defaults.")
+
+    # 4. Agentic Vision: structural delta from render vs original photo comparison
+    # Gemini 2.5 Flash visually compares both images and extracts ONLY structural
+    # construction work needed (furniture/arredi are explicitly excluded).
+    structural_delta = await _run_render_structural_vision(media_urls, history, session_id)
+    if structural_delta:
+        logger.info("[QuoteTool] Structural delta from render comparison injected.")
+    else:
+        logger.info("[QuoteTool] No render comparison available — using text context only.")
+
+    # 5. Extract qualitative vision analysis from chat history (Phase 1 Designer output)
+    vision_context = _extract_vision_context(history)
+
+    # 6. Build enriched chat summary: structural delta + measurements + vision + conversation
+    context = (
+        structural_delta
+        + measurement_context
+        + vision_context
+        + "\n\n## Conversazione Progetto\n"
+        + build_chat_summary(history)
+    )
+    return _QuoteUnit(room=None, context=context, media=media_urls[-_QUOTE_MEDIA_MAX:])
+
+
+def _brief_block(room: RoomSchema) -> str:
+    """The room's brief (scheda stanza) as context, empty when nothing is known."""
+    brief = room.brief
+    lines = [
+        f"- {label}: {value}"
+        for label, value in (
+            ("Pavimento (mq)", brief.floor_mq),
+            ("Pareti (mq)", brief.walls_mq),
+            ("Altezza (m)", brief.height_m),
+            ("Superfici", brief.surfaces),
+            ("Impianti", brief.systems),
+            ("Elementi fissi", brief.fixtures),
+            ("Criticità", "; ".join(brief.criticalities)),
+            ("Decisioni prese", "; ".join(brief.decisions)),
+        )
+        if value
+    ]
+    if room.summary:
+        lines.insert(0, f"- Sintesi: {room.summary}")
+    return "\n\n## Scheda stanza\n" + "\n".join(lines) if lines else ""
+
+
+def _room_scope(room: RoomSchema, others: list[str]) -> str:
+    rules = load_rules()
+    other_rooms = f" ({', '.join(others)})" if others else ""
+    return (
+        f"## Stanza da quotare: {room.label} ({room.room_type})\n"
+        "Quota SOLO i lavori di questa stanza: quelli dei suoi messaggi, delle sue foto e, nel contesto "
+        "generale, quelli che la riguardano chiaramente. NON quotare i lavori delle altre stanze"
+        f"{other_rooms}: hanno un'analisi propria.\n"
+        "Lavori comuni a tutta la casa (quadro elettrico, caldaia, protezioni, ponteggio): proponili se "
+        "servono anche a questa stanza, vengono contati una sola volta nella sezione Generale.\n"
+        f"Smaltimento macerie {rules.container_sku}: come quantità indica la frazione di un container da "
+        f"{rules.container_capacity_mc:f} m³ riempita dalle macerie di QUESTA stanza (es. 0.4)."
+    )
+
+
+async def _room_unit(
+    room: RoomSchema,
+    others: list[str],
+    general: list[dict[str, Any]],
+    project_files: dict[str, dict[str, Any]],
+    session_id: str,
+    project_id: str,
+) -> _QuoteUnit:
+    """One room: its messages, its photos, measures and render delta of its own media."""
+    room_messages, room_files = await asyncio.gather(
+        ConversationRepository().get_context(session_id, limit=_ROOM_HISTORY_MESSAGES, room_id=room.room_id),
+        get_room_repository().files_for_room(project_id, room.room_id),  # newest first
+    )
+    photos = [f for f in room_files if f.get("type") == "image"]
+    media = [f for f in room_files if f.get("type") in ("image", "video")][:_QUOTE_MEDIA_MAX]
+
+    # Measures: the room's reference photo first (cached by content hash), then its other photos.
+    reference = project_files.get(room.reference_photo_id or "")
+    candidates = ([reference] if reference else []) + [p for p in photos if p["id"] != room.reference_photo_id]
+
+    # Delta: the room's newest render against the photo it was made from (else the newest photo).
+    async def render_delta() -> str:
+        render = next((f for f in room_files if f.get("type") == "render"), None)
+        if render is None:
+            return ""
+        source_id = (render.get("metadata") or {}).get("source_file_id")
+        source = project_files.get(source_id or "") or (photos[0] if photos else None)
+        return await _structural_delta(_file_ref(source), _file_ref(render), session_id) if source else ""
+
+    measurement_context, structural_delta = await asyncio.gather(
+        _run_measurement_vision([_file_ref(f) for f in candidates], session_id), render_delta()
+    )
+
+    general_text = build_chat_summary(general[-_GENERAL_CONTEXT_MESSAGES:])
+    context = (
+        _room_scope(room, others)
+        + structural_delta
+        + measurement_context
+        + _brief_block(room)
+        + _extract_vision_context(room_messages)
+        + f"\n\n## Conversazione della stanza {room.label}\n"
+        + (build_chat_summary(room_messages) or "(nessun messaggio dedicato a questa stanza)")
+        + ("\n\n## Contesto generale del progetto (solo per capire il progetto)\n" + general_text if general_text else "")
+    )
+    logger.info(
+        "[QuoteTool] Room context ready.",
+        extra={"room_id": room.room_id, "messages": len(room_messages), "media": len(media),
+               "measured": bool(measurement_context), "render_delta": bool(structural_delta)},
+    )
+    return _QuoteUnit(room=room, context=context, media=[_file_ref(f) for f in reversed(media)])
+
+
+async def _rooms_to_quote(
+    project_id: str, history: list[dict[str, Any]]
+) -> tuple[list[RoomSchema], list[RoomSchema], dict[str, dict[str, Any]]]:
+    """(rooms to analyse, all rooms, project files by id). No room to analyse
+    means the whole chat is one unit: no named room with messages or media, or a
+    chat without any message tagged with a room (a project from before rooms,
+    whose talk would otherwise be only background to the one room with a photo)."""
+    repo = get_room_repository()
+    try:
+        rooms, files = await asyncio.gather(repo.list_rooms(project_id), repo.list_files(project_id))
+    except (GoogleAPIError, ValidationError) as exc:
+        logger.warning("[QuoteTool] Rooms not readable: one quote for the whole chat.", extra={"error": type(exc).__name__})
+        return [], [], {}
+    tagged = {m["room_id"] for m in history if m.get("room_id") not in (None, DEFAULT_ROOM_ID)}
+    if not tagged:
+        return [], rooms, {}
+    used = tagged | {room_of(f) for f in files if f.get("type") in _ROOM_MEDIA_TYPES}
+    to_quote = [r for r in rooms if r.room_id != DEFAULT_ROOM_ID and r.room_id in used]
+    return to_quote, rooms, {f["id"]: f for f in files}
+
+
+async def _analyse(unit: _QuoteUnit, session_id: str) -> _UnitResult:
+    """InsightEngine on one unit, then SKU and quantity validation."""
+    # 7. Analyze with Insight Engine (uses Gemini response_schema structured output)
+    analysis = await get_insight_engine().analyze_project_for_quote(
+        [{"role": "user", "content": unit.context}], unit.media, session_id=session_id
+    )
+    # Validation Pattern: SKU existence check. No ensure_fresh() here: the price book
+    # was renewed before the prompt was built (insight engine), and renewing it
+    # again after the long model call could validate against a newer version.
+    unknown_skus = validate_sku_suggestions(analysis.suggestions) if analysis.suggestions else []
+    known = [s for s in analysis.suggestions if s.sku not in unknown_skus]
+    # Validation Pattern: quantity bounds check (pricing injection prevention)
+    valid, qty_warnings = _validate_qty_bounds(known)
+    if qty_warnings:
+        logger.warning(f"[QuoteTool] Filtered {len(qty_warnings)} suggestion(s) with out-of-bounds qty")
+    return _UnitResult(unit=unit, analysis=analysis, suggestions=valid, unknown_skus=unknown_skus)
+
+
+def _single_unit_reply(result: _UnitResult) -> str | None:
+    """Why the whole-chat analysis cannot become a quote (None: it can)."""
+    analysis = result.analysis
+    if not analysis.suggestions:
+        if analysis.missing_info:
+            questions = " ".join(analysis.missing_info[:2])
+            return (
+                f"Ho capito il progetto: {analysis.summary}\n\n"
+                f"Prima di prepararti un preventivo accurato, ho bisogno di qualche informazione. "
+                f"{questions}"
+            )
+        return (
+            f"Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
+            f"Puoi dirmi le dimensioni approssimative dell'ambiente "
+            f"e quali lavori hai in mente? ({analysis.summary})"
+        )
+    if len(result.unknown_skus) == len(analysis.suggestions):
+        logger.warning("[QuoteTool] All AI suggestions had unknown SKUs.", extra={"unknown_skus": result.unknown_skus})
+        return (
+            f"Ho identificato alcune lavorazioni potenziali ({', '.join(result.unknown_skus)}) "
+            "ma non corrispondono al listino prezzi attuale. "
+            "Un nostro consulente ti contatterà per un preventivo personalizzato."
+        )
+    if not result.suggestions:
+        return "La generazione del preventivo non è riuscita: le quantità suggerite erano fuori dai limiti accettabili. Descrivi il progetto in modo più dettagliato."
+    # ── Completeness Gate (Opzione C) ─────────────────────────────────────────
+    # If the InsightEngine signals that data is insufficient (score < 0.7),
+    # return the missing questions instead of an incomplete quote.
+    if result.needs_info:
+        logger.info(
+            "[QuoteTool] Completeness gate triggered.",
+            extra={"score": analysis.completeness_score, "missing": analysis.missing_info},
+        )
+        formatted_questions = " ".join(analysis.missing_info[:2])  # max 2 questions per turn
+        return (
+            f"Ho identificato le lavorazioni principali ({analysis.summary}), "
+            f"ma ho bisogno di qualche dettaglio in più per un preventivo preciso.\n\n"
+            f"{formatted_questions}"
+        )
+    return None
+
+
+def _room_label(result: _UnitResult) -> str:
+    return result.unit.room.label if result.unit.room else DEFAULT_ROOM_LABEL
+
+
+def _rooms_reply(results: list[_UnitResult]) -> str | None:
+    """Why the rooms cannot become one quote (None: they can). A room short of
+    data stops the whole quote: a home quote without that room would be wrong."""
+    gated = [r for r in results if r.needs_info]
+    if gated:
+        logger.info("[QuoteTool] Completeness gate triggered.", extra={"rooms": [_room_label(r) for r in gated]})
+        questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.analysis.missing_info[:2])}" for r in gated)
+        return (
+            "Prima di prepararti un preventivo accurato per tutta la casa ho bisogno di qualche "
+            f"dettaglio in più.\n\n{questions}"
+        )
+    discarded = [r for r in results if r.analysis.suggestions and not r.suggestions]
+    if discarded and any(r.suggestions for r in results):
+        logger.warning("[QuoteTool] Every line of a room was discarded.", extra={"rooms": [_room_label(r) for r in discarded]})
+        rooms = ", ".join(_room_label(r) for r in discarded)
+        return (
+            f"Per {rooms} non riesco a preparare le voci dal listino in modo affidabile, quindi non registro "
+            "un preventivo incompleto della casa. Descrivimi meglio i lavori previsti in quella stanza "
+            "(misure e materiali) oppure un nostro consulente ti contatterà per un preventivo personalizzato."
+        )
+    if any(r.suggestions for r in results):
+        return None
+    unknown = [sku for r in results for sku in r.unknown_skus]
+    if unknown:
+        logger.warning("[QuoteTool] All AI suggestions had unknown SKUs.", extra={"unknown_skus": unknown})
+        return (
+            f"Ho identificato alcune lavorazioni potenziali ({', '.join(unknown)}) "
+            "ma non corrispondono al listino prezzi attuale. "
+            "Un nostro consulente ti contatterà per un preventivo personalizzato."
+        )
+    return (
+        "Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
+        "Puoi dirmi, stanza per stanza, le dimensioni approssimative e quali lavori hai in mente?"
+    )
+
+
 async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = None, user_id: str | None = None) -> str:
     """
     Analyzes the current chat session and suggests a list of quote items based on the Master Price Book.
     Use this when the user asks for a preliminary quote, cost estimation, or 'what needs to be done'.
+
+    A project with rooms gets one quote with a section per room: every room is
+    analysed on its own (its messages, photos, measures and render), in parallel,
+    and the rooms are merged by `room_aggregation` (project-wide lines in "Generale").
     """
+    target_project_id = project_id or session_id
     try:
         # 1. Load context (wide window: the original photo analysis and every room discussed)
         repo = ConversationRepository()
         history = await repo.get_context(session_id, limit=_QUOTE_HISTORY_MESSAGES)
+        to_quote, all_rooms, project_files = await _rooms_to_quote(target_project_id, history)
 
-        # 2. Extract media URLs (handles dict and legacy list format)
-        media_urls = _extract_media_urls(history)
-
-        # 3. Agentic Vision: measure room surfaces from original photo
-        # Runs Gemini 2.5 Flash + Python code execution to get real mq values.
-        # Non-fatal: if no photo or analysis fails, InsightEngine uses Italian averages.
-        measurement_context = await _run_measurement_vision(media_urls, session_id)
-        if measurement_context:
-            logger.info("[QuoteTool] Room measurements injected from agentic vision.")
-        else:
-            logger.info("[QuoteTool] No measurement data — InsightEngine will use defaults.")
-
-        # 4. Agentic Vision: structural delta from render vs original photo comparison
-        # Gemini 2.5 Flash visually compares both images and extracts ONLY structural
-        # construction work needed (furniture/arredi are explicitly excluded).
-        structural_delta = await _run_render_structural_vision(media_urls, history, session_id)
-        if structural_delta:
-            logger.info("[QuoteTool] Structural delta from render comparison injected.")
-        else:
-            logger.info("[QuoteTool] No render comparison available — using text context only.")
-
-        # 5. Extract qualitative vision analysis from chat history (Phase 1 Designer output)
-        vision_context = _extract_vision_context(history)
-
-        # 6. Build enriched chat summary: structural delta + measurements + vision + conversation
-        chat_summary = build_chat_summary(history)
-        enriched_summary = (
-            structural_delta
-            + measurement_context
-            + vision_context
-            + "\n\n## Conversazione Progetto\n"
-            + chat_summary
-        )
-
-        # 7. Analyze with Insight Engine (uses Gemini response_schema structured output)
-        engine = get_insight_engine()
-        summary_message = [{"role": "user", "content": enriched_summary}]
+        # A room that cannot be analysed (model or Firestore error) stops the
+        # home quote: the other rooms are cancelled, no partial quote is saved.
+        failure: BaseExceptionGroup | None = None
+        results: list[_UnitResult] = []
         try:
-            analysis = await engine.analyze_project_for_quote(
-                summary_message, media_urls[-_QUOTE_MEDIA_MAX:], session_id=session_id
+            if to_quote:
+                general = [m for m in history if m.get("room_id") in (None, DEFAULT_ROOM_ID)]
+                semaphore = asyncio.Semaphore(_ROOM_ANALYSIS_CONCURRENCY)
+
+                async def analyse_room(room: RoomSchema) -> _UnitResult:
+                    others = [r.label for r in to_quote if r.room_id != room.room_id]
+                    async with semaphore:
+                        unit = await _room_unit(room, others, general, project_files, session_id, target_project_id)
+                        return await _analyse(unit, session_id)
+
+                async with asyncio.TaskGroup() as group:
+                    tasks = [group.create_task(analyse_room(room)) for room in to_quote]
+                results = [task.result() for task in tasks]
+            else:
+                results = [await _analyse(await _single_unit(history, session_id), session_id)]
+        except* (InsightEngineError, GoogleAPIError, ValidationError) as errors:
+            failure = errors
+        if failure is not None:
+            logger.error(
+                "[QuoteTool] Project analysis failed.",
+                extra={"errors": [f"{type(e).__name__}: {str(e)[:200]}" for e in failure.exceptions]},
             )
-        except InsightEngineError as exc:
-            logger.error("[QuoteTool] InsightEngine failed.", extra={"error": str(exc)})
             return (
                 "Non è stato possibile analizzare automaticamente il progetto in questo momento. "
                 "Ti chiedo di descrivermi le lavorazioni previste e ti fornirò un preventivo manuale."
             )
-
-        if not analysis.suggestions:
-            if analysis.missing_info:
-                questions = " ".join(analysis.missing_info[:2])
-                return (
-                    f"Ho capito il progetto: {analysis.summary}\n\n"
-                    f"Prima di prepararti un preventivo accurato, ho bisogno di qualche informazione. "
-                    f"{questions}"
-                )
-            return (
-                f"Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
-                f"Puoi dirmi le dimensioni approssimative dell'ambiente "
-                f"e quali lavori hai in mente? ({analysis.summary})"
-            )
-
-        # Validation Pattern: SKU existence check. No ensure_fresh() here: the price book
-        # was renewed before the prompt was built (insight engine), and renewing it
-        # again after the long model call could validate against a newer version.
-        unknown_skus = validate_sku_suggestions(analysis.suggestions)
-        valid_suggestions = [s for s in analysis.suggestions if s.sku not in unknown_skus]
-
-        if not valid_suggestions:
-            logger.warning(
-                "[QuoteTool] All AI suggestions had unknown SKUs.",
-                extra={"unknown_skus": unknown_skus},
-            )
-            return (
-                f"Ho identificato alcune lavorazioni potenziali ({', '.join(unknown_skus)}) "
-                "ma non corrispondono al listino prezzi attuale. "
-                "Un nostro consulente ti contatterà per un preventivo personalizzato."
-            )
-
-        # Validation Pattern: quantity bounds check (pricing injection prevention)
-        valid_suggestions, qty_warnings = _validate_qty_bounds(valid_suggestions)
-        if qty_warnings:
-            logger.warning(f"[QuoteTool] Filtered {len(qty_warnings)} suggestion(s) with out-of-bounds qty")
-        if not valid_suggestions:
-            return "La generazione del preventivo non è riuscita: le quantità suggerite erano fuori dai limiti accettabili. Descrivi il progetto in modo più dettagliato."
-
-        # ── Completeness Gate (Opzione C) ─────────────────────────────────────────
-        # If the InsightEngine signals that data is insufficient (score < 0.7),
-        # return the missing questions instead of an incomplete quote.
-        COMPLETENESS_THRESHOLD = 0.70
-        if analysis.completeness_score < COMPLETENESS_THRESHOLD and analysis.missing_info:
-            logger.info(
-                "[QuoteTool] Completeness gate triggered.",
-                extra={"score": analysis.completeness_score, "missing": analysis.missing_info},
-            )
-            formatted_questions = " ".join(analysis.missing_info[:2])  # max 2 questions per turn
-            return (
-                f"Ho identificato le lavorazioni principali ({analysis.summary}), "
-                f"ma ho bisogno di qualche dettaglio in più per un preventivo preciso.\n\n"
-                f"{formatted_questions}"
-            )
+        refusal = _rooms_reply(results) if to_quote else _single_unit_reply(results[0])
+        if refusal is not None:
+            return refusal
 
         # 8. Generate Pricing
         sku_list = [
@@ -482,19 +722,34 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 "qty": s.qty,
                 "ai_reasoning": s.ai_reasoning,
                 "phase": getattr(s, "phase", "Lavori"),
+                "room_id": r.unit.room.room_id if r.unit.room else None,
             }
-            for s in valid_suggestions
+            for r in results
+            for s in r.suggestions
         ]
         # We need a user_id. If not provided, we try to get it from context or use session_id
         final_user_id = user_id or "guest_" + session_id
 
-        quote = PricingService.create_quote_from_skus(project_id or session_id, final_user_id, sku_list)
+        quote = PricingService.create_quote_from_skus(target_project_id, final_user_id, sku_list)
+        if to_quote:
+            # One quote for the home: project-wide lines once, in "Generale".
+            items = aggregate_rooms(quote.items, {r.room_id: r.label for r in all_rooms})
+            quote = quote.model_copy(update={
+                "items": items,
+                "rooms": room_sections(all_rooms, items),
+                "financials": PricingService.calculate_financials(items),
+            })
+            summary = "\n".join(f"{_room_label(r)}: {r.analysis.summary}" for r in results if r.suggestions)
+            headline = "\n".join(f"**{_room_label(r)}** — {r.analysis.summary}" for r in results if r.suggestions)
+        else:
+            summary = results[0].analysis.summary
+            headline = f"**{summary}**"
 
         # Sanity check: suspiciously low totals often indicate malformed AI output
         if quote.financials.grand_total < 100 and len(quote.items) > 1:
             logger.warning(
                 f"[QuoteTool] Suspicious grand_total=€{quote.financials.grand_total:.2f} "
-                f"for {len(quote.items)} items (project={project_id or session_id}). "
+                f"for {len(quote.items)} items (project={target_project_id}). "
                 "Verify pricing service and AI output."
             )
 
@@ -502,7 +757,6 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # in a transaction: never overwrite a quote the admin already owns, and
         # assign the human-readable PRV number on creation.
         db = get_async_firestore_client()
-        target_project_id = project_id or session_id
         # Dossier for the admin (client, site details, photos/renders):
         # gathered outside the transaction, best-effort, never blocks the draft.
         now = utc_now()
@@ -511,7 +765,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
             db,
             target_project_id,
             quote,
-            QuoteRequest(summary=analysis.summary, channel="chat", session_id=session_id),
+            QuoteRequest(summary=summary, channel="chat", session_id=session_id),
             now=now,
             dossier=dossier,
         )
@@ -529,10 +783,11 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # deliberately NOT shown to the client: the admin reviews and adjusts
         # it first in the dashboard, then the client receives the final quote
         # by email after approval. Only the works summary is disclosed.
+        sections = f" in {len(quote.rooms)} sezioni (una per stanza, più le voci comuni)" if len(quote.rooms) > 1 else ""
         response = (
-            f"**{analysis.summary}**\n\n"
+            f"{headline}\n\n"
             f"Ho registrato la tua richiesta di preventivo{reference}: ho identificato "
-            f"{len(quote.items)} lavorazioni da sottoporre al nostro team tecnico.\n\n"
+            f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.\n\n"
             "Il team esaminerà la richiesta, definirà le voci e i prezzi e "
             "riceverai il preventivo dettagliato via email dopo la revisione.\n\n"
             "Vuoi che invii ora la richiesta al team?"
@@ -543,8 +798,6 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
 
         return response
 
-    except InsightEngineError:
-        raise  # Already handled above — should not reach here
     except Exception:
         logger.error("[QuoteTool] Unexpected error during quote generation.", exc_info=True)
         return (

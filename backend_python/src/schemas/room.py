@@ -16,6 +16,11 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_seri
 RoomType = Literal["cucina", "soggiorno", "camera", "bagno", "corridoio", "altro"]
 ROOM_TYPES: tuple[RoomType, ...] = ("cucina", "soggiorno", "camera", "bagno", "corridoio", "altro")
 
+# Room that collects the files of a project created before rooms existed, and
+# the project-wide lines of a multi-room quote.
+DEFAULT_ROOM_ID = "generale"
+DEFAULT_ROOM_LABEL = "Generale"
+
 # Ids are path segments and are shown to the model: short, URL-safe.
 ROOM_ID_PATTERN = r"^[a-zA-Z0-9_-]{1,64}$"
 RoomId = Annotated[str, StringConstraints(pattern=ROOM_ID_PATTERN)]

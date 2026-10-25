@@ -1,8 +1,8 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { QuoteItemsEditor } from '../QuoteItemsEditor';
-import type { QuoteItem } from '@/types/quote';
+import type { QuoteItem, QuoteRoom } from '@/types/quote';
 
 const base: QuoteItem = {
   sku: 'PIT-001',
@@ -63,5 +63,45 @@ describe('QuoteItemsEditor', () => {
     setup({ errors: new Map([[0, { qty: 'Quantità non valida' }]]) });
     expect(screen.getByRole('alert')).toHaveTextContent('Quantità non valida');
     expect(screen.getByTestId('item-qty-0')).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  describe('multi-room quote', () => {
+    const rooms: QuoteRoom[] = [
+      { room_id: 'bagno1', room_label: 'Bagno', room_type: 'bagno', room_subtotal: 0 },
+      { room_id: 'cucina1', room_label: 'Cucina', room_type: 'cucina', room_subtotal: 0 },
+      { room_id: 'generale', room_label: 'Generale', room_type: 'altro', room_subtotal: 0 },
+    ];
+    const bagno = { ...base, room_id: 'bagno1' };
+    const cucina = { ...base, sku: 'CUC-TOP-001', description: 'Top cucina', qty: 2, unit_price: 85, room_id: 'cucina1' };
+
+    it('shows a section per room with its lines and live subtotal', () => {
+      setup({ items: [bagno, cucina], saved: [bagno, cucina], rooms });
+      const sections = screen.getAllByTestId('room-section');
+      expect(sections.map((s) => s.getAttribute('aria-label'))).toEqual(['Stanza Bagno', 'Stanza Cucina', 'Stanza Generale']);
+      expect(screen.getByTestId('room-subtotal-bagno1')).toHaveTextContent('125,00');
+      expect(screen.getByTestId('room-subtotal-cucina1')).toHaveTextContent('170,00');
+      expect(screen.getByTestId('room-subtotal-generale')).toHaveTextContent('0,00');
+      expect(within(sections[0]).getByDisplayValue('Pittura pareti')).toBeInTheDocument();
+      expect(within(sections[1]).getByDisplayValue('Top cucina')).toBeInTheDocument();
+      expect(screen.queryByTestId('add-item')).not.toBeInTheDocument();
+    });
+
+    it('adds a manual line to the room it is added from', () => {
+      const onChange = setup({ items: [bagno, cucina], saved: [bagno, cucina], rooms });
+      fireEvent.click(screen.getByTestId('add-item-cucina1'));
+      expect(onChange).toHaveBeenCalledWith([bagno, cucina, expect.objectContaining({ sku: 'MANUALE-001', room_id: 'cucina1' })]);
+    });
+
+    it('moves a line to another room', () => {
+      const onChange = setup({ items: [bagno, cucina], saved: [bagno, cucina], rooms });
+      fireEvent.change(screen.getByTestId('item-room-0'), { target: { value: 'generale' } });
+      expect(onChange).toHaveBeenCalledWith([{ ...bagno, room_id: 'generale' }, cucina]);
+    });
+
+    it('has no room picker when read-only', () => {
+      setup({ items: [bagno], saved: [bagno], rooms, readOnly: true });
+      expect(screen.queryByTestId('item-room-0')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('add-item-bagno1')).not.toBeInTheDocument();
+    });
   });
 });

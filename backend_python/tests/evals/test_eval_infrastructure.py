@@ -161,11 +161,75 @@ class TestMultiRoomEval:
         from src.adk import tools
         from tests.evals.multi_room.fakes import BATH_ROOM_ID, multi_room_backend, photo_url
 
-        with multi_room_backend() as renders:
+        with multi_room_backend() as run:
             assert await tools._render_source_photo("p", BATH_ROOM_ID) == (photo_url("f_bagno_1"), "room_photo")
             # Without an active room the newest project photo (kitchen) would be used.
             source, _ = await tools._render_source_photo("p", None)
-            await renders.render(source_image_url=source)
-        assert renders.problems() == [
+            await run.renders.render(source_image_url=source)
+        assert run.renders.problems() == [
             f"render 1 started from {photo_url('f_cucina_2')!r}, expected {photo_url('f_bagno_1')!r}"
+        ]
+
+
+class TestMultiRoomQuoteEval:
+    """Phase 138, PR-3: the quote set runs the real suggest_quote_items on the in-memory backend."""
+
+    QUOTE = EVALS_DIR / "multi_room" / "multi_room_quote.test.json"
+
+    def test_loads_as_adk_eval_set_expecting_one_quote_call(self) -> None:
+        eval_set = EvalSet.model_validate_json(self.QUOTE.read_text(encoding="utf-8"))
+        case = eval_set.eval_cases[0]
+        assert case.session_input is not None
+        assert case.session_input.state["syd_session_context"]["phone_on_file"] is True
+        expected = [t.name for inv in case.conversation for t in (inv.intermediate_data.tool_uses or [])]
+        assert expected == ["suggest_quote_items"]
+
+    def test_every_multi_room_set_has_a_backend_check(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        assert {p.name for p in (EVALS_DIR / "multi_room").glob("*.test.json")} == set(BACKEND_CHECKS)
+
+    async def test_the_quote_runs_on_the_fakes_and_its_sections_are_checked(self) -> None:
+        """The real tool on the fakes, with a stub InsightEngine: one quote, saved
+        in memory only, a section per room and the common lines in Generale."""
+        from unittest.mock import AsyncMock, patch
+
+        from src.services.insight_engine import InsightAnalysis, SKUItemSuggestion
+        from src.tools.quote_tools import suggest_quote_items_wrapper
+        from tests.evals.multi_room.fakes import multi_room_backend
+
+        def s(sku: str, qty: float) -> SKUItemSuggestion:
+            return SKUItemSuggestion(sku=sku, qty=qty, ai_reasoning="eval", phase="Lavori")
+
+        async def analyze(chat_history, media_urls=None, *, session_id=None):
+            bath = "Stanza da quotare: Bagno" in chat_history[0]["content"]
+            lines = [s("BAG-SAN-001", 1), s("SMAL-001", 0.5)] if bath else [s("CUC-TOP-002", 3.5), s("SMAL-001", 0.3)]
+            return InsightAnalysis(summary="ok", completeness_score=0.9, suggestions=lines)
+
+        with multi_room_backend() as run, \
+             patch("src.tools.quote_tools.get_insight_engine") as engine:
+            engine.return_value.analyze_project_for_quote = AsyncMock(side_effect=analyze)
+            reply = await suggest_quote_items_wrapper(session_id="eval", project_id="eval", user_id="u")
+
+        assert "PRV-EVAL-0001" in reply
+        assert run.quotes.problems() == []
+        quote = run.quotes.quotes[0]
+        assert {(i.sku, i.room_id) for i in quote.items} == {
+            ("BAG-SAN-001", "r_bagno"), ("CUC-TOP-002", "r_cucina"), ("SMAL-001", "generale"),
+        }
+
+    def test_the_quote_check_flags_a_line_in_the_wrong_room(self) -> None:
+        from src.schemas.quote import QuoteItem, QuoteRoom, QuoteSchema
+        from tests.evals.multi_room.fakes import QuoteRecorder
+
+        def line(sku: str, room_id: str) -> QuoteItem:
+            return QuoteItem(sku=sku, description=sku, unit="cad", qty=1, unit_price=1, total=1, room_id=room_id)
+
+        rooms = [QuoteRoom(room_id=r, room_label=r, room_type="altro") for r in ("r_bagno", "r_cucina")]
+        quote = QuoteSchema(project_id="p", user_id="u", rooms=rooms,
+                            items=[line("CUC-TOP-001", "r_bagno"), line("SMAL-001", "r_cucina")])
+        assert QuoteRecorder(quotes=[quote]).problems() == [
+            "kitchen line CUC-TOP-001 in r_bagno",
+            "project-wide line SMAL-001 in r_cucina",
+            "no common line (disposal, protection) in Generale",
         ]

@@ -7,6 +7,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.money import Money
+from src.schemas.room import RoomType
 from src.utils.datetime_utils import utc_now
 
 # Canonical status lifecycle — transitions enforced by src/services/quote_state.py:
@@ -34,6 +35,19 @@ class QuoteItem(BaseModel):
     ai_reasoning: str | None = Field(None, description="Why the AI suggested this item")
     category: str | None = Field(None, description="Category of the work (e.g., Demolitions)")
     manual_override: bool = Field(False, description="Whether the item was manually edited by admin")
+    room_id: str | None = Field(None, description="Room section of the line (see QuoteRoom); None on a quote without rooms")
+
+
+class QuoteRoom(BaseModel):
+    """A section of a multi-room quote: one per room, plus "Generale" for the
+    project-wide lines (src/services/room_aggregation.py)."""
+    model_config = {"extra": "forbid"}
+    room_id: str
+    room_label: str
+    room_type: RoomType
+    floor_mq: float | None = Field(default=None, ge=0, allow_inf_nan=False, description="Floor area from the room brief")
+    walls_mq: float | None = Field(default=None, ge=0, allow_inf_nan=False, description="Wall area from the room brief")
+    room_subtotal: Money = Field(default=Decimal("0.00"), ge=0, description="Sum of the room's line totals (pre-VAT)")
 
 
 class QuoteFinancials(BaseModel):
@@ -121,6 +135,7 @@ class RevisionChange(BaseModel):
     model_config = {"extra": "forbid"}
     change: RevisionChangeType
     sku: str
+    room_id: str | None = Field(default=None, description="Room section of the line (multi-room quotes)")
     before: dict[str, Any] | None = Field(default=None, description="qty/unit_price/total/description before")
     after: dict[str, Any] | None = Field(default=None, description="qty/unit_price/total/description after")
 
@@ -141,6 +156,7 @@ class QuoteRevision(BaseModel):
     model_config = {"extra": "forbid"}
     version: int = Field(..., ge=1)
     items: list[QuoteItem] = Field(default_factory=list)
+    rooms: list[QuoteRoom] = Field(default_factory=list)
     financials: QuoteFinancials = Field(default_factory=QuoteFinancials)  # type: ignore[arg-type]
     admin_notes: str | None = Field(default=None)
     actor_uid: str | None = Field(default=None)
@@ -197,6 +213,8 @@ class QuoteSchema(BaseModel):
     status: QuoteStatusType = Field("draft", description="See src/services/quote_state.py")
     delivery_status: QuoteDeliveryStatusType = "none"
     items: list[QuoteItem] = Field(default_factory=list)
+    # Sections of a multi-room quote, in display order (empty: a quote without rooms).
+    rooms: list[QuoteRoom] = Field(default_factory=list)
     financials: QuoteFinancials = Field(default_factory=QuoteFinancials)  # type: ignore[arg-type]
     admin_notes: str | None = None
     request: QuoteRequest | None = None

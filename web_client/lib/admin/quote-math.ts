@@ -9,7 +9,7 @@
  * saved quote and its PDF will have.
  */
 import * as money from '@/lib/money';
-import type { QuoteItem } from '@/types/quote';
+import { GENERAL_ROOM_ID, type QuoteItem, type QuoteRoom } from '@/types/quote';
 
 export interface Totals {
   subtotal: number;
@@ -40,7 +40,8 @@ export function computeTotals(items: readonly Pick<QuoteItem, 'qty' | 'unit_pric
 const EDITABLE: ReadonlyArray<keyof QuoteItem> = ['sku', 'description', 'unit', 'qty', 'unit_price'];
 
 export function isSameItem(a: QuoteItem, b: QuoteItem): boolean {
-  return EDITABLE.every((key) => a[key] === b[key]);
+  // A line moved to another room is a change; "no room" is null or absent.
+  return EDITABLE.every((key) => a[key] === b[key]) && (a.room_id ?? null) === (b.room_id ?? null);
 }
 
 export function itemsEqual(a: readonly QuoteItem[], b: readonly QuoteItem[]): boolean {
@@ -78,7 +79,7 @@ export function nextManualSku(items: readonly Pick<QuoteItem, 'sku'>[]): string 
   }
 }
 
-export function emptyManualItem(items: readonly Pick<QuoteItem, 'sku'>[]): QuoteItem {
+export function emptyManualItem(items: readonly Pick<QuoteItem, 'sku'>[], roomId?: string): QuoteItem {
   return {
     sku: nextManualSku(items),
     description: '',
@@ -87,5 +88,46 @@ export function emptyManualItem(items: readonly Pick<QuoteItem, 'sku'>[]): Quote
     unit_price: 0,
     total: 0,
     manual_override: true,
+    ...(roomId ? { room_id: roomId } : {}),
   };
+}
+
+// ── Multi-room quotes ────────────────────────────────────────────────────────
+
+export interface RoomGroup {
+  room: QuoteRoom;
+  /** Indices of the room's lines in the flat item list (the editor edits by index). */
+  indices: number[];
+  /** Live subtotal of the room's lines, as the backend will compute it. */
+  subtotal: number;
+}
+
+const GENERAL_SECTION: QuoteRoom = {
+  room_id: GENERAL_ROOM_ID,
+  room_label: 'Generale',
+  room_type: 'altro',
+  room_subtotal: 0,
+};
+
+/**
+ * The lines of a multi-room quote grouped by section, in section order. A line
+ * without a known room counts in "Generale", as the backend files it
+ * (`assign_sections`). "Generale" is always offered (last when the quote has
+ * none yet), so the admin can move or add a project-wide line there. Empty for
+ * a quote without rooms.
+ */
+export function groupByRoom(items: readonly QuoteItem[], rooms: readonly QuoteRoom[]): RoomGroup[] {
+  if (rooms.length === 0) return [];
+  const hasGeneral = rooms.some((room) => room.room_id === GENERAL_ROOM_ID);
+  const sections = hasGeneral ? rooms : [...rooms, GENERAL_SECTION];
+  const indices = new Map<string, number[]>(sections.map((room) => [room.room_id, []]));
+  items.forEach((item, index) => {
+    const own = item.room_id ? indices.get(item.room_id) : undefined;
+    (own ?? indices.get(GENERAL_ROOM_ID))?.push(index);
+  });
+  return sections.map((room) => {
+    const lines = indices.get(room.room_id) ?? [];
+    const subtotal = money.centsToNumber(money.sumAmounts(lines.map((index) => lineCents(items[index]))));
+    return { room, indices: lines, subtotal };
+  });
 }

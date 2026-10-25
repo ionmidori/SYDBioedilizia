@@ -7,7 +7,7 @@ import { formatDateTime, formatEuro } from '@/components/admin/quote-status';
 import { useAdminRevision } from '@/hooks/admin/use-admin';
 import { cn } from '@/lib/utils';
 import type { RevisionSummary } from '@/types/admin-quote';
-import type { RevisionChange } from '@/types/quote';
+import type { QuoteRoom, RevisionChange } from '@/types/quote';
 
 const ACTOR_LABEL: Record<string, string> = {
   ai: 'Proposta AI',
@@ -26,11 +26,15 @@ export function RevisionTimeline({
   projectId,
   revisions,
   approvedRevision,
+  rooms = [],
 }: {
   projectId: string;
   revisions: RevisionSummary[];
   approvedRevision?: number | null;
+  /** Sections of a multi-room quote: each change shows the room of its line. */
+  rooms?: QuoteRoom[];
 }) {
+  const roomLabels = new Map(rooms.map((room) => [room.room_id, room.room_label]));
   const [openVersion, setOpenVersion] = useState<number | null>(null);
   const ordered = [...revisions].sort((a, b) => b.version - a.version);
 
@@ -59,7 +63,7 @@ export function RevisionTimeline({
                   <span className="ml-auto text-xs text-luxury-text/50">{formatDateTime(revision.created_at)}</span>
                   <ChevronDown className={cn('w-4 h-4 transition-transform', open && 'rotate-180')} aria-hidden />
                 </button>
-                {open && <RevisionDetail projectId={projectId} revision={revision} />}
+                {open && <RevisionDetail projectId={projectId} revision={revision} roomLabels={roomLabels} />}
               </li>
             );
           })}
@@ -69,7 +73,15 @@ export function RevisionTimeline({
   );
 }
 
-function RevisionDetail({ projectId, revision }: { projectId: string; revision: RevisionSummary }) {
+function RevisionDetail({
+  projectId,
+  revision,
+  roomLabels,
+}: {
+  projectId: string;
+  revision: RevisionSummary;
+  roomLabels: Map<string, string>;
+}) {
   const detail = useAdminRevision(projectId, revision.version, true);
 
   return (
@@ -92,10 +104,13 @@ function RevisionDetail({ projectId, revision }: { projectId: string; revision: 
         ) : (
           <ul className="space-y-1.5">
             {detail.data.diff.map((change, index) => (
-              <li key={`${change.sku}-${index}`} data-testid="diff-row">
+              <li key={`${change.room_id ?? ''}-${change.sku}-${index}`} data-testid="diff-row">
                 <span className={cn('font-medium', CHANGE_LABEL[change.change].className)}>
                   {CHANGE_LABEL[change.change].text}
                 </span>{' '}
+                {change.room_id && (
+                  <span className="text-luxury-text/50">[{roomLabels.get(change.room_id) ?? change.room_id}] </span>
+                )}
                 <span>{describe(change.after ?? change.before)}</span>
                 {change.change === 'changed' && change.before && (
                   <span className="block text-xs text-luxury-text/50">prima: {describe(change.before)}</span>

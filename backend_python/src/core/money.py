@@ -26,6 +26,7 @@ import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from decimal import (
+    ROUND_CEILING,
     ROUND_HALF_UP,
     Context,
     Decimal,
@@ -103,12 +104,31 @@ def discounted_line_total(qty: Amount, unit_price: Amount, discount: Amount) -> 
     return to_cents(_exact(_EXACT.multiply, gross, _exact(_EXACT.subtract, Decimal(1), to_decimal(discount))))
 
 
+def discounted_unit_price(unit_price: Amount, discount: Amount) -> Decimal:
+    """unit_price x (1 - discount), to the cent. For a discount that stays on the line:
+    its total is still line_total(qty, unit_price), however the line is edited later."""
+    return to_cents(_exact(_EXACT.multiply, to_decimal(unit_price), _exact(_EXACT.subtract, Decimal(1), to_decimal(discount))))
+
+
 def sum_amounts(amounts: Iterable[Amount]) -> Decimal:
     """Each term to the cent, then an exact sum (so the result is in cents too)."""
     total = Decimal("0.00")
     for amount in amounts:
         total = _exact(_EXACT.add, total, to_cents(amount))
     return total
+
+
+def sum_quantities(quantities: Iterable[Amount]) -> Decimal:
+    """Exact sum of quantities, never rounded (12.345 m² stays 12.345)."""
+    total = Decimal(0)
+    for qty in quantities:
+        total = _exact(_EXACT.add, total, to_decimal(qty))
+    return total
+
+
+def whole_units(qty: Amount) -> int:
+    """The smallest whole number of units that covers `qty` (2.1 containers need 3)."""
+    return int(to_decimal(qty).to_integral_value(rounding=ROUND_CEILING, context=_ROUND))
 
 
 def vat_amount(subtotal: Amount, vat_rate: Amount) -> Decimal:

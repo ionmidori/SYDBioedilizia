@@ -48,11 +48,15 @@ async def generate_render_wrapper(
     session_id: str,
     mode: str = "creation",
     source_image_url: str | None = None,
-    keep_elements: list[str] | None = None
+    keep_elements: list[str] | None = None,
+    room_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Generate a photorealistic interior design rendering.
     Supports both creation (T2I) and modification (I2I) modes.
+
+    The render is filed in `room_id` (the room it shows); without one, in the
+    room of its source photo.
     """
     try:
         negative_prompt = "low quality, blurry, distorted, cartoon"
@@ -152,7 +156,7 @@ async def generate_render_wrapper(
         # The repository's save_file_metadata triggers sync_project_cover.
         try:
             # The render points at the photo's `files` document (a stable id, not
-            # its expiring signed URL) and belongs to the same room.
+            # its expiring signed URL) and belongs to the room rendered (else the photo's).
             source_file = None
             source_path = session_media_path(source_image_url, session_id) if mode == "modification" else None
             if source_path:
@@ -177,7 +181,7 @@ async def generate_render_wrapper(
             }
 
             await get_conversation_repository().save_file_metadata(
-                session_id, file_meta, room_id=(source_file or {}).get(FILE_ROOM_FIELD)
+                session_id, file_meta, room_id=room_id or (source_file or {}).get(FILE_ROOM_FIELD)
             )
             logger.info(f"[Render] 📂 Registered render file in project {session_id}")
 

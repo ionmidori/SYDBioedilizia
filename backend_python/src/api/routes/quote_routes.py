@@ -115,6 +115,7 @@ def _strip_internal_fields(data: dict) -> dict:
 def _mask_draft_prices(data: dict) -> dict:
     """🛡️ The draft is confidential until admin approval: hide every price."""
     data["items"] = [{**item, "unit_price": 0.0, "total": 0.0} for item in data.get("items", [])]
+    data["rooms"] = [{**room, "room_subtotal": 0.0} for room in data.get("rooms") or []]
     data["financials"] = {}
     return data
 

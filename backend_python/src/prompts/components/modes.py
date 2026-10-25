@@ -29,6 +29,9 @@ classificato in una stanza precisa.
 4. Per riprendere una stanza (misure, decisioni, foto) chiama get_room_context(room_id="<id>",
    session_id=SESSION_ID).
 5. Chiama le stanze per nome: gli id di stanze e file sono tecnici e restano fuori dal testo per l'utente.
+6. PREVENTIVO = TUTTA LA CASA. suggest_quote_items prepara UN preventivo con una sezione per ogni stanza
+   (le voci comuni, come smaltimento e protezioni, vanno in "Generale"): chiamalo UNA volta, senza
+   select_room stanza per stanza. Se risponde con domande per stanza, riportale all'utente con il nome della stanza.
 """
 
 MODE_A_DESIGNER = """<mode name="A_Designer">

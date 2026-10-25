@@ -15,7 +15,7 @@ from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNo
 from src.core.logger import get_logger
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import FILE_ROOM_FIELD
-from src.schemas.room import RoomCreate, RoomSchema, RoomUpdate
+from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomCreate, RoomSchema, RoomUpdate
 from src.utils.datetime_utils import utc_now
 
 logger = get_logger(__name__)
@@ -24,9 +24,6 @@ PROJECTS = "projects"
 ROOMS = "rooms"
 FILES = "files"
 
-# Room that collects the files of a project created before rooms existed.
-DEFAULT_ROOM_ID = "generale"
-DEFAULT_ROOM_LABEL = "Generale"
 # A home, not a building: bounds the room index the model reads every turn.
 # Soft cap (count then write): concurrent creations may pass it by a few.
 MAX_ROOMS_PER_PROJECT = 30
