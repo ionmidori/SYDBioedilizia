@@ -112,6 +112,8 @@ next-env.d.ts
 
 # python
 .venv/
+# ADK evals: own environment on the last Python with every wheel (scripts/run-evals.mjs)
+.venv-eval/
 __pycache__/
 *.pyc
 .pytest_cache/
