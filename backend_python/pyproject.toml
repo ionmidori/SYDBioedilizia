@@ -160,3 +160,12 @@ override-dependencies = [
     "opentelemetry-api>=1.45.1",
     "opentelemetry-sdk>=1.45.1",
 ]
+
+# pyyaml 6.0.3 (via uvicorn[standard]) has no CPython 3.15 wheels, so it is built
+# from source. The slim image has neither a C compiler nor libyaml, so the build
+# already falls back to pure Python there; on Windows the C extension fails
+# instead (no MSVC) and `uv sync` stops. Skip libyaml everywhere: every
+# environment then builds the same pure-Python pyyaml. Remove once pyyaml ships
+# cp315 wheels.
+[tool.uv.extra-build-variables]
+pyyaml = { PYYAML_FORCE_LIBYAML = "0" }

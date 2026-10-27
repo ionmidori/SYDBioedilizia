@@ -15,9 +15,11 @@ You need a Gemini backend and the ADK eval dependencies:
   For Vertex, set the variables for the run only and blank the keys, so an
   inactive key in `.env` is not used:
   `GOOGLE_GENAI_USE_VERTEXAI=true GOOGLE_CLOUD_PROJECT=<project> GOOGLE_CLOUD_LOCATION=eu GOOGLE_API_KEY= GEMINI_API_KEY= npm run eval:run:rooms`
-- **Dependencies**: `uv sync --extra dev`, plus the ADK eval extra, which is not
-  in the lock file: `uv pip install "google-adk[eval]==<installed google-adk version>"`
-  (a later `uv sync` removes it again).
+- **Dependencies**: none to install by hand. The `npm run eval:run*` scripts go through
+  `scripts/run-evals.mjs`, which keeps an own environment (`backend_python/.venv-eval`,
+  Python 3.14) with the locked dependencies plus the ADK eval extra (not in the lock
+  file). The extra cannot be installed on Python 3.15: litellm needs fastuuid, which
+  has no 3.15 wheels.
 
 ```bash
 npm run eval:run              # from the repo root: all flows
