@@ -1,7 +1,7 @@
 {
   "eval_set_id": "syd_multi_room_quote_v1",
-  "name": "SYD Multi-Room Quote (Phase 138, PR-3)",
-  "description": "One chat for the whole home: the user describes the bathroom, then the kitchen, then asks for the quote. The agent must call suggest_quote_items once for the whole home; the runner checks the saved quote (tests/evals/multi_room/fakes.py): a bathroom section and a kitchen section, no line of one room in the other, project-wide lines (disposal, protection) in Generale.",
+  "name": "SYD Multi-Room Quote (Phase 138, PR-3/PR-4)",
+  "description": "One chat for the whole home: the user describes the bathroom, then the kitchen, then asks for the quote. The agent must call suggest_quote_items once for the whole home; the runner checks the saved quote (tests/evals/multi_room/fakes.py): a bathroom section and a kitchen section, no line of one room in the other, project-wide lines (disposal, protection) in Generale. \"Registra la richiesta\" is not a confirmation to send (PR-4): the runner also checks that submit_quote_request was never called.",
   "eval_cases": [
     {
       "eval_id": "bathroom_and_kitchen_quote",

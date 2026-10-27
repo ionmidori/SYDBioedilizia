@@ -783,7 +783,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # deliberately NOT shown to the client: the admin reviews and adjusts
         # it first in the dashboard, then the client receives the final quote
         # by email after approval. Only the works summary is disclosed.
-        sections = f" in {len(quote.rooms)} sezioni (una per stanza, più le voci comuni)" if len(quote.rooms) > 1 else ""
+        room_labels = ", ".join(room.room_label for room in quote.rooms)
+        sections = f" in {len(quote.rooms)} sezioni ({room_labels})" if len(quote.rooms) > 1 else ""
         response = (
             f"{headline}\n\n"
             f"Ho registrato la tua richiesta di preventivo{reference}: ho identificato "
@@ -793,8 +794,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
             "Vuoi che invii ora la richiesta al team?"
         )
 
-        # NOTE: Admin notification removed — now triggered explicitly via batch submission
-        # (POST /quote/batch or the chat submit_quote_request tool).
+        # The team is notified only when the client confirms the submission
+        # (submit_quote_request tool or the "Invia al team" button).
 
         return response
 

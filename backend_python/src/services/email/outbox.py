@@ -219,23 +219,32 @@ async def enqueue_quote_delivery(db: Any, project_id: str, **kwargs: Any) -> Enq
 # ── Enqueue: a pre-rendered message (admin notifications) ─────────────────────
 
 
+def message_entry(
+    *, kind: str, to: str, subject: str, text: str, html: str | None, now: datetime, project_id: str | None = None
+) -> dict[str, Any]:
+    """The outbox document of a pre-rendered email. `project_id` links it to the
+    project, so the GDPR erasure (`email_outbox` step) finds it."""
+    entry: dict[str, Any] = {
+        "kind": kind,
+        "status": "pending",
+        "attempts": 0,
+        "next_attempt_at": now,
+        "created_at": now,
+        "updated_at": now,
+        "message": {"to": to, "subject": subject, "text": text, "html": html},
+    }
+    if project_id:
+        entry["project_id"] = project_id
+    return entry
+
+
 async def enqueue_message(
     db: Any, *, kind: str, to: str, subject: str, text: str, html: str | None, now: datetime | None = None
 ) -> str:
     """Store a fully rendered email in the outbox (single write → atomic)."""
     when = now or utc_now()
     ref = db.collection(OUTBOX).document()
-    await ref.set(
-        {
-            "kind": kind,
-            "status": "pending",
-            "attempts": 0,
-            "next_attempt_at": when,
-            "created_at": when,
-            "updated_at": when,
-            "message": {"to": to, "subject": subject, "text": text, "html": html},
-        }
-    )
+    await ref.set(message_entry(kind=kind, to=to, subject=subject, text=text, html=html, now=when))
     await schedule_dispatch(ref.id, when + SAFETY_DELAY, "safety")
     return ref.id
 

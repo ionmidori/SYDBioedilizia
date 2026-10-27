@@ -3,8 +3,9 @@
 The live model drives the real room tools, the real `generate_render` tool and
 the real `suggest_quote_items` (with the live InsightEngine), but rooms, project
 files, the chat history, the image backend and the quote store are fakes: the
-run writes nothing to Firestore or Storage, spends no render quota, and records
-which photo every render started from and every quote it would have saved. The
+run writes nothing to Firestore or Storage, spends no render quota, never sends
+a request to the team, and records which photo every render started from, every
+quote it would have saved and every submission it would have made. The
 project matches the eval cases: a kitchen and a bathroom, photos uploaded
 kitchen → bathroom → kitchen.
 """
@@ -184,15 +185,37 @@ class QuoteRecorder:
 
 
 @dataclass
+class SubmitRecorder:
+    """Every `submit_quote_request` call (instead of sending it to the team),
+    with how many quotes were saved before it."""
+
+    quotes: QuoteRecorder
+    after_quotes: list[int] = field(default_factory=list)
+
+    async def submit(self, **_: Any) -> str:
+        self.after_quotes.append(len(self.quotes.quotes))
+        return "✅ Richiesta di preventivo inviata (riferimento PRV-EVAL-0001). Il nostro team è stato avvisato."
+
+    def problems(self, expected: int) -> list[str]:
+        """Why the run broke "send only after the client's explicit yes, once"."""
+        if len(self.after_quotes) != expected:
+            return [f"submit_quote_request called {len(self.after_quotes)} times, expected {expected}"]
+        return [f"submission {i + 1} before any saved quote" for i, n in enumerate(self.after_quotes) if n == 0]
+
+
+@dataclass
 class MultiRoomRun:
     renders: RenderRecorder
     quotes: QuoteRecorder
+    submissions: SubmitRecorder
 
 
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
 BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "multi_room_flow.test.json": lambda run: run.renders.problems(),
-    "multi_room_quote.test.json": lambda run: run.quotes.problems(),
+    # "Registra la richiesta" saves the quote and sends nothing: sending needs an explicit yes.
+    "multi_room_quote.test.json": lambda run: run.quotes.problems() + run.submissions.problems(expected=0),
+    "multi_room_submit.test.json": lambda run: run.quotes.problems() + run.submissions.problems(expected=1),
 }
 
 
@@ -201,10 +224,10 @@ def multi_room_backend() -> Iterator[MultiRoomRun]:
     """Patch the room repository, chat history, login/quota gates, the image
     backend and the quote store (no Firestore or Storage write)."""
     repo = FakeRoomRepository()
-    run = MultiRoomRun(renders=RenderRecorder(), quotes=QuoteRecorder())
+    quotes = QuoteRecorder()
+    run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, submissions=SubmitRecorder(quotes))
     newest_project_photo = photo_url(KITCHEN_PHOTOS[1])  # what a room-blind render would use
     allowed = QuotaDecision(True, 10, utc_now())
-    not_sent = AsyncMock(return_value="Invio non disponibile durante la valutazione.")
     with ExitStack() as stack:
         for target in (
             "src.tools.room_tools.get_room_repository",
@@ -224,7 +247,6 @@ def multi_room_backend() -> Iterator[MultiRoomRun]:
         stack.enter_context(patch("src.tools.quote_tools.get_async_firestore_client", new=MagicMock()))
         stack.enter_context(patch("src.services.pricing_service.PricingService.ensure_fresh", new=AsyncMock()))
         # Never send a request to the team or write the phone number from an eval.
-        stack.enter_context(patch("src.tools.batch_tools.list_ready_quotes_wrapper", new=not_sent))
-        stack.enter_context(patch("src.tools.batch_tools.submit_quote_request_wrapper", new=not_sent))
+        stack.enter_context(patch("src.adk.tools.submit_quote_request_wrapper", new=run.submissions.submit))
         stack.enter_context(patch("src.db.firebase_client.get_async_firestore_client", new=MagicMock()))
         yield run

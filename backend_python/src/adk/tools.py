@@ -27,6 +27,7 @@ from src.schemas.room import ROOM_ID_PATTERN
 from src.tools import gallery, project_files, room_tools
 from src.tools.project_files_view import ProjectFilesView
 from src.tools.quota import check_quota, increment_quota, quota_denial
+from src.tools.quote_submit_tools import submit_quote_request_wrapper
 
 logger = logging.getLogger(__name__)
 
@@ -98,48 +99,30 @@ async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
     }
 
 
-# ─── Quote Submission (batch pipeline, shared with dashboard) ────────────────
-
-@instrumented_tool("list_ready_quotes")
-async def list_ready_quotes(session_id: str, tool_context) -> str:
-    """Lists the user's projects with a draft quote ready to be sent to the team.
-
-    Call this BEFORE submit_quote_request when the user asks to send their
-    quote request(s): present the returned list and ask for explicit
-    confirmation. Requires an authenticated user (login gate applies).
-
-    Args:
-        session_id: The current session identifier (used to resolve the user).
-        tool_context: ADK ToolContext injected automatically by the runner.
-    """
-    from src.tools.batch_tools import list_ready_quotes_wrapper
-    return await list_ready_quotes_wrapper(session_id=_trusted_session_id(tool_context, session_id))
-
+# ─── Quote Submission (shared with the dashboard "Invia al team" button) ─────
 
 @instrumented_tool("submit_quote_request")
-async def submit_quote_request(session_id: str, tool_context, project_ids: list[str] = []) -> str:  # noqa: B006
-    """Sends the user's quote request(s) to the admin team for review.
+async def submit_quote_request(session_id: str, tool_context) -> str:
+    """Sends the quote request of the CURRENT project to the admin team for review.
 
-    Creates and submits a quote batch — the SAME pipeline as the dashboard
-    "invia al team" button. The admin is notified by email and the client
-    receives the final quote by email after approval.
+    One project per chat, with a section per room: the whole quote is sent at
+    once — the SAME path as the dashboard "Invia al team" button. The admin is
+    notified by email and the client receives the final quote by email after
+    approval.
 
     CRITICAL: call ONLY after the user gave an EXPLICIT confirmation
-    ("sì, invia") on a summary of the projects being sent. Never call
-    automatically.
+    ("sì, invia") on a summary of the rooms and works being sent. Never call
+    automatically, never right after suggest_quote_items.
 
     Args:
         session_id: The current session identifier (used to resolve the user).
         tool_context: ADK ToolContext injected automatically by the runner.
-        project_ids: Project IDs to submit. Empty → the current session's project.
     """
-    from src.tools.batch_tools import submit_quote_request_wrapper
     if await _is_guest(tool_context.user_id):
         logger.warning("[ADK Tool] submit_quote_request blocked: anonymous user")
         return _QUOTE_LOGIN_REQUIRED
     return await submit_quote_request_wrapper(
-        session_id=_trusted_session_id(tool_context, session_id),
-        project_ids=project_ids or None,
+        session_id=_trusted_session_id(tool_context, session_id), user_id=tool_context.user_id
     )
 
 
@@ -621,7 +604,6 @@ async def save_contact_phone(phone: str, session_id: str, tool_context) -> str:
 # ─── FunctionTool wrappers (ADK 1.26: pass func directly) ────────────────────
 
 pricing_engine_tool_adk = FunctionTool(pricing_engine_tool)
-list_ready_quotes_adk = FunctionTool(list_ready_quotes)
 submit_quote_request_adk = FunctionTool(submit_quote_request)
 market_prices_adk = FunctionTool(get_market_prices)
 

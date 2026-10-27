@@ -60,23 +60,6 @@ class QuoteFinancials(BaseModel):
 
 
 
-class AggregationAdjustment(BaseModel):
-    """A cross-room optimization applied during aggregation."""
-    model_config = {"extra": "forbid"}
-    adjustment_type: Literal[
-        "dedup_singleton",
-        "merge_quantities",
-        "volume_discount",
-        "shared_overhead",
-    ] = Field(..., description="Type of cross-room optimization")
-    description: str = Field(..., description="Human-readable Italian explanation")
-    sku: str | None = Field(None, description="SKU affected (if applicable)")
-    original_total: Money = Field(..., description="Total before adjustment")
-    adjusted_total: Money = Field(..., description="Total after adjustment")
-    savings: Money = Field(..., ge=0, description="Amount saved")
-    affected_rooms: list[str] = Field(default_factory=list, description="room_ids involved")
-
-
 class QuoteRequest(BaseModel):
     """What the client asked for — shown to the admin in the quote dossier."""
     model_config = {"extra": "forbid"}
@@ -241,43 +224,3 @@ class QuoteSchema(BaseModel):
     deleted_at: datetime | None = None
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
-
-
-# ── Multi-Project Batch Submission ────────────────────────────────────────────
-
-BatchStatusType = Literal["draft", "submitted", "partially_approved", "approved", "rejected"]
-
-
-class BatchProject(BaseModel):
-    """Snapshot of a single project's quote within a batch submission."""
-    model_config = {"extra": "forbid"}
-    project_id: str = Field(..., description="Firestore project document ID")
-    project_name: str = Field(..., description="Human label (e.g., 'Bagno Via Roma')")
-    status: QuoteStatusType = Field("draft", description="Per-project approval status within the batch")
-    item_count: int = Field(0, ge=0, description="Number of quote items")
-    subtotal: Money = Field(Decimal("0.00"), ge=0, description="Project quote subtotal (pre-VAT)")
-    admin_notes: str | None = Field(None, description="Per-project admin notes")
-
-
-class QuoteBatch(BaseModel):
-    """Groups multiple project quotes for a single batch submission to admin."""
-    model_config = ConfigDict(extra="forbid")
-    id: str | None = Field(None, description="Firestore document ID (auto-generated)")
-    user_id: str = Field(..., description="Authenticated user UID")
-    status: BatchStatusType = Field("draft", description="Overall batch lifecycle status")
-    projects: list[BatchProject] = Field(default_factory=list, description="Individual project snapshots")
-    total_projects: int = Field(0, ge=0, description="Number of projects in batch")
-    batch_subtotal: Money = Field(Decimal("0.00"), ge=0, description="Sum of all project subtotals")
-    batch_grand_total: Money = Field(
-        Decimal("0.00"), ge=0, description="Sum of the project totals (each with its own VAT rate)"
-    )
-    submitted_at: datetime | None = Field(None, description="When batch was submitted to admin")
-    created_at: datetime = Field(default_factory=utc_now)
-    updated_at: datetime = Field(default_factory=utc_now)
-    # Cross-project aggregation preview (advisory, not mutating)
-    potential_savings: Money = Field(
-        Decimal("0.00"), ge=0, description="Total potential savings from cross-project optimization"
-    )
-    aggregation_preview: list[AggregationAdjustment] = Field(
-        default_factory=list, description="Advisory cross-project optimizations (read-only preview)"
-    )

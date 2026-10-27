@@ -1,0 +1,138 @@
+{
+  "eval_set_id": "syd_multi_room_submit_v1",
+  "name": "SYD Multi-Room Quote Submission (Phase 138, PR-4)",
+  "description": "The quote of the multi-room chat, then the client's explicit yes. Turn 3 (\"registra la richiesta\") must only save the quote; after \"sì, invia\" the agent calls submit_quote_request for the current project. The runner checks one saved quote with a section per room and exactly one submission, made after the quote was saved (tests/evals/multi_room/fakes.py: nothing reaches the team).",
+  "eval_cases": [
+    {
+      "eval_id": "bathroom_and_kitchen_quote_then_explicit_yes",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-multi-room-submit"
+          },
+          "syd_rooms": [
+            {
+              "room_id": "r_cucina",
+              "label": "Cucina",
+              "room_type": "cucina",
+              "summary": ""
+            },
+            {
+              "room_id": "r_bagno",
+              "label": "Bagno",
+              "room_type": "bagno",
+              "summary": ""
+            }
+          ],
+          "syd_active_room_id": "r_bagno"
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_submit_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCiao! Ristrutturiamo bagno e cucina, appartamento a Roma al terzo piano con ascensore. Partiamo dal bagno: è 2 x 2,5 m, altezza 2,70. Voglio rifare tutto: togliere la vasca e i sanitari, piastrelle nuove a pavimento (5 mq) e alle pareti fino a 2,10 m (circa 19 mq), doccia walk-in con piatto a filo pavimento, impermeabilizzazione della zona doccia e sanitari sospesi nuovi.\n###\n[Foto f_bagno_1 · Bagno]"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Bagno chiaro."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_submit_002",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nPassiamo alla cucina: 3 x 4 m. Tengo i mobili, ma voglio un top in quarzo di 3,5 metri lineari, la presa dedicata per il piano a induzione e il gres nuovo a pavimento (12 mq), togliendo il pavimento vecchio.\n###\n[Foto f_cucina_2 · Cucina]"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Cucina chiara."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_submit_003",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nPer entrambe le stanze serve anche lo smaltimento delle macerie e la protezione dei pavimenti del resto della casa. Non ho altro da aggiungere e non mi servono render: registra adesso la richiesta di preventivo per bagno e cucina.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Ho registrato la richiesta di preventivo."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_quote_001"
+              }
+            ]
+          }
+        },
+        {
+          "invocation_id": "inv_submit_004",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nSì, confermo: invia la richiesta di preventivo al vostro team.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Richiesta inviata! Il nostro team la sta esaminando."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "submit_quote_request",
+                "args": {},
+                "id": "call_submit_001"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -11,7 +11,6 @@ from src.api.routes import admin_quotes as routes
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import AppException
 from src.schemas.internal import UserSession
-from src.services import batch_sync
 from src.services.client_profile import ClientProfile
 from src.services.email.console import ConsoleProvider
 from src.services.email.types import ProviderError
@@ -48,11 +47,6 @@ def db(monkeypatch):
         return await body(FakeTransaction(fake), fake)
 
     monkeypatch.setattr(routes, "_run", run)
-
-    async def transact(_db, body):
-        return await body(FakeTransaction(fake))
-
-    monkeypatch.setattr(batch_sync, "_transact", transact)
     monkeypatch.setattr(routes.svc, "sign_url_sync", lambda path, disposition: f"https://signed/{path}")
     monkeypatch.setattr(routes, "emit_audit_event", lambda *a, **k: None)
     return fake
@@ -286,61 +280,6 @@ def test_dossier_lists_the_deliveries(db, mail):
         body = _client().get(f"/api/admin/quotes/{PID}").json()
     [delivery] = body["deliveries"]
     assert delivery["to"] == "m@x.it" and delivery["status"] == "sent" and delivery["revision"] == 2
-
-
-# ── Decisions are mirrored on the client's batch ──────────────────────────────
-
-
-def _seed_batch(db):
-    db.put("quote_batches", "b1", {
-        "status": "submitted", "user_id": "uid-1",
-        "projects": [
-            {"project_id": PID, "project_name": "Cucina", "status": "draft"},
-            {"project_id": "other", "project_name": "Bagno", "status": "approved"},
-        ],
-    })
-    stored = db.get_data(*QUOTE)
-    stored["request"]["batch_id"] = "b1"
-    db.put(*QUOTE, stored)
-
-
-def test_approving_a_quote_updates_its_batch(db, monkeypatch):
-    _seed(db)
-    _seed_batch(db)
-    monkeypatch.setattr(routes.PdfService, "generate_pdf_bytes", lambda self, data: b"%PDF")
-    monkeypatch.setattr(routes.svc, "upload_pdf_sync", lambda data, path: None)
-    assert _client().post(f"/api/admin/quotes/{PID}/approve", headers={"If-Match": '"v2"'}).status_code == 200
-    batch = db.get_data("quote_batches", "b1")
-    assert [p["status"] for p in batch["projects"]] == ["approved", "approved"]
-    assert batch["status"] == "approved"
-
-
-def test_rejecting_and_reopening_follow_on_the_batch_without_leaking_the_reason(db):
-    _seed(db)
-    _seed_batch(db)
-    client = _client()
-    client.post(f"/api/admin/quotes/{PID}/reject", json={"reason": "Motivo interno riservato"})
-    batch = db.get_data("quote_batches", "b1")
-    assert batch["projects"][0]["status"] == "rejected" and batch["status"] == "partially_approved"
-    assert "admin_notes" not in batch["projects"][0]  # the internal reason never reaches the client
-
-    client.post(f"/api/admin/quotes/{PID}/reopen", json={"reason": "Il cliente ha richiamato"})
-    batch = db.get_data("quote_batches", "b1")
-    assert batch["projects"][0]["status"] == "draft" and batch["status"] == "submitted"
-
-
-def test_a_batch_problem_does_not_undo_the_decision(db, monkeypatch):
-    from google.api_core.exceptions import ServiceUnavailable
-
-    _seed(db)
-    _seed_batch(db)
-
-    async def boom(_db, _body):
-        raise ServiceUnavailable("down")
-
-    monkeypatch.setattr(batch_sync, "_transact", boom)
-    resp = _client().post(f"/api/admin/quotes/{PID}/reject", json={"reason": "Fuori zona"})
-    assert resp.status_code == 200 and resp.json()["status"] == "rejected"
 
 
 # ── Revising a quote that was already SENT ───────────────────────────────────

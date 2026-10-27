@@ -15,7 +15,6 @@ from urllib.parse import unquote, urlparse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from src.core.money import Money
-from src.schemas.quote import QuoteDeliveryStatusType, QuoteStatusType
 
 # ── Portfolio ─────────────────────────────────────────────────────────────────
 
@@ -216,58 +215,6 @@ class ModerateResponse(BaseModel):
     id: str
     status: TestimonialStatus
     stats: TestimonialStats
-
-
-# ── Batches ───────────────────────────────────────────────────────────────────
-
-BatchStatus = Literal["draft", "submitted", "partially_approved", "approved", "rejected"]
-
-
-class AdminBatchListItem(BaseModel):
-    batch_id: str
-    status: BatchStatus
-    client_display_name: str | None = None
-    client_email: str | None = None
-    total_projects: int = 0
-    decided_projects: int = 0
-    batch_grand_total: Money = Decimal("0.00")
-    potential_savings: Money = Decimal("0.00")
-    submitted_at: datetime | None = None
-
-
-class AdminBatchList(BaseModel):
-    items: list[AdminBatchListItem]
-
-
-class AdminBatchProject(BaseModel):
-    """A project of the batch with the LIVE state of its quote.
-
-    Decisions are taken in the quote dossier (/admin/quotes/{project_id}),
-    where the admin sees photos and lines and chooses what to send.
-    """
-
-    project_id: str
-    project_name: str
-    batch_status: QuoteStatusType
-    quote_status: QuoteStatusType | None = None
-    delivery_status: QuoteDeliveryStatusType = "none"
-    quote_number: str | None = None
-    item_count: int = 0
-    grand_total: Money = Decimal("0.00")
-    admin_notes: str | None = None
-
-
-class AdminBatchDetail(BaseModel):
-    batch_id: str
-    status: BatchStatus
-    client_display_name: str | None = None
-    client_email: str | None = None
-    batch_subtotal: Money = Decimal("0.00")
-    batch_grand_total: Money = Decimal("0.00")
-    potential_savings: Money = Decimal("0.00")
-    submitted_at: datetime | None = None
-    aggregation_preview: list[dict[str, object]] = Field(default_factory=list)
-    projects: list[AdminBatchProject]
 
 
 # ── KPIs ──────────────────────────────────────────────────────────────────────

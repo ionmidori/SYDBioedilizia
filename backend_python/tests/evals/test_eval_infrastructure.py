@@ -184,6 +184,30 @@ class TestMultiRoomQuoteEval:
         expected = [t.name for inv in case.conversation for t in (inv.intermediate_data.tool_uses or [])]
         assert expected == ["suggest_quote_items"]
 
+    def test_the_submit_set_sends_only_after_the_explicit_yes(self) -> None:
+        """Phase 138, PR-4: "registra" saves the quote, the next turn's "sì, invia" sends it."""
+        submit_set = EVALS_DIR / "multi_room" / "multi_room_submit.test.json"
+        case = EvalSet.model_validate_json(submit_set.read_text(encoding="utf-8")).eval_cases[0]
+        per_turn = [[t.name for t in (inv.intermediate_data.tool_uses or [])] for inv in case.conversation]
+        assert per_turn == [[], [], ["suggest_quote_items"], ["submit_quote_request"]]
+        assert "invia" in case.conversation[-1].user_content.parts[0].text
+
+    async def test_the_submit_check_counts_submissions_after_a_saved_quote(self) -> None:
+        from unittest.mock import MagicMock
+
+        from src.adk import tools
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS, multi_room_backend
+
+        context = MagicMock()
+        context.session.id = "eval"
+        with multi_room_backend() as run:
+            reply = await tools.submit_quote_request(session_id="eval", tool_context=context)
+        assert reply.startswith("✅")
+        assert run.submissions.problems(expected=1) == ["submission 1 before any saved quote"]
+        assert BACKEND_CHECKS["multi_room_quote.test.json"](run)[-1] == (
+            "submit_quote_request called 1 times, expected 0"
+        )
+
     def test_every_multi_room_set_has_a_backend_check(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 

@@ -26,7 +26,7 @@ services directly.
   retries, dead-lettering and Brevo delivery events (`src/services/email/`).
   Dispatch is event-driven on Cloud Tasks. A dead-lettered email logs
   `email_dead_letter`, which triggers an alert email to the admin.
-- **Admin API**: quote review, batches, price book, portfolio, testimonials,
+- **Admin API**: quote review, price book, portfolio, testimonials,
   KPIs and GDPR tools (`src/api/routes/admin_*.py`).
 - **Guardrails**: always-on input sanitizer plus optional Google Cloud Model
   Armor on the agents' input and output.
@@ -135,7 +135,7 @@ backend_python/
 │   ├── prompts/         # Prompt components composed by adk/agents.py
 │   ├── repositories/    # Repository layer
 │   ├── schemas/         # Request/response schemas (Golden Sync with web_client/types)
-│   ├── services/        # Pricing, PDF, RAG, batches, email outbox, Model Armor, ...
+│   ├── services/        # Pricing, PDF, RAG, quote submission, email outbox, Model Armor, ...
 │   ├── storage/         # Cloud Storage helpers
 │   ├── tools/           # Tool implementations used by src/adk/tools.py
 │   ├── utils/           # Sanitizer, download, JSON parsing, stream protocol, ...

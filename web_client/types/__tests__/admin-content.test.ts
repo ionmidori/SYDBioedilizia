@@ -1,5 +1,4 @@
 import {
-  adminBatchDetailSchema,
   adminKpisSchema,
   gdprRunResultSchema,
   moderateBodySchema,
@@ -55,15 +54,6 @@ describe('admin content schemas (Golden Sync with admin_content.py)', () => {
     });
     expect(parsed.stats).toEqual({ pending: 1, approved: 0, rejected: 0 });
     expect(parsed.items[0].rating).toBe(5);
-  });
-
-  it('parses a batch detail with the live quote state of each project', () => {
-    const parsed = adminBatchDetailSchema.parse({
-      batch_id: 'b1',
-      status: 'submitted',
-      projects: [{ project_id: 'p1', project_name: 'Bagno', batch_status: 'draft', quote_status: 'sent' }],
-    });
-    expect(parsed.projects[0]).toMatchObject({ quote_status: 'sent', delivery_status: 'none' });
   });
 
   it('parses the KPIs and the GDPR run result', () => {

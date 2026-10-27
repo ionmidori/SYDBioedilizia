@@ -7,7 +7,7 @@ import { QUOTES_FIXTURE } from './fixtures/constants';
  * Regression cover for three production bugs that shipped despite green unit
  * tests, because each lived in the seam between tiers:
  *  - #231 `/dashboard/quotes` was parsed as a project id by the sidebar
- *  - #232 the quote/batch routers were not mounted under `/api` -> 404
+ *  - #232 the quote routers were not mounted under `/api` -> 404
  *  - #239 the PDF signed URL was minted already-expired
  *
  * This spec also proves the auth-token cookie mechanism end to end: if it is

@@ -147,17 +147,8 @@ describe('adminApi', () => {
     });
   });
 
-  describe('batches, content and GDPR', () => {
+  describe('content and GDPR', () => {
     const PROJECT = { id: 'p1', title: 'Bagno', category: 'Bagno', location: 'Roma', stats: {}, active: true, order: 1 };
-
-    it('reads batches by scope and one batch by id', async () => {
-      mockFetch.mockResolvedValue(json(200, { items: [] }));
-      await adminApi.listBatches('closed');
-      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/batches?scope=closed');
-      mockFetch.mockResolvedValue(json(200, { batch_id: 'b/1', status: 'submitted', projects: [] }));
-      await adminApi.getBatch('b/1');
-      expect(mockFetch.mock.calls[1][0]).toBe('/api/py/admin/batches/b%2F1');
-    });
 
     it('moderates a testimonial with the decision and the note', async () => {
       mockFetch.mockResolvedValue(json(200, { id: 't1', status: 'approved', stats: {} }));

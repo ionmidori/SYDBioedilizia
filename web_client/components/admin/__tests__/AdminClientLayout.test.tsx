@@ -85,7 +85,6 @@ describe('AdminClientLayout', () => {
     expect(links).toEqual([
       ['Dashboard', '/admin'],
       ['Preventivi', '/admin/quotes'],
-      ['Lotti', '/admin/batches'],
       ['Listino', '/admin/price-book'],
       ['Portfolio', '/admin/portfolio'],
       ['Recensioni', '/admin/testimonials'],

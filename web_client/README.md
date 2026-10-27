@@ -29,7 +29,7 @@ the Python backend.
 | `/blog`, `/blog/[slug]` | Articles, defined as data in `lib/blog/posts/` and rendered by one route |
 | `/privacy`, `/cookie-policy`, `/terms` | Legal pages, with company data from `lib/company.ts` |
 | `/dashboard` | Client area: projects, gallery, quotes, profile and settings |
-| `/admin` | Admin console: quote review, batches, price book, portfolio, testimonials, GDPR tools |
+| `/admin` | Admin console: quote review, price book, portfolio, testimonials, GDPR tools |
 | `/auth/verify` | Completes the passwordless email (magic link) sign-in |
 
 The chat widget is available on every page. Premium actions (renders and

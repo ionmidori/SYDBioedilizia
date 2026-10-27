@@ -105,7 +105,8 @@ async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object
     """Run one eval set. Raises on a schema error, an API failure or a metric
     below threshold. The multi-room sets run against an in-memory backend and
     also fail on its check: a render that did not start from the bathroom
-    photo, a quote without a correct section per room."""
+    photo, a quote without a correct section per room, a submission without
+    the client's explicit yes."""
     common = {
         "eval_dataset_file_path_or_dir": str(path),
         "num_runs": num_runs,
@@ -119,7 +120,10 @@ async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object
     problems = BACKEND_CHECKS[path.name](run)
     if problems:
         raise AssertionError(f"{path.name}: " + "; ".join(problems))
-    logger.info(f"{path.name}: backend check passed (renders {len(run.renders.sources)}, quotes {len(run.quotes.quotes)})")
+    logger.info(
+        f"{path.name}: backend check passed (renders {len(run.renders.sources)}, quotes {len(run.quotes.quotes)}, "
+        f"submissions {len(run.submissions.after_quotes)})"
+    )
     return result
 
 

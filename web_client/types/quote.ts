@@ -78,27 +78,6 @@ export const quoteFinancialsSchema = z.object({
 });
 export type QuoteFinancials = z.infer<typeof quoteFinancialsSchema>;
 
-// ── AggregationAdjustment (cross-project batch) ──────────────────────────────
-
-export const aggregationAdjustmentTypeSchema = z.enum([
-  'dedup_singleton',
-  'merge_quantities',
-  'volume_discount',
-  'shared_overhead',
-]);
-export type AggregationAdjustmentType = z.infer<typeof aggregationAdjustmentTypeSchema>;
-
-export const aggregationAdjustmentSchema = z.object({
-  adjustment_type: aggregationAdjustmentTypeSchema,
-  description: z.string(),
-  sku: z.string().nullable().optional(),
-  original_total: z.number(),
-  adjusted_total: z.number(),
-  savings: z.number().min(0),
-  affected_rooms: z.array(z.string()).default([]),
-});
-export type AggregationAdjustment = z.infer<typeof aggregationAdjustmentSchema>;
-
 // ── QuoteRequest (what the client asked for) ─────────────────────────────────
 
 export const quoteRequestSchema = z.object({
@@ -265,44 +244,6 @@ export const quoteSchema = z.object({
 });
 export type Quote = z.infer<typeof quoteSchema>;
 
-// ── Multi-Project Batch Submission ──────────────────────────────────────────
-
-export const batchStatusSchema = z.enum([
-  'draft',
-  'submitted',
-  'partially_approved',
-  'approved',
-  'rejected',
-]);
-export type BatchStatus = z.infer<typeof batchStatusSchema>;
-
-export const batchProjectSchema = z.object({
-  project_id: z.string(),
-  project_name: z.string(),
-  status: quoteStatusSchema.default('draft'),
-  item_count: z.number().min(0).default(0),
-  subtotal: z.number().min(0).default(0),
-  admin_notes: z.string().nullable().optional(),
-});
-export type BatchProject = z.infer<typeof batchProjectSchema>;
-
-export const quoteBatchSchema = z.object({
-  id: z.string().nullable().optional(),
-  user_id: z.string(),
-  status: batchStatusSchema.default('draft'),
-  projects: z.array(batchProjectSchema).default([]),
-  total_projects: z.number().min(0).default(0),
-  batch_subtotal: z.number().min(0).default(0),
-  batch_grand_total: z.number().min(0).default(0),
-  submitted_at: z.string().nullable().optional(),
-  created_at: z.string().optional(),
-  updated_at: z.string().optional(),
-  // Cross-project aggregation preview (advisory, not mutating)
-  potential_savings: z.number().min(0).default(0),
-  aggregation_preview: z.array(aggregationAdjustmentSchema).default([]),
-});
-export type QuoteBatch = z.infer<typeof quoteBatchSchema>;
-
 // ── QuoteListItem (client area "Preventivi" section) ─────────────────────────
 // Golden Sync: backend_python/src/api/routes/quote_routes.py → QuoteListItemResponse
 
@@ -327,3 +268,13 @@ export const quotePdfUrlSchema = z.object({
   expires_in_seconds: z.number().default(900),
 });
 export type QuotePdfUrl = z.infer<typeof quotePdfUrlSchema>;
+
+// Golden Sync: backend_python/src/api/routes/quote_routes.py → QuoteSubmitResponse
+export const quoteSubmitResponseSchema = z.object({
+  project_id: z.string(),
+  status: z.string(),
+  quote_number: z.string().nullable().optional(),
+  // True when the quote was already with the team: nothing was sent again.
+  duplicate: z.boolean().default(false),
+});
+export type QuoteSubmitResponse = z.infer<typeof quoteSubmitResponseSchema>;

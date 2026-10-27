@@ -60,7 +60,7 @@ _REVIEWABLE = (_S.DRAFT, _S.PENDING_REVIEW, _S.IN_REVIEW)
 
 TRANSITIONS: dict[tuple[QuoteStatus, QuoteEvent], QuoteStatus] = {
     (_S.DRAFT, _E.SUBMIT): _S.PENDING_REVIEW,
-    # Re-submitting an already pending quote (new batch) is idempotent.
+    # Submitting an already pending quote again changes nothing.
     (_S.PENDING_REVIEW, _E.SUBMIT): _S.PENDING_REVIEW,
     (_S.DRAFT, _E.OPEN): _S.IN_REVIEW,
     (_S.PENDING_REVIEW, _E.OPEN): _S.IN_REVIEW,

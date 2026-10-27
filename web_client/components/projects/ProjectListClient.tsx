@@ -1,33 +1,26 @@
 "use client"
 
 import { describeApiError } from '@/lib/api-client';
-import { FolderKanban, Plus, ListChecks, X } from "lucide-react"
+import { FolderKanban, Plus } from "lucide-react"
 import { ScallopedInlineLoader } from "@/components/ui/ScallopedPageTransition"
-import { useCallback, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 
 import { Button } from "@/components/ui/button"
 import { useProjects } from "@/hooks/use-projects"
 import { ProjectCard } from "@/components/dashboard/ProjectCard"
 import { CreateProjectDialog } from "@/components/dashboard/CreateProjectDialog"
-import { FloatingBatchBar } from "@/components/dashboard/FloatingBatchBar"
-import { BatchSubmitModal } from "@/components/dashboard/BatchSubmitModal"
 
 /**
- * Quote eligibility is now determined by the server-authoritative
- * `has_quote` field on each ProjectListItem. The backend checks if
- * a valid quote document exists in Firestore (private_data/quote).
+ * `has_quote` (server-authoritative: the project's quote has items) and
+ * `quote_status` drive the "Invia al team" button on each card: one project,
+ * one quote with a section per room, sent on its own.
  */
 
 export function ProjectListClient() {
     const { data: projects = [], isLoading, isError, error: queryError, refetch } = useProjects();
     const error = isError ? describeApiError(queryError) : null;
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
-
-    // ── Multi-select state ──────────────────────────────────────────────
-    const [selectMode, setSelectMode] = useState(false);
-    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const [submitModalOpen, setSubmitModalOpen] = useState(false);
 
     const handleCreateProject = () => {
         setCreateDialogOpen(true);
@@ -37,52 +30,11 @@ export function ProjectListClient() {
         refetch();
     };
 
-    const toggleSelectMode = useCallback(() => {
-        setSelectMode((prev) => {
-            if (prev) setSelectedIds(new Set()); // clear on exit
-            return !prev;
-        });
-    }, []);
-
-    const handleToggleSelect = useCallback((sessionId: string) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(sessionId)) {
-                next.delete(sessionId);
-            } else {
-                next.add(sessionId);
-            }
-            return next;
-        });
-    }, []);
-
-    const handleBatchCancel = useCallback(() => {
-        setSelectedIds(new Set());
-        setSelectMode(false);
-    }, []);
-
-    const handleBatchSubmit = useCallback(() => {
-        setSubmitModalOpen(true);
-    }, []);
-
-    const handleBatchSuccess = useCallback(() => {
-        setSelectedIds(new Set());
-        setSelectMode(false);
-        refetch();
-    }, [refetch]);
-
-    const selectedProjects = useMemo(
-        () => projects.filter((p) => selectedIds.has(p.session_id)),
-        [projects, selectedIds]
-    );
-
     // Determine which projects truly have quotes (server-authoritative)
     const quoteEligible = useMemo(
         () => new Set(projects.filter((p) => p.has_quote).map((p) => p.session_id)),
         [projects]
     );
-
-    const hasEligibleProjects = quoteEligible.size > 0;
 
     if (isLoading) {
         return (
@@ -112,39 +64,6 @@ export function ProjectListClient() {
 
                 {/* Action Buttons */}
                 <div className="flex items-center gap-3">
-                    {/* Select Mode Toggle */}
-                    {projects.length > 0 && hasEligibleProjects && (
-                        <AnimatePresence mode="wait">
-                            <motion.button
-                                key={selectMode ? 'exit' : 'enter'}
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.9 }}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.98 }}
-                                onClick={toggleSelectMode}
-                                className={`group relative flex items-center gap-3 px-5 py-3 border rounded-xl overflow-hidden transition-all duration-300 shadow-lg ${
-                                    selectMode
-                                        ? 'bg-luxury-teal/10 border-luxury-teal/30 hover:border-luxury-teal/50 shadow-luxury-teal/5'
-                                        : 'bg-white/5 border-luxury-text/15 hover:border-luxury-text/30 shadow-white/5'
-                                }`}
-                            >
-                                <div className="relative z-10 flex items-center gap-2.5">
-                                    {selectMode ? (
-                                        <X className="w-4 h-4 text-luxury-teal" />
-                                    ) : (
-                                        <ListChecks className="w-4 h-4 text-luxury-text/70" />
-                                    )}
-                                    <span className={`font-bold text-xs whitespace-nowrap uppercase tracking-widest ${
-                                        selectMode ? 'text-luxury-teal' : 'text-luxury-text/70'
-                                    }`}>
-                                        {selectMode ? 'Annulla' : 'Seleziona'}
-                                    </span>
-                                </div>
-                            </motion.button>
-                        </AnimatePresence>
-                    )}
-
                     {/* Create Project */}
                     <motion.button
                         whileHover={{ scale: 1.05 }}
@@ -166,26 +85,6 @@ export function ProjectListClient() {
                     </motion.button>
                 </div>
             </div>
-
-            {/* Select Mode Banner */}
-            <AnimatePresence>
-                {selectMode && (
-                    <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="overflow-hidden"
-                    >
-                        <div className="flex items-center gap-3 px-5 py-3 rounded-xl bg-luxury-teal/5 border border-luxury-teal/15">
-                            <ListChecks className="w-4 h-4 text-luxury-teal shrink-0" />
-                            <p className="text-xs text-luxury-text/60 font-medium">
-                                Seleziona i progetti da inviare al team per il preventivo finale.
-                                Solo i progetti con una bozza di preventivo possono essere selezionati.
-                            </p>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
             {/* Error Message */}
             {error && (
@@ -230,29 +129,11 @@ export function ProjectListClient() {
                             project={project}
                             index={index}
                             onDelete={handleDeleteProject}
-                            selectable={selectMode}
-                            selected={selectedIds.has(project.session_id)}
-                            onToggleSelect={handleToggleSelect}
                             hasQuote={quoteEligible.has(project.session_id)}
                         />
                     ))}
                 </div>
             )}
-
-            {/* Floating Batch Action Bar */}
-            <FloatingBatchBar
-                selectedCount={selectedIds.size}
-                onSubmit={handleBatchSubmit}
-                onCancel={handleBatchCancel}
-            />
-
-            {/* Batch Submit Confirmation Modal */}
-            <BatchSubmitModal
-                open={submitModalOpen}
-                onOpenChange={setSubmitModalOpen}
-                selectedProjects={selectedProjects}
-                onSuccess={handleBatchSuccess}
-            />
 
             <CreateProjectDialog
                 open={createDialogOpen}

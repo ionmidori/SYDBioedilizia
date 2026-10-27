@@ -126,6 +126,8 @@ class ProjectListItem(BaseModel):
     updated_at: datetime
     message_count: int = 0
     has_quote: bool = Field(False, description="Whether this project has completed the quote generation flow")
+    # Free string, not QuoteStatusType: a legacy status must not drop the row from the list.
+    quote_status: str | None = Field(None, description="Status of the project's quote (None: no quote yet)")
 
     @field_serializer('updated_at')
     def serialize_updated_at(self, dt: _datetime_type, _info) -> str:

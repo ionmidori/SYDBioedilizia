@@ -7,14 +7,15 @@ Security: All endpoints require JWT authentication (Depends(verify_token)).
   - GET  /user/{user_id}       — List all quotes for a user (IDOR-safe: enforces uid match)
   - GET  /{project_id}         — Get quote by project
   - GET  /{project_id}/pdf     — On-demand short-lived PDF signed URL (15 min)
+  - POST /{project_id}/submit  — Send the draft to the team (Idempotency-Key)
   - DELETE /{project_id}       — Delete quote draft (not approved/sent)
 
 A quote that was already sent and is being revised in the admin console is
 shown to its owner as the version they received (services/client_quote_view.py):
 the revision in progress stays confidential until it is approved and sent.
 
-The draft is created by the AI (services/quote_drafts.py) and submitted through a
-batch (batch_routes.py). Every admin decision — edit, approve, reject, send — lives
+The draft is created by the AI (services/quote_drafts.py) and submitted by its
+owner (services/quote_submission.py, shared with the chat tool). Every admin decision — edit, approve, reject, send — lives
 in /api/admin/quotes (admin_quotes.py): revisions, review lock, If-Match, state machine.
 
 Storage path: projects/{project_id}/private_data/quote
@@ -24,17 +25,19 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from src.auth.admin import has_admin_role
 from src.auth.jwt_handler import verify_token
+from src.core.exceptions import IdempotencyKeyRequiredError, PermissionDenied
 from src.core.money import Money, to_cents
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
 from src.schemas.quote import QuoteSchema
 from src.services.client_quote_view import client_view_source, serves_sent_copy
+from src.services.quote_submission import submit_project_quote
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -69,6 +72,16 @@ class QuoteListItemResponse(BaseModel):
     item_count: int
     updated_at: str
     pdf_available: bool = False
+
+
+class QuoteSubmitResponse(BaseModel):
+    """Golden Sync: web_client/types/quote.ts → QuoteSubmitResponse."""
+    model_config = {"extra": "forbid"}
+    project_id: str
+    status: str
+    quote_number: str | None = None
+    # True when the quote was already with the team: nothing was sent again.
+    duplicate: bool = False
 
 
 class QuotePdfUrlResponse(BaseModel):
@@ -332,6 +345,36 @@ async def get_quote_pdf_url(
         )
 
     return QuotePdfUrlResponse(pdf_url=pdf_url, expires_in_seconds=900)
+
+
+@router.post(
+    "/{project_id}/submit",
+    response_model=QuoteSubmitResponse,
+    summary="Send the quote draft to the team for review",
+)
+@limiter.limit("10/hour")
+async def submit_quote(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    project_id: str = _PROJECT_ID,
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key"),
+    user_session: UserSession = Depends(verify_token),
+) -> QuoteSubmitResponse:
+    """
+    draft → pending_review and the admin is notified by email (outbox). Only
+    the project's owner, with a registered account; a quote already with the
+    team answers `duplicate=true` and sends nothing.
+    """
+    if not idempotency_key or not 8 <= len(idempotency_key) <= 128:
+        raise IdempotencyKeyRequiredError()
+    if user_session.is_guest:
+        raise PermissionDenied(message="Sign in to send the quote request.")
+    result = await submit_project_quote(user_session.uid, project_id, idempotency_key=idempotency_key)
+    return QuoteSubmitResponse(
+        project_id=result.project_id,
+        status=result.status,
+        quote_number=result.quote_number,
+        duplicate=result.duplicate,
+    )
 
 
 @router.delete(
