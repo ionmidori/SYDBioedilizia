@@ -54,6 +54,8 @@ jobs:
           # MUST track the base image in backend_python/Dockerfile. pyproject
           # allows >=3.12, so CI on an older interpreter than Cloud Run runs
           # would still pass while production hits 3.14-only behaviour.
+          # uv runs backend_python/.python-version, not this interpreter: the
+          # two must match (tests/unit/test_python_runtime_sync.py).
           python-version: '3.14'
 
       - name: 'Install uv'
