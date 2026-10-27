@@ -13,7 +13,7 @@ Frontend -> Backend -> ADK Orchestrator is the ONLY flow. Never bypass tiers.
 - Gemini model IDs: ONLY in `src/core/config.py`, resolved by role via `src/core/models.py` (a guard test fails on any `"gemini-` literal elsewhere)
 - `src/adk/adk_orchestrator.py` wraps `google.adk.runners.Runner`
 - `src/adk/agents.py` — triage / design / quote sub-agents + syd_orchestrator router
-- `src/adk/tools.py` — 17 FunctionTools (room tools `select_room` / `assign_media_to_room` / `get_room_context`, Phase 138); session-scoped tools take `session_id` and trust it only via `_trusted_session_id`. No tool may call an external automation endpoint (n8n removed: quote emails go through the outbox, `src/services/email/outbox.py`)
+- `src/adk/tools.py` — 16 FunctionTools (room tools `select_room` / `assign_media_to_room` / `get_room_context`, Phase 138); session-scoped tools take `session_id` and trust it only via `_trusted_session_id`. No tool may call an external automation endpoint (n8n removed: quote emails go through the outbox, `src/services/email/outbox.py`). A quote is sent on its own by `submit_quote_request` / `POST /api/quote/{id}/submit` (`src/services/quote_submission.py`): no quote batches (removed in Phase 138 PR-4)
 - `src/adk/session.py` — InMemorySessionService (ephemeral; history injected from Firestore on restart)
 
 ## Middleware Stack (outermost → innermost)

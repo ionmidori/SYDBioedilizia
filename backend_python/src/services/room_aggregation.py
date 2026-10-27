@@ -18,8 +18,8 @@ no "combined savings" are shown:
   are the same floor, not twice its area.
 
 Project-wide lines go to the "Generale" section (`DEFAULT_ROOM_ID`). Quantities
-and amounts only through `src/core/money.py`. The rule loading comes from
-`batch_aggregation_engine.py`, which is going away with the quote batches.
+and amounts only through `src/core/money.py`. Missing or unreadable rules mean
+no rule: the rooms are only concatenated.
 """
 from __future__ import annotations
 

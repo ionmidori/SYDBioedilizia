@@ -25,7 +25,7 @@ const invalidatedKeys = (spy: jest.SpyInstance) => spy.mock.calls.map(([filters]
 describe('cache refresh after writes', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('a quote decision also refreshes the batch screens and the dashboard', async () => {
+  it('a quote decision also refreshes the inbox and the dashboard', async () => {
     (adminApi.approve as jest.Mock).mockResolvedValue({});
     const { wrapper, invalidate } = setup();
     const { result } = renderHook(() => useApproveQuote('p1'), { wrapper });
@@ -37,8 +37,6 @@ describe('cache refresh after writes', () => {
       expect.arrayContaining([
         JSON.stringify(ADMIN_KEYS.dossier('p1')),
         JSON.stringify(['admin', 'quotes']),
-        JSON.stringify(['admin', 'batch']),
-        JSON.stringify(['admin', 'batches']),
         JSON.stringify(ADMIN_KEYS.kpis),
       ]),
     );
@@ -51,7 +49,7 @@ describe('cache refresh after writes', () => {
     await act(async () => {
       await result.current.mutateAsync('"v2"').catch(() => undefined);
     });
-    expect(invalidatedKeys(invalidate)).toContain(JSON.stringify(['admin', 'batch']));
+    expect(invalidatedKeys(invalidate)).toContain(JSON.stringify(['admin', 'quotes']));
   });
 
   it('moderating a review refreshes every list and the dashboard counters', async () => {

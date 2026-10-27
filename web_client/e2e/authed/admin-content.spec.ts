@@ -3,7 +3,7 @@ import type { Page, Route } from '@playwright/test';
 import { test, expect } from './fixtures/authed-test';
 
 /**
- * Admin console: reviews, portfolio (with image upload), batches and GDPR.
+ * Admin console: reviews, portfolio (with image upload) and GDPR.
  *
  * The real app, proxy and layout gate against the Auth emulator; the FastAPI
  * backend is a small stateful fake. Server-side rules (image validation and
@@ -119,41 +119,6 @@ async function installFakeBackend(page: Page): Promise<Fake> {
       return route.fulfill({ status: 204 });
     }
 
-    if (path === '/batches' && method === 'GET') {
-      return json(route, 200, {
-        items: [
-          {
-            batch_id: 'b1',
-            status: 'partially_approved',
-            client_display_name: 'Mario Rossi',
-            client_email: 'mario@example.it',
-            total_projects: 2,
-            decided_projects: 1,
-            batch_grand_total: 1000,
-            potential_savings: 50,
-            submitted_at: '2026-10-11T10:15:00Z',
-          },
-        ],
-      });
-    }
-    if (path === '/batches/b1') {
-      return json(route, 200, {
-        batch_id: 'b1',
-        status: 'partially_approved',
-        client_display_name: 'Mario Rossi',
-        client_email: 'mario@example.it',
-        batch_subtotal: 820,
-        batch_grand_total: 1000,
-        potential_savings: 50,
-        submitted_at: '2026-10-11T10:15:00Z',
-        aggregation_preview: [{ adjustment_type: 'merge_quantities', savings: 50 }],
-        projects: [
-          { project_id: 'proj-a', project_name: 'Bagno', batch_status: 'approved', quote_status: 'sent', delivery_status: 'delivered', quote_number: 'PRV-2026-0001', item_count: 3, grand_total: 488 },
-          { project_id: 'proj-b', project_name: 'Cucina', batch_status: 'draft', quote_status: 'pending_review', delivery_status: 'none', quote_number: 'PRV-2026-0002', item_count: 2, grand_total: 512 },
-        ],
-      });
-    }
-
     if (path === '/gdpr/status') {
       return json(route, 200, {
         phases: [
@@ -173,7 +138,7 @@ async function installFakeBackend(page: Page): Promise<Fake> {
   return f;
 }
 
-test.describe('admin console — reviews, portfolio, batches, GDPR', () => {
+test.describe('admin console — reviews, portfolio, GDPR', () => {
   test('publish a pending review; visitor text is shown as text', async ({ page }) => {
     const fake = await installFakeBackend(page);
     await page.goto('/admin/testimonials', { waitUntil: 'load' });
@@ -223,20 +188,6 @@ test.describe('admin console — reviews, portfolio, batches, GDPR', () => {
     expect(fake.deleted).toEqual(['p1']);
   });
 
-  test('a batch leads to the dossier of each quote', async ({ page }) => {
-    await installFakeBackend(page);
-    await page.goto('/admin/batches', { waitUntil: 'load' });
-    await expect(page.getByTestId('batch-client')).toHaveText('Mario Rossi');
-    await expect(page.getByTestId('batch-progress')).toContainText('1 di 2');
-    await page.getByTestId('batch-row').getByRole('link').click();
-
-    await expect(page.getByTestId('batch-title')).toHaveText('Mario Rossi');
-    await expect(page.getByTestId('batch-project')).toHaveCount(2);
-    await expect(page.getByTestId('batch-optimisation')).toContainText('Quantità unite');
-    await page.getByTestId('batch-project').nth(1).getByRole('link').click();
-    await expect(page).toHaveURL(/\/admin\/quotes\/proj-b$/);
-  });
-
   test('the GDPR check asks first, then shows what it did', async ({ page }) => {
     const fake = await installFakeBackend(page);
     await page.goto('/admin/gdpr', { waitUntil: 'load' });
@@ -256,7 +207,7 @@ test.describe('admin console — reviews, portfolio, batches, GDPR', () => {
     for (const [name, url] of [
       ['Recensioni', /\/admin\/testimonials$/],
       ['Portfolio', /\/admin\/portfolio$/],
-      ['Lotti', /\/admin\/batches$/],
+      ['GDPR', /\/admin\/gdpr$/],
     ] as const) {
       await page.getByRole('navigation', { name: 'Sezioni della console' }).getByRole('link', { name }).click();
       await expect(page).toHaveURL(url);

@@ -1,5 +1,5 @@
 import { fetchValidated } from '@/lib/api-client';
-import { quoteListResponseSchema, quotePdfUrlSchema } from '@/types/quote';
+import { quoteListResponseSchema, quotePdfUrlSchema, quoteSubmitResponseSchema } from '@/types/quote';
 import { quotesApi } from '../quotes-api';
 
 jest.mock('@/lib/api-client', () => ({
@@ -41,5 +41,18 @@ describe('quotesApi.getQuotePdfUrl', () => {
     it('propagates the 404 thrown before admin approval', async () => {
         mockFetchValidated.mockRejectedValue({ status: 404 });
         await expect(quotesApi.getQuotePdfUrl('proj-1')).rejects.toEqual({ status: 404 });
+    });
+});
+
+describe('quotesApi.submitQuote', () => {
+    it('POSTs to the submit route with the Idempotency-Key', async () => {
+        const payload = { project_id: 'p/1', status: 'pending_review', quote_number: null, duplicate: false };
+        mockFetchValidated.mockResolvedValue(payload);
+        await expect(quotesApi.submitQuote('p/1', 'key-0001')).resolves.toBe(payload);
+        expect(mockFetchValidated).toHaveBeenCalledWith(
+            expect.stringContaining('/quote/p%2F1/submit'),
+            quoteSubmitResponseSchema,
+            { method: 'POST', headers: { 'Idempotency-Key': 'key-0001' } }
+        );
     });
 });

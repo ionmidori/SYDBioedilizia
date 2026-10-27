@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { ProjectListItem, ProjectStatus } from '@/types/projects';
 import { useRouter } from 'next/navigation';
-import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2 } from 'lucide-react';
+import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Check } from 'lucide-react';
 import Image from 'next/image';
 import { DeleteProjectDialog } from './DeleteProjectDialog';
 import { RenameProjectDialog } from './RenameProjectDialog';
+import { SubmitQuoteDialog } from './SubmitQuoteDialog';
 import { useDeleteProject } from '@/hooks/use-delete-project';
 import { ComparisonThumbnail } from './ComparisonThumbnail';
 import { motion } from 'framer-motion';
@@ -18,13 +18,12 @@ interface ProjectCardProps {
     project: ProjectListItem;
     index?: number;
     onDelete?: (sessionId: string) => void;
-    /** Multi-select mode: show checkbox, clicking toggles selection instead of navigating */
-    selectable?: boolean;
-    selected?: boolean;
-    onToggleSelect?: (sessionId: string) => void;
-    /** Whether this project has a draft quote eligible for batch submission */
+    /** Whether this project has a quote with at least one item */
     hasQuote?: boolean;
 }
+
+// The team already has the quote (submitted from the chat or with "Invia al team").
+const WITH_THE_TEAM = new Set(['pending_review', 'in_review', 'approved', 'sent']);
 
 const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: string }> = {
     draft: { label: 'Bozza', color: 'text-slate-300', bg: 'bg-slate-500/15' },
@@ -34,20 +33,19 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
     completed: { label: 'Completato', color: 'text-emerald-300', bg: 'bg-emerald-500/15' },
 };
 
-export function ProjectCard({ project, index, selectable, selected, onToggleSelect, hasQuote }: ProjectCardProps) {
+export function ProjectCard({ project, index, hasQuote }: ProjectCardProps) {
     const router = useRouter();
     const status = statusConfig[project.status] || statusConfig.draft;
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+    const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+    const canSubmit = hasQuote && project.quote_status === 'draft';
+    const withTheTeam = hasQuote && WITH_THE_TEAM.has(project.quote_status ?? '');
 
     // Modern State Management
     const deleteProjectMutation = useDeleteProject();
 
     const handleCardClick = () => {
-        if (selectable && hasQuote && onToggleSelect) {
-            onToggleSelect(project.session_id);
-            return;
-        }
         router.push(`/dashboard/${project.session_id}`);
     };
 
@@ -55,6 +53,12 @@ export function ProjectCard({ project, index, selectable, selected, onToggleSele
         e.preventDefault();
         e.stopPropagation();
         setDeleteDialogOpen(true);
+    };
+
+    const handleSubmitClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setSubmitDialogOpen(true);
     };
 
     const handleRenameClick = (e: React.MouseEvent) => {
@@ -94,36 +98,11 @@ export function ProjectCard({ project, index, selectable, selected, onToggleSele
             }}
             className={cn(
                 "group relative flex flex-col gap-3 p-5 rounded-[24px] surface-container-low hover:surface-container-high hover:shadow-elevation-high transition-all duration-500 cursor-pointer overflow-hidden",
-                deleteProjectMutation.isPending && "opacity-50 pointer-events-none",
-                selectable && selected && "ring-2 ring-luxury-teal ring-offset-2 ring-offset-luxury-bg",
-                selectable && !hasQuote && "opacity-40 cursor-not-allowed"
+                deleteProjectMutation.isPending && "opacity-50 pointer-events-none"
             )}
         >
             {/* Cinematic Gradient Sweep (on hover) */}
             <div className="absolute inset-0 bg-gradient-to-tr from-luxury-teal/0 via-luxury-teal/5 to-luxury-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-
-            {/* Selection Checkbox (multi-select mode) */}
-            {selectable && hasQuote && (
-                <div className="absolute top-4 left-4 z-30">
-                    <div className={cn(
-                        "w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300",
-                        selected
-                            ? "bg-luxury-teal border-luxury-teal text-white scale-110"
-                            : "border-luxury-text/30 bg-luxury-bg/60 backdrop-blur-sm hover:border-luxury-teal/60"
-                    )}>
-                        {selected && <Check className="w-4 h-4" strokeWidth={3} />}
-                    </div>
-                </div>
-            )}
-
-            {/* No-quote badge in select mode */}
-            {selectable && !hasQuote && (
-                <div className="absolute top-4 left-4 z-30">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-luxury-text/40 bg-luxury-bg/80 px-2 py-1 rounded-full border border-luxury-text/10 backdrop-blur-sm">
-                        Nessun preventivo
-                    </span>
-                </div>
-            )}
 
             {/* Status Badge */}
             <div className="absolute top-7 right-7 z-20 flex items-center gap-2 pointer-events-none">
@@ -214,6 +193,27 @@ export function ProjectCard({ project, index, selectable, selected, onToggleSele
                         </div>
                     )}
                 </div>
+
+                {canSubmit && (
+                    <button
+                        type="button"
+                        onClick={handleSubmitClick}
+                        data-testid="submit-quote-button"
+                        className="relative z-30 flex items-center justify-center gap-2 min-h-11 w-full touch-manipulation rounded-xl bg-luxury-gold/10 hover:bg-luxury-gold/20 border border-luxury-gold/30 hover:border-luxury-gold/50 text-luxury-gold text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-luxury-gold/60"
+                    >
+                        <Send aria-hidden="true" className="w-4 h-4" />
+                        Invia al team
+                    </button>
+                )}
+                {withTheTeam && (
+                    <p
+                        data-testid="quote-with-team"
+                        className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-300/80"
+                    >
+                        <CheckCircle2 aria-hidden="true" className="w-3.5 h-3.5" />
+                        Preventivo inviato al team
+                    </p>
+                )}
             </div>
 
             {/* Dialogs */}
@@ -231,6 +231,13 @@ export function ProjectCard({ project, index, selectable, selected, onToggleSele
                     onOpenChange={setRenameDialogOpen}
                     currentTitle={project.title}
                     sessionId={project.session_id}
+                />
+
+                <SubmitQuoteDialog
+                    open={submitDialogOpen}
+                    onOpenChange={setSubmitDialogOpen}
+                    projectId={project.session_id}
+                    projectTitle={project.title}
                 />
             </div>
         </motion.div>

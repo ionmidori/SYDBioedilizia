@@ -1,12 +1,10 @@
 /**
- * Admin console content API — portfolio, testimonials, batches, KPIs, GDPR.
+ * Admin console content API — portfolio, testimonials, KPIs, GDPR.
  * Golden Sync with backend_python/src/schemas/admin_content.py (Phase 128, Fase 6.1b).
  *
  * IMPORTANT: Any change to the Pydantic models MUST be reflected here (1:1 parity).
  */
 import { z } from 'zod';
-
-import { quoteDeliveryStatusSchema, quoteStatusSchema } from './quote';
 
 // ── Portfolio ────────────────────────────────────────────────────────────────
 
@@ -134,54 +132,6 @@ export const moderateResponseSchema = z.object({
   stats: testimonialStatsSchema,
 });
 export type ModerateResponse = z.infer<typeof moderateResponseSchema>;
-
-// ── Batches ──────────────────────────────────────────────────────────────────
-
-export const batchStatusSchema = z.enum(['draft', 'submitted', 'partially_approved', 'approved', 'rejected']);
-export type BatchStatus = z.infer<typeof batchStatusSchema>;
-
-export const adminBatchListItemSchema = z.object({
-  batch_id: z.string(),
-  status: batchStatusSchema,
-  client_display_name: z.string().nullable().optional(),
-  client_email: z.string().nullable().optional(),
-  total_projects: z.number().default(0),
-  decided_projects: z.number().default(0),
-  batch_grand_total: z.number().default(0),
-  potential_savings: z.number().default(0),
-  submitted_at: z.string().nullable().optional(),
-});
-export type AdminBatchListItem = z.infer<typeof adminBatchListItemSchema>;
-
-export const adminBatchListSchema = z.object({ items: z.array(adminBatchListItemSchema) });
-export type AdminBatchList = z.infer<typeof adminBatchListSchema>;
-
-export const adminBatchProjectSchema = z.object({
-  project_id: z.string(),
-  project_name: z.string(),
-  batch_status: quoteStatusSchema,
-  quote_status: quoteStatusSchema.nullable().optional(),
-  delivery_status: quoteDeliveryStatusSchema.default('none'),
-  quote_number: z.string().nullable().optional(),
-  item_count: z.number().default(0),
-  grand_total: z.number().default(0),
-  admin_notes: z.string().nullable().optional(),
-});
-export type AdminBatchProject = z.infer<typeof adminBatchProjectSchema>;
-
-export const adminBatchDetailSchema = z.object({
-  batch_id: z.string(),
-  status: batchStatusSchema,
-  client_display_name: z.string().nullable().optional(),
-  client_email: z.string().nullable().optional(),
-  batch_subtotal: z.number().default(0),
-  batch_grand_total: z.number().default(0),
-  potential_savings: z.number().default(0),
-  submitted_at: z.string().nullable().optional(),
-  aggregation_preview: z.array(z.record(z.string(), z.unknown())).default([]),
-  projects: z.array(adminBatchProjectSchema),
-});
-export type AdminBatchDetail = z.infer<typeof adminBatchDetailSchema>;
 
 // ── KPIs ─────────────────────────────────────────────────────────────────────
 

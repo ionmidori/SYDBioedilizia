@@ -16,8 +16,6 @@ export const ADMIN_KEYS = {
   revision: (projectId: string, version: number) => ['admin', 'revision', projectId, version] as const,
   sendDefaults: (projectId: string) => ['admin', 'send-defaults', projectId] as const,
   kpis: ['admin', 'kpis'] as const,
-  batches: (scope: string) => ['admin', 'batches', scope] as const,
-  batch: (id: string) => ['admin', 'batch', id] as const,
   testimonials: (status: string) => ['admin', 'testimonials', status] as const,
   portfolio: ['admin', 'portfolio'] as const,
   gdpr: ['admin', 'gdpr'] as const,
@@ -101,9 +99,7 @@ function useQuoteWrite<TVariables, TResult>(projectId: string, mutationFn: (vari
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.dossier(projectId) });
       void client.invalidateQueries({ queryKey: ['admin', 'quotes'] });
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.sendDefaults(projectId) });
-      // The batch a quote belongs to follows its decisions (server side), and the dashboard counts them.
-      void client.invalidateQueries({ queryKey: ['admin', 'batch'] });
-      void client.invalidateQueries({ queryKey: ['admin', 'batches'] });
+      // The dashboard counts the decisions.
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.kpis });
     },
   });
@@ -194,26 +190,6 @@ export function useSavePriceBook() {
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.priceBook });
     },
-  });
-}
-
-export function useAdminBatches(scope: 'open' | 'closed' | 'all') {
-  return useQuery({
-    queryKey: ADMIN_KEYS.batches(scope),
-    queryFn: () => adminApi.listBatches(scope),
-    staleTime: 30 * 1000,
-    refetchOnWindowFocus: true,
-    retry: retryUnlessDenied,
-  });
-}
-
-export function useAdminBatch(batchId: string) {
-  return useQuery({
-    queryKey: ADMIN_KEYS.batch(batchId),
-    queryFn: () => adminApi.getBatch(batchId),
-    staleTime: 15 * 1000,
-    refetchOnWindowFocus: true,
-    retry: retryUnlessDenied,
   });
 }
 

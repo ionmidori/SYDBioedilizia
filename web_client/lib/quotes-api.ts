@@ -2,8 +2,10 @@ import { fetchValidated } from '@/lib/api-client';
 import {
   QuoteListItem,
   QuotePdfUrl,
+  QuoteSubmitResponse,
   quoteListResponseSchema,
   quotePdfUrlSchema,
+  quoteSubmitResponseSchema,
 } from '@/types/quote';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py';
@@ -28,6 +30,19 @@ export const quotesApi = {
     return fetchValidated(
       `${API_ROOT}/quote/${encodeURIComponent(projectId)}/pdf`,
       quotePdfUrlSchema
+    );
+  },
+
+  /**
+   * Sends the project's quote draft to the team (draft → pending_review, admin
+   * notified by email). Reuse the same `idempotencyKey` when retrying the same
+   * click: the backend answers like the first request and sends no second email.
+   */
+  submitQuote: async (projectId: string, idempotencyKey: string): Promise<QuoteSubmitResponse> => {
+    return fetchValidated(
+      `${API_ROOT}/quote/${encodeURIComponent(projectId)}/submit`,
+      quoteSubmitResponseSchema,
+      { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey } }
     );
   },
 };

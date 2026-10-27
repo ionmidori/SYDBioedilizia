@@ -1,5 +1,5 @@
 """Admin console content API (Phase 128, Fase 6.1b): portfolio, testimonials,
-batches (read-only + sync), KPIs and the GDPR monitor."""
+KPIs and the GDPR monitor."""
 import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
@@ -8,16 +8,15 @@ import pytest
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
-from src.api.routes import admin_batches, admin_dashboard, admin_portfolio, admin_testimonials, lifecycle_routes
+from src.api.routes import admin_dashboard, admin_portfolio, admin_testimonials, lifecycle_routes
 from src.auth.jwt_handler import verify_token
 from src.core.config import settings
 from src.core.exceptions import AppException
 from src.core.rate_limit import limiter
 from src.schemas.admin_content import portfolio_blob_path
 from src.schemas.internal import UserSession
-from src.services import admin_content, admin_kpis, batch_sync, lifecycle_lock
+from src.services import admin_content, admin_kpis, lifecycle_lock
 from src.services.account_lifecycle_service import LifecycleRunResult
-from src.services.client_profile import ClientProfile
 from src.services.retention.models import RetentionReport
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
 
@@ -32,7 +31,7 @@ FB = "https://firebasestorage.googleapis.com"
 @pytest.fixture
 def db(monkeypatch):
     fake = FakeDb()
-    for module in (admin_portfolio, admin_testimonials, admin_batches, admin_dashboard):
+    for module in (admin_portfolio, admin_testimonials, admin_dashboard):
         monkeypatch.setattr(module, "get_async_firestore_client", lambda f=fake: f)
     monkeypatch.setattr(settings, "FIREBASE_STORAGE_BUCKET", BUCKET)
     for module in (admin_portfolio, admin_testimonials, admin_dashboard):
@@ -41,7 +40,6 @@ def db(monkeypatch):
     async def transact(_db, body):
         return await body(FakeTransaction(fake))
 
-    monkeypatch.setattr(batch_sync, "_transact", transact)
     monkeypatch.setattr(lifecycle_lock, "_transact", transact)
     admin_dashboard._kpi_cache = None
     limiter.reset()  # the 3/hour GDPR limit is per process: each test starts fresh
@@ -50,7 +48,7 @@ def db(monkeypatch):
 
 def _client(role: str | None = "admin") -> TestClient:
     app = FastAPI()
-    for module in (admin_portfolio, admin_testimonials, admin_batches, admin_dashboard):
+    for module in (admin_portfolio, admin_testimonials, admin_dashboard):
         app.include_router(module.router)
 
     @app.exception_handler(AppException)
@@ -78,8 +76,6 @@ def _client(role: str | None = "admin") -> TestClient:
         ("delete", "/api/admin/portfolio/p1"),
         ("get", "/api/admin/testimonials"),
         ("post", "/api/admin/testimonials/t1/moderate"),
-        ("get", "/api/admin/batches"),
-        ("get", "/api/admin/batches/b1"),
         ("get", "/api/admin/kpis"),
         ("get", "/api/admin/gdpr/status"),
         ("post", "/api/admin/gdpr/lifecycle/run"),
@@ -324,163 +320,6 @@ def test_moderating_needs_a_known_review_and_a_valid_decision(db):
     assert client.post("/api/admin/testimonials/nope/moderate", json={"decision": "approve"}).status_code == 404
     _review(db, "t1")
     assert client.post("/api/admin/testimonials/t1/moderate", json={"decision": "maybe"}).status_code == 422
-
-
-# ── Batches ───────────────────────────────────────────────────────────────────
-
-
-@pytest.fixture
-def profiles(monkeypatch):
-    async def fake_profile(uid: str) -> ClientProfile:
-        return ClientProfile(name="Mario Rossi", email="mario@example.it") if uid == "uid-1" else ClientProfile()
-
-    monkeypatch.setattr(admin_batches, "get_client_profile", fake_profile)
-
-
-def _batch(db, bid="b1", status="submitted", submitted=NOW, projects=None):
-    db.put("quote_batches", bid, {
-        "user_id": "uid-1", "status": status, "total_projects": 2, "batch_grand_total": 1000.0,
-        "batch_subtotal": 820.0, "potential_savings": 50.0, "submitted_at": submitted,
-        "aggregation_preview": [{"adjustment_type": "merge_quantities", "savings": 50.0}],
-        "projects": projects or [
-            {"project_id": "pa", "project_name": "Bagno", "status": "approved", "item_count": 3, "subtotal": 400.0},
-            {"project_id": "pb", "project_name": "Cucina", "status": "draft", "item_count": 2, "subtotal": 420.0},
-        ],
-    })
-
-
-def test_batches_list_shows_the_client_and_progress(db, profiles):
-    _batch(db, "b1", submitted=NOW - timedelta(days=1))
-    _batch(db, "b2", submitted=NOW)
-    _batch(db, "b3", status="approved")
-    items = _client().get("/api/admin/batches").json()["items"]
-    assert [i["batch_id"] for i in items] == ["b2", "b1"]  # open only, newest first
-    assert items[0]["client_display_name"] == "Mario Rossi" and items[0]["client_email"] == "mario@example.it"
-    assert (items[0]["total_projects"], items[0]["decided_projects"]) == (2, 1)
-    closed = _client().get("/api/admin/batches?scope=closed").json()["items"]
-    assert [i["batch_id"] for i in closed] == ["b3"]
-    assert _client().get("/api/admin/batches?scope=bogus").status_code == 422
-
-
-def test_the_batch_cap_keeps_the_newest(db, profiles, monkeypatch):
-    monkeypatch.setattr(admin_batches, "_LIST_CAP", 2)
-    for i in range(4):
-        _batch(db, f"b{i}", submitted=NOW - timedelta(days=4 - i))
-    items = _client().get("/api/admin/batches").json()["items"]
-    assert [i["batch_id"] for i in items] == ["b3", "b2"]
-
-
-def test_batch_detail_shows_the_live_state_of_each_quote(db, profiles):
-    _batch(db)
-    db.put("projects", "pa", "private_data", "quote", {
-        "doc_type": "quote", "status": "sent", "delivery_status": "delivered", "quote_number": "PRV-2026-0001",
-        "items": [{"sku": "A"}] * 3, "financials": {"grand_total": 488.0},
-    })
-    body = _client().get("/api/admin/batches/b1").json()
-    assert body["client_display_name"] == "Mario Rossi" and body["potential_savings"] == 50.0
-    pa, pb = body["projects"]
-    assert (pa["quote_status"], pa["delivery_status"], pa["quote_number"], pa["grand_total"]) == (
-        "sent", "delivered", "PRV-2026-0001", 488.0)
-    assert pa["batch_status"] == "approved"
-    # no quote document for pb: the batch snapshot is all there is
-    assert (pb["quote_status"], pb["item_count"], pb["batch_status"]) == (None, 2, "draft")
-    assert body["aggregation_preview"][0]["adjustment_type"] == "merge_quantities"
-    assert _client().get("/api/admin/batches/nope").status_code == 404
-
-
-# ── Batch sync ────────────────────────────────────────────────────────────────
-
-
-def _quote_in_batch(db, pid, status="pending_review", batch_id="b1"):
-    db.put("projects", pid, "private_data", "quote",
-           {"doc_type": "quote", "status": status, "request": {"batch_id": batch_id}})
-
-
-@pytest.mark.parametrize(
-    "statuses, expected",
-    [
-        (["approved", "approved"], "approved"),
-        (["rejected", "rejected"], "rejected"),
-        (["approved", "rejected"], "partially_approved"),
-        (["approved", "draft"], "submitted"),
-        (["draft", "draft"], "submitted"),
-    ],
-)
-def test_batch_status_follows_its_projects(statuses, expected):
-    assert batch_sync.batch_status_from([{"status": s} for s in statuses]) == expected
-
-
-@pytest.mark.parametrize(
-    "quote_status, expected",
-    [("approved", "approved"), ("sent", "approved"), ("rejected", "rejected"),
-     ("pending_review", "draft"), ("in_review", "draft"), ("draft", "draft"), (None, "draft")],
-)
-def test_a_quote_status_maps_to_a_batch_project_status(quote_status, expected):
-    assert batch_sync.project_status_from(quote_status) == expected
-
-
-async def test_the_batch_follows_the_quote_status(db):
-    _batch(db)
-    _quote_in_batch(db, "pb", status="approved")
-    assert await batch_sync.sync_project_decision(db, "pb") is True
-    stored = db.get_data("quote_batches", "b1")
-    assert [p["status"] for p in stored["projects"]] == ["approved", "approved"]
-    assert stored["status"] == "approved"
-
-    _quote_in_batch(db, "pb", status="in_review")  # reopened
-    await batch_sync.sync_project_decision(db, "pb")
-    assert db.get_data("quote_batches", "b1")["status"] == "submitted"
-
-
-@pytest.mark.parametrize("quote_status", ["in_review", "approved", "rejected", "sent"])
-def test_a_quote_already_sent_stays_approved_in_the_batch_while_it_is_revised(quote_status):
-    assert batch_sync.project_status_from(quote_status, sent_before=True) == "approved"
-
-
-async def test_revising_a_sent_quote_does_not_reopen_its_batch(db):
-    _batch(db)
-    _quote_in_batch(db, "pb", status="approved")
-    await batch_sync.sync_project_decision(db, "pb")
-    db.put("projects", "pb", "private_data", "quote",
-           {"doc_type": "quote", "status": "in_review", "sent_at": "2026-10-11T10:25:00Z",
-            "request": {"batch_id": "b1"}})
-    await batch_sync.sync_project_decision(db, "pb")
-    assert db.get_data("quote_batches", "b1")["status"] == "approved"
-
-
-async def test_a_late_sync_cannot_leave_the_batch_opposite_to_the_quote(db):
-    """Approve then reopen in quick succession: whichever sync runs last (or twice),
-    the batch reflects the quote as it is NOW, not the decision it was triggered by."""
-    _batch(db)
-    _quote_in_batch(db, "pb", status="in_review")  # already reopened
-    await batch_sync.sync_project_decision(db, "pb")  # the 'approve' sync, arriving late
-    stored = db.get_data("quote_batches", "b1")
-    assert stored["projects"][1]["status"] == "draft" and stored["status"] == "submitted"
-
-
-async def test_nothing_internal_is_written_to_the_client_readable_batch(db):
-    _batch(db)
-    _quote_in_batch(db, "pb", status="rejected")
-    await batch_sync.sync_project_decision(db, "pb")
-    assert "admin_notes" not in db.get_data("quote_batches", "b1")["projects"][1]
-
-
-async def test_quotes_outside_a_batch_or_with_a_draft_batch_are_left_alone(db):
-    db.put("projects", "solo", "private_data", "quote", {"doc_type": "quote", "request": {}})
-    assert await batch_sync.sync_project_decision(db, "solo") is False
-    assert await batch_sync.sync_project_decision(db, "missing") is False
-    _batch(db, status="draft")
-    _quote_in_batch(db, "pb", status="approved")
-    assert await batch_sync.sync_project_decision(db, "pb") is False
-
-
-@pytest.mark.parametrize("error", ["ServiceUnavailable", "ValueError"])
-async def test_a_sync_failure_never_fails_the_caller(db, monkeypatch, error):
-    from google.api_core.exceptions import ServiceUnavailable
-
-    raised = ServiceUnavailable("down") if error == "ServiceUnavailable" else ValueError("Failed to commit")
-    monkeypatch.setattr(batch_sync, "sync_project_decision", AsyncMock(side_effect=raised))
-    await batch_sync.sync_project_decision_safely(db, "pb")  # must not raise
 
 
 # ── KPIs ──────────────────────────────────────────────────────────────────────

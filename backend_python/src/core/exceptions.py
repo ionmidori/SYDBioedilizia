@@ -89,6 +89,18 @@ class QuoteNotFoundError(ResourceNotFound):
         )
 
 
+class EmptyQuoteError(AppException):
+    """The client tried to submit a quote draft without any item."""
+    status_code = 422
+    error_code = "QUOTE_EMPTY"
+
+    def __init__(self, project_id: str) -> None:
+        super().__init__(
+            message="The quote has no items yet: complete it in the chat before sending it.",
+            detail={"project_id": project_id},
+        )
+
+
 class RoomNotFoundError(ResourceNotFound):
     """Room does not exist within the given project."""
     error_code = "ROOM_NOT_FOUND"
@@ -143,40 +155,6 @@ class CheckpointError(ServiceError):
         super().__init__(
             message=f"Checkpoint operation failed for thread '{thread_id}': {reason}",
             detail={"thread_id": thread_id, "reason": reason},
-        )
-
-
-class BatchNotFoundError(ResourceNotFound):
-    """Quote batch does not exist in Firestore."""
-    error_code = "BATCH_NOT_FOUND"
-
-    def __init__(self, batch_id: str) -> None:
-        super().__init__(
-            message=f"Quote batch '{batch_id}' not found.",
-            detail={"batch_id": batch_id},
-        )
-
-
-class NoEligibleProjectsError(AppException):
-    """Batch creation found no projects with an eligible draft quote."""
-    status_code = 422
-    error_code = "NO_ELIGIBLE_PROJECTS"
-
-    def __init__(self) -> None:
-        super().__init__(
-            message="No eligible projects found. Each project must have a draft quote.",
-        )
-
-
-class BatchNotSubmittableError(AppException):
-    """Attempt to submit a batch that is not in 'draft' status."""
-    status_code = 409
-    error_code = "BATCH_NOT_SUBMITTABLE"
-
-    def __init__(self, batch_id: str, current_status: str) -> None:
-        super().__init__(
-            message=f"Batch is already '{current_status}'. Only draft batches can be submitted.",
-            detail={"batch_id": batch_id, "status": current_status},
         )
 
 

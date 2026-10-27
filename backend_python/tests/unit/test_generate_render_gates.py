@@ -131,8 +131,11 @@ async def test_quote_tools_block_anonymous_users(tool_context, tool_name):
     """The quote tools are premium too: an anonymous user gets LOGIN_REQUIRED
     and nothing is generated or sent to the team."""
     wrapper = AsyncMock(return_value="ok")
-    module = "quote_tools" if tool_name == "suggest_quote_items" else "batch_tools"
-    with patch(f"src.tools.{module}.{tool_name}_wrapper", new=wrapper), \
+    target = (
+        "src.tools.quote_tools.suggest_quote_items_wrapper" if tool_name == "suggest_quote_items"
+        else "src.adk.tools.submit_quote_request_wrapper"
+    )
+    with patch(target, new=wrapper), \
          patch.object(tools, "is_anonymous_user", new=AsyncMock(return_value=True)):
         out = await getattr(tools, tool_name)(session_id="sess-1", tool_context=tool_context)
     assert out.startswith("LOGIN_REQUIRED")

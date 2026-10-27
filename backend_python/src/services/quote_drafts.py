@@ -160,7 +160,7 @@ async def apply_ai_draft(
         "updated_at": when,
         "version": version,
         "media": media,
-        # Dotted paths: never wipe request fields written elsewhere (batch_id…).
+        # Dotted paths: never wipe request fields written elsewhere.
         **{f"request.{k}": v for k, v in _merged_request(request, dossier).items()},
     }
     quote_number = current.get("quote_number")

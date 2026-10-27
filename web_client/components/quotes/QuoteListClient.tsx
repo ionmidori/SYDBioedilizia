@@ -177,8 +177,8 @@ export function QuoteListClient() {
                         Nessuna richiesta di preventivo ancora inviata.
                     </p>
                     <p className="text-luxury-text/35 text-xs max-w-md mx-auto">
-                        Completa un preventivo in chat oppure seleziona i progetti dalla
-                        pagina Progetti e invia la richiesta al team.
+                        Completa un preventivo in chat, poi invialo al team dalla chat o con
+                        &ldquo;Invia al team&rdquo; sul progetto, nella pagina Progetti.
                     </p>
                 </div>
             )}

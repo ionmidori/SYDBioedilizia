@@ -488,11 +488,6 @@ from src.api.routes.quote_routes import router as quote_router
 
 app.include_router(quote_router)
 
-# Register batch submission routes (multi-project quote batches)
-from src.api.routes.batch_routes import router as batch_router
-
-app.include_router(batch_router)
-
 # Register users router
 from src.api.routes.users_router import router as users_router
 
@@ -522,15 +517,13 @@ from src.api.routes.admin_price_book import router as admin_price_book_router
 
 app.include_router(admin_price_book_router)
 
-# Admin content: portfolio, testimonials, batches, KPIs/GDPR (Phase 128 — Fase 6.1b)
-from src.api.routes.admin_batches import router as admin_batches_router
+# Admin content: portfolio, testimonials, KPIs/GDPR (Phase 128 — Fase 6.1b)
 from src.api.routes.admin_dashboard import router as admin_dashboard_router
 from src.api.routes.admin_portfolio import router as admin_portfolio_router
 from src.api.routes.admin_testimonials import router as admin_testimonials_router
 
 app.include_router(admin_portfolio_router)
 app.include_router(admin_testimonials_router)
-app.include_router(admin_batches_router)
 app.include_router(admin_dashboard_router)
 
 # Register email platform router (outbox sweep + provider webhooks)

@@ -57,12 +57,14 @@ async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListIt
 
             # Check if this project has a quote document (completed quote flow)
             has_quote = False
+            quote_status = None
             try:
                 quote_doc = await db.collection(PROJECTS_COLLECTION).document(doc.id).collection("private_data").document("quote").get()
                 if quote_doc.exists:
                     qdata = quote_doc.to_dict() or {}
                     # A quote is considered valid if it has at least one item
                     has_quote = len(qdata.get("items", [])) > 0
+                    quote_status = qdata.get("status")
             except Exception as quote_error:  # noqa: BLE001 — fail-safe per project, see below
                 # A missing/unreadable quote must NOT break the whole dashboard listing, so we
                 # keep has_quote=False. It must still be observable: a denied read or a missing
@@ -82,6 +84,7 @@ async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListIt
                     updated_at=updated_at,
                     message_count=data.get("messageCount") or 0,
                     has_quote=has_quote,
+                    quote_status=quote_status,
                 ))
             except Exception as item_error:  # noqa: BLE001 — one malformed doc must not hide the rest
                 logger.error(f"[Projects] Skipping Invalid Project {doc.id}: {item_error}")

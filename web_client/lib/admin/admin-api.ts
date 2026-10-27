@@ -29,8 +29,6 @@ import {
   sendQuoteResponseSchema,
 } from '@/types/admin-quote';
 import {
-  type AdminBatchDetail,
-  type AdminBatchList,
   type AdminKpis,
   type GdprRunResult,
   type GdprStatus,
@@ -43,8 +41,6 @@ import {
   type PortfolioWrite,
   type TestimonialList,
   type TestimonialStatus,
-  adminBatchDetailSchema,
-  adminBatchListSchema,
   adminKpisSchema,
   gdprRunResultSchema,
   gdprStatusSchema,
@@ -217,12 +213,6 @@ export const adminApi = {
 
   getPriceBookHistory: (): Promise<PriceBookHistory> =>
     request('/price-book/history', priceBookHistorySchema),
-
-  listBatches: (scope: 'open' | 'closed' | 'all'): Promise<AdminBatchList> =>
-    request(`/batches?scope=${scope}`, adminBatchListSchema),
-
-  getBatch: (batchId: string): Promise<AdminBatchDetail> =>
-    request(`/batches/${encodeURIComponent(batchId)}`, adminBatchDetailSchema),
 
   listTestimonials: (status: TestimonialStatus): Promise<TestimonialList> =>
     request(`/testimonials?status=${status}`, testimonialListSchema),

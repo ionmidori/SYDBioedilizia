@@ -40,7 +40,7 @@ Chat flow: `ChatProvider.tsx` (AI SDK) → `app/api/chat/route.ts` (proxy) → `
 - Sign-in with Firebase Auth, including **passkeys (WebAuthn)**.
 
 **Admin console** (`/admin`)
-- Quote review and approval (human in the loop), quote batches, price book, portfolio,
+- Quote review and approval (human in the loop), price book, portfolio,
   testimonials, GDPR tools and a KPI dashboard.
 - Approved quotes are rendered to PDF (ReportLab) and delivered by email.
 

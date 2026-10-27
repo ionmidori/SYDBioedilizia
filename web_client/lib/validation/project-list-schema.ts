@@ -37,6 +37,8 @@ export const projectListItemSchema = z.object({
     updated_at: z.string().datetime({ offset: true }),
     message_count: z.number().int().min(0).default(0),
     has_quote: z.boolean().default(false),
+    // Status of the project's quote (`draft` → "Invia al team"); null: no quote yet.
+    quote_status: z.string().nullish().transform((val) => val ?? undefined),
 });
 
 export const projectListResponseSchema = z.array(projectListItemSchema);

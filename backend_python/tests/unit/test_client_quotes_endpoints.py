@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from main import app as main_app
 from src.api.routes.quote_routes import router
 from src.auth.jwt_handler import verify_token
 from src.schemas.internal import UserSession
@@ -256,13 +257,9 @@ class TestLegacyAdminWritesAreGone:
         for client in (_make_client(), _make_client(role="admin", uid="admin-uid")):
             assert client.post("/api/quote/p1/start").status_code in (404, 405)
 
-    def test_the_batch_decide_route_is_gone(self):
-        from src.api.routes.batch_routes import router as batch_router
-
-        app = FastAPI()
-        app.include_router(batch_router)
-        resp = TestClient(app).post("/api/quote/batch/b1/projects/p1/decide", json={"decision": "approve"})
-        assert resp.status_code in (404, 405)
+    def test_no_quote_batch_route_is_left(self):
+        """Phase 138 PR-4: a quote is sent on its own (POST /api/quote/{id}/submit)."""
+        assert [p for p in main_app.openapi()["paths"] if "batch" in p] == []
 
 
 class TestGetQuoteClientView:
