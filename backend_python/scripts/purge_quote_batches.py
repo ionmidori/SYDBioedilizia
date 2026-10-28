@@ -36,7 +36,7 @@ load_dotenv()
 # Make `src` importable from any cwd: this file lives in backend_python/scripts/.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from google.cloud.firestore_v1 import DELETE_FIELD  # noqa: E402
+from google.cloud.firestore_v1 import DELETE_FIELD, Query  # noqa: E402
 from google.cloud.firestore_v1.base_query import FieldFilter  # noqa: E402
 from src.db.firebase_client import get_async_firestore_client  # noqa: E402
 from src.db.ownership import real_owners  # noqa: E402
@@ -78,8 +78,13 @@ async def _lead_sessions(db: Any, uid: str) -> set[str]:
     return sessions
 
 
+def _quote_ref(db: Any, project_id: str) -> Any:
+    return db.collection("projects").document(project_id).collection("private_data").document("quote")
+
+
 async def plan_purge(db: Any) -> PurgePlan:
     plan = PurgePlan()
+    referenced: set[str] = set()
     async for snap in db.collection(BATCHES).stream():
         plan.batch_ids.append(snap.id)
         batch = snap.to_dict() or {}
@@ -88,15 +93,31 @@ async def plan_purge(db: Any) -> PurgePlan:
             continue  # no user to erase: nothing depends on this batch
         leads = await _lead_sessions(db, uid)
         for project_id in _batch_projects(batch):
+            referenced.add(project_id)
             owners = await _owners(db, project_id)
             # Found anyway (owner or lead), or someone else's (the erasure skips it).
             if uid in owners or project_id in leads or owners:
                 continue
             plan.only_via_batch.append((uid, project_id))
-    quotes = db.collection_group("private_data").where(filter=FieldFilter("doc_type", "==", "quote"))
+    # Same shape as the admin inbox query: it has a composite index (doc_type +
+    # updated_at); doc_type alone on the collection group has none.
+    quotes = (
+        db.collection_group("private_data")
+        .where(filter=FieldFilter("doc_type", "==", "quote"))
+        .order_by("updated_at", direction=Query.DESCENDING)
+    )
+    found: dict[str, Any] = {}
     async for snap in quotes.stream():
         if ((snap.to_dict() or {}).get("request") or {}).get("batch_id"):
-            plan.quote_refs.append(snap.reference)
+            found[snap.reference.path] = snap.reference
+    # The quotes of the batches' projects are read directly too: a quote without
+    # updated_at is not returned by the ordered query.
+    for project_id in sorted(referenced):
+        ref = _quote_ref(db, project_id)
+        snap = await ref.get()
+        if snap.exists and ((snap.to_dict() or {}).get("request") or {}).get("batch_id"):
+            found[ref.path] = ref
+    plan.quote_refs = list(found.values())
     return plan
 
 

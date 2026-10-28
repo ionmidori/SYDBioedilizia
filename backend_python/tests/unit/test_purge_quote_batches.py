@@ -43,6 +43,17 @@ async def test_owned_projects_are_purged_with_their_batch_id():
     assert db.get_data("projects", "p1", "private_data", "quote")["request"] == {"summary": "Bagno"}
 
 
+async def test_a_quote_left_by_an_already_deleted_batch_is_cleared_too():
+    db = FakeDb()
+    db.put("projects", "p-old", "private_data", "quote",
+           {"doc_type": "quote", "updated_at": "2026-10-10T09:00:00Z", "request": {"batch_id": "gone"}})
+
+    plan = await purge.plan_purge(db)
+    assert plan.batch_ids == [] and len(plan.quote_refs) == 1
+    await purge.apply_purge(db, plan)
+    assert db.get_data("projects", "p-old", "private_data", "quote")["request"] == {}
+
+
 async def test_a_project_reachable_through_a_lead_or_owned_by_someone_else_does_not_block():
     db = FakeDb()
     db.put("leads", "l1", {"uid": UID, "session_id": "p-lead"})

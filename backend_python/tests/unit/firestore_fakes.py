@@ -218,7 +218,9 @@ class FakeCollection:
         paths = self._paths()
         if self._order:
             field, desc = self._order
-            paths.sort(key=lambda p: self._db.docs[p].get(field), reverse=desc)
+            # Like Firestore: order_by leaves out the documents without the field.
+            paths = [p for p in paths if self._db.docs[p].get(field) is not None]
+            paths.sort(key=lambda p: self._db.docs[p][field], reverse=desc)
         for path in paths[: self._limit] if self._limit is not None else paths:
             yield FakeDocSnapshot(self._db, path)
 
