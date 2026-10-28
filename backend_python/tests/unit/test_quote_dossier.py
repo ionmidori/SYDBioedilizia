@@ -134,13 +134,13 @@ async def test_regeneration_writes_revision_2_with_the_admin_notes_in_force():
     db = FakeDb()
     await apply_ai_draft(FakeTransaction(db), db, PID, _ai_quote(), _request(), T1, _dossier())
     db.docs[QUOTE_PATH]["admin_notes"] = "Sopralluogo martedì"
-    db.docs[QUOTE_PATH]["request"]["batch_id"] = "batch-9"
+    db.docs[QUOTE_PATH]["request"]["budget_cap"] = 15000.0  # written outside the AI draft
 
     await apply_ai_draft(FakeTransaction(db), db, PID, _ai_quote(sku="PAV-002"), _request("Altro"), T2, _dossier())
 
     doc = db.get_data(*QUOTE_PATH)
     assert doc["version"] == 2
-    assert doc["request"]["batch_id"] == "batch-9"
+    assert doc["request"]["budget_cap"] == 15000.0
     assert doc["request"]["summary"] == "Altro"
     revision = db.get_data(*QUOTE_PATH, "revisions", "2")
     assert revision["items"][0]["sku"] == "PAV-002"

@@ -88,7 +88,6 @@ export const quoteRequestSchema = z.object({
   budget_cap: z.number().min(0).nullable().optional(),
   channel: quoteChannelSchema.nullable().optional(),
   session_id: z.string().nullable().optional(),
-  batch_id: z.string().nullable().optional(),
 });
 export type QuoteRequest = z.infer<typeof quoteRequestSchema>;
 

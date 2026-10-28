@@ -97,10 +97,6 @@ async def _leads(ctx: ErasureContext) -> int:
     return deleted
 
 
-async def _quote_batches(ctx: ErasureContext) -> int:
-    return await delete_query(ctx.db, _where(ctx.db, "quote_batches", "user_id", "==", ctx.uid))
-
-
 async def _testimonials(ctx: ErasureContext) -> int:
     """Erasure request = consent withdrawn: every review goes. Inactivity: a
     published review stays "while published" (privacy policy), detached from
@@ -190,7 +186,6 @@ ERASURE_STEPS: tuple[ErasureStep, ...] = (
     ErasureStep("legal_hold", _legal_hold),
     ErasureStep("email_outbox", _email_outbox),
     ErasureStep("leads", _leads),
-    ErasureStep("quote_batches", _quote_batches),
     ErasureStep("testimonials", _testimonials),
     ErasureStep("storage", _storage),
     ErasureStep("projects", _projects),

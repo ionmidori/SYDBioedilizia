@@ -71,7 +71,6 @@ def _seed_user(db: FakeDb, uid: str = "u1", pid: str = "p1") -> None:
                                                       "client_snapshot": {"email": "mario@example.it"}})
     db.put("projects", pid, "private_data", "quote", "revisions", "1", {"items": []})
     db.put("leads", f"lead-{uid}", {"uid": uid, "session_id": pid, "email": "mario@example.it"})
-    db.put("quote_batches", f"batch-{uid}", {"user_id": uid, "projects": [{"project_id": pid}]})
     db.put("testimonials", f"t-ok-{uid}", {"userId": uid, "status": "approved", "text": "Ottimo"})
     db.put("testimonials", f"t-new-{uid}", {"userId": uid, "status": "pending", "text": "Bene"})
     db.put("usage_quotas", f"{uid}_upload_video", {"user_id": uid, "count": 1})
@@ -104,7 +103,7 @@ def test_step_names_are_stable_and_unique():
     # Resumption is keyed on step names: renaming one would rerun or skip work.
     names = [s.name for s in ERASURE_STEPS]
     assert names == [
-        "auth_disable", "legal_hold", "email_outbox", "leads", "quote_batches", "testimonials",
+        "auth_disable", "legal_hold", "email_outbox", "leads", "testimonials",
         "storage", "projects", "sessions", "usage_quotas", "passkey_challenges", "pending_notifications",
         "user_profile", "auth_delete",
     ]
@@ -220,8 +219,7 @@ async def test_a_failed_step_is_resumed_without_redoing_the_finished_ones():
     first = await _service(db, broken, auth).erase("u1", ErasureMode.INACTIVITY, requested_by="lifecycle")
 
     assert first.status is ErasureStatus.FAILED
-    assert first.completed_steps == ["auth_disable", "legal_hold", "email_outbox", "leads", "quote_batches",
-                                     "testimonials"]
+    assert first.completed_steps == ["auth_disable", "legal_hold", "email_outbox", "leads", "testimonials"]
     job = db.get_data("erasure_jobs", "u1")
     assert job["status"] == "failed" and job["last_error_type"] == "RuntimeError"
     assert "lifecycle_anonymized_at" not in db.get_data("users", "u1")  # not marked done
@@ -444,31 +442,26 @@ async def test_a_deletion_request_upgrades_a_pending_inactivity_erasure():
 
 # ── Discovery ────────────────────────────────────────────────────────────────
 
-async def test_projects_reachable_only_through_batches_or_leads_are_erased():
+async def test_projects_reachable_only_through_a_lead_are_erased():
     db = FakeDb()
     db.put("users", "u1", {"last_active_at": NOW})
-    # Legacy projection without userId; only the batch and the lead point at it.
-    db.put("projects", "pb", {"name": "Cucina"})
-    db.put("quote_batches", "b1", {"user_id": "u1", "projects": [{"project_id": "pb"}]})
+    # Legacy projection without userId; only the lead points at it.
     db.put("projects", "pl", {"name": "Bagno"})
     db.put("leads", "l1", {"uid": "u1", "session_id": "pl"})
 
     await _service(db, FakeBucket()).erase("u1", ErasureMode.ACCOUNT_DELETION, requested_by="self")
 
-    assert db.get_data("projects", "pb") is None
     assert db.get_data("projects", "pl") is None
 
 
-async def test_a_lead_or_batch_pointing_at_another_users_project_never_erases_it():
-    # leads/quote_batches are only pointers: the project they name must not
+async def test_a_lead_pointing_at_another_users_project_never_erases_it():
+    # leads are only pointers: the project they name must not
     # belong to someone else, or one bad reference would erase another user's data.
     db = FakeDb()
     db.put("users", "u1", {"last_active_at": NOW})
     db.put("sessions", "victim", {"userId": "u2", "title": "Casa di u2"})
     db.put("projects", "victim", {"userId": "u2"})
-    db.put("sessions", "victim2", {"userId": "u3"})
     db.put("leads", "l1", {"uid": "u1", "session_id": "victim"})
-    db.put("quote_batches", "b1", {"user_id": "u1", "projects": [{"project_id": "victim2"}]})
 
     await _service(db, FakeBucket(["user-uploads/victim/a.jpg"])).erase(
         "u1", ErasureMode.ACCOUNT_DELETION, requested_by="self"
@@ -476,7 +469,6 @@ async def test_a_lead_or_batch_pointing_at_another_users_project_never_erases_it
 
     assert db.get_data("sessions", "victim") == {"userId": "u2", "title": "Casa di u2"}
     assert db.get_data("projects", "victim") == {"userId": "u2"}
-    assert db.get_data("sessions", "victim2") == {"userId": "u3"}
     assert db.get_data("erasure_jobs", "u1")["project_ids"] == []
 
 
