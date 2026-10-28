@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -22,8 +21,6 @@ import { MagicLinkForm } from './MagicLinkForm';
 import { PasskeyButton } from './PasskeyButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { useClaimProject } from '@/hooks/use-claim-project';
-import { Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
 import { mapAuthError } from '@/utils/auth-utils';
@@ -31,83 +28,39 @@ import { mapAuthError } from '@/utils/auth-utils';
 interface AuthDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    redirectOnLogin?: boolean;
 }
 
-export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthDialogProps) {
+export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     const { loginWithGoogle, user } = useAuth();
-    const router = useRouter();
-
-    // Modern State Management
-    const claimProjectMutation = useClaimProject();
-
-    // Track initial state when dialog opens to distinguish "just logged in" from "already logged in"
-    const userWasAnonymousRef = useRef(user?.isAnonymous ?? true);
-
-    useEffect(() => {
-        if (open) {
-            userWasAnonymousRef.current = user?.isAnonymous ?? true;
-        }
-    }, [open, user?.isAnonymous]);
 
     useEffect(() => {
         if (open) {
             logger.debug('[AuthDialog] 🟢 Opened. User state:', {
                 uid: user?.uid,
                 isAnonymous: user?.isAnonymous,
-                redirectOnLogin
             });
         }
-    }, [open, user, redirectOnLogin]);
+    }, [open, user]);
 
     const [loading, setLoading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
-    const [claimStatus, setClaimStatus] = useState<'pending' | 'error' | null>(null);
 
-    const handleLoginSuccess = async () => {
-        // Keep dialog open during claim so the user sees progress and any errors.
-        setClaimStatus('pending');
-        try {
-            // Guard 1: Only attempt claim when the user was anonymous before this login.
-            //          If the dialog was opened while already authenticated (e.g. re-auth),
-            //          there is nothing to claim and we must not pass a live project ID.
-            // Guard 2: Read chatSessionId directly — useSessionId() also returns
-            //          activeProjectId (a real authenticated project), which is NOT a
-            //          guest session and would always cause a 400 from the backend.
-            const anonymousSessionId = typeof window !== 'undefined'
-                ? localStorage.getItem('chatSessionId')
-                : null;
-
-            if (userWasAnonymousRef.current && anonymousSessionId) {
-                await claimProjectMutation.mutateAsync(anonymousSessionId);
-                // Clear only after a confirmed claim to prevent stale re-claims.
-                localStorage.removeItem('chatSessionId');
-            }
-        } catch (error) {
-            console.warn('[AuthDialog] Claim failed:', error);
-            // Show the error briefly so the user knows their anonymous work wasn't linked.
-            setClaimStatus('error');
-            await new Promise(resolve => setTimeout(resolve, 2500));
-        } finally {
-            setClaimStatus(null);
-
-            // Auto-close and redirect after the flow the finishes (including showing any errors)
-            onOpenChange(false);
-            if (redirectOnLogin) {
-                router.push('/dashboard');
-            }
-        }
+    // The user stays on the page it signed in from. Every login path already
+    // brought the guest's chats along (lib/auth/guest-claim.ts); a failure
+    // stays on screen in GuestClaimNotice.
+    const handleLoginSuccess = () => {
+        onOpenChange(false);
     };
 
     // Phones / PWA / in-app browsers may leave for the provider (redirect): the
-    // claim and the dashboard redirect then complete in AuthProvider on return.
+    // login then completes in AuthProvider when the page loads again.
     const handleGoogleSignIn = async () => {
         if (loading) return;
         setLoading('google');
         try {
-            const outcome = await loginWithGoogle({ redirectTo: redirectOnLogin ? '/dashboard' : undefined });
+            const outcome = await loginWithGoogle();
             if (outcome === 'redirecting') return;
-            await handleLoginSuccess();
+            handleLoginSuccess();
         } catch (error) {
             const code = (error as { code?: string })?.code ?? 'unknown';
             if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
@@ -139,26 +92,6 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
                 </p>
             </div>
 
-            {claimStatus ? (
-                <div className="py-12 flex flex-col items-center justify-center space-y-4">
-                    {claimStatus === 'pending' ? (
-                        <>
-                            <Loader2 className="w-8 h-8 text-luxury-gold animate-spin" />
-                            <p className="text-slate-300 font-medium">Finalizzazione...</p>
-                        </>
-                    ) : (
-                        <>
-                            <AlertCircle className="w-8 h-8 text-amber-400" />
-                            <div className="text-center space-y-1">
-                                <p className="text-slate-200 font-semibold text-sm">Accesso completato</p>
-                                <p className="text-slate-400 text-xs max-w-[240px] leading-relaxed">
-                                    La sessione anonima non è stata collegata. Il tuo account è attivo, ma i dati precedenti potrebbero non essere disponibili.
-                                </p>
-                            </div>
-                        </>
-                    )}
-                </div>
-            ) : (
                 <div className="space-y-6">
                     {/* M3 Segmented Control */}
                     <div className="bg-black/20 p-1 rounded-xl flex relative">
@@ -252,7 +185,6 @@ export function AuthDialog({ open, onOpenChange, redirectOnLogin = true }: AuthD
                         </AnimatePresence>
                     </div>
                 </div>
-            )}
 
             <div className="mt-6 pt-6 border-t border-white/5 text-center">
                 <p className="text-[10px] text-slate-500 leading-relaxed font-medium">

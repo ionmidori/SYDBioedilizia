@@ -9,6 +9,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from main import app
 from src.auth.jwt_handler import verify_token
+from src.core.exceptions import PermissionDenied
 from src.repositories.conversation_repository import ConversationRepository
 from src.schemas.internal import UserSession
 from src.tools.quota import QuotaDecision
@@ -63,6 +64,13 @@ async def test_upload_to_foreign_session_is_rejected():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("owner", [None, "attacker-uid", "guest_abcdefgh"])
-async def test_access_allowed_for_new_own_or_guest_session(owner):
+@pytest.mark.parametrize("owner", [None, "attacker-uid"])
+async def test_access_allowed_for_new_or_own_session(owner):
     await _repo_with_owner(owner).assert_session_access("sess", "attacker-uid")  # no raise
+
+
+@pytest.mark.asyncio
+async def test_a_guest_placeholder_session_is_not_shared():
+    """A guest's chat reaches an account only through the guest claim, with proof."""
+    with pytest.raises(PermissionDenied):
+        await _repo_with_owner("guest_abcdefgh").assert_session_access("sess", "attacker-uid")

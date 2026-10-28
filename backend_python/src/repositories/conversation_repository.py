@@ -20,8 +20,10 @@ MESSAGE_ROOM_FIELD = 'metadata.room_id'
 
 
 def _check_session_owner(session_id: str, current_owner: str, user_id: str | None) -> None:
-    """🛡️ A session owned by another real user is never shared (guest_* stays claimable)."""
-    if user_id and current_owner and not current_owner.startswith('guest_') and current_owner != user_id:
+    """🛡️ A session with an owner is never shared: not another account's, not a
+    legacy `guest_*` one. Chats move between owners only through the guest
+    claim, with proof (src/services/guest_claim)."""
+    if user_id and current_owner and current_owner != user_id:
         logger.warning(f"[Repo] ⛔ Session {session_id} owned by another user — access denied for {user_id}")
         raise PermissionDenied("Questa sessione appartiene a un altro utente.")
 
@@ -311,7 +313,6 @@ class ConversationRepository:
                     })
                     logger.info(f"[Repo] 🚀 Sync: Created project {session_id} from session")
             else:
-                # 🔄 Session Claiming Logic: If existing session is a guest one, and we have a real user, upgrade it.
                 session_data = doc.to_dict() or {}
                 current_owner = session_data.get('userId', '')
 
@@ -320,7 +321,8 @@ class ConversationRepository:
                 # After the ownership check: a foreign session is never touched.
                 update_data: dict[str, Any] = expiry_fields(is_guest=is_guest)
 
-                if user_id and (not current_owner or current_owner.startswith('guest_')):
+                # An ownerless session gets its first writer as owner (like save_message).
+                if user_id and not current_owner:
                     update_data['userId'] = user_id
                     update_data['updatedAt'] = async_firestore.SERVER_TIMESTAMP
 
@@ -329,7 +331,7 @@ class ConversationRepository:
                     project_snap = await project_ref.get()
                     if project_snap.exists:
                         await project_ref.update({'userId': user_id, 'updatedAt': async_firestore.SERVER_TIMESTAMP})
-                    logger.info(f"[Repo] 🔄 CLAIM: Session {session_id} migrated from {current_owner} to {user_id}")
+                    logger.info(f"[Repo] Session {session_id} now owned by {user_id}")
 
                 if update_data:
                     await session_ref.update(update_data)

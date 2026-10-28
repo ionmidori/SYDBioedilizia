@@ -496,19 +496,33 @@ class TestEnsureSession:
         assert sess_data["userId"].startswith("guest_")
 
     @pytest.mark.asyncio
-    async def test_claims_guest_session_for_real_user(self, repo, mock_db, mock_fs):
+    async def test_a_guest_placeholder_session_is_not_taken_over(self, repo, mock_db, mock_fs):
+        """Knowing a session id is not enough: a guest's chat moves only through
+        the guest claim, with proof (src/services/guest_claim)."""
         sess_doc = _doc({"userId": "guest_abcdefgh"}, exists=True)
         proj_doc = _doc({}, exists=True)
         sess_ref, proj_ref = self._build_collections(mock_db, sess_doc, proj_doc)
 
         with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.async_firestore", mock_fs), \
+             pytest.raises(PermissionDenied):
+            await repo.ensure_session("sess1", user_id="real-uid", is_guest=False)
+
+        sess_ref.update.assert_not_called()
+        proj_ref.update.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_an_ownerless_session_gets_its_writer_as_owner(self, repo, mock_db, mock_fs):
+        sess_doc = _doc({"title": "Bagno"}, exists=True)
+        sess_ref, _ = self._build_collections(mock_db, sess_doc, _doc({}, exists=True))
+
+        with patch(f"{_MODULE}.get_firestore_client", return_value=mock_db), \
+             patch(f"{_MODULE}.get_async_firestore_client", return_value=mock_db), \
              patch(f"{_MODULE}.async_firestore", mock_fs):
             await repo.ensure_session("sess1", user_id="real-uid", is_guest=False)
 
-        sess_ref.update.assert_called_once()
-        update = sess_ref.update.call_args[0][0]
-        assert update["userId"] == "real-uid"
+        assert sess_ref.update.call_args[0][0]["userId"] == "real-uid"
 
     @pytest.mark.asyncio
     async def test_rejects_session_owned_by_another_user(self, repo, mock_db, mock_fs):
@@ -662,9 +676,11 @@ class TestGuestOnlyExpiry:
         sess_ref.update.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_claimed_guest_session_becomes_permanent(self, repo, mock_db, mock_fs):
+    async def test_an_ownerless_session_taken_by_a_registered_writer_becomes_permanent(
+        self, repo, mock_db, mock_fs
+    ):
         sess_ref, _ = TestEnsureSession()._build_collections(
-            mock_db, _doc({"userId": "guest_abcdefgh", EXPIRE_AT: "old"}), _doc({}, exists=True)
+            mock_db, _doc({EXPIRE_AT: "old"}), _doc({}, exists=True)
         )
         clear = AsyncMock(return_value=2)
         p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)
@@ -675,11 +691,11 @@ class TestGuestOnlyExpiry:
         assert sess_ref.update.call_args[0][0]["userId"] == "real-uid"
 
     @pytest.mark.asyncio
-    async def test_failed_cleanup_never_blocks_the_claim(self, repo, mock_db, mock_fs):
-        # The claim is the essential write; the expiry cleanup runs after it and
+    async def test_failed_cleanup_never_blocks_the_owner_write(self, repo, mock_db, mock_fs):
+        # The owner is the essential write; the expiry cleanup runs after it and
         # is retried on the next registered write if it fails.
         sess_ref, _ = TestEnsureSession()._build_collections(
-            mock_db, _doc({"userId": "guest_abcdefgh", EXPIRE_AT: "old"}), _doc({}, exists=True)
+            mock_db, _doc({EXPIRE_AT: "old"}), _doc({}, exists=True)
         )
         clear = AsyncMock(side_effect=RuntimeError("batch failed"))
         p1, p2, p3, p4 = self._patches(mock_db, mock_fs, clear)

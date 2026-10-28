@@ -27,3 +27,10 @@ def real_owners(data: dict[str, Any]) -> list[str]:
         if isinstance(owner, str) and not is_guest_placeholder(owner) and owner not in owners:
             owners.append(owner)
     return owners
+
+
+def is_owner(data: dict[str, Any], uid: str) -> bool:
+    """`uid` is an account the document names as its owner. A `guest_*`
+    placeholder is nobody's: no caller ever owns it. Whether an owner account is
+    anonymous or registered takes Firebase Auth: src/auth/user_lookup.account_kind."""
+    return bool(uid) and uid in real_owners(data)

@@ -99,26 +99,6 @@ export const projectsApi = {
     },
 
     /**
-     * Claims a guest project for the currently authenticated user.
-     * This is used during the "Soft Login" flow (Deferred Auth).
-     * 
-     * @param sessionId - The ID of the project/session to claim.
-     * @returns The JSON response from the backend.
-     */
-    claimProject: async (sessionId: string) => {
-        const response = await fetchWithAuth(`${API_ROOT}/projects/${sessionId}/claim`, {
-            method: 'POST',
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Impossibile reclamare il progetto');
-        }
-
-        return response.json();
-    },
-
-    /**
      * Delete a project permanently.
      * 
      * @param sessionId - The ID of the project to delete.

@@ -91,12 +91,30 @@ export async function setCustomClaims(localId: string, claims: Record<string, un
   );
 }
 
+export interface SeedMessage {
+  id: string;
+  role: string;
+  content: string;
+  ts: string;
+}
+
 /** Seeds the deterministic chat history used by the reload-persistence test. */
 export async function seedChatHistory(uid: string): Promise<string> {
   const sessionId = `global-${uid}`;
+  await seedSession(sessionId, uid, SEEDED_MESSAGES);
+  return sessionId;
+}
 
-  // Parent session doc. Not required by the rules for the `global-<uid>` path,
-  // but keeps the data shape realistic.
+/**
+ * Writes a session owned by `uid` with its messages, as the backend does
+ * (Admin SDK: rules bypassed).
+ */
+export async function seedSession(
+  sessionId: string,
+  uid: string,
+  messages: readonly SeedMessage[],
+): Promise<void> {
+  // Parent session doc: the rules read its owner (not for the `global-<uid>` path).
   await expectOk(
     await fetch(`${FIRESTORE_DOCS_URL}/sessions?documentId=${sessionId}`, {
       method: 'POST',
@@ -111,7 +129,7 @@ export async function seedChatHistory(uid: string): Promise<string> {
     'seed session doc',
   );
 
-  for (const message of SEEDED_MESSAGES) {
+  for (const message of messages) {
     await expectOk(
       await fetch(
         `${FIRESTORE_DOCS_URL}/sessions/${sessionId}/messages?documentId=${message.id}`,
@@ -130,6 +148,4 @@ export async function seedChatHistory(uid: string): Promise<string> {
       `seed message ${message.id}`,
     );
   }
-
-  return sessionId;
 }

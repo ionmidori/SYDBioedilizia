@@ -18,8 +18,8 @@ setup('authenticate against the Firebase Auth emulator', async ({ page, context,
   // exercise the real proxy + layout gate; the backend itself is route-mocked.
   await setCustomClaims(uid, { role: 'admin' });
 
-  // AuthDialog's post-login hook may call projectsApi.claimProject(). In a
-  // production build that rewrites to Cloud Run, so it must never leave the box.
+  // A login may call the backend (lib/auth/guest-claim.ts). In a production
+  // build that rewrites to Cloud Run, so it must never leave the box.
   await page.route('**/api/py/**', (route) =>
     route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }),
   );
@@ -38,7 +38,7 @@ setup('authenticate against the Firebase Auth emulator', async ({ page, context,
   await expect(async () => {
     await page.evaluate(() =>
       window.dispatchEvent(
-        new CustomEvent('OPEN_LOGIN_MODAL', { detail: { redirectOnLogin: true } }),
+        new CustomEvent('OPEN_LOGIN_MODAL'),
       ),
     );
     await expect(dialog).toBeVisible({ timeout: 2_000 });
@@ -56,8 +56,8 @@ setup('authenticate against the Firebase Auth emulator', async ({ page, context,
   await page.locator('#password').fill(TEST_USER.password);
   await page.getByRole('button', { name: 'Accedi', exact: true }).click();
 
-  // handleLoginSuccess() redirects here once the (stubbed) claim settles.
-  await page.waitForURL('**/dashboard', { timeout: 30_000 });
+  // The user stays on the page it signed in from: the dialog closes once the login settles.
+  await expect(dialog).toBeHidden({ timeout: 30_000 });
 
   // ── The `auth-token` cookie ────────────────────────────────────────────────
   // app/actions/auth-session.ts sets it with `secure: NODE_ENV === 'production'`,

@@ -293,3 +293,12 @@ class IdempotencyKeyRequiredError(AppException):
 
     def __init__(self) -> None:
         super().__init__(message="Send a unique Idempotency-Key header (8-128 chars) with every send request.")
+
+
+# ─── Guest → account claim (src/services/guest_claim) ─────────────────────────
+
+class GuestClaimDenied(PermissionDenied):
+    """The caller cannot move a guest's chats: no valid proof of being that
+    guest, or the account is not one chats may move from/to. The message is
+    shown to the user as is."""
+    error_code = "GUEST_CLAIM_DENIED"

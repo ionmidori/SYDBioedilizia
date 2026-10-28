@@ -14,8 +14,8 @@ One rule decides the scope, on every run and for every candidate: a project is
 in scope only if neither its session nor its projection names ANOTHER real
 owner. Owned, ownerless and guest projects (a lead written while the user
 chatted as a guest) qualify. Pointers are unverified (legacy leads were never
-validated) and ownership changes over time (`claim_project` hands a guest
-project to whoever claims it), so neither a reference nor a past run's verdict
+validated) and ownership changes over time (the guest claim hands a guest's
+projects to its account), so neither a reference nor a past run's verdict
 is trusted: one stale or forged id must never erase someone else's data.
 """
 from __future__ import annotations

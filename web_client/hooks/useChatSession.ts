@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useGuestClaim } from '@/hooks/use-guest-claim';
+import { guestClaimStore } from '@/lib/auth/guest-claim-store';
+import { GUEST_SESSION_KEY, lastProjectKey } from '@/lib/chat-session-keys';
 import { logger } from '@/lib/logger';
-
-const GUEST_SESSION_KEY = 'chatSessionId';
-const lastProjectKey = (uid: string) => `last_active_project:${uid}`;
 
 interface UseChatSessionReturn {
     /** Session key used by the backend, Firestore history and `useChat({ id })`. */
@@ -32,6 +32,7 @@ interface UseChatSessionReturn {
  */
 export function useChatSession(): UseChatSessionReturn {
     const { user, isInitialized } = useAuth();
+    const claim = useGuestClaim();
 
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
@@ -60,8 +61,22 @@ export function useChatSession(): UseChatSessionReturn {
         return currentProjectId || `global-${user.uid}`;
     }, [user, currentProjectId, stableGuestId]);
 
+    // -- GUEST CLAIM: the guest's chats just became the account's (lib/auth/guest-claim.ts) --
+    // Open the conversation the guest was having, not the last project.
+    useEffect(() => {
+        if (claim.status !== 'done' || !user || user.isAnonymous) return;
+        const { openSessionId } = claim;
+        const timerId = setTimeout(() => {
+            if (openSessionId) setCurrentProjectId(openSessionId);
+            guestClaimStore.reset();
+        }, 0);
+        return () => clearTimeout(timerId);
+    }, [claim, user]);
+
     // -- PERSISTENCE: Save/Restore Last Project --
     useEffect(() => {
+        // While a claim is under way the chat waits for the guest's conversation.
+        if (claim.status === 'pending' || claim.status === 'done') return;
         if (isInitialized && user && !user.isAnonymous && !currentProjectId) {
             const lastId = localStorage.getItem(lastProjectKey(user.uid));
             if (lastId) {
@@ -72,7 +87,7 @@ export function useChatSession(): UseChatSessionReturn {
                 return () => clearTimeout(timerId);
             }
         }
-    }, [isInitialized, user, currentProjectId]);
+    }, [isInitialized, user, currentProjectId, claim.status]);
 
     // Save Effect
     useEffect(() => {

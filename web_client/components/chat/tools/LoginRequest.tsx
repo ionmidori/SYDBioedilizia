@@ -34,7 +34,6 @@ export const LoginRequest = () => {
                 bubbles: true,
                 composed: true,
                 detail: {
-                    redirectOnLogin: false,   // stay in chat after auth
                     pendingMessage,           // re-sent automatically after login
                 },
             })

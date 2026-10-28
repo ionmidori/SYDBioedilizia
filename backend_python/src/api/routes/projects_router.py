@@ -6,7 +6,6 @@ Provides REST endpoints for project management:
 - Get project details
 - Create new project
 - Update project metadata
-- Claim guest project (Deferred Auth)
 - Rooms of a project and the room of each file (Phase 138)
 """
 import logging
@@ -16,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from src.auth.jwt_handler import verify_token
 from src.db import projects as projects_db
 from src.db.firebase_client import get_async_firestore_client
+from src.db.ownership import is_owner
 from src.db.projects.mutations import is_dashboard_upload_path
 from src.models.project import (
     ProjectCreate,
@@ -43,7 +43,7 @@ async def _require_owned_project(session_id: str, user_id: str) -> Any:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Progetto non trovato")
 
     project_data = project_doc.to_dict() or {}
-    if project_data.get("userId") != user_id and project_data.get("user_id") != user_id:
+    if not is_owner(project_data, user_id):
         logger.warning(
             f"[API] User {user_id} denied access to project {session_id} "
             f"owned by {project_data.get('userId') or project_data.get('user_id')}"
@@ -181,37 +181,6 @@ async def update_project(
         )
 
     return {"success": True}
-
-
-@router.post("/{session_id}/claim", response_model=dict)
-async def claim_project(
-    session_id: str,
-    user_session: UserSession = Depends(verify_token)
-) -> dict:
-    """
-    Claim a guest project (Deferred Auth).
-
-    Transfers ownership from guest_* to the authenticated user.
-
-    Args:
-        session_id: Project ID with guest ownership.
-
-    Returns:
-        Success status.
-    """
-    user_id = user_session.uid
-
-    success = await projects_db.claim_project(session_id, user_id, is_guest=user_session.is_guest)
-
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Impossibile reclamare il progetto (non trovato o già assegnato)"
-        )
-
-    logger.info(f"[API] User {user_id} claimed project {session_id}")
-    emit_audit_event(AuditAction.PROJECT_CLAIM, AuditResourceType.PROJECT, session_id, user_id=user_id)
-    return {"success": True, "message": "Progetto reclamato con successo"}
 
 
 @router.patch("/{session_id}/details", response_model=dict)

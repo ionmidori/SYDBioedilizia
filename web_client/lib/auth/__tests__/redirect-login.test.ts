@@ -55,18 +55,12 @@ describe('pending redirect', () => {
     beforeEach(() => sessionStorage.clear());
 
     it('survives the round trip once', () => {
-        savePendingRedirect({ guestSessionId: 'guest-1', redirectTo: '/dashboard' });
-        expect(takePendingRedirect()).toEqual({ guestSessionId: 'guest-1', redirectTo: '/dashboard' });
-        expect(takePendingRedirect()).toBeNull();
+        savePendingRedirect();
+        expect(takePendingRedirect()).toBe(true);
+        expect(takePendingRedirect()).toBe(false);
     });
 
-    it('ignores garbage', () => {
-        sessionStorage.setItem('syd:authRedirect', '{not json');
-        expect(takePendingRedirect()).toBeNull();
-    });
-
-    it('drops a redirect target that is not a local path', () => {
-        savePendingRedirect({ guestSessionId: null, redirectTo: 'https://evil.example' });
-        expect(takePendingRedirect()).toEqual({ guestSessionId: null, redirectTo: null });
+    it('is false when no redirect was started', () => {
+        expect(takePendingRedirect()).toBe(false);
     });
 });

@@ -1,7 +1,8 @@
 """Safari on iPhone never produced an App Check token (reCAPTCHA failing on the
 device): for 14 days every client-area call from iPhone was answered 403
 "Missing App Check token". A signed-in, non-anonymous user may read their own
-dashboard without App Check; chat, renders, uploads and writes stay strict."""
+dashboard and claim its guest chats without App Check; a guest may only get
+its claim ticket; chat, renders, uploads and writes stay strict."""
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -38,7 +39,7 @@ def _verified(decoded):
         ("GET", "/api/reports/dashboard"),
         ("GET", "/api/reports/gallery"),
         ("GET", "/api/quote/user/u1"),
-        ("POST", "/api/projects/0a1b2c3d-1111-2222-3333-444455556666/claim"),
+        ("POST", "/api/guest-claim"),
     ],
 )
 async def test_registered_user_reads_dashboard_without_app_check(method, path):
@@ -63,9 +64,22 @@ async def test_other_routes_stay_strict(method, path):
         await app_check.validate_app_check_token(_request(method, path))
 
 
-async def test_anonymous_user_gets_no_fallback():
+@pytest.mark.parametrize(("method", "path"), [("GET", "/api/projects"), ("POST", "/api/guest-claim")])
+async def test_anonymous_user_gets_no_fallback(method, path):
     with _verified(ANONYMOUS), pytest.raises(AppCheckError):
-        await app_check.validate_app_check_token(_request("GET", "/api/projects"))
+        await app_check.validate_app_check_token(_request(method, path))
+
+
+async def test_a_guest_gets_its_claim_ticket_without_app_check():
+    """Without the ticket the guest's login cannot start on those devices."""
+    with _verified(ANONYMOUS):
+        assert await app_check.validate_app_check_token(_request("POST", "/api/guest-claim/ticket")) is None
+
+
+async def test_the_claim_ticket_still_needs_a_verified_token():
+    failing = AsyncMock(side_effect=ValueError("bad token"))
+    with patch.object(app_check, "_verify_id_token_cached", failing), pytest.raises(AppCheckError):
+        await app_check.validate_app_check_token(_request("POST", "/api/guest-claim/ticket"))
 
 
 async def test_no_bearer_gets_no_fallback():

@@ -118,9 +118,7 @@ export function Navbar() {
         } else {
             // Delay to allow mobile menu Sheet to close and restore focus properly
             setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
-                    detail: { redirectOnLogin: true }
-                }));
+                window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL'));
             }, 300);
         }
     };
@@ -242,9 +240,7 @@ export function Navbar() {
                     <div className="hidden xl:flex items-center gap-3 z-10 shrink-0">
                         <SignInButton onLoginClick={() => {
                             triggerHaptic();
-                            window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
-                                detail: { redirectOnLogin: true }
-                            }));
+                            window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL'));
                         }} />
                     </div>
 
@@ -381,9 +377,7 @@ export function Navbar() {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
                                                     setTimeout(() => {
-                                                        window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL', {
-                                                            detail: { redirectOnLogin: true }
-                                                        }));
+                                                        window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL'));
                                                     }, 300);
                                                 }}
                                             />

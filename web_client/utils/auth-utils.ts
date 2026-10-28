@@ -38,6 +38,10 @@ export function mapAuthError(firebaseErrorCode: string): string {
         // Magic Link Errors
         'auth/invalid-email-link': 'Link email non valido.',
         'auth/missing-email': 'Email mancante.',
+
+        // Guest chats (lib/auth/guest-claim.ts)
+        'syd/guest-claim-unavailable':
+            'Non riusciamo a preparare il trasferimento delle tue conversazioni da ospite. Riprova tra poco.',
     };
 
     return errorMap[firebaseErrorCode] || 'Qualcosa è andato storto. Riprova.';
