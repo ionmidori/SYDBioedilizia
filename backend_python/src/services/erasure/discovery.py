@@ -4,7 +4,6 @@ Sources, because no single field is reliable on its own:
 - `sessions.userId` — the backend record of a project;
 - `projects.userId` and the legacy `user_id` / `uid` spellings — the public
   projection, which may outlive its session;
-- `quote_batches.projects[].project_id` — projects sent together in a batch;
 - `leads.session_id` — legacy quote requests.
 
 Plus the ids a previous run of the same erasure found (`known`): the service
@@ -46,10 +45,6 @@ async def _not_someone_elses(db: Any, project_id: str, uid: str) -> bool:
 
 async def _referenced_project_ids(db: Any, uid: str) -> set[str]:
     refs: set[str] = set()
-    async for snap in db.collection("quote_batches").where(filter=FieldFilter("user_id", "==", uid)).stream():
-        for entry in (snap.to_dict() or {}).get("projects") or []:
-            if isinstance(entry, dict) and isinstance(entry.get("project_id"), str) and entry["project_id"]:
-                refs.add(entry["project_id"])
     async for snap in db.collection("leads").where(filter=FieldFilter("uid", "==", uid)).stream():
         session_id = (snap.to_dict() or {}).get("session_id")
         if isinstance(session_id, str) and session_id:

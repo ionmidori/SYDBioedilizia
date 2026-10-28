@@ -193,20 +193,6 @@
             ]
         },
         {
-            "collectionGroup": "quote_batches",
-            "queryScope": "COLLECTION",
-            "fields": [
-                {
-                    "fieldPath": "status",
-                    "order": "ASCENDING"
-                },
-                {
-                    "fieldPath": "submitted_at",
-                    "order": "DESCENDING"
-                }
-            ]
-        },
-        {
             "collectionGroup": "testimonials",
             "queryScope": "COLLECTION",
             "fields": [

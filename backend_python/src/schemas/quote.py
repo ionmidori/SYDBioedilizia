@@ -70,7 +70,6 @@ class QuoteRequest(BaseModel):
     budget_cap: float | None = Field(default=None, ge=0, description="Client budget cap in EUR")
     channel: QuoteChannelType | None = Field(default=None, description="Where the request started")
     session_id: str | None = Field(default=None, description="Chat session the draft was generated from")
-    batch_id: str | None = Field(default=None, description="Batch the quote was submitted with")
 
 
 class ClientSnapshot(BaseModel):
