@@ -41,7 +41,6 @@ Gli script che leggono PDF (`extract_prezzario.py`, `pinecone_upload_pdf.py`) us
 | `sync_all_covers.py`, `sync_project_names.py` | Risincronizza copertine e nomi dei progetti |
 | `reset_guest_render_quota.py` | **Cancella** `usage_quotas/guest-session-_generate_render` (azzera la quota render degli ospiti). Senza `--yes` fa solo un dry run |
 | `clear_registered_session_expiry.py` | Toglie `expireAt` (TTL 30 giorni) dalle sessioni degli utenti registrati e dai loro messaggi: riparazione una tantum dei dati scritti prima che la scadenza valesse solo per gli ospiti. Senza `--apply` fa solo un dry run |
-| `recover_guest_session.py` | Una tantum (Phase 138 PR-6): sposta sull'account dell'utente (`--to-uid` o `--to-email`) tutte le sessioni dell'account anonimo che possiede `--session-id`, con la stessa logica del claim ospite. Senza `--apply` fa solo un dry run. Da rimuovere dopo il recupero |
 | `set_admin_claim.py` | Assegna/revoca il custom claim `admin` a un utente |
 | `configure_cors.py` | Imposta il CORS del bucket Storage (legge `firebase-service-account.json` dalla cartella corrente) |
 
