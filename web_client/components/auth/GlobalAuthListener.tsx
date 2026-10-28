@@ -16,7 +16,6 @@ import { useChatContext } from '@/hooks/useChatContext';
  */
 export function GlobalAuthListener() {
     const [open, setOpen] = useState(false);
-    const [redirectOnLogin, setRedirectOnLogin] = useState(true);
     const [pendingMessage, setPendingMessage] = useState('');
 
     const { user } = useAuth();
@@ -28,19 +27,10 @@ export function GlobalAuthListener() {
     // ── Listen for OPEN_LOGIN_MODAL ──────────────────────────────────────────
     useEffect(() => {
         const handleOpen = (e: Event) => {
-            const customEvent = e as CustomEvent<{
-                redirectOnLogin?: boolean;
-                pendingMessage?: string;
-            }>;
+            const customEvent = e as CustomEvent<{ pendingMessage?: string } | null>;
 
-            if (customEvent.detail) {
-                setRedirectOnLogin(customEvent.detail.redirectOnLogin ?? false);
-                if (typeof customEvent.detail.pendingMessage === 'string') {
-                    setPendingMessage(customEvent.detail.pendingMessage);
-                }
-            } else {
-                // Triggered from header / non-chat context — redirect is fine
-                setRedirectOnLogin(true);
+            if (typeof customEvent.detail?.pendingMessage === 'string') {
+                setPendingMessage(customEvent.detail.pendingMessage);
             }
 
             setOpen(true);
@@ -72,7 +62,6 @@ export function GlobalAuthListener() {
         <AuthDialog
             open={open}
             onOpenChange={setOpen}
-            redirectOnLogin={redirectOnLogin}
         />
     );
 }

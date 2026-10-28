@@ -13,7 +13,6 @@ from src.db.projects.constants import PROJECTS_COLLECTION
 from src.db.projects.deletion import _delete_collection_batch, soft_delete_project
 from src.db.projects.media import sync_project_cover
 from src.db.projects.mutations import (
-    claim_project,
     create_project,
     save_project_file_metadata,
     update_project,
@@ -25,7 +24,6 @@ __all__ = [
     "PROJECTS_COLLECTION",
     # private helper re-exported for scripts/cleanup_zombie_projects.py
     "_delete_collection_batch",
-    "claim_project",
     "count_user_projects",
     "create_project",
     "get_project",

@@ -3,8 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import {
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    sendPasswordResetEmail,
+    EmailAuthProvider,
+} from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { createAccountKeepingGuestChats, signInKeepingGuestChats } from '@/lib/auth/guest-claim';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -69,11 +75,14 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                     setResetSent(false);
                 }, 3000);
             } else if (mode === 'signin') {
-                await signInWithEmailAndPassword(auth, data.email, data.password!);
+                await signInKeepingGuestChats(() => signInWithEmailAndPassword(auth, data.email, data.password!));
                 setFailedAttempts(0);
                 onSuccess?.();
             } else {
-                await createUserWithEmailAndPassword(auth, data.email, data.password!);
+                await createAccountKeepingGuestChats(
+                    EmailAuthProvider.credential(data.email, data.password!),
+                    () => createUserWithEmailAndPassword(auth, data.email, data.password!)
+                );
                 setFailedAttempts(0);
                 onSuccess?.();
             }

@@ -1,13 +1,11 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import {
     User,
     signInAnonymously as firebaseSignInAnonymously,
     onAuthStateChanged,
-    signInWithPopup,
-    signInWithRedirect,
-    getRedirectResult,
+    onIdTokenChanged,
     GoogleAuthProvider,
     type AuthProvider as FirebaseAuthProvider,
     signOut,
@@ -20,7 +18,6 @@ import { tokenManager } from '@/lib/auth/token-manager';
 import { setAuthCookie, removeAuthCookie } from '@/app/actions/auth-session';
 import { queryClient } from '@/lib/query-client';
 import { logger } from '@/lib/logger';
-import { projectsApi } from '@/lib/projects-api';
 import {
     canRedirectHere,
     isPopupUnsupported,
@@ -28,6 +25,13 @@ import {
     shouldRedirectFirst,
     takePendingRedirect,
 } from '@/lib/auth/redirect-login';
+import {
+    finishRedirectKeepingGuestChats,
+    popupKeepingGuestChats,
+    redirectKeepingGuestChats,
+    signInKeepingGuestChats,
+} from '@/lib/auth/guest-claim';
+import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { mapAuthError } from '@/utils/auth-utils';
 
 /**
@@ -35,11 +39,6 @@ import { mapAuthError } from '@/utils/auth-utils';
  * when the page loads again (see completeRedirectLogin).
  */
 export type SocialLoginOutcome = 'done' | 'redirecting';
-
-export interface SocialLoginOptions {
-    /** Local path to open after a redirect login (popup callers navigate themselves). */
-    redirectTo?: string;
-}
 
 /**
  * AuthContext Interface
@@ -56,7 +55,7 @@ interface AuthContextValue {
 
     // Methods
     signInAnonymously: () => Promise<void>;
-    loginWithGoogle: (options?: SocialLoginOptions) => Promise<SocialLoginOutcome>;
+    loginWithGoogle: () => Promise<SocialLoginOutcome>;
     logout: () => Promise<void>;
     sendMagicLink: (email: string) => Promise<void>;
     completeMagicLink: (emailLink: string, email?: string) => Promise<void>;
@@ -67,27 +66,14 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
- * Finish a social login started with signInWithRedirect: claim the anonymous
- * chat (what AuthDialog does after a popup login) and open the requested page.
+ * Finish a social login started by redirect, on the page the user left from:
+ * a guest's chats follow it into the account (lib/auth/guest-claim.ts).
  * No-op when no redirect was started from this tab.
  */
 export async function completeRedirectLogin(): Promise<void> {
-    const pending = takePendingRedirect();
-    if (!pending) return;
+    if (!takePendingRedirect()) return;
     try {
-        const result = await getRedirectResult(auth);
-        if (!result?.user) return;
-        if (pending.guestSessionId) {
-            try {
-                await projectsApi.claimProject(pending.guestSessionId);
-                window.localStorage.removeItem('chatSessionId');
-            } catch (claimErr) {
-                console.warn('[AuthProvider] Claim after redirect login failed:', claimErr);
-            }
-        }
-        if (pending.redirectTo && window.location.pathname !== pending.redirectTo) {
-            window.location.assign(pending.redirectTo);
-        }
+        await finishRedirectKeepingGuestChats();
     } catch (err) {
         const code = (err as { code?: string })?.code ?? 'unknown';
         console.error('[AuthProvider] Redirect login failed:', code, err);
@@ -96,8 +82,18 @@ export async function completeRedirectLogin(): Promise<void> {
 }
 
 /**
+ * A new reference to the same Firebase user. Firebase changes a `User` in place
+ * (reload, account link), so publishing `auth.currentUser` again would be the
+ * reference already in state and React would not re-render. Cloning onto the
+ * same prototype keeps methods like `getIdToken`.
+ */
+function cloneUser(user: User): User {
+    return Object.assign(Object.create(Object.getPrototypeOf(user)), user);
+}
+
+/**
  * AuthProvider Component
- * 
+ *
  * Centralized authentication state management with:
  * - Single onAuthStateChanged listener
  * - Initialization state tracking
@@ -111,6 +107,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [isInitialized, setIsInitialized] = useState(false);
     const [idToken, setIdToken] = useState<string | null>(null);
     const [error, setError] = useState<Error | null>(null);
+    // Whether the user last published was anonymous: Firebase upgrades a linked
+    // user in place, so the user object itself no longer tells.
+    const publishedAnonymousRef = useRef<boolean | null>(null);
+
+    // A guest who creates an account is linked to it (lib/auth/guest-claim.ts):
+    // same uid, so onAuthStateChanged stays silent. The new token tells: publish
+    // the registered user and its token (context + server cookie).
+    useEffect(() => onIdTokenChanged(auth, async (current) => {
+        if (!current || current.isAnonymous || publishedAnonymousRef.current !== true) return;
+        publishedAnonymousRef.current = false;
+        setUser(cloneUser(current));
+        try {
+            const token = await current.getIdToken();
+            setIdToken(token);
+            await setAuthCookie(token);
+        } catch (err) {
+            console.error('[AuthProvider] Failed to get ID token after account link:', err);
+            setError(err as Error);
+        }
+    }), []);
 
     useEffect(() => {
         let isMounted = true;
@@ -136,6 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         });
                     }
 
+                    publishedAnonymousRef.current = currentUser ? currentUser.isAnonymous : null;
                     if (currentUser) {
                         // User exists (either anonymous or authenticated)
                         setUser(currentUser);
@@ -250,30 +267,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     /**
      * Social login: popup on desktop, redirect on phones / PWA / in-app browsers
      * (and when the popup is refused) — only where redirect is configured, see
-     * lib/auth/redirect-login.ts.
+     * lib/auth/redirect-login.ts. A guest's chats follow it either way.
      */
-    const signInWithProvider = async (
-        provider: FirebaseAuthProvider,
-        options: SocialLoginOptions = {}
-    ): Promise<SocialLoginOutcome> => {
+    const signInWithProvider = async (provider: FirebaseAuthProvider): Promise<SocialLoginOutcome> => {
         const redirect = async (): Promise<SocialLoginOutcome> => {
-            // The anonymous chat to claim once the new account is back.
-            let guestSessionId: string | null = null;
-            if (auth.currentUser?.isAnonymous) {
-                try {
-                    guestSessionId = window.localStorage.getItem('chatSessionId');
-                } catch {
-                    // localStorage unavailable: nothing to claim
-                }
-            }
-            savePendingRedirect({ guestSessionId, redirectTo: options.redirectTo ?? null });
-            await signInWithRedirect(auth, provider);
+            savePendingRedirect();
+            await redirectKeepingGuestChats(provider);
             return 'redirecting';
         };
 
         if (shouldRedirectFirst()) return redirect();
         try {
-            await signInWithPopup(auth, provider);
+            await popupKeepingGuestChats(provider);
             return 'done';
         } catch (err) {
             if (isPopupUnsupported(err) && canRedirectHere()) return redirect();
@@ -284,8 +289,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     /**
      * Sign in with Google
      */
-    const loginWithGoogle = (options?: SocialLoginOptions): Promise<SocialLoginOutcome> =>
-        signInWithProvider(new GoogleAuthProvider(), options);
+    const loginWithGoogle = (): Promise<SocialLoginOutcome> => signInWithProvider(new GoogleAuthProvider());
 
     /**
      * Sign out
@@ -306,7 +310,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // 3. Clear chat session — ensures fresh anonymous session after logout (privacy)
             try {
-                window.localStorage.removeItem('chatSessionId');
+                window.localStorage.removeItem(GUEST_SESSION_KEY);
             } catch {
                 // localStorage may be unavailable (private browsing)
             }
@@ -359,7 +363,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             throw new Error('Email not found');
         }
 
-        await signInWithEmailLink(auth, userEmail, emailLink);
+        await signInKeepingGuestChats(() => signInWithEmailLink(auth, userEmail, emailLink));
         window.localStorage.removeItem('emailForSignIn');
     };
 
@@ -392,14 +396,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     /**
      * Re-fetches the current user's profile from Firebase Auth (e.g. after an
-     * avatar/displayName update via the Admin SDK) and pushes it into context.
-     *
-     * `reload()` mutates the existing `User` instance in place, so passing
-     * `auth.currentUser` straight to `setUser` would be the same object
-     * reference already in state — React bails out via `Object.is` and no
-     * consumer (sidebar, chat, profile page) re-renders. Cloning onto the
-     * same prototype keeps methods like `getIdToken` while giving React a
-     * new reference to diff against.
+     * avatar/displayName update via the Admin SDK) and pushes it into context
+     * (cloned: `reload()` changes the user in place, see cloneUser).
      */
     const refreshUser = useCallback(async (): Promise<void> => {
         const currentUser = auth.currentUser;
@@ -407,11 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         try {
             await currentUser.reload();
-            const refreshed = Object.assign(
-                Object.create(Object.getPrototypeOf(currentUser)),
-                currentUser
-            );
-            setUser(refreshed);
+            setUser(cloneUser(currentUser));
         } catch (err) {
             console.error('[AuthProvider] Failed to refresh user:', err);
         }

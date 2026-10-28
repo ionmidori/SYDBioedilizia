@@ -20,14 +20,6 @@ const POPUP_UNSUPPORTED_CODES = new Set([
     'auth/operation-not-supported-in-this-environment',
 ]);
 
-/** What to finish after the browser comes back from the provider. */
-export interface PendingRedirect {
-    /** Anonymous chat session to claim for the new account. */
-    guestSessionId: string | null;
-    /** Local path to open after login (AuthDialog's redirectOnLogin). */
-    redirectTo: string | null;
-}
-
 export function redirectAvailable(authDomain: string | undefined, host: string): boolean {
     return !!authDomain && authDomain === host;
 }
@@ -56,30 +48,27 @@ export function shouldRedirectFirst(): boolean {
     return prefersRedirect(navigator.userAgent, standalone);
 }
 
-function isLocalPath(value: unknown): value is string {
-    return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//');
-}
-
-export function savePendingRedirect(pending: PendingRedirect): void {
+/**
+ * Remember that this tab left for the provider, so the login is finished on
+ * return. Nothing else is kept: the anonymous guest is still signed in on the
+ * way back (lib/auth/guest-claim.ts), so no claim data stays in the browser.
+ */
+export function savePendingRedirect(): void {
     try {
-        sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+        sessionStorage.setItem(PENDING_KEY, '1');
     } catch {
-        // Storage unavailable: the login still works, only the claim is skipped.
+        // Storage unavailable: Firebase still completes a plain login or a guest's
+        // link on return, but a guest whose account exists stays a guest.
     }
 }
 
-/** Read and clear the pending redirect (null when there is none). */
-export function takePendingRedirect(): PendingRedirect | null {
+/** Whether a redirect login was started from this tab (read once). */
+export function takePendingRedirect(): boolean {
     try {
-        const raw = sessionStorage.getItem(PENDING_KEY);
-        if (!raw) return null;
+        if (sessionStorage.getItem(PENDING_KEY) === null) return false;
         sessionStorage.removeItem(PENDING_KEY);
-        const parsed = JSON.parse(raw) as Partial<PendingRedirect>;
-        return {
-            guestSessionId: typeof parsed.guestSessionId === 'string' ? parsed.guestSessionId : null,
-            redirectTo: isLocalPath(parsed.redirectTo) ? parsed.redirectTo : null,
-        };
+        return true;
     } catch {
-        return null;
+        return false;
     }
 }

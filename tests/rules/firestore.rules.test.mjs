@@ -30,11 +30,13 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'app_config/price_book/history/1'), { version: 1 });
   await setDoc(doc(db, 'email_messages/m1'), { project_id: 'p1', delivery_id: 'd1' });
   await setDoc(doc(db, 'projects/p1/rooms/bagno'), { room_id: 'bagno', label: 'Bagno', room_type: 'bagno' });
+  await setDoc(doc(db, 'guest_claim_tickets/h1'), { anonUid: 'anon-1', expiresAt: new Date(Date.now() + 600_000) });
 });
 
 const owner = env.authenticatedContext('owner', google).firestore();
 const other = env.authenticatedContext('attacker', google).firestore();
 const guest = env.unauthenticatedContext().firestore();
+const anon = env.authenticatedContext('anon-1', { firebase: { sign_in_provider: 'anonymous' } }).firestore();
 
 const cases = [
   // projects/{id}: owner reads, nobody writes from the client
@@ -71,6 +73,11 @@ const cases = [
   ['owner creates a room', false, () => setDoc(doc(owner, 'projects/p1/rooms/cucina'), { label: 'Cucina' })],
   ['owner renames a room', false, () => updateDoc(doc(owner, 'projects/p1/rooms/bagno'), { label: 'X' })],
   ['owner reads a room of a missing project', false, () => getDoc(doc(owner, 'projects/p9/rooms/bagno'))],
+  // guest claim tickets (Phase 138 PR-6): backend only, not even the ticket's own guest
+  ['guest reads its claim ticket', false, () => getDoc(doc(anon, 'guest_claim_tickets/h1'))],
+  ['user lists claim tickets', false, () => getDocs(collection(owner, 'guest_claim_tickets'))],
+  ['guest forges a claim ticket', false, () => setDoc(doc(anon, 'guest_claim_tickets/h2'), { anonUid: 'victim' })],
+  ['user redeems a ticket from the client', false, () => updateDoc(doc(owner, 'guest_claim_tickets/h1'), { claimedBy: 'owner' })],
 ];
 
 let failed = 0;

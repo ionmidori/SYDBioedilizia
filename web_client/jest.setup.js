@@ -35,6 +35,7 @@ jest.mock('firebase/auth', () => ({
         // Return unsubscribe function
         return jest.fn();
     }),
+    onIdTokenChanged: jest.fn(() => jest.fn()),
     signInWithEmailAndPassword: jest.fn(() => Promise.resolve({ user: {} })),
     signOut: jest.fn(() => Promise.resolve()),
     createUserWithEmailAndPassword: jest.fn(() => Promise.resolve({ user: {} })),

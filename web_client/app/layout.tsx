@@ -110,6 +110,7 @@ export const viewport = {
 
 import { ChatProvider } from "@/components/chat/ChatProvider";
 import { CookieConsent } from "@/components/CookieConsent";
+import { GuestClaimNotice } from "@/components/auth/GuestClaimNotice";
 import { BackendWarmup } from "@/components/BackendWarmup";
 import QueryProvider from "@/components/providers/QueryProvider";
 
@@ -140,6 +141,7 @@ export default async function RootLayout({
                 {children}
                 <BackendWarmup />
                 <CookieConsent />
+                <GuestClaimNotice />
               </ChatProvider>
             </QueryProvider>
           </AuthProvider>

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from './useAuth';
+import { signInKeepingGuestChats } from '@/lib/auth/guest-claim';
 
 /**
  * WebAuthn Passkeys Hook
@@ -265,7 +266,7 @@ export function usePasskey() {
             if (result.token) {
                 const { signInWithCustomToken } = await import('firebase/auth');
                 const { auth } = await import('@/lib/firebase');
-                await signInWithCustomToken(auth, result.token);
+                await signInKeepingGuestChats(() => signInWithCustomToken(auth, result.token));
             }
 
             return result;

@@ -14,6 +14,7 @@ from google.cloud import firestore
 from pydantic import BaseModel
 from src.auth.jwt_handler import verify_token
 from src.db.firebase_client import get_firestore_client
+from src.db.ownership import is_owner
 from src.schemas.internal import UserSession
 
 logger = logging.getLogger(__name__)
@@ -76,17 +77,12 @@ async def get_chat_history(
             logger.info(f"[ChatHistory] Session {session_id} not found. Returning empty history.")
             return ChatHistoryResponse(messages=[], has_more=False)
 
+        # Owner only: a guest's chat reaches its account through the guest claim.
         session_data = session_doc.to_dict() or {}
-        session_owner = session_data.get('userId', '')
-
-        # Allow access only if user owns the session
-        # Guest sessions: only accessible if user previously claimed them or session was created for them
-        is_owner = session_owner == user_id
-        is_claimable_guest = session_owner.startswith('guest_') and session_data.get('claimedBy') in (None, user_id)
-        if not is_owner and not is_claimable_guest:
+        if not is_owner(session_data, user_id):
             logger.warning(
                 f"[ChatHistory] Access denied: User '{user_id}' "
-                f"tried to access session '{session_id}' owned by '{session_owner}'"
+                f"tried to access session '{session_id}' owned by '{session_data.get('userId', '')}'"
             )
             raise HTTPException(status_code=403, detail="Access denied to this session")
 

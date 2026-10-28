@@ -28,26 +28,34 @@ logger = logging.getLogger(__name__)
 ENABLE_APP_CHECK = settings.ENABLE_APP_CHECK
 
 
-# Client-area reads a signed-in user may make WITHOUT an App Check token.
+# Client-area calls a signed-in user may make WITHOUT an App Check token.
 # Safari on iPhone never produced one (reCAPTCHA failing on the device), so
 # every dashboard call was answered 403 "Missing App Check token". Only the
-# user's own read-only data (each route still checks ownership) plus the claim
-# of their guest project; chat, renders, uploads and writes stay strict.
-_AUTH_FALLBACK_ROUTES: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("GET", re.compile(r"/api/projects")),
-    ("GET", re.compile(r"/api/projects/[^/]+")),
-    ("GET", re.compile(r"/api/reports/(dashboard|gallery)")),
-    ("GET", re.compile(r"/api/quote/user/[^/]+")),
-    ("POST", re.compile(r"/api/projects/[^/]+/claim")),
+# user's own read-only data (each route still checks ownership) plus the guest
+# claim; chat, renders, uploads and writes stay strict. The flag lets an
+# anonymous user in: only the claim ticket, which the guest asks for before
+# signing in (a proof for its own uid, nothing else) — without it the login
+# could not start on those devices.
+_AUTH_FALLBACK_ROUTES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
+    ("GET", re.compile(r"/api/projects"), False),
+    ("GET", re.compile(r"/api/projects/[^/]+"), False),
+    ("GET", re.compile(r"/api/reports/(dashboard|gallery)"), False),
+    ("GET", re.compile(r"/api/quote/user/[^/]+"), False),
+    ("POST", re.compile(r"/api/guest-claim"), False),
+    ("POST", re.compile(r"/api/guest-claim/ticket"), True),
 )
 
 
-def _is_auth_fallback_route(method: str, path: str) -> bool:
-    return any(method == m and pattern.fullmatch(path) for m, pattern in _AUTH_FALLBACK_ROUTES)
+def _auth_fallback(method: str, path: str) -> bool | None:
+    """None: no fallback on this route; else whether an anonymous user gets it."""
+    for m, pattern, anonymous_ok in _AUTH_FALLBACK_ROUTES:
+        if method == m and pattern.fullmatch(path):
+            return anonymous_ok
+    return None
 
 
-async def _registered_uid(request: Request) -> str | None:
-    """uid of a verified, non-anonymous Firebase user, or None."""
+async def _verified_uid(request: Request, *, allow_anonymous: bool) -> str | None:
+    """uid of a verified Firebase user (non-anonymous unless allowed), or None."""
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
@@ -62,7 +70,7 @@ async def _registered_uid(request: Request) -> str | None:
     expected_aud = settings.GOOGLE_CLOUD_PROJECT or settings.FIREBASE_PROJECT_ID
     if expected_aud and decoded.get("aud") != expected_aud:
         return None
-    if decoded.get("firebase", {}).get("sign_in_provider") == "anonymous":
+    if not allow_anonymous and decoded.get("firebase", {}).get("sign_in_provider") == "anonymous":
         return None
     return decoded.get("uid")
 
@@ -93,8 +101,9 @@ async def validate_app_check_token(request: Request) -> dict | None:
     # Enforcement Logic
     if ENABLE_APP_CHECK:
         if not app_check_token:
-            if _is_auth_fallback_route(request.method, request.url.path):
-                uid = await _registered_uid(request)
+            anonymous_ok = _auth_fallback(request.method, request.url.path)
+            if anonymous_ok is not None:
+                uid = await _verified_uid(request, allow_anonymous=anonymous_ok)
                 if uid:
                     logger.warning(
                         "[App Check] Missing token, allowed for signed-in user",

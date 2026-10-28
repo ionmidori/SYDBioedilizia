@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 import { useChatSession } from '../useChatSession';
+import { guestClaimStore } from '@/lib/auth/guest-claim-store';
 
 type MockUser = { uid: string; isAnonymous: boolean } | null;
 
@@ -112,6 +113,42 @@ describe('useChatSession — last active project', () => {
         act(() => { result.current.setCurrentProjectId('proj-9'); });
 
         expect(localStorage.getItem('last_active_project:anon-1')).toBeNull();
+    });
+});
+
+describe('useChatSession — after a guest logs in', () => {
+    beforeEach(() => guestClaimStore.reset());
+
+    it('opens the conversation the guest was having, not the last project', () => {
+        // The bug: a guest signed in to an existing account and the chat opened
+        // last_active_project / global-<uid>, never the guest's conversation.
+        localStorage.setItem('last_active_project:u-1', 'old-project');
+        mockUser = { uid: 'anon-1', isAnonymous: true };
+        const { result, rerender } = renderSession();
+
+        mockUser = { uid: 'u-1', isAnonymous: false };
+        act(() => { guestClaimStore.set({ status: 'pending' }); });
+        rerender();
+        act(() => { jest.runAllTimers(); });
+        expect(result.current.currentProjectId).toBeNull(); // waits for the claim
+
+        act(() => { guestClaimStore.set({ status: 'done', openSessionId: 'guest-chat' }); });
+        act(() => { jest.runAllTimers(); });
+
+        expect(result.current.sessionId).toBe('guest-chat');
+        expect(localStorage.getItem('last_active_project:u-1')).toBe('guest-chat');
+        expect(guestClaimStore.get()).toEqual({ status: 'idle' });
+    });
+
+    it('falls back to the last project when the guest had no conversation', () => {
+        localStorage.setItem('last_active_project:u-1', 'old-project');
+        mockUser = { uid: 'u-1', isAnonymous: false };
+        act(() => { guestClaimStore.set({ status: 'done', openSessionId: null }); });
+
+        const { result } = renderSession();
+        act(() => { jest.runAllTimers(); });
+
+        expect(result.current.sessionId).toBe('old-project');
     });
 });
 

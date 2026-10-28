@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { logger } from '@/lib/logger';
 
 /**
@@ -17,7 +18,7 @@ export function useSessionId() {
         }
 
         // 2. Fallback: Anonymous Session
-        const stored = localStorage.getItem('chatSessionId');
+        const stored = localStorage.getItem(GUEST_SESSION_KEY);
         if (stored) {
             logger.debug('[SessionID] Restored anonymous session:', stored);
             return stored;
@@ -26,7 +27,7 @@ export function useSessionId() {
         // crypto.randomUUID() provides 122 bits of cryptographic randomness,
         // preventing session ID brute-force that was possible with Math.random().
         const newSessionId = crypto.randomUUID();
-        localStorage.setItem('chatSessionId', newSessionId);
+        localStorage.setItem(GUEST_SESSION_KEY, newSessionId);
         logger.debug('[SessionID] Created new session:', newSessionId);
         return newSessionId;
     });

@@ -113,22 +113,6 @@ describe('projectsApi.updateProject', () => {
     });
 });
 
-describe('projectsApi.claimProject', () => {
-    it('POSTs the claim and returns the body', async () => {
-        mockFetchWithAuth.mockResolvedValue(res({ claimed: true }));
-        await expect(projectsApi.claimProject('s1')).resolves.toEqual({ claimed: true });
-        expect(mockFetchWithAuth).toHaveBeenCalledWith(
-            expect.stringContaining('/projects/s1/claim'),
-            expect.objectContaining({ method: 'POST' })
-        );
-    });
-
-    it('surfaces the backend detail on failure', async () => {
-        mockFetchWithAuth.mockResolvedValue(res({ detail: 'Già reclamato' }, { ok: false }));
-        await expect(projectsApi.claimProject('s1')).rejects.toThrow('Già reclamato');
-    });
-});
-
 describe('projectsApi.deleteProject', () => {
     it('DELETEs the project', async () => {
         mockFetchWithAuth.mockResolvedValue(res({}));

@@ -473,6 +473,11 @@ from src.api.routes.projects_router import router as projects_router
 
 app.include_router(projects_router)
 
+# Register guest claim router (guest chats follow the guest into its account)
+from src.api.routes.guest_claim import router as guest_claim_router
+
+app.include_router(guest_claim_router)
+
 # Register reports router (gallery + dashboard stats)
 from src.api.routes.reports import router as reports_router
 
