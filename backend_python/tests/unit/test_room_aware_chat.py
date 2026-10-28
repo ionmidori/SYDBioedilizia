@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from google.api_core.exceptions import RetryError, ServiceUnavailable
 from src.adk import adk_orchestrator, tools
-from src.adk.session_context_plugin import (
+from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
     ROOMS_STATE_KEY,
     room_index_entry,
@@ -24,6 +24,7 @@ from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNo
 from src.schemas.room import RoomSchema
 from src.tools import room_tools
 from src.utils.datetime_utils import utc_now
+from tests.unit.test_adk_orchestrator import _make_text_event
 
 PROJECT = "proj-1"
 KITCHEN_PHOTO = {"id": "f_cucina_1", "type": "image", "url": "https://x/cucina.jpg", "roomId": "r_cucina"}
@@ -418,3 +419,22 @@ async def test_unreadable_room_documents_do_not_fail_the_turn():
     chunks, kwargs, _ = await _run_turn(_request(), [], repo)
     assert ROOMS_STATE_KEY not in kwargs["state_delta"]
     assert not [c for c in chunks if c.get("type") == "data-error"]
+
+
+async def test_saved_reply_schedules_the_room_brief_refresh_of_the_turns_room():
+    """Phase 138 PR-5: the brief catches up in the background, after the reply is saved."""
+    repo = _repo(list_rooms=[KITCHEN, BATH], find_file_by_storage_path=None)
+    schedule = MagicMock(return_value=None)
+    with patch.object(adk_orchestrator, "schedule_room_brief_refresh", schedule):
+        await _run_turn(_request(room_id="r_bagno"), [_make_text_event("Annotato.")], repo)
+    schedule.assert_called_once()
+    turn = schedule.call_args.args[0]
+    assert (turn.project_id, turn.session_id, turn.room_id, turn.is_guest) == (PROJECT, PROJECT, "r_bagno", False)
+
+
+async def test_turn_without_a_saved_reply_schedules_nothing():
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    schedule = MagicMock(return_value=None)
+    with patch.object(adk_orchestrator, "schedule_room_brief_refresh", schedule):
+        await _run_turn(_request(), [], repo)
+    schedule.assert_not_called()

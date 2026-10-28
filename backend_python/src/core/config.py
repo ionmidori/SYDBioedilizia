@@ -94,6 +94,11 @@ class Settings(BaseSettings):
                     "message carries an image or video.",
     )
     MODEL_INSIGHT: str | None = Field(default=None, description="Quote InsightEngine. Falls back to CHAT_MODEL_VERSION.")
+    MODEL_SUMMARIZER: str | None = Field(
+        default=None,
+        description="History compaction and room brief updates, off the reply path. "
+                    "Falls back to CHAT_MODEL_VERSION.",
+    )
     MODEL_IMAGE: str = Field(
         default="gemini-3.1-flash-image-preview",
         description="Image generation / editing (renders).",
@@ -105,6 +110,7 @@ class Settings(BaseSettings):
     THINKING_LEVEL_QUOTE: str | None = Field(default="low")
     THINKING_LEVEL_VISION: str | None = Field(default="low")  # 3.8 Flash has no "minimal"
     THINKING_LEVEL_INSIGHT: str | None = Field(default=None)
+    THINKING_LEVEL_SUMMARIZER: str | None = Field(default="low")
     # Per-call limits for the chat agents. Unset = SDK defaults (no timeout, no retry).
     LLM_TIMEOUT_SECONDS: float | None = Field(
         default=30.0,
@@ -128,6 +134,43 @@ class Settings(BaseSettings):
     MODEL_VALIDATION_STRICT: bool = Field(
         default=False,
         description="Fail startup when a configured model ID is unknown to the API (staging).",
+    )
+
+    # ── ADK chat context (Phase 138 PR-5) ────────────────────────────────────
+    # History compaction (src/adk/compaction.py): once a model call's prompt
+    # reaches the threshold, the older events of the session become one summary
+    # organized by room; the newest events stay verbatim. Measured 2026-10-28:
+    # the static prompts + tools are ~5.5k (router) to ~9.2k (quote) tokens and a
+    # 12-turn chat reaches ~11k on the quote agent.
+    ADK_COMPACTION_TOKEN_THRESHOLD: int = Field(
+        default=20000, gt=0, description="Prompt tokens of the last model call that trigger a compaction."
+    )
+    ADK_COMPACTION_EVENT_RETENTION: int = Field(
+        default=10, ge=0, description="Newest session events kept verbatim by a compaction."
+    )
+    ADK_SUMMARIZER_TIMEOUT_SECONDS: float = Field(
+        default=30.0, gt=0, description="Deadline of one compaction summary; past it the history stays as is."
+    )
+    # Explicit Gemini context cache (src/adk/app_factory.py). Off: on Vertex `eu`
+    # cache creation took 0.9-117 s (2026-10-28) and ADK creates it before the
+    # model call, on the first-token path. The static prompts already form a
+    # stable prefix for Gemini's implicit cache.
+    ADK_CONTEXT_CACHE_ENABLED: bool = Field(default=False)
+    ADK_CONTEXT_CACHE_MIN_TOKENS: int = Field(
+        default=4096, ge=0, description="Previous prompt tokens needed to create a cache (Gemini 3 floor: 4096)."
+    )
+    ADK_CONTEXT_CACHE_TTL_SECONDS: int = Field(default=900, gt=0)
+    ADK_CONTEXT_CACHE_INTERVALS: int = Field(
+        default=10, ge=1, le=100, description="Invocations served by one cache before it is refreshed."
+    )
+    ADK_CONTEXT_CACHE_CREATE_TIMEOUT_MS: int = Field(
+        default=1500, gt=0, description="Cache creation deadline; past it the call goes out uncached."
+    )
+    # Room brief (scheda stanza) refreshed in the background after a turn (src/services/room_brief.py).
+    ROOM_BRIEF_ENABLED: bool = Field(default=True)
+    ROOM_BRIEF_TIMEOUT_SECONDS: float = Field(default=45.0, gt=0)
+    ROOM_BRIEF_HISTORY_MESSAGES: int = Field(
+        default=20, ge=1, description="Newest messages of the room read by one refresh."
     )
 
     # Feature Flags (App Check enabled by default for production safety)

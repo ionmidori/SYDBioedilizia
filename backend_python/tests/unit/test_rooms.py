@@ -167,3 +167,33 @@ async def test_first_room_of_a_legacy_project_files_its_media_in_generale(db):
 async def test_first_room_of_an_empty_project_comes_alone(db):
     room = await RoomRepository().create_room(PID, RoomCreate(label="Bagno", room_type="bagno"))
     assert [r.room_id for r in await RoomRepository().list_rooms(PID)] == [room.room_id]
+
+
+# ── Room brief (Phase 138 PR-5) ──────────────────────────────────────────────
+
+async def test_brief_is_written_only_if_the_room_did_not_change_meanwhile(db):
+    from google.api_core.exceptions import FailedPrecondition
+    from src.schemas.room import RoomBrief
+
+    repo = RoomRepository()
+    with patch.object(room_repository, "utc_now", return_value=T0):
+        bagno = await repo.create_room(PID, RoomCreate(label="Bagno", room_type="bagno"))
+    found = await repo.get_room_versioned(PID, bagno.room_id)
+    assert found is not None
+    room, version = found
+    assert room == bagno and version == db.clock
+
+    brief = RoomBrief(floor_mq=5.0, decisions=["doccia walk-in"])
+    db.clock = T0 + timedelta(minutes=5)
+    await repo.update_brief(PID, room.room_id, brief=brief, summary="Bagno 5 mq", expected_update_time=version)
+    stored = await repo.get_room(PID, room.room_id)
+    assert stored is not None and stored.brief == brief and stored.summary == "Bagno 5 mq"
+
+    # A second write still based on the first read finds the room changed.
+    with pytest.raises(FailedPrecondition):
+        await repo.update_brief(PID, room.room_id, brief=RoomBrief(), summary=None, expected_update_time=version)
+    assert (await repo.get_room(PID, room.room_id)).brief == brief
+
+
+async def test_versioned_read_of_a_missing_room_is_none(db):
+    assert await RoomRepository().get_room_versioned(PID, "missing") is None

@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from google.api_core.exceptions import AlreadyExists
+from google.api_core.exceptions import AlreadyExists, FailedPrecondition
 from google.cloud.firestore_v1 import DELETE_FIELD
 
 # Default write time of fake documents and blobs: long ago, so age-based rules
@@ -83,7 +83,9 @@ class FakeDocRef:
             transaction.record_read(self.path)
         return FakeSnapshot(self._db.docs.get(self.path), self.path[-1], self._db.update_times.get(self.path))
 
-    async def update(self, data: dict[str, Any]) -> None:
+    async def update(self, data: dict[str, Any], option: FakeWriteOption | None = None) -> None:
+        if option is not None:
+            option.check(self._db.update_times.get(self.path), self.path)
         self._db.apply_update(self.path, data)
 
     async def delete(self) -> None:
@@ -241,7 +243,23 @@ class _FakeAggregation:
         return [[_FakeCount(len(self._query._paths()))]]
 
 
+class FakeWriteOption:
+    """`client.write_option(last_update_time=...)`: the write fails with
+    FailedPrecondition when the document changed since that time."""
+
+    def __init__(self, last_update_time: datetime) -> None:
+        self.last_update_time = last_update_time
+
+    def check(self, current: datetime | None, path: tuple[str, ...]) -> None:
+        if current != self.last_update_time:
+            raise FailedPrecondition(f"{'/'.join(path)} changed since {self.last_update_time}")
+
+
 class FakeDb:
+    @staticmethod
+    def write_option(*, last_update_time: datetime) -> FakeWriteOption:
+        return FakeWriteOption(last_update_time)
+
     def __init__(self) -> None:
         self.docs: dict[tuple[str, ...], dict[str, Any]] = {}
         self.auto_ids = 0

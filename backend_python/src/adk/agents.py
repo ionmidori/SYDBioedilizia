@@ -7,6 +7,12 @@ Prompt Architecture (Security-first, per 'securing-applications' skill):
   - Identity, language, and core protocols on the orchestrator
   - Domain-specific Mode A/B flows on the specialised sub-agents
   - OUTPUT_RULES shared on all agents to enforce Italian + no internal monologue
+
+Static vs dynamic (Phase 138 PR-5): each prompt is the agent's
+`static_instruction`, sent literally as the system instruction (identical for
+every session: a stable prefix for Gemini's cache, implicit or explicit). The
+per-session facts are the agent's `instruction` (`session_context_instruction`),
+which ADK sends as the last instruction content before the user's turn.
 """
 import logging
 
@@ -14,6 +20,7 @@ from google.adk.agents import Agent
 
 from src.adk.guardrails import model_armor_after_model, model_armor_before_model
 from src.adk.model_factory import build_adk_model
+from src.adk.session_context import session_context_instruction
 from src.adk.tools import (
     assign_media_to_room_adk,
     generate_render_adk,
@@ -276,6 +283,8 @@ QUOTE_AGENT_INSTRUCTION = "\n\n".join([
 
 
 # ── Agent Definitions ─────────────────────────────────────────────────────────
+# static_instruction = the prompt above (system instruction, never state-injected);
+# instruction = the "CONTESTO SESSIONE" block of this session (src/adk/session_context.py).
 
 # Model Armor guardrails (OWASP LLM01/LLM02) on EVERY agent, not only the router:
 # after a transfer ADK sends the next user turns straight to the active sub-agent,
@@ -300,7 +309,8 @@ triage_agent = Agent(
         assign_media_to_room_adk,
         get_room_context_adk,
     ],
-    instruction=TRIAGE_AGENT_INSTRUCTION,
+    static_instruction=TRIAGE_AGENT_INSTRUCTION,
+    instruction=session_context_instruction,
     **_GUARDRAILS,
 )
 
@@ -321,7 +331,8 @@ design_agent = Agent(
         select_room_adk,
         get_room_context_adk,
     ],
-    instruction=DESIGN_AGENT_INSTRUCTION,
+    static_instruction=DESIGN_AGENT_INSTRUCTION,
+    instruction=session_context_instruction,
     **_GUARDRAILS,
 )
 
@@ -346,7 +357,8 @@ quote_agent = Agent(
         select_room_adk,
         get_room_context_adk,
     ],
-    instruction=QUOTE_AGENT_INSTRUCTION,
+    static_instruction=QUOTE_AGENT_INSTRUCTION,
+    instruction=session_context_instruction,
     **_GUARDRAILS,
 )
 
@@ -363,7 +375,8 @@ syd_orchestrator = Agent(
         select_room_adk,
         assign_media_to_room_adk,
     ],
-    instruction=SYD_ORCHESTRATOR_INSTRUCTION,
+    static_instruction=SYD_ORCHESTRATOR_INSTRUCTION,
+    instruction=session_context_instruction,
     **_GUARDRAILS,
 )
 

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from src.adk import tools
-from src.adk.session_context_plugin import ACTIVE_ROOM_STATE_KEY
+from src.adk.session_context import ACTIVE_ROOM_STATE_KEY
 from src.tools import generate_render as render_module
 
 PROJECT = "sess-1"

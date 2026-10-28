@@ -45,8 +45,8 @@ logger = logging.getLogger("syd.evals")
 
 EVALS_DIR = Path(__file__).parent
 AGENT_MODULE = "src.adk.agents"
-# Multi-room chat (Phase 138): own agent module (App with SessionContextPlugin)
-# and an in-memory backend that records the render source photo.
+# Multi-room chat (Phase 138): own agent module (the production App, src/adk/app_factory.py)
+# and an in-memory backend that records renders, quotes, submissions and replies.
 MULTI_ROOM_DIR = EVALS_DIR / "multi_room"
 MULTI_ROOM_AGENT_MODULE = "tests.evals.multi_room.agent"
 
@@ -117,6 +117,8 @@ async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object
         return await AgentEvaluator.evaluate(agent_module=AGENT_MODULE, **common)
     with multi_room_backend() as run:
         result = await AgentEvaluator.evaluate(agent_module=MULTI_ROOM_AGENT_MODULE, **common)
+    for line in run.responses.token_report():
+        logger.info(f"{path.name} tokens {line}")
     problems = BACKEND_CHECKS[path.name](run)
     if problems:
         raise AssertionError(f"{path.name}: " + "; ".join(problems))

@@ -41,6 +41,7 @@ class ModelRole(StrEnum):
     QUOTE = "quote"
     VISION = "vision"
     INSIGHT = "insight"
+    SUMMARIZER = "summarizer"
     IMAGE = "image"
 
 

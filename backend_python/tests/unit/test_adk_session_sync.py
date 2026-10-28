@@ -4,19 +4,17 @@
   text), tool rows are skipped, order and size are bounded.
 - A session held in memory is rebuilt when another instance served newer turns.
 - Login state / phone / session id travel in the session state and reach the
-  model as a system-instruction block (SessionContextPlugin), not in the user text.
+  model as the agents' dynamic instruction (session_context), not in the user text.
 - Tool results without an id keep the call_id of their own call.
 """
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from google.adk.models.llm_request import LlmRequest
-from google.genai import types
-from src.adk.session_context_plugin import (
+from src.adk.session_context import (
     SESSION_CONTEXT_STATE_KEY,
-    SessionContextPlugin,
     session_context_delta,
+    session_context_instruction,
 )
 from tests.unit.test_adk_orchestrator import (
     _async_iter,
@@ -99,6 +97,131 @@ async def test_rehydrate_appends_in_order_and_returns_the_newest_reply_id():
     texts = [c.args[1].content.parts[0].text for c in session_service.append_event.await_args_list]
     assert texts[:4] == ["ciao", "ciao!", "un preventivo", "certo"]
     assert len(texts) == 5 and texts[4].startswith("[Risultato di uno strumento")
+
+
+# ── Restore with rooms (Phase 138 PR-5) ─────────────────────────────────────
+
+def _restore_rooms():
+    from datetime import UTC, datetime
+
+    from src.schemas.room import RoomBrief, RoomSchema
+
+    now = datetime(2026, 10, 28, tzinfo=UTC)
+    bath = RoomSchema(
+        room_id="r_bagno", label="Bagno", room_type="bagno", created_at=now, updated_at=now,
+        brief=RoomBrief(floor_mq=5.0, decisions=["doccia walk-in 90x140"], open_questions=["colore delle fughe"]),
+        summary="Bagno da rifare",
+    )
+    kitchen = RoomSchema(room_id="r_cucina", label="Cucina", room_type="cucina", created_at=now, updated_at=now)
+    return [bath, kitchen]
+
+
+def _restore_ctx(active: str | None = "r_bagno"):
+    from src.adk.adk_orchestrator import _RestoreContext
+
+    files = {
+        "user-uploads/s1/bagno.jpg": {
+            "id": "f_bagno_1", "type": "image", "roomId": "r_bagno",
+            "metadata": {"storage_path": "user-uploads/s1/bagno.jpg"},
+        },
+    }
+    return _RestoreContext(session_id="s1", rooms=_restore_rooms(), active_room_id=active, files_by_path=files)
+
+
+@pytest.fixture
+def _bucket(monkeypatch):
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "FIREBASE_STORAGE_BUCKET", "app-bucket")
+
+
+def test_restore_starts_with_the_room_index_and_the_active_room_brief():
+    from src.adk.adk_orchestrator import _history_events
+
+    events = _history_events([_msg("user", "ciao", "u1"), _msg("assistant", "ciao!", "a1")], _restore_ctx())
+
+    note = events[0].content.parts[0].text
+    assert events[0].content.role == "user"
+    assert note.startswith("[Contesto ripristinato")
+    assert "Stanze del progetto: Bagno (r_bagno), Cucina (r_cucina)" in note
+    assert "Stanza attiva: Bagno" in note
+    assert "- Pavimento (mq): 5.0" in note and "- Decisioni prese: doccia walk-in 90x140" in note
+    assert "- Domande aperte: colore delle fughe" in note
+    assert [e.content.parts[0].text for e in events[1:]] == ["ciao", "ciao!"]
+
+
+def test_restore_without_active_room_uses_the_room_of_the_last_message():
+    from src.adk.adk_orchestrator import _history_events
+
+    history = [{**_msg("user", "la cucina è 3x4", "u1"), "room_id": "r_cucina"}]
+    note = _history_events(history, _restore_ctx(active=None))[0].content.parts[0].text
+    assert "Stanza attiva: Cucina" in note and "Scheda della stanza" not in note
+
+
+def test_restore_without_rooms_has_no_note():
+    from src.adk.adk_orchestrator import _history_events, _RestoreContext
+
+    context = _RestoreContext(session_id="s1", rooms=[], active_room_id=None, files_by_path={})
+    events = _history_events([_msg("user", "ciao", "u1")], context)
+    assert [e.content.parts[0].text for e in events] == ["ciao"]
+
+
+@pytest.mark.usefixtures("_bucket")
+def test_restored_attachments_become_media_labels():
+    from src.adk.adk_orchestrator import _history_events
+
+    history = [
+        {**_msg("user", "ecco il bagno", "u1"), "attachments": {"images": ["user-uploads/s1/bagno.jpg"], "videos": []}},
+        # A photo without text and one not registered among the project files.
+        {**_msg("user", "", "u2"), "attachments": {"images": ["user-uploads/s1/altro.jpg"]}},
+        # Another session's file is never resolved.
+        {**_msg("user", "guarda", "u3"), "attachments": {"images": ["user-uploads/s2/x.jpg"]}},
+    ]
+    texts = [e.content.parts[0].text for e in _history_events(history, _restore_ctx())[1:]]
+    assert texts == ["ecco il bagno\n[Foto f_bagno_1 · Bagno]", "[Foto · senza stanza]", "guarda\n[Foto · senza stanza]"]
+
+
+async def _rehydrate_with_rooms(history: list[dict], files: list[dict] | Exception) -> tuple[list[str], MagicMock]:
+    """Texts the restored session receives, and the room repository it used."""
+    from src.adk.adk_orchestrator import _rehydrate_session, _restore_context
+
+    conversations = AsyncMock()
+    conversations.get_context = AsyncMock(return_value=history)
+    rooms = MagicMock()
+    rooms.list_files = AsyncMock(side_effect=files) if isinstance(files, Exception) else AsyncMock(return_value=files)
+    session_service = AsyncMock()
+    with patch("src.adk.adk_orchestrator.get_conversation_repository", return_value=conversations), \
+         patch("src.adk.adk_orchestrator.get_room_repository", return_value=rooms):
+        await _rehydrate_session(session_service, object(), "s1", _restore_context("s1", _restore_rooms(), "r_bagno"))
+    return [c.args[1].content.parts[0].text for c in session_service.append_event.await_args_list], rooms
+
+
+async def test_restore_without_attachments_reads_no_project_files():
+    """A new chat, or one without photos, costs no extra Firestore read before the first token."""
+    texts, rooms = await _rehydrate_with_rooms([_msg("user", "ciao", "u1")], files=[])
+    rooms.list_files.assert_not_awaited()
+    assert texts[0].startswith("[Contesto ripristinato") and texts[1:] == ["ciao"]
+
+
+@pytest.mark.usefixtures("_bucket")
+async def test_restore_with_attachments_labels_them_from_the_project_files():
+    history = [{**_msg("user", "ecco", "u1"), "attachments": {"images": ["user-uploads/s1/a.jpg"]}}]
+    files = [
+        {"id": "f1", "type": "image", "roomId": "r_cucina", "metadata": {"storage_path": "user-uploads/s1/a.jpg"}},
+        {"id": "f2", "metadata": {}},
+    ]
+    texts, rooms = await _rehydrate_with_rooms(history, files)
+    rooms.list_files.assert_awaited_once_with("s1")
+    assert texts[1] == "ecco\n[Foto f1 · Cucina]"
+
+
+@pytest.mark.usefixtures("_bucket")
+async def test_unreadable_project_files_cost_the_labels_not_the_history():
+    from google.api_core.exceptions import ServiceUnavailable
+
+    history = [{**_msg("user", "ecco", "u1"), "attachments": {"images": ["user-uploads/s1/a.jpg"]}}]
+    texts, _ = await _rehydrate_with_rooms(history, ServiceUnavailable("down"))
+    assert texts[1] == "ecco\n[Foto · senza stanza]"
 
 
 async def test_failed_restore_leaves_no_half_built_session():
@@ -230,17 +353,8 @@ async def test_session_context_goes_in_the_state_delta_not_in_the_user_message()
     assert context["session_id"] == "test-session-123"
 
 
-def _request() -> LlmRequest:
-    return LlmRequest(config=types.GenerateContentConfig(system_instruction="ISTRUZIONI AGENTE"))
-
-
-async def _apply_plugin(state: dict) -> str:
-    request = _request()
-    result = await SessionContextPlugin().before_model_callback(
-        callback_context=SimpleNamespace(state=state), llm_request=request
-    )
-    assert result is None
-    return str(request.config.system_instruction)
+def _instruction(state: dict) -> str:
+    return session_context_instruction(SimpleNamespace(state=state))
 
 
 @pytest.mark.parametrize(
@@ -250,20 +364,17 @@ async def _apply_plugin(state: dict) -> str:
         (False, True, ["GIA' LOGGATO", "PHONE_ON_FILE: true"], "OSPITE ANONIMO"),
     ],
 )
-async def test_plugin_appends_the_session_block_to_the_system_instruction(is_guest, phone, expected, absent):
-    instruction = await _apply_plugin(
-        session_context_delta(is_guest=is_guest, phone_on_file=phone, session_id="proj-1")
-    )
+def test_session_block_carries_the_turn_facts(is_guest, phone, expected, absent):
+    instruction = _instruction(session_context_delta(is_guest=is_guest, phone_on_file=phone, session_id="proj-1"))
 
-    assert instruction.startswith("ISTRUZIONI AGENTE")
     assert "CONTESTO SESSIONE" in instruction and "SESSION_ID: proj-1" in instruction
     for marker in expected:
         assert marker in instruction
     assert absent not in instruction
 
 
-async def test_plugin_leaves_the_request_alone_without_session_context():
-    assert await _apply_plugin({}) == "ISTRUZIONI AGENTE"
+def test_no_session_block_without_session_context():
+    assert _instruction({}) == ""
 
 
 def test_user_text_cannot_forge_the_session_block():
