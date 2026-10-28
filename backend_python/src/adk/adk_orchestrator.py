@@ -11,16 +11,14 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any
 
 # Documented ADK import path (adk.dev RunConfig); StreamingMode is re-exported
 # there without being listed in __all__.
 from google.adk.agents.run_config import RunConfig, StreamingMode  # pyright: ignore[reportPrivateImportUsage]
-from google.adk.apps.app import App
 from google.adk.events import Event, EventActions
-from google.adk.runners import Runner
 from google.adk.sessions import BaseSessionService, Session
 from google.api_core.exceptions import GoogleAPIError
 from google.genai import errors as genai_errors
@@ -28,14 +26,13 @@ from google.genai import types
 from pydantic import ValidationError
 
 from src.adk.agents import syd_orchestrator
+from src.adk.app_factory import APP_NAME, SydRunner, build_app
+from src.adk.background import run_in_background
 from src.adk.filters import MASKED_REPLY, StreamingOutputGuard, filter_agent_output, sanitize_before_agent
-from src.adk.latency_plugin import LatencyPlugin
-from src.adk.media_model_plugin import MediaModelPlugin
 from src.adk.session import get_artifact_service, get_session_service
-from src.adk.session_context_plugin import (
+from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
     ROOMS_STATE_KEY,
-    SessionContextPlugin,
     room_index_entry,
     session_context_delta,
 )
@@ -47,14 +44,14 @@ from src.adk.video_attachments import (
     skipped_notice_text,
     video_uris_in,
 )
-from src.adk.video_guard_plugin import VideoGuardPlugin
 from src.core.chat_timing import current_turn
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
 from src.schemas.room import RoomSchema
 from src.services.base_orchestrator import BaseOrchestrator
-from src.tools.room_tools import media_label, room_of
+from src.services.room_brief import BriefTurn, schedule_room_brief_refresh
+from src.tools.room_tools import brief_lines, media_label, room_of
 from src.utils.circuit_breaker import vertex_ai_breaker
 from src.utils.download import download_session_media, session_media_path
 from src.utils.stream_protocol import (
@@ -79,11 +76,6 @@ logger = logging.getLogger(__name__)
 # after the whole reply (and after every agent hop).
 _RUN_CONFIG = RunConfig(streaming_mode=StreamingMode.SSE)
 
-# Strong references to in-flight Firestore saves: the event loop only keeps weak
-# references to tasks, and a save must survive a client disconnect.
-_inflight_saves: set[asyncio.Task[None]] = set()
-
-
 # data-notice code for attached videos the model could not use (frontend: ChatWidget)
 VIDEO_SKIPPED_NOTICE = "VIDEO_SKIPPED"
 
@@ -98,14 +90,7 @@ class _VideosRefused:
     notice: str
 
 
-def _save_in_background(coro) -> asyncio.Task[None]:
-    task: asyncio.Task[None] = asyncio.create_task(coro)
-    _inflight_saves.add(task)
-    task.add_done_callback(_inflight_saves.discard)
-    return task
-
-
-_APP_NAME = "syd_orchestrator"
+_APP_NAME = APP_NAME
 
 # History restored into a new ADK session: the last _HISTORY_MESSAGES chat
 # messages plus the tool results between them (render URLs, room analysis, quote
@@ -131,32 +116,115 @@ async def _get_session(session_service: BaseSessionService, user_id: str, sessio
         raise
 
 
-def _history_events(history: list[dict[str, Any]]) -> list[Event]:
+@dataclass(frozen=True)
+class _RestoreContext:
+    """What a restored session gets besides the messages (Phase 138 PR-5): the
+    room index, the brief of the active room and the media labels. The project
+    files (for the labels) are read only when the history has attachments."""
+
+    session_id: str
+    rooms: list[RoomSchema]
+    active_room_id: str | None
+    files_by_path: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+
+def _restore_context(session_id: str, rooms: list[RoomSchema] | None, room_id: str | None) -> _RestoreContext:
+    return _RestoreContext(session_id=session_id, rooms=rooms or [], active_room_id=room_id)
+
+
+async def _files_by_path(session_id: str) -> dict[str, dict[str, Any]]:
+    """Project files by Storage path, for the attachment labels. Never raises:
+    unreadable files only cost the labels, never the history."""
+    files: dict[str, dict[str, Any]] = {}
+    try:
+        for doc in await get_room_repository().list_files(session_id):
+            path = (doc.get("metadata") or {}).get("storage_path")
+            if isinstance(path, str):
+                files[path] = doc
+    except GoogleAPIError as e:
+        logger.warning(f"[ADK] Could not read the project files for the restore: {type(e).__name__}")
+    return files
+
+
+def _media_label_for(doc: dict[str, Any] | None, file_type: str, room_labels: dict[str, str]) -> str:
+    """`[Foto <file_id> · <stanza>]` of a media, from its `files` document (None:
+    not registered). Same label in a live turn and in a restored history."""
+    room_id = room_of(doc)
+    return media_label(
+        (doc or {}).get("type") or file_type,
+        (doc or {}).get("id"),
+        room_labels.get(room_id, room_id) if room_id else None,
+    )
+
+
+def _restore_note(context: _RestoreContext, history: list[dict[str, Any]]) -> str | None:
+    """Room index and active room brief, read first by the restored session."""
+    if not context.rooms:
+        return None
+    by_id = {r.room_id: r for r in context.rooms}
+    active_id = context.active_room_id or next(
+        (m["room_id"] for m in reversed(history) if m.get("room_id") in by_id), None
+    )
+    active = by_id.get(active_id or "")
+    lines = [
+        "[Contesto ripristinato: la conversazione riprende dopo una pausa del servizio]",
+        "Stanze del progetto: " + ", ".join(f"{r.label} ({r.room_id})" for r in context.rooms),
+        f"Stanza attiva: {active.label}" if active else "Stanza attiva: nessuna",
+    ]
+    if active is not None:
+        brief = brief_lines(active, open_questions=True)
+        lines += [f"Scheda della stanza {active.label}:", *brief] if brief else []
+    return "\n".join(lines)
+
+
+def _attachment_labels(msg: dict[str, Any], context: _RestoreContext) -> list[str]:
+    """`[Foto f_123 · Bagno]` for each media of a user message, as in a live turn."""
+    attachments = msg.get("attachments")
+    if not isinstance(attachments, dict):
+        return []
+    labels = {r.room_id: r.label for r in context.rooms}
+    found = []
+    for kind, key in (("image", "images"), ("video", "videos")):
+        for ref in attachments.get(key) or []:
+            path = session_media_path(ref if isinstance(ref, str) else None, context.session_id)
+            found.append(_media_label_for(context.files_by_path.get(path or ""), kind, labels))
+    return found
+
+
+def _history_events(history: list[dict[str, Any]], context: _RestoreContext | None = None) -> list[Event]:
     """ADK events for Firestore messages: the last _HISTORY_MESSAGES user /
-    assistant messages and the tool results between them.
+    assistant messages and the tool results between them; with a restore
+    context, first a note with the room index and the active room's brief, and
+    the media labels of each user message.
 
     Assistant replies are authored by the root agent with role "model": under
     any other author ADK would replay them to the model as user text
     ("For context: [assistant] said: ..."). Tool results go in as context notes
     (their function calls are not stored, so they cannot be replayed as such).
     """
+    def text_of(m: dict[str, Any]) -> str:
+        text = m["content"].strip() if isinstance(m.get("content"), str) else ""
+        labels = _attachment_labels(m, context) if context is not None and m.get("role") == "user" else []
+        return "\n".join([text, *labels]).strip()
+
     rows = [
-        m for m in history
-        if m.get("role") in ("user", "assistant", "tool")
-        and isinstance(m.get("content"), str) and m["content"].strip()
+        (m, text) for m in history
+        if m.get("role") in ("user", "assistant", "tool") and (text := text_of(m))
     ]
-    chat_positions = [i for i, m in enumerate(rows) if m["role"] != "tool"]
+    chat_positions = [i for i, (m, _) in enumerate(rows) if m["role"] != "tool"]
     if not chat_positions:
         return []
     stamp = int(time.time() * 1000)
+    window = rows[chat_positions[-_HISTORY_MESSAGES:][0]:]
+    note = _restore_note(context, [m for m, _ in window]) if context is not None else None
+    items = ([("note", note)] if note else []) + [(m["role"], text) for m, text in window]
     events = []
-    for idx, msg in enumerate(rows[chat_positions[-_HISTORY_MESSAGES:][0]:]):
-        text = msg["content"].strip()
-        if msg["role"] == "assistant":
+    for idx, (kind, text) in enumerate(items):
+        if kind == "assistant":
             author, role = syd_orchestrator.name, "model"
         else:
             author = role = "user"
-            if msg["role"] == "tool":
+            if kind == "tool":
                 text = f"[Risultato di uno strumento usato in precedenza]\n{text[:_TOOL_RESULT_MAX_CHARS]}"
         events.append(Event(
             invocation_id=f"history_restore_{stamp}_{idx}",
@@ -167,20 +235,27 @@ def _history_events(history: list[dict[str, Any]]) -> list[Event]:
     return events
 
 
-async def _rehydrate_session(session_service: BaseSessionService, session: Session, session_id: str) -> str | None:
+async def _rehydrate_session(
+    session_service: BaseSessionService,
+    session: Session,
+    session_id: str,
+    context: _RestoreContext | None = None,
+) -> str | None:
     """Re-inject the Firestore history into a freshly created ADK session, so the
     agent continues mid-conversation after a restart or on another instance.
 
     Returns the id of the newest assistant reply in Firestore (the sync marker).
     """
     history = await get_conversation_repository().get_context(session_id, limit=_HISTORY_FETCH_LIMIT)
-    events = _history_events(history)
+    if context is not None and any(m.get("attachments") for m in history):
+        context = replace(context, files_by_path=await _files_by_path(session_id))
+    events = _history_events(history, context)
     # One at a time: the append order is the order the model reads.
     for event in events:
         await session_service.append_event(session, event)
     logger.info(
         f"[ADK] Injected {len(events)} history events into restored session",
-        extra={"session_id": session_id},
+        extra={"session_id": session_id, "rooms": len(context.rooms) if context else 0},
     )
     return next((m.get("id") for m in reversed(history) if m.get("role") == "assistant"), None)
 
@@ -190,6 +265,7 @@ async def _open_restored_session(
     user_id: str,
     session_id: str,
     state: dict[str, Any] | None = None,
+    context: _RestoreContext | None = None,
 ) -> Session:
     """Create the ADK session and restore its Firestore history; records the sync
     marker. A half-built session never survives: if the restore fails it is
@@ -198,7 +274,7 @@ async def _open_restored_session(
         app_name=_APP_NAME, user_id=user_id, session_id=session_id, state=state
     )
     try:
-        marker = await _rehydrate_session(session_service, session, session_id)
+        marker = await _rehydrate_session(session_service, session, session_id, context)
     except Exception:
         await session_service.delete_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
         raise
@@ -238,13 +314,7 @@ async def _media_label_part(ref: str, file_type: str, session_id: str, room_labe
         except GoogleAPIError as e:
             # The label falls back to "senza stanza": the media itself still goes to the model.
             logger.warning(f"[ADK] Could not look up a media of the turn: {type(e).__name__}")
-    room_id = room_of(doc)
-    label = media_label(
-        (doc or {}).get("type") or file_type,
-        (doc or {}).get("id"),
-        room_labels.get(room_id, room_id) if room_id else None,
-    )
-    return types.Part(text=f"\n{label}\n")
+    return types.Part(text=f"\n{_media_label_for(doc, file_type, room_labels)}\n")
 
 
 class _TurnText:
@@ -320,14 +390,11 @@ class ADKOrchestrator(BaseOrchestrator):
         # GOOGLE_CLOUD_PROJECT / GOOGLE_CLOUD_LOCATION. A `vertexai.init()` call
         # here used to cost ~14s of import time (google-cloud-aiplatform) on every
         # cold start while having no effect on the ADK model client.
-        self.runner = Runner(
-            app=App(
-                name=_APP_NAME,
-                root_agent=syd_orchestrator,
-                # VideoGuardPlugin first: MediaModelPlugin then sees only the media
-                # really sent; LatencyPlugin last logs the model actually used.
-                plugins=[VideoGuardPlugin(), SessionContextPlugin(), MediaModelPlugin(), LatencyPlugin()],
-            ),
+        # App (plugins, history compaction, context cache) from app_factory, shared
+        # with the evals; SydRunner compacts the history after the reply, not before
+        # the end of the stream.
+        self.runner = SydRunner(
+            app=build_app(),
             session_service=get_session_service(),
             artifact_service=get_artifact_service(),
         )
@@ -440,7 +507,7 @@ class ADKOrchestrator(BaseOrchestrator):
 
         logger.info(f"[ADK] Session context: is_guest={is_guest}, uid={user_id}, phone_on_file={phone_on_file}")
         # Login state, phone and session id reach the model through the session
-        # state (SessionContextPlugin → system instruction), not the user message.
+        # state (session_context → the agents' dynamic instruction), not the user message.
         context_delta: dict[str, Any] = session_context_delta(
             is_guest=is_guest, phone_on_file=phone_on_file, session_id=session_id
         )
@@ -549,13 +616,16 @@ class ADKOrchestrator(BaseOrchestrator):
             if session is None:
                 # InMemorySessionService loses everything on restart and is not
                 # shared between instances: continue from the Firestore history.
-                session = await _open_restored_session(session_service, user_id, session_id, carried_state)
+                session = await _open_restored_session(
+                    session_service, user_id, session_id, carried_state,
+                    _restore_context(session_id, rooms, room_id),
+                )
                 logger.info("Created new ADK session", extra={"session_id": session_id, "user_id": user_id})
 
             if turn is not None:
                 turn.mark("adk_session_ready")
             turn_text = _TurnText(stream=settings.OUTPUT_GUARDRAIL_STREAMING)
-            pending_saves: list[asyncio.Task[None]] = []
+            pending_saves: list[asyncio.Task[bool]] = []
             accumulated_tool_calls = []
             # tool_name → call_ids in call order, to correlate a function_response
             # that comes without an id (ADK may not preserve it); a queue so two
@@ -605,7 +675,11 @@ class ADKOrchestrator(BaseOrchestrator):
                                     extra={"session_id": session_id, "restored": True},
                                 )
                                 try:
-                                    session = await _open_restored_session(session_service, user_id, session_id)
+                                    session = await _open_restored_session(
+                                        session_service, user_id, session_id,
+                                        # The room the turn started in: room_id moves with select_room.
+                                        context=_restore_context(session_id, rooms, getattr(request, "room_id", None)),
+                                    )
                                 except Exception as recovery_err:  # noqa: BLE001
                                     logger.error(f"[ADK] Session recovery failed: {recovery_err}")
                                     raise run_err from None  # surface original error, not the recovery failure
@@ -835,7 +909,7 @@ class ADKOrchestrator(BaseOrchestrator):
                                                 json.dumps(raw_response, default=str)
                                                 if isinstance(raw_response, dict) else str(raw_response)
                                             )
-                                            pending_saves.append(_save_in_background(
+                                            pending_saves.append(run_in_background(
                                                 get_conversation_repository().save_message(
                                                     session_id=session_id,
                                                     role="tool",
@@ -954,6 +1028,14 @@ class ADKOrchestrator(BaseOrchestrator):
                         # has, so the next turn does not throw this session away.
                         if saved:
                             _synced_marker[sync_key] = assistant_msg_id
+                            # The room brief catches up with this turn in the background:
+                            # the stream ends now, the summarizer reads the saved messages.
+                            schedule_room_brief_refresh(BriefTurn(
+                                project_id=session_id,
+                                session_id=session_id,
+                                room_id=room_id or (getattr(session, "state", None) or {}).get(ACTIVE_ROOM_STATE_KEY),
+                                is_guest=is_guest,
+                            ))
                         logger.info(f"[Repo] Saved assistant message for session {session_id}")
                     except Exception as e:  # noqa: BLE001
                         logger.error(f"Failed to persist assistant message: {e}")

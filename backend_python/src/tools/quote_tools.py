@@ -20,7 +20,7 @@ from src.services.pricing_service import PricingService
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, save_ai_draft
 from src.services.room_aggregation import aggregate_rooms, load_rules, room_sections
-from src.tools.room_tools import room_of
+from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
 from src.utils.download import MediaUnavailableError, download_session_media, session_media_path
 from src.vision.measure_room import (
@@ -456,23 +456,7 @@ async def _single_unit(history: list[dict[str, Any]], session_id: str) -> _Quote
 
 def _brief_block(room: RoomSchema) -> str:
     """The room's brief (scheda stanza) as context, empty when nothing is known."""
-    brief = room.brief
-    lines = [
-        f"- {label}: {value}"
-        for label, value in (
-            ("Pavimento (mq)", brief.floor_mq),
-            ("Pareti (mq)", brief.walls_mq),
-            ("Altezza (m)", brief.height_m),
-            ("Superfici", brief.surfaces),
-            ("Impianti", brief.systems),
-            ("Elementi fissi", brief.fixtures),
-            ("Criticità", "; ".join(brief.criticalities)),
-            ("Decisioni prese", "; ".join(brief.decisions)),
-        )
-        if value
-    ]
-    if room.summary:
-        lines.insert(0, f"- Sintesi: {room.summary}")
+    lines = brief_lines(room)
     return "\n\n## Scheda stanza\n" + "\n".join(lines) if lines else ""
 
 

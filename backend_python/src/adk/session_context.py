@@ -1,13 +1,19 @@
 """
-ADK plugin: per-session facts (login state, phone on file, session id) reach the
-model as a system-instruction block, not as text inside the user message.
+Per-session facts (login state, phone on file, session id, rooms) reach the
+model as the agents' dynamic instruction, not as text inside the user message.
 
 The orchestrator writes them into the session state on every turn
-(`session_context_delta`, passed as `state_delta` to `run_async`); this plugin
-appends the "CONTESTO SESSIONE" block to each model request. Kept out of the user
-message they are neither repeated in the history at every turn nor mixed with
-what the user typed. The block keeps the markers the prompts look for
-("OSPITE ANONIMO", "PHONE_ON_FILE: true", SESSION_ID).
+(`session_context_delta`, passed as `state_delta` to `run_async`); every agent
+has `instruction=session_context_instruction`, which renders the "CONTESTO
+SESSIONE" block from that state. The prompts themselves are the agents'
+`static_instruction` (Phase 138 PR-5): the system instruction is then the same
+for every session and turn, a stable prefix for Gemini's cache, and ADK sends
+this block as the last instruction content, right before the user's turn (after
+a tool result when the model continues a tool call). Kept out of the user
+message the facts are neither repeated in the history at every turn nor mixed
+with what the user typed. The block keeps the markers the prompts look for
+("OSPITE ANONIMO", "PHONE_ON_FILE: true", SESSION_ID); the user cannot forge
+them (`data_sanitizer` strips them from the input).
 
 Rooms (Phase 138: one chat for the whole home) follow the same path: the
 orchestrator writes the project's room index and, when the client sent one, the
@@ -21,10 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from google.adk.agents.callback_context import CallbackContext
-from google.adk.models.llm_request import LlmRequest
-from google.adk.models.llm_response import LlmResponse
-from google.adk.plugins.base_plugin import BasePlugin
+from google.adk.agents.readonly_context import ReadonlyContext
 
 SESSION_CONTEXT_STATE_KEY = "syd_session_context"
 # Compact index of the project's rooms: [{room_id, label, room_type, summary}].
@@ -98,17 +101,12 @@ def session_context_block(
     )
 
 
-class SessionContextPlugin(BasePlugin):
-    def __init__(self) -> None:
-        super().__init__(name="syd_session_context")
-
-    async def before_model_callback(
-        self, *, callback_context: CallbackContext, llm_request: LlmRequest
-    ) -> LlmResponse | None:
-        state = callback_context.state
-        context = state.get(SESSION_CONTEXT_STATE_KEY)
-        if context:
-            llm_request.append_instructions([
-                session_context_block(context, state.get(ROOMS_STATE_KEY), state.get(ACTIVE_ROOM_STATE_KEY))
-            ])
-        return None
+def session_context_instruction(context: ReadonlyContext) -> str:
+    """Instruction provider of every agent: the session block, empty before the
+    orchestrator has written the session facts. A callable instruction is not
+    state-injected by ADK: room labels typed by the user stay plain data."""
+    state = context.state
+    session = state.get(SESSION_CONTEXT_STATE_KEY)
+    if not session:
+        return ""
+    return session_context_block(session, state.get(ROOMS_STATE_KEY), state.get(ACTIVE_ROOM_STATE_KEY))

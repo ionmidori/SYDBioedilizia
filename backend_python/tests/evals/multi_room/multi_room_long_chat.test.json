@@ -1,0 +1,302 @@
+{
+  "eval_set_id": "syd_multi_room_long_chat_v1",
+  "name": "SYD Multi-Room Long Chat (Phase 138, PR-5)",
+  "description": "A long chat across bathroom, kitchen, whole-home and a room never created (corridor), past the compaction threshold of the eval agent (tests/evals/multi_room/agent.py). The last three turns ask for facts given at the start: the runner checks (tests/evals/multi_room/fakes.py) that the answers carry the right data of the right room (bathroom floor 5 mq, kitchen oak-effect tiles, corridor 8 mq of parquet, bathroom photo f_bagno_1 and its damp stain) and that the history was compacted at least once.",
+  "eval_cases": [
+    {
+      "eval_id": "long_multi_room_recall",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-multi-room-long"
+          },
+          "syd_rooms": [
+            {
+              "room_id": "r_cucina",
+              "label": "Cucina",
+              "room_type": "cucina",
+              "summary": ""
+            },
+            {
+              "room_id": "r_bagno",
+              "label": "Bagno",
+              "room_type": "bagno",
+              "summary": ""
+            }
+          ],
+          "syd_active_room_id": "r_bagno"
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_long_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCiao! Ristrutturo casa a Roma, 75 mq, terzo piano con ascensore. Partiamo dal bagno: è 2 x 2,5 m, altezza 2,70. Pavimento 5 mq in gres porcellanato effetto pietra grigio 60x60, rivestimento alle pareti fino a 2,10 m (circa 19 mq) con lo stesso gres. Tolgo la vasca e metto una doccia walk-in 90x140 con piatto a filo pavimento.\n###\n[Foto f_bagno_1 · Bagno]"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Bagno: misure e scelte annotate."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_002",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nSempre nel bagno: sanitari sospesi bianchi, il bidet resta, voglio un termoarredo al posto del termosifone. Attenzione: c'è una macchia di umidità sotto la finestra, sulla parete esterna.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Annotato per il bagno."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_003",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nIl bagno ha una finestra 60x90 in legno, vecchia, a vetro singolo: la sostituirei con una in PVC bianco a doppio vetro. La porta è a battente da 70 cm, la voglio scorrevole a scomparsa.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Finestra e porta del bagno annotate."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_004",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nPassiamo alla cucina: è 3 x 4 m, 12 mq. Tengo i mobili, ma il pavimento lo rifaccio in gres effetto rovere naturale 20x120, togliendo il vecchio. Top in quarzo di 3,5 metri lineari e una presa dedicata per il piano a induzione.\n###\n[Foto f_cucina_1 · Cucina]"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Cucina: misure e scelte annotate."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_005",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nIn cucina voglio anche spostare il lavello di 1,5 metri verso la finestra, quindi scarico e acqua da spostare, e il paraschizzi in piastrelle bianche lucide 10x10, circa 4 mq.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Annotato per la cucina."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_006",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nLa cucina ha un soffitto con qualche crepa sottile vicino alla cappa: va controllato. Le pareti le vorrei tinteggiare in un grigio caldo, circa 40 mq.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Crepe e tinteggiatura della cucina annotate."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_007",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nPer tutta la casa: l'impianto elettrico è degli anni '80, va rifatto con un quadro nuovo e la messa a terra. La caldaia invece è del 2019 e resta.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Impianto elettrico di tutta la casa annotato."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_008",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nPoi c'è il corridoio, che non ho ancora aggiunto come stanza: circa 8 mq di parquet in rovere da levigare e riverniciare, e due punti luce nuovi a soffitto.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Corridoio annotato."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_009",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nChe tempi ci sono in genere per lavori di questo tipo in un appartamento abitato? Noi potremmo stare da parenti per un mese al massimo.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Tempi indicativi."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_010",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nRicapitolando: quanti mq di pavimento ha il bagno e che pavimento avevo scelto per la cucina?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Bagno 5 mq; cucina gres effetto rovere naturale 20x120."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_011",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nE nel corridoio cosa avevamo detto di fare, e su quanti mq?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Corridoio: 8 mq di parquet in rovere da levigare e riverniciare, due punti luce."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_long_012",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nQual era l'identificativo della foto del bagno che ti ho mandato, e che problema avevo segnalato in quella stanza?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Foto f_bagno_1; macchia di umidità sotto la finestra."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        }
+      ]
+    }
+  ]
+}

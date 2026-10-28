@@ -101,10 +101,18 @@ alternate (as the orchestrator labels them, `[Foto <id> · <stanza>]`), the
 kitchen is the active room, then the user asks for a bathroom render. It runs
 differently from the other sets:
 
-- **Agent module** `tests.evals.multi_room.agent`: the production agents in an
-  `App` with `SessionContextPlugin`, so the model reads "CONTESTO SESSIONE"
-  (login, STANZE DEL PROGETTO, STANZA ATTIVA). The case seeds that state with
-  `session_input.state`.
+- **Agent module** `tests.evals.multi_room.agent`: the production `App`
+  (`src/adk/app_factory.py`: plugins, history compaction), so the model reads
+  "CONTESTO SESSIONE" (login, STANZE DEL PROGETTO, STANZA ATTIVA) as in
+  production. The case seeds that state with `session_input.state`. The
+  compaction threshold is lowered to 10k tokens so the long-chat set reaches it.
+- **Long chat** (`multi_room_long_chat.test.json`, Phase 138 PR-5): 12 turns over
+  bathroom, kitchen, the whole home and a room never created; the runner fails
+  unless the history was compacted at least once and the last three replies
+  still carry the right room's facts (bathroom floor 5 mq, kitchen oak-effect
+  tiles, corridor 8 mq of parquet, bathroom photo `f_bagno_1` and its damp stain).
+- **Token report**: every multi-room run logs the prompt and cached tokens of
+  each model call, turn by turn (`… tokens turn N: <agent> prompt=… cached=…`).
 - **In-memory backend** (`multi_room/fakes.py`): rooms, project files, login,
   quota and the image backend are fakes. The run writes nothing to Firestore or
   Storage and spends no render quota.

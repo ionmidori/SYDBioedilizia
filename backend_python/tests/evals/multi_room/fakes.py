@@ -8,7 +8,12 @@ a request to the team, and records which photo every render started from, every
 quote it would have saved and every submission it would have made. The
 project matches the eval cases: a kitchen and a bathroom, photos uploaded
 kitchen → bathroom → kitchen.
+
+The long-chat set also records the final reply of every turn (`ResponseRecorder`,
+a plugin of the eval App) and every history compaction, to check that facts
+given before the compaction still come back for the right room.
 """
+import re
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack, contextmanager
@@ -16,6 +21,11 @@ from dataclasses import dataclass, field
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from google.adk.agents.callback_context import CallbackContext
+from google.adk.apps.llm_event_summarizer import LlmEventSummarizer
+from google.adk.events import Event
+from google.adk.models.llm_response import LlmResponse
+from google.adk.plugins.base_plugin import BasePlugin
 from src.core.exceptions import ProjectFileNotFoundError, RoomNotFoundError
 from src.schemas.quote import QuoteRequest, QuoteSchema
 from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema
@@ -203,11 +213,99 @@ class SubmitRecorder:
         return [f"submission {i + 1} before any saved quote" for i, n in enumerate(self.after_quotes) if n == 0]
 
 
+class ResponseRecorder(BasePlugin):
+    """Visible text and token usage of every complete model response, per
+    invocation (turn), in order."""
+
+    def __init__(self) -> None:
+        super().__init__(name="eval_response_recorder")
+        self.texts: dict[str, list[str]] = {}
+        # invocation → [(agent, prompt tokens, cached tokens)], one per model call
+        self.usage: dict[str, list[tuple[str, int, int]]] = {}
+
+    def reset(self) -> None:
+        self.texts = {}
+        self.usage = {}
+
+    async def after_model_callback(
+        self, *, callback_context: CallbackContext, llm_response: LlmResponse
+    ) -> LlmResponse | None:
+        if llm_response.partial is True:
+            return None
+        usage = llm_response.usage_metadata
+        if usage is not None and usage.prompt_token_count:
+            self.usage.setdefault(callback_context.invocation_id, []).append(
+                (callback_context.agent_name, usage.prompt_token_count, usage.cached_content_token_count or 0)
+            )
+        if not llm_response.content:
+            return None
+        text = "".join(p.text for p in llm_response.content.parts or [] if p.text and not p.thought)
+        if text.strip():
+            self.texts.setdefault(callback_context.invocation_id, []).append(text)
+        return None
+
+    def turns(self) -> list[str]:
+        """Last reply of each turn, in turn order."""
+        return [replies[-1] for replies in self.texts.values()]
+
+    def token_report(self) -> list[str]:
+        """One line per turn: prompt and cached tokens of each model call."""
+        return [
+            f"turn {i}: " + ", ".join(f"{agent} prompt={prompt} cached={cached}" for agent, prompt, cached in calls)
+            for i, calls in enumerate(self.usage.values(), 1)
+        ]
+
+
+# Shared with the eval App (tests/evals/multi_room/agent.py); reset for every run.
+RESPONSES = ResponseRecorder()
+
+
+@dataclass
+class CompactionRecorder:
+    """Summaries the history compaction produced (None: the summarizer gave up)."""
+
+    summaries: list[str | None] = field(default_factory=list)
+
+    def wrap(self, original: Callable[..., Any]) -> Callable[..., Any]:
+        async def summarize(summarizer: LlmEventSummarizer, *, events: list[Event]) -> Event | None:
+            event = await original(summarizer, events=events)
+            compaction = event.actions.compaction if event is not None and event.actions else None
+            content = compaction.compacted_content if compaction is not None else None
+            self.summaries.append("".join(p.text or "" for p in content.parts or []) if content else None)
+            return event
+        return summarize
+
+
+# Long chat: (turn counted from the end, what the reply must mention, why).
+_RECALL: tuple[tuple[int, str, str], ...] = (
+    (-3, r"\b5\s*(mq|m²|m2|metri quadr)", "bathroom floor 5 mq"),
+    (-3, r"rovere", "kitchen oak-effect tiles"),
+    (-2, r"\b8\s*(mq|m²|m2|metri quadr)", "corridor 8 mq"),
+    (-2, r"parquet", "corridor parquet"),
+    (-1, r"f_bagno_1", "bathroom photo id"),
+    (-1, r"umidit", "bathroom damp stain"),
+)
+
+
+def _long_chat_problems(run: "MultiRoomRun") -> list[str]:
+    """Why the long chat lost a fact of the right room, or was never compacted."""
+    found = [] if any(run.compactions.summaries) else ["the history was never compacted"]
+    turns = run.responses.turns()
+    if len(turns) < 3:
+        return [*found, f"only {len(turns)} turns answered"]
+    for position, pattern, fact in _RECALL:
+        if not re.search(pattern, turns[position], re.IGNORECASE):
+            found.append(f"turn {len(turns) + position + 1} misses the {fact}: {turns[position][:160]!r}")
+    return found
+
+
 @dataclass
 class MultiRoomRun:
     renders: RenderRecorder
     quotes: QuoteRecorder
     submissions: SubmitRecorder
+    responses: ResponseRecorder = field(default_factory=lambda: RESPONSES)
+    compactions: CompactionRecorder = field(default_factory=CompactionRecorder)
 
 
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
@@ -216,6 +314,8 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     # "Registra la richiesta" saves the quote and sends nothing: sending needs an explicit yes.
     "multi_room_quote.test.json": lambda run: run.quotes.problems() + run.submissions.problems(expected=0),
     "multi_room_submit.test.json": lambda run: run.quotes.problems() + run.submissions.problems(expected=1),
+    # Facts given before the compaction come back for the right room.
+    "multi_room_long_chat.test.json": _long_chat_problems,
 }
 
 
@@ -226,6 +326,7 @@ def multi_room_backend() -> Iterator[MultiRoomRun]:
     repo = FakeRoomRepository()
     quotes = QuoteRecorder()
     run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, submissions=SubmitRecorder(quotes))
+    RESPONSES.reset()
     newest_project_photo = photo_url(KITCHEN_PHOTOS[1])  # what a room-blind render would use
     allowed = QuotaDecision(True, 10, utc_now())
     with ExitStack() as stack:
@@ -249,4 +350,8 @@ def multi_room_backend() -> Iterator[MultiRoomRun]:
         # Never send a request to the team or write the phone number from an eval.
         stack.enter_context(patch("src.adk.tools.submit_quote_request_wrapper", new=run.submissions.submit))
         stack.enter_context(patch("src.db.firebase_client.get_async_firestore_client", new=MagicMock()))
+        stack.enter_context(patch.object(
+            LlmEventSummarizer, "maybe_summarize_events",
+            new=run.compactions.wrap(LlmEventSummarizer.maybe_summarize_events),
+        ))
         yield run

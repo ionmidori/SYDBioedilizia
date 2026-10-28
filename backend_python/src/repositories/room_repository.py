@@ -6,6 +6,7 @@ field. Ownership is the caller's job (REST routes check the project owner,
 agent tools use the trusted session): this layer only reads and writes.
 """
 import uuid
+from datetime import datetime
 from typing import Any
 
 from google.api_core.exceptions import AlreadyExists
@@ -15,7 +16,7 @@ from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNo
 from src.core.logger import get_logger
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import FILE_ROOM_FIELD
-from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomCreate, RoomSchema, RoomUpdate
+from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomBrief, RoomCreate, RoomSchema, RoomUpdate
 from src.utils.datetime_utils import utc_now
 
 logger = get_logger(__name__)
@@ -54,6 +55,25 @@ class RoomRepository:
     async def get_room(self, project_id: str, room_id: str) -> RoomSchema | None:
         snap = await self._project(project_id).collection(ROOMS).document(room_id).get()
         return RoomSchema.model_validate(snap.to_dict()) if snap.exists else None
+
+    async def get_room_versioned(self, project_id: str, room_id: str) -> tuple[RoomSchema, datetime] | None:
+        """The room and its document update time, for a write that must not
+        overwrite a change made meanwhile (`update_brief`)."""
+        snap = await self._project(project_id).collection(ROOMS).document(room_id).get()
+        if not snap.exists:
+            return None
+        return RoomSchema.model_validate(snap.to_dict()), snap.update_time
+
+    async def update_brief(
+        self, project_id: str, room_id: str, *, brief: RoomBrief, summary: str | None, expected_update_time: datetime
+    ) -> None:
+        """Replace the room's brief and summary if the room is unchanged since
+        `expected_update_time` (FailedPrecondition otherwise)."""
+        await self._project(project_id).collection(ROOMS).document(room_id).update(
+            {"brief": brief.model_dump(), "summary": summary, "updated_at": utc_now()},
+            option=self._db().write_option(last_update_time=expected_update_time),
+        )
+        logger.info("[Rooms] Brief updated", extra={"project_id": project_id, "room_id": room_id})
 
     async def require_room(self, project_id: str, room_id: str) -> RoomSchema:
         """The room, or RoomNotFoundError (404)."""

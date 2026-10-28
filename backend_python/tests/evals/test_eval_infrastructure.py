@@ -148,14 +148,21 @@ class TestMultiRoomEval:
         assert session.state["syd_active_room_id"] == "r_cucina"
         assert session.state["syd_session_context"]["is_guest"] is False
 
-    def test_agent_module_exposes_app_with_session_plugin(self) -> None:
+    def test_agent_module_exposes_the_production_app(self) -> None:
+        """Same plugins as production (+ the reply recorder), the session block as
+        the agents' instruction, compaction at the eval threshold."""
         from google.adk.apps.app import App
-        from src.adk.session_context_plugin import SessionContextPlugin
+        from src.adk.app_factory import build_app
+        from src.adk.session_context import session_context_instruction
         from tests.evals.multi_room import agent
 
         assert isinstance(agent.app, App)
-        assert any(isinstance(p, SessionContextPlugin) for p in agent.app.plugins)
+        production = [p.name for p in build_app().plugins]
+        assert [p.name for p in agent.app.plugins] == [*production, "eval_response_recorder"]
         assert agent.root_agent is agent.app.root_agent
+        assert agent.root_agent.instruction is session_context_instruction
+        compaction = agent.app.events_compaction_config
+        assert compaction is not None and compaction.token_threshold == agent.EVAL_COMPACTION_TOKEN_THRESHOLD
 
     async def test_fake_backend_records_the_render_source(self) -> None:
         from src.adk import tools
@@ -169,6 +176,52 @@ class TestMultiRoomEval:
         assert run.renders.problems() == [
             f"render 1 started from {photo_url('f_cucina_2')!r}, expected {photo_url('f_bagno_1')!r}"
         ]
+
+
+class TestMultiRoomLongChatEval:
+    """Phase 138, PR-5: a chat past the compaction threshold still recalls the right room's facts."""
+
+    LONG = EVALS_DIR / "multi_room" / "multi_room_long_chat.test.json"
+
+    def test_loads_as_adk_eval_set_and_ends_with_the_recall_questions(self) -> None:
+        case = EvalSet.model_validate_json(self.LONG.read_text(encoding="utf-8")).eval_cases[0]
+        texts = [inv.user_content.parts[0].text for inv in case.conversation]
+        assert len(texts) == 12
+        assert all(t.startswith("###\n") for t in texts)
+        assert "[Foto f_bagno_1 · Bagno]" in texts[0]
+        assert "quanti mq di pavimento ha il bagno" in texts[-3]
+
+    @staticmethod
+    def _run(replies: list[str], summaries: list[str | None]):
+        from types import SimpleNamespace
+
+        from tests.evals.multi_room.fakes import CompactionRecorder, ResponseRecorder
+
+        responses = ResponseRecorder()
+        responses.texts = {f"inv{i}": [text] for i, text in enumerate(replies)}
+        return SimpleNamespace(responses=responses, compactions=CompactionRecorder(summaries=summaries))
+
+    def test_check_passes_when_the_facts_come_back_after_a_compaction(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run(
+            ["...", "Il bagno ha 5 mq di pavimento; in cucina gres effetto rovere naturale.",
+             "Nel corridoio 8 mq di parquet da levigare.",
+             "La foto del bagno è f_bagno_1: avevi segnalato una macchia di umidità."],
+            ["## Bagno\n- Misure: 5 mq"],
+        )
+        assert BACKEND_CHECKS["multi_room_long_chat.test.json"](run) == []
+
+    def test_check_reports_a_missing_compaction_and_a_lost_fact(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        run = self._run(
+            ["Il bagno ha 6 mq; cucina in rovere.", "Corridoio: 8 mq di parquet.", "Foto f_bagno_1, umidità."],
+            [None],
+        )
+        problems = BACKEND_CHECKS["multi_room_long_chat.test.json"](run)
+        assert problems[0] == "the history was never compacted"
+        assert len(problems) == 2 and "bathroom floor 5 mq" in problems[1]
 
 
 class TestMultiRoomQuoteEval:

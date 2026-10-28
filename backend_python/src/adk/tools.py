@@ -16,7 +16,7 @@ from google.adk.tools import FunctionTool
 from google.api_core.exceptions import GoogleAPIError
 from pydantic import ValidationError
 
-from src.adk.session_context_plugin import ACTIVE_ROOM_STATE_KEY, ROOMS_STATE_KEY, room_index_entry
+from src.adk.session_context import ACTIVE_ROOM_STATE_KEY, ROOMS_STATE_KEY, room_index_entry
 from src.auth.user_lookup import is_anonymous_user
 from src.core.config import settings
 from src.core.money import line_total, to_json_number

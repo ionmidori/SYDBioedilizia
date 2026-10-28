@@ -28,6 +28,7 @@ from google.adk.models.llm_response import LlmResponse
 from google.genai import types
 
 from src.adk.latency_plugin import llm_call_key
+from src.adk.media_model_plugin import turn_user_message
 from src.core.chat_timing import current_turn
 from src.services.model_armor.model_armor_client import get_model_armor_service
 
@@ -63,16 +64,14 @@ def _record_scan(callback_context: CallbackContext, phase: str, started: float) 
         turn.add_guardrail(llm_call_key(callback_context), phase, ms)
 
 
-def _extract_last_user_text(llm_request: LlmRequest) -> str:
-    """Extract the text of the last user message from an LlmRequest."""
-    if not llm_request.contents:
-        return ""
-    for content in reversed(llm_request.contents):
-        if content.role == "user" and content.parts:
-            for part in content.parts:
-                if hasattr(part, "text") and part.text:
-                    return part.text
-    return ""
+def _extract_last_user_text(llm_request: LlmRequest, callback_context: object = None) -> str:
+    """Text of the user's message of this turn (`turn_user_message`).
+
+    The session block that ADK sends as a user-role content (the agents' dynamic
+    instruction, also right after a tool result) is never scanned in place of
+    what the user typed."""
+    message = turn_user_message(callback_context, llm_request)
+    return next((p.text for p in (message.parts or []) if p.text), "") if message else ""
 
 
 def _extract_response_text(llm_response: LlmResponse) -> str:
@@ -118,7 +117,7 @@ async def model_armor_before_model(
         # Model Armor disabled or misconfigured — pass through
         return None
 
-    user_text = _extract_last_user_text(llm_request)
+    user_text = _extract_last_user_text(llm_request, callback_context)
     if not user_text:
         # No text to scan (e.g., image-only input)
         return None

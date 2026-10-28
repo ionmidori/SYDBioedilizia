@@ -81,6 +81,16 @@ def _orchestrator_without_rooms():
 
 
 @pytest.fixture(autouse=True)
+def _no_room_brief_refresh(monkeypatch):
+    """After a saved reply the orchestrator refreshes the room brief in the
+    background (Firestore + summarizer model): off in tests that drive a chat
+    turn. tests/unit/test_room_brief.py turns it back on with its own fakes."""
+    from src.core.config import settings
+
+    monkeypatch.setattr(settings, "ROOM_BRIEF_ENABLED", False)
+
+
+@pytest.fixture(autouse=True)
 def _reset_adk_session_sync():
     """The orchestrator's session sync markers are process state: a session one
     test "served" must not look stale to the next. Cleared only when the module

@@ -60,7 +60,7 @@ _INJECTION_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE | re.UNICOD
     r"\[/?END_SYSTEM_MESSAGE\]",
     r"\[/?SYS(?:TEM)?(?:_MSG)?\]",
     # Session context spoofing: these markers belong only to the system-instruction
-    # block written by SessionContextPlugin (login state, phone on file).
+    # session block (src/adk/session_context.py: login state, phone on file).
     r"CONTESTO\s+SESSIONE",
     r"STATO\s+AUTENTICAZIONE",
     r"PHONE_ON_FILE",
