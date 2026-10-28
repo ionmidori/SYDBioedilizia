@@ -14,7 +14,10 @@ Frontend -> Backend -> ADK Orchestrator is the ONLY flow. Never bypass tiers.
 - `src/adk/adk_orchestrator.py` wraps `google.adk.runners.Runner`
 - `src/adk/agents.py` — triage / design / quote sub-agents + syd_orchestrator router
 - `src/adk/tools.py` — 16 FunctionTools (room tools `select_room` / `assign_media_to_room` / `get_room_context`, Phase 138); session-scoped tools take `session_id` and trust it only via `_trusted_session_id`. No tool may call an external automation endpoint (n8n removed: quote emails go through the outbox, `src/services/email/outbox.py`). A quote is sent on its own by `submit_quote_request` / `POST /api/quote/{id}/submit` (`src/services/quote_submission.py`): no quote batches (removed in Phase 138 PR-4)
-- `src/adk/session.py` — InMemorySessionService (ephemeral; history injected from Firestore on restart)
+- `src/adk/session.py` — InMemorySessionService (ephemeral; history injected from Firestore on restart, with the room index, the active room's brief and `[Foto id · Stanza]` labels)
+- `src/adk/app_factory.py` — the one ADK App (plugins, history compaction, optional explicit context cache), shared by the orchestrator and the multi-room evals; history compaction only after a turn (`PostTurnCompactionPlugin` turns off ADK's compaction before each model call, which would delay the first token and could summarize away the current user message) and `SydRunner` runs it in the background (`src/adk/compaction.py`, summary organized by room)
+- `src/adk/session_context.py` — agents' prompts are `static_instruction` (stable prefix for Gemini's cache); the "CONTESTO SESSIONE" block is their `instruction`, sent by ADK as the last content before the user turn. Guardrails and plugins read the turn's message from `callback_context.user_content`, never "the last user content"
+- `src/services/room_brief.py` — room brief (scheda stanza) refreshed in the background after a turn with new facts (`ModelRole.SUMMARIZER`); never on the reply path
 
 ## Middleware Stack (outermost → innermost)
 Registered in ONE block in `main.py` ("Middleware stack"); `add_middleware()` is LIFO.
