@@ -19,6 +19,9 @@ import { getVisibleText, stripDuplicateImages } from '@/lib/chat/message-text';
 import { useSmoothText } from '@/hooks/useSmoothText';
 import { MemoizedMarkdown } from '@/components/chat/MemoizedMarkdown';
 
+/** Backend tool that asks a guest to sign in (backend_python/src/adk/tools.py). */
+const LOGIN_TOOL = 'request_login';
+
 interface MessageItemProps {
     message: Message;
     sessionId?: string; // made optional
@@ -162,11 +165,17 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
     // user two rotating status lines at once, and left one on screen after the
     // turn had finished (isLoading false, placeholder still empty).
 
-    // Check if tools have any visual output (Loading state OR Result with Image/Error OR Widgets)
-    const hasVisibleTools = toolInvocations.some(tool => {
-        if (tool.toolName === 'request_login') return true; // 🔥 Login Widget Always visible
+    // One login card per message: in a turn more than one agent may ask for the
+    // login. None once the user has signed in (old messages keep their calls).
+    const isSignedIn = !!user && !user.isAnonymous;
+    const loginCardIndex = isSignedIn ? -1 : toolInvocations.findIndex(tool => tool.toolName === LOGIN_TOOL);
+    const showLoginCard = loginCardIndex !== -1;
 
-        // 🧠 Thinking State: Only visible while "calling" (thinking). 
+    // Check if tools have any visual output (Loading state OR Result with Image/Error OR Widgets)
+    const hasVisibleTools = showLoginCard || toolInvocations.some(tool => {
+        if (tool.toolName === LOGIN_TOOL) return false; // drawn once, above
+
+        // 🧠 Thinking State: Only visible while "calling" (thinking).
         // Once done, it disappears (state='result' returns false), preventing empty bubble.
         if (tool.toolName === 'processing_request') {
             return tool.state === 'call';
@@ -175,12 +184,6 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
         if (tool.state === 'call') return true; // Loading of other tools is always visible
 
         const result = (tool.result || (tool as { output?: unknown }).output) as { imageUrl?: string; error?: string; status?: string } | string | null | undefined;
-
-        // 🔥 GLOBAL AUTH INTERCEPT:
-        // If ANY tool returns the specific Auth Signal or is the explicit 'request_login' tool, 
-        // we must show the bubble to render the LoginRequest widget.
-        if (tool.toolName === 'request_login') return true;
-        if (typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER')) return true;
 
         // Only results with images/gallery or errors are visible in ToolStatus
         // Text results (like pricing) return null in ToolStatus, so we hide the bubble to avoid empty padding.
@@ -200,7 +203,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
             return !!typed.imageUrl || !!typed.error || typed.status === 'error';
         }
         return false;
-    }) ?? false;
+    });
 
     // Determine if the bubble (AND the entire row) should be visible
     const shouldShow =
@@ -293,34 +296,22 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                             : "bg-luxury-bg/95 border border-luxury-gold/10 text-luxury-text rounded-[24px_24px_24px_4px] shadow-lg shadow-black/5" // Organic shape AI
                     )}>
                         <div className="prose prose-sm prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
-                            {formattedText && !hasVisibleTools && (
+                            {/* The login card carries its own text: the reply is not repeated above it. */}
+                            {formattedText && !showLoginCard && (
                                 <MemoizedMarkdown components={markdownComponents}>
                                     {/* Strip leading "..." if present (artifact of Zero-Latency Hack) */}
                                     {formattedText.startsWith('...') ? formattedText.substring(3) : formattedText}
                                 </MemoizedMarkdown>
                             )}
 
-                            {/* Special Case: Allow text IF it's NOT a Login Request (to preserve context for other tools) */}
-                            {formattedText && hasVisibleTools && !toolInvocations.some(t => t.toolName === 'request_login' || (t.result as string)?.includes?.('LOGIN_REQUIRED_UI_TRIGGER')) && (
-                                <MemoizedMarkdown components={markdownComponents}>
-                                    {formattedText}
-                                </MemoizedMarkdown>
-                            )}
-
-
                             {/* Tool Invocations */}
                             {toolInvocations.map((tool, toolIdx) => {
-                                // 🔒 AUTH WIDGET: Login Request
-                                // Triggered explicitly by 'request_login' OR by the backend AuthGuard signal
-                                const result = tool.result || (tool as { output?: unknown }).output;
-                                const isAuthSignal = typeof result === 'string' && result.includes('LOGIN_REQUIRED_UI_TRIGGER');
-
-                                if (tool.toolName === 'request_login' || isAuthSignal) {
-                                    return (
+                                if (tool.toolName === LOGIN_TOOL) {
+                                    return toolIdx === loginCardIndex ? (
                                         <div key={toolIdx} className="mt-4">
                                             <LoginRequest />
                                         </div>
-                                    );
+                                    ) : null;
                                 }
 
                                 return (

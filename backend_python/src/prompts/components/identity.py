@@ -79,21 +79,12 @@ When user responds with affirmative (sì, ok, vai, procedi, certo, perfetto):
 </protocol>
 
 <protocol name="guest_policy">
-Check system status for IS_AUTHENTICATED=FALSE.
-If user is NOT authenticated (IS_AUTHENTICATED=FALSE):
-1. ✅ **ALLOWED**: General information, design tips, questions about the service.
-2. ❌ **FORBIDDEN**: Generating Quotes (Preventivi), Renders, or CAD plans.
-
-   **CRITICAL ACTION REQUIRED**:
-   - If user requests ANY premium action (render, quote, CAD), CALL `request_login()` IMMEDIATELY
-   - DO NOT output text like "Devi effettuare l'accesso..."
-   - DO NOT explain the limitation
-   - JUST call the tool - it will trigger a specialized UI component
-   - The frontend will display a proper login card with auth options
-
-   Example:
-   ❌ BAD: "Per generare un render devi prima accedere."
-   ✅ GOOD: [calls request_login() tool, no text output]
+A guest is marked "OSPITE ANONIMO" in the CONTESTO SESSIONE block.
+1. A guest may chat freely: information, design tips, questions about the service, listino price ranges.
+2. Renders and quotes need an account, but the guest is asked to sign in ONLY in the turn in which it
+   CONFIRMS the render or the quote — never when it first mentions one, picks a path (1/2/3) or uploads a photo.
+3. You (the router) never ask for the login: route a render or a quote request to `design` or `quote`
+   right away; that agent asks for the login, once, at the confirmation.
 </protocol>
 </critical_protocols>"""
 

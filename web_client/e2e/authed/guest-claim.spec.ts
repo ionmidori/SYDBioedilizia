@@ -1,7 +1,7 @@
-import type { Page, Route } from '@playwright/test';
 import { test, expect } from './fixtures/authed-test';
 import { TEST_USER } from './fixtures/constants';
 import { seedSession } from './fixtures/emulator';
+import { caller, openLoginDialog } from './fixtures/guest';
 import { chatStreamHandler } from './fixtures/ui-message-stream';
 
 /**
@@ -27,25 +27,6 @@ const GUEST_MESSAGES = [
   { id: 'guest-1', role: 'user', content: 'Vorrei rifare il bagno di casa', ts: '2026-10-28T21:40:00Z' },
   { id: 'guest-2', role: 'assistant', content: 'Certo: quanti metri quadri misura il bagno?', ts: '2026-10-28T21:40:05Z' },
 ] as const;
-
-/** Sign-in provider and uid of the Firebase ID token a request carries. */
-function caller(route: Route): { provider?: string; uid?: string } {
-  const token = route.request().headers()['authorization']?.replace(/^Bearer /, '') ?? '';
-  const payload = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString() || '{}');
-  return { provider: payload.firebase?.sign_in_provider, uid: payload.user_id };
-}
-
-async function openLoginDialog(page: Page) {
-  const dialog = page.getByRole('dialog');
-  // Retried: an event fired before GlobalAuthListener hydrates is lost (see auth.setup.ts).
-  await expect(async () => {
-    await page.evaluate(() =>
-      window.dispatchEvent(new CustomEvent('OPEN_LOGIN_MODAL')),
-    );
-    await expect(dialog).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
-  return dialog;
-}
 
 test('a guest who signs in to an existing account finds its chat', async ({ page, uid }) => {
   const calls: string[] = [];

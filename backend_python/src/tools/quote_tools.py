@@ -391,10 +391,19 @@ COMPLETENESS_THRESHOLD = 0.70
 
 @dataclass(frozen=True)
 class _QuoteUnit:
-    """What one InsightEngine call analyses: the whole chat, or one room."""
+    """What one InsightEngine call analyses: the whole chat, one room, or the
+    rest of the home ("Generale": `general`, with `room` None)."""
     room: RoomSchema | None
     context: str
     media: list[str]
+    general: bool = False
+
+    @property
+    def section_id(self) -> str | None:
+        """Quote section of the unit's lines (None: a quote without sections)."""
+        if self.general:
+            return DEFAULT_ROOM_ID
+        return self.room.room_id if self.room else None
 
 
 @dataclass(frozen=True)
@@ -408,6 +417,10 @@ class _UnitResult:
     def needs_info(self) -> bool:
         """Completeness gate: not enough data for this unit (questions instead of a quote)."""
         if not self.analysis.missing_info:
+            return False
+        # "Generale" stops the quote only for lines of its own: home-wide ones
+        # (protection, disposal, scaffolding) need no measure of the rest of the home.
+        if self.unit.general and all(s.sku in load_rules().project_wide_skus for s in self.analysis.suggestions):
             return False
         return not self.analysis.suggestions or self.analysis.completeness_score < COMPLETENESS_THRESHOLD
 
@@ -467,12 +480,53 @@ def _room_scope(room: RoomSchema, others: list[str]) -> str:
         f"## Stanza da quotare: {room.label} ({room.room_type})\n"
         "Quota SOLO i lavori di questa stanza: quelli dei suoi messaggi, delle sue foto e, nel contesto "
         "generale, quelli che la riguardano chiaramente. NON quotare i lavori delle altre stanze"
-        f"{other_rooms}: hanno un'analisi propria.\n"
+        f"{other_rooms}: hanno un'analisi propria. Gli ambienti citati ma non creati come stanza "
+        "(es. corridoio, ingresso) li quota la sezione Generale: non includerli qui.\n"
         "Lavori comuni a tutta la casa (quadro elettrico, caldaia, protezioni, ponteggio): proponili se "
         "servono anche a questa stanza, vengono contati una sola volta nella sezione Generale.\n"
         f"Smaltimento macerie {rules.container_sku}: come quantità indica la frazione di un container da "
         f"{rules.container_capacity_mc:f} m³ riempita dalle macerie di QUESTA stanza (es. 0.4)."
     )
+
+
+def _general_scope(quoted: list[str]) -> str:
+    rules = load_rules()
+    return (
+        f"## Sezione da quotare: {DEFAULT_ROOM_LABEL} (il resto della casa)\n"
+        "Quota SOLO: i lavori degli ambienti citati ma NON creati come stanza (es. corridoio, ingresso, "
+        "ripostiglio) e i lavori comuni a tutta la casa che non appartengono a una stanza (protezioni, "
+        "ponteggio, impianti generali, pratiche).\n"
+        f"NON quotare i lavori delle stanze già quotate ({', '.join(quoted)}): hanno un'analisi propria, "
+        "anche quando ne parlano i messaggi qui sotto. Per un lavoro su tutta la casa (es. tinteggiatura) "
+        "quota solo la parte fuori da quelle stanze.\n"
+        "Se non resta nulla da quotare non proporre voci: è normale. Se il resto della casa non ha lavori "
+        "propri, non fare domande su di esso (nessuna informazione mancante).\n"
+        f"Smaltimento macerie {rules.container_sku}: come quantità indica la frazione di un container da "
+        f"{rules.container_capacity_mc:f} m³ riempita dalle macerie del resto della casa (es. 0.2)."
+    )
+
+
+async def _general_unit(
+    general: list[dict[str, Any]], generale_room: RoomSchema | None, quoted: list[str], project_id: str
+) -> _QuoteUnit | None:
+    """The rest of the home: messages without a room or in "Generale", the
+    "generale" brief and the photos filed there. None when the chat has nothing
+    of its own for it (no such user message, no brief)."""
+    brief = _brief_block(generale_room) if generale_room else ""
+    if not brief and not any(m.get("role") == "user" for m in general):
+        return None
+    files = await get_room_repository().files_for_room(project_id, DEFAULT_ROOM_ID)  # newest first
+    media = [f for f in files if f.get("type") in ("image", "video")][:_QUOTE_MEDIA_MAX]
+    messages = general[-_ROOM_HISTORY_MESSAGES:]
+    context = (
+        _general_scope(quoted)
+        + brief
+        + _extract_vision_context(messages)
+        + "\n\n## Conversazione sul resto della casa\n"
+        + build_chat_summary(messages)
+    )
+    logger.info("[QuoteTool] General context ready.", extra={"messages": len(messages), "media": len(media)})
+    return _QuoteUnit(room=None, context=context, media=[_file_ref(f) for f in reversed(media)], general=True)
 
 
 async def _room_unit(
@@ -656,6 +710,9 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
     A project with rooms gets one quote with a section per room: every room is
     analysed on its own (its messages, photos, measures and render), in parallel,
     and the rooms are merged by `room_aggregation` (project-wide lines in "Generale").
+    The rest of the home (messages without a room, places never created as a
+    room, the "generale" brief) is one more unit, quoted in "Generale" without
+    the rooms already quoted.
     """
     target_project_id = project_id or session_id
     try:
@@ -679,9 +736,20 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                         unit = await _room_unit(room, others, general, project_files, session_id, target_project_id)
                         return await _analyse(unit, session_id)
 
+                async def analyse_rest_of_home() -> _UnitResult | None:
+                    generale = next((r for r in all_rooms if r.room_id == DEFAULT_ROOM_ID), None)
+                    async with semaphore:
+                        unit = await _general_unit(general, generale, [r.label for r in to_quote], target_project_id)
+                        return await _analyse(unit, session_id) if unit else None
+
                 async with asyncio.TaskGroup() as group:
                     tasks = [group.create_task(analyse_room(room)) for room in to_quote]
+                    rest_of_home = group.create_task(analyse_rest_of_home())
                 results = [task.result() for task in tasks]
+                # "Generale" with nothing to quote adds no section and stops nothing.
+                rest = rest_of_home.result()
+                if rest is not None and rest.analysis.suggestions:
+                    results.append(rest)
             else:
                 results = [await _analyse(await _single_unit(history, session_id), session_id)]
         except* (InsightEngineError, GoogleAPIError, ValidationError) as errors:
@@ -706,7 +774,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 "qty": s.qty,
                 "ai_reasoning": s.ai_reasoning,
                 "phase": getattr(s, "phase", "Lavori"),
-                "room_id": r.unit.room.room_id if r.unit.room else None,
+                "room_id": r.unit.section_id,
             }
             for r in results
             for s in r.suggestions

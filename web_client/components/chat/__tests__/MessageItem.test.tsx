@@ -5,8 +5,14 @@ import { MessageItem } from '../MessageItem';
 import type { Message } from '@/types/chat';
 
 // --- Mocks ---
+let mockUser: { isAnonymous: boolean } | null = null;
 jest.mock('@/hooks/useAuth', () => ({
-    useAuth: () => ({ user: null }),
+    useAuth: () => ({ user: mockUser }),
+}));
+
+// The card reads the chat context (pending message): a probe is enough here.
+jest.mock('@/components/chat/tools/LoginRequest', () => ({
+    LoginRequest: () => <div data-testid="login-card" />,
 }));
 
 
@@ -96,5 +102,44 @@ describe('MessageItem — render shown once', () => {
         expect(container).toHaveTextContent('Ecco il rendering!');
         expect(container.textContent).not.toContain('![Render]');
         expect(screen.getByTestId('tool-status')).toHaveTextContent(signed('a'));
+    });
+});
+
+describe('MessageItem — login card', () => {
+    // Production, 28 Oct: the router called request_login twice, then the quote
+    // agent once more — three calls in one assistant message, three cards.
+    const loginCall = (n: number) => ({
+        toolCallId: `login-${n}`,
+        toolName: 'request_login',
+        state: 'result',
+        args: {},
+        result: 'LOGIN_REQUIRED_TRIGGERED',
+    });
+    const loginReply = {
+        id: 'm3',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'Per il preventivo serve un account gratuito.' }],
+        toolInvocations: [loginCall(1), loginCall(2), loginCall(3)],
+    } as unknown as Message;
+
+    afterEach(() => {
+        mockUser = null;
+    });
+
+    it('shows one card for a guest, however many times the agents asked for the login', () => {
+        mockUser = { isAnonymous: true };
+        render(<MessageItem message={loginReply} sessionId="s1" onImageClick={jest.fn()} />);
+
+        expect(screen.getAllByTestId('login-card')).toHaveLength(1);
+    });
+
+    it('shows no card, and the reply text, once the user has signed in', () => {
+        mockUser = { isAnonymous: false };
+        const { container } = render(
+            <MessageItem message={loginReply} sessionId="s1" onImageClick={jest.fn()} />
+        );
+
+        expect(screen.queryByTestId('login-card')).not.toBeInTheDocument();
+        expect(container).toHaveTextContent('Per il preventivo serve un account gratuito.');
     });
 });

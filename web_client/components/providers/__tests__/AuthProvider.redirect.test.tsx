@@ -5,6 +5,7 @@ import { AuthProvider, completeRedirectLogin, useAuthContext } from '../AuthProv
 import { setAuthCookie } from '@/app/actions/auth-session';
 import * as guestClaim from '@/lib/auth/guest-claim';
 import * as redirectLogin from '@/lib/auth/redirect-login';
+import { pendingMessageStore } from '@/lib/auth/pending-message';
 
 jest.mock('firebase/auth', () => ({
     onAuthStateChanged: jest.fn(() => jest.fn()),
@@ -95,6 +96,20 @@ describe('social login: popup or redirect', () => {
         expect(mockPopup).not.toHaveBeenCalled();
         expect(mockRedirect).toHaveBeenCalled();
         expect(redirectLogin.takePendingRedirect()).toBe(true);
+    });
+
+    it('keeps the message the guest confirmed for the way back (the page reloads)', async () => {
+        mockRedirectFirst.mockReturnValue(true);
+        mockFinish.mockResolvedValue(true);
+        pendingMessageStore.set('Sì, procedi con il rendering');
+        const ctx = await renderAuthReady();
+
+        await ctx().loginWithGoogle();
+        pendingMessageStore.clear(); // the page leaves: memory is gone
+        await completeRedirectLogin();
+
+        expect(pendingMessageStore.get()).toBe('Sì, procedi con il rendering');
+        pendingMessageStore.clear();
     });
 
     it('falls back to redirect when the popup is refused', async () => {

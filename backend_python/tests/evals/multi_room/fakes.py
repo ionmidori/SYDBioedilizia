@@ -12,6 +12,11 @@ kitchen → bathroom → kitchen.
 The long-chat set also records the final reply of every turn (`ResponseRecorder`,
 a plugin of the eval App) and every history compaction, to check that facts
 given before the compaction still come back for the right room.
+
+Phase 138 PR-6: every set also records the tools called in each turn
+(`ToolCallRecorder`), so the guest sets can count the login requests per turn;
+in those sets the premium tools' login gate answers "guest". Each set reads its
+own chat history in `suggest_quote_items` (`QUOTE_HISTORIES`).
 """
 import re
 import uuid
@@ -22,13 +27,19 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from google.adk.agents.callback_context import CallbackContext
+from google.adk.agents.invocation_context import InvocationContext
 from google.adk.apps.llm_event_summarizer import LlmEventSummarizer
 from google.adk.events import Event
 from google.adk.models.llm_response import LlmResponse
 from google.adk.plugins.base_plugin import BasePlugin
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.tool_context import ToolContext
+from google.genai import types
 from src.core.exceptions import ProjectFileNotFoundError, RoomNotFoundError
+from src.core.money import sum_amounts
 from src.schemas.quote import QuoteRequest, QuoteSchema
 from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema
+from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult
 from src.services.room_aggregation import load_rules
 from src.tools.quota import QuotaDecision
@@ -156,11 +167,42 @@ _BATH_ONLY = ("BAG-", "DEM-006", "DEM-007", "IMP-ID-002", "IMP-ID-003")
 _KITCHEN_ONLY = ("CUC-", "DEM-008")
 
 
+# Phase 138 PR-6: the same home, plus a corridor the user mentions but never
+# creates as a room (untagged talk): it belongs to "Generale", once.
+CORRIDOR_MESSAGE = (
+    "Rifate anche il corridoio: circa 8 mq, togliamo la moquette e mettiamo il parquet. "
+    "Registra adesso la richiesta di preventivo per tutta la casa."
+)
+GENERAL_HISTORY: list[dict[str, Any]] = [
+    *QUOTE_HISTORY[:-1],
+    {"role": "user", "content": (
+        "Per entrambe le stanze serve anche lo smaltimento delle macerie e la protezione dei pavimenti "
+        "del resto della casa.")},
+    {"role": "assistant", "content": "Annotato: smaltimento e protezioni."},
+    {"role": "user", "content": CORRIDOR_MESSAGE},
+]
+
+# A guest's (then registered user's) bathroom quote: a chat without rooms.
+BATH_ONLY_HISTORY: list[dict[str, Any]] = [
+    {"role": "user", "content": "Ciao, vorrei un preventivo per rifare il bagno."},
+    {"role": "assistant", "content": "Certo! Mi descrivi il bagno e i lavori che hai in mente?"},
+    {"role": "user", "content": (
+        "È 2 x 2,5 m, altezza 2,70, appartamento a Roma al terzo piano con ascensore. Voglio togliere la "
+        "vasca e i sanitari, piastrelle nuove a pavimento (5 mq) e alle pareti fino a 2,10 m (circa 19 mq), "
+        "doccia walk-in con piatto a filo pavimento e sanitari sospesi nuovi.")},
+    {"role": "assistant", "content": "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"},
+    {"role": "user", "content": "Sì, prepara pure la richiesta di preventivo."},
+]
+
+
+@dataclass
 class FakeConversations:
-    """`ConversationRepository.get_context` over QUOTE_HISTORY."""
+    """`ConversationRepository.get_context` over a fixed chat history."""
+
+    history: list[dict[str, Any]] = field(default_factory=lambda: QUOTE_HISTORY)
 
     async def get_context(self, session_id: str, limit: int = 10, room_id: str | None = None) -> list[dict[str, Any]]:
-        messages = [m for m in QUOTE_HISTORY if room_id is None or m.get("room_id") == room_id]
+        messages = [m for m in self.history if room_id is None or m.get("room_id") == room_id]
         return messages[-limit:]
 
 
@@ -191,6 +233,23 @@ class QuoteRecorder:
                 found.append(f"project-wide line {item.sku} in {item.room_id}")
         if not any(i.room_id == DEFAULT_ROOM_ID for i in quote.items):
             found.append("no common line (disposal, protection) in Generale")
+        return found
+
+    def general_problems(self) -> list[str]:
+        """Phase 138 PR-6: why the corridor (never a room) is not quoted once, in
+        Generale, or the sections do not add up (money.py)."""
+        found = self.problems()
+        if not self.quotes:
+            return found
+        quote = self.quotes[-1]
+        corridor = [i for i in quote.items if "corridoio" in (i.ai_reasoning or "").lower()]
+        if not corridor:
+            found.append("no line for the corridor")
+        found += [f"corridor line {i.sku} in {i.room_id}" for i in corridor if i.room_id != DEFAULT_ROOM_ID]
+        if sum_amounts(s.room_subtotal for s in quote.rooms) != quote.financials.subtotal:
+            found.append("section subtotals do not add up to the subtotal")
+        if quote.financials != PricingService.calculate_financials(quote.items):
+            found.append("totals differ from money.py on the quote lines")
         return found
 
 
@@ -260,6 +319,41 @@ class ResponseRecorder(BasePlugin):
 RESPONSES = ResponseRecorder()
 
 
+class ToolCallRecorder(BasePlugin):
+    """Tools called in every turn (invocation), in order: every turn is listed,
+    also one without tool calls."""
+
+    def __init__(self) -> None:
+        super().__init__(name="eval_tool_call_recorder")
+        self.calls: dict[str, list[tuple[str, str]]] = {}  # invocation → [(agent, tool)]
+
+    def reset(self) -> None:
+        self.calls = {}
+
+    async def before_run_callback(self, *, invocation_context: InvocationContext) -> types.Content | None:
+        self.calls.setdefault(invocation_context.invocation_id, [])
+        return None
+
+    async def before_tool_callback(
+        self, *, tool: BaseTool, tool_args: dict[str, Any], tool_context: ToolContext
+    ) -> dict[str, Any] | None:
+        self.calls.setdefault(tool_context.invocation_id, []).append((tool_context.agent_name, tool.name))
+        return None
+
+    def turns(self) -> list[list[tuple[str, str]]]:
+        return list(self.calls.values())
+
+    def report(self) -> list[str]:
+        """One line per turn: agent.tool of each call."""
+        return [
+            f"turn {i}: " + (", ".join(f"{agent}.{tool}" for agent, tool in calls) or "-")
+            for i, calls in enumerate(self.turns(), 1)
+        ]
+
+
+TOOL_CALLS = ToolCallRecorder()
+
+
 @dataclass
 class CompactionRecorder:
     """Summaries the history compaction produced (None: the summarizer gave up)."""
@@ -306,6 +400,40 @@ class MultiRoomRun:
     submissions: SubmitRecorder
     responses: ResponseRecorder = field(default_factory=lambda: RESPONSES)
     compactions: CompactionRecorder = field(default_factory=CompactionRecorder)
+    tool_calls: ToolCallRecorder = field(default_factory=lambda: TOOL_CALLS)
+
+
+LOGIN_TOOL = "request_login"
+# Refused to a guest server side (src/adk/tools.py): a guest's turn must never call them.
+PREMIUM_TOOLS = frozenset({
+    "generate_render", "suggest_quote_items", "submit_quote_request", "pricing_engine_tool",
+    "search_prezzario", "retrieve_price_by_code", "get_market_prices",
+})
+
+
+def _login_problems(run: MultiRoomRun, *, login_turn: int | None) -> list[str]:
+    """Phase 138 PR-6, a guest: no login card before the confirmation, exactly
+    one in the turn of the confirmation (`login_turn`, counted from the end;
+    None: no turn confirms), no premium tool in any turn."""
+    turns = run.tool_calls.turns()
+    if not turns:
+        return ["no turn was recorded"]
+    confirm = len(turns) + login_turn if login_turn is not None else None
+    found: list[str] = []
+    for n, calls in enumerate(turns):
+        logins = sum(tool == LOGIN_TOOL for _, tool in calls)
+        expected = 1 if n == confirm else 0
+        if logins != expected:
+            found.append(f"turn {n + 1}: {logins} login requests, expected {expected}")
+        found += [f"turn {n + 1}: guest called {agent}.{tool}" for agent, tool in calls if tool in PREMIUM_TOOLS]
+    return found
+
+
+def _logged_in_problems(run: MultiRoomRun) -> list[str]:
+    """A registered user is never asked to log in, and gets the quote."""
+    logins = [n + 1 for n, calls in enumerate(run.tool_calls.turns()) if any(t == LOGIN_TOOL for _, t in calls)]
+    found = [f"login requested in turn {n}" for n in logins]
+    return found + ([] if run.quotes.quotes else ["no quote was saved"])
 
 
 # What each multi-room eval set checks in the backend after its run (run_evals.py).
@@ -316,17 +444,37 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     "multi_room_submit.test.json": lambda run: run.quotes.problems() + run.submissions.problems(expected=1),
     # Facts given before the compaction come back for the right room.
     "multi_room_long_chat.test.json": _long_chat_problems,
+    # A corridor never created as a room: quoted once, in Generale.
+    "multi_room_general.test.json": lambda run: run.quotes.general_problems() + run.submissions.problems(expected=0),
+    # A guest is asked to log in once, in the turn it confirms, and never reaches a premium tool.
+    "guest_quote.test.json": lambda run: _login_problems(run, login_turn=-1),
+    "guest_render.test.json": lambda run: _login_problems(run, login_turn=-1),
+    # A price question is not a confirmation: the listino range, no login.
+    "guest_price.test.json": lambda run: _login_problems(run, login_turn=None),
+    "logged_in_quote.test.json": _logged_in_problems,
+}
+
+# Sets whose user is a guest (the login gate of the premium tools answers "guest").
+GUEST_SETS = frozenset({"guest_quote.test.json", "guest_render.test.json", "guest_price.test.json"})
+# Chat history suggest_quote_items reads, per set (default: QUOTE_HISTORY).
+QUOTE_HISTORIES: dict[str, list[dict[str, Any]]] = {
+    "multi_room_general.test.json": GENERAL_HISTORY,
+    "logged_in_quote.test.json": BATH_ONLY_HISTORY,
 }
 
 
 @contextmanager
-def multi_room_backend() -> Iterator[MultiRoomRun]:
+def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
     """Patch the room repository, chat history, login/quota gates, the image
-    backend and the quote store (no Firestore or Storage write)."""
+    backend and the quote store (no Firestore or Storage write), for the eval
+    set `set_name` (its user, guest or registered, and its chat history)."""
     repo = FakeRoomRepository()
     quotes = QuoteRecorder()
     run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, submissions=SubmitRecorder(quotes))
     RESPONSES.reset()
+    TOOL_CALLS.reset()
+    guest = set_name in GUEST_SETS
+    conversations = FakeConversations(QUOTE_HISTORIES.get(set_name, QUOTE_HISTORY))
     newest_project_photo = photo_url(KITCHEN_PHOTOS[1])  # what a room-blind render would use
     allowed = QuotaDecision(True, 10, utc_now())
     with ExitStack() as stack:
@@ -337,12 +485,13 @@ def multi_room_backend() -> Iterator[MultiRoomRun]:
         ):
             stack.enter_context(patch(target, return_value=repo))
         stack.enter_context(patch("src.adk.tools.latest_uploaded_photo_url", new=AsyncMock(return_value=newest_project_photo)))
-        stack.enter_context(patch("src.adk.tools.is_anonymous_user", new=AsyncMock(return_value=False)))
+        # The gate itself (not only the account lookup): the dev auth bypass of a local .env would open it.
+        stack.enter_context(patch("src.adk.tools._is_guest", new=AsyncMock(return_value=guest)))
         stack.enter_context(patch("src.adk.tools.check_quota", new=AsyncMock(return_value=allowed)))
         stack.enter_context(patch("src.adk.tools.increment_quota", new=AsyncMock()))
         stack.enter_context(patch("src.tools.generate_render.generate_render_wrapper", new=run.renders.render))
         # Quote: history and store in memory, seed price book (no Firestore read either).
-        stack.enter_context(patch("src.tools.quote_tools.ConversationRepository", return_value=FakeConversations()))
+        stack.enter_context(patch("src.tools.quote_tools.ConversationRepository", return_value=conversations))
         stack.enter_context(patch("src.tools.quote_tools.save_ai_draft", new=run.quotes.save))
         stack.enter_context(patch("src.tools.quote_tools.gather_dossier_inputs", new=AsyncMock(return_value=None)))
         stack.enter_context(patch("src.tools.quote_tools.get_async_firestore_client", new=MagicMock()))

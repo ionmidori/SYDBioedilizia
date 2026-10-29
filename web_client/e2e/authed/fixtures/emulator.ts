@@ -96,6 +96,8 @@ export interface SeedMessage {
   role: string;
   content: string;
   ts: string;
+  /** Tools the assistant called in this message (saved as `tool_calls`, like the backend). */
+  toolCalls?: readonly string[];
 }
 
 /** Seeds the deterministic chat history used by the reload-persistence test. */
@@ -103,6 +105,18 @@ export async function seedChatHistory(uid: string): Promise<string> {
   const sessionId = `global-${uid}`;
   await seedSession(sessionId, uid, SEEDED_MESSAGES);
   return sessionId;
+}
+
+/** Gives an existing session to `uid`, as the backend's guest claim does. */
+export async function setSessionOwner(sessionId: string, uid: string): Promise<void> {
+  await expectOk(
+    await fetch(`${FIRESTORE_DOCS_URL}/sessions/${sessionId}?updateMask.fieldPaths=userId`, {
+      method: 'PATCH',
+      headers: ADMIN_HEADERS,
+      body: JSON.stringify({ fields: { userId: { stringValue: uid } } }),
+    }),
+    'set session owner',
+  );
 }
 
 /**
@@ -128,7 +142,11 @@ export async function seedSession(
     }),
     'seed session doc',
   );
+  await seedMessages(sessionId, messages);
+}
 
+/** Adds messages to an existing session, as the backend saves a turn. */
+export async function seedMessages(sessionId: string, messages: readonly SeedMessage[]): Promise<void> {
   for (const message of messages) {
     await expectOk(
       await fetch(
@@ -141,6 +159,17 @@ export async function seedSession(
               role: { stringValue: message.role },
               content: { stringValue: message.content },
               timestamp: { timestampValue: message.ts },
+              ...(message.toolCalls && {
+                tool_calls: {
+                  arrayValue: {
+                    values: message.toolCalls.map((name, n) => ({
+                      mapValue: {
+                        fields: { id: { stringValue: `${message.id}-call-${n}` }, name: { stringValue: name } },
+                      },
+                    })),
+                  },
+                },
+              }),
             },
           }),
         },

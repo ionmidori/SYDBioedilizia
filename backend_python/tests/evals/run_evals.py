@@ -106,7 +106,8 @@ async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object
     below threshold. The multi-room sets run against an in-memory backend and
     also fail on its check: a render that did not start from the bathroom
     photo, a quote without a correct section per room, a submission without
-    the client's explicit yes."""
+    the client's explicit yes, a guest asked to log in before (or more than
+    once at) its confirmation."""
     common = {
         "eval_dataset_file_path_or_dir": str(path),
         "num_runs": num_runs,
@@ -115,10 +116,12 @@ async def _evaluate(path: Path, agent_name: str | None, num_runs: int) -> object
     }
     if path.parent != MULTI_ROOM_DIR:
         return await AgentEvaluator.evaluate(agent_module=AGENT_MODULE, **common)
-    with multi_room_backend() as run:
+    with multi_room_backend(path.name) as run:
         result = await AgentEvaluator.evaluate(agent_module=MULTI_ROOM_AGENT_MODULE, **common)
     for line in run.responses.token_report():
         logger.info(f"{path.name} tokens {line}")
+    for line in run.tool_calls.report():
+        logger.info(f"{path.name} tools {line}")
     problems = BACKEND_CHECKS[path.name](run)
     if problems:
         raise AssertionError(f"{path.name}: " + "; ".join(problems))

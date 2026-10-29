@@ -31,6 +31,7 @@ import {
     redirectKeepingGuestChats,
     signInKeepingGuestChats,
 } from '@/lib/auth/guest-claim';
+import { pendingMessageStore } from '@/lib/auth/pending-message';
 import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { mapAuthError } from '@/utils/auth-utils';
 
@@ -72,6 +73,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
  */
 export async function completeRedirectLogin(): Promise<void> {
     if (!takePendingRedirect()) return;
+    // The message a guest confirmed before leaving: sent once the login settles (GlobalAuthListener).
+    pendingMessageStore.restoreAfterRedirect();
     try {
         await finishRedirectKeepingGuestChats();
     } catch (err) {
@@ -272,6 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signInWithProvider = async (provider: FirebaseAuthProvider): Promise<SocialLoginOutcome> => {
         const redirect = async (): Promise<SocialLoginOutcome> => {
             savePendingRedirect();
+            pendingMessageStore.keepForRedirect();
             await redirectKeepingGuestChats(provider);
             return 'redirecting';
         };
