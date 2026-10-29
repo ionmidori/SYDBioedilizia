@@ -140,9 +140,9 @@ class Settings(BaseSettings):
         description="HTTP timeout of each model lookup in the startup validation (the shared "
                     "genai client has none: an unanswered lookup hung syd-brain-00692).",
     )
-    # Startup probe: 90 checks 1 s apart (deploy/cloud-run-config.sh). Worst case
-    # = parallel steps + firestore_async + price_book = 3 limits = 60 s, plus the
-    # imports before the warm-up starts (~8 s on syd-brain-00692).
+    # The startup probe (deploy/cloud-run-config.sh) must outlast the imports plus
+    # one limit per warm-up round (parallel steps, then each sequential step):
+    # tests/unit/test_startup_probe_budget.py checks it.
     WARMUP_STEP_TIMEOUT_SECONDS: float = Field(
         default=20.0,
         description="Time limit of each startup warm-up step; past it the instance becomes "

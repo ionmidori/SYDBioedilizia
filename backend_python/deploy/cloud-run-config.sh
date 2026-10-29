@@ -16,7 +16,10 @@
 #   --memory=1Gi          512Mi left little headroom for ADK + genai + Firebase +
 #                         Pinecone; more memory also means less GC during import
 #   --startup-probe       traffic only once /health/startup is 200, i.e. the
-#                         background warm-up is done (no request waits on it)
+#                         background warm-up is done (no request waits on it).
+#                         Counted from the container start, so it pays slow
+#                         imports too: budget checked by
+#                         tests/unit/test_startup_probe_budget.py
 #   --session-affinity    a conversation keeps hitting the instance that holds
 #                         its InMemorySessionService state (no Firestore re-hydration)
 #   --concurrency=40      one uvicorn process per instance: fewer concurrent
@@ -39,7 +42,7 @@ cmd=(gcloud run services update "$SERVICE"
   --concurrency=40
   --timeout=300
   --session-affinity
-  "--startup-probe=httpGet.path=/health/startup,periodSeconds=1,timeoutSeconds=1,failureThreshold=90"
+  "--startup-probe=httpGet.path=/health/startup,periodSeconds=1,timeoutSeconds=1,failureThreshold=180"
   --quiet)
 
 if [[ "${DRY_RUN:-0}" == "1" ]]; then
