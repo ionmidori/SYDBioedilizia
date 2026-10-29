@@ -31,7 +31,8 @@ from src.services.guest_claim.transfer import (
     find_guest_sessions,
     move_session,
 )
-from tests.unit.firestore_fakes import FakeDb, FakeTransaction
+from src.services.user_chat import service as user_chat_service
+from tests.unit.firestore_fakes import FakeBucket, FakeDb, FakeTransaction
 
 ANON = "anon-uid-1"
 OTHER_ANON = "anon-uid-2"
@@ -72,7 +73,15 @@ def kinds(monkeypatch):
 def audits(monkeypatch):
     events: list[tuple] = []
     monkeypatch.setattr(service, "emit_audit_event", lambda *args, **kwargs: events.append((args, kwargs)))
+    monkeypatch.setattr(user_chat_service, "emit_audit_event", lambda *args, **kwargs: None)
     return events
+
+
+@pytest.fixture(autouse=True)
+def bucket(monkeypatch) -> FakeBucket:
+    fake = FakeBucket()
+    monkeypatch.setattr(service, "get_storage_client", lambda: fake)
+    return fake
 
 
 @pytest.fixture(autouse=True)
@@ -140,6 +149,9 @@ class TestClaim:
 
         assert sorted(result.session_ids) == ["new", "old"]
         assert result.open_session_id == "new"  # the most recent conversation
+        assert db.get_data("users", USER)["chat_id"] == "new"  # the guest's chat is now the account's
+        # A chat with a quote is never merged: it stays a chat of its own.
+        assert "merged_into" not in db.get_data("sessions", "old")
         for sid in ("old", "new"):
             session = db.get_data("sessions", sid)
             assert session["userId"] == USER
@@ -268,6 +280,79 @@ class TestClaim:
         assert result.session_ids == ["new", "old"]
         assert result.open_session_id == "new"  # the conversation the guest was having
         assert db.get_data("sessions", "old")["userId"] == USER
+
+
+class TestOneChat:
+    """Phase 139: the account has one chat; the guest's chat ends up in it."""
+
+    async def test_an_account_without_a_chat_adopts_the_guest_chat(self, db, kinds):
+        _seed_session(db, "guest-new", ANON, updated=NOW, messages=2)
+        _seed_session(db, "guest-old", ANON, updated=NOW - timedelta(days=1), messages=3)
+        ticket = await _ticket(db)
+
+        result = await service.claim_guest_sessions(db, REGISTERED, ticket, now=NOW)
+
+        assert result.open_session_id == "guest-new"
+        assert db.get_data("users", USER)["chat_id"] == "guest-new"
+        assert db.get_data("sessions", "guest-old")["merged_into"] == "guest-new"
+        assert len([p for p in db.docs if p[:3] == ("sessions", "guest-new", "messages")]) == 5
+
+    async def test_an_account_with_a_chat_receives_the_guest_chat(self, db, kinds):
+        _seed_session(db, "account-chat", USER, updated=NOW - timedelta(days=5), messages=4)
+        db.docs[("sessions", "account-chat")].pop(EXPIRE_AT)  # a registered chat never expires
+        db.put("users", USER, {"chat_id": "account-chat"})
+        _seed_session(db, "guest-chat", ANON, updated=NOW, messages=2)
+        db.put("projects", "guest-chat", "rooms", "r1", {"room_id": "r1", "label": "Cucina", "room_type": "cucina"})
+        ticket = await _ticket(db)
+
+        result = await service.claim_guest_sessions(db, REGISTERED, ticket, now=NOW)
+
+        assert result.session_ids == ["guest-chat"]
+        assert result.open_session_id == "account-chat"
+        assert db.get_data("users", USER)["chat_id"] == "account-chat"
+        assert db.get_data("sessions", "guest-chat")["merged_into"] == "account-chat"
+        messages = [p for p in db.docs if p[:3] == ("sessions", "account-chat", "messages")]
+        assert len(messages) == 6
+        assert db.get_data("projects", "account-chat", "rooms", "r1")["label"] == "Cucina"
+        # The guest chat came from a guest: once in the account, nothing expires.
+        copies = [path for path in messages if path[-1].startswith("m_guest-chat_")]
+        assert len(copies) == 2
+        assert all(EXPIRE_AT not in db.get_data(*path) for path in copies)
+
+    async def test_an_account_with_chats_but_no_pointer_keeps_its_own_chat(self, db, kinds):
+        """Accounts from before Phase 139 have no pointer: their chat is the
+        most recent one, and the guest's few messages go into it."""
+        _seed_session(db, "account-chat", USER, updated=NOW - timedelta(days=5), messages=4)
+        db.docs[("sessions", "account-chat")].pop(EXPIRE_AT)
+        _seed_session(db, "guest-chat", ANON, updated=NOW, messages=1)
+        ticket = await _ticket(db)
+
+        result = await service.claim_guest_sessions(db, REGISTERED, ticket, now=NOW)
+
+        assert result.open_session_id == "account-chat"
+        assert db.get_data("users", USER)["chat_id"] == "account-chat"
+        assert db.get_data("sessions", "guest-chat")["merged_into"] == "account-chat"
+
+    async def test_a_retry_finishes_an_interrupted_merge(self, db, kinds, monkeypatch):
+        _seed_session(db, "account-chat", USER, updated=NOW - timedelta(days=5), messages=1)
+        db.put("users", USER, {"chat_id": "account-chat"})
+        _seed_session(db, "guest-chat", ANON, updated=NOW, messages=2)
+        ticket = await _ticket(db)
+        real_merge = service.merge_chat
+
+        async def failing(*args, **kwargs):
+            raise GoogleAPICallError("write failed")
+
+        monkeypatch.setattr(service, "merge_chat", failing)
+        with pytest.raises(GoogleAPICallError):
+            await service.claim_guest_sessions(db, REGISTERED, ticket, now=NOW)
+        monkeypatch.setattr(service, "merge_chat", real_merge)
+
+        result = await service.claim_guest_sessions(db, REGISTERED, ticket, now=NOW)
+
+        assert result.open_session_id == "account-chat"
+        assert db.get_data("sessions", "guest-chat")["merged_into"] == "account-chat"
+        assert len([p for p in db.docs if p[:3] == ("sessions", "account-chat", "messages")]) == 3
 
 
 class TestTransfer:

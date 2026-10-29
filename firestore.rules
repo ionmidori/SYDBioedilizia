@@ -6,13 +6,12 @@ service cloud.firestore {
     // ==========================================
     // SESSIONS COLLECTION
     // ==========================================
-    // Auth-required read with ownership check + 7-day TTL
+    // Auth-required read with ownership check. No age limit: the user's chat is
+    // permanent (Phase 139); guest chats expire through the expireAt TTL.
     // Server-only write (only Admin SDK can create/update)
     match /sessions/{sessionId} {
       allow read: if request.auth != null
-        && resource.data.userId == request.auth.uid
-        && resource.data.createdAt != null
-        && resource.data.createdAt > request.time - duration.value(7, 'd');
+        && resource.data.userId == request.auth.uid;
 
       // Only server can write (via Admin SDK with service account)
       allow write: if false;
@@ -157,10 +156,13 @@ service cloud.firestore {
       // claims (server-side), never from this doc, so these keys are never
       // legitimately client-writable — denying them prevents confusion and any
       // UI that might (incorrectly) trust a doc-level role.
+      // The user's chat (Phase 139) is decided by the backend: the client can
+      // neither set nor change the pointer, but keeps writing its other fields.
       allow write: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.size() <= 30
         && !request.resource.data.keys().hasAny(['role', 'roles', 'admin', 'isAdmin', 'claims', 'customClaims', 'permissions'])
+        && !request.resource.data.diff(resource == null ? {} : resource.data).affectedKeys().hasAny(['chat_id', 'chat_assigned_at'])
         && (!('email' in request.resource.data) || request.resource.data.email is string)
         && (!('displayName' in request.resource.data) || (request.resource.data.displayName is string && request.resource.data.displayName.size() <= 200))
         && (!('photoURL' in request.resource.data) || request.resource.data.photoURL is string);

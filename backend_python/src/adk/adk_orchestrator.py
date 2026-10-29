@@ -99,12 +99,20 @@ _HISTORY_FETCH_LIMIT = 60
 _HISTORY_MESSAGES = 30
 _TOOL_RESULT_MAX_CHARS = 2000
 
-# (user_id, session_id) → id of the newest assistant reply the in-memory session
-# of THIS instance contains (None: no reply yet). Process-local like the sessions
-# themselves: a key is present exactly while this instance holds the session.
-# When Firestore has a newer reply, another instance served later turns and the
-# session is rebuilt from Firestore (see `_stream_events`).
-_synced_marker: dict[tuple[str, str], str | None] = {}
+@dataclass(frozen=True)
+class SyncMarker:
+    """What the in-memory session of THIS instance reflects of Firestore."""
+
+    reply_id: str | None  # newest assistant reply it contains (None: no reply yet)
+    history_revision: int  # `sessions/{id}.historyRevision` when it was restored
+
+
+# (user_id, session_id) → SyncMarker. Process-local like the sessions themselves:
+# a key is present exactly while this instance holds the session. When Firestore
+# has a newer reply (another instance served later turns) or a new history
+# revision (a chat was merged into this one), the session is rebuilt from
+# Firestore (see `_stream_events`).
+_synced_marker: dict[tuple[str, str], SyncMarker] = {}
 
 
 async def _get_session(session_service: BaseSessionService, user_id: str, session_id: str) -> Session | None:
@@ -274,22 +282,40 @@ async def _open_restored_session(
         app_name=_APP_NAME, user_id=user_id, session_id=session_id, state=state
     )
     try:
-        marker = await _rehydrate_session(session_service, session, session_id, context)
+        # The revision before the history: a merge landing in between leaves the
+        # marker behind, so the next turn rebuilds again.
+        revision = await get_conversation_repository().history_revision(session_id)
+        reply_id = await _rehydrate_session(session_service, session, session_id, context)
     except Exception:
         await session_service.delete_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
         raise
-    _synced_marker[(user_id, session_id)] = marker
+    _synced_marker[(user_id, session_id)] = SyncMarker(reply_id, revision)
     return session
 
 
-async def _latest_reply_id(session_id: str) -> str | None:
-    """Newest assistant reply id in Firestore; None when it cannot be read (the
-    turn then trusts the in-memory session). Never raises."""
+def _is_stale(held: SyncMarker | None, stored: SyncMarker | None) -> bool:
+    """Whether Firestore moved on from the in-memory session: a new history
+    revision, or a reply it does not have. No reply in the read window (a burst
+    of tool rows) says nothing about other instances."""
+    if held is None or stored is None:
+        return False
+    if stored.history_revision != held.history_revision:
+        return True
+    return stored.reply_id is not None and stored.reply_id != held.reply_id
+
+
+async def _firestore_marker(session_id: str) -> SyncMarker | None:
+    """Newest assistant reply and history revision in Firestore; None when they
+    cannot be read (the turn then trusts the in-memory session). Never raises."""
+    repo = get_conversation_repository()
     try:
-        return await get_conversation_repository().latest_assistant_message_id(session_id)
+        reply_id, revision = await asyncio.gather(
+            repo.latest_assistant_message_id(session_id), repo.history_revision(session_id)
+        )
     except Exception:
         logger.warning("[ADK] Could not check the session for newer turns", exc_info=True)
         return None
+    return SyncMarker(reply_id, revision)
 
 
 async def _project_rooms(session_id: str) -> list[RoomSchema] | None:
@@ -487,8 +513,8 @@ class ADKOrchestrator(BaseOrchestrator):
         sync_key = (user_id, session_id)
         # When this instance already holds the session, check in parallel with the
         # profile lookup whether another instance served newer turns.
-        latest_reply_task = (
-            asyncio.create_task(_latest_reply_id(session_id)) if sync_key in _synced_marker else None
+        firestore_marker_task = (
+            asyncio.create_task(_firestore_marker(session_id)) if sync_key in _synced_marker else None
         )
         # Room index (session block and media labels), read alongside the profile lookup.
         rooms_task = asyncio.create_task(_project_rooms(session_id))
@@ -596,17 +622,14 @@ class ADKOrchestrator(BaseOrchestrator):
             session_service = get_session_service()
             session = await _get_session(session_service, user_id, session_id)
             # The freshness check ran alongside the profile lookup and media fetch.
-            latest_reply_id = await latest_reply_task if latest_reply_task is not None else None
+            firestore_marker = await firestore_marker_task if firestore_marker_task is not None else None
 
             # Another instance served newer turns (Firestore has a reply this
-            # session does not): rebuild it from Firestore instead of answering
-            # from an outdated history. Its state (e.g. refused videos) carries over.
+            # session does not) or a chat was merged into this one: rebuild it
+            # from Firestore instead of answering from an outdated history. Its
+            # state (e.g. refused videos) carries over.
             carried_state: dict[str, Any] | None = None
-            if (
-                session is not None
-                and latest_reply_id is not None
-                and latest_reply_id != _synced_marker.get(sync_key)
-            ):
+            if session is not None and _is_stale(_synced_marker.get(sync_key), firestore_marker):
                 logger.info("[ADK] Stale session resynced", extra={"session_id": session_id})
                 carried_state = dict(session.state)
                 await session_service.delete_session(app_name=_APP_NAME, user_id=user_id, session_id=session_id)
@@ -1027,7 +1050,8 @@ class ADKOrchestrator(BaseOrchestrator):
                         # On a failed save the marker stays on the last reply Firestore
                         # has, so the next turn does not throw this session away.
                         if saved:
-                            _synced_marker[sync_key] = assistant_msg_id
+                            held = _synced_marker.get(sync_key, SyncMarker(None, 0))
+                            _synced_marker[sync_key] = replace(held, reply_id=assistant_msg_id)
                             # The room brief catches up with this turn in the background:
                             # the stream ends now, the summarizer reads the saved messages.
                             schedule_room_brief_refresh(BriefTurn(

@@ -243,12 +243,15 @@ async def test_failed_restore_leaves_no_half_built_session():
 
 # ── Stale session resync ────────────────────────────────────────────────────
 
-async def _turn(*, marker: str | None, latest: str | None | Exception, history: list | None = None):
+async def _turn(
+    *, marker: str | None, latest: str | None | Exception, history: list | None = None,
+    held_revision: int = 0, revision: int = 0,
+):
     """One turn on a session this instance already holds (marker set)."""
     from src.adk import adk_orchestrator
-    from src.adk.adk_orchestrator import ADKOrchestrator
+    from src.adk.adk_orchestrator import ADKOrchestrator, SyncMarker
 
-    adk_orchestrator._synced_marker[KEY] = marker
+    adk_orchestrator._synced_marker[KEY] = SyncMarker(marker, held_revision)
     with patch("src.adk.adk_orchestrator.get_session_service") as get_session, \
          patch("src.adk.adk_orchestrator.get_conversation_repository") as get_repo, \
          patch("src.core.config.settings") as settings:
@@ -258,6 +261,7 @@ async def _turn(*, marker: str | None, latest: str | None | Exception, history: 
             repo.latest_assistant_message_id = AsyncMock(side_effect=latest)
         else:
             repo.latest_assistant_message_id = AsyncMock(return_value=latest)
+        repo.history_revision = AsyncMock(return_value=revision)
         repo.get_context = AsyncMock(return_value=history or [])
         session_service = get_session.return_value
         orch = ADKOrchestrator.__new__(ADKOrchestrator)
@@ -279,11 +283,60 @@ async def test_session_with_newer_turns_elsewhere_is_rebuilt_from_firestore():
     restored = [c.args[1].content.parts[0].text for c in session_service.append_event.await_args_list]
     assert restored == ["ciao", "risposta di un'altra istanza"]
     # After the turn the marker is this turn's own reply
-    assert adk_orchestrator._synced_marker[KEY] not in (None, "a1", "a9")
+    assert adk_orchestrator._synced_marker[KEY].reply_id not in (None, "a1", "a9")
+
+
+async def test_session_whose_history_was_merged_is_rebuilt_from_firestore():
+    """A chat merged into this one (Phase 139) adds older messages: the newest
+    reply is unchanged, the history revision is not."""
+    from src.adk import adk_orchestrator
+
+    history = [_msg("user", "dal telefono", "m_guest_u1"), _msg("assistant", "a1", "a1")]
+    session_service, _ = await _turn(marker="a1", latest="a1", history=history, held_revision=0, revision=1)
+
+    session_service.delete_session.assert_awaited_once()
+    session_service.create_session.assert_awaited_once()
+    restored = [c.args[1].content.parts[0].text for c in session_service.append_event.await_args_list]
+    assert restored == ["dal telefono", "a1"]
+    assert adk_orchestrator._synced_marker[KEY].history_revision == 1
+
+
+async def test_restore_reads_the_revision_before_the_history():
+    """A merge landing between the two reads makes the next turn rebuild again,
+    instead of keeping a history older than its recorded revision."""
+    from src.adk import adk_orchestrator
+    from src.adk.adk_orchestrator import SyncMarker, _open_restored_session
+
+    reads: list[str] = []
+    repo = AsyncMock()
+
+    async def revision(_sid):
+        reads.append("revision")
+        return 3
+
+    async def context(_sid, limit):
+        reads.append("history")
+        return [_msg("assistant", "ciao", "a5")]
+
+    repo.history_revision = revision
+    repo.get_context = context
+    with patch("src.adk.adk_orchestrator.get_conversation_repository", return_value=repo):
+        await _open_restored_session(AsyncMock(), *KEY)
+
+    assert reads == ["revision", "history"]
+    assert adk_orchestrator._synced_marker[KEY] == SyncMarker("a5", 3)
+
+
+async def test_no_reply_in_the_firestore_window_keeps_the_session():
+    """The last 20 messages may hold no assistant reply (a burst of tool rows):
+    nothing says another instance answered, so the session is not rebuilt."""
+    session_service, _ = await _turn(marker="a1", latest=None)
+
+    session_service.delete_session.assert_not_awaited()
 
 
 async def test_up_to_date_session_is_kept():
-    session_service, _ = await _turn(marker="a1", latest="a1")
+    session_service, _ = await _turn(marker="a1", latest="a1", held_revision=2, revision=2)
 
     session_service.delete_session.assert_not_awaited()
     session_service.create_session.assert_not_awaited()
@@ -306,14 +359,15 @@ async def test_resync_carries_the_old_session_state_over():
 
 async def test_failed_reply_save_keeps_the_marker_on_the_last_stored_reply():
     from src.adk import adk_orchestrator
-    from src.adk.adk_orchestrator import ADKOrchestrator
+    from src.adk.adk_orchestrator import ADKOrchestrator, SyncMarker
 
-    adk_orchestrator._synced_marker[KEY] = "a1"
+    adk_orchestrator._synced_marker[KEY] = SyncMarker("a1", 0)
     with patch("src.adk.adk_orchestrator.get_session_service") as get_session, \
          patch("src.adk.adk_orchestrator.get_conversation_repository") as get_repo, \
          patch("src.core.config.settings") as settings:
         _setup_mocks(get_session, get_repo, settings)
         get_repo.return_value.latest_assistant_message_id = AsyncMock(return_value="a1")
+        get_repo.return_value.history_revision = AsyncMock(return_value=0)
         get_repo.return_value.save_message = AsyncMock(return_value=False)
         orch = ADKOrchestrator.__new__(ADKOrchestrator)
         orch.runner = MagicMock()
@@ -321,7 +375,7 @@ async def test_failed_reply_save_keeps_the_marker_on_the_last_stored_reply():
         req, user = _make_request_and_user()
         await _collect_chunks(orch.stream_chat(req, user))
 
-    assert adk_orchestrator._synced_marker[KEY] == "a1"
+    assert adk_orchestrator._synced_marker[KEY] == SyncMarker("a1", 0)
 
 
 async def test_no_freshness_check_for_a_session_this_instance_never_served():

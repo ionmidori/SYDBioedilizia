@@ -43,6 +43,7 @@ _AUTH_FALLBACK_ROUTES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     ("GET", re.compile(r"/api/quote/user/[^/]+"), False),
     ("POST", re.compile(r"/api/guest-claim"), False),
     ("POST", re.compile(r"/api/guest-claim/ticket"), True),
+    ("GET", re.compile(r"/api/me/chat"), False),
 )
 
 

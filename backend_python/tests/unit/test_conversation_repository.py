@@ -9,8 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
-from src.core.exceptions import PermissionDenied
+from src.core.exceptions import ChatMerged, PermissionDenied
+from src.db.projects.constants import HISTORY_REVISION, MERGED_INTO
 from src.db.session_retention import EXPIRE_AT
+from tests.unit.firestore_fakes import FakeDb
 
 _MODULE = "src.repositories.conversation_repository"
 
@@ -437,6 +439,37 @@ class TestLatestAssistantMessageId:
             result = await repo.latest_assistant_message_id("s1")
 
         assert result is None
+
+
+class TestMergedChat:
+    """A chat merged into the user's chat is archived: a stale tab cannot keep
+    writing into it (those turns would never reach the user's chat)."""
+
+    @pytest.mark.asyncio
+    async def test_a_turn_on_a_merged_chat_is_refused(self, repo):
+        db = FakeDb()
+        db.put("sessions", "s1", {"userId": "u1", MERGED_INTO: "s2"})
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=db), pytest.raises(ChatMerged):
+            await repo.ensure_session("s1", "u1", is_guest=False)
+
+
+class TestHistoryRevision:
+    """Bumped by a chat merge: the ADK sessions held in memory rebuild."""
+
+    @pytest.mark.asyncio
+    async def test_reads_the_revision_of_the_session(self, repo):
+        db = FakeDb()
+        db.put("sessions", "s1", {"userId": "u1", HISTORY_REVISION: 2})
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=db):
+            assert await repo.history_revision("s1") == 2
+
+    @pytest.mark.asyncio
+    async def test_zero_until_a_merge_or_without_the_session(self, repo):
+        db = FakeDb()
+        db.put("sessions", "s1", {"userId": "u1"})
+        with patch(f"{_MODULE}.get_async_firestore_client", return_value=db):
+            assert await repo.history_revision("s1") == 0
+            assert await repo.history_revision("missing") == 0
 
 
 # ════════════════════════════════════════════════════════════════════════════

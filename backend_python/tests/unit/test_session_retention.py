@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from src.auth.user_lookup import AccountKind
-from src.db import session_retention
+from src.db import batching
 from src.db.session_retention import (
     EXPIRE_AT,
     GUEST_SESSION_TTL,
@@ -103,7 +103,7 @@ class TestClearSessionExpiry:
         assert EXPIRE_AT not in db.get_data("sessions", "s1", "messages", "m0")
 
     async def test_writes_messages_in_bounded_batches(self, monkeypatch):
-        monkeypatch.setattr(session_retention, "_BATCH_SIZE", 2)
+        monkeypatch.setattr(batching, "WRITE_BATCH_SIZE", 2)
         db = FakeDb()
         _seed_session(db, "s1", 5)
 

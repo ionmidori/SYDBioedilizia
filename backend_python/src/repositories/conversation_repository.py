@@ -6,10 +6,10 @@ from google.cloud import firestore as async_firestore
 from google.cloud.firestore_v1 import FieldFilter
 from pydantic import BaseModel
 
-from src.core.exceptions import PermissionDenied
+from src.core.exceptions import ChatMerged, PermissionDenied
 from src.db.firebase_client import get_async_firestore_client, get_firestore_client
 from src.db.projects import sync_project_cover
-from src.db.projects.constants import FILE_ROOM_FIELD
+from src.db.projects.constants import FILE_ROOM_FIELD, HISTORY_REVISION, MERGED_INTO
 from src.db.session_retention import clear_session_expiry, expiry_fields, needs_permanence
 from src.utils.download import storage_path_from_url
 
@@ -257,6 +257,14 @@ class ConversationRepository:
                 return doc.id
         return None
 
+    async def history_revision(self, session_id: str) -> int:
+        """`historyRevision` of the session: bumped when its stored history changes
+        other than by a new turn (a chat merged into it), 0 until then. Errors
+        propagate so the caller decides how to degrade."""
+        snap = await self._get_async_db().collection('sessions').document(session_id).get()
+        value = (snap.to_dict() or {}).get(HISTORY_REVISION) if snap.exists else None
+        return value if isinstance(value, int) else 0
+
     async def assert_session_access(self, session_id: str, user_id: str) -> None:
         """Raise PermissionDenied if the session exists and belongs to another user.
 
@@ -317,6 +325,10 @@ class ConversationRepository:
                 current_owner = session_data.get('userId', '')
 
                 _check_session_owner(session_id, current_owner, user_id)
+                # A chat merged into the user's chat is kept as it was: a turn
+                # written here would never reach the chat the user now reads.
+                if session_data.get(MERGED_INTO):
+                    raise ChatMerged()
 
                 # After the ownership check: a foreign session is never touched.
                 update_data: dict[str, Any] = expiry_fields(is_guest=is_guest)
@@ -354,7 +366,7 @@ class ConversationRepository:
                 # Last: claim and projection are done even if this cleanup fails.
                 await self._make_permanent_if_marked(db, session_id, session_data, is_guest=is_guest)
 
-        except PermissionDenied:
+        except (PermissionDenied, ChatMerged):
             raise
         except Exception as e:
             logger.error(f"[Repo] Error ensuring session: {str(e)}", exc_info=True)

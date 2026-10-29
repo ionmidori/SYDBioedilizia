@@ -40,6 +40,7 @@ def _verified(decoded):
         ("GET", "/api/reports/gallery"),
         ("GET", "/api/quote/user/u1"),
         ("POST", "/api/guest-claim"),
+        ("GET", "/api/me/chat"),
     ],
 )
 async def test_registered_user_reads_dashboard_without_app_check(method, path):
@@ -64,7 +65,9 @@ async def test_other_routes_stay_strict(method, path):
         await app_check.validate_app_check_token(_request(method, path))
 
 
-@pytest.mark.parametrize(("method", "path"), [("GET", "/api/projects"), ("POST", "/api/guest-claim")])
+@pytest.mark.parametrize(
+    ("method", "path"), [("GET", "/api/projects"), ("POST", "/api/guest-claim"), ("GET", "/api/me/chat")]
+)
 async def test_anonymous_user_gets_no_fallback(method, path):
     with _verified(ANONYMOUS), pytest.raises(AppCheckError):
         await app_check.validate_app_check_token(_request(method, path))

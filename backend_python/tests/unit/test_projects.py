@@ -318,3 +318,20 @@ class TestProjectsFailClosed:
             for record in caplog.records
         ), "Expected a warning naming the project whose quote lookup failed"
 
+
+
+async def test_get_user_projects_hides_chats_merged_into_another():
+    """Phase 139: a guest chat merged into the account's chat is archived; its
+    messages now live in the account's chat, so the list must not show it twice."""
+    from src.db import projects as projects_db
+    from tests.unit.firestore_fakes import FakeDb
+
+    db = FakeDb()
+    for sid, extra in (("account-chat", {}), ("guest-chat", {"merged_into": "account-chat"})):
+        db.put("sessions", sid, {"userId": "user-123", "title": "Casa", "status": "draft",
+                                 "updatedAt": utc_now(), "messageCount": 1, **extra})
+
+    with patch('src.db.projects.queries.get_async_firestore_client', return_value=db):
+        projects = await projects_db.get_user_projects("user-123")
+
+    assert [p.session_id for p in projects] == ["account-chat"]

@@ -44,9 +44,9 @@ from src.auth.user_lookup import AccountKind, account_kind
 from src.core.config import settings
 from src.db.firebase_client import get_async_firestore_client, get_storage_client
 from src.db.ownership import real_owners
-from src.db.purge import iter_tree, storage_folder_ids
+from src.db.purge import find_chat_remains, iter_tree
 from src.db.session_retention import EXPIRE_AT, GUEST_SESSION_TTL, clear_session_expiry
-from src.db.storage_paths import PROJECT_STORAGE_ROOTS, is_safe_id, project_storage_prefixes
+from src.db.storage_paths import is_safe_id, project_storage_prefixes
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.services.erasure.legal_hold import (
     HeldQuote,
@@ -248,15 +248,10 @@ class RetentionService:
 
     async def _orphan_ids(self) -> list[str]:
         """Ids with remains (Firestore or Storage) but no session document."""
-        sessions = self._db.collection("sessions")
+        remains = await find_chat_remains(self._db, self._bucket)
+        session_remains = remains.session_remains
         projects = self._db.collection("projects")
-        live = {snap.id async for snap in sessions.select([]).stream()}
-        session_remains = {ref.id async for ref in sessions.list_documents()} - live
-        project_refs = {ref.id async for ref in projects.list_documents()}
-        stored: set[str] = set()
-        for root in PROJECT_STORAGE_ROOTS:
-            stored |= await storage_folder_ids(self._bucket, root)
-        candidates = (session_remains | project_refs | stored) - live
+        candidates = remains.all_ids - remains.live
 
         # A registered legal hold keeps the quote (under the deleted projection)
         # and its PDFs on purpose: such a project is an orphan only if a session

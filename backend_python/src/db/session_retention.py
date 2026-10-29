@@ -17,20 +17,19 @@ project that is meant to stay.
 """
 from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from google.cloud.firestore_v1 import DELETE_FIELD
 from google.cloud.firestore_v1.base_query import FieldFilter
 from src.auth.user_lookup import AccountKind
+from src.db.batching import BatchWriter
 from src.db.ownership import is_guest_placeholder
 from src.utils.datetime_utils import utc_now
 
 EXPIRE_AT = "expireAt"
 GUEST_SESSION_TTL = timedelta(days=30)
-
-# Messages updated per write batch (Firestore allows 500 writes per batch).
-_BATCH_SIZE = 400
+_OLDEST = datetime.min.replace(tzinfo=UTC)
 
 # Literal names: importing src.db.projects here would be circular (its mutations
 # module imports this one). Same collections as src/db/projects/constants.py.
@@ -55,6 +54,16 @@ def is_soft_deleted(data: dict[str, Any] | None) -> bool:
     return bool(data) and data.get("is_deleted") is True
 
 
+def last_activity(data: dict[str, Any]) -> datetime:
+    """When a session was last written (`updatedAt`, else `createdAt`); the
+    oldest possible time when neither is a timestamp."""
+    for key in ("updatedAt", "createdAt"):
+        value = data.get(key)
+        if isinstance(value, datetime):
+            return value
+    return _OLDEST
+
+
 def needs_permanence(data: dict[str, Any] | None) -> bool:
     """A live session that still carries a guest expiry."""
     return bool(data) and EXPIRE_AT in data and not is_soft_deleted(data)
@@ -74,19 +83,10 @@ async def _marked_messages(db: Any, session_id: str) -> AsyncIterator[Any]:
 
 async def _update_all(db: Any, messages: AsyncIterator[Any], data: dict[str, Any]) -> int:
     """Apply `data` to every message, in bounded write batches. Returns the count."""
-    updated = 0
-    batch = None
-    async for message in messages:
-        if batch is None:
-            batch = db.batch()
-        batch.update(message.reference, data)
-        updated += 1
-        if updated % _BATCH_SIZE == 0:
-            await batch.commit()
-            batch = None
-    if batch is not None:
-        await batch.commit()
-    return updated
+    async with BatchWriter(db) as writer:
+        async for message in messages:
+            await writer.update(message.reference, data)
+    return writer.written
 
 
 async def clear_session_expiry(db: Any, session_id: str) -> int:

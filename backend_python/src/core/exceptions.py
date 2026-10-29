@@ -302,3 +302,22 @@ class GuestClaimDenied(PermissionDenied):
     guest, or the account is not one chats may move from/to. The message is
     shown to the user as is."""
     error_code = "GUEST_CLAIM_DENIED"
+
+
+# ─── The user's chat (src/services/user_chat) ─────────────────────────────────
+
+class UserChatSignInRequired(PermissionDenied):
+    """Only a registered user has a chat chosen by the backend."""
+    error_code = "USER_CHAT_SIGN_IN_REQUIRED"
+
+    def __init__(self) -> None:
+        super().__init__(message="Accedi con il tuo account per aprire la tua chat.")
+
+
+class ChatMerged(AppException):
+    """The chat was merged into the user's chat (archived): turns go there."""
+    status_code = 409
+    error_code = "CHAT_MERGED"
+
+    def __init__(self) -> None:
+        super().__init__(message="Questa conversazione è stata unita alla tua chat. Ricarica la pagina per continuare.")
