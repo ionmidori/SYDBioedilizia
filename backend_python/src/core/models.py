@@ -20,11 +20,13 @@ configured ID is still served (a retired model fails at deploy, not in chat).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from functools import lru_cache
 
+import httpx
 from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
@@ -152,21 +154,35 @@ def configured_models() -> dict[ModelRole, str]:
     return {role: get_model_id(role) for role in ModelRole}
 
 
+async def _model_problem(client: genai.Client, model: str, config: types.GetModelConfig) -> str | None:
+    try:
+        await client.aio.models.get(model=model, config=config)
+    except genai_errors.APIError as exc:
+        problem = f"model {model!r} is not available: {exc.code} {exc.message}"
+    # Transport errors of the bounded lookup (httpx; aiohttp raises TimeoutError).
+    except (httpx.HTTPError, TimeoutError) as exc:
+        problem = f"model {model!r} could not be verified: {exc!r}"
+    else:
+        return None
+    logger.error("[Models] %s", problem, extra={"event": "model_unavailable", "model": model})
+    return problem
+
+
 async def validate_configured_models() -> list[str]:
     """Check that every configured model ID is served by the active backend.
 
     Returns the problems found (empty list = all good); logs each at ERROR.
     With MODEL_VALIDATION_STRICT=true the caller should refuse to start.
+    The lookups run concurrently, each bounded by MODEL_VALIDATION_TIMEOUT_SECONDS.
     """
-    problems: list[str] = []
     client = get_genai_client()
-    for model in sorted(set(configured_models().values())):
-        try:
-            await client.aio.models.get(model=model)
-        except genai_errors.APIError as exc:
-            problem = f"model {model!r} is not available: {exc.code} {exc.message}"
-            problems.append(problem)
-            logger.error("[Models] %s", problem, extra={"event": "model_unavailable", "model": model})
+    config = types.GetModelConfig(
+        http_options=types.HttpOptions(timeout=round(settings.MODEL_VALIDATION_TIMEOUT_SECONDS * 1000))
+    )
+    results = await asyncio.gather(
+        *(_model_problem(client, model, config) for model in sorted(set(configured_models().values())))
+    )
+    problems = [problem for problem in results if problem is not None]
     if not problems:
         logger.info("[Models] All configured models are available", extra={"models": configured_models()})
     return problems
