@@ -19,6 +19,10 @@ describe('safeNextPath', () => {
     it.each([
         ['an absolute URL', 'https://evil.example/phish'],
         ['a protocol-relative URL', '//evil.example/phish'],
+        // Dot segments collapse into `//host` once the path is normalized.
+        ['a dot segment before slashes', '/.//evil.example'],
+        ['a parent segment before slashes', '/a/..//evil.example'],
+        ['an encoded dot segment before slashes', '/%2e//evil.example'],
         ['a backslash host', '/\\evil.example'],
         ['a double backslash', '\\\\evil.example'],
         ['a script URL', 'javascript:alert(1)'],

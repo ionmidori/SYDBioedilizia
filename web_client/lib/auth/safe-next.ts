@@ -21,6 +21,8 @@ export function safeNextPath(raw: string | null | undefined): string {
         return HOME;
     }
     if (url.origin !== BASE) return HOME;
+    // Checked again after normalization: `/.//host` and `/a/..//host` become `//host`.
+    if (url.pathname.startsWith('//')) return HOME;
     if (url.pathname === VERIFY_PATH || url.pathname.startsWith(`${VERIFY_PATH}/`)) return HOME;
     return url.pathname + url.search + url.hash;
 }
