@@ -10,7 +10,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from main import app
 from src.auth.jwt_handler import verify_token
-from src.core.exceptions import PermissionDenied
+from src.core.exceptions import ChatMerged, PermissionDenied
 from src.schemas.internal import UserSession
 from src.services.orchestrator_factory import get_orchestrator
 
@@ -72,3 +72,21 @@ async def test_session_and_user_message_follow_the_user_retention(_overrides, is
     assert resp.status_code == 200
     repo.ensure_session.assert_awaited_once_with("own-session", "owner-uid", is_guest=expected_guest)
     assert repo.save_message.await_args.kwargs["is_guest"] is expected_guest
+
+
+@pytest.mark.asyncio
+async def test_merged_chat_is_refused_with_409(_overrides):
+    """Phase 139: a chat merged into the user's chat is archived; a stale tab's
+    turn must not be saved there, where the user would never see it."""
+    repo = MagicMock()
+    repo.ensure_session = AsyncMock(side_effect=ChatMerged())
+    repo.save_message = AsyncMock()
+
+    with patch("src.repositories.conversation_repository.get_conversation_repository", return_value=repo):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post("/chat/stream", json=_BODY)
+
+    assert resp.status_code == 409
+    assert resp.json()["error_code"] == "CHAT_MERGED"
+    _overrides.stream_chat.assert_not_called()
+    repo.save_message.assert_not_called()

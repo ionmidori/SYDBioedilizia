@@ -14,7 +14,7 @@ resume after a failure: never rename one.
 """
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Iterator, Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -22,7 +22,7 @@ from typing import Any
 from google.cloud.firestore_v1 import DELETE_FIELD
 from google.cloud.firestore_v1.base_query import FieldFilter
 
-from src.db.purge import delete_document_tree, delete_query, delete_storage_prefix
+from src.db.purge import delete_document_tree, delete_query, delete_refs, delete_storage_prefix, refs_where_in
 from src.db.storage_paths import user_storage_prefixes
 from src.services.auth_gateway import AuthGateway
 from src.services.erasure.legal_hold import HeldQuote, find_held_quotes
@@ -33,9 +33,6 @@ from src.services.erasure.project_purge import (
     purge_projection,
     purge_session,
 )
-
-# Firestore `in` queries accept at most 30 values.
-_IN_LIMIT = 30
 
 # Profile fields an inactivity tombstone keeps: they stop the lifecycle from
 # selecting the account again and prove the warning/disable happened.
@@ -59,11 +56,6 @@ class ErasureContext:
         return self._held[project_id]
 
 
-def _chunks(values: Sequence[str]) -> Iterator[list[str]]:
-    for start in range(0, len(values), _IN_LIMIT):
-        yield list(values[start:start + _IN_LIMIT])
-
-
 def _where(db: Any, collection: str, field: str, op: str, value: Any) -> Any:
     return db.collection(collection).where(filter=FieldFilter(field, op, value))
 
@@ -84,17 +76,15 @@ async def _legal_hold(ctx: ErasureContext) -> int:
 async def _email_outbox(ctx: ErasureContext) -> int:
     """Queued/sent email records of the user's projects (also cancels a pending send)."""
     deleted = 0
-    for chunk in _chunks(ctx.project_ids):
-        for collection in ("email_outbox", "email_messages"):
-            deleted += await delete_query(ctx.db, _where(ctx.db, collection, "project_id", "in", chunk))
+    for collection in ("email_outbox", "email_messages"):
+        deleted += await delete_refs(ctx.db, await refs_where_in(ctx.db, collection, "project_id", ctx.project_ids))
     return deleted
 
 
 async def _leads(ctx: ErasureContext) -> int:
     deleted = await delete_query(ctx.db, _where(ctx.db, "leads", "uid", "==", ctx.uid))
-    for chunk in _chunks(ctx.project_ids):  # leads written while the user was a guest
-        deleted += await delete_query(ctx.db, _where(ctx.db, "leads", "session_id", "in", chunk))
-    return deleted
+    # Leads written while the user was a guest.
+    return deleted + await delete_refs(ctx.db, await refs_where_in(ctx.db, "leads", "session_id", ctx.project_ids))
 
 
 async def _testimonials(ctx: ErasureContext) -> int:

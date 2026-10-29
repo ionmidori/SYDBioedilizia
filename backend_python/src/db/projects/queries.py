@@ -5,7 +5,7 @@ import logging
 
 from google.cloud.firestore_v1 import FieldFilter
 from src.db.firebase_client import get_async_firestore_client
-from src.db.projects.constants import PROJECTS_COLLECTION
+from src.db.projects.constants import MERGED_INTO, PROJECTS_COLLECTION
 from src.models.project import (
     Address,
     ProjectDetails,
@@ -45,8 +45,9 @@ async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListIt
         async for doc in docs:
             data = doc.to_dict() or {}
 
-            # Skip soft-deleted projects (is_deleted may be absent on legacy docs)
-            if data.get("is_deleted") is True:
+            # Skip soft-deleted projects (is_deleted may be absent on legacy docs) and
+            # chats merged into the user's chat (their messages are listed there).
+            if data.get("is_deleted") is True or data.get(MERGED_INTO):
                 continue
 
             # Robust Parsing via Utility

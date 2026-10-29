@@ -2,7 +2,7 @@
 from datetime import UTC, datetime
 
 import pytest
-from src.db import purge
+from src.db import batching
 from src.db.purge import (
     delete_document_tree,
     delete_query,
@@ -62,7 +62,7 @@ class TestDeleteDocumentTree:
         assert db.get_data("projects", "p1", "private_data", "quote", "deliveries", "d1") is not None
 
     async def test_writes_in_bounded_batches(self, monkeypatch):
-        monkeypatch.setattr(purge, "_BATCH_SIZE", 2)
+        monkeypatch.setattr(batching, "WRITE_BATCH_SIZE", 2)
         db = FakeDb()
         for i in range(5):
             db.put("sessions", "s1", "messages", f"m{i}", {"content": i})

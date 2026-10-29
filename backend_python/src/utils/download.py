@@ -185,7 +185,7 @@ class MediaUnavailableError(Exception):
     """A project media file cannot be read: outside the session, missing or too large."""
 
 
-def _parse_storage_ref(ref: str) -> tuple[str | None, str] | None:
+def parse_storage_ref(ref: str) -> tuple[str | None, str] | None:
     """(bucket, object path) of a media reference; bucket None means the app bucket.
 
     Accepts what the chat stores as a media reference: Firebase/GCS URLs (signed
@@ -216,7 +216,7 @@ def session_media_path(ref: str | None, session_id: str) -> str | None:
     """
     if not ref:
         return None
-    parsed = _parse_storage_ref(ref)
+    parsed = parse_storage_ref(ref)
     if parsed is None:
         return None
     bucket, path = parsed

@@ -7,6 +7,7 @@ carries its `room_id`. Documents are stored as `RoomSchema.model_dump()`
 
 **Golden Sync**: mirrored by the zod schemas in `web_client/types/room.ts`.
 """
+import re
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
@@ -26,6 +27,16 @@ ROOM_ID_PATTERN = r"^[a-zA-Z0-9_-]{1,64}$"
 RoomId = Annotated[str, StringConstraints(pattern=ROOM_ID_PATTERN)]
 
 RoomLabel = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
+
+# Leading article: "l'" may touch the word ("l'ingresso"), the others need a space
+# (else "Ingresso" would lose its "I").
+_ARTICLE = re.compile(r"^(?:l'\s*|(?:il|lo|la|i|gli|le)\s+)")
+
+
+def normalize_room_label(text: str) -> str:
+    """Key under which two names mean the same room: "Il  Bagno" = "bagno"."""
+    return _ARTICLE.sub("", " ".join(text.casefold().split()))
+
 _BriefText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
 _BriefItem = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
 

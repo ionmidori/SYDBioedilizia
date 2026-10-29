@@ -20,7 +20,7 @@ from src.auth.jwt_handler import verify_token
 from src.core.chat_timing import start_turn
 from src.core.config import settings
 from src.core.context import set_request_id
-from src.core.exceptions import AppException, PermissionDenied
+from src.core.exceptions import AppException, ChatMerged, PermissionDenied
 from src.core.logger import get_logger, setup_logging
 from src.core.models import validate_configured_models
 from src.core.rate_limit import charge_extra, limiter
@@ -474,6 +474,11 @@ from src.api.routes.guest_claim import router as guest_claim_router
 
 app.include_router(guest_claim_router)
 
+# Register the signed-in user's router (the user's chat, Phase 139)
+from src.api.routes.me import router as me_router
+
+app.include_router(me_router)
+
 # Register reports router (gallery + dashboard stats)
 from src.api.routes.reports import router as reports_router
 
@@ -762,9 +767,10 @@ async def chat_stream(
     room_check = asyncio.create_task(_is_project_room(body.session_id, body.room_id)) if body.room_id else None
     # 🛡️ PermissionDenied (session owned by another user) propagates as a 403
     # BEFORE the stream starts — the orchestrator must never load a foreign history.
+    # ChatMerged (Phase 139: the chat now lives in the user's chat) as a 409.
     try:
         await repo.ensure_session(body.session_id, user_session.uid, is_guest=user_session.is_guest)
-    except PermissionDenied:
+    except (PermissionDenied, ChatMerged):
         if room_check is not None:
             room_check.cancel()
         raise

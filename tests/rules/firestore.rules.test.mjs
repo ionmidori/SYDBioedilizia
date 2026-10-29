@@ -31,6 +31,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'email_messages/m1'), { project_id: 'p1', delivery_id: 'd1' });
   await setDoc(doc(db, 'projects/p1/rooms/bagno'), { room_id: 'bagno', label: 'Bagno', room_type: 'bagno' });
   await setDoc(doc(db, 'guest_claim_tickets/h1'), { anonUid: 'anon-1', expiresAt: new Date(Date.now() + 600_000) });
+  // Phase 139: one permanent chat per user, pointed at by users/{uid}.chat_id (backend-only).
+  await setDoc(doc(db, 'sessions/chat-old'), { userId: 'owner', createdAt: new Date(Date.now() - 30 * 86_400_000) });
+  await setDoc(doc(db, 'users/owner'), { displayName: 'Mario', chat_id: 'chat-old' });
 });
 
 const owner = env.authenticatedContext('owner', google).firestore();
@@ -78,6 +81,16 @@ const cases = [
   ['user lists claim tickets', false, () => getDocs(collection(owner, 'guest_claim_tickets'))],
   ['guest forges a claim ticket', false, () => setDoc(doc(anon, 'guest_claim_tickets/h2'), { anonUid: 'victim' })],
   ['user redeems a ticket from the client', false, () => updateDoc(doc(owner, 'guest_claim_tickets/h1'), { claimedBy: 'owner' })],
+  // the user's chat (Phase 139): permanent, so readable whatever its age; the
+  // pointer to it is decided by the backend only
+  ['owner reads a 30-day-old chat', true, () => getDoc(doc(owner, 'sessions/chat-old'))],
+  ['other reads the chat', false, () => getDoc(doc(other, 'sessions/chat-old'))],
+  ['owner reads own user doc', true, () => getDoc(doc(owner, 'users/owner'))],
+  ['owner updates its display name', true, () => updateDoc(doc(owner, 'users/owner'), { displayName: 'Mario R.' })],
+  ['owner points its chat elsewhere', false, () => updateDoc(doc(owner, 'users/owner'), { chat_id: 'chat-x' })],
+  ['owner stamps the chat assignment', false, () => updateDoc(doc(owner, 'users/owner'), { chat_assigned_at: new Date() })],
+  ['new user creates its doc with a chat', false, () => setDoc(doc(other, 'users/attacker'), { chat_id: 'chat-old' })],
+  ['new user creates its doc', true, () => setDoc(doc(other, 'users/attacker'), { displayName: 'Eve' })],
 ];
 
 let failed = 0;

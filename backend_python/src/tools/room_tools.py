@@ -14,7 +14,7 @@ from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNo
 from src.core.logger import get_logger
 from src.db.projects.constants import FILE_ROOM_FIELD
 from src.repositories.room_repository import get_room_repository
-from src.schemas.room import ROOM_ID_PATTERN, ROOM_TYPES, RoomCreate, RoomSchema, RoomType
+from src.schemas.room import ROOM_ID_PATTERN, ROOM_TYPES, RoomCreate, RoomSchema, RoomType, normalize_room_label
 
 logger = get_logger(__name__)
 
@@ -22,9 +22,6 @@ _ROOM_ID = re.compile(ROOM_ID_PATTERN)
 # File ids are Firestore document ids chosen by the backend (upload asset ids):
 # a slash would address another document path.
 _FILE_ID = re.compile(r"^[a-zA-Z0-9_-]{1,128}$")
-# Leading article: "l'" may touch the word ("l'ingresso"), the others need a space
-# (else "Ingresso" would lose its "I").
-_ARTICLE = re.compile(r"^(?:l'\s*|(?:il|lo|la|i|gli|le)\s+)")
 ROOM_MEDIA_LIMIT = 20
 
 _MEDIA_KIND = {"image": "Foto", "video": "Video", "render": "Render"}
@@ -62,16 +59,12 @@ def _error(message: str) -> dict[str, Any]:
     return {"status": "error", "message": message}
 
 
-def _normalize(text: str) -> str:
-    return _ARTICLE.sub("", " ".join(text.casefold().split()))
-
-
 def match_room(rooms: list[RoomSchema], name: str, room_type: str) -> RoomSchema | None:
     """The room the user means: same name, or the only room of that type when
     the name is just the type ("il bagno" with one bathroom)."""
-    key = _normalize(name)
+    key = normalize_room_label(name)
     for room in rooms:
-        if _normalize(room.label) == key:
+        if normalize_room_label(room.label) == key:
             return room
     same_type = [r for r in rooms if r.room_type == room_type]
     if len(same_type) == 1 and key in (room_type, ""):

@@ -14,6 +14,7 @@ from google.cloud.firestore_v1 import FieldFilter
 
 from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNotFoundError
 from src.core.logger import get_logger
+from src.db.batching import BatchWriter
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import FILE_ROOM_FIELD
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomBrief, RoomCreate, RoomSchema, RoomUpdate
@@ -28,8 +29,6 @@ FILES = "files"
 # A home, not a building: bounds the room index the model reads every turn.
 # Soft cap (count then write): concurrent creations may pass it by a few.
 MAX_ROOMS_PER_PROJECT = 30
-# Writes per batch when filing a legacy project's files (Firestore limit: 500).
-_BATCH_WRITES = 400
 # Newest files searched for a photo without a room (render source fallback).
 _UNFILED_SCAN = 50
 
@@ -126,20 +125,11 @@ class RoomRepository:
 
     async def _file_unfiled_media(self, project_id: str) -> int:
         """Put every file without a room in the default room (batched writes); how many."""
-        db = self._db()
-        batch, pending, assigned = db.batch(), 0, 0
-        async for doc in self._project(project_id).collection(FILES).stream():
-            if (doc.to_dict() or {}).get(FILE_ROOM_FIELD):
-                continue
-            batch.update(doc.reference, {FILE_ROOM_FIELD: DEFAULT_ROOM_ID})
-            pending += 1
-            assigned += 1
-            if pending == _BATCH_WRITES:
-                await batch.commit()
-                batch, pending = db.batch(), 0
-        if pending:
-            await batch.commit()
-        return assigned
+        async with BatchWriter(self._db()) as writer:
+            async for doc in self._project(project_id).collection(FILES).stream():
+                if not (doc.to_dict() or {}).get(FILE_ROOM_FIELD):
+                    await writer.update(doc.reference, {FILE_ROOM_FIELD: DEFAULT_ROOM_ID})
+        return writer.written
 
     async def _create_default_room(self, project_id: str) -> RoomSchema:
         now = utc_now()

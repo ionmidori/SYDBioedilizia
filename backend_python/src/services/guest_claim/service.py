@@ -9,6 +9,11 @@ EXISTING account the uid changes: the client then
    anonymous uid moves to the account.
 Sessions move only with the ticket of the anonymous user that owns them, only
 to a registered account, and never from a registered account.
+
+Then the account has one chat (Phase 139): the account's chat if it has one,
+else the guest's most recent chat, which becomes the account's; every other
+moved chat is merged into it (src/services/chat_merge). A chat that cannot be
+merged (it has a quote) stays a chat of its own: nothing is lost.
 """
 import logging
 from datetime import datetime
@@ -16,11 +21,15 @@ from typing import Any
 
 from src.auth.user_lookup import AccountKind, account_kind
 from src.core.exceptions import GuestClaimDenied
+from src.db.firebase_client import get_storage_client
 from src.schemas.guest_claim import GuestClaimResult, GuestClaimTicket
 from src.schemas.internal import UserSession
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
+from src.services.chat_merge.media import MediaStore
+from src.services.chat_merge.service import ChatMergeError, merge_chat
 from src.services.guest_claim import tickets
 from src.services.guest_claim.transfer import GuestSessions, find_guest_sessions, move_session
+from src.services.user_chat.service import read_user_chat, resolve_user_chat
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -39,14 +48,32 @@ async def issue_claim_ticket(db: Any, user: UserSession, *, now: datetime | None
     return GuestClaimTicket(ticket=issued.ticket, expires_at=issued.expires_at)
 
 
-def _outcome(earlier: GuestClaimResult | None, found: GuestSessions) -> GuestClaimResult:
-    """What the claim moves: what an earlier attempt planned, plus what is left now."""
+def _outcome(earlier: GuestClaimResult | None, found: GuestSessions, account_chat: str | None) -> GuestClaimResult:
+    """What the claim moves: what an earlier attempt planned, plus what is left
+    now; the chat to open is the account's, else the guest's most recent."""
     if earlier is None:
-        return GuestClaimResult(session_ids=found.session_ids, open_session_id=found.open_session_id)
+        if not found.session_ids:
+            return GuestClaimResult(session_ids=[])
+        return GuestClaimResult(session_ids=found.session_ids, open_session_id=account_chat or found.open_session_id)
     return GuestClaimResult(
         session_ids=[*earlier.session_ids, *(s for s in found.session_ids if s not in earlier.session_ids)],
-        open_session_id=earlier.open_session_id or found.open_session_id,
+        open_session_id=earlier.open_session_id or account_chat or found.open_session_id,
     )
+
+
+async def _into_one_chat(db: Any, uid: str, outcome: GuestClaimResult, now: datetime) -> str:
+    """Make the account's chat hold the moved chats; returns the account's chat."""
+    chat = await resolve_user_chat(db, uid, now=now, prefer=outcome.open_session_id)
+    others = [session_id for session_id in outcome.session_ids if session_id != chat.chat_id]
+    if others:
+        media = MediaStore(get_storage_client())
+        for session_id in others:
+            try:
+                await merge_chat(db, media, session_id, chat.chat_id, now=now)
+            except ChatMergeError as exc:
+                # Kept, not lost: still the user's, by id and in the admin.
+                logger.error("[GuestClaim] Chat kept on its own", extra={"reason": str(exc)})
+    return chat.chat_id
 
 
 async def claim_guest_sessions(
@@ -70,7 +97,7 @@ async def claim_guest_sessions(
         raise GuestClaimDenied(message=SOURCE_IS_REGISTERED)
 
     found = await find_guest_sessions(db, anon_uid)
-    outcome = _outcome(redemption.outcome, found)
+    outcome = _outcome(redemption.outcome, found, await read_user_chat(db, user.uid))
     if outcome != redemption.outcome:
         # Before moving: an interrupted claim still answers with every session it planned.
         await tickets.record_outcome(db, ticket, outcome)
@@ -81,4 +108,7 @@ async def claim_guest_sessions(
             user_id=user.uid, metadata={"from_uid": anon_uid},
         )
     logger.info(f"[GuestClaim] {len(found.session_ids)} sessions of {anon_uid} claimed by {user.uid}")
-    return outcome
+    if outcome.open_session_id is None:
+        return outcome  # the guest never wrote
+    chat_id = await _into_one_chat(db, user.uid, outcome, now or utc_now())
+    return outcome.model_copy(update={"open_session_id": chat_id})

@@ -1,7 +1,8 @@
 """Minimal in-memory Firestore doubles for transaction-body unit tests.
 
-Only what the quote domain code uses: collection/document paths, `get` with a
-transaction, and `set` / `update` (dotted field paths) on a transaction.
+Only what the domain code uses: collection/document paths, `get` (documents
+and queries) with a transaction, `set` / `update` (dotted field paths,
+`Increment`) on a transaction or a batch, and a Storage bucket.
 Writes are applied on commit-like `apply()`; the fake also enforces the real
 rule that a transaction may not read after it has written, and rejects
 `Decimal` values (the real client cannot encode them: amounts are written as
@@ -14,8 +15,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from google.api_core.exceptions import AlreadyExists, FailedPrecondition
-from google.cloud.firestore_v1 import DELETE_FIELD
+from google.api_core.exceptions import AlreadyExists, FailedPrecondition, PreconditionFailed
+from google.cloud.firestore_v1 import DELETE_FIELD, Increment
 
 # Default write time of fake documents and blobs: long ago, so age-based rules
 # (retention grace periods) see them as old unless a test says otherwise.
@@ -216,7 +217,9 @@ class FakeCollection:
             if len(p) == depth and p[: len(self.path)] == self.path and self._matches(self._db.docs[p])
         ]
 
-    async def stream(self):
+    async def stream(self, transaction: FakeTransaction | None = None):
+        if transaction is not None:
+            transaction.record_read(self.path)
         paths = self._paths()
         if self._order:
             field, desc = self._order
@@ -226,8 +229,8 @@ class FakeCollection:
         for path in paths[: self._limit] if self._limit is not None else paths:
             yield FakeDocSnapshot(self._db, path)
 
-    async def get(self) -> list[FakeDocSnapshot]:
-        return [snap async for snap in self.stream()]
+    async def get(self, transaction: FakeTransaction | None = None) -> list[FakeDocSnapshot]:
+        return [snap async for snap in self.stream(transaction=transaction)]
 
 
 class _FakeCount:
@@ -303,7 +306,12 @@ class FakeDb:
             # A plain set() cannot carry DELETE_FIELD (the real client rejects it).
             if any(isinstance(v, type(DELETE_FIELD)) for v in data.values()):
                 raise AssertionError(f"DELETE_FIELD in a non-merge set() on {path}")
-            self.docs[path] = copy.deepcopy(data)
+            # Keys are whole field names here (no dotted paths); an Increment
+            # starts from zero on the new document.
+            self.docs[path] = {
+                key: value.value if isinstance(value, Increment) else copy.deepcopy(value)
+                for key, value in data.items()
+            }
         self._touch(path)
 
     def apply_update(self, path: tuple[str, ...], data: dict[str, Any]) -> None:
@@ -356,6 +364,8 @@ def _set_dotted(target: dict[str, Any], dotted: str, value: Any) -> None:
     # deepcopy may clone the sentinel, so compare by type, not identity.
     if isinstance(value, type(DELETE_FIELD)):
         node.pop(leaf, None)
+    elif isinstance(value, Increment):
+        node[leaf] = node.get(leaf, 0) + value.value
     else:
         node[leaf] = value
 
@@ -373,11 +383,9 @@ class FakeTransaction:
             raise AssertionError("Firestore transactions must do all reads before writes")
         self.reads.append(path)
 
-    def set(self, ref: FakeDocRef, data: dict[str, Any]) -> None:
-        _storable(ref.path, data)
+    def set(self, ref: FakeDocRef, data: dict[str, Any], merge: bool = False) -> None:
         self.writes.append(("set", ref.path, copy.deepcopy(data)))
-        self._db.docs[ref.path] = copy.deepcopy(data)
-        self._db._touch(ref.path)
+        self._db.apply_set(ref.path, data, merge=merge)
 
     def delete(self, ref: FakeDocRef) -> None:
         self.writes.append(("delete", ref.path, {}))
@@ -395,9 +403,21 @@ class FakeTransaction:
 
 
 class FakeBlob:
-    def __init__(self, name: str, updated: datetime = LONG_AGO) -> None:
+    def __init__(self, name: str, updated: datetime = LONG_AGO, bucket: FakeBucket | None = None) -> None:
         self.name = name
         self.updated = updated
+        self._bucket = bucket
+
+    def exists(self) -> bool:
+        return self._bucket is not None and self.name in self._bucket.names
+
+    def generate_signed_url(self, expiration: Any = None, version: str = "v4") -> str:
+        return signed_url_of(self.name)
+
+
+def signed_url_of(name: str) -> str:
+    """The URL FakeBlob.generate_signed_url returns for an object."""
+    return f"https://storage.googleapis.com/test-bucket/{name}?X-Goog-Signature=fake"
 
 
 class _FakeBlobListing(list):
@@ -423,6 +443,7 @@ class FakeBucket:
         self.names: set[str] = set(names or [])
         self.fail_on = fail_on
         self.updated: dict[str, datetime] = dict(updated or {})
+        self.copies: list[tuple[str, str]] = []  # (source, target) of each copy_blob
 
     def list_blobs(self, prefix: str = "", delimiter: str | None = None) -> _FakeBlobListing:
         if self.fail_on is not None and prefix.startswith(self.fail_on):
@@ -436,6 +457,26 @@ class FakeBucket:
             else:
                 listing.append(FakeBlob(name, self.updated.get(name, LONG_AGO)))
         return listing
+
+    def blob(self, name: str) -> FakeBlob:
+        return FakeBlob(name, self.updated.get(name, LONG_AGO), bucket=self)
+
+    def copy_blob(
+        self,
+        blob: FakeBlob,
+        destination_bucket: FakeBucket,
+        new_name: str | None = None,
+        if_generation_match: int | None = None,
+    ) -> FakeBlob:
+        """Like GCS: `if_generation_match=0` fails with 412 when the target exists."""
+        if blob.name not in self.names:
+            raise RuntimeError(f"404 No such object: {blob.name}")  # like google.api_core NotFound
+        target = new_name or blob.name
+        if if_generation_match == 0 and target in destination_bucket.names:
+            raise PreconditionFailed(f"{target} already exists")
+        destination_bucket.names.add(target)
+        self.copies.append((blob.name, target))
+        return destination_bucket.blob(target)
 
     def delete_blobs(self, blobs: list[FakeBlob | str], on_error: Any = None) -> None:
         for blob in blobs:

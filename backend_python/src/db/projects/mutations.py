@@ -28,6 +28,29 @@ def project_projection(session_id: str, owner_id: str, title: str, now: datetime
     }
 
 
+def new_session_document(session_id: str, owner_id: str, title: str, now: datetime) -> dict[str, Any]:
+    """`sessions/{id}` of a project created by the backend outside a chat turn
+    (dashboard, the user's chat): written together with `project_projection`.
+
+    S1 FIX: explicit null initialization for ALL fields. `is_deleted` is set to
+    False so the composite index filter in count_user_projects works without a
+    fallback.
+    """
+    return {
+        "sessionId": session_id,
+        "userId": owner_id,
+        "title": title,
+        "status": ProjectStatus.DRAFT.value,
+        "thumbnailUrl": None,
+        "originalImageUrl": None,
+        "constructionDetails": None,
+        "messageCount": 0,
+        "is_deleted": False,
+        "createdAt": now,
+        "updatedAt": now,
+    }
+
+
 async def create_project(user_id: str, data: ProjectCreate) -> str:
     """
     Create a new project (session) for a user.
@@ -55,22 +78,7 @@ async def create_project(user_id: str, data: ProjectCreate) -> str:
         # dashboard path did not — so dashboard projects could never submit a
         # quote ("Batch: user doesn't own project").
         batch = db.batch()
-        # S1 FIX: Explicit null initialization for ALL fields
-        # is_deleted is explicitly set to False so the composite index filter
-        # in count_user_projects works correctly without a fallback.
-        batch.set(doc_ref, {
-            "sessionId": session_id,
-            "userId": user_id,
-            "title": data.title,
-            "status": ProjectStatus.DRAFT.value,
-            "thumbnailUrl": None,
-            "originalImageUrl": None,
-            "constructionDetails": None,
-            "messageCount": 0,
-            "is_deleted": False,
-            "createdAt": now,
-            "updatedAt": now,
-        })
+        batch.set(doc_ref, new_session_document(session_id, user_id, data.title, now))
         batch.set(
             db.collection("projects").document(session_id),
             project_projection(session_id, user_id, data.title, now),

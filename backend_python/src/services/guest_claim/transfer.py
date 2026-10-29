@@ -21,22 +21,17 @@ which the retention job and the account's next activity make permanent
 """
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Any
 
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+from src.db.batching import BatchWriter
 from src.db.ownership import OWNER_KEYS
 from src.db.projects.constants import FILES_PARENT_COLLECTION, PROJECTS_COLLECTION
-from src.db.session_retention import clear_session_expiry, is_soft_deleted
+from src.db.session_retention import clear_session_expiry, is_soft_deleted, last_activity
 from src.services.quote_drafts import quote_doc_ref, refresh_quote_owner
 
 logger = logging.getLogger(__name__)
-
-# Firestore allows 500 writes per batch.
-_BATCH_SIZE = 400
-
-_OLDEST = datetime.min.replace(tzinfo=UTC)
 
 
 @dataclass(frozen=True)
@@ -58,14 +53,6 @@ class SessionContents:
     quotes: int
 
 
-def _last_activity(data: dict[str, Any]) -> datetime:
-    for key in ("updatedAt", "createdAt"):
-        value = data.get(key)
-        if isinstance(value, datetime):
-            return value
-    return _OLDEST
-
-
 def _uploads_of(db: Any, session_id: str, uid: str) -> Any:
     files = db.collection(FILES_PARENT_COLLECTION).document(session_id).collection("files")
     return files.where(filter=FieldFilter("uploadedBy", "==", uid))
@@ -79,7 +66,7 @@ async def _count(query: Any) -> int:
 async def find_guest_sessions(db: Any, uid: str) -> GuestSessions:
     query = db.collection(PROJECTS_COLLECTION).where(filter=FieldFilter("userId", "==", uid))
     sessions = [(snap.id, snap.to_dict() or {}) async for snap in query.select(["updatedAt", "createdAt", "is_deleted"]).stream()]
-    sessions.sort(key=lambda item: _last_activity(item[1]), reverse=True)
+    sessions.sort(key=lambda item: last_activity(item[1]), reverse=True)
     live = [session_id for session_id, data in sessions if not is_soft_deleted(data)]
     return GuestSessions(session_ids=[session_id for session_id, _ in sessions], open_session_id=next(iter(live), None))
 
@@ -96,11 +83,9 @@ async def count_contents(db: Any, sessions: GuestSessions, uid: str) -> SessionC
 
 async def _move_files(db: Any, session_id: str, from_uid: str, to_uid: str) -> None:
     refs = [snap.reference async for snap in _uploads_of(db, session_id, from_uid).select([]).stream()]
-    for start in range(0, len(refs), _BATCH_SIZE):
-        batch = db.batch()
-        for ref in refs[start:start + _BATCH_SIZE]:
-            batch.update(ref, {"uploadedBy": to_uid})
-        await batch.commit()
+    async with BatchWriter(db) as writer:
+        for ref in refs:
+            await writer.update(ref, {"uploadedBy": to_uid})
 
 
 async def _move_owner(db: Any, session_id: str, from_uid: str, to_uid: str) -> None:
