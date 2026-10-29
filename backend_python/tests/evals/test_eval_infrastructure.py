@@ -158,7 +158,7 @@ class TestMultiRoomEval:
 
         assert isinstance(agent.app, App)
         production = [p.name for p in build_app().plugins]
-        assert [p.name for p in agent.app.plugins] == [*production, "eval_response_recorder"]
+        assert [p.name for p in agent.app.plugins] == [*production, "eval_response_recorder", "eval_tool_call_recorder"]
         assert agent.root_agent is agent.app.root_agent
         assert agent.root_agent.instruction is session_context_instruction
         compaction = agent.app.events_compaction_config
@@ -279,8 +279,13 @@ class TestMultiRoomQuoteEval:
             return SKUItemSuggestion(sku=sku, qty=qty, ai_reasoning="eval", phase="Lavori")
 
         async def analyze(chat_history, media_urls=None, *, session_id=None):
-            bath = "Stanza da quotare: Bagno" in chat_history[0]["content"]
-            lines = [s("BAG-SAN-001", 1), s("SMAL-001", 0.5)] if bath else [s("CUC-TOP-002", 3.5), s("SMAL-001", 0.3)]
+            context = chat_history[0]["content"]
+            if "Sezione da quotare: Generale" in context:  # the rest of the home: common protection only
+                lines = [s("SC-002", 1)]
+            elif "Stanza da quotare: Bagno" in context:
+                lines = [s("BAG-SAN-001", 1), s("SMAL-001", 0.5)]
+            else:
+                lines = [s("CUC-TOP-002", 3.5), s("SMAL-001", 0.3)]
             return InsightAnalysis(summary="ok", completeness_score=0.9, suggestions=lines)
 
         with multi_room_backend() as run, \
@@ -293,6 +298,7 @@ class TestMultiRoomQuoteEval:
         quote = run.quotes.quotes[0]
         assert {(i.sku, i.room_id) for i in quote.items} == {
             ("BAG-SAN-001", "r_bagno"), ("CUC-TOP-002", "r_cucina"), ("SMAL-001", "generale"),
+            ("SC-002", "generale"),
         }
 
     def test_the_quote_check_flags_a_line_in_the_wrong_room(self) -> None:
@@ -310,3 +316,91 @@ class TestMultiRoomQuoteEval:
             "project-wide line SMAL-001 in r_cucina",
             "no common line (disposal, protection) in Generale",
         ]
+
+
+class TestLoginAndGeneraleEvals:
+    """Phase 138 PR-6: guest sets (login only at the confirmation), a registered
+    user (never a login) and the "Generale" quote (a corridor never created)."""
+
+    MULTI_ROOM = EVALS_DIR / "multi_room"
+
+    def _per_turn(self, name: str) -> list[list[str]]:
+        case = EvalSet.model_validate_json((self.MULTI_ROOM / name).read_text(encoding="utf-8")).eval_cases[0]
+        return [[t.name for t in (inv.intermediate_data.tool_uses or [])] for inv in case.conversation]
+
+    @pytest.mark.parametrize("name", ["guest_quote.test.json", "guest_render.test.json"])
+    def test_guest_sets_expect_the_login_only_in_the_confirmation_turn(self, name: str) -> None:
+        per_turn = self._per_turn(name)
+        assert per_turn[-1] == ["request_login"] and not any(per_turn[:-1])
+        state = EvalSet.model_validate_json((self.MULTI_ROOM / name).read_text(encoding="utf-8")) \
+            .eval_cases[0].session_input.state  # pyright: ignore[reportOptionalMemberAccess]
+        assert state["syd_session_context"]["is_guest"] is True
+
+    def test_the_registered_set_is_the_guest_chat_without_a_login(self) -> None:
+        assert self._per_turn("logged_in_quote.test.json") == [[], [], ["suggest_quote_items"]]
+
+    def _run(self, calls: dict[str, list[tuple[str, str]]]):
+        from tests.evals.multi_room.fakes import TOOL_CALLS, multi_room_backend
+
+        with multi_room_backend("guest_quote.test.json") as run:
+            TOOL_CALLS.calls = calls
+        return run
+
+    def test_the_guest_check_counts_logins_per_turn_and_premium_tools(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        early = self._run({"t1": [("syd_orchestrator", "request_login")], "t2": [],
+                           "t3": [("quote", "request_login"), ("quote", "request_login")]})
+        assert BACKEND_CHECKS["guest_quote.test.json"](early) == [
+            "turn 1: 1 login requests, expected 0", "turn 3: 2 login requests, expected 1",
+        ]
+        premium = self._run({"t1": [], "t2": [("quote", "request_login"), ("quote", "suggest_quote_items")]})
+        assert BACKEND_CHECKS["guest_quote.test.json"](premium) == ["turn 2: guest called quote.suggest_quote_items"]
+        right = self._run({"t1": [("syd_orchestrator", "transfer_to_agent")], "t2": [("quote", "request_login")]})
+        assert BACKEND_CHECKS["guest_quote.test.json"](right) == []
+
+    async def test_guest_sets_get_a_guest_gate_and_their_own_quote_history(self) -> None:
+        from unittest.mock import MagicMock
+
+        from src.adk import tools
+        from src.tools import quote_tools
+        from tests.evals.multi_room.fakes import BATH_ONLY_HISTORY, GENERAL_HISTORY, multi_room_backend
+
+        with multi_room_backend("guest_render.test.json"):
+            assert await tools._is_guest(MagicMock()) is True
+        with multi_room_backend("logged_in_quote.test.json"):
+            assert await tools._is_guest(MagicMock()) is False
+            assert await quote_tools.ConversationRepository().get_context("s", limit=50) == BATH_ONLY_HISTORY
+        with multi_room_backend("multi_room_general.test.json"):
+            assert await quote_tools.ConversationRepository().get_context("s", limit=50) == GENERAL_HISTORY
+
+    async def test_the_generale_check_wants_the_corridor_once_in_generale(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from src.services.insight_engine import InsightAnalysis, SKUItemSuggestion
+        from src.tools.quote_tools import suggest_quote_items_wrapper
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS, multi_room_backend
+
+        def s(sku: str, qty: float, why: str = "eval") -> SKUItemSuggestion:
+            return SKUItemSuggestion(sku=sku, qty=qty, ai_reasoning=why, phase="Lavori")
+
+        async def analyze(chat_history, media_urls=None, *, session_id=None):
+            context = chat_history[0]["content"]
+            if "Sezione da quotare: Generale" in context:
+                lines = [s("PAV-002", 8, "Parquet nel corridoio"), s("SC-002", 1)]
+            elif "Stanza da quotare: Bagno" in context:
+                lines = [s("BAG-SAN-001", 1), s("SMAL-001", 0.5)]
+            else:
+                lines = [s("CUC-TOP-002", 3.5), s("SMAL-001", 0.3)]
+            return InsightAnalysis(summary="ok", completeness_score=0.9, suggestions=lines)
+
+        with multi_room_backend("multi_room_general.test.json") as run, \
+             patch("src.tools.quote_tools.get_insight_engine") as engine:
+            engine.return_value.analyze_project_for_quote = AsyncMock(side_effect=analyze)
+            await suggest_quote_items_wrapper(session_id="eval", project_id="eval", user_id="u")
+
+        assert BACKEND_CHECKS["multi_room_general.test.json"](run) == []
+        items = run.quotes.quotes[0].items
+        parquet = next(n for n, i in enumerate(items) if i.sku == "PAV-002")
+        items[parquet] = items[parquet].model_copy(update={"room_id": "r_bagno"})  # the corridor counted in a room
+        assert "corridor line PAV-002 in r_bagno" in run.quotes.general_problems()

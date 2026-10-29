@@ -402,7 +402,7 @@ async def test_guests_cannot_write_rooms(tool, kwargs):
     assert result["status"] == "error" and "registrati" in result["message"]
     sel.assert_not_awaited()
     assign.assert_not_awaited()
-    assert ctx.state == {}
+    assert ACTIVE_ROOM_STATE_KEY not in ctx.state and ROOMS_STATE_KEY not in ctx.state
 
 
 async def test_a_failed_label_lookup_keeps_the_photo():

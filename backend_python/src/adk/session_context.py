@@ -37,18 +37,30 @@ ACTIVE_ROOM_STATE_KEY = "syd_active_room_id"
 
 _ROOM_TEXT_MAX = 120
 
+# The login is asked once, at the confirmation (Phase 138 PR-6): asked earlier,
+# the guest left; asked by every agent, it showed up three times. The premium
+# tools refuse a guest anyway (tools._is_guest): this decides only the moment.
 _GUEST_RULE = (
-    "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO. "
-    "REGOLA ASSOLUTA: Prima di chiamare generate_render, suggest_quote_items, pricing_engine, "
-    "search_listino, search_prezzario, retrieve_price_by_code o qualsiasi tool premium, "
-    "DEVI OBBLIGATORIAMENTE chiamare request_login_adk. "
-    "NON chiamare MAI generate_render per un utente OSPITE. "
-    "Questo vale per rendering 3D, preventivi, salvataggi e qualsiasi azione premium. "
-    "Sequenza corretta: 1) chiama request_login_adk, 2) rispondi all'utente che deve autenticarsi."
+    "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO.\n"
+    "Tool premium (riservati agli utenti registrati): generate_render, suggest_quote_items, "
+    "submit_quote_request, pricing_engine, search_prezzario, retrieve_price_by_code, market_prices. "
+    "Libero per tutti: search_listino (range indicativi).\n"
+    "SEQUENZA OBBLIGATORIA per rendering e preventivo:\n"
+    "1) Raccogli i dati e ottieni la CONFERMA esplicita dell'utente (ok al riepilogo del rendering, "
+    "richiesta di preparare il preventivo o sì alla tua domanda). La scelta del percorso, una domanda "
+    "di prezzo o una foto caricata NON sono conferme: in quei turni NON chiedere l'accesso.\n"
+    "2) Nel turno della conferma chiama request_login_adk UNA SOLA VOLTA (al posto del tool premium), "
+    "di' all'utente che serve un account gratuito e che riprendi subito dopo, e FERMATI. "
+    "NON chiamare il tool premium e NON richiamare request_login_adk nello stesso turno.\n"
+    "3) DOPO IL LOGIN (lo stato autenticazione di questo blocco cambia) esegui il tool premium confermato."
 )
 _LOGGED_IN_RULE = (
     "STATO AUTENTICAZIONE: L'utente è GIA' LOGGATO con un account verificato. "
-    "NON DEVI MAI USARE il tool request_login_adk per nessun motivo."
+    "NON DEVI MAI USARE il tool request_login_adk per nessun motivo. "
+    "Se la tua ULTIMA risposta chiedeva l'accesso per un rendering o per la registrazione del preventivo "
+    "che l'utente aveva già confermato, e non l'hai ancora eseguito, esegui ora generate_render o "
+    "suggest_quote_items senza chiedere di nuovo conferma (una volta sola). L'invio al team "
+    "(submit_quote_request) richiede sempre il sì esplicito all'invio."
 )
 
 

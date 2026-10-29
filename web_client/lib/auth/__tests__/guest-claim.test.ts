@@ -211,3 +211,52 @@ describe('creating an email account as a guest', () => {
         expect(guestClaimStore.get()).toEqual({ status: 'done', openSessionId: null });
     });
 });
+
+describe('the chat waits for the whole login', () => {
+    // Between the account replacing the guest and the claim starting, the chat
+    // (and the message waiting for the login) must not run on the account's
+    // own session: the store says 'pending' from the start of the login.
+    const statusDuring = (login: jest.Mock) => {
+        login.mockImplementation(async () => {
+            statusSeen = guestClaimStore.get().status;
+            mockAuth.currentUser = ACCOUNT;
+        });
+    };
+    let statusSeen: string | undefined;
+
+    beforeEach(() => {
+        statusSeen = undefined;
+    });
+
+    it('is pending while an existing account signs in', async () => {
+        const signIn = jest.fn();
+        statusDuring(signIn);
+
+        await signInKeepingGuestChats(signIn);
+
+        expect(statusSeen).toBe('pending');
+    });
+
+    it('is pending while a Google popup links the guest', async () => {
+        statusDuring(linkWithPopup as jest.Mock);
+        mockList.mockResolvedValue([]);
+
+        await popupKeepingGuestChats({ providerId: 'google.com' } as never);
+
+        expect(statusSeen).toBe('pending');
+    });
+
+    it('goes back to idle when the login fails or is cancelled', async () => {
+        const wrongPassword = jest.fn().mockRejectedValue({ code: 'auth/wrong-password' });
+        await expect(signInKeepingGuestChats(wrongPassword)).rejects.toEqual({ code: 'auth/wrong-password' });
+        expect(guestClaimStore.get()).toEqual({ status: 'idle' });
+
+        (linkWithPopup as jest.Mock).mockRejectedValue({ code: 'auth/popup-closed-by-user' });
+        await expect(popupKeepingGuestChats({ providerId: 'google.com' } as never)).rejects.toBeTruthy();
+        expect(guestClaimStore.get()).toEqual({ status: 'idle' });
+
+        (linkWithCredential as jest.Mock).mockRejectedValue({ code: 'auth/email-already-in-use' });
+        await expect(createAccountKeepingGuestChats({ providerId: 'password' } as never, jest.fn())).rejects.toBeTruthy();
+        expect(guestClaimStore.get()).toEqual({ status: 'idle' });
+    });
+});

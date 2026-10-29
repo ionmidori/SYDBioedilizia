@@ -8,6 +8,7 @@ Verifies: SKU loading, per-item calculation, financial aggregation, and
 full quote construction from an AI-provided SKU list.
 """
 from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -154,7 +155,8 @@ async def test_pricing_engine_tool_returns_a_json_number_rounded_half_up(monkeyp
         PricingService, "get_item_by_sku",
         classmethod(lambda cls, sku: {"sku": sku, "description": "Posa", "unit": "mq", "unit_price": 22.25}),
     )
-    result = await pricing_engine_tool("POS-001", 0.5)
+    monkeypatch.setattr("src.adk.tools.is_anonymous_user", AsyncMock(return_value=False))
+    result = await pricing_engine_tool("POS-001", 0.5, tool_context=MagicMock(user_id="uid-1"))
     assert result["total"] == 11.13 and type(result["total"]) is float
 
 

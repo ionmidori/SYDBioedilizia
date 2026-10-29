@@ -1,0 +1,96 @@
+{
+  "eval_set_id": "syd_logged_in_quote_v1",
+  "name": "SYD Registered User Quote — never a login (Phase 138, PR-6)",
+  "description": "The guest quote chat for a registered user: zero request_login, the quote is registered after the confirmation.",
+  "eval_cases": [
+    {
+      "eval_id": "registered_bathroom_quote",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-logged-in-quote"
+          },
+          "syd_rooms": []
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_logged_quote_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCiao, vorrei un preventivo per rifare il bagno.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Mi descrivi il bagno?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_logged_quote_002",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nÈ 2 x 2,5 m, altezza 2,70, appartamento a Roma al terzo piano con ascensore. Voglio togliere la vasca e i sanitari, piastrelle nuove a pavimento (5 mq) e alle pareti fino a 2,10 m (circa 19 mq), doccia walk-in con piatto a filo pavimento e sanitari sospesi nuovi.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_logged_quote_003",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nSì, prepara pure la richiesta di preventivo.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Ho registrato la richiesta di preventivo."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_inv_logged_quote_003_1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

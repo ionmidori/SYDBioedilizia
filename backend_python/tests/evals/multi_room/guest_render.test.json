@@ -1,0 +1,96 @@
+{
+  "eval_set_id": "syd_guest_render_v1",
+  "name": "SYD Guest Render — login at the confirmation (Phase 138, PR-6)",
+  "description": "A guest describes a living room and the style it wants, then confirms the render. No request_login before the confirmation, exactly one in the turn of the confirmation, never generate_render.",
+  "eval_cases": [
+    {
+      "eval_id": "guest_living_room_render",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": true,
+            "phone_on_file": false,
+            "session_id": "eval-guest-render"
+          },
+          "syd_rooms": []
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_guest_render_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCiao! Vorrei vedere come potrebbe diventare il mio soggiorno: 5 x 4 m, pavimento in cotto, travi in legno a vista e una finestra ad arco.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Che stile ti piacerebbe?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_guest_render_002",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nStile moderno caldo: tengo le travi e la finestra ad arco, pavimento in rovere chiaro, pareti bianche, divano grigio e luci calde indirette. Il resto fai tu.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Riassumo il progetto. Tutto corretto?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_guest_render_003",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nSì, tutto corretto: procedi con il rendering.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Per generare il rendering serve un account gratuito."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "request_login",
+                "args": {},
+                "id": "call_inv_guest_render_003_1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

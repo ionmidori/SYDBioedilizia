@@ -1,0 +1,52 @@
+{
+  "eval_set_id": "syd_guest_price_v1",
+  "name": "SYD Guest Price Question — no login (Phase 138, PR-6)",
+  "description": "A guest asks a point price question (PRICE INQUIRY): the customer listino range, no login (user decision 29 Oct 2026: a price question is not a confirmation), no premium tool.",
+  "eval_cases": [
+    {
+      "eval_id": "guest_window_price",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": true,
+            "phone_on_file": false,
+            "session_id": "eval-guest-price"
+          },
+          "syd_rooms": []
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_guest_price_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nQuanto costa più o meno una finestra in PVC?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Il costo indicativo chiavi in mano è di circa..."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "search_listino",
+                "args": {},
+                "id": "call_inv_guest_price_001_1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

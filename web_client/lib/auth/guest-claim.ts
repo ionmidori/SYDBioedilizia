@@ -56,6 +56,23 @@ export function accountAlreadyExists(error: unknown): boolean {
 }
 
 /**
+ * Run a login that moves the guest's chats: the store is 'pending' from its
+ * start, so neither the chat nor the message waiting for the login
+ * (GlobalAuthListener) runs on the account's own session before the chats
+ * have moved — Firebase publishes the account before the claim can start.
+ * Back to 'idle' when the login does not happen (wrong password, cancelled).
+ */
+async function whileSigningIn<T>(login: () => Promise<T>): Promise<T> {
+    guestClaimStore.set({ status: 'pending' });
+    try {
+        return await login();
+    } catch (error) {
+        guestClaimStore.reset();
+        throw error;
+    }
+}
+
+/**
  * The chat opens `sessionId` for the signed-in user: now (useChatSession reads
  * the store) and after a reload (it reopens the last active project).
  */
@@ -135,8 +152,9 @@ export async function signInKeepingGuestChats<T>(signIn: () => Promise<T>): Prom
         console.warn('[GuestClaim] Ticket request failed:', error);
         throw Object.assign(new Error('Guest claim ticket unavailable'), { code: GUEST_CLAIM_UNAVAILABLE });
     }
-    const result = await signIn();
+    const result = await whileSigningIn(signIn);
     if (auth.currentUser?.uid !== guest.uid) void claimGuestChats(ticket);
+    else guestClaimStore.reset();
     return result;
 }
 
@@ -153,7 +171,7 @@ export async function createAccountKeepingGuestChats(
         await create();
         return;
     }
-    await linkWithCredential(guest, credential);
+    await whileSigningIn(() => linkWithCredential(guest, credential));
     await openChatAfterLink();
 }
 
@@ -176,7 +194,7 @@ export async function popupKeepingGuestChats(provider: AuthProvider): Promise<vo
         return;
     }
     try {
-        await linkWithPopup(guest, provider);
+        await whileSigningIn(() => linkWithPopup(guest, provider));
     } catch (error) {
         await signInToExistingAccount(error);
         return;

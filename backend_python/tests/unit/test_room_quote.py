@@ -62,7 +62,16 @@ ANALYSES = {
         summary="Cucina con top in quarzo", completeness_score=0.9,
         suggestions=[_s("CUC-TOP-002", 3), _s("IMP-EL-002", 1), _s("SMAL-001", 0.5), _s("SC-002", 1)],
     ),
+    # The rest of the home: nothing outside the two rooms in this chat.
+    "Generale": InsightAnalysis(summary="Nient'altro", completeness_score=0.9, suggestions=[]),
 }
+GENERAL_MARKER = "Sezione da quotare: Generale"
+
+
+def _unit_label(context: str) -> str:
+    if GENERAL_MARKER in context:
+        return "Generale"
+    return "Bagno" if "Stanza da quotare: Bagno" in context else "Cucina"
 
 
 def _files_for_room(files: list[dict[str, Any]]):
@@ -80,8 +89,9 @@ def _history(history: list[dict[str, Any]]):
 
 def _engine(analyses: dict[str, InsightAnalysis]):
     async def analyze(chat_history, media_urls=None, *, session_id=None):
-        context = chat_history[0]["content"]
-        label = next(name for name in analyses if f"Stanza da quotare: {name}" in context)
+        label = _unit_label(chat_history[0]["content"])
+        if label not in analyses:
+            label = next(name for name in analyses if f"Stanza da quotare: {name}" in chat_history[0]["content"])
         return analyses[label]
     return AsyncMock(side_effect=analyze)
 
@@ -115,8 +125,7 @@ def _calls_by_room(analyze: AsyncMock) -> dict[str, Any]:
     out = {}
     for call in analyze.await_args_list:
         context = call.args[0][0]["content"]
-        label = "Bagno" if "Stanza da quotare: Bagno" in context else "Cucina"
-        out[label] = (context, call.args[1])
+        out[_unit_label(context)] = (context, call.args[1])
     return out
 
 
@@ -125,7 +134,7 @@ async def test_each_room_is_analysed_on_its_own_messages_and_media():
         reply = await _quote()
 
     calls = _calls_by_room(mocks["analyze"])
-    assert set(calls) == {"Bagno", "Cucina"}
+    assert set(calls) == {"Bagno", "Cucina", "Generale"}
     bagno_context, bagno_media = calls["Bagno"]
     cucina_context, cucina_media = calls["Cucina"]
     assert "Nel bagno voglio la doccia" in bagno_context and "top in quarzo" not in bagno_context
@@ -282,3 +291,98 @@ async def test_a_chat_from_before_rooms_stays_one_quote_even_with_a_filed_photo(
     assert mocks["analyze"].await_count == 1
     assert "Stanza da quotare" not in mocks["analyze"].await_args.args[0][0]["content"]
     assert mocks["saved"].await_args.args[2].rooms == []
+
+
+# ── "Generale": the rest of the home (Phase 138 PR-6) ─────────────────────────
+
+CORRIDOR = "Rifate anche il corridoio: parquet, circa 8 mq."
+HISTORY_WITH_CORRIDOR = [*HISTORY, {"role": "user", "content": CORRIDOR}]
+CORRIDOR_ANALYSES = {
+    **ANALYSES,
+    "Generale": InsightAnalysis(
+        summary="Corridoio in parquet", completeness_score=0.9,
+        suggestions=[_s("PAV-002", 8), _s("SC-002", 1)],
+    ),
+}
+
+
+async def test_the_rest_of_the_home_is_one_more_unit_quoted_in_generale():
+    with _project(history=HISTORY_WITH_CORRIDOR, analyses=CORRIDOR_ANALYSES) as mocks:
+        reply = await _quote()
+
+    context, media = _calls_by_room(mocks["analyze"])["Generale"]
+    # Its own messages (untagged or "Generale"), never a room's; the quoted rooms named as excluded.
+    assert CORRIDOR in context and "Ristrutturo casa" in context
+    assert "doccia" not in context and "top in quarzo" not in context
+    assert "stanze già quotate (Bagno, Cucina)" in context
+    assert media == [_path("f_vecchia")]  # the photos filed in Generale
+    # The other rooms are told that rooms never created belong to Generale.
+    assert "sezione Generale" in _calls_by_room(mocks["analyze"])["Bagno"][0]
+
+    quote = mocks["saved"].await_args.args[2]
+    general = {i.sku: i.qty for i in quote.items if i.room_id == DEFAULT_ROOM_ID}
+    assert general["PAV-002"] == 8.0 and general["SC-002"] == 1.0  # protection once for the home
+    assert not [i for i in quote.items if i.room_id == DEFAULT_ROOM_ID and i.sku.startswith(("BAG-", "CUC-"))]
+    assert sum_amounts(s.room_subtotal for s in quote.rooms) == quote.financials.subtotal
+    assert "**Generale** — Corridoio in parquet" in reply
+
+
+async def test_generale_with_nothing_to_quote_adds_no_section_and_stops_nothing():
+    analyses = {**ANALYSES, "Generale": InsightAnalysis(
+        summary="Niente", completeness_score=0.2, missing_info=["Altri ambienti?"], suggestions=[],
+    )}
+    with _project(analyses=analyses) as mocks:
+        reply = await _quote()
+
+    assert "Altri ambienti?" not in reply
+    quote = mocks["saved"].await_args.args[2]
+    assert {i.room_id for i in quote.items if i.sku == "PAV-002"} == set()
+    assert "Generale" not in mocks["saved"].await_args.args[3].summary
+
+
+async def test_generale_short_of_data_asks_its_questions_like_a_room():
+    analyses = {**CORRIDOR_ANALYSES, "Generale": InsightAnalysis(
+        summary="Corridoio", completeness_score=0.4, missing_info=["Quanti mq ha il corridoio?"],
+        suggestions=[_s("PAV-002", 1)],
+    )}
+    with _project(history=HISTORY_WITH_CORRIDOR, analyses=analyses) as mocks:
+        reply = await _quote()
+
+    assert "**Generale**: Quanti mq ha il corridoio?" in reply
+    mocks["saved"].assert_not_awaited()
+
+
+async def test_generale_is_not_analysed_without_its_own_talk_or_brief():
+    history = [m for m in HISTORY if m.get("room_id")]
+    with _project(history=history) as mocks:
+        await _quote()
+
+    assert set(_calls_by_room(mocks["analyze"])) == {"Bagno", "Cucina"}
+
+
+async def test_the_generale_brief_alone_is_worth_an_analysis():
+    generale = ROOMS[0].model_copy(update={"summary": "Corridoio da rifare in parquet, 8 mq"})
+    history = [m for m in HISTORY if m.get("room_id")]
+    with _project(rooms=[generale, *ROOMS[1:]], history=history, analyses=CORRIDOR_ANALYSES) as mocks:
+        await _quote()
+
+    context, _ = _calls_by_room(mocks["analyze"])["Generale"]
+    assert "Corridoio da rifare in parquet" in context
+
+
+async def test_generale_with_only_home_wide_lines_does_not_stop_the_quote():
+    """Protection or disposal for the whole home need no measure of the rest of
+    the home: their questions never stop the quote (eval, 29 Oct: 2 runs in 3)."""
+    analyses = {**ANALYSES, "Generale": InsightAnalysis(
+        summary="Protezioni", completeness_score=0.5, missing_info=["Quanti mq ha il resto della casa?"],
+        suggestions=[_s("SC-002", 1), _s("SMAL-001", 0.2)],
+    )}
+    with _project(analyses=analyses) as mocks:
+        reply = await _quote()
+
+    assert "Quanti mq" not in reply
+    quote = mocks["saved"].await_args.args[2]
+    general = {i.sku: i.qty for i in quote.items if i.room_id == DEFAULT_ROOM_ID}
+    assert general["SC-002"] == 1.0 and general["SMAL-001"] == 2.0  # 0.4 + 0.5 + 0.2 → 2 containers
+    context, _ = _calls_by_room(mocks["analyze"])["Generale"]
+    assert "non fare domande" in context

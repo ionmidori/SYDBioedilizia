@@ -111,21 +111,20 @@ Se l'utente descrive un progetto solo a parole (senza file) senza specificare il
 
 Dimmi 1 o 2."
 
+### Regola Login (Mandatoria)
+La scelta 1/2/3 delle regole sopra è la scelta del PERCORSO, non la conferma: instrada subito, anche per un
+OSPITE ANONIMO, senza chiedere l'accesso. Tu NON chiedi mai il login: lo chiede l'agente `design` o `quote`,
+una sola volta, nel turno in cui l'utente CONFERMA il rendering o il preventivo.
+
 ### PRICE INQUIRY — Risposta prezzi informativa (Mandatoria)
 Si attiva quando l'utente chiede un prezzo/costo PUNTUALE di una lavorazione o di un materiale
 SENZA voler avviare un preventivo per il suo progetto
 (es. "quanto costa una finestra?", "prezzo al mq del parquet?", "quanto viene demolire un pavimento?").
 Rispondi TU direttamente — NON delegare a `quote` e NON avviare la raccolta dati del preventivo.
 
-STEP AUTH_GATE (OBBLIGATORIO — PRIMA DI TUTTO):
-Controlla il blocco "CONTESTO SESSIONE" nelle tue istruzioni.
-SE contiene "OSPITE ANONIMO":
-→ NON chiamare search_prezzario né retrieve_price_by_code.
-→ Chiama SUBITO request_login_adk.
-→ Rispondi: "Per consultare i prezzi ufficiali della Tariffa Regione Lazio serve un account gratuito — bastano pochi secondi! Accedi qui sotto e ti do subito il prezzo."
-→ STOP. Non eseguire gli step seguenti.
-
-SE l'utente è GIA' LOGGATO:
+Una domanda di prezzo NON è una conferma: vale per ospiti e utenti registrati, senza login.
+Controlla il blocco "CONTESTO SESSIONE" nelle tue istruzioni: SE contiene "OSPITE ANONIMO", usa SOLO
+search_listino (FONTE PRIMARIA); il prezzario analitico (FALLBACK) è riservato agli utenti registrati.
 
 FONTE PRIMARIA — Listino cliente (range veloce):
 1. Se l'utente cita un codice articolo esplicito del prezzario (es. "A 17.02.4.f") → vai direttamente al punto FALLBACK con retrieve_price_by_code.
@@ -138,13 +137,15 @@ FONTE PRIMARIA — Listino cliente (range veloce):
 
 FALLBACK — Prezzario analitico (solo se il listino non copre la voce):
 3. SE search_listino ha restituito "NESSUNA_VOCE_LISTINO" (oppure l'utente ha citato un codice articolo):
+   → SE l'utente è un OSPITE ANONIMO: NON chiamare search_prezzario né retrieve_price_by_code. Rispondi:
+     "Non ho una voce a listino per questo lavoro: per un importo preciso sul tuo caso preparo un preventivo personalizzato. Procediamo?" e vai al punto 5.
    → chiama search_prezzario(query="...") o retrieve_price_by_code(codice_articolo="...").
    → Presenta i risultati citando descrizione + unità di misura REALE dal prezzario. NON inventare un "€/mq" generico.
    → Avvisa che sono voci tecniche unitarie (non prezzi finali chiavi in mano).
 
 CTA (chiudi sempre così):
 4. "Sono fasce indicative — per un importo preciso sul tuo caso preparo un preventivo personalizzato. Procediamo?"
-5. SOLO SE l'utente accetta la CTA → instrada a `quote` per avviare il flusso preventivo.
+5. SOLO SE l'utente accetta la CTA → instrada a `quote` per avviare il flusso preventivo (accettare la CTA non è ancora la conferma del preventivo: niente login).
 
 REGOLA ANTI-ALLUCINAZIONE: se né listino né prezzario restituiscono risultati, NON inventare prezzi.
 Di': "Non ho una voce a listino per questo lavoro" e proponi un preventivo personalizzato.
@@ -367,8 +368,9 @@ syd_orchestrator = Agent(
     model=build_adk_model(ModelRole.ROUTER),
     generate_content_config=build_generate_content_config(ModelRole.ROUTER),
     sub_agents=[triage_agent, design_agent, quote_agent],
+    # No request_login_adk: the login is asked once, by design or quote, in the
+    # turn the user confirms (Phase 138 PR-6; the router asked first, twice).
     tools=[
-        request_login_adk,
         search_listino_adk,
         search_prezzario_adk,
         retrieve_price_by_code_adk,

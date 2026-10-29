@@ -1,0 +1,110 @@
+{
+  "eval_set_id": "syd_multi_room_general_v1",
+  "name": "SYD Multi-Room Quote with Generale (Phase 138, PR-6)",
+  "description": "Bathroom and kitchen are rooms; the corridor is only mentioned, never created as a room. The agent calls suggest_quote_items once; the runner checks the saved quote (tests/evals/multi_room/fakes.py): a section per room, the corridor quoted once and only in Generale, no bathroom or kitchen line in Generale, section subtotals and totals equal to money.py. Nothing is sent to the team.",
+  "eval_cases": [
+    {
+      "eval_id": "bathroom_kitchen_and_corridor",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-multi-room-general"
+          },
+          "syd_rooms": [
+            {
+              "room_id": "r_cucina",
+              "label": "Cucina",
+              "room_type": "cucina",
+              "summary": ""
+            },
+            {
+              "room_id": "r_bagno",
+              "label": "Bagno",
+              "room_type": "bagno",
+              "summary": ""
+            }
+          ],
+          "syd_active_room_id": "r_bagno"
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_general_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nCiao! Ristrutturiamo bagno e cucina, appartamento a Roma al terzo piano con ascensore. Partiamo dal bagno: è 2 x 2,5 m, altezza 2,70. Voglio rifare tutto: togliere la vasca e i sanitari, piastrelle nuove a pavimento (5 mq) e alle pareti fino a 2,10 m (circa 19 mq), doccia walk-in con piatto a filo pavimento, impermeabilizzazione della zona doccia e sanitari sospesi nuovi.\n###\n[Foto f_bagno_1 · Bagno]"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Bagno chiaro."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_general_002",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nPassiamo alla cucina: 3 x 4 m. Tengo i mobili, ma voglio un top in quarzo di 3,5 metri lineari, la presa dedicata per il piano a induzione e il gres nuovo a pavimento (12 mq), togliendo il pavimento vecchio.\n###\n[Foto f_cucina_2 · Cucina]"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Cucina chiara."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": []
+          }
+        },
+        {
+          "invocation_id": "inv_general_003",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nPer entrambe le stanze serve anche lo smaltimento delle macerie e la protezione dei pavimenti del resto della casa. Rifate anche il corridoio: circa 8 mq, togliamo la moquette e mettiamo il parquet. Non mi servono render: registra adesso la richiesta di preventivo per tutta la casa.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Ho registrato la richiesta di preventivo."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_inv_general_003_1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import logging
 import re
 from typing import Any
 
+from google.adk.events.ui_widget import UiWidget
 from google.adk.tools import FunctionTool
 from google.api_core.exceptions import GoogleAPIError
 from pydantic import ValidationError
@@ -43,14 +44,34 @@ _QUOTE_LOGIN_REQUIRED = (
 )
 
 
-async def _is_guest(user_id: str) -> bool:
+# A price question is not a confirmation (Phase 138 PR-6): a guest gets the
+# customer listino range, never a login card for it.
+_PRICES_LOGIN_REQUIRED = (
+    "RISERVATO_UTENTI_REGISTRATI: prezzario ufficiale, calcolo delle voci e prezzi di mercato sono "
+    "riservati agli utenti registrati. Per un ospite usa search_listino (range indicativo) oppure "
+    "proponi un preventivo personalizzato. Una domanda di prezzo NON richiede il login."
+)
+
+
+# Invocation-scoped, like _RENDER_DONE_KEY: the login state cannot change
+# within a turn, and a quote may call several gated tools (one per line).
+_GUEST_KEY = "temp:is_guest"
+
+
+async def _is_guest(tool_context: Any) -> bool:
     """🛡️ Server-side login gate for premium tools (security audit H3): the
     AUTH_GATE in the prompt is not a control — a guest or a prompt injection can
     still reach the tool. The dev auth bypass (validator-guarded) has no real
-    Firebase accounts, so it is never treated as a guest."""
+    Firebase accounts, so it is never treated as a guest. One account lookup
+    per turn."""
     if settings.ENV == "development" and settings.ALLOW_AUTH_BYPASS:
         return False
-    return await is_anonymous_user(user_id)
+    cached = tool_context.state.get(_GUEST_KEY)
+    if isinstance(cached, dict) and cached.get("invocation_id") == tool_context.invocation_id:
+        return bool(cached["guest"])
+    guest = await is_anonymous_user(tool_context.user_id)
+    tool_context.state[_GUEST_KEY] = {"invocation_id": tool_context.invocation_id, "guest": guest}
+    return guest
 
 
 def _trusted_session_id(tool_context: Any, claimed: str) -> str:
@@ -69,7 +90,7 @@ def _trusted_session_id(tool_context: Any, claimed: str) -> str:
 # ─── Pricing Engine ──────────────────────────────────────────────────────────
 
 @instrumented_tool("pricing_engine")
-async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
+async def pricing_engine_tool(sku: str, qty: float, tool_context) -> dict[str, Any]:
     """Calculates project line-item price from the master price book.
 
     Looks up a SKU and returns unit price, description, and total cost.
@@ -79,7 +100,10 @@ async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
     Args:
         sku: The stock keeping unit identifier (e.g. 'TCHR_001').
         qty: Quantity required (0.01 – 10000).
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
+    if await _is_guest(tool_context):
+        return {"status": "error", "message": _PRICES_LOGIN_REQUIRED}
     if not (0.01 <= qty <= 10_000):
         return {"status": "error", "message": f"qty={qty} out of valid range [0.01, 10000]."}
     from src.services.pricing_service import PricingService
@@ -118,7 +142,7 @@ async def submit_quote_request(session_id: str, tool_context) -> str:
         session_id: The current session identifier (used to resolve the user).
         tool_context: ADK ToolContext injected automatically by the runner.
     """
-    if await _is_guest(tool_context.user_id):
+    if await _is_guest(tool_context):
         logger.warning("[ADK Tool] submit_quote_request blocked: anonymous user")
         return _QUOTE_LOGIN_REQUIRED
     return await submit_quote_request_wrapper(
@@ -129,14 +153,17 @@ async def submit_quote_request(session_id: str, tool_context) -> str:
 # ─── Market Prices ───────────────────────────────────────────────────────────
 
 @instrumented_tool("market_prices")
-async def get_market_prices(query: str) -> str:
+async def get_market_prices(query: str, tool_context) -> str:
     """Fetches live market prices for renovation materials and services.
 
     Uses the Perplexity Sonar API to retrieve real-time pricing data.
 
     Args:
         query: Search query (e.g. 'average cost per m2 bathroom tiles Italy').
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
+    if await _is_guest(tool_context):
+        return _PRICES_LOGIN_REQUIRED
     from src.tools.market_prices import get_market_prices_wrapper
     return await get_market_prices_wrapper(query)
 
@@ -175,7 +202,7 @@ async def retrieve_knowledge(query: str) -> str:
 
 
 @instrumented_tool("search_prezzario")
-async def search_prezzario(query: str, categoria: str = "") -> str:
+async def search_prezzario(query: str, tool_context, categoria: str = "") -> str:
     """Searches the regional price list (Tariffa Regionale Lazio 2023) for
     construction work items and their official unit prices.
 
@@ -187,13 +214,16 @@ async def search_prezzario(query: str, categoria: str = "") -> str:
                'demolizione pavimento in marmo', 'tinteggiatura pareti al mq'.
         categoria: Optional category filter to narrow results, e.g.
                    'Demolizioni e Rimozioni', 'Tinteggiature e Verniciature'.
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
+    if await _is_guest(tool_context):
+        return _PRICES_LOGIN_REQUIRED
     from src.tools.rag_tools import search_prezzario as _search
     return await _search(query, categoria)
 
 
 @instrumented_tool("retrieve_price_by_code")
-async def retrieve_price_by_code(codice_articolo: str) -> str:
+async def retrieve_price_by_code(codice_articolo: str, tool_context) -> str:
     """Looks up a specific price-list article by its exact code.
 
     Use this tool when the user references a specific article code like
@@ -202,7 +232,10 @@ async def retrieve_price_by_code(codice_articolo: str) -> str:
     Args:
         codice_articolo: The exact article code from the regional price list,
                          e.g. 'A 3.02.14.a.' or 'A 20.01.1.'
+        tool_context: ADK ToolContext injected automatically by the runner.
     """
+    if await _is_guest(tool_context):
+        return _PRICES_LOGIN_REQUIRED
     from src.tools.rag_tools import retrieve_price_by_code as _lookup
     return await _lookup(codice_articolo)
 
@@ -280,7 +313,7 @@ async def generate_render(
     session_id = _trusted_session_id(tool_context, session_id)
     user_id: str = tool_context.user_id
 
-    if await _is_guest(user_id):
+    if await _is_guest(tool_context):
         _logger.warning("[ADK Tool] generate_render blocked: anonymous user")
         return {"status": "error", "error": _RENDER_LOGIN_REQUIRED}
 
@@ -459,7 +492,7 @@ async def select_room(name: str, room_type: str, session_id: str, tool_context) 
         tool_context: ADK ToolContext injected automatically by the runner.
     """
     project_id = _trusted_session_id(tool_context, session_id)
-    if await _is_guest(tool_context.user_id):
+    if await _is_guest(tool_context):
         return dict(_ROOMS_LOGIN_REQUIRED)
     result, rooms = await room_tools.select_room(project_id, name, room_type)
     if result["status"] == "success":
@@ -485,7 +518,7 @@ async def assign_media_to_room(file_id: str, room_id: str, session_id: str, tool
         tool_context: ADK ToolContext injected automatically by the runner.
     """
     project_id = _trusted_session_id(tool_context, session_id)
-    if await _is_guest(tool_context.user_id):
+    if await _is_guest(tool_context):
         return dict(_ROOMS_LOGIN_REQUIRED)
     return await room_tools.assign_media(project_id, file_id, room_id)
 
@@ -520,7 +553,7 @@ async def suggest_quote_items(session_id: str, tool_context) -> str:
     # 1 session = 1 project: project and owner come from the verified session,
     # never from model-supplied arguments.
     session_id = _trusted_session_id(tool_context, session_id)
-    if await _is_guest(tool_context.user_id):
+    if await _is_guest(tool_context):
         logger.warning("[ADK Tool] suggest_quote_items blocked: anonymous user")
         return _QUOTE_LOGIN_REQUIRED
     return await suggest_quote_items_wrapper(
@@ -532,31 +565,44 @@ async def suggest_quote_items(session_id: str, tool_context) -> str:
 
 # ─── Auth / Login ────────────────────────────────────────────────────────────
 
-async def request_login(tool_context) -> str:
-    """Triggers the login/authentication card in the user interface.
+# Invocation-scoped, like _RENDER_DONE_KEY: the turn in which the login card
+# was already shown. In one turn the router and a sub-agent may both ask.
+_LOGIN_REQUESTED_KEY = "temp:login_requested"
 
-    Call this when a guest user (unauthenticated) requests a premium feature
-    (renders, quotes, CAD) or when their identity is required.
+_LOGIN_ALREADY_REQUESTED = (
+    "LOGIN_GIA_RICHIESTO: la scheda di accesso è già nella risposta di questo turno. "
+    "Non chiamare di nuovo request_login_adk: dì all'utente di accedere dalla scheda e fermati."
+)
+_LOGIN_NOT_NEEDED = (
+    "UTENTE_GIA_AUTENTICATO: l'utente ha già effettuato l'accesso, nessuna scheda mostrata. "
+    "Prosegui con l'azione che ha confermato."
+)
+
+
+async def request_login(tool_context) -> str:
+    """Shows the login card to a guest, once per turn.
+
+    Call it ONLY for a guest (OSPITE ANONIMO), in the turn in which the user
+    CONFIRMED a render or a quote, instead of the premium tool. Never before
+    the confirmation, never after the premium tool.
 
     Args:
         tool_context: ADK ToolContext injected automatically by the runner.
     """
-    import logging as _logging
-    _logger = _logging.getLogger(__name__)
-
+    if not await _is_guest(tool_context):
+        logger.warning("[ADK Tool] request_login called for a signed-in user: no card")
+        return _LOGIN_NOT_NEEDED
+    if tool_context.state.get(_LOGIN_REQUESTED_KEY) == tool_context.invocation_id:
+        logger.warning("[ADK Tool] request_login called twice in one turn: no second card")
+        return _LOGIN_ALREADY_REQUESTED
+    tool_context.state[_LOGIN_REQUESTED_KEY] = tool_context.invocation_id
     try:
-        from google.adk.events.ui_widget import UiWidget
-        widget = UiWidget(
-            id="login-card",
-            provider="syd",
-            payload={"widget_type": "login_card"},
+        tool_context.render_ui_widget(
+            UiWidget(id="login-card", provider="syd", payload={"widget_type": "login_card"})
         )
-        tool_context.render_ui_widget(widget)
-        _logger.info("[ADK Tool] request_login: UiWidget rendered via tool_context")
-    except Exception as e:  # noqa: BLE001
-        # Graceful fallback: frontend still handles the plain string signal
-        _logger.warning(f"[ADK Tool] request_login: UiWidget render failed ({e}), falling back to plain signal")
-
+    except ValueError as e:
+        # Same widget id already in this event: the card is shown by the tool call anyway.
+        logger.warning(f"[ADK Tool] request_login: UiWidget not added ({e})")
     return "LOGIN_REQUIRED_TRIGGERED"
 
 
