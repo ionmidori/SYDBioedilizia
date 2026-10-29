@@ -10,6 +10,16 @@ interface ToolInvocation {
     result?: unknown;
 }
 
+/**
+ * A render that failed, shown to the user. Other tools' errors are messages
+ * for the agent, which answers in text (e.g. select_room refused to a guest):
+ * shown, they read as a failed image.
+ */
+export function isRenderError(toolName: string, result: unknown): boolean {
+    const typed = result as { error?: unknown; status?: unknown } | null | undefined;
+    return toolName === 'generate_render' && (!!typed?.error || typed?.status === 'error');
+}
+
 interface ToolStatusProps {
     tool: ToolInvocation;
     onImageClick: (imageUrl: string) => void;
@@ -116,8 +126,8 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
             );
         }
 
-        // Error: Tool failed
-        if (typedResult?.error || typedResult?.status === 'error') {
+        // Error: the render failed
+        if (isRenderError(tool.toolName, typedResult)) {
             return (
                 <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
                     <p className="font-medium">Errore generazione immagine:</p>

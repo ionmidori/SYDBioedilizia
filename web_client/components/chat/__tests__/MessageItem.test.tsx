@@ -19,6 +19,7 @@ jest.mock('@/components/chat/tools/LoginRequest', () => ({
 // Render ToolStatus as a thin probe so we can assert MessageItem passes the
 // resolved tool (with imageUrl) down to it.
 jest.mock('../ToolStatus', () => ({
+    isRenderError: jest.requireActual('../ToolStatus').isRenderError,
     ToolStatus: ({ tool }: { tool: { result?: { imageUrl?: string } } }) => (
         <div data-testid="tool-status">{tool.result?.imageUrl ?? 'no-image'}</div>
     ),
@@ -141,5 +142,23 @@ describe('MessageItem — login card', () => {
 
         expect(screen.queryByTestId('login-card')).not.toBeInTheDocument();
         expect(container).toHaveTextContent('Per il preventivo serve un account gratuito.');
+    });
+});
+
+describe('MessageItem — tool errors', () => {
+    it('draws no bubble for an assistant step whose only tool was refused (not a render)', () => {
+        const message = {
+            id: 'm4',
+            role: 'assistant',
+            parts: [{ type: 'text', text: '' }],
+            toolInvocations: [{
+                toolCallId: 'room-1', toolName: 'select_room', state: 'result', args: {},
+                result: { status: 'error', message: 'Le stanze sono disponibili solo agli utenti registrati.' },
+            }],
+        } as unknown as Message;
+
+        const { container } = render(<MessageItem message={message} sessionId="s1" onImageClick={jest.fn()} />);
+
+        expect(container).toBeEmptyDOMElement();
     });
 });

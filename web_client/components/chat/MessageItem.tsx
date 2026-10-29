@@ -6,7 +6,7 @@ import { User } from 'lucide-react';
 import { type Components } from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
-import { ToolStatus } from '@/components/chat/ToolStatus';
+import { isRenderError, ToolStatus } from '@/components/chat/ToolStatus';
 import { LoginRequest } from '@/components/chat/tools/LoginRequest';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -185,7 +185,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
 
         const result = (tool.result || (tool as { output?: unknown }).output) as { imageUrl?: string; error?: string; status?: string } | string | null | undefined;
 
-        // Only results with images/gallery or errors are visible in ToolStatus
+        // Only results with images/gallery or a failed render are visible in ToolStatus
         // Text results (like pricing) return null in ToolStatus, so we hide the bubble to avoid empty padding.
         if (tool.toolName === 'show_project_gallery') return true;
         
@@ -200,7 +200,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
 
         if (parsedResult && typeof parsedResult === 'object') {
             const typed = parsedResult as Record<string, unknown>;
-            return !!typed.imageUrl || !!typed.error || typed.status === 'error';
+            return !!typed.imageUrl || isRenderError(tool.toolName, typed);
         }
         return false;
     });
