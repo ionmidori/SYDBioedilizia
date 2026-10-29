@@ -17,10 +17,9 @@
 #                         Pinecone; more memory also means less GC during import
 #   --startup-probe       traffic only once /health/startup is 200, i.e. the
 #                         background warm-up is done (no request waits on it).
-#                         180 s, counted from the container start: the imports
-#                         took 77 s on syd-brain-00696 (9-13 s normally) and a
-#                         healthy revision ran out of the old 90 s
-#                         (tests/unit/test_startup_probe_budget.py; max 240 s)
+#                         Counted from the container start, so it pays slow
+#                         imports too: budget checked by
+#                         tests/unit/test_startup_probe_budget.py
 #   --session-affinity    a conversation keeps hitting the instance that holds
 #                         its InMemorySessionService state (no Firestore re-hydration)
 #   --concurrency=40      one uvicorn process per instance: fewer concurrent
