@@ -43,8 +43,9 @@ _ROOM_TEXT_MAX = 120
 _GUEST_RULE = (
     "STATO AUTENTICAZIONE: L'utente è un OSPITE ANONIMO.\n"
     "Tool premium (riservati agli utenti registrati): generate_render, suggest_quote_items, "
-    "submit_quote_request, pricing_engine, search_prezzario, retrieve_price_by_code, market_prices. "
-    "Libero per tutti: search_listino (range indicativi).\n"
+    "submit_quote_request.\n"
+    "Liberi per tutti, ospiti compresi, senza login: search_listino, search_prezzario, "
+    "retrieve_price_by_code, pricing_engine, market_prices (una domanda di prezzo non richiede l'accesso).\n"
     "SEQUENZA OBBLIGATORIA per rendering e preventivo:\n"
     "1) Raccogli i dati e ottieni la CONFERMA esplicita dell'utente (ok al riepilogo del rendering, "
     "richiesta di preparare il preventivo o sì alla tua domanda). La scelta del percorso, una domanda "

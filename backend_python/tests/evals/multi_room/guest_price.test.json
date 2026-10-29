@@ -1,7 +1,7 @@
 {
   "eval_set_id": "syd_guest_price_v1",
   "name": "SYD Guest Price Question — no login (Phase 138, PR-6)",
-  "description": "A guest asks a point price question (PRICE INQUIRY): the customer listino range, no login (user decision 29 Oct 2026: a price question is not a confirmation), no premium tool.",
+  "description": "A guest asks point price questions (PRICE INQUIRY): the customer listino range, then an article of the regional prezzario (RAG, open to guests: user decision 29 Oct 2026), never a login (a price question is not a confirmation) and no render or quote tool.",
   "eval_cases": [
     {
       "eval_id": "guest_window_price",
@@ -42,6 +42,34 @@
                 "name": "search_listino",
                 "args": {},
                 "id": "call_inv_guest_price_001_1"
+              }
+            ]
+          }
+        },
+        {
+          "invocation_id": "inv_guest_price_002",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nE quanto costa l'articolo A 3.01.15.f del prezzario regionale?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "L'articolo A 3.01.15.f costa €25,62/mq."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "retrieve_price_by_code",
+                "args": {},
+                "id": "call_inv_guest_price_002_1"
               }
             ]
           }

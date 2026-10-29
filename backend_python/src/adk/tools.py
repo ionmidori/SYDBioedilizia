@@ -44,17 +44,8 @@ _QUOTE_LOGIN_REQUIRED = (
 )
 
 
-# A price question is not a confirmation (Phase 138 PR-6): a guest gets the
-# customer listino range, never a login card for it.
-_PRICES_LOGIN_REQUIRED = (
-    "RISERVATO_UTENTI_REGISTRATI: prezzario ufficiale, calcolo delle voci e prezzi di mercato sono "
-    "riservati agli utenti registrati. Per un ospite usa search_listino (range indicativo) oppure "
-    "proponi un preventivo personalizzato. Una domanda di prezzo NON richiede il login."
-)
-
-
 # Invocation-scoped, like _RENDER_DONE_KEY: the login state cannot change
-# within a turn, and a quote may call several gated tools (one per line).
+# within a turn, and one turn may call several gated tools.
 _GUEST_KEY = "temp:is_guest"
 
 
@@ -90,7 +81,7 @@ def _trusted_session_id(tool_context: Any, claimed: str) -> str:
 # ─── Pricing Engine ──────────────────────────────────────────────────────────
 
 @instrumented_tool("pricing_engine")
-async def pricing_engine_tool(sku: str, qty: float, tool_context) -> dict[str, Any]:
+async def pricing_engine_tool(sku: str, qty: float) -> dict[str, Any]:
     """Calculates project line-item price from the master price book.
 
     Looks up a SKU and returns unit price, description, and total cost.
@@ -100,10 +91,7 @@ async def pricing_engine_tool(sku: str, qty: float, tool_context) -> dict[str, A
     Args:
         sku: The stock keeping unit identifier (e.g. 'TCHR_001').
         qty: Quantity required (0.01 – 10000).
-        tool_context: ADK ToolContext injected automatically by the runner.
     """
-    if await _is_guest(tool_context):
-        return {"status": "error", "message": _PRICES_LOGIN_REQUIRED}
     if not (0.01 <= qty <= 10_000):
         return {"status": "error", "message": f"qty={qty} out of valid range [0.01, 10000]."}
     from src.services.pricing_service import PricingService
@@ -153,17 +141,14 @@ async def submit_quote_request(session_id: str, tool_context) -> str:
 # ─── Market Prices ───────────────────────────────────────────────────────────
 
 @instrumented_tool("market_prices")
-async def get_market_prices(query: str, tool_context) -> str:
+async def get_market_prices(query: str) -> str:
     """Fetches live market prices for renovation materials and services.
 
     Uses the Perplexity Sonar API to retrieve real-time pricing data.
 
     Args:
         query: Search query (e.g. 'average cost per m2 bathroom tiles Italy').
-        tool_context: ADK ToolContext injected automatically by the runner.
     """
-    if await _is_guest(tool_context):
-        return _PRICES_LOGIN_REQUIRED
     from src.tools.market_prices import get_market_prices_wrapper
     return await get_market_prices_wrapper(query)
 
@@ -202,7 +187,7 @@ async def retrieve_knowledge(query: str) -> str:
 
 
 @instrumented_tool("search_prezzario")
-async def search_prezzario(query: str, tool_context, categoria: str = "") -> str:
+async def search_prezzario(query: str, categoria: str = "") -> str:
     """Searches the regional price list (Tariffa Regionale Lazio 2023) for
     construction work items and their official unit prices.
 
@@ -214,16 +199,13 @@ async def search_prezzario(query: str, tool_context, categoria: str = "") -> str
                'demolizione pavimento in marmo', 'tinteggiatura pareti al mq'.
         categoria: Optional category filter to narrow results, e.g.
                    'Demolizioni e Rimozioni', 'Tinteggiature e Verniciature'.
-        tool_context: ADK ToolContext injected automatically by the runner.
     """
-    if await _is_guest(tool_context):
-        return _PRICES_LOGIN_REQUIRED
     from src.tools.rag_tools import search_prezzario as _search
     return await _search(query, categoria)
 
 
 @instrumented_tool("retrieve_price_by_code")
-async def retrieve_price_by_code(codice_articolo: str, tool_context) -> str:
+async def retrieve_price_by_code(codice_articolo: str) -> str:
     """Looks up a specific price-list article by its exact code.
 
     Use this tool when the user references a specific article code like
@@ -232,10 +214,7 @@ async def retrieve_price_by_code(codice_articolo: str, tool_context) -> str:
     Args:
         codice_articolo: The exact article code from the regional price list,
                          e.g. 'A 3.02.14.a.' or 'A 20.01.1.'
-        tool_context: ADK ToolContext injected automatically by the runner.
     """
-    if await _is_guest(tool_context):
-        return _PRICES_LOGIN_REQUIRED
     from src.tools.rag_tools import retrieve_price_by_code as _lookup
     return await _lookup(codice_articolo)
 
