@@ -33,7 +33,7 @@ jest.mock('firebase/auth', () => ({
     signInWithPopup: jest.fn(),
     signInWithRedirect: jest.fn(),
 }));
-jest.mock('@/lib/firebase', () => ({ auth: { currentUser: null } }));
+jest.mock('@/lib/firebase', () => ({ auth: { currentUser: null, authStateReady: jest.fn(() => Promise.resolve()) } }));
 jest.mock('@/lib/guest-claim-api', () => ({ guestClaimApi: { issueTicket: jest.fn(), claim: jest.fn() } }));
 jest.mock('@/lib/projects-api', () => ({ projectsApi: { listProjects: jest.fn() } }));
 jest.mock('@/lib/query-client', () => ({ queryClient: { invalidateQueries: jest.fn() } }));
@@ -42,7 +42,7 @@ const GUEST = { uid: 'anon-1', isAnonymous: true };
 const ACCOUNT = { uid: 'user-1', isAnonymous: false };
 const TICKET = 't'.repeat(43);
 
-const mockAuth = auth as { currentUser: unknown };
+const mockAuth = auth as unknown as { currentUser: unknown; authStateReady: jest.Mock };
 const mockIssue = guestClaimApi.issueTicket as jest.Mock;
 const mockClaim = guestClaimApi.claim as jest.Mock;
 const mockList = projectsApi.listProjects as jest.Mock;
@@ -92,6 +92,21 @@ describe('signing in to an existing account as a guest', () => {
 
         await expect(signInKeepingGuestChats(signInToAccount)).rejects.toMatchObject({ code: GUEST_CLAIM_UNAVAILABLE });
         expect(signInToAccount).not.toHaveBeenCalled();
+    });
+
+    it('waits for the guest a page just loaded is still restoring (a magic link opens a new page)', async () => {
+        // Until Firebase reads its storage, currentUser is null: the login
+        // went ahead as a plain one and the guest's chats stayed behind.
+        mockAuth.currentUser = null;
+        mockAuth.authStateReady.mockImplementationOnce(async () => {
+            mockAuth.currentUser = GUEST;
+        });
+
+        await signInKeepingGuestChats(signInToAccount);
+        await settle();
+
+        expect(mockIssue.mock.invocationCallOrder[0]).toBeLessThan(signInToAccount.mock.invocationCallOrder[0]);
+        expect(mockClaim).toHaveBeenCalledWith(TICKET);
     });
 
     it('is a plain login without a guest', async () => {

@@ -1,11 +1,12 @@
 import React from 'react';
 import { act, render, waitFor } from '@testing-library/react';
-import { onAuthStateChanged, onIdTokenChanged, type User } from 'firebase/auth';
+import { onAuthStateChanged, onIdTokenChanged, sendSignInLinkToEmail, type User } from 'firebase/auth';
 import { AuthProvider, completeRedirectLogin, useAuthContext } from '../AuthProvider';
 import { setAuthCookie } from '@/app/actions/auth-session';
 import * as guestClaim from '@/lib/auth/guest-claim';
 import * as redirectLogin from '@/lib/auth/redirect-login';
 import { pendingMessageStore } from '@/lib/auth/pending-message';
+import { setChatWindowOpen, takeReopenChat } from '@/lib/chat/chat-window-state';
 
 jest.mock('firebase/auth', () => ({
     onAuthStateChanged: jest.fn(() => jest.fn()),
@@ -75,6 +76,7 @@ beforeEach(() => {
     jest.clearAllMocks();
     sessionStorage.clear();
     localStorage.clear();
+    setChatWindowOpen(false);
     mockRedirectFirst.mockReturnValue(false);
     mockCanRedirect.mockReturnValue(false);
 });
@@ -110,6 +112,37 @@ describe('social login: popup or redirect', () => {
 
         expect(pendingMessageStore.get()).toBe('Sì, procedi con il rendering');
         pendingMessageStore.clear();
+    });
+
+    it('reopens the chat on the way back when it was open (the page reloads)', async () => {
+        mockRedirectFirst.mockReturnValue(true);
+        setChatWindowOpen(true);
+        const ctx = await renderAuthReady();
+
+        await ctx().loginWithGoogle();
+
+        expect(takeReopenChat()).toBe(true);
+    });
+
+    it('keeps nothing for the way back when the page could not leave', async () => {
+        mockRedirectFirst.mockReturnValue(true);
+        mockRedirect.mockRejectedValueOnce({ code: 'auth/network-request-failed' });
+        setChatWindowOpen(true);
+        const ctx = await renderAuthReady();
+
+        await expect(ctx().loginWithGoogle()).rejects.toEqual({ code: 'auth/network-request-failed' });
+
+        // Otherwise the next page of this tab would open the chat unasked.
+        expect(takeReopenChat()).toBe(false);
+    });
+
+    it('leaves the chat closed on the way back when it was closed', async () => {
+        mockRedirectFirst.mockReturnValue(true);
+        const ctx = await renderAuthReady();
+
+        await ctx().loginWithGoogle();
+
+        expect(takeReopenChat()).toBe(false);
     });
 
     it('falls back to redirect when the popup is refused', async () => {
@@ -150,6 +183,39 @@ describe('a guest linked to a new account', () => {
 });
 
 describe('magic link', () => {
+    beforeEach(() => {
+        window.history.replaceState(null, '', '/faq?projectId=p1');
+    });
+    afterEach(() => {
+        window.history.replaceState(null, '', '/');
+    });
+
+    function linkUrl(): URL {
+        const [, , settings] = (sendSignInLinkToEmail as jest.Mock).mock.calls[0];
+        return new URL(settings.url);
+    }
+
+    it('returns to the page it was asked from, with the chat open as it was', async () => {
+        setChatWindowOpen(true);
+        const ctx = await renderAuthReady();
+
+        await ctx().sendMagicLink('u@test.com');
+
+        const url = linkUrl();
+        expect(url.origin + url.pathname).toBe(`${window.location.origin}/auth/verify`);
+        expect(url.searchParams.get('next')).toBe('/faq?projectId=p1');
+        expect(url.searchParams.get('chat')).toBe('open');
+    });
+
+    it('does not open the chat on return when it was closed', async () => {
+        const ctx = await renderAuthReady();
+
+        await ctx().sendMagicLink('u@test.com');
+
+        expect(linkUrl().searchParams.get('next')).toBe('/faq?projectId=p1');
+        expect(linkUrl().searchParams.has('chat')).toBe(false);
+    });
+
     it('keeps the guest chats', async () => {
         const ctx = await renderAuthReady();
         await ctx().completeMagicLink('https://x/auth/verify?oobCode=1', 'u@test.com');

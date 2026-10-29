@@ -142,6 +142,9 @@ export async function openChatAfterLink(): Promise<void> {
  * and GuestClaimNotice follow it through guestClaimStore.
  */
 export async function signInKeepingGuestChats<T>(signIn: () => Promise<T>): Promise<T> {
+    // A magic link opens a new page, which signs in at once: until Firebase has
+    // restored the session there is no guest yet, and its chats would stay behind.
+    await auth.authStateReady();
     const guest = anonymousUser();
     if (!guest) return signIn();
 

@@ -32,6 +32,8 @@ import {
     signInKeepingGuestChats,
 } from '@/lib/auth/guest-claim';
 import { pendingMessageStore } from '@/lib/auth/pending-message';
+import { magicLinkContinueUrl } from '@/lib/auth/magic-link-return';
+import { isChatWindowOpen, reopenChatOnNextPage, takeReopenChat } from '@/lib/chat/chat-window-state';
 import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { mapAuthError } from '@/utils/auth-utils';
 
@@ -276,7 +278,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const redirect = async (): Promise<SocialLoginOutcome> => {
             savePendingRedirect();
             pendingMessageStore.keepForRedirect();
-            await redirectKeepingGuestChats(provider);
+            if (isChatWindowOpen()) reopenChatOnNextPage();
+            try {
+                await redirectKeepingGuestChats(provider);
+            } catch (err) {
+                // The page did not leave: nothing waits for a way back (the
+                // next page would finish a login or open the chat unasked).
+                takePendingRedirect();
+                takeReopenChat();
+                throw err;
+            }
             return 'redirecting';
         };
 
@@ -342,11 +353,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     /**
-     * Send magic link
+     * Send magic link: it brings the user back to this page, chat as it is now.
      */
     const sendMagicLink = async (email: string): Promise<void> => {
+        const { origin, pathname, search } = window.location;
         const actionCodeSettings = {
-            url: window.location.origin + '/auth/verify',
+            url: magicLinkContinueUrl(origin, pathname + search, isChatWindowOpen()),
             handleCodeInApp: true,
         };
 

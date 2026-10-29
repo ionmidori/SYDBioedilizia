@@ -26,6 +26,7 @@ jest.mock('firebase/auth', () => ({
     getAuth: jest.fn(() => ({
         currentUser: null,
         onAuthStateChanged: jest.fn(),
+        authStateReady: jest.fn(() => Promise.resolve()),
     })),
     setPersistence: jest.fn(() => Promise.resolve()),
     browserLocalPersistence: {},

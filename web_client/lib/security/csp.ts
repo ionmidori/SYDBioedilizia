@@ -76,6 +76,13 @@ const EMULATOR_CONNECT_ORIGINS =
   'http://localhost:9099 http://localhost:8085 ' +
   'ws://127.0.0.1:8085 ws://localhost:8085';
 
+/**
+ * The Auth emulator also serves the iframe Firebase opens for redirect logins
+ * (at page load on phones), added to frame-src ONLY in the E2E build: without
+ * it Firebase Auth waits for the iframe forever and nobody can sign in.
+ */
+const EMULATOR_FRAME_ORIGINS = 'http://127.0.0.1:9099 http://localhost:9099';
+
 const USE_EMULATORS = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR === 'true';
 
 /** Routes rendered dynamically (force-dynamic) that receive the strict CSP. */
@@ -119,7 +126,7 @@ export function buildCspHeader({ nonce, isDev = false }: BuildCspOptions = {}): 
     base-uri 'self';
     form-action 'self';
     frame-ancestors 'none';
-    frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com https://www.google.com https://recaptcha.google.com ${TOOLBAR_FRAME_ORIGIN};
+    frame-src 'self' https://chatbotluca-a8a73.firebaseapp.com https://www.google.com https://recaptcha.google.com ${TOOLBAR_FRAME_ORIGIN}${USE_EMULATORS ? ` ${EMULATOR_FRAME_ORIGINS}` : ''};
     ${USE_EMULATORS ? '' : 'upgrade-insecure-requests;'}
   `
     .replace(/\s{2,}/g, ' ')

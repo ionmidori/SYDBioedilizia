@@ -1,4 +1,4 @@
-import { test as base, expect, type Route } from '@playwright/test';
+import { test as base, expect, type BrowserContext, type Page, type Route } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { UID_FILE } from './constants';
 
@@ -21,23 +21,30 @@ export const test = base.extend<{ uid: string }>({
   },
 
   page: async ({ page }, use) => {
-    // Registered first; specs register more specific routes afterwards and
-    // Playwright matches handlers in reverse registration order (last wins).
-    await page.route('**/api/py/**', (route: Route) =>
-      route.fulfill({
-        status: 599,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: `unstubbed backend call: ${route.request().url()}` }),
-      }),
-    );
-    // Belt and braces: never let anything reach the real backend host.
-    await page.route('**/syd-brain-*.run.app/**', (route: Route) => route.abort('blockedbyclient'));
-
+    await blockUnstubbedBackend(page);
     await use(page);
   },
 });
 
 export { expect };
+
+/**
+ * The guard rail of every page: register it first, so specs' more specific
+ * routes win (Playwright matches handlers in reverse registration order). A
+ * spec that opens another tab registers it on the context (page routes still
+ * come first).
+ */
+export async function blockUnstubbedBackend(target: Page | BrowserContext) {
+  await target.route('**/api/py/**', (route: Route) =>
+    route.fulfill({
+      status: 599,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: `unstubbed backend call: ${route.request().url()}` }),
+    }),
+  );
+  // Belt and braces: never let anything reach the real backend host.
+  await target.route('**/syd-brain-*.run.app/**', (route: Route) => route.abort('blockedbyclient'));
+}
 
 /** Convenience: fulfil a route with a JSON body. */
 export function jsonRoute(body: unknown) {

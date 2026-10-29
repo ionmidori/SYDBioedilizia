@@ -30,7 +30,10 @@ const EMULATOR_ENV = {
   NEXT_PUBLIC_FIREBASE_EMULATOR: 'true',
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: 'demo-syd-e2e',
   NEXT_PUBLIC_FIREBASE_API_KEY: 'demo-api-key',
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: 'demo-syd-e2e.firebaseapp.com',
+  // The site host, as in production: canRedirectHere() turns signInWithRedirect
+  // on (lib/auth/redirect-login.ts). The emulator serves its own auth handler,
+  // so the redirect round trip runs for real (login-keeps-page.spec.ts).
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: `127.0.0.1:${PORT}`,
   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: 'demo-syd-e2e.appspot.com',
   NEXT_PUBLIC_RECAPTCHA_SITE_KEY: 'ci-placeholder-recaptcha',
   NEXT_PUBLIC_ENABLE_APP_CHECK: 'false',

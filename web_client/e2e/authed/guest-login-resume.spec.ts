@@ -137,10 +137,8 @@ test('a guest confirms, sees one login card, and the quote starts again in its c
   expect(calls).toEqual(['chat:anonymous', 'chat:anonymous', 'ticket:anonymous', 'claim:done', 'chat:password']);
   expect(chats.some((c) => c.sessionId.startsWith('global-'))).toBe(false);
 
-  // 5. Signed in: no login card left in the old messages.
-  if (!(await page.getByTestId('chat-window').isVisible())) {
-    await page.getByRole('button', { name: 'Apri chat' }).click();
-  }
+  // 5. Signed in, the chat still open: no login card left in the old messages.
+  await expect(page.getByTestId('chat-window')).toBeVisible();
   await expect(page.getByTestId('chat-messages')).toContainText(DONE_REPLY);
   await expect(cardButton).toHaveCount(0);
 });
