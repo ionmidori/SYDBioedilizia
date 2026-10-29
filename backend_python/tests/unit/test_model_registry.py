@@ -4,6 +4,7 @@ Gemini model registry (src/core/models.py, src/adk/model_factory.py).
 Model IDs live only in settings; code resolves them by role. These tests pin
 the resolution rules and guard against hardcoded IDs creeping back in.
 """
+import asyncio
 import re
 from pathlib import Path
 from types import SimpleNamespace
@@ -128,7 +129,7 @@ def test_genai_client_is_a_singleton(clean_registry):
 async def test_validate_reports_unavailable_models(clean_registry):
     clean_registry.setattr(settings, "MODEL_QUOTE", "retired-model")
 
-    async def fake_get(model: str):
+    async def fake_get(model: str, config: types.GetModelConfig):
         if model == "retired-model":
             raise genai_errors.ClientError(404, {"error": {"code": 404, "message": "not found"}})
         return SimpleNamespace(name=model)
@@ -140,6 +141,19 @@ async def test_validate_reports_unavailable_models(clean_registry):
 
     assert len(problems) == 1
     assert "retired-model" in problems[0]
+
+
+async def test_validate_bounds_each_lookup_with_an_http_timeout(clean_registry):
+    """The shared client has no HTTP timeout: an unanswered lookup hung the
+    warm-up of syd-brain-00692 until the startup probe gave up."""
+    clean_registry.setattr(settings, "MODEL_VALIDATION_TIMEOUT_SECONDS", 7.5)
+    client = MagicMock()
+    client.aio.models.get = AsyncMock(return_value=SimpleNamespace(name="m"))
+    with patch("src.core.models.get_genai_client", return_value=client):
+        await models.validate_configured_models()
+
+    for call in client.aio.models.get.await_args_list:
+        assert call.kwargs["config"] == types.GetModelConfig(http_options=types.HttpOptions(timeout=7500))
 
 
 def test_agents_resolve_models_from_the_registry():
@@ -195,3 +209,45 @@ def test_image_generation_never_falls_back_to_a_chat_or_vision_model(clean_regis
     imagen_source = (BACKEND_ROOT / "src" / "api" / "gemini_imagen.py").read_text(encoding="utf-8")
     roles_used = set(re.findall(r"ModelRole\.(\w+)", imagen_source))
     assert roles_used == {"IMAGE"}
+
+
+async def test_validate_checks_every_model_even_when_a_lookup_times_out(clean_registry):
+    import httpx
+
+    clean_registry.setattr(settings, "MODEL_QUOTE", "slow-model")
+
+    async def fake_get(model: str, config: types.GetModelConfig):
+        if model == "slow-model":
+            raise httpx.ReadTimeout("no answer")
+        return SimpleNamespace(name=model)
+
+    client = MagicMock()
+    client.aio.models.get = AsyncMock(side_effect=fake_get)
+    with patch("src.core.models.get_genai_client", return_value=client):
+        problems = await models.validate_configured_models()
+
+    assert len(problems) == 1
+    assert "slow-model" in problems[0] and "could not be verified" in problems[0]
+    assert client.aio.models.get.await_count == len(set(models.configured_models().values()))
+
+
+async def test_validate_looks_models_up_concurrently(clean_registry):
+    """One step limit covers every lookup: sequential lookups of a slow but
+    healthy API would add up past it."""
+    in_flight = 0
+    peak = 0
+
+    async def fake_get(model: str, config: types.GetModelConfig):
+        nonlocal in_flight, peak
+        in_flight += 1
+        peak = max(peak, in_flight)
+        await asyncio.sleep(0.01)
+        in_flight -= 1
+        return SimpleNamespace(name=model)
+
+    client = MagicMock()
+    client.aio.models.get = AsyncMock(side_effect=fake_get)
+    with patch("src.core.models.get_genai_client", return_value=client):
+        await models.validate_configured_models()
+
+    assert peak == len(set(models.configured_models().values())) > 1

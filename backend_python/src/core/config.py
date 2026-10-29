@@ -135,6 +135,19 @@ class Settings(BaseSettings):
         default=False,
         description="Fail startup when a configured model ID is unknown to the API (staging).",
     )
+    MODEL_VALIDATION_TIMEOUT_SECONDS: float = Field(
+        default=10.0,
+        description="HTTP timeout of each model lookup in the startup validation (the shared "
+                    "genai client has none: an unanswered lookup hung syd-brain-00692).",
+    )
+    # Startup probe: 90 checks 1 s apart (deploy/cloud-run-config.sh). Worst case
+    # = parallel steps + firestore_async + price_book = 3 limits = 60 s, plus the
+    # imports before the warm-up starts (~8 s on syd-brain-00692).
+    WARMUP_STEP_TIMEOUT_SECONDS: float = Field(
+        default=20.0,
+        description="Time limit of each startup warm-up step; past it the instance becomes "
+                    "ready without that step (src/core/warmup.py).",
+    )
 
     # ── ADK chat context (Phase 138 PR-5) ────────────────────────────────────
     # History compaction (src/adk/compaction.py): once a model call's prompt

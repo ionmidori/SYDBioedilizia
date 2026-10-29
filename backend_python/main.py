@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 load_dotenv(".env")  # Load .env into os.environ before any other imports (required by google-adk, google-genai)
 
 import asyncio
-import inspect
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -23,19 +22,71 @@ from src.core.config import settings
 from src.core.context import set_request_id
 from src.core.exceptions import AppException, PermissionDenied
 from src.core.logger import get_logger, setup_logging
+from src.core.models import validate_configured_models
 from src.core.rate_limit import charge_extra, limiter
 from src.core.schemas import APIErrorResponse
+from src.core.warmup import WarmupStep, run_warmup
+from src.db.firebase_client import get_async_firestore_client, init_firebase
 from src.repositories.room_repository import get_room_repository
 from src.schemas.internal import UserSession
 from src.schemas.room import ROOM_ID_PATTERN
 from src.services.base_orchestrator import BaseOrchestrator
-from src.services.orchestrator_factory import get_orchestrator
+from src.services.model_armor.model_armor_client import get_model_armor_service
+from src.services.orchestrator_factory import get_orchestrator, warm_up_orchestrator
+from src.services.pricing_service import PricingService
+from starlette.datastructures import State
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🔥 LOGGING & APP SETUP
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 setup_logging()
 logger = get_logger(__name__)
+
+
+def _warm_model_armor() -> None:
+    service = get_model_armor_service()
+    if service is not None:
+        service.warm_up()
+
+
+async def background_warmup(state: State) -> None:
+    """Initialize everything the first chat turn would otherwise pay for.
+
+    The ADK runner, Firebase Admin, the async Firestore client and the Model
+    Armor client cost ~1s each when lazy (measured in production on the first
+    turn of a cold instance). Each step has a time limit (src/core/warmup.py).
+    """
+    started = time.perf_counter()
+    problems: list[str] = []
+
+    async def validate_models() -> None:
+        # A retired model ID surfaces here, at deploy, instead of in a user's chat.
+        problems.extend(await validate_configured_models())
+
+    report = await run_warmup(
+        parallel=[
+            WarmupStep("models", validate_models),
+            WarmupStep("adk_orchestrator", warm_up_orchestrator),
+            WarmupStep("firebase_admin", init_firebase),
+            WarmupStep("model_armor", _warm_model_armor),
+        ],
+        sequential=[
+            # The async Firestore client binds its gRPC channel to the running event
+            # loop, so it is created on the loop (cheap constructor), not in a thread.
+            WarmupStep("firestore_async", get_async_firestore_client, in_thread=False, requires="firebase_admin"),
+            # Prices edited in the admin console: load them before the first quote.
+            WarmupStep("price_book", PricingService.ensure_fresh, in_thread=False),
+        ],
+        step_timeout_s=settings.WARMUP_STEP_TIMEOUT_SECONDS,
+    )
+    state.warmup_report = report
+    # Models not verified in time: MODEL_VALIDATION_STRICT keeps the revision out of service.
+    state.model_problems = ["model validation timed out"] if report["models"] == "timed_out" else problems
+    logger.info(
+        "ADKOrchestrator warm-up complete.",
+        extra={"duration_ms": round((time.perf_counter() - started) * 1000, 1), "warmup_report": report},
+    )
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -48,11 +99,6 @@ async def lifespan(_app: FastAPI):
     init_tracing()
 
     # ── Non-blocking warm-up ──────────────────────────────────────────────────
-    # Initializes, in parallel background threads, everything the first chat
-    # turn would otherwise pay for: the ADK runner, Firebase Admin, the async
-    # Firestore client and the Model Armor client (~1s each when lazy, measured
-    # in production on the first turn of a cold instance).
-    #
     # /health and non-chat endpoints answer immediately; /health/startup returns
     # 503 until the warm-up is done, so a Cloud Run startup probe on it keeps
     # traffic away from an instance that is not ready (the first /chat/stream
@@ -60,57 +106,7 @@ async def lifespan(_app: FastAPI):
     #
     # Task reference stored on app.state per python-production-coding skill
     # ("No fire-and-forget: never use create_task without storing the reference").
-    from src.core.models import validate_configured_models
-    from src.db.firebase_client import get_async_firestore_client, init_firebase
-    from src.services.model_armor.model_armor_client import get_model_armor_service
-    from src.services.orchestrator_factory import warm_up_orchestrator
-    from src.services.pricing_service import PricingService
-    from starlette.concurrency import run_in_threadpool
-
-    async def _warm(name: str, fn, *, in_thread: bool = True) -> None:
-        started = time.perf_counter()
-        try:
-            if inspect.iscoroutinefunction(fn):
-                await fn()
-            elif in_thread:
-                await run_in_threadpool(fn)
-            else:
-                fn()
-            logger.info(
-                f"Warm-up step '{name}' done",
-                extra={"warmup_step": name, "duration_ms": round((time.perf_counter() - started) * 1000, 1)},
-            )
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"Warm-up step '{name}' failed (will retry lazily): {e}")
-
-    def _warm_model_armor() -> None:
-        service = get_model_armor_service()
-        if service is not None:
-            service.warm_up()
-
-    async def _validate_models() -> None:
-        # A retired model ID surfaces here, at deploy, instead of in a user's chat.
-        _app.state.model_problems = await validate_configured_models()
-
-    async def _background_warmup():
-        started = time.perf_counter()
-        await asyncio.gather(
-            _warm("models", _validate_models),
-            _warm("adk_orchestrator", warm_up_orchestrator),
-            _warm("firebase_admin", init_firebase),
-            _warm("model_armor", _warm_model_armor),
-        )
-        # The async Firestore client binds its gRPC channel to the running event
-        # loop, so it is created on the loop (cheap constructor), not in a thread.
-        await _warm("firestore_async", get_async_firestore_client, in_thread=False)
-        # Prices edited in the admin console: load them before the first quote.
-        await _warm("price_book", PricingService.ensure_fresh, in_thread=False)
-        logger.info(
-            "ADKOrchestrator warm-up complete.",
-            extra={"duration_ms": round((time.perf_counter() - started) * 1000, 1)},
-        )
-
-    warmup_task = asyncio.create_task(_background_warmup())
+    warmup_task = asyncio.create_task(background_warmup(_app.state))
     _app.state.warmup_task = warmup_task
 
     yield
@@ -610,6 +606,10 @@ def startup_check(request: Request):
     warmup_task = getattr(state, "warmup_task", None)
     if warmup_task is None or not warmup_task.done():
         return JSONResponse(status_code=503, content={"status": "warming_up"})
+    # An unexpected warm-up error is a bug (expected failures are absorbed by
+    # src/core/warmup.py): keep the revision out of service; the stack is logged.
+    if warmup_task.cancelled() or warmup_task.exception() is not None:
+        return JSONResponse(status_code=503, content={"status": "warmup_failed"})
     # MODEL_VALIDATION_STRICT: a configured model the API does not serve keeps
     # the new revision out of service (the previous revision keeps serving).
     if settings.MODEL_VALIDATION_STRICT and getattr(state, "model_problems", None):
