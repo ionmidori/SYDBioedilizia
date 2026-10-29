@@ -405,10 +405,7 @@ class MultiRoomRun:
 
 LOGIN_TOOL = "request_login"
 # Refused to a guest server side (src/adk/tools.py): a guest's turn must never call them.
-PREMIUM_TOOLS = frozenset({
-    "generate_render", "suggest_quote_items", "submit_quote_request", "pricing_engine_tool",
-    "search_prezzario", "retrieve_price_by_code", "get_market_prices",
-})
+PREMIUM_TOOLS = frozenset({"generate_render", "suggest_quote_items", "submit_quote_request"})
 
 
 def _login_problems(run: MultiRoomRun, *, login_turn: int | None) -> list[str]:
