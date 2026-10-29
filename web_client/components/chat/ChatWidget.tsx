@@ -30,6 +30,7 @@ import { buildMediaPayload } from '@/lib/chat/message-media';
 import { useUrlContextSync } from '@/hooks/useUrlContextSync';
 import { useCadIntent } from '@/hooks/useCadIntent';
 import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
+import { setChatWindowOpen } from '@/lib/chat/chat-window-state';
 
 /**
  * ChatWidget Component
@@ -106,6 +107,14 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     useEffect(() => {
         if (isOpen) warmBackend();
     }, [isOpen]);
+
+    // A login that leaves the page (redirect, magic link) reads this to bring
+    // the user back with the chat as it was. The inline chat is always open.
+    useEffect(() => {
+        if (isInline) return;
+        setChatWindowOpen(isOpen);
+        return () => setChatWindowOpen(false);
+    }, [isInline, isOpen]);
 
     // 4. Status Queue (Visuals)
     const { currentStatus, addStatus, clearQueue } = useStatusQueue();
@@ -233,7 +242,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     });
 
     // 9. Event Listeners for External Triggers (Navbar, Hero, etc.)
-    useOpenChatEvents({ setIsOpen, setInput });
+    useOpenChatEvents({ setIsOpen, setInput, reopenAfterLogin: !isInline });
 
     // Drag-to-close handler
     const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {

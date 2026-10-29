@@ -82,10 +82,8 @@ test('a guest who signs in to an existing account finds its chat', async ({ page
   expect(guestUid).toBeTruthy();
   expect(guestUid).not.toBe(uid);
 
-  // 3. The chat shows the guest's conversation, read from Firestore as the account.
-  if (!(await page.getByTestId('chat-window').isVisible())) {
-    await page.getByRole('button', { name: 'Apri chat' }).click();
-  }
+  // 3. The chat, still open, shows the guest's conversation, read from Firestore as the account.
+  await expect(page.getByTestId('chat-window')).toBeVisible();
   for (const message of GUEST_MESSAGES) {
     await expect(page.getByTestId('chat-messages')).toContainText(message.content);
   }

@@ -9,8 +9,9 @@
  * user does not come back soon (a stale confirmation must not start a quote).
  */
 
+import { keepForReturn, takeOnReturn } from './redirect-login';
+
 const STORAGE_KEY = 'syd:pendingMessage';
-const REDIRECT_MAX_AGE_MS = 10 * 60 * 1000;
 
 let message = '';
 const listeners = new Set<() => void>();
@@ -38,27 +39,14 @@ export const pendingMessageStore = {
 
     /** The page is leaving for the provider: keep the message for the way back. */
     keepForRedirect(): void {
-        if (!message) return;
-        try {
-            sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ text: message, savedAt: Date.now() }));
-        } catch {
-            // Storage unavailable: the login still completes, the user writes again.
-        }
+        // No message: drop a copy left by a redirect that never left the page.
+        if (!message) takeOnReturn(STORAGE_KEY);
+        else keepForReturn(STORAGE_KEY, { text: message });
     },
 
     /** Back from the provider: the message kept by keepForRedirect (read once). */
     restoreAfterRedirect(): void {
-        let saved: unknown = null;
-        try {
-            const raw = sessionStorage.getItem(STORAGE_KEY);
-            sessionStorage.removeItem(STORAGE_KEY);
-            saved = raw === null ? null : JSON.parse(raw);
-        } catch {
-            return;
-        }
-        const { text, savedAt } = (saved ?? {}) as { text?: unknown; savedAt?: unknown };
-        if (typeof text !== 'string' || typeof savedAt !== 'number') return;
-        if (Date.now() - savedAt > REDIRECT_MAX_AGE_MS) return;
-        set(text);
+        const text = takeOnReturn(STORAGE_KEY)?.text;
+        if (typeof text === 'string') set(text);
     },
 };

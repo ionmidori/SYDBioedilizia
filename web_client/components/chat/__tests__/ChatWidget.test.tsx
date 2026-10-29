@@ -3,6 +3,12 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ChatWidget from '../ChatWidget';
+import {
+    isChatWindowOpen,
+    reopenChatOnNextPage,
+    setChatWindowOpen,
+    takeReopenChat,
+} from '@/lib/chat/chat-window-state';
 import '@testing-library/jest-dom';
 
 // Mocks
@@ -140,5 +146,47 @@ describe('ChatWidget', () => {
         render(<ChatWidget variant="inline" />);
 
         expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    describe('back from a login that left the page (redirect, magic link)', () => {
+        beforeEach(() => {
+            sessionStorage.clear();
+            setChatWindowOpen(false);
+        });
+
+        test('the chat opens again, once', async () => {
+            reopenChatOnNextPage();
+
+            render(<ChatWidget />);
+
+            expect(await screen.findByTestId('chat-window')).toBeInTheDocument();
+            expect(isChatWindowOpen()).toBe(true);
+            expect(takeReopenChat()).toBe(false);
+        });
+
+        test('the chat stays closed when it was closed', () => {
+            render(<ChatWidget />);
+
+            expect(screen.queryByTestId('chat-window')).not.toBeInTheDocument();
+            expect(isChatWindowOpen()).toBe(false);
+        });
+
+        test('the inline chat, always open, leaves the reopening to the floating one', () => {
+            reopenChatOnNextPage();
+
+            render(<ChatWidget variant="inline" />);
+
+            expect(takeReopenChat()).toBe(true);
+        });
+
+        test('the chat is no longer reported open once the widget leaves the page', async () => {
+            reopenChatOnNextPage();
+            const view = render(<ChatWidget />);
+            await screen.findByTestId('chat-window');
+
+            view.unmount();
+
+            expect(isChatWindowOpen()).toBe(false);
+        });
     });
 });

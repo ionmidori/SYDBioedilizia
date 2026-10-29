@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense, useCallback } from "react";
+import { useEffect, useRef, useState, Suspense, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { motion } from "framer-motion";
@@ -9,6 +9,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { magicLinkSchema, type MagicLinkValues } from "@/lib/validation/auth-schema";
 import { triggerHaptic } from "@/utils/haptics";
+import { magicLinkReturn } from "@/lib/auth/magic-link-return";
+import { reopenChatOnNextPage } from "@/lib/chat/chat-window-state";
 
 /**
  * Magic Link Verification Content
@@ -45,9 +47,12 @@ function VerifyContent() {
             setStatus("success");
             triggerHaptic();
 
-            // Redirect after 2 seconds
+            // Back to the page the link was asked from, chat as it was, after
+            // 2 seconds. replace: this page does not stay in the history.
+            const { next, reopenChat } = magicLinkReturn(window.location.search);
+            if (reopenChat) reopenChatOnNextPage();
             setTimeout(() => {
-                router.push("/");
+                router.replace(next);
             }, 2000);
 
         } catch (error: unknown) {
@@ -62,7 +67,14 @@ function VerifyContent() {
         }
     }, [emailLink, completeMagicLink, router]);
 
+    // A link works once: the login renders this page again with a new
+    // completeMagicLink, and a second attempt would fail and show the error.
+    const verificationStarted = useRef(false);
+
     useEffect(() => {
+        if (!emailLink || verificationStarted.current) return;
+        verificationStarted.current = true;
+
         const verifyLink = async () => {
             // Check if email is stored (same device)
             const storedEmail = window.localStorage.getItem("emailForSignIn");
@@ -76,9 +88,7 @@ function VerifyContent() {
             }
         };
 
-        if (emailLink) {
-            verifyLink();
-        }
+        verifyLink();
     }, [emailLink, attemptVerification]);
 
     const onConfirmEmail = async (data: MagicLinkValues) => {

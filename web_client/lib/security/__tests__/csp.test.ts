@@ -140,3 +140,27 @@ describe('buildCspHeader — emulator origins never leak into production', () =>
     expect(buildCspHeader({ nonce: 'abc' })).toContain('upgrade-insecure-requests');
   });
 });
+
+describe('buildCspHeader — E2E build (Firebase emulators)', () => {
+  async function emulatorPolicy(): Promise<string> {
+    const previous = process.env.NEXT_PUBLIC_FIREBASE_EMULATOR;
+    process.env.NEXT_PUBLIC_FIREBASE_EMULATOR = 'true';
+    try {
+      let policy = '';
+      await jest.isolateModulesAsync(async () => {
+        policy = (await import('../csp')).buildCspHeader();
+      });
+      return policy;
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_FIREBASE_EMULATOR;
+      else process.env.NEXT_PUBLIC_FIREBASE_EMULATOR = previous;
+    }
+  }
+
+  // On phones Firebase opens the auth iframe as soon as the page loads; with the
+  // emulator it comes from the Auth emulator's origin, not the site.
+  it('lets the Auth emulator iframe load, so a redirect login can run', async () => {
+    const frameSrc = (await emulatorPolicy()).split(';').find((d) => d.trim().startsWith('frame-src')) ?? '';
+    expect(frameSrc.trim().split(/\s+/)).toEqual(expect.arrayContaining(['http://127.0.0.1:9099', 'http://localhost:9099']));
+  });
+});

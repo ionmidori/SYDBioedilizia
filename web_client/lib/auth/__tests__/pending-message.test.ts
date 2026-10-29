@@ -45,6 +45,17 @@ it('stores nothing without a message, and ignores what it cannot read', () => {
     expect(sessionStorage.getItem(KEY)).toBeNull();
 });
 
+it('drops the copy of an earlier redirect when there is no message now', () => {
+    pendingMessageStore.set('Sì, procedi');
+    pendingMessageStore.keepForRedirect(); // that redirect never left the page
+    pendingMessageStore.clear();
+
+    pendingMessageStore.keepForRedirect();
+    pendingMessageStore.restoreAfterRedirect();
+
+    expect(pendingMessageStore.get()).toBe('');
+});
+
 it('tells its subscribers', () => {
     const listener = jest.fn();
     const unsubscribe = pendingMessageStore.subscribe(listener);

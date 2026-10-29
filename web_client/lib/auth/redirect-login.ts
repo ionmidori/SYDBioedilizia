@@ -13,6 +13,12 @@
 
 const PENDING_KEY = 'syd:authRedirect';
 
+/**
+ * How long what a page keeps for the way back from the provider stays valid:
+ * a user who comes back later is not resuming that login.
+ */
+const RETURN_MAX_AGE_MS = 10 * 60 * 1000;
+
 const MOBILE_OR_IN_APP = /iPhone|iPad|iPod|Android|FBAN|FBAV|Instagram|Line\/|GSA\//i;
 
 const POPUP_UNSUPPORTED_CODES = new Set([
@@ -50,8 +56,10 @@ export function shouldRedirectFirst(): boolean {
 
 /**
  * Remember that this tab left for the provider, so the login is finished on
- * return. Nothing else is kept: the anonymous guest is still signed in on the
- * way back (lib/auth/guest-claim.ts), so no claim data stays in the browser.
+ * return. No claim data is kept: the anonymous guest is still signed in on the
+ * way back (lib/auth/guest-claim.ts). The page keeps only what the user sees:
+ * the pending message (lib/auth/pending-message.ts) and the open chat
+ * (lib/chat/chat-window-state.ts).
  */
 export function savePendingRedirect(): void {
     try {
@@ -71,4 +79,34 @@ export function takePendingRedirect(): boolean {
     } catch {
         return false;
     }
+}
+
+/**
+ * Keep `data` in this tab under `key` for the page the login comes back to
+ * (redirect, magic link). Storage unavailable: nothing is kept, the login
+ * still completes.
+ */
+export function keepForReturn(key: string, data: Record<string, unknown> = {}): void {
+    try {
+        sessionStorage.setItem(key, JSON.stringify({ ...data, savedAt: Date.now() }));
+    } catch {
+        // Nothing kept: the user finds the page as a fresh load.
+    }
+}
+
+/** What keepForReturn kept under `key`, read once; null when missing, unreadable or too old. */
+export function takeOnReturn(key: string): Record<string, unknown> | null {
+    let saved: unknown;
+    try {
+        const raw = sessionStorage.getItem(key);
+        if (raw === null) return null;
+        sessionStorage.removeItem(key);
+        saved = JSON.parse(raw);
+    } catch {
+        return null;
+    }
+    if (typeof saved !== 'object' || saved === null) return null;
+    const { savedAt } = saved as { savedAt?: unknown };
+    if (typeof savedAt !== 'number' || Date.now() - savedAt > RETURN_MAX_AGE_MS) return null;
+    return saved as Record<string, unknown>;
 }
