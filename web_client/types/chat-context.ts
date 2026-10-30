@@ -59,6 +59,13 @@ export interface ChatContextType {
      */
     error: Error | undefined;
 
+    /**
+     * A notice about the chat that is not an error: a turn refused for a chat
+     * that is no longer the user's, given back to them to attach its photos
+     * again (Phase 139). `null` when there is none.
+     */
+    chatNotice: string | null;
+
     // Actions
     /**
      * Handle input change from the Textarea/Input.
@@ -81,6 +88,11 @@ export interface ChatContextType {
      * again when that is what failed.
      */
     reload: () => Promise<void>;
+
+    /**
+     * Close the chat notice.
+     */
+    dismissChatNotice: () => void;
 
     /**
      * Stop the current generation.

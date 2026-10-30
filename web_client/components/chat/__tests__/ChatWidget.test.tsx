@@ -26,10 +26,14 @@ jest.mock('@/hooks/useAuth', () => ({
 // ADK stream data exposed by the chat context (status, notice, ...)
 const mockChatData: { current: unknown[] } = { current: [] };
 const mockSessionId: { current: string | null } = { current: 'chat-session-123' };
+const mockChatNotice: { current: string | null } = { current: null };
+const mockDismissChatNotice = jest.fn();
 jest.mock('@/hooks/useChatContext', () => ({
     useChatContext: () => ({
         sessionId: mockSessionId.current,
         userChatId: null,
+        chatNotice: mockChatNotice.current,
+        dismissChatNotice: mockDismissChatNotice,
         isRestoringHistory: false,
         isLoading: false,
         messages: [],
@@ -85,6 +89,7 @@ describe('ChatWidget', () => {
         localStorage.clear();
         mockChatData.current = [];
         mockSessionId.current = 'chat-session-123';
+        mockChatNotice.current = null;
         mockUseAuth.mockReturnValue({ isInitialized: true, user: { uid: 'u1' }, refreshToken: jest.fn() });
     });
 
@@ -101,6 +106,15 @@ describe('ChatWidget', () => {
         const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as Record<string, unknown>;
         expect(headerProps).not.toHaveProperty('showSelector');
         expect(headerProps).not.toHaveProperty('onProjectSelect');
+    });
+
+    test('shows the notice of a turn given back to the user, and lets it be closed', async () => {
+        mockChatNotice.current = 'La tua chat è stata aggiornata: allega di nuovo le foto e invia il messaggio.';
+        render(<ChatWidget variant="inline" />);
+
+        expect(await screen.findByRole('status')).toHaveTextContent('allega di nuovo le foto');
+        await userEvent.click(screen.getByRole('button', { name: 'Chiudi avviso' }));
+        expect(mockDismissChatNotice).toHaveBeenCalledTimes(1);
     });
 
     test('keeps the input disabled until the chat id is known', () => {

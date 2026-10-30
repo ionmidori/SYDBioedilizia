@@ -40,6 +40,7 @@ jest.mock('@/lib/user-chat-api', () => ({ userChatApi: { getMyChat: jest.fn() } 
 jest.mock('@/lib/query-client', () => ({
     queryClient: {
         invalidateQueries: jest.fn(),
+        setQueryData: jest.fn(),
         fetchQuery: jest.fn((query: { queryFn: () => unknown }) => query.queryFn()),
     },
 }));
@@ -87,9 +88,9 @@ describe('signing in to an existing account as a guest', () => {
         expect(mockIssue.mock.invocationCallOrder[0]).toBeLessThan(signInToAccount.mock.invocationCallOrder[0]);
         expect(mockClaim).toHaveBeenCalledWith(TICKET);
         expect(guestClaimStore.get()).toEqual({ status: 'done', openSessionId: 'guest-chat' });
-        // The account's chat changed: the chat asks the backend for it again
-        // (Phase 139), it keeps no id of its own.
-        expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['me', 'chat'] });
+        // The claim answers with the account's chat (Phase 139): the chat opens it
+        // without asking again, and keeps no id of its own.
+        expect(queryClient.setQueryData).toHaveBeenCalledWith(['me', 'chat', 'user-1'], { chat_id: 'guest-chat', created: false });
         expect(localStorage.getItem('last_active_project:user-1')).toBeNull();
         // The id now names the account's chat: a later guest starts a new one.
         expect(localStorage.getItem('chatSessionId')).toBeNull();

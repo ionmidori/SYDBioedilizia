@@ -146,6 +146,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // -- FACADE: Flexible Send Message --
     // attachments: array of Firebase Storage URLs (strings) for images
     const lastTurnRef = useRef<SentTurn | null>(null);
+    // A notice about the chat, e.g. a refused turn given back to the user.
+    const [chatNotice, setChatNotice] = useState<string | null>(null);
     const sendMessage = useCallback(async (content: string, attachments?: string[], data?: Record<string, unknown>) => {
         const trimmed = content.trim();
         const hasAttachments = attachments && attachments.length > 0;
@@ -160,6 +162,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             return;
         }
         lastTurnRef.current = { content: trimmed, attachments, data };
+        setChatNotice(null);
 
         markChatSend();
         try {
@@ -220,6 +223,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const resendTurn = useCallback((turn: SentTurn) => {
         void sendMessage(turn.content, turn.attachments, turn.data);
     }, [sendMessage]);
+    const dismissChatNotice = useCallback(() => setChatNotice(null), []);
+    const restoreTurn = useCallback((turn: SentTurn) => {
+        setInput(turn.content);
+        setChatNotice('La tua chat è stata aggiornata: allega di nuovo le foto o i video e invia il messaggio.');
+    }, []);
     const { visibleError } = useChatMoveRecovery({
         error: sdkError,
         sessionId,
@@ -229,6 +237,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         enabled: userChatId !== null,
         refreshUserChat,
         resend: resendTurn,
+        restore: restoreTurn,
         lastTurn,
     });
 
@@ -275,6 +284,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         submitMessage,
         sendMessage,
         error: visibleError ?? chatIdError,
+        chatNotice,
+        dismissChatNotice,
         reload,
         stop,
         setInput,
@@ -296,6 +307,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         sendMessage,
         visibleError,
         chatIdError,
+        chatNotice,
+        dismissChatNotice,
         reload,
         stop,
         setInput,

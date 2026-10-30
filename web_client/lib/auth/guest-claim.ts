@@ -35,7 +35,7 @@ import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { guestClaimApi } from '@/lib/guest-claim-api';
 import { queryClient } from '@/lib/query-client';
 import { PROJECTS_QUERY_KEY } from '@/hooks/use-projects';
-import { USER_CHAT_QUERY_KEY, userChatQuery } from '@/hooks/use-user-chat';
+import { fetchUserChat, USER_CHAT_QUERY_KEY, userChatQuery } from '@/hooks/use-user-chat';
 import { guestClaimStore } from '@/lib/auth/guest-claim-store';
 
 /** Firebase's answer when the provider account already exists: sign in to it instead of linking. */
@@ -99,8 +99,13 @@ export async function claimGuestChats(ticket: string): Promise<void> {
     guestClaimStore.set({ status: 'pending' });
     try {
         const result = await guestClaimApi.claim(ticket);
-        // The guest's chats came into the account's chat: ask for it again.
-        await queryClient.invalidateQueries({ queryKey: USER_CHAT_QUERY_KEY });
+        // The guest's chats came into the account's chat, which the claim names.
+        const uid = auth.currentUser?.uid;
+        if (result.open_session_id && uid) {
+            queryClient.setQueryData(userChatQuery(uid).queryKey, { chat_id: result.open_session_id, created: false });
+        } else {
+            await queryClient.invalidateQueries({ queryKey: USER_CHAT_QUERY_KEY });
+        }
         await openAfterLogin(result.open_session_id);
     } catch (error) {
         console.warn('[GuestClaim] Claim failed:', error);
@@ -127,7 +132,7 @@ export async function openChatAfterLink(): Promise<void> {
         if (!uid) throw new Error('No signed-in user after the link');
         // A just-created account owns only its guest chats: the backend makes the
         // latest one the account's chat.
-        const chat = await queryClient.fetchQuery({ ...userChatQuery(uid), staleTime: 0 });
+        const chat = await fetchUserChat(queryClient, uid);
         await openAfterLogin(chat.chat_id);
     } catch (error) {
         console.warn('[GuestClaim] Opening the guest chat failed:', error);

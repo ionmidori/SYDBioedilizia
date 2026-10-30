@@ -17,8 +17,8 @@ import { UI_MESSAGE_STREAM_HEADERS, uiMessageStream } from './fixtures/ui-messag
  * Faked, like every backend call in this suite: /api/chat (it writes the
  * reply to Firestore as the backend does, with its tool calls), the two
  * guest-claim endpoints — the claim slower than the old 1.5 s timer — and GET
- * /api/me/chat: the account had no chat, so the guest's becomes its one chat
- * (Phase 139).
+ * /api/me/chat, which the page must not need: the account had no chat, the
+ * guest's becomes its one chat and the claim names it (Phase 139).
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -140,9 +140,7 @@ test('a guest confirms, sees one login card, and the quote starts again in its c
   // 4. The confirmation is sent again, by the account, in the guest's chat, after the claim.
   await expect.poll(() => chats.length, { timeout: 30_000 }).toBe(3);
   expect(chats[2]).toEqual({ provider: 'password', sessionId: chats[0].sessionId, text: CONFIRM });
-  expect(calls).toEqual([
-    'chat:anonymous', 'chat:anonymous', 'ticket:anonymous', 'claim:done', 'me-chat:password', 'chat:password',
-  ]);
+  expect(calls).toEqual(['chat:anonymous', 'chat:anonymous', 'ticket:anonymous', 'claim:done', 'chat:password']);
   expect(chats.some((c) => c.sessionId.startsWith('global-'))).toBe(false);
 
   // 5. Signed in, the chat still open: no login card left in the old messages.

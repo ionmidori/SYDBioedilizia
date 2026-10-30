@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useGuestClaim } from '@/hooks/use-guest-claim';
-import { userChatQuery } from '@/hooks/use-user-chat';
+import { fetchUserChat, userChatQuery } from '@/hooks/use-user-chat';
 import { guestClaimStore } from '@/lib/auth/guest-claim-store';
 import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 
@@ -80,8 +80,9 @@ export function useChatSession(): UseChatSessionReturn {
     const sessionId = registeredUid ? userChatId : stableGuestId;
 
     // -- GUEST CLAIM: the guest's chats just became the account's --
-    // The claim asked for the user's chat again (openAfterLogin); the store goes
-    // back to idle for the message waiting for the login (GlobalAuthListener).
+    // The claim already put the account's chat in the query (lib/auth/guest-claim.ts);
+    // the store goes back to idle for the message waiting for the login
+    // (GlobalAuthListener).
     useEffect(() => {
         if (claim.status !== 'done' || !registeredUid) return;
         const timerId = setTimeout(() => guestClaimStore.reset(), 0);
@@ -90,8 +91,7 @@ export function useChatSession(): UseChatSessionReturn {
 
     const refreshUserChat = useCallback(async (): Promise<string | null> => {
         if (!registeredUid) return null;
-        const chat = await queryClient.fetchQuery({ ...userChatQuery(registeredUid), staleTime: 0 });
-        return chat.chat_id;
+        return (await fetchUserChat(queryClient, registeredUid)).chat_id;
     }, [queryClient, registeredUid]);
 
     const resetToNewGuestSession = useCallback(() => {

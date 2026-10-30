@@ -1,4 +1,6 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { userChatApi } from '@/lib/user-chat-api';
+import type { UserChatResponse } from '@/types/user-chat';
 
 /** Prefix of the user-chat queries: invalidate it to ask /api/me/chat again. */
 export const USER_CHAT_QUERY_KEY = ['me', 'chat'] as const;
@@ -14,4 +16,9 @@ export function userChatQuery(uid: string) {
         queryFn: userChatApi.getMyChat,
         staleTime: Infinity,
     };
+}
+
+/** Ask /api/me/chat again now, whatever the cache holds: the user's chat changed. */
+export function fetchUserChat(client: QueryClient, uid: string): Promise<UserChatResponse> {
+    return client.fetchQuery({ ...userChatQuery(uid), staleTime: 0 });
 }

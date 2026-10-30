@@ -761,18 +761,23 @@ async def chat_stream(
     # save_message creates the doc first (without userId) and ensure_session
     # in the background task sees doc.exists=True and skips setting userId.
     repo = get_conversation_repository()
+    # Only a room of this project tags the turn (the orchestrator reads body.room_id).
+    # Looked up alongside the checks below: no extra round-trip before the first token.
+    room_check = asyncio.create_task(_is_project_room(body.session_id, body.room_id)) if body.room_id else None
     # 🛡️ A registered user writes only in their chat (Phase 139): any other id —
     # a stale tab, an id the client picked — is a 409 the client recovers from by
     # asking /api/me/chat again. Checked before ensure_session, which would create
     # a session for an unknown id; a failed read fails the turn (fail closed).
-    if not user_session.is_guest:
-        await require_user_chat(get_async_firestore_client(), user_session.uid, body.session_id)
-    # Only a room of this project tags the turn (the orchestrator reads body.room_id).
-    # Looked up alongside ensure_session: no extra round-trip before the first token.
-    room_check = asyncio.create_task(_is_project_room(body.session_id, body.room_id)) if body.room_id else None
     # 🛡️ PermissionDenied (session owned by another user) propagates as a 403
     # BEFORE the stream starts — the orchestrator must never load a foreign history.
     # ChatMerged (Phase 139: the chat now lives in the user's chat) as a 409.
+    try:
+        if not user_session.is_guest:
+            await require_user_chat(get_async_firestore_client(), user_session.uid, body.session_id)
+    except BaseException:
+        if room_check is not None:
+            room_check.cancel()
+        raise
     try:
         await repo.ensure_session(body.session_id, user_session.uid, is_guest=user_session.is_guest)
     except (PermissionDenied, ChatMerged):

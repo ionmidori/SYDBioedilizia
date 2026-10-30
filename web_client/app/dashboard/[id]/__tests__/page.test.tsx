@@ -11,8 +11,10 @@ jest.mock('next/navigation', () => ({
 }));
 
 let mockUserChatId: string | null = 'chat-of-u1';
+let mockError: Error | undefined;
+const mockReload = jest.fn();
 jest.mock('@/hooks/useChatContext', () => ({
-    useChatContext: () => ({ userChatId: mockUserChatId }),
+    useChatContext: () => ({ userChatId: mockUserChatId, error: mockError, reload: mockReload }),
 }));
 jest.mock('@/hooks/use-project', () => ({
     useProject: (id: string) => ({ data: { session_id: id, title: 'Casa' }, isLoading: false }),
@@ -31,6 +33,8 @@ beforeEach(() => {
     mockReplace.mockReset();
     mockRouteId = 'chat-of-u1';
     mockUserChatId = 'chat-of-u1';
+    mockError = undefined;
+    mockReload.mockReset();
 });
 
 describe('/dashboard/[id] — one chat per user (Phase 139)', () => {
@@ -48,6 +52,18 @@ describe('/dashboard/[id] — one chat per user (Phase 139)', () => {
 
         expect(mockReplace).toHaveBeenCalledWith('/dashboard');
         expect(screen.queryByTestId('chat')).not.toBeInTheDocument();
+    });
+
+    it('says so, with a retry, when the user’s chat cannot be had', async () => {
+        mockUserChatId = null;
+        mockError = new Error('Non riusciamo ad aprire la tua chat. Riprova.');
+
+        render(<ProjectPage />);
+
+        expect(screen.getByRole('alert')).toHaveTextContent('Non riusciamo ad aprire la tua chat');
+        screen.getByRole('button', { name: 'Riprova' }).click();
+        expect(mockReload).toHaveBeenCalledTimes(1);
+        expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
     });
 
     it('waits for the user’s chat before deciding', () => {

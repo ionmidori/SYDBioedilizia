@@ -76,6 +76,8 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
         rooms,
         activeRoomId,
         setActiveRoomId,
+        chatNotice,
+        dismissChatNotice,
     } = useChatContext();
 
     // 2. State & Refs
@@ -272,6 +274,15 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                             variant="warning"
                             message={notice.message}
                             onDismiss={dismissNotice}
+                            dismissLabel="Chiudi avviso"
+                        />
+                    )}
+
+                    {chatNotice && (
+                        <ChatAlert
+                            variant="warning"
+                            message={chatNotice}
+                            onDismiss={dismissChatNotice}
                             dismissLabel="Chiudi avviso"
                         />
                     )}

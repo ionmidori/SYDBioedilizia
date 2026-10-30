@@ -5,6 +5,8 @@ import ChatWidget from '@/components/chat/ChatWidget';
 import ProjectInfoCard from '@/components/dashboard/ProjectInfoCard';
 import { useParams, useRouter } from 'next/navigation';
 import { useChatContext } from '@/hooks/useChatContext';
+import { ChatAlert } from '@/components/chat/ChatAlert';
+import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { cn } from '@/lib/utils';
 import { ProjectMobileTabs } from '@/components/mobile/ProjectMobileTabs';
 import { ScallopedInlineLoader } from '@/components/ui/ScallopedPageTransition';
@@ -19,7 +21,7 @@ export default function ProjectPage() {
 
 function ProjectPageContent({ projectId }: { projectId: string }) {
     const router = useRouter();
-    const { userChatId } = useChatContext();
+    const { userChatId, error, reload } = useChatContext();
     const { data: project, isLoading } = useProject(projectId);
 
     // One chat per user (Phase 139): the page only shows the user's chat; any
@@ -28,6 +30,21 @@ function ProjectPageContent({ projectId }: { projectId: string }) {
     useEffect(() => {
         if (isOtherChat) router.replace('/dashboard');
     }, [isOtherChat, router]);
+
+    // The user's chat could not be had: say so, with a retry, instead of a loader.
+    if (userChatId === null && error) {
+        return (
+            <div className="p-4">
+                <ChatAlert
+                    variant="error"
+                    message={mapErrorToMessage(error.message).message}
+                    onDismiss={() => router.push('/dashboard')}
+                    dismissLabel="Torna alla dashboard"
+                    action={{ label: 'Riprova', ariaLabel: 'Riprova', onClick: () => void reload() }}
+                />
+            </div>
+        );
+    }
 
     if (isLoading || userChatId === null || isOtherChat) {
         return (

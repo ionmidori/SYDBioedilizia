@@ -9,8 +9,14 @@ function httpError(statusCode: number, errorCode: string): Error {
 
 const TURN: SentTurn = {
     content: 'Rifacciamo il bagno',
-    attachments: ['https://cdn/foto.jpg'],
-    data: { mediaUrls: ['https://cdn/foto.jpg'], roomId: 'r_bagno_old' },
+    data: { roomId: 'r_bagno_old' },
+};
+
+/** Uploaded under the old chat's Storage prefix: the backend takes only the turn's own. */
+const TURN_WITH_PHOTO: SentTurn = {
+    content: 'Ecco il bagno',
+    attachments: ['https://cdn/old-chat/foto.jpg'],
+    data: { mediaUrls: ['https://cdn/old-chat/foto.jpg'], roomId: 'r_bagno_old' },
 };
 
 interface Props {
@@ -20,16 +26,17 @@ interface Props {
     enabled: boolean;
 }
 
-function setup(initial: Partial<Props> = {}, newChatId: string | null = 'new-chat') {
+function setup(initial: Partial<Props> = {}, newChatId: string | null = 'new-chat', turn: SentTurn = TURN) {
     const refreshUserChat = jest.fn(() => Promise.resolve(newChatId));
     const resend = jest.fn();
-    const lastTurn = jest.fn(() => TURN);
+    const restore = jest.fn();
+    const lastTurn = jest.fn(() => turn);
     const props: Props = { error: undefined, sessionId: 'old-chat', historyReady: true, enabled: true, ...initial };
     const hook = renderHook(
-        (p: Props) => useChatMoveRecovery({ ...p, refreshUserChat, resend, lastTurn }),
+        (p: Props) => useChatMoveRecovery({ ...p, refreshUserChat, resend, restore, lastTurn }),
         { initialProps: props },
     );
-    return { ...hook, props, refreshUserChat, resend };
+    return { ...hook, props, refreshUserChat, resend, restore };
 }
 
 describe('useChatMoveRecovery', () => {
@@ -48,14 +55,22 @@ describe('useChatMoveRecovery', () => {
 
         expect(resend).toHaveBeenCalledTimes(1);
         // The room belonged to the old chat: the new chat's active room is used.
-        expect(resend).toHaveBeenCalledWith({
-            content: TURN.content,
-            attachments: TURN.attachments,
-            data: { mediaUrls: ['https://cdn/foto.jpg'] },
-        });
+        expect(resend).toHaveBeenCalledWith({ content: TURN.content, data: {} });
 
         rerender({ ...props, error: undefined, sessionId: 'new-chat', historyReady: true });
         expect(resend).toHaveBeenCalledTimes(1);
+    });
+
+    it('gives a turn with photos back to the user instead of sending it without them', async () => {
+        const { rerender, props, refreshUserChat, resend, restore } = setup({}, 'new-chat', TURN_WITH_PHOTO);
+
+        rerender({ ...props, error: httpError(409, 'CHAT_MERGED') });
+        await waitFor(() => expect(refreshUserChat).toHaveBeenCalled());
+        rerender({ ...props, error: undefined, sessionId: 'new-chat', historyReady: true });
+
+        expect(resend).not.toHaveBeenCalled();
+        expect(restore).toHaveBeenCalledTimes(1);
+        expect(restore).toHaveBeenCalledWith(TURN_WITH_PHOTO);
     });
 
     it('recovers from a stale id too (USER_CHAT_MISMATCH)', async () => {

@@ -18,8 +18,22 @@ interface UseChatMoveRecoveryOptions {
     /** Only a signed-in user has a chat of their own to move to. */
     enabled: boolean;
     refreshUserChat: () => Promise<string | null>;
+    /** Send a text-only turn again. */
     resend: (turn: SentTurn) => void;
+    /** Give a turn with photos or videos back to the user: they were uploaded
+     *  under the old chat, which the backend does not take for the new one. */
+    restore: (turn: SentTurn) => void;
     lastTurn: () => SentTurn | null;
+}
+
+const MEDIA_FIELDS = ['mediaUrls', 'imageUrls', 'videoFileUris'] as const;
+
+function hasMedia({ attachments, data }: SentTurn): boolean {
+    if (attachments?.length) return true;
+    return MEDIA_FIELDS.some((field) => {
+        const value = data?.[field];
+        return Array.isArray(value) && value.length > 0;
+    });
 }
 
 /** The turn's room belonged to the old chat: the new chat's active room is used. */
@@ -33,8 +47,9 @@ function withoutRoom({ data, ...turn }: SentTurn): SentTurn {
 /**
  * A turn refused because the chat is no longer the user's (Phase 139: merged
  * into their chat, or a stale id in an old tab): ask the backend for the user's
- * chat, open it and send the same turn there, once. The refusal stays hidden
- * meanwhile; it shows when the backend has no other chat to give.
+ * chat, open it and send the same turn there, once — or, when it had photos or
+ * videos, give it back to the user to attach them again. The refusal stays
+ * hidden meanwhile; it shows when the backend has no other chat to give.
  */
 export function useChatMoveRecovery({
     error,
@@ -43,6 +58,7 @@ export function useChatMoveRecovery({
     enabled,
     refreshUserChat,
     resend,
+    restore,
     lastTurn,
 }: UseChatMoveRecoveryOptions): { visibleError: Error | undefined } {
     const handledRef = useRef<Error | null>(null);
@@ -67,8 +83,10 @@ export function useChatMoveRecovery({
         const pending = pendingRef.current;
         if (!pending || !sessionId || sessionId === pending.from || !historyReady) return;
         pendingRef.current = null;
-        if (pending.turn) resend(withoutRoom(pending.turn));
-    }, [sessionId, historyReady, resend]);
+        if (!pending.turn) return;
+        if (hasMedia(pending.turn)) restore(pending.turn);
+        else resend(withoutRoom(pending.turn));
+    }, [sessionId, historyReady, resend, restore]);
 
     const hidden = enabled && isChatMovedError(error) && failedError !== error;
     return { visibleError: hidden ? undefined : error };

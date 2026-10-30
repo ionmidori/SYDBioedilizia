@@ -14,10 +14,12 @@ import { chatStreamHandler } from './fixtures/ui-message-stream';
  * emulator + production rules (the account reads only its own chat), the whole
  * client flow (lib/auth/guest-claim.ts, useChatSession). Faked, like every
  * backend call in this suite: the two guest-claim endpoints and GET
- * /api/me/chat. The fakes check WHO calls (ticket: the anonymous guest; claim
- * and chat: the account, the chat only after the claim) and do what the
- * backend does â€” the guest's messages are copied into the account's chat. The
- * merge itself is covered by pytest (tests/unit/test_chat_merge.py).
+ * /api/me/chat. The fakes check WHO calls (ticket: the anonymous guest; claim:
+ * the account) and do what the backend does â€” the guest's messages are copied
+ * into the account's chat, which the claim names, so the page never asks
+ * /api/me/chat (asking during the claim would make the backend create an empty
+ * chat beside the guest's). The merge itself is covered by pytest
+ * (tests/unit/test_chat_merge.py).
  */
 
 // Start signed out: this spec is about the guest, not the seeded session.
@@ -91,9 +93,9 @@ test('a guest who signs in to an existing account finds its chat in the accountâ
   await page.getByRole('button', { name: 'Accedi', exact: true }).click();
   await expect(dialog).toBeHidden({ timeout: 30_000 });
 
-  // The ticket came from the guest, the claim from the account, then the chat:
-  // not before the claim, or the backend would make an empty chat beside the guest's.
-  await expect.poll(() => calls).toEqual(['ticket:anonymous', 'claim:password', 'chat:password']);
+  // The ticket came from the guest, the claim from the account; the chat is the
+  // one the claim named, with no /api/me/chat call.
+  expect(calls).toEqual(['ticket:anonymous', 'claim:password']);
   expect(guestUid).toBeTruthy();
   expect(guestUid).not.toBe(uid);
 
@@ -104,4 +106,5 @@ test('a guest who signs in to an existing account finds its chat in the accountâ
     await expect(page.getByTestId('chat-messages')).toContainText(message.content);
   }
   await expect(page.getByRole('alert').filter({ hasText: 'non recuperate' })).toHaveCount(0);
+  expect(calls).toEqual(['ticket:anonymous', 'claim:password']);
 });
