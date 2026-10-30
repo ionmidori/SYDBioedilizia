@@ -178,3 +178,81 @@ export async function seedMessages(sessionId: string, messages: readonly SeedMes
     );
   }
 }
+
+export interface SeedRoom {
+  id: string;
+  label: string;
+  type: string;
+}
+
+export interface SeedFile {
+  id: string;
+  name: string;
+  type: 'image' | 'video' | 'render' | 'document';
+  url: string;
+  roomId: string | null;
+}
+
+/** Writes (creates or replaces) a document: a rerun after a failure seeds the same state. */
+async function setDoc(path: string, id: string, fields: Record<string, unknown>, what: string): Promise<void> {
+  await expectOk(
+    await fetch(`${FIRESTORE_DOCS_URL}/${path}/${id}`, {
+      method: 'PATCH',
+      headers: ADMIN_HEADERS,
+      body: JSON.stringify({ fields }),
+    }),
+    what,
+  );
+}
+
+/**
+ * The projection of the user's chat with its rooms and files (Phase 139: the
+ * dashboard is the house), as the backend writes them. The rules read a file
+ * or a room only when the projection exists and belongs to the reader.
+ */
+export async function seedHouse(
+  uid: string,
+  rooms: readonly SeedRoom[],
+  files: readonly SeedFile[],
+): Promise<void> {
+  const now = Date.now();
+  await setDoc('projects', USER_CHAT_ID, {
+    userId: { stringValue: uid },
+    session_id: { stringValue: USER_CHAT_ID },
+    title: { stringValue: 'Nuovo Progetto' },
+  }, 'seed house');
+  for (const [n, room] of rooms.entries()) {
+    await setDoc(`projects/${USER_CHAT_ID}/rooms`, room.id, {
+      room_id: { stringValue: room.id },
+      label: { stringValue: room.label },
+      room_type: { stringValue: room.type },
+      created_at: { timestampValue: new Date(now + n).toISOString() },
+    }, `seed room ${room.id}`);
+  }
+  for (const [n, file] of files.entries()) {
+    await setDoc(`projects/${USER_CHAT_ID}/files`, file.id, {
+      name: { stringValue: file.name },
+      type: { stringValue: file.type },
+      url: { stringValue: file.url },
+      size: { integerValue: '2048' },
+      uploadedBy: { stringValue: uid },
+      uploadedAt: { timestampValue: new Date(now - n * 1000).toISOString() },
+      roomId: file.roomId === null ? { nullValue: null } : { stringValue: file.roomId },
+    }, `seed file ${file.id}`);
+  }
+}
+
+/** Removes the projection of the user's chat and what {@link seedHouse} put under it. */
+export async function clearHouse(rooms: readonly SeedRoom[], files: readonly SeedFile[]): Promise<void> {
+  const paths = [
+    ...rooms.map((room) => `projects/${USER_CHAT_ID}/rooms/${room.id}`),
+    ...files.map((file) => `projects/${USER_CHAT_ID}/files/${file.id}`),
+    `projects/${USER_CHAT_ID}`,
+  ];
+  for (const path of paths) {
+    await expectOk(
+      await fetch(`${FIRESTORE_DOCS_URL}/${path}`, { method: 'DELETE', headers: ADMIN_HEADERS }),
+      `clear ${path}`,
+    );
+  }
+}

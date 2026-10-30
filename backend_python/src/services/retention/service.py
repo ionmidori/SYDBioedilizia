@@ -9,16 +9,18 @@ and a quote that reached the client always stays under legal hold:
                    (src/db/session_retention.py). A session whose owner turns
                    out to be a REGISTERED account is never erased; its stale
                    guest expiry is removed instead.
-  binned projects  soft-deleted (`is_deleted`) more than 30 days ago.
   expired holds    sent quotes past their 10 years (erasure/legal_hold.py).
   orphans          what is left of a project whose session no longer exists:
                    the Firestore TTL never cascades, and older code deleted
                    sessions alone. Erased only after 30 days without a single
                    write (a guest can upload before the first message creates
                    the session), and never when the projection names a
-                   registered account — unless the project was binned.
+                   registered account.
 
-The first three are fixed rules — what the Firestore TTL already deleted, now
+A registered user's chat is never erased here (Phase 139: one chat per user,
+erased only with the account, erasure/), so there is no bin to empty.
+
+The first two are fixed rules — what the Firestore TTL already deleted, now
 done completely — and always apply. The orphan rule is a heuristic over
 leftovers: until RETENTION_ORPHAN_PURGE_ENABLED is set it only counts (shown
 in /admin), so its first real run comes after the numbers were checked.
@@ -35,7 +37,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable, Sequence
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -62,7 +64,6 @@ from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
-BIN_RETENTION = timedelta(days=30)
 ORPHAN_GRACE = GUEST_SESSION_TTL
 RUN_BUDGET_SECONDS = 150.0
 RUN_LIMIT = 300
@@ -98,7 +99,7 @@ class RetentionService:
         self._kinds: dict[str, AccountKind] = {}
 
     async def run(self, *, budget_seconds: float = RUN_BUDGET_SECONDS) -> RetentionReport:
-        """One bounded pass over the four categories, within `budget_seconds`.
+        """One bounded pass over the three categories, within `budget_seconds`.
         Failures are reported in `errors`; one never stops the others."""
         report = RetentionReport(orphans_applied=self._erase_orphans)
         self._at = self._now()
@@ -107,7 +108,6 @@ class RetentionService:
         self._kinds = {}
         phases = (
             ("guest_session", self._guest_sessions),
-            ("deleted_project", self._binned_projects),
             ("expired_hold", self._expired_holds),
             ("orphan", self._orphans),
         )
@@ -151,21 +151,19 @@ class RetentionService:
 
     async def _guest_sessions(self, report: RetentionReport) -> None:
         query = self._db.collection("sessions").where(filter=FieldFilter(EXPIRE_AT, "<=", self._at))
-        expired = [snap async for snap in query.select(["is_deleted"]).stream()]  # read first: erasures are slow
+        expired = [snap async for snap in query.select([]).stream()]  # read first: erasures are slow
         for snap in expired:
-            if (snap.to_dict() or {}).get("is_deleted") is True:
-                continue  # binned: the bin's own 30 days apply (older soft deletes stamped an expiry too)
             if self._stop(report):
                 return
             await self._attempt(report, "guest_session", snap.id, self._expire_guest(snap.id, report))
 
     async def _expire_guest(self, project_id: str, report: RetentionReport) -> None:
         # Read again right before acting: since the list was read the session may
-        # have been claimed by a registered user, written to, or binned.
+        # have been claimed by a registered user or written to.
         snap = await self._db.collection("sessions").document(project_id).get()
         data = (snap.to_dict() or {}) if snap.exists else {}
         expire_at = data.get(EXPIRE_AT)
-        if data.get("is_deleted") is True or not isinstance(expire_at, datetime) or expire_at > self._at:
+        if not isinstance(expire_at, datetime) or expire_at > self._at:
             return
         if await self._any_registered(real_owners(data)):
             await clear_session_expiry(self._db, project_id)
@@ -173,23 +171,6 @@ class RetentionService:
         else:
             await self._purge(project_id)
             report.guest_sessions += 1
-
-    async def _binned_projects(self, report: RetentionReport) -> None:
-        # `deleted_at` is written only by the soft delete: a single-field range
-        # query (automatic index) selects just the projects past the bin period.
-        cutoff = self._at - BIN_RETENTION
-        query = self._db.collection("sessions").where(filter=FieldFilter("deleted_at", "<=", cutoff))
-        binned = [snap async for snap in query.select(["is_deleted"]).stream()]
-        for snap in binned:
-            if (snap.to_dict() or {}).get("is_deleted") is not True:
-                continue
-            if self._stop(report):
-                return
-            await self._attempt(report, "deleted_project", snap.id, self._erase_binned(snap.id, report))
-
-    async def _erase_binned(self, project_id: str, report: RetentionReport) -> None:
-        await self._purge(project_id)
-        report.deleted_projects += 1
 
     async def _expired_holds(self, report: RetentionReport) -> None:
         for hold in await expired_holds(self._db, now=self._at, limit=self._limit):
@@ -213,7 +194,7 @@ class RetentionService:
     async def _settle_orphan(self, project_id: str, report: RetentionReport) -> None:
         projection = await self._db.collection("projects").document(project_id).get()
         data = (projection.to_dict() or {}) if projection.exists else {}
-        if data.get("is_deleted") is not True and await self._any_registered(real_owners(data)):
+        if await self._any_registered(real_owners(data)):
             report.orphans_kept += 1
             return
         held = await find_held_quotes(self._db, project_id, now=self._at)
@@ -292,7 +273,6 @@ class RetentionService:
             metadata={
                 "orphans_applied": report.orphans_applied,
                 "guest_sessions": report.guest_sessions,
-                "deleted_projects": report.deleted_projects,
                 "expired_holds": report.expired_holds,
                 "orphans": report.orphans,
                 "orphans_kept": report.orphans_kept,

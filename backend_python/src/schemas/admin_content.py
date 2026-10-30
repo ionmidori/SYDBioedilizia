@@ -266,7 +266,6 @@ class RetentionSummary(BaseModel):
 
     orphans_applied: bool
     guest_sessions: int
-    deleted_projects: int
     expired_holds: int
     orphans: int
     orphans_kept: int

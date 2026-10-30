@@ -1,5 +1,5 @@
 import { fetchValidated, fetchWithAuth } from '@/lib/api-client';
-import { projectListResponseSchema, projectSchema } from '@/lib/validation/project-list-schema';
+import { projectSchema } from '@/lib/validation/project-schema';
 import { projectsApi } from '../projects-api';
 
 jest.mock('@/lib/api-client', () => ({
@@ -23,17 +23,6 @@ function res(body: unknown, init: { ok?: boolean; jsonFails?: boolean } = {}) {
 beforeEach(() => {
     mockFetchWithAuth.mockReset();
     mockFetchValidated.mockReset();
-});
-
-describe('projectsApi.listProjects', () => {
-    it('delegates to fetchValidated with the list schema', async () => {
-        mockFetchValidated.mockResolvedValue([]);
-        await expect(projectsApi.listProjects()).resolves.toEqual([]);
-        expect(mockFetchValidated).toHaveBeenCalledWith(
-            expect.stringContaining('/projects'),
-            projectListResponseSchema
-        );
-    });
 });
 
 describe('projectsApi.getProject', () => {
@@ -72,11 +61,12 @@ describe('projectsApi.getProject', () => {
     });
 });
 
-describe('projectsApi — no project to create, rename or delete (Phase 139)', () => {
+describe('projectsApi — no project to list, create, rename or delete (Phase 139)', () => {
     it('has no such calls: the user has one chat, chosen by the backend', () => {
         expect(projectsApi).not.toHaveProperty('createProject');
         expect(projectsApi).not.toHaveProperty('updateProject');
         expect(projectsApi).not.toHaveProperty('deleteProject');
+        expect(projectsApi).not.toHaveProperty('listProjects');
     });
 });
 

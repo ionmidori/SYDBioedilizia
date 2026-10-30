@@ -19,7 +19,7 @@ const STATUS = {
 };
 
 const RETENTION = {
-  orphans_applied: true, guest_sessions: 0, deleted_projects: 0, expired_holds: 0, orphans: 0,
+  orphans_applied: true, guest_sessions: 0, expired_holds: 0, orphans: 0,
   orphans_kept: 0, made_permanent: 0, truncated: false,
 };
 const RESULT = { status: 'ok', warned: 0, disabled: 0, anonymized: 0, errors: [] as string[], retention: null };

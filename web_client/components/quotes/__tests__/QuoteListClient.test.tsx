@@ -58,9 +58,10 @@ describe('QuoteListClient', () => {
     });
 
     it('never renders draft quotes (confidential until submission)', () => {
-        mockQuotesResult([quote({ status: 'draft', project_name: 'Bozza Segreta' })]);
+        mockQuotesResult([quote({ status: 'draft', quote_number: 'PRV-2026-0099' })]);
         render(<QuoteListClient />);
-        expect(screen.queryByText('Bozza Segreta')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('quote-card')).not.toBeInTheDocument();
+        expect(screen.queryByText('PRV-2026-0099')).not.toBeInTheDocument();
     });
 
     it('shows the human-readable quote number when the quote has one', () => {
@@ -84,7 +85,9 @@ describe('QuoteListClient', () => {
     it('renders a pending request without totals', () => {
         mockQuotesResult([quote()]);
         render(<QuoteListClient />);
-        expect(screen.getByText('Bagno')).toBeInTheDocument();
+        // One house per user (Phase 139): no project name on the card.
+        expect(screen.getByRole('heading', { name: 'Preventivo' })).toBeInTheDocument();
+        expect(screen.queryByText('Bagno')).not.toBeInTheDocument();
         expect(screen.getByText('In revisione')).toBeInTheDocument();
         expect(screen.queryByText(/€/)).not.toBeInTheDocument();
         expect(screen.queryByText(/Scarica PDF/i)).not.toBeInTheDocument();

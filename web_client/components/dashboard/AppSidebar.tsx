@@ -1,18 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import NextImage from 'next/image'
 import { motion } from 'framer-motion'
 import {
     Home,
-    FolderKanban,
     LogOut,
     FileText,
     Globe,
-    MessageSquare,
-    Sliders,
     X,
     ChevronLeft,
     ChevronRight,
@@ -22,7 +19,6 @@ import {
 
 import { useSidebar } from '@/components/dashboard/SidebarProvider'
 import { cn } from '@/lib/utils'
-import { getProjectIdFromPathname } from '@/lib/dashboard-routes'
 import { useAuth } from '@/hooks/useAuth'
 
 // ============================================================================
@@ -170,54 +166,15 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>) {
     const pathname = usePathname()
     const router = useRouter()
-    const searchParams = useSearchParams()
     const { logout, user } = useAuth()
     const { state, open, toggleSidebar, isMobile, openMobile, setOpenMobile } = useSidebar()
 
-    const currentProjectId = React.useMemo(
-        () => getProjectIdFromPathname(pathname),
-        [pathname]
-    )
-
+    // The house (the user's one chat, Phase 139), its gallery and its quotes.
     const navItems = React.useMemo(() => [
-        { href: '/dashboard', label: 'Bacheca', icon: Home },
+        { href: '/dashboard', label: 'Casa', icon: Home },
         { href: '/dashboard/gallery', label: 'Galleria', icon: LayoutGrid },
-        { href: '/dashboard/projects', label: 'Progetti', icon: FolderKanban },
         { href: '/dashboard/quotes', label: 'Preventivi', icon: FileText },
     ], [])
-
-    const projectSubItems = React.useMemo(() =>
-        currentProjectId ? [
-            {
-                href: `/dashboard/${currentProjectId}`,
-                label: 'Cantiere AI',
-                icon: MessageSquare,
-                // active when on project root with no ?view= param (or view=chat)
-                isActive: pathname === `/dashboard/${currentProjectId}` &&
-                    (!searchParams.get('view') || searchParams.get('view') === 'chat'),
-            },
-            {
-                href: isMobile
-                    ? `/dashboard/${currentProjectId}?view=files`
-                    : `/dashboard/${currentProjectId}/files`,
-                label: 'Galleria & File',
-                icon: FileText,
-                isActive: isMobile
-                    ? searchParams.get('view') === 'files'
-                    : pathname === `/dashboard/${currentProjectId}/files`,
-            },
-            {
-                href: isMobile
-                    ? `/dashboard/${currentProjectId}?view=settings`
-                    : `/dashboard/${currentProjectId}/settings`,
-                label: 'Parametri Cantiere',
-                icon: Sliders,
-                isActive: isMobile
-                    ? searchParams.get('view') === 'settings'
-                    : pathname === `/dashboard/${currentProjectId}/settings`,
-            },
-        ] : []
-        , [currentProjectId, isMobile, pathname, searchParams])
 
     // ========================================================================
     // EVENT HANDLERS
@@ -231,15 +188,6 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
             console.error('Logout failed:', error)
         }
     }, [logout, router])
-
-    const handleProjectsClick = React.useCallback(() => {
-        if (!isMobile && !open) {
-            toggleSidebar()
-        }
-        if (isMobile) {
-            setOpenMobile(false)
-        }
-    }, [isMobile, open, toggleSidebar, setOpenMobile])
 
     const handleNavClick = React.useCallback(() => {
         if (isMobile) {
@@ -448,50 +396,13 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                         isMobile ? "pb-48 pt-4 justify-end" : "flex-1"
                     )}>
                         {navItems.map((item) => (
-                            <div key={item.href}>
-                                {item.href === '/dashboard/projects' ? (
-                                    <>
-                                        <NavItem
-                                            {...item}
-                                            active={pathname === item.href}
-                                            collapsed={!isMobile && isDesktopCollapsed}
-                                            onClick={handleProjectsClick}
-                                            className="w-full"
-                                        />
-
-                                        {/* Active Project Context — only show when sidebar is expanded or on mobile */}
-                                        {projectSubItems.length > 0 && (!isDesktopCollapsed || isMobile) && (
-                                            <div className="mt-3 space-y-1 relative z-10">
-                                                {/* CANTIERE ATTIVO Header */}
-                                                <span className="text-[10px] uppercase tracking-widest text-luxury-gold/60 font-bold px-3 block mb-2">
-                                                    Cantiere Attivo
-                                                </span>
-                                                <div className="ml-3 space-y-1 pl-3">
-                                                    {projectSubItems.map((subItem) => (
-                                                        <NavItem
-                                                            key={subItem.href}
-                                                            href={subItem.href}
-                                                            label={subItem.label}
-                                                            icon={subItem.icon}
-                                                            active={subItem.isActive}
-                                                            collapsed={false}
-                                                            onClick={handleNavClick}
-                                                            className="text-xs"
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <NavItem
-                                        {...item}
-                                        active={pathname === item.href}
-                                        collapsed={!isMobile && isDesktopCollapsed}
-                                        onClick={handleNavClick}
-                                    />
-                                )}
-                            </div>
+                            <NavItem
+                                key={item.href}
+                                {...item}
+                                active={pathname === item.href}
+                                collapsed={!isMobile && isDesktopCollapsed}
+                                onClick={handleNavClick}
+                            />
                         ))}
                     </div>
 

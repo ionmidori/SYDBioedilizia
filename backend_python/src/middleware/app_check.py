@@ -37,10 +37,11 @@ ENABLE_APP_CHECK = settings.ENABLE_APP_CHECK
 # signing in (a proof for its own uid, nothing else) — without it the login
 # could not start on those devices.
 _AUTH_FALLBACK_ROUTES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
-    ("GET", re.compile(r"/api/projects"), False),
     ("GET", re.compile(r"/api/projects/[^/]+"), False),
-    ("GET", re.compile(r"/api/reports/(dashboard|gallery)"), False),
     ("GET", re.compile(r"/api/quote/user/[^/]+"), False),
+    # The house's quote and its PDF (Phase 139 dashboard): reads, owner-checked.
+    ("GET", re.compile(r"/api/quote/[^/]+"), False),
+    ("GET", re.compile(r"/api/quote/[^/]+/pdf"), False),
     ("POST", re.compile(r"/api/guest-claim"), False),
     ("POST", re.compile(r"/api/guest-claim/ticket"), True),
     ("GET", re.compile(r"/api/me/chat"), False),

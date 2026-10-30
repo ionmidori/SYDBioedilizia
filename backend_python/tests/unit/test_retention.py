@@ -7,6 +7,7 @@ import pytest
 from src.auth.user_lookup import AccountKind
 from src.services.erasure.legal_hold import SENT_QUOTE_RETENTION
 from src.services.retention import service as retention_service
+from src.services.retention.models import RetentionReport
 from src.services.retention.service import RetentionService
 from tests.unit.firestore_fakes import FakeBucket, FakeDb
 
@@ -158,32 +159,23 @@ async def test_an_owner_that_cannot_be_looked_up_keeps_the_project_and_is_report
     assert db.get_data("sessions", "g1") is not None
 
 
-# ── Projects in the bin for more than 30 days ────────────────────────────────
+# ── No bin (Phase 139: one chat per user, erased only with the account) ───────
 
-async def test_a_project_in_the_bin_for_more_than_30_days_is_erased():
+async def test_a_registered_chat_with_an_old_soft_delete_is_not_erased():
     db, bucket = FakeDb(), FakeBucket()
     _registered_project(db, bucket, "d1", is_deleted=True, deleted_at=NOW - timedelta(days=31))
-
-    report = await _service(db, bucket).run()
-
-    assert report.deleted_projects == 1
-    assert _gone(db, bucket, "d1")
-
-
-async def test_a_project_in_the_bin_for_less_than_30_days_can_still_be_recovered():
-    db, bucket = FakeDb(), FakeBucket()
-    _registered_project(db, bucket, "d1", is_deleted=True, deleted_at=NOW - timedelta(days=29))
     before = _of(db, bucket, "d1")
 
     report = await _service(db, bucket).run()
 
-    assert report.deleted_projects == 0
+    assert "deleted_projects" not in RetentionReport.__dataclass_fields__
     assert _of(db, bucket, "d1") == before
+    assert report.errors == []
 
 
 async def test_a_sent_quote_of_an_erased_project_stays_under_legal_hold():
     db, bucket = FakeDb(), FakeBucket([PDF])
-    _registered_project(db, bucket, "d1", is_deleted=True, deleted_at=NOW - timedelta(days=31))
+    _guest_project(db, bucket, "d1")
     db.put("projects", "d1", "private_data", "quote", {"status": "sent", "sent_at": SENT, "pdf_blob_path": PDF,
                                                       "client_snapshot": {"email": "mario@example.it"}})
     db.put("projects", "d1", "private_data", "quote", "deliveries", "x1", {"sent_at": SENT, "pdf_blob_path": PDF})
@@ -199,14 +191,14 @@ async def test_a_sent_quote_of_an_erased_project_stays_under_legal_hold():
 
 async def test_what_a_legal_hold_keeps_is_never_taken_for_an_orphan():
     db, bucket = FakeDb(), FakeBucket([PDF])
-    _registered_project(db, bucket, "d1", is_deleted=True, deleted_at=NOW - timedelta(days=31))
+    _guest_project(db, bucket, "d1")
     db.put("projects", "d1", "private_data", "quote", {"status": "sent", "sent_at": SENT, "pdf_blob_path": PDF})
     await _service(db, bucket).run()
     hold = db.get_data("legal_holds", "d1:quote")
 
     report = await _service(db, bucket).run()
 
-    assert (report.orphans, report.deleted_projects) == (0, 0)
+    assert report.orphans == 0
     assert bucket.names == {PDF}
     assert db.get_data("legal_holds", "d1:quote") == hold
 
@@ -298,22 +290,11 @@ async def test_remains_of_a_registered_users_project_are_kept():
     assert bucket.names == {"user-uploads/o5/a.jpg"}
 
 
-async def test_a_binned_projection_without_session_is_erased_even_for_a_registered_owner():
-    db, bucket = FakeDb(), FakeBucket(["user-uploads/o6/a.jpg"])
-    db.put("projects", "o6", {"userId": "u1", "is_deleted": True, "deleted_at": NOW - timedelta(days=40)})
-
-    report = await _service(db, bucket).run()
-
-    assert report.orphans == 1
-    assert _gone(db, bucket, "o6")
-
-
 # ── The run ──────────────────────────────────────────────────────────────────
 
 def _one_of_each(db: FakeDb, bucket: FakeBucket) -> None:
     _guest_project(db, bucket, "g1")
     _guest_project(db, bucket, "s1", owner="u1")
-    _registered_project(db, bucket, "d1", is_deleted=True, deleted_at=NOW - timedelta(days=31))
     db.put("projects", "o5", {"userId": "u1"})
     bucket.names.add("renders/o2/render.png")
     db.put("legal_holds", "h1:quote", {"project_id": "h1", "quote_id": "quote", "since": SENT,
@@ -321,7 +302,7 @@ def _one_of_each(db: FakeDb, bucket: FakeBucket) -> None:
 
 
 async def test_orphans_are_only_counted_until_their_purge_is_enabled():
-    # The fixed rules (guest expiry, the bin, legal holds) always apply; the
+    # The fixed rules (guest expiry, legal holds) always apply; the
     # orphan rule is a heuristic and starts as a dry run.
     db, bucket = FakeDb(), FakeBucket()
     _one_of_each(db, bucket)
@@ -329,10 +310,10 @@ async def test_orphans_are_only_counted_until_their_purge_is_enabled():
     report = await _service(db, bucket, erase_orphans=False).run()
 
     assert report.orphans_applied is False
-    assert (report.guest_sessions, report.deleted_projects, report.orphans, report.expired_holds) == (1, 1, 1, 1)
+    assert (report.guest_sessions, report.orphans, report.expired_holds) == (1, 1, 1)
     assert (report.orphans_kept, report.made_permanent) == (1, 1)
     assert bucket.names >= {"renders/o2/render.png"}  # counted, not erased
-    assert _gone(db, bucket, "g1") and _gone(db, bucket, "d1")
+    assert _gone(db, bucket, "g1")
     assert db.get_data("legal_holds", "h1:quote") is None
 
 

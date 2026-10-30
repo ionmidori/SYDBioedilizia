@@ -32,11 +32,13 @@ export interface UploadedFile {
 
 interface FileUploaderProps {
     projectId: string;
+    /** Room of the house the files are filed in (null: not filed yet). */
+    roomId?: string | null;
     onUploadComplete?: (files: UploadedFile[]) => void;
     maxFiles?: number;
 }
 
-export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: FileUploaderProps) {
+export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFiles = 10 }: FileUploaderProps) {
     const [files, setFiles] = useState<UploadedFile[]>([]);
     const [isDragging, setIsDragging] = useState(false);
     const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -145,7 +147,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
 
         try {
             const fileType = getFileType(fileData.file);
-            const downloadUrl = await uploadToStorage(fileData.file, projectId, fileType);
+            const downloadUrl = await uploadToStorage(fileData.file, projectId, fileType, roomId);
 
             // Explicitly set success state with URL
             setFiles(prev =>
@@ -165,7 +167,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
             if (err?.message?.includes('not authenticated')) {
                 errorMessage = 'Devi effettuare il login per caricare file.';
             } else if (err?.code === 'storage/unauthorized') {
-                errorMessage = 'Non hai i permessi per caricare in questo progetto.';
+                errorMessage = 'Non hai i permessi per caricare file nella tua casa.';
             } else if (err?.code === 'storage/quota-exceeded') {
                 errorMessage = 'Quota di storage esaurita.';
             }
@@ -269,7 +271,7 @@ export function FileUploader({ projectId, onUploadComplete, maxFiles = 10 }: Fil
                         Login Richiesto
                     </h3>
                     <p className="text-luxury-text/60 mb-6">
-                        Devi essere registrato per caricare file in questo progetto.
+                        Devi essere registrato per caricare file nella tua casa.
                     </p>
                     <button
                         onClick={() => router.push('/auth')}

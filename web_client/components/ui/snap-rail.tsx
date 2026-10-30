@@ -42,11 +42,9 @@ interface SnapRailProps {
 /**
  * Horizontal scroll-snap rail.
  *
- * The scroll mechanics below are copied from the carousel in
- * `components/dashboard/ProjectsCarousel.tsx`, which had been tuned in
- * production — that file has not been migrated to this primitive yet, so the
- * two implementations currently need to be kept in sync by hand. The
- * non-obvious bits are load-bearing:
+ * The scroll mechanics below come from the dashboard's former projects
+ * carousel, where they had been tuned in production. The non-obvious bits are
+ * load-bearing:
  *
  * - `overscrollBehaviorX: contain` stops the swipe from triggering browser back-nav
  *   or bubbling into the page scroll at the ends of the rail.

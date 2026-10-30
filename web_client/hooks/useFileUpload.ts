@@ -13,7 +13,8 @@ export interface UploadProgress {
 }
 
 export interface UseFileUploadResult {
-    uploadFile: (file: File, projectId: string, fileType: 'image' | 'document' | 'video') => Promise<string>;
+    /** `roomId`: the room of the house the file is filed in (null: not filed yet). */
+    uploadFile: (file: File, projectId: string, fileType: 'image' | 'document' | 'video', roomId?: string | null) => Promise<string>;
     uploadProgress: Map<string, UploadProgress>;
     cancelUpload: (fileId: string) => void;
 }
@@ -30,7 +31,8 @@ export function useFileUpload(): UseFileUploadResult {
     const uploadFile = useCallback(async (
         file: File,
         projectId: string,
-        fileType: 'image' | 'document' | 'video'
+        fileType: 'image' | 'document' | 'video',
+        roomId: string | null = null,
     ): Promise<string> => {
         if (!user) {
             throw new Error('User not authenticated');
@@ -107,6 +109,7 @@ export function useFileUpload(): UseFileUploadResult {
                             size: fileToUpload.size,
                             // The backend reads media by path (the download URL is not a stable id)
                             storage_path: storagePath,
+                            room_id: roomId,
                         });
 
                         // Update progress to success

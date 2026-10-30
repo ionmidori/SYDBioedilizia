@@ -2,37 +2,55 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Hand, ChevronRight } from 'lucide-react';
+import { ChevronRight, Home, LayoutGrid } from 'lucide-react';
 
+// A new key: whoever saw the tour of the projects sees the house once.
+const TOUR_KEY = 'syd_house_tour_completed';
+
+const STEPS = [
+    {
+        icon: Home,
+        title: 'La tua casa',
+        text: 'Hai una sola chat per tutte le stanze: racconta a SYD cosa vuoi fare in bagno, in cucina o in salotto, nella stessa conversazione.',
+    },
+    {
+        icon: LayoutGrid,
+        title: 'Le schede della casa',
+        text: 'In alto trovi Chat, Media, Preventivo e Casa: foto e render per stanza, il preventivo da inviare al team e i dettagli della casa.',
+    },
+] as const;
+
+function tourSeen(): boolean {
+    try {
+        return localStorage.getItem(TOUR_KEY) === 'true';
+    } catch {
+        return true; // No storage: never nag on every visit.
+    }
+}
+
+/** A first look at the house on a phone (Phase 139); on desktop the tabs are on screen. */
 export function OnboardingTour() {
     const [isVisible, setIsVisible] = useState(false);
     const [step, setStep] = useState(0);
 
     useEffect(() => {
-        const hasSeenTour = localStorage.getItem('syd_dashboard_tour_completed');
-
-        // Only show if not seen and on mobile
-        const isMobile = window.innerWidth < 768; // Simple check, or use hook
-
-        if (!hasSeenTour && isMobile) {
-            // Small delay to allow UI to settle
-            const timer = setTimeout(() => setIsVisible(true), 1500);
-            return () => clearTimeout(timer);
-        }
+        if (tourSeen() || window.innerWidth >= 768) return;
+        // Small delay to allow UI to settle
+        const timer = setTimeout(() => setIsVisible(true), 1500);
+        return () => clearTimeout(timer);
     }, []);
 
     const handleComplete = () => {
-        localStorage.setItem('syd_dashboard_tour_completed', 'true');
+        try {
+            localStorage.setItem(TOUR_KEY, 'true');
+        } catch {
+            // No storage: the tour simply shows again next time.
+        }
         setIsVisible(false);
     };
 
-    const handleNext = () => {
-        if (step < 1) {
-            setStep(step + 1);
-        } else {
-            handleComplete();
-        }
-    };
+    const isLast = step === STEPS.length - 1;
+    const { icon: Icon, title, text } = STEPS[step];
 
     return (
         <AnimatePresence>
@@ -44,6 +62,9 @@ export function OnboardingTour() {
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
                 >
                     <motion.div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="onboarding-title"
                         initial={{ scale: 0.9, y: 20 }}
                         animate={{ scale: 1, y: 0 }}
                         exit={{ scale: 0.9, y: 20 }}
@@ -53,52 +74,32 @@ export function OnboardingTour() {
                         <div className="absolute -top-20 -right-20 w-40 h-40 bg-luxury-gold/10 rounded-full blur-3xl pointer-events-none" />
 
                         <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+                            <div className="p-4 bg-luxury-gold/10 rounded-2xl border border-luxury-gold/20 mb-2">
+                                <Icon aria-hidden="true" className="w-12 h-12 text-luxury-gold" />
+                            </div>
+                            <h2 id="onboarding-title" className="text-2xl font-bold text-luxury-text font-serif">
+                                {title}
+                            </h2>
+                            <p className="text-luxury-text/70 text-sm leading-relaxed">{text}</p>
 
-                            {step === 0 ? (
-                                <>
-                                    <div className="p-4 bg-luxury-gold/10 rounded-2xl border border-luxury-gold/20 mb-2">
-                                        <Hand className="w-12 h-12 text-luxury-gold animate-pulse" />
-                                    </div>
-                                    <h2 className="text-2xl font-bold text-luxury-text font-serif">
-                                        Benvenuto in <span className="text-luxury-gold">SYD</span>
-                                    </h2>
-                                    <p className="text-luxury-text/70 leading-relaxed">
-                                        Abbiamo aggiornato la navigazione per renderla più fluida e naturale su mobile.
-                                    </p>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="relative h-32 w-full flex items-center justify-center">
-                                        {/* Swipe Animation Logic */}
-                                        <motion.div
-                                            animate={{ x: [-40, 40, -40] }}
-                                            transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                                            className="absolute"
-                                        >
-                                            <Hand className="w-16 h-16 text-luxury-gold drop-shadow-[0_0_15px_rgba(212,175,55,0.5)]" />
-                                        </motion.div>
-                                        <div className="flex justify-between w-full px-8 opacity-30">
-                                            <div className="w-12 h-20 border-2 border-dashed border-luxury-text rounded-lg" />
-                                            <div className="w-12 h-20 border-2 border-dashed border-luxury-text rounded-lg" />
-                                        </div>
-                                    </div>
-                                    <h2 className="text-xl font-bold text-luxury-text font-serif">
-                                        Scorri per Navigare
-                                    </h2>
-                                    <p className="text-luxury-text/70 text-sm leading-relaxed">
-                                        Fai swipe a <strong>destra</strong> per i tuoi progetti e a <strong>sinistra</strong> per la galleria globale.
-                                    </p>
-                                </>
-                            )}
-
-                            <div className="pt-4 w-full">
+                            <div className="pt-4 w-full space-y-2">
                                 <button
-                                    onClick={handleNext}
+                                    type="button"
+                                    onClick={() => (isLast ? handleComplete() : setStep(step + 1))}
                                     className="w-full flex items-center justify-center gap-2 py-4 bg-luxury-gold text-luxury-bg font-bold rounded-xl shadow-lg shadow-luxury-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                                 >
-                                    {step === 0 ? "Scopri come funziona" : "Inizia Subito"}
-                                    <ChevronRight className="w-5 h-5" />
+                                    {isLast ? 'Inizia' : 'Avanti'}
+                                    <ChevronRight aria-hidden="true" className="w-5 h-5" />
                                 </button>
+                                {!isLast && (
+                                    <button
+                                        type="button"
+                                        onClick={handleComplete}
+                                        className="w-full min-h-11 text-xs font-bold uppercase tracking-widest text-luxury-text/50 hover:text-luxury-text"
+                                    >
+                                        Salta
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </motion.div>

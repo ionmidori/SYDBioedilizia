@@ -39,7 +39,8 @@ function formatEuro(value: number): string {
     return value.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
 }
 
-function QuoteCard({ quote }: { quote: QuoteListItem }) {
+/** A quote request with its review status; the total and the PDF once approved. */
+export function QuoteCard({ quote }: { quote: QuoteListItem }) {
     const [downloading, setDownloading] = useState(false);
     const [downloadError, setDownloadError] = useState<string | null>(null);
 
@@ -76,9 +77,8 @@ function QuoteCard({ quote }: { quote: QuoteListItem }) {
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <h3 className="font-semibold text-luxury-text truncate">
-                        {quote.project_name || 'Progetto senza nome'}
-                    </h3>
+                    {/* The house has no name (Phase 139): the quote is known by its number. */}
+                    <h3 className="font-semibold text-luxury-text truncate">Preventivo</h3>
                     {quote.quote_number && (
                         <p
                             data-testid="quote-number"
@@ -178,7 +178,7 @@ export function QuoteListClient() {
                     </p>
                     <p className="text-luxury-text/35 text-xs max-w-md mx-auto">
                         Completa un preventivo in chat, poi invialo al team dalla chat o con
-                        &ldquo;Invia al team&rdquo; sul progetto, nella pagina Progetti.
+                        &ldquo;Invia al team&rdquo; nella scheda Preventivo della tua casa.
                     </p>
                 </div>
             )}

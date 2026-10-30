@@ -13,14 +13,13 @@ from src.db.projects.constants import PROJECTS_COLLECTION
 from src.db.projects.deletion import _delete_collection_batch
 from src.db.projects.media import sync_project_cover
 from src.db.projects.mutations import save_project_file_metadata, update_project_details
-from src.db.projects.queries import get_project, get_user_projects
+from src.db.projects.queries import get_project
 
 __all__ = [
     "PROJECTS_COLLECTION",
     # private helper re-exported for scripts/cleanup_zombie_projects.py
     "_delete_collection_batch",
     "get_project",
-    "get_user_projects",
     "save_project_file_metadata",
     "sync_project_cover",
     "update_project_details",

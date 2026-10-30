@@ -1,16 +1,31 @@
-import { fetchValidated } from '@/lib/api-client';
+import { describeApiError, fetchValidated, fetchWithAuth } from '@/lib/api-client';
 import {
+  Quote,
   QuoteListItem,
   QuotePdfUrl,
   QuoteSubmitResponse,
   quoteListResponseSchema,
   quotePdfUrlSchema,
+  quoteSchema,
   quoteSubmitResponseSchema,
 } from '@/types/quote';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py';
 
 export const quotesApi = {
+  /**
+   * The quote of the house (the user's chat, Phase 139), as the client may see
+   * it: prices are hidden until the admin approves it. `null` while there is no
+   * quote yet (404 — FastAPI's body carries no status, so the response's is read).
+   */
+  getQuote: async (projectId: string): Promise<Quote | null> => {
+    const response = await fetchWithAuth(`${API_ROOT}/quote/${encodeURIComponent(projectId)}`);
+    if (response.status === 404) return null;
+    const body: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) throw new Error(describeApiError(body));
+    return quoteSchema.parse(body);
+  },
+
   /**
    * Lists all quotes for a user (client area "Preventivi" section).
    * The backend masks grand_total until the quote is approved by the admin.

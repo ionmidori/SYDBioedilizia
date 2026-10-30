@@ -1,14 +1,47 @@
-import { fetchValidated } from '@/lib/api-client';
+import { fetchValidated, fetchWithAuth } from '@/lib/api-client';
 import { quoteListResponseSchema, quotePdfUrlSchema, quoteSubmitResponseSchema } from '@/types/quote';
 import { quotesApi } from '../quotes-api';
 
 jest.mock('@/lib/api-client', () => ({
     fetchValidated: jest.fn(),
+    fetchWithAuth: jest.fn(),
+    describeApiError: (error: { message?: string }) => error?.message ?? 'Errore',
 }));
 
 const mockFetchValidated = fetchValidated as jest.Mock;
+const mockFetchWithAuth = fetchWithAuth as jest.Mock;
 
-beforeEach(() => mockFetchValidated.mockReset());
+function res(status: number, body: unknown) {
+    return { ok: status < 400, status, json: () => Promise.resolve(body) } as unknown as Response;
+}
+
+beforeEach(() => {
+    mockFetchValidated.mockReset();
+    mockFetchWithAuth.mockReset();
+});
+
+describe('quotesApi.getQuote (the quote of the house)', () => {
+    const DRAFT = { project_id: 'chat-1', user_id: 'u1', status: 'draft', items: [] };
+
+    it('returns the validated quote', async () => {
+        mockFetchWithAuth.mockResolvedValue(res(200, DRAFT));
+
+        await expect(quotesApi.getQuote('chat-1')).resolves.toMatchObject({ project_id: 'chat-1', status: 'draft' });
+        expect(mockFetchWithAuth.mock.calls[0][0]).toMatch(/\/quote\/chat-1$/);
+    });
+
+    it('is null while the house has no quote (404)', async () => {
+        mockFetchWithAuth.mockResolvedValue(res(404, { detail: "No quote found for project 'chat-1'." }));
+
+        await expect(quotesApi.getQuote('chat-1')).resolves.toBeNull();
+    });
+
+    it('throws the backend message on any other failure', async () => {
+        mockFetchWithAuth.mockResolvedValue(res(500, { error_code: 'INTERNAL_SERVER_ERROR', message: 'Errore interno' }));
+
+        await expect(quotesApi.getQuote('chat-1')).rejects.toThrow('Errore interno');
+    });
+});
 
 describe('quotesApi.listUserQuotes', () => {
     it('delegates to fetchValidated with the list schema', async () => {

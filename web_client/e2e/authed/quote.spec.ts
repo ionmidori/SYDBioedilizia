@@ -29,7 +29,9 @@ test.describe('quotes area', () => {
 
     const approved = page.locator('[data-testid="quote-card"][data-quote-status="approved"]');
     await expect(approved).toHaveCount(1);
-    await expect(approved).toContainText('Bagno Trastevere');
+    // One house per user (Phase 139): a quote is named by its number, not by a project.
+    await expect(approved).toContainText('PRV-2026-0012');
+    await expect(approved).not.toContainText('Bagno Trastevere');
     await expect(approved.getByTestId('quote-download-pdf')).toBeVisible();
 
     const pending = page.locator('[data-testid="quote-card"][data-quote-status="pending_review"]');

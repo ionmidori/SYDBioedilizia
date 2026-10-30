@@ -29,11 +29,10 @@ function RetentionOutcome({ retention, failed }: { retention: RetentionSummary |
           Residui orfani: solo conteggiati, non cancellati. La loro pulizia va attivata dopo aver verificato i numeri.
         </p>
       )}
-      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+      <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
         {(
           [
             ['Sessioni ospite (oltre 30 giorni)', retention.guest_sessions],
-            ['Progetti nel cestino (oltre 30 giorni)', retention.deleted_projects],
             ['Residui orfani', retention.orphans],
             ['Preventivi oltre i 10 anni', retention.expired_holds],
           ] as const

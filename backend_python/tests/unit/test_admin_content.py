@@ -425,11 +425,11 @@ def test_the_admin_can_run_the_lifecycle_pass_without_the_shared_secret(db, monk
 
 
 _RETENTION = RetentionReport(
-    orphans_applied=False, guest_sessions=4, deleted_projects=1, expired_holds=0, orphans=36, orphans_kept=2,
+    orphans_applied=False, guest_sessions=4, expired_holds=0, orphans=36, orphans_kept=2,
     made_permanent=0, truncated=True, errors=["retention:orphan:RuntimeError"],
 )
 _RETENTION_SUMMARY = {
-    "orphans_applied": False, "guest_sessions": 4, "deleted_projects": 1, "expired_holds": 0, "orphans": 36,
+    "orphans_applied": False, "guest_sessions": 4, "expired_holds": 0, "orphans": 36,
     "orphans_kept": 2, "made_permanent": 0, "truncated": True,
 }
 

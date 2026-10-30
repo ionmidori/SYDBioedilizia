@@ -1,6 +1,6 @@
 import { describeApiError, fetchWithAuth, fetchValidated } from '@/lib/api-client';
-import { ProjectListItem, ProjectFileMetadata } from '@/types/projects';
-import { projectListResponseSchema, projectSchema } from '@/lib/validation/project-list-schema';
+import type { ProjectFileMetadata } from '@/types/projects';
+import { projectSchema } from '@/lib/validation/project-schema';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import type { ProjectDetailsFormData } from '@/lib/validation/project-details-schema';
@@ -8,16 +8,6 @@ import type { ProjectDetailsFormData } from '@/lib/validation/project-details-sc
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py'; // Use proxy or direct URL
 
 export const projectsApi = {
-    /**
-     * Lists all projects for the authenticated user.
-     */
-    listProjects: async (): Promise<ProjectListItem[]> => {
-        return fetchValidated(
-            `${API_ROOT}/projects`,
-            projectListResponseSchema
-        );
-    },
-
     /**
      * Get details of a single project.
      * Returns null if the project is not found (404).

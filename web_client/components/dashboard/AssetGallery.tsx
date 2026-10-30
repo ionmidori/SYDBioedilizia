@@ -74,7 +74,7 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
         <div className="flex-1 w-full relative">
             <OptimizedGalleryViewer
                 images={galleryImages}
-                title="File Progetto"
+                title="Media della casa"
                 enableVirtualization={assets.length > 50}
                 onDeleteClick={(image) => setAssetToDelete(image)}
             />

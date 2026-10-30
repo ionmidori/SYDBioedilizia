@@ -2,7 +2,6 @@
 
 // Components
 import { ChatHeader } from '@/components/chat/ChatHeader';
-import { usePathname, useSearchParams } from 'next/navigation';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { RoomChips } from '@/components/chat/RoomChips';
@@ -27,7 +26,6 @@ import { logger } from '@/lib/logger';
 import { warmBackend } from '@/lib/backend-warmup';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
-import { useCadIntent } from '@/hooks/useCadIntent';
 import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
 import { setChatWindowOpen } from '@/lib/chat/chat-window-state';
 
@@ -95,9 +93,6 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
 
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
 
     // Opening the chat is the strongest signal a message is coming: start a
     // backend instance now so the first reply does not pay the cold start.
@@ -213,19 +208,7 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
         }
     }, [error]);
 
-    // 8. Intent Handling (CAD Flow Trigger)
-    //    Moved from old Widget, preserving logic.
-    const historyLoaded = !isRestoringHistory;
-
-    useCadIntent({
-        searchParams,
-        historyLoaded,
-        isLoading,
-        messagesLength: messages.length,
-        sendMessage,
-    });
-
-    // 9. Event Listeners for External Triggers (Navbar, Hero, etc.)
+    // 8. Event Listeners for External Triggers (Navbar, Hero, etc.)
     useOpenChatEvents({ setIsOpen, setInput, reopenAfterLogin: !isInline });
 
     // Drag-to-close handler
@@ -237,14 +220,6 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
             setIsOpen(false);
         }
     };
-
-    // 9. Render Helpers
-    // Best Practice: Avoid "Double Chat". 
-    // If we are 'floating' and on the main Project Page (which has 'inline'), hide this instance.
-    const isProjectPage = /^\/dashboard\/[^/]+$/.test(pathname || '');
-    if (variant === 'floating' && isProjectPage) {
-        return null;
-    }
 
     function renderChatContent() {
         return (

@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { PROJECT_QUERY_KEY } from "@/hooks/use-project";
 import { projectsApi } from "@/lib/projects-api";
 import { projectDetailsSchema, type ProjectDetailsFormData } from "@/lib/validation/project-details-schema";
 import type { ProjectDetails } from "@/types/projects";
@@ -19,7 +20,7 @@ export default function ConstructionDetailsForm({
     sessionId,
     initialData,
 }: ConstructionDetailsFormProps) {
-    const router = useRouter();
+    const queryClient = useQueryClient();
     const [isPending, startTransition] = useTransition();
     const [submitMessage, setSubmitMessage] = useState<{
         type: "success" | "error";
@@ -64,8 +65,9 @@ export default function ConstructionDetailsForm({
         startTransition(async () => {
             try {
                 await projectsApi.updateProjectDetails(sessionId, data);
-                router.refresh();
-                setSubmitMessage({ type: "success", text: "Dettagli del cantiere aggiornati." });
+                // What the dashboard shows of the house is a cached query, not the page.
+                await queryClient.invalidateQueries({ queryKey: PROJECT_QUERY_KEY(sessionId) });
+                setSubmitMessage({ type: "success", text: "Dettagli della casa aggiornati." });
                 setTimeout(() => setSubmitMessage(null), 5000);
             } catch (error) {
                 setSubmitMessage({
@@ -83,7 +85,7 @@ export default function ConstructionDetailsForm({
 
             <div className="mb-12 relative z-10">
                 <h2 className="text-3xl font-bold text-luxury-text mb-3 font-serif">
-                    Specifiche del <span className="text-luxury-gold italic">Cantiere</span>
+                    Dettagli della <span className="text-luxury-gold italic">Casa</span>
                 </h2>
                 <p className="text-luxury-text/60 font-medium leading-relaxed max-w-2xl">
                     Questi dettagli tecnici permettono al nostro sistema AI di calcolare preventivi accurati e suggerimenti di design ottimizzati per il tuo spazio reale.
@@ -147,7 +149,7 @@ export default function ConstructionDetailsForm({
                 <div className="space-y-6 pt-6 border-t border-luxury-gold/10">
                     <h3 className="text-xl font-bold text-luxury-text font-serif flex items-center gap-3">
                         <span className="w-8 h-[1px] bg-luxury-gold/30" />
-                        Localizzazione Cantiere
+                        Indirizzo della casa
                     </h3>
 
                     <div className="space-y-2.5">

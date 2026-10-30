@@ -12,37 +12,16 @@ interface MobileSwipeLayoutProps {
     children: React.ReactNode;
 }
 
-export const PANES = ['dashboard', 'gallery', 'projects'] as const;
-export const PANE_ROUTES = ['/dashboard', '/dashboard/gallery', '/dashboard/projects'] as const;
-
-export const PROJECT_SUBPAGES = ['chat', 'files', 'settings'] as const;
-export type ProjectSubpage = (typeof PROJECT_SUBPAGES)[number];
+// The sections of the dashboard (Phase 139): the house, its gallery, its quotes.
+export const PANE_ROUTES = ['/dashboard', '/dashboard/gallery', '/dashboard/quotes'] as const;
+export const MAIN_LABELS = ['Casa', 'Galleria', 'Preventivi'] as const;
 
 // ─── Helpers (exported for DashboardHeader) ─────────────────────────────────
 
-/** UUID regex for detecting project routes */
-const PROJECT_ID_REGEX = /^\/dashboard\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/;
-
 export function getActiveIndexFromPathname(pathname: string): number {
-    // Project routes count as "projects" section
-    if (pathname.startsWith('/dashboard/projects') || PROJECT_ID_REGEX.test(pathname)) return 2;
+    if (pathname.startsWith('/dashboard/quotes')) return 2;
     if (pathname.startsWith('/dashboard/gallery')) return 1;
     return 0; // default: /dashboard
-}
-
-/** Extract project ID from pathname, or null if not in a project */
-export function getProjectIdFromPathname(pathname: string): string | null {
-    const match = pathname.match(PROJECT_ID_REGEX);
-    return match ? match[1] : null;
-}
-
-/** Get the active project subpage index from pathname + search params */
-export function getProjectSubpageIndex(pathname: string, viewParam: string | null): number {
-    if (pathname.endsWith('/files')) return 1;
-    if (pathname.endsWith('/settings')) return 2;
-    if (viewParam === 'files') return 1;
-    if (viewParam === 'settings') return 2;
-    return 0; // chat (default)
 }
 
 // ─── Dot Indicator (exported for DashboardHeader) ───────────────────────────
@@ -74,18 +53,22 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
 
     return (
         <motion.div 
-            className="flex items-center justify-center gap-1.5 py-1 px-4 cursor-grab active:cursor-grabbing"
+            className="flex items-center justify-center py-1 px-4 cursor-grab active:cursor-grabbing"
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.1}
             onDragEnd={handleDragEnd}
         >
             {labels.map((label, i) => (
+                // A 24px target per dot, side by side: padded targets overlapping
+                // their neighbours sent a tap on one dot to the next.
                 <button
                     key={i}
+                    type="button"
                     onClick={() => onIndexClick?.(i)}
-                    className="group/dot relative p-4 -m-4 focus-visible:outline-none transition-transform active:scale-75 touch-manipulation z-50"
+                    className="group/dot relative flex items-center justify-center min-w-6 h-6 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-luxury-gold/60 transition-transform active:scale-75 touch-manipulation"
                     aria-label={`Vai a ${label}`}
+                    aria-current={i === activeIndex ? 'page' : undefined}
                 >
                     <motion.div
                         className={cn(
@@ -109,9 +92,6 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
         </motion.div>
     );
 }
-
-export const MAIN_LABELS = ['Bacheca', 'Galleria', 'Progetti'] as const;
-export const SUBPAGE_LABELS = ['Cantiere AI', 'Galleria', 'Settaggi'] as const;
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 // Navigation between panes is handled by DashboardHeader dot indicator (PaneIndicator)

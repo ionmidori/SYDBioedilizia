@@ -3,103 +3,19 @@ Read-only Firestore operations for Projects (Dashboard).
 """
 import logging
 
-from google.cloud.firestore_v1 import FieldFilter
 from src.db.firebase_client import get_async_firestore_client
-from src.db.projects.constants import MERGED_INTO, PROJECTS_COLLECTION
+from src.db.projects.constants import PROJECTS_COLLECTION
 from src.models.project import (
     DEFAULT_CHAT_TITLE,
     Address,
     ProjectDetails,
     ProjectDocument,
-    ProjectListItem,
     ProjectStatus,
     PropertyType,
 )
 from src.utils.serialization import parse_enum, parse_firestore_datetime
 
 logger = logging.getLogger(__name__)
-
-
-async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListItem]:
-    """
-    Retrieve all projects for a user, ordered by last activity.
-
-    Args:
-        user_id: Firebase UID of the owner.
-        limit: Maximum number of projects to return.
-
-    Returns:
-        List of ProjectListItem for dashboard display.
-    """
-    try:
-        db = get_async_firestore_client()
-        query = (
-            db.collection(PROJECTS_COLLECTION)
-            .where(filter=FieldFilter("userId", "==", user_id))
-            .order_by("updatedAt", direction="DESCENDING")
-            .limit(limit)
-        )
-
-        docs = query.stream()
-        projects = []
-
-        async for doc in docs:
-            data = doc.to_dict() or {}
-
-            # Skip soft-deleted projects (is_deleted may be absent on legacy docs) and
-            # chats merged into the user's chat (their messages are listed there).
-            if data.get("is_deleted") is True or data.get(MERGED_INTO):
-                continue
-
-            # Robust Parsing via Utility
-            updated_at = parse_firestore_datetime(data.get("updatedAt"))
-
-            # Safe status conversion
-            status_enum = parse_enum(ProjectStatus, data.get("status"), ProjectStatus.DRAFT)
-
-            # Check if this project has a quote document (completed quote flow)
-            has_quote = False
-            quote_status = None
-            try:
-                quote_doc = await db.collection(PROJECTS_COLLECTION).document(doc.id).collection("private_data").document("quote").get()
-                if quote_doc.exists:
-                    qdata = quote_doc.to_dict() or {}
-                    # A quote is considered valid if it has at least one item
-                    has_quote = len(qdata.get("items", [])) > 0
-                    quote_status = qdata.get("status")
-            except Exception as quote_error:  # noqa: BLE001 — fail-safe per project, see below
-                # A missing/unreadable quote must NOT break the whole dashboard listing, so we
-                # keep has_quote=False. It must still be observable: a denied read or a missing
-                # index degrades EVERY row here (this .get() runs once per project), and the
-                # previous `except Exception: pass` made that outage invisible.
-                logger.warning(
-                    f"[Projects] Quote lookup failed for project {doc.id}: {quote_error}"
-                )
-
-            try:
-                projects.append(ProjectListItem(
-                    session_id=doc.id,
-                    title=data.get("title", DEFAULT_CHAT_TITLE),
-                    status=status_enum,
-                    thumbnail_url=data.get("thumbnailUrl"),
-                    original_image_url=data.get("originalImageUrl"),
-                    updated_at=updated_at,
-                    message_count=data.get("messageCount") or 0,
-                    has_quote=has_quote,
-                    quote_status=quote_status,
-                ))
-            except Exception as item_error:  # noqa: BLE001 — one malformed doc must not hide the rest
-                logger.error(f"[Projects] Skipping Invalid Project {doc.id}: {item_error}")
-                continue
-
-        logger.info(f"[Projects] Retrieved {len(projects)} projects for user {user_id}")
-        return projects
-
-    except Exception as e:
-        # Re-raise to let the router's exception handler log a proper error and return 500.
-        # This is intentionally NOT silenced: query-level failures are critical and must be visible.
-        logger.error(f"[Projects] Critical error fetching projects for user {user_id}: {str(e)}", exc_info=True)
-        raise
 
 
 async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:

@@ -34,11 +34,10 @@ def _verified(decoded):
 @pytest.mark.parametrize(
     ("method", "path"),
     [
-        ("GET", "/api/projects"),
         ("GET", "/api/projects/0a1b2c3d-1111-2222-3333-444455556666"),
-        ("GET", "/api/reports/dashboard"),
-        ("GET", "/api/reports/gallery"),
         ("GET", "/api/quote/user/u1"),
+        ("GET", "/api/quote/0a1b2c3d-1111-2222-3333-444455556666"),
+        ("GET", "/api/quote/0a1b2c3d-1111-2222-3333-444455556666/pdf"),
         ("POST", "/api/guest-claim"),
         ("GET", "/api/me/chat"),
     ],
@@ -54,6 +53,9 @@ async def test_registered_user_reads_dashboard_without_app_check(method, path):
         ("POST", "/chat/stream"),
         ("POST", "/api/upload/image"),
         ("POST", "/api/projects/abc/rooms"),
+        ("POST", "/api/quote/abc/submit"),
+        ("GET", "/api/projects"),
+        ("GET", "/api/reports/gallery"),
         ("PATCH", "/api/projects/abc/details"),
         ("POST", "/feedback"),
         ("GET", "/api/admin/quotes"),
@@ -66,7 +68,7 @@ async def test_other_routes_stay_strict(method, path):
 
 
 @pytest.mark.parametrize(
-    ("method", "path"), [("GET", "/api/projects"), ("POST", "/api/guest-claim"), ("GET", "/api/me/chat")]
+    ("method", "path"), [("GET", "/api/quote/abc"), ("POST", "/api/guest-claim"), ("GET", "/api/me/chat")]
 )
 async def test_anonymous_user_gets_no_fallback(method, path):
     with _verified(ANONYMOUS), pytest.raises(AppCheckError):
@@ -87,24 +89,24 @@ async def test_the_claim_ticket_still_needs_a_verified_token():
 
 async def test_no_bearer_gets_no_fallback():
     with pytest.raises(AppCheckError):
-        await app_check.validate_app_check_token(_request("GET", "/api/projects", bearer=None))
+        await app_check.validate_app_check_token(_request("GET", "/api/me/chat", bearer=None))
 
 
 async def test_invalid_id_token_gets_no_fallback():
     failing = AsyncMock(side_effect=ValueError("bad token"))
     with patch.object(app_check, "_verify_id_token_cached", failing), pytest.raises(AppCheckError):
-        await app_check.validate_app_check_token(_request("GET", "/api/projects"))
+        await app_check.validate_app_check_token(_request("GET", "/api/me/chat"))
 
 
 async def test_wrong_audience_gets_no_fallback():
     with _verified({**REGISTERED, "aud": "other"}), pytest.raises(AppCheckError):
-        await app_check.validate_app_check_token(_request("GET", "/api/projects"))
+        await app_check.validate_app_check_token(_request("GET", "/api/me/chat"))
 
 
 async def test_invalid_app_check_token_is_not_rescued():
     """The fallback covers a MISSING token only: a forged or expired one is still rejected."""
     req = Request({
-        "type": "http", "method": "GET", "path": "/api/projects",
+        "type": "http", "method": "GET", "path": "/api/me/chat",
         "headers": [(b"authorization", b"Bearer tok"), (b"x-firebase-appcheck", b"forged")],
     })
     with _verified(REGISTERED), patch.object(app_check.app_check, "verify_token", side_effect=ValueError), \

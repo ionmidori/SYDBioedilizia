@@ -2,17 +2,16 @@
 
 import { SydLogo } from "@/components/branding/SydLogo";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
     PaneIndicator,
     getActiveIndexFromPathname,
-    getProjectIdFromPathname,
-    getProjectSubpageIndex,
     MAIN_LABELS,
-    SUBPAGE_LABELS,
     PANE_ROUTES,
 } from "@/components/mobile/MobileSwipeLayout";
-import { useRouter } from "next/navigation";
+import { HOUSE_TABS, houseTabFromView, houseTabHref } from "@/lib/house-tabs";
+
+const HOUSE_TAB_LABELS = HOUSE_TABS.map((tab) => tab.label);
 
 export function DashboardHeader() {
     const pathname = usePathname();
@@ -20,12 +19,10 @@ export function DashboardHeader() {
     const router = useRouter();
     const mainIndex = getActiveIndexFromPathname(pathname);
 
-    // Detect project context
-    const projectId = getProjectIdFromPathname(pathname);
-    const isInsideProject = projectId !== null;
-    const subpageIndex = isInsideProject
-        ? getProjectSubpageIndex(pathname, searchParams.get('view'))
-        : 0;
+    // The house (/dashboard) has its tabs on a second row.
+    const isHouse = pathname === PANE_ROUTES[0];
+    const houseTab = houseTabFromView(searchParams.get('view'));
+    const houseTabIndex = HOUSE_TABS.findIndex((tab) => tab.id === houseTab);
 
     const handleMainIndexClick = (index: number) => {
         const route = PANE_ROUTES[index];
@@ -34,11 +31,10 @@ export function DashboardHeader() {
         }
     };
 
-    const handleSubpageIndexClick = (index: number) => {
-        const tabs = ['chat', 'files', 'settings'];
-        const tab = tabs[index];
-        if (tab && index !== subpageIndex) {
-            router.replace(`/dashboard/${projectId}?view=${tab}`, { scroll: false });
+    const handleHouseTabClick = (index: number) => {
+        const tab = HOUSE_TABS[index];
+        if (tab && index !== houseTabIndex) {
+            router.replace(houseTabHref(tab.id), { scroll: false });
         }
     };
 
@@ -62,14 +58,14 @@ export function DashboardHeader() {
                 </div>
             </div>
 
-            {/* Second row: Project subpage indicator (only when inside a project) */}
-            {isInsideProject && (
+            {/* Second row: the tabs of the house (only in the house) */}
+            {isHouse && (
                 <div className="flex justify-center pb-1.5 -mt-1">
                     <PaneIndicator
-                        activeIndex={subpageIndex}
-                        labels={SUBPAGE_LABELS}
+                        activeIndex={houseTabIndex}
+                        labels={HOUSE_TAB_LABELS}
                         size="small"
-                        onIndexClick={handleSubpageIndexClick}
+                        onIndexClick={handleHouseTabClick}
                     />
                 </div>
             )}
