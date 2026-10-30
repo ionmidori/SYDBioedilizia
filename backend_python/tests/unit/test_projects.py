@@ -7,9 +7,8 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
+from main import app
 from src.models.project import (
-    ProjectCreate,
     ProjectDocument,
     ProjectListItem,
     ProjectStatus,
@@ -19,22 +18,6 @@ from src.utils.datetime_utils import utc_now
 
 class TestProjectModels:
     """Test Pydantic models for projects."""
-
-    def test_project_create_default_title(self):
-        """GIVEN no title provided
-        WHEN ProjectCreate is instantiated
-        THEN should use default title
-        """
-        project = ProjectCreate()
-        assert project.title == "Nuovo Progetto"
-
-    def test_project_create_custom_title(self):
-        """GIVEN a custom title
-        WHEN ProjectCreate is instantiated
-        THEN should use provided title
-        """
-        project = ProjectCreate(title="Ristrutturazione Cucina")
-        assert project.title == "Ristrutturazione Cucina"
 
     def test_project_status_enum(self):
         """GIVEN ProjectStatus enum
@@ -85,190 +68,12 @@ class TestProjectModels:
         assert item.status == ProjectStatus.QUOTED
 
 
-class TestProjectDbOperations:
-    """Test project database operations with mocked Firestore."""
-
-    @pytest.mark.asyncio
-    async def test_create_project_returns_session_id(self):
-        """GIVEN valid user_id and project data
-        WHEN create_project is called
-        THEN should return a UUID session_id
-        """
-        from src.db import projects as projects_db
-
-        # Mock async Firestore client: both documents are written in one batch
-        mock_db = MagicMock()
-        batch = MagicMock()
-        batch.commit = AsyncMock()
-        mock_db.batch.return_value = batch
-
-        with patch('src.db.projects.mutations.get_async_firestore_client', return_value=mock_db):
-            session_id = await projects_db.create_project(
-                user_id="test-user-123",
-                data=ProjectCreate(title="My Kitchen")
-            )
-
-        # Assert: Should return a valid UUID
-        assert len(session_id) == 36  # UUID format
-        assert "-" in session_id
-
-        # Assert: one atomic commit with the session AND its projection
-        batch.commit.assert_awaited_once()
-        assert batch.set.call_count == 2
-        call_args = batch.set.call_args_list[0][0][1]
-        assert call_args["userId"] == "test-user-123"
-        assert call_args["title"] == "My Kitchen"
-        assert call_args["status"] == "draft"
-        # Regression guard (quote submission "user doesn't own project"): the
-        # dashboard path must write projects/{id}.userId like the chat path.
-        projection = batch.set.call_args_list[1][0][1]
-        assert projection["userId"] == "test-user-123"
-        assert projection["id"] == session_id
-        assert projection["name"] == "My Kitchen"
-        assert batch.set.call_args_list[1][1] == {"merge": True}
-        # Regression guard: new projects MUST initialize is_deleted = False
-        assert call_args["is_deleted"] is False
-
-    @pytest.mark.asyncio
-    async def test_soft_delete_bins_the_project_for_the_retention_job(self):
-        """GIVEN a registered project
-        WHEN it is soft-deleted
-        THEN session and projection are marked deleted (hidden at once) and no
-        expiry is written: the retention job erases the whole project, trees and
-        Storage, 30 days after `deleted_at` — the Firestore TTL never cascaded
-        """
-        from src.db import projects as projects_db
-        from tests.unit.firestore_fakes import FakeDb
-
-        db = FakeDb()
-        db.put("sessions", "s1", {"userId": "u1"})
-        db.put("projects", "s1", {"userId": "u1"})
-        db.put("sessions", "s1", "messages", "m1", {"content": "a"})
-
-        with patch("src.db.projects.deletion.get_async_firestore_client", return_value=db):
-            assert await projects_db.soft_delete_project("s1", "u1") is True
-
-        session = db.get_data("sessions", "s1")
-        projection = db.get_data("projects", "s1")
-        assert session["is_deleted"] is True and projection["is_deleted"] is True
-        assert session["deleted_at"] == projection["deleted_at"]
-        assert "expireAt" not in session and "expireAt" not in projection
-        assert db.get_data("sessions", "s1", "messages", "m1") == {"content": "a"}
-
-    @pytest.mark.asyncio
-    async def test_count_user_projects_excludes_deleted(self):
-        """GIVEN a user with 3 active + 2 soft-deleted projects
-        WHEN count_user_projects is called
-        THEN should return 3 (deleted projects are excluded).
-        """
-        from src.db import projects as projects_db
-
-        def _make_doc(is_deleted: bool):
-            """Helper: returns a MagicMock document snapshot."""
-            doc = MagicMock()
-            doc.to_dict.return_value = {"is_deleted": is_deleted}
-            return doc
-
-        active_docs = [_make_doc(False), _make_doc(False), _make_doc(False)]
-        deleted_docs = [_make_doc(True), _make_doc(True)]
-        all_docs = active_docs + deleted_docs
-
-        # Mock: aggregation query raises (simulates missing composite index)
-        mock_agg_query = MagicMock()
-        mock_agg_query.get = AsyncMock(side_effect=Exception("index not ready"))
-
-        # Mock: fallback stream (async generator)
-        async def mock_stream():
-            for doc in all_docs:
-                yield doc
-
-        mock_fallback_col = MagicMock()
-        mock_fallback_col.where.return_value = mock_fallback_col
-        mock_fallback_col.select.return_value = mock_fallback_col
-        mock_fallback_col.stream.side_effect = mock_stream
-
-        mock_filtered_col = MagicMock()
-        mock_filtered_col.where.return_value = mock_filtered_col
-        mock_filtered_col.count.return_value = mock_agg_query
-
-        # The real code does two separate .collection() chains:
-        # one for the aggregation query (with both filters) and one for the fallback.
-        # We keep it simple by patching the whole chain.
-        mock_db = MagicMock()
-        mock_db.collection.return_value = mock_filtered_col
-        mock_filtered_col.where.return_value = mock_fallback_col
-
-        with patch('src.db.projects.queries.get_async_firestore_client', return_value=mock_db):
-            count = await projects_db.count_user_projects("user-with-mixed-projects")
-
-        # Only active projects should be counted
-        assert count == 3, f"Expected 3 active projects, got {count}"
-
-
 class TestProjectsFailClosed:
     """Regression tests for the blind-except fail-open bugs (BLE001 ratchet).
 
     Each test here pins a behaviour that a `except Exception: return <neutral>` used to
     swallow, silently turning an infrastructure outage into an apparent success.
     """
-
-    @pytest.mark.asyncio
-    async def test_count_user_projects_raises_when_both_attempts_fail(self):
-        """GIVEN Firestore is down (both the aggregation and the fallback stream fail)
-        WHEN count_user_projects is called
-        THEN it must raise, NOT return 0.
-
-        Returning 0 would report "this user owns no projects" to the quota check in
-        projects_router.create_project, silently disabling the 5-project limit.
-        """
-        from src.db import projects as projects_db
-
-        mock_agg_query = MagicMock()
-        mock_agg_query.get = AsyncMock(side_effect=Exception("index not ready"))
-
-        mock_fallback_col = MagicMock()
-        mock_fallback_col.where.return_value = mock_fallback_col
-        mock_fallback_col.select.return_value = mock_fallback_col
-        mock_fallback_col.stream.side_effect = Exception("firestore unavailable")
-
-        mock_filtered_col = MagicMock()
-        mock_filtered_col.count.return_value = mock_agg_query
-        mock_filtered_col.where.return_value = mock_fallback_col
-
-        mock_db = MagicMock()
-        mock_db.collection.return_value = mock_filtered_col
-
-        with patch('src.db.projects.queries.get_async_firestore_client', return_value=mock_db):
-            with pytest.raises(Exception, match="firestore unavailable"):
-                await projects_db.count_user_projects("user-123")
-
-    @pytest.mark.asyncio
-    async def test_create_project_endpoint_fails_closed_when_count_unavailable(self):
-        """GIVEN the project count cannot be determined (Firestore down)
-        WHEN POST /projects is handled
-        THEN it must answer 500 and must NOT create the project.
-
-        This is the end-to-end regression of the quota fail-open: with the old
-        `return 0` the endpoint happily created a 6th, 7th, ... project.
-        """
-        from src.api.routes import projects_router
-
-        with (
-            patch.object(
-                projects_router.projects_db,
-                'count_user_projects',
-                AsyncMock(side_effect=Exception("firestore unavailable")),
-            ),
-            patch.object(projects_router.projects_db, 'create_project', AsyncMock()) as mock_create,
-        ):
-            with pytest.raises(HTTPException) as exc_info:
-                await projects_router.create_project(
-                    data=ProjectCreate(title="Nuovo Progetto"),
-                    user_session=MagicMock(uid="user-123"),
-                )
-
-        assert exc_info.value.status_code == 500
-        mock_create.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_get_user_projects_warns_when_quote_lookup_fails(self, caplog):
@@ -335,3 +140,14 @@ async def test_get_user_projects_hides_chats_merged_into_another():
         projects = await projects_db.get_user_projects("user-123")
 
     assert [p.session_id for p in projects] == ["account-chat"]
+
+
+@pytest.mark.parametrize(("method", "path"), [
+    ("post", "/api/projects"),
+    ("patch", "/api/projects/{session_id}"),
+    ("delete", "/api/projects/{session_id}"),
+])
+def test_projects_cannot_be_created_renamed_or_deleted(method, path):
+    """Phase 139: one chat per user, chosen by the backend; its data goes only with
+    the account (DELETE /api/users/me). The routes are gone, not just hidden."""
+    assert method not in app.openapi()["paths"].get(path, {})

@@ -39,7 +39,7 @@ export function ProjectMobileTabs({ projectId }: ProjectMobileTabsProps) {
                     "absolute inset-0 h-full w-full transition-opacity duration-200",
                     activeTab === 'chat' ? "opacity-100 z-10" : "opacity-0 z-0 hidden pointer-events-none"
                 )}>
-                    <ChatWidget projectId={projectId} variant="inline" />
+                    <ChatWidget variant="inline" />
                 </div>
 
                 {/* Files Tab — lazy-mounted on first visit, then stays mounted */}

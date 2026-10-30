@@ -55,7 +55,7 @@ it('waits for the claim and sends the message in the guest chat, once', () => {
     update(view, () => {
         guestClaimStore.set({ status: 'pending' });
         mockUser = { uid: 'user-1', isAnonymous: false };
-        mockSessionId = 'global-user-1';
+        mockSessionId = 'chat-of-user-1';
     });
     act(() => { jest.advanceTimersByTime(5_000); });
     expect(mockSendMessage).not.toHaveBeenCalled();
@@ -79,7 +79,7 @@ it('keeps the message while the claim failed, and sends it after a successful re
     openLoginFromTheCard();
     update(view, () => {
         mockUser = { uid: 'user-1', isAnonymous: false };
-        mockSessionId = 'global-user-1';
+        mockSessionId = 'chat-of-user-1';
         guestClaimStore.set({ status: 'error', message: 'Errore', retry: jest.fn() });
     });
     act(() => { jest.advanceTimersByTime(5_000); });
@@ -100,7 +100,7 @@ it('drops the message when the user closes a failed claim: it belongs to the gue
     openLoginFromTheCard();
     update(view, () => {
         mockUser = { uid: 'user-1', isAnonymous: false };
-        mockSessionId = 'global-user-1';
+        mockSessionId = 'chat-of-user-1';
         guestClaimStore.set({ status: 'error', message: 'Errore', retry: null });
     });
     update(view, () => guestClaimStore.reset());
@@ -126,14 +126,14 @@ it('sends nothing for a login finished in another tab (magic link): the guest ch
     openLoginFromTheCard();
     update(view, () => {
         mockUser = { uid: 'user-1', isAnonymous: false };
-        mockSessionId = 'global-user-1';
+        mockSessionId = 'chat-of-user-1';
     });
     act(() => { jest.advanceTimersByTime(5_000); });
 
     expect(mockSendMessage).not.toHaveBeenCalled();
 
     // Nor later, in an unrelated conversation: the stale confirmation was dropped.
-    update(view, () => guestClaimStore.set({ status: 'done', openSessionId: 'global-user-1' }));
+    update(view, () => guestClaimStore.set({ status: 'done', openSessionId: 'chat-of-user-1' }));
     update(view, () => guestClaimStore.reset());
     expect(mockSendMessage).not.toHaveBeenCalled();
 });

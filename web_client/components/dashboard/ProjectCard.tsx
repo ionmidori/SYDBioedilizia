@@ -3,21 +3,16 @@
 import { useState } from 'react';
 import { ProjectListItem, ProjectStatus } from '@/types/projects';
 import { useRouter } from 'next/navigation';
-import { Calendar, MessageSquare, ImageIcon, Trash2, Edit2, Send, CheckCircle2 } from 'lucide-react';
+import { Calendar, MessageSquare, ImageIcon, Send, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
-import { DeleteProjectDialog } from './DeleteProjectDialog';
-import { RenameProjectDialog } from './RenameProjectDialog';
 import { SubmitQuoteDialog } from './SubmitQuoteDialog';
-import { useDeleteProject } from '@/hooks/use-delete-project';
 import { ComparisonThumbnail } from './ComparisonThumbnail';
 import { motion } from 'framer-motion';
-import { SydLoader } from '@/components/ui/SydLoader';
 
 interface ProjectCardProps {
     project: ProjectListItem;
     index?: number;
-    onDelete?: (sessionId: string) => void;
     /** Whether this project has a quote with at least one item */
     hasQuote?: boolean;
 }
@@ -36,39 +31,18 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; bg: st
 export function ProjectCard({ project, index, hasQuote }: ProjectCardProps) {
     const router = useRouter();
     const status = statusConfig[project.status] || statusConfig.draft;
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [renameDialogOpen, setRenameDialogOpen] = useState(false);
     const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
     const canSubmit = hasQuote && project.quote_status === 'draft';
     const withTheTeam = hasQuote && WITH_THE_TEAM.has(project.quote_status ?? '');
 
-    // Modern State Management
-    const deleteProjectMutation = useDeleteProject();
-
     const handleCardClick = () => {
         router.push(`/dashboard/${project.session_id}`);
-    };
-
-    const handleDeleteClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDeleteDialogOpen(true);
     };
 
     const handleSubmitClick = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setSubmitDialogOpen(true);
-    };
-
-    const handleRenameClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setRenameDialogOpen(true);
-    };
-
-    const handleDelete = async (sessionId: string) => {
-        await deleteProjectMutation.mutateAsync(sessionId);
     };
 
     const formattedDate = new Intl.DateTimeFormat('it-IT', {
@@ -96,10 +70,7 @@ export function ProjectCard({ project, index, hasQuote }: ProjectCardProps) {
                 delay: index ? index * 0.05 : 0,
                 ease: [0.05, 0.7, 0.1, 1.0]
             }}
-            className={cn(
-                "group relative flex flex-col gap-3 p-5 rounded-[24px] surface-container-low hover:surface-container-high hover:shadow-elevation-high transition-all duration-500 cursor-pointer overflow-hidden",
-                deleteProjectMutation.isPending && "opacity-50 pointer-events-none"
-            )}
+            className="group relative flex flex-col gap-3 p-5 rounded-[24px] surface-container-low hover:surface-container-high hover:shadow-elevation-high transition-all duration-500 cursor-pointer overflow-hidden"
         >
             {/* Cinematic Gradient Sweep (on hover) */}
             <div className="absolute inset-0 bg-gradient-to-tr from-luxury-teal/0 via-luxury-teal/5 to-luxury-gold/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
@@ -153,32 +124,6 @@ export function ProjectCard({ project, index, hasQuote }: ProjectCardProps) {
                     <h3 className="text-xl font-bold text-luxury-text group-hover:text-luxury-gold transition-colors truncate font-serif leading-tight">
                         {project.title}
                     </h3>
-                    
-                    {/* Action Buttons */}
-                    <div className="flex items-center gap-1.5 shrink-0 relative z-30">
-                        {/* Edit Button */}
-                        <button
-                            onClick={handleRenameClick}
-                            className="w-8 h-8 rounded-full bg-luxury-gold/10 hover:bg-luxury-gold/20 border border-luxury-gold/20 hover:border-luxury-gold/40 flex items-center justify-center text-luxury-gold transition-all duration-300 hover:scale-110 active:scale-90 shadow-sm"
-                            title="Rinomina progetto"
-                        >
-                            <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-
-                        {/* Delete Button */}
-                        <button
-                            onClick={handleDeleteClick}
-                            disabled={deleteProjectMutation.isPending}
-                            className="w-8 h-8 rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 flex items-center justify-center text-red-400 transition-all duration-300 hover:scale-110 active:scale-90 shadow-sm disabled:opacity-50"
-                            title="Elimina progetto"
-                        >
-                            {deleteProjectMutation.isPending ? (
-                                <SydLoader size="sm" />
-                            ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                            )}
-                        </button>
-                    </div>
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-luxury-text/50 font-medium tracking-tight">
@@ -218,21 +163,6 @@ export function ProjectCard({ project, index, hasQuote }: ProjectCardProps) {
 
             {/* Dialogs */}
             <div onClick={(e) => e.stopPropagation()}>
-                <DeleteProjectDialog
-                    open={deleteDialogOpen}
-                    onOpenChange={setDeleteDialogOpen}
-                    projectTitle={project.title}
-                    sessionId={project.session_id}
-                    onDelete={handleDelete}
-                />
-
-                <RenameProjectDialog
-                    open={renameDialogOpen}
-                    onOpenChange={setRenameDialogOpen}
-                    currentTitle={project.title}
-                    sessionId={project.session_id}
-                />
-
                 <SubmitQuoteDialog
                     open={submitDialogOpen}
                     onOpenChange={setSubmitDialogOpen}

@@ -15,18 +15,18 @@ import type { RoomChip } from '@/hooks/useProjectRooms';
 export interface ChatContextType {
     // State
     /**
-     * The ID of the currently active project.
-     * - `null` means "Global / Landing Page" context.
-     * - `string` means specific "Project" context.
-     */
-    currentProjectId: string | null;
-
-    /**
      * Session key of the active conversation (backend, Firestore history,
      * Storage upload prefix). Guests get a stable per-browser id, signed-in
-     * users the project id or `global-<uid>`.
+     * users the chat the backend gives (GET /api/me/chat, Phase 139). `null`
+     * until it is known: nothing can be sent until then.
      */
-    sessionId: string;
+    sessionId: string | null;
+
+    /**
+     * The signed-in user's chat — the house: its rooms, files and quote live
+     * under this id. `null` for a guest, or while it is being asked for.
+     */
+    userChatId: string | null;
 
     /**
      * Flag indicating if we are switching contexts and hyrdating history.
@@ -59,12 +59,14 @@ export interface ChatContextType {
      */
     error: Error | undefined;
 
-    // Actions
     /**
-     * Switch context to a specific project or back to global (null).
+     * A notice about the chat that is not an error: a turn refused for a chat
+     * that is no longer the user's, given back to them to attach its photos
+     * again (Phase 139). `null` when there is none.
      */
-    setProjectId: (id: string | null) => void;
+    chatNotice: string | null;
 
+    // Actions
     /**
      * Handle input change from the Textarea/Input.
      */
@@ -72,7 +74,6 @@ export interface ChatContextType {
 
     /**
      * Submit a message to the AI.
-     * Wraps Vercel SDK's `append` to ensure `projectId` is injected into the request body.
      */
     submitMessage: (e?: FormEvent) => Promise<void>;
 
@@ -83,10 +84,15 @@ export interface ChatContextType {
     sendMessage: (content: string, attachments?: string[], data?: Record<string, unknown>) => Promise<void>;
 
     /**
-     * Reload the last message (retry).
-     * Mapped to `regenerate` in SDK v3.
+     * Retry: the last message (`regenerate`), or asking for the user's chat
+     * again when that is what failed.
      */
     reload: () => Promise<void>;
+
+    /**
+     * Close the chat notice.
+     */
+    dismissChatNotice: () => void;
 
     /**
      * Stop the current generation.
@@ -109,8 +115,7 @@ export interface ChatContextType {
     data?: unknown[];
 
     /**
-     * Rooms of the current project (Phase 138), in creation order. Empty when
-     * the chat has no project (guest, global chat).
+     * Rooms of the user's chat (Phase 138), in creation order. Empty for a guest.
      */
     rooms: RoomChip[];
 

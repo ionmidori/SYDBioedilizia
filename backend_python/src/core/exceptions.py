@@ -321,3 +321,13 @@ class ChatMerged(AppException):
 
     def __init__(self) -> None:
         super().__init__(message="Questa conversazione è stata unita alla tua chat. Ricarica la pagina per continuare.")
+
+
+class UserChatMismatch(AppException):
+    """A registered user's turn for a chat that is not theirs (`users/{uid}.chat_id`):
+    the client asks /api/me/chat again and sends the turn there."""
+    status_code = 409
+    error_code = "USER_CHAT_MISMATCH"
+
+    def __init__(self) -> None:
+        super().__init__(message="La tua chat è cambiata. Ricarica la pagina per continuare.")

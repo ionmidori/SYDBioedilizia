@@ -6,11 +6,11 @@ import { chatStreamHandler } from './fixtures/ui-message-stream';
  * Authenticated chat, covering the SDK <-> Firestore reconciliation that
  * produced #125/#127/#128.
  *
- * Runs on `/` rather than `/dashboard/[id]`: for a signed-in, non-anonymous
- * user with no active project, useChatSession derives `global-<uid>` — the
- * session seeded by auth.setup.ts, and the one firestore.rules permits reading
- * without a parent project. A project route would additionally require stubbing
- * the project fetch for no extra coverage.
+ * Runs on `/` rather than `/dashboard/[id]`: the chat is the user's one chat
+ * (Phase 139), whose id the backend gives (GET /api/me/chat, faked by the
+ * fixture) — the session seeded by auth.setup.ts with its owner, read under the
+ * production rules. A project route would additionally require stubbing the
+ * project fetch for no extra coverage.
  */
 test.describe('authenticated chat', () => {
   test.beforeEach(async ({ page }) => {

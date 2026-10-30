@@ -4,11 +4,12 @@
  * Guests chat as Firebase anonymous users, and their chats belong to the
  * anonymous uid. Every login path goes through here:
  * - a NEW account is linked to the anonymous user (linkWith*): same uid, the
- *   chats are already its own and the chat just opens the latest one;
+ *   chats are already its own and the backend makes the latest one the
+ *   account's chat (GET /api/me/chat);
  * - an EXISTING account replaces the anonymous user. While still anonymous the
  *   guest gets a claim ticket from the backend (proof it is that guest: knowing
  *   a session id is never enough); once signed in, the account redeems it and
- *   every guest chat moves to it.
+ *   every guest chat comes into the account's one chat (Phase 139).
  * The ticket stays in memory: popup, email and passkey keep the page, and the
  * redirect flow learns that the account exists on its return, with the
  * anonymous user still signed in (linkWithRedirect fails, it does not replace).
@@ -30,11 +31,11 @@ import {
 import type { FirebaseError } from 'firebase/app';
 import { auth } from '@/lib/firebase';
 import { describeApiError } from '@/lib/api-client';
-import { GUEST_SESSION_KEY, lastProjectKey } from '@/lib/chat-session-keys';
+import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { guestClaimApi } from '@/lib/guest-claim-api';
-import { projectsApi } from '@/lib/projects-api';
 import { queryClient } from '@/lib/query-client';
 import { PROJECTS_QUERY_KEY } from '@/hooks/use-projects';
+import { fetchUserChat, USER_CHAT_QUERY_KEY, userChatQuery } from '@/hooks/use-user-chat';
 import { guestClaimStore } from '@/lib/auth/guest-claim-store';
 
 /** Firebase's answer when the provider account already exists: sign in to it instead of linking. */
@@ -73,18 +74,17 @@ async function whileSigningIn<T>(login: () => Promise<T>): Promise<T> {
 }
 
 /**
- * The chat opens `sessionId` for the signed-in user: now (useChatSession reads
- * the store) and after a reload (it reopens the last active project).
+ * The login settled on the account's chat `sessionId`: the message waiting for
+ * the login (GlobalAuthListener) goes there once the chat has opened it.
  */
 async function openAfterLogin(sessionId: string | null): Promise<void> {
-    const uid = auth.currentUser?.uid;
     try {
-        if (sessionId && uid) window.localStorage.setItem(lastProjectKey(uid), sessionId);
-        // The guest chat id now names one of the account's chats: a later guest
-        // in this browser (e.g. after a sign-out that skips logout()) starts a new one.
+        // The guest chat id now names the account's chat (or one merged into it):
+        // a later guest in this browser (e.g. after a sign-out that skips logout())
+        // starts a new one.
         window.localStorage.removeItem(GUEST_SESSION_KEY);
     } catch {
-        // localStorage unavailable: the store still opens it in this page
+        // localStorage unavailable: nothing kept to forget
     }
     await queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
     guestClaimStore.set({ status: 'done', openSessionId: sessionId });
@@ -99,6 +99,13 @@ export async function claimGuestChats(ticket: string): Promise<void> {
     guestClaimStore.set({ status: 'pending' });
     try {
         const result = await guestClaimApi.claim(ticket);
+        // The guest's chats came into the account's chat, which the claim names.
+        const uid = auth.currentUser?.uid;
+        if (result.open_session_id && uid) {
+            queryClient.setQueryData(userChatQuery(uid).queryKey, { chat_id: result.open_session_id, created: false });
+        } else {
+            await queryClient.invalidateQueries({ queryKey: USER_CHAT_QUERY_KEY });
+        }
         await openAfterLogin(result.open_session_id);
     } catch (error) {
         console.warn('[GuestClaim] Claim failed:', error);
@@ -121,9 +128,12 @@ export async function claimGuestChats(ticket: string): Promise<void> {
 export async function openChatAfterLink(): Promise<void> {
     guestClaimStore.set({ status: 'pending' });
     try {
-        // A just-created account owns only its guest chats, most recent first.
-        const projects = await projectsApi.listProjects();
-        await openAfterLogin(projects[0]?.session_id ?? null);
+        const uid = auth.currentUser?.uid;
+        if (!uid) throw new Error('No signed-in user after the link');
+        // A just-created account owns only its guest chats: the backend makes the
+        // latest one the account's chat.
+        const chat = await fetchUserChat(queryClient, uid);
+        await openAfterLogin(chat.chat_id);
     } catch (error) {
         console.warn('[GuestClaim] Opening the guest chat failed:', error);
         guestClaimStore.set({

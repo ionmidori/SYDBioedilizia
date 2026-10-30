@@ -2,13 +2,9 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Minimize2 } from 'lucide-react';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
-import { ProjectSelector } from './ProjectSelector';
 
 interface ChatHeaderProps {
     onMinimize?: () => void;
-    projectId?: string;
-    showSelector?: boolean;
-    onProjectSelect?: (projectId: string) => void;
     onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
 }
 
@@ -16,7 +12,7 @@ interface ChatHeaderProps {
  * Chat header component with avatar, status, and minimize button
  * Extracted from ChatWidget.tsx (lines 516-526)
  */
-export function ChatHeader({ onMinimize, projectId, showSelector, onProjectSelect, onPointerDown }: ChatHeaderProps) {
+export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
     return (
         <div
             onPointerDown={onPointerDown}
@@ -48,15 +44,8 @@ export function ChatHeader({ onMinimize, projectId, showSelector, onProjectSelec
                     </div>
                 </div>
 
-                {/* Right: Project Selector & Actions */}
+                {/* Right: Actions */}
                 <div className="flex items-center gap-4">
-                    {(projectId || showSelector) && (
-                        <ProjectSelector
-                            currentProjectId={projectId || ''}
-                            onProjectSelect={onProjectSelect}
-                        />
-                    )}
-
                     {onMinimize && (
                         <Button
                             variant="ghost"

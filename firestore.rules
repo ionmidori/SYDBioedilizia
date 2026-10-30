@@ -18,22 +18,15 @@ service cloud.firestore {
 
       // Messages subcollection
       match /messages/{messageId} {
-        // Allow read only if user owns the parent session,
-        // OR if the sessionId matches their own global chat fallback,
-        // OR if it's a guest session that matches the user's own guest ID.
-        // SECURITY: All paths require authentication (request.auth != null).
-        allow read: if request.auth != null && (
-            sessionId == 'global-' + request.auth.uid
-            || sessionId == 'guest-' + request.auth.uid
-            || (
-              // SECURITY (F-03): require the parent session to EXIST and be owned.
-              // The previous "!exists(...) ||" fallback granted read to ANY
-              // authenticated user whenever the parent session doc was missing
-              // (phantom-parent), enabling cross-user message disclosure.
-              exists(/databases/$(database)/documents/sessions/$(sessionId))
-              && get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid
-            )
-          );
+        // Allow read only if the user owns the parent session. No more
+        // global-<uid> / guest-<uid> ids without a parent: the chat id comes from
+        // the backend (Phase 139), and its session always exists.
+        // SECURITY (F-03): require the parent session to EXIST and be owned.
+        // A "!exists(...) ||" fallback would grant read to ANY authenticated user
+        // whenever the parent session doc was missing (phantom-parent).
+        allow read: if request.auth != null
+          && exists(/databases/$(database)/documents/sessions/$(sessionId))
+          && get(/databases/$(database)/documents/sessions/$(sessionId)).data.userId == request.auth.uid;
 
         // Only server can write messages
         allow write: if false;

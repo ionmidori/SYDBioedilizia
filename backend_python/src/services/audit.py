@@ -23,9 +23,7 @@ AUDIT_COLLECTION = "audit_logs"
 
 class AuditAction(StrEnum):
     """Enumeration of auditable actions."""
-    PROJECT_SOFT_DELETE = "project.soft_delete"
     PROJECT_HARD_DELETE = "project.hard_delete"
-    PROJECT_CREATE = "project.create"
     PROJECT_CLAIM = "project.claim"
     FILE_DELETE = "file.delete"
     USER_ERASE = "user.erase"

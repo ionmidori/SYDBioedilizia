@@ -1,18 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useGuestClaim } from '@/hooks/use-guest-claim';
+import { fetchUserChat, userChatQuery } from '@/hooks/use-user-chat';
 import { guestClaimStore } from '@/lib/auth/guest-claim-store';
-import { GUEST_SESSION_KEY, lastProjectKey } from '@/lib/chat-session-keys';
-import { logger } from '@/lib/logger';
+import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 
 interface UseChatSessionReturn {
-    /** Session key used by the backend, Firestore history and `useChat({ id })`. */
-    sessionId: string;
-    /** `null` means the global/landing context. */
-    currentProjectId: string | null;
-    setCurrentProjectId: (id: string | null) => void;
     /**
-     * Drop the current project and mint a fresh guest session id.
+     * Session key used by the backend, Firestore history and `useChat({ id })`.
+     * `null` until it is known: the user's chat is being asked for, or the
+     * guest id is being read. Nothing can be sent until then.
+     */
+    sessionId: string | null;
+    /** The signed-in user's chat (also the project its rooms belong to); `null` for a guest. */
+    userChatId: string | null;
+    /** Why the user's chat could not be had (the chat stays without an id). */
+    userChatError: Error | null;
+    /**
+     * Ask the backend for the user's chat again — the chat this page had is no
+     * longer theirs (merged, or a stale id). Resolves to the chat it gives now.
+     */
+    refreshUserChat: () => Promise<string | null>;
+    /**
+     * Mint a fresh guest session id.
      *
      * Called by the provider on logout. It deliberately does NOT clear the AI
      * SDK messages: `setMessages` comes from `useChat`, which depends on the
@@ -23,18 +34,19 @@ interface UseChatSessionReturn {
 }
 
 /**
- * Own the chat session identity: the persistent guest id, the derived
- * sessionId and the "last active project" persistence.
+ * Own the chat session identity (Phase 139: one chat per user).
  *
- * Note: `hooks/useSessionId.ts` covers a different case (one-shot read that
- * also honours `activeProjectId`, used outside the chat provider) and is
- * intentionally left untouched — the overlap is known.
+ * - A signed-in user always chats in the chat the backend gives
+ *   (GET /api/me/chat): the client never picks or remembers an id of its own.
+ * - A guest (no user, or a Firebase anonymous user) keeps a persistent id
+ *   chosen in this browser; at login the guest claim brings that chat into
+ *   the account's (lib/auth/guest-claim.ts).
  */
 export function useChatSession(): UseChatSessionReturn {
-    const { user, isInitialized } = useAuth();
+    const { user } = useAuth();
     const claim = useGuestClaim();
-
-    const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+    const queryClient = useQueryClient();
+    const registeredUid = user && !user.isAnonymous ? user.uid : null;
 
     // -- STABLE SESSION ID (L3 Persistent Guest) --
     const [stableGuestId, setStableGuestId] = useState<string | null>(null);
@@ -53,51 +65,36 @@ export function useChatSession(): UseChatSessionReturn {
         }
     }, []);
 
-    // Derived Session ID
+    // -- THE USER'S CHAT --
+    // Not while the guest's chats are moving into the account: the backend has
+    // not settled the account's chat yet, and asking now would create an empty
+    // one next to them.
+    const userChat = useQuery({
+        ...userChatQuery(registeredUid ?? ''),
+        enabled: registeredUid !== null && claim.status !== 'pending',
+    });
+    const userChatId = registeredUid ? userChat.data?.chat_id ?? null : null;
+
     // Anonymous Firebase users keep using stableGuestId to prevent useChat reset
     // when signInAnonymously() completes mid-message (would wipe all messages).
-    const sessionId = useMemo(() => {
-        if (!user || user.isAnonymous) return stableGuestId || 'guest-loading';
-        return currentProjectId || `global-${user.uid}`;
-    }, [user, currentProjectId, stableGuestId]);
+    const sessionId = registeredUid ? userChatId : stableGuestId;
 
-    // -- GUEST CLAIM: the guest's chats just became the account's (lib/auth/guest-claim.ts) --
-    // Open the conversation the guest was having, not the last project.
+    // -- GUEST CLAIM: the guest's chats just became the account's --
+    // The claim already put the account's chat in the query (lib/auth/guest-claim.ts);
+    // the store goes back to idle for the message waiting for the login
+    // (GlobalAuthListener).
     useEffect(() => {
-        if (claim.status !== 'done' || !user || user.isAnonymous) return;
-        const { openSessionId } = claim;
-        const timerId = setTimeout(() => {
-            if (openSessionId) setCurrentProjectId(openSessionId);
-            guestClaimStore.reset();
-        }, 0);
+        if (claim.status !== 'done' || !registeredUid) return;
+        const timerId = setTimeout(() => guestClaimStore.reset(), 0);
         return () => clearTimeout(timerId);
-    }, [claim, user]);
+    }, [claim.status, registeredUid]);
 
-    // -- PERSISTENCE: Save/Restore Last Project --
-    useEffect(() => {
-        // While a claim is under way the chat waits for the guest's conversation.
-        if (claim.status === 'pending' || claim.status === 'done') return;
-        if (isInitialized && user && !user.isAnonymous && !currentProjectId) {
-            const lastId = localStorage.getItem(lastProjectKey(user.uid));
-            if (lastId) {
-                logger.debug('[ChatProvider] Restoring last active project:', lastId);
-                const timerId = setTimeout(() => {
-                    setCurrentProjectId(lastId);
-                }, 0);
-                return () => clearTimeout(timerId);
-            }
-        }
-    }, [isInitialized, user, currentProjectId, claim.status]);
-
-    // Save Effect
-    useEffect(() => {
-        if (user && !user.isAnonymous && currentProjectId) {
-            localStorage.setItem(lastProjectKey(user.uid), currentProjectId);
-        }
-    }, [user, currentProjectId]);
+    const refreshUserChat = useCallback(async (): Promise<string | null> => {
+        if (!registeredUid) return null;
+        return (await fetchUserChat(queryClient, registeredUid)).chat_id;
+    }, [queryClient, registeredUid]);
 
     const resetToNewGuestSession = useCallback(() => {
-        setCurrentProjectId(null);    // prevent backend receiving stale projectId
         const freshId = crypto.randomUUID();
         // Persist it: AuthProvider.logout() has just removed the key, so without
         // this the post-logout session exists only in memory and a reload mints a
@@ -113,5 +110,11 @@ export function useChatSession(): UseChatSessionReturn {
         setStableGuestId(freshId);
     }, []);
 
-    return { sessionId, currentProjectId, setCurrentProjectId, resetToNewGuestSession };
+    return {
+        sessionId,
+        userChatId,
+        userChatError: registeredUid ? userChat.error : null,
+        refreshUserChat,
+        resetToNewGuestSession,
+    };
 }

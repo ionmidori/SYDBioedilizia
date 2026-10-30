@@ -1,14 +1,13 @@
 """
-Write operations (create/update) for Projects.
+Write operations for Projects: the documents of a new chat, construction details, files.
 """
 import logging
-import uuid
 from datetime import datetime
 from typing import Any
 
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import FILE_ROOM_FIELD, FILES_PARENT_COLLECTION, PROJECTS_COLLECTION
-from src.models.project import ProjectCreate, ProjectDetails, ProjectStatus, ProjectUpdate
+from src.models.project import ProjectDetails, ProjectStatus
 from src.utils.datetime_utils import utc_now
 from src.utils.download import storage_path_from_url
 
@@ -29,12 +28,10 @@ def project_projection(session_id: str, owner_id: str, title: str, now: datetime
 
 
 def new_session_document(session_id: str, owner_id: str, title: str, now: datetime) -> dict[str, Any]:
-    """`sessions/{id}` of a project created by the backend outside a chat turn
-    (dashboard, the user's chat): written together with `project_projection`.
+    """`sessions/{id}` of a chat created by the backend outside a chat turn (the
+    user's chat): written together with `project_projection`.
 
-    S1 FIX: explicit null initialization for ALL fields. `is_deleted` is set to
-    False so the composite index filter in count_user_projects works without a
-    fallback.
+    S1 FIX: explicit null initialization for ALL fields.
     """
     return {
         "sessionId": session_id,
@@ -49,109 +46,6 @@ def new_session_document(session_id: str, owner_id: str, title: str, now: dateti
         "createdAt": now,
         "updatedAt": now,
     }
-
-
-async def create_project(user_id: str, data: ProjectCreate) -> str:
-    """
-    Create a new project (session) for a user.
-
-    Args:
-        user_id: Firebase UID of the owner.
-        data: Project creation request.
-
-    Returns:
-        The new session_id (document ID).
-    """
-    try:
-        db = get_async_firestore_client()
-
-        # Generate unique session ID
-        session_id = str(uuid.uuid4())
-
-        doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
-        now = utc_now()
-
-        # One atomic batch for BOTH documents. The `projects/{id}` projection
-        # carries the owner (`userId`) that quote submission, the client
-        # "Preventivi" list, ownership checks and storage.rules read; the chat
-        # path (conversation_repository.ensure_session) always wrote it, this
-        # dashboard path did not — so dashboard projects could never submit a
-        # quote ("Batch: user doesn't own project").
-        batch = db.batch()
-        batch.set(doc_ref, new_session_document(session_id, user_id, data.title, now))
-        batch.set(
-            db.collection("projects").document(session_id),
-            project_projection(session_id, user_id, data.title, now),
-            merge=True,
-        )
-        await batch.commit()
-
-        logger.info(f"[Projects] Created project {session_id} for user {user_id}")
-        return session_id
-
-    except Exception as e:
-        logger.error(f"[Projects] Error creating project: {str(e)}", exc_info=True)
-        raise Exception(f"Failed to create project: {str(e)}") from e
-
-
-async def update_project(session_id: str, user_id: str, data: ProjectUpdate) -> bool:
-    """
-    Update project metadata (title, status, thumbnail).
-
-    Args:
-        session_id: Project ID.
-        user_id: UID for ownership verification.
-        data: Fields to update.
-
-    Returns:
-        True if updated, False if not found or unauthorized.
-    """
-    try:
-        db = get_async_firestore_client()
-
-        doc_ref = db.collection(PROJECTS_COLLECTION).document(session_id)
-        doc = await doc_ref.get()
-
-        if not doc.exists:
-            return False
-
-        # Ownership check
-        if (doc.to_dict() or {}).get("userId") != user_id:
-            logger.warning(f"[Projects] User {user_id} not authorized to update {session_id}")
-            return False
-
-        # Build update dict (only non-None fields). Annotated dict[str, Any] so
-        # the initial datetime value doesn't narrow the inferred value type and
-        # reject the str/enum fields assigned below.
-        update_data: dict[str, Any] = {"updatedAt": utc_now()}
-
-        if data.title is not None:
-            update_data["title"] = data.title
-        if data.status is not None:
-            update_data["status"] = data.status.value
-        if data.thumbnail_url is not None:
-            update_data["thumbnailUrl"] = data.thumbnail_url
-        if data.original_image_url is not None:
-            update_data["originalImageUrl"] = data.original_image_url
-
-        # Update both collections
-        batch = db.batch()
-        batch.update(doc_ref, update_data)
-
-        # Sync to 'projects' collection if title changed
-        if "title" in update_data:
-            project_ref = db.collection("projects").document(session_id)
-            # We use set with merge to ensure it exists or update it
-            batch.set(project_ref, {"name": update_data["title"], "updatedAt": utc_now()}, merge=True)
-
-        await batch.commit()
-
-        logger.info(f"[Projects] Updated project {session_id} (and synced name)")
-        return True
-
-    except Exception as e:
-        logger.error(f"[Projects] Error updating project {session_id}: {str(e)}", exc_info=True)
-        return False
 
 
 async def update_project_details(session_id: str, user_id: str, details: ProjectDetails) -> bool:

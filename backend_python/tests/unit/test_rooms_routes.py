@@ -184,9 +184,11 @@ async def test_chat_turn_is_tagged_only_with_a_room_of_the_project(db, room_exis
     orchestrator.stream_chat = MagicMock(side_effect=_empty_stream)
     app.dependency_overrides[get_orchestrator] = lambda: orchestrator
     repo = MagicMock(ensure_session=AsyncMock(), save_message=AsyncMock())
+    db.put("users", "owner", {"chat_id": PID})  # the user's chat (Phase 139)
 
     body = {"sessionId": PID, "roomId": "bagno", "messages": [{"id": "m1", "role": "user", "content": "ciao"}]}
     with patch("main.get_room_repository", return_value=RoomRepository()), \
+         patch("main.get_async_firestore_client", return_value=db), \
          patch("src.repositories.conversation_repository.get_conversation_repository", return_value=repo):
         resp = await _call("POST", "/chat/stream", json=body)
 

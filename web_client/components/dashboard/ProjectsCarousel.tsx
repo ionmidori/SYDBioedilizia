@@ -1,31 +1,25 @@
 import { ProjectListItem } from '@/types/projects';
 import { motion } from 'framer-motion';
-import { Calendar, ArrowRight, FolderKanban, Plus } from 'lucide-react';
+import { Calendar, ArrowRight, FolderKanban } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { DeleteProjectDialog } from './DeleteProjectDialog';
-import { RenameProjectDialog } from './RenameProjectDialog';
-import { useDeleteProject } from '@/hooks/use-delete-project';
-import { Edit2, Trash2 } from 'lucide-react';
-import { SydLoader } from '@/components/ui/SydLoader';
 
 interface ProjectsCarouselProps {
     projects: ProjectListItem[];
     isLoading: boolean;
-    onCreateNew: () => void;
 }
 
-export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsCarouselProps) {
+/** Interim list of the user's chat (Phase 139 PR-2a: one per user, nothing to
+ *  create or delete); the dashboard of the house replaces it. */
+export function ProjectsCarousel({ projects, isLoading }: ProjectsCarouselProps) {
     const router = useRouter();
 
     if (isLoading) {
         return <LoadingSkeleton />;
     }
 
-    if (projects.length === 0) {
-        return <EmptyState onCreateNew={onCreateNew} />;
-    }
+    // The page shows its own empty state.
+    if (projects.length === 0) return null;
 
     return (
         <div className="relative w-full">
@@ -90,30 +84,11 @@ export function ProjectsCarousel({ projects, isLoading, onCreateNew }: ProjectsC
 
 function ProjectCard({ project, index }: { project: ProjectListItem, index: number }) {
     const router = useRouter();
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-    const deleteProjectMutation = useDeleteProject();
 
     // Formatting date safely
     const date = project.updated_at
         ? new Date(project.updated_at).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })
         : 'Nuovo';
-
-    const handleDeleteClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDeleteDialogOpen(true);
-    };
-
-    const handleRenameClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setRenameDialogOpen(true);
-    };
-
-    const handleDelete = async (sessionId: string) => {
-        await deleteProjectMutation.mutateAsync(sessionId);
-    };
 
     return (
         <motion.div
@@ -121,9 +96,7 @@ function ProjectCard({ project, index }: { project: ProjectListItem, index: numb
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
             onClick={() => router.push(`/dashboard/${project.session_id}`)}
-            className={`snap-start shrink-0 w-[220px] flex flex-col gap-3 group cursor-pointer ${
-                deleteProjectMutation.isPending ? "opacity-50 pointer-events-none" : ""
-            }`}
+            className="snap-start shrink-0 w-[220px] flex flex-col gap-3 group cursor-pointer"
         >
             {/* Image Container */}
             <div className="relative aspect-[3/2] w-full rounded-[20px] overflow-hidden bg-luxury-bg/50 border border-luxury-text/5 group-hover:border-luxury-gold/30 transition-all">
@@ -152,48 +125,6 @@ function ProjectCard({ project, index }: { project: ProjectListItem, index: numb
                         <span className="text-xs text-luxury-text/40 font-sans">{date}</span>
                     </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-1 shrink-0">
-                    <button
-                        onClick={handleRenameClick}
-                        className="w-7 h-7 rounded-full bg-luxury-gold/5 hover:bg-luxury-gold/20 border border-luxury-gold/10 hover:border-luxury-gold/30 flex items-center justify-center text-luxury-gold transition-all duration-300 hover:scale-110 active:scale-90 shadow-sm"
-                        title="Rinomina progetto"
-                    >
-                        <Edit2 className="w-3 h-3" />
-                    </button>
-
-                    <button
-                        onClick={handleDeleteClick}
-                        disabled={deleteProjectMutation.isPending}
-                        className="w-7 h-7 rounded-full bg-red-500/5 hover:bg-red-500/20 border border-red-500/10 hover:border-red-500/30 flex items-center justify-center text-red-400 transition-all duration-300 hover:scale-110 active:scale-90 shadow-sm disabled:opacity-50"
-                        title="Elimina progetto"
-                    >
-                        {deleteProjectMutation.isPending ? (
-                            <SydLoader size="sm" />
-                        ) : (
-                            <Trash2 className="w-3 h-3" />
-                        )}
-                    </button>
-                </div>
-            </div>
-
-            {/* Dialogs */}
-            <div onClick={(e) => e.stopPropagation()}>
-                <DeleteProjectDialog
-                    open={deleteDialogOpen}
-                    onOpenChange={setDeleteDialogOpen}
-                    projectTitle={project.title}
-                    sessionId={project.session_id}
-                    onDelete={handleDelete}
-                />
-
-                <RenameProjectDialog
-                    open={renameDialogOpen}
-                    onOpenChange={setRenameDialogOpen}
-                    currentTitle={project.title}
-                    sessionId={project.session_id}
-                />
             </div>
         </motion.div>
     );
@@ -207,24 +138,6 @@ function LoadingSkeleton() {
             {[1, 2, 3].map((i) => (
                 <Skeleton key={i} className="shrink-0 w-[260px] h-[240px] rounded-[24px]" />
             ))}
-        </div>
-    );
-}
-
-function EmptyState({ onCreateNew }: { onCreateNew: () => void }) {
-    return (
-        <div className="flex flex-col items-center justify-center py-10 px-4 rounded-3xl border border-dashed border-luxury-text/10 bg-luxury-bg/20">
-            <div className="p-4 rounded-full bg-luxury-gold/5 mb-3">
-                <FolderKanban className="w-6 h-6 text-luxury-gold/50" />
-            </div>
-            <p className="text-luxury-text/60 text-sm mb-4 font-sans text-center">Nessun progetto recente</p>
-            <button
-                onClick={onCreateNew}
-                className="flex items-center gap-2 px-5 py-2.5 bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold rounded-full text-sm transition-all"
-            >
-                <Plus className="w-4 h-4" />
-                Crea Progetto
-            </button>
         </div>
     );
 }

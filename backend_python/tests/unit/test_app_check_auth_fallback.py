@@ -53,8 +53,8 @@ async def test_registered_user_reads_dashboard_without_app_check(method, path):
     [
         ("POST", "/chat/stream"),
         ("POST", "/api/upload/image"),
-        ("POST", "/api/projects"),
-        ("DELETE", "/api/projects/abc"),
+        ("POST", "/api/projects/abc/rooms"),
+        ("PATCH", "/api/projects/abc/details"),
         ("POST", "/feedback"),
         ("GET", "/api/admin/quotes"),
         ("GET", "/api/projects/abc/files/x"),

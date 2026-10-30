@@ -27,7 +27,7 @@ interface UseAdkStreamEventsReturn {
  * subscribing to the chat context, which keeps them decoupled from the
  * provider.
  */
-export function useAdkStreamEvents(sessionId: string): UseAdkStreamEventsReturn {
+export function useAdkStreamEvents(sessionId: string | null): UseAdkStreamEventsReturn {
     // ADK custom-data stream (status / notice / interrupt / ui_widget / artifact / reasoning).
     const [streamData, setStreamData] = useState<StreamData[]>([]);
     // How many entries of streamData have already been broadcast. The SDK can

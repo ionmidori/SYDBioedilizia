@@ -2,7 +2,7 @@
 
 // Components
 import { ChatHeader } from '@/components/chat/ChatHeader';
-import { useRouter } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { ChatMessages } from '@/components/chat/ChatMessages';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { RoomChips } from '@/components/chat/RoomChips';
@@ -27,7 +27,6 @@ import { logger } from '@/lib/logger';
 import { warmBackend } from '@/lib/backend-warmup';
 import { mapErrorToMessage } from '@/lib/chat/error-messages';
 import { buildMediaPayload } from '@/lib/chat/message-media';
-import { useUrlContextSync } from '@/hooks/useUrlContextSync';
 import { useCadIntent } from '@/hooks/useCadIntent';
 import { useOpenChatEvents } from '@/hooks/useOpenChatEvents';
 import { setChatWindowOpen } from '@/lib/chat/chat-window-state';
@@ -42,31 +41,28 @@ import { setChatWindowOpen } from '@/lib/chat/chat-window-state';
  * - Removed `useChatHistory` (handled by `ChatProvider`).
  * - Simplified state synchronization (driven by `ChatContext`).
  * - Maintains `useStatusQueue` for visual feedback using `data` from context.
- * 
- * @param projectId - Optional. If provided, ties chat to this specific project.
- *                    If omitted, uses localStorage-based session (legacy landing page).
+ * - Always shows the chat of the provider: the user's one chat, or the guest's
+ *   (Phase 139); there is no chat to pick.
  */
 interface ChatWidgetProps {
-    projectId?: string;
     variant?: 'floating' | 'inline';
 }
 
-export default function ChatWidget({ projectId, variant = 'floating' }: ChatWidgetProps) {
+export default function ChatWidget({ variant = 'floating' }: ChatWidgetProps) {
     return (
         <ChatErrorBoundary>
-            <ChatWidgetContent projectId={projectId} variant={variant} />
+            <ChatWidgetContent variant={variant} />
         </ChatErrorBoundary>
     );
 }
 
-function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps) {
+function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
     const isInline = variant === 'inline';
 
     // 1. Consume Global Context
     const {
-        currentProjectId: contextProjectId,
         sessionId,
-        setProjectId,
+        userChatId,
         messages,
         input,
         setInput,
@@ -80,6 +76,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
         rooms,
         activeRoomId,
         setActiveRoomId,
+        chatNotice,
+        dismissChatNotice,
     } = useChatContext();
 
     // 2. State & Refs
@@ -93,14 +91,13 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // Uploads and feedback use the chat's own sessionId (from the provider). A
     // locally derived id ("global-guest" for every guest) put guest files under
     // a shared prefix and made the backend drop attached videos as foreign.
-    const { user, isInitialized } = useAuth();
+    const { isInitialized } = useAuth();
 
     const chatContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // 3. Sync Props/URL to Context State
-    //    If props.projectId changes, or URL changes, we update the Global Context.
-    const { pathname, searchParams } = useUrlContextSync({ projectId, contextProjectId, setProjectId });
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
 
     // Opening the chat is the strongest signal a message is coming: start a
     // backend instance now so the first reply does not pay the cold start.
@@ -137,7 +134,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // could not be read): the reply still arrives.
     const { notice, dismiss: dismissNotice } = useStreamNotice(data ?? []);
 
-    // Clear queue, error and notice on project switch
+    // Clear queue, error and notice when the chat changes (login, logout, a
+    // chat merged into the user's)
     useEffect(() => {
         clearQueue();
         const timerId = setTimeout(() => {
@@ -146,10 +144,10 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
             dismissNotice();
         }, 0);
         return () => clearTimeout(timerId);
-    }, [contextProjectId, clearQueue, dismissNotice]);
+    }, [sessionId, clearQueue, dismissNotice]);
 
     // 5. Unified Upload Hook
-    const { uploads, addFiles, removeFile, retryUpload, clearAll, isUploading, successfulUploads } = useUpload({ sessionId, roomId: activeRoomId });
+    const { uploads, addFiles, removeFile, retryUpload, clearAll, isUploading, successfulUploads } = useUpload({ sessionId: sessionId ?? undefined, roomId: activeRoomId });
 
     // 6. Scroll & Viewport
     // We filter messages to show welcome message vs real messages
@@ -160,20 +158,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
 
     // 7. Handlers
 
-    // Project Switch (from Header Selector)
-    const router = useRouter();
-    const handleProjectSwitch = useCallback((newProjectId: string) => {
-        // Update Context
-        setProjectId(newProjectId);
-
-        // Conditional Navigation
-        if (pathname?.startsWith('/dashboard')) {
-            router.push(`/dashboard/${newProjectId}`);
-        } else {
-            router.push(`/?projectId=${newProjectId}`);
-        }
-    }, [pathname, router, setProjectId]);
-
     const handleFileSelect = useCallback((files: File[]) => {
         if (files.length > 0) addFiles(files);
     }, [addFiles]);
@@ -181,7 +165,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     // Submit Handler
     const submitMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (isUploading || !isInitialized) return;
+        if (isUploading || !isInitialized || !sessionId) return;
         if (!input.trim() && Object.keys(uploads).length === 0) return;
 
         // Prepare Media
@@ -255,8 +239,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
     };
 
     // 9. Render Helpers
-    if (typeof window !== 'undefined' && !sessionId) return null; // Safe guard
-
     // Best Practice: Avoid "Double Chat". 
     // If we are 'floating' and on the main Project Page (which has 'inline'), hide this instance.
     const isProjectPage = /^\/dashboard\/[^/]+$/.test(pathname || '');
@@ -296,6 +278,15 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                         />
                     )}
 
+                    {chatNotice && (
+                        <ChatAlert
+                            variant="warning"
+                            message={chatNotice}
+                            onDismiss={dismissChatNotice}
+                            dismissLabel="Chiudi avviso"
+                        />
+                    )}
+
                     {errorMessage && (
                         <ChatAlert
                             variant="error"
@@ -311,9 +302,9 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                     )}
                 </div>
 
-                {contextProjectId && rooms.length > 0 && (
+                {userChatId && rooms.length > 0 && (
                     <RoomChips
-                        projectId={contextProjectId}
+                        projectId={userChatId}
                         rooms={rooms}
                         activeRoomId={activeRoomId}
                         onSelect={setActiveRoomId}
@@ -331,7 +322,8 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                     onRetryUpload={retryUpload}
                     onScrollToBottom={() => scrollToBottom('smooth')}
                     fileInputRef={fileInputRef}
-                    authLoading={false} // Managed by middleware/context
+                    // Disabled until the chat id is known (the user's chat is being asked for)
+                    authLoading={!sessionId}
                 />
             </>
         );
@@ -378,11 +370,7 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                                     "relative !w-full !max-w-none h-full rounded-3xl border border-luxury-gold/10 shadow-2xl"
                                 )}
                             >
-                                <ChatHeader
-                                    projectId={contextProjectId ?? undefined}
-                                    showSelector={!!user && !user.isAnonymous}
-                                    onProjectSelect={handleProjectSwitch}
-                                />
+                                <ChatHeader />
                                 {renderChatContent()}
                             </div>
                         ) : (
@@ -416,9 +404,6 @@ function ChatWidgetContent({ projectId, variant = 'floating' }: ChatWidgetProps)
                             >
                                 <ChatHeader
                                     onMinimize={() => setIsOpen(false)}
-                                    projectId={contextProjectId ?? undefined}
-                                    showSelector={!!user && !user.isAnonymous}
-                                    onProjectSelect={handleProjectSwitch}
                                     onPointerDown={(e) => dragControls.start(e)}
                                 />
                                 {renderChatContent()}

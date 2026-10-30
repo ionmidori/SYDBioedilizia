@@ -1,21 +1,25 @@
-import { test, expect } from './fixtures/authed-test';
+import { test, expect, userChatRoute } from './fixtures/authed-test';
 import { TEST_USER } from './fixtures/constants';
-import { seedSession } from './fixtures/emulator';
+import { seedMessages, seedSession } from './fixtures/emulator';
 import { caller, openLoginDialog } from './fixtures/guest';
 import { chatStreamHandler } from './fixtures/ui-message-stream';
 
 /**
  * Phase 138 PR-6: a guest who signs in to an EXISTING account finds the chat
  * it wrote as a guest (the bug: the chat opened the account's last project
- * and the guest's messages were gone).
+ * and the guest's messages were gone). Phase 139: the account already has its
+ * one chat, and the guest's conversation is merged into it.
  *
  * Real: Firebase Auth emulator (anonymous guest, then email login), Firestore
- * emulator + production rules (the account reads the chat only once it owns
- * it), the whole client flow (lib/auth/guest-claim.ts). Faked, like every
- * backend call in this suite: the two guest-claim endpoints. The fake checks
- * WHO calls (ticket: the anonymous guest; claim: the account, with that
- * ticket) and does what the backend does — the chat changes owner. The
- * transfer itself is covered by pytest (tests/unit/test_guest_claim.py).
+ * emulator + production rules (the account reads only its own chat), the whole
+ * client flow (lib/auth/guest-claim.ts, useChatSession). Faked, like every
+ * backend call in this suite: the two guest-claim endpoints and GET
+ * /api/me/chat. The fakes check WHO calls (ticket: the anonymous guest; claim:
+ * the account) and do what the backend does — the guest's messages are copied
+ * into the account's chat, which the claim names, so the page never asks
+ * /api/me/chat (asking during the claim would make the backend create an empty
+ * chat beside the guest's). The merge itself is covered by pytest
+ * (tests/unit/test_chat_merge.py).
  */
 
 // Start signed out: this spec is about the guest, not the seeded session.
@@ -23,15 +27,27 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 const TICKET = 'e2e-guest-claim-ticket-0123456789abcdefghij';
 
+const ACCOUNT_MESSAGES = [
+  { id: 'account-1', role: 'user', content: 'Ho una cucina da rifare', ts: '2026-10-27T09:00:00Z' },
+] as const;
+
 const GUEST_MESSAGES = [
   { id: 'guest-1', role: 'user', content: 'Vorrei rifare il bagno di casa', ts: '2026-10-28T21:40:00Z' },
   { id: 'guest-2', role: 'assistant', content: 'Certo: quanti metri quadri misura il bagno?', ts: '2026-10-28T21:40:05Z' },
 ] as const;
 
-test('a guest who signs in to an existing account finds its chat', async ({ page, uid }) => {
+test('a guest who signs in to an existing account finds its chat in the account’s chat', async ({ page, uid }) => {
   const calls: string[] = [];
   let guestUid: string | undefined;
   let guestSessionId: string | null = null;
+  // The account's one chat, already there before the guest signs in.
+  const accountChat = `e2e-account-chat-${Date.now()}`;
+  await seedSession(accountChat, uid, ACCOUNT_MESSAGES);
+
+  await page.route('**/api/py/me/chat', (route) => {
+    calls.push(`chat:${caller(route).provider}`);
+    return userChatRoute(() => accountChat)(route);
+  });
 
   await page.route('**/api/chat', chatStreamHandler(GUEST_MESSAGES[1].content));
   await page.route('**/api/py/guest-claim/ticket', (route) => {
@@ -51,12 +67,12 @@ test('a guest who signs in to an existing account finds its chat', async ({ page
     if (who.uid !== uid || ticket !== TICKET || !guestSessionId) {
       return route.fulfill({ status: 403, contentType: 'application/json', body: '{"error_code":"GUEST_CLAIM_DENIED"}' });
     }
-    // What the backend does: the guest's chat (same id) now belongs to the account.
-    await seedSession(guestSessionId, uid, GUEST_MESSAGES);
+    // What the backend does: the guest's messages are merged into the account's chat.
+    await seedMessages(accountChat, GUEST_MESSAGES.map((m) => ({ ...m, id: `m_${guestSessionId}_${m.id}` })));
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ session_ids: [guestSessionId], open_session_id: guestSessionId }),
+      body: JSON.stringify({ session_ids: [guestSessionId], open_session_id: accountChat }),
     });
   });
 
@@ -77,15 +93,18 @@ test('a guest who signs in to an existing account finds its chat', async ({ page
   await page.getByRole('button', { name: 'Accedi', exact: true }).click();
   await expect(dialog).toBeHidden({ timeout: 30_000 });
 
-  // The ticket came from the guest, the claim from the account.
+  // The ticket came from the guest, the claim from the account; the chat is the
+  // one the claim named, with no /api/me/chat call.
   expect(calls).toEqual(['ticket:anonymous', 'claim:password']);
   expect(guestUid).toBeTruthy();
   expect(guestUid).not.toBe(uid);
 
-  // 3. The chat, still open, shows the guest's conversation, read from Firestore as the account.
+  // 3. The chat, still open, is the account's, with the guest's conversation in
+  // it, read from Firestore as the account.
   await expect(page.getByTestId('chat-window')).toBeVisible();
-  for (const message of GUEST_MESSAGES) {
+  for (const message of [...ACCOUNT_MESSAGES, ...GUEST_MESSAGES]) {
     await expect(page.getByTestId('chat-messages')).toContainText(message.content);
   }
   await expect(page.getByRole('alert').filter({ hasText: 'non recuperate' })).toHaveCount(0);
+  expect(calls).toEqual(['ticket:anonymous', 'claim:password']);
 });
