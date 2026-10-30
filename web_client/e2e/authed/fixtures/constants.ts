@@ -24,14 +24,13 @@ export const AUTH_STATE_FILE = path.join(AUTH_DIR, 'user.json');
 export const UID_FILE = path.join(AUTH_DIR, 'uid.txt');
 
 /**
- * Deterministic chat history for the reload-persistence test.
- *
- * Seeded under `sessions/global-<uid>/messages/*` because that is the session
- * id `useChatSession` derives for a signed-in, non-anonymous user with no
- * active project — and `firestore.rules` permits reading it when
- * `sessionId == 'global-' + request.auth.uid`. Seeding this path therefore
- * exercises the real production rules rather than a permissive test ruleset.
+ * The test user's chat (Phase 139: one chat per user). The backend picks it;
+ * here GET /api/me/chat is faked with this id (fixtures/authed-test.ts) and the
+ * session is seeded with its owner, so the production rules let the user read it.
  */
+export const USER_CHAT_ID = 'e2e-user-chat';
+
+/** Deterministic chat history of the user's chat, for the reload-persistence test. */
 export const SEEDED_MESSAGES = [
   { id: 'seed-1', role: 'user', content: 'Vorrei ristrutturare il bagno', ts: '2026-01-01T10:00:00Z' },
   { id: 'seed-2', role: 'assistant', content: 'Certo, di che metratura si tratta?', ts: '2026-01-01T10:00:05Z' },

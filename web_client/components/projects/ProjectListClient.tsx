@@ -1,34 +1,28 @@
 "use client"
 
 import { describeApiError } from '@/lib/api-client';
-import { FolderKanban, Plus } from "lucide-react"
+import { FolderKanban } from "lucide-react"
 import { ScallopedInlineLoader } from "@/components/ui/ScallopedPageTransition"
-import { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Button } from "@/components/ui/button"
 import { useProjects } from "@/hooks/use-projects"
 import { ProjectCard } from "@/components/dashboard/ProjectCard"
-import { CreateProjectDialog } from "@/components/dashboard/CreateProjectDialog"
+import { useChatContext } from "@/hooks/useChatContext"
 
 /**
  * `has_quote` (server-authoritative: the project's quote has items) and
  * `quote_status` drive the "Invia al team" button on each card: one project,
- * one quote with a section per room, sent on its own.
+ * one quote with a section per room, sent on its own. The user has one chat
+ * (Phase 139): nothing to create or delete here.
  */
 
 export function ProjectListClient() {
-    const { data: projects = [], isLoading, isError, error: queryError, refetch } = useProjects();
+    const { data: projects = [], isLoading, isError, error: queryError } = useProjects();
     const error = isError ? describeApiError(queryError) : null;
-    const [createDialogOpen, setCreateDialogOpen] = useState(false);
-
-    const handleCreateProject = () => {
-        setCreateDialogOpen(true);
-    };
-
-    const handleDeleteProject = () => {
-        refetch();
-    };
+    const { userChatId } = useChatContext();
+    const router = useRouter();
 
     // Determine which projects truly have quotes (server-authoritative)
     const quoteEligible = useMemo(
@@ -62,28 +56,6 @@ export function ProjectListClient() {
                     </p>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-3">
-                    {/* Create Project */}
-                    <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={handleCreateProject}
-                        className="group relative flex items-center gap-3 px-6 py-3 bg-luxury-gold/10 border border-luxury-gold/30 hover:border-luxury-gold/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-luxury-gold/5"
-                    >
-                        {/* Internal Glow Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/0 to-luxury-gold/0 group-hover:via-luxury-gold/10 transition-all duration-500 rounded-xl" />
-
-                        <div className="relative z-10 flex items-center gap-3">
-                            <div className="p-1.5 bg-luxury-gold/20 rounded-lg text-luxury-gold">
-                                <Plus className="w-5 h-5" />
-                            </div>
-                            <span className="text-luxury-gold font-bold text-sm md:text-base whitespace-nowrap uppercase tracking-widest">
-                                Nuovo Progetto
-                            </span>
-                        </div>
-                    </motion.button>
-                </div>
             </div>
 
             {/* Error Message */}
@@ -107,11 +79,12 @@ export function ProjectListClient() {
                         Nessun progetto <span className="text-luxury-gold italic">trovato</span>
                     </h3>
                     <p className="text-luxury-text/40 max-w-md mb-8 font-medium text-sm md:text-base leading-relaxed relative z-10">
-                        Non hai ancora creato nessun progetto. Inizia subito la tua prima ristrutturazione professionale con SYD.
+                        Racconta in chat cosa vuoi ristrutturare: SYD ti guiderà passo dopo passo.
                     </p>
 
                     <Button
-                        onClick={handleCreateProject}
+                        disabled={!userChatId}
+                        onClick={() => router.push(`/dashboard/${userChatId}`)}
                         className="h-14 px-10 bg-luxury-gold hover:bg-luxury-gold text-luxury-bg font-extrabold hover:scale-[1.03] active:scale-95 transition-all shadow-2xl shadow-luxury-gold/20 relative z-10 rounded-2xl uppercase tracking-[0.2em] text-[10px] border border-white/20 group/btn overflow-hidden"
                     >
                         <div className="absolute inset-0 bg-white/20 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500" />
@@ -128,17 +101,11 @@ export function ProjectListClient() {
                             key={project.session_id}
                             project={project}
                             index={index}
-                            onDelete={handleDeleteProject}
                             hasQuote={quoteEligible.has(project.session_id)}
                         />
                     ))}
                 </div>
             )}
-
-            <CreateProjectDialog
-                open={createDialogOpen}
-                onOpenChange={setCreateDialogOpen}
-            />
         </div>
     )
 }

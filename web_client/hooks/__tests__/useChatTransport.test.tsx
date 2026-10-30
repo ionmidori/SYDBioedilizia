@@ -38,8 +38,8 @@ interface TransportOptions {
 import { auth } from '@/lib/firebase';
 const mutableAuth = auth as unknown as { currentUser: { getIdToken: () => Promise<string> } | null };
 
-function buildTransport(sessionId = 's1', currentProjectId: string | null = null) {
-    const { result } = renderHook(() => useChatTransport({ sessionId, currentProjectId }));
+function buildTransport(sessionId = 's1') {
+    const { result } = renderHook(() => useChatTransport({ sessionId }));
     return (result.current as unknown as { options: TransportOptions }).options;
 }
 
@@ -114,12 +114,13 @@ describe('useChatTransport — App Check', () => {
 });
 
 describe('useChatTransport — request body', () => {
-    it('injects sessionId and projectId', () => {
-        const { prepareSendMessagesRequest } = buildTransport('sess-9', 'proj-7');
+    it('injects the sessionId, and no projectId: the chat is the project (Phase 139)', () => {
+        const { prepareSendMessagesRequest } = buildTransport('sess-9');
 
         const { body } = prepareSendMessagesRequest({ id: 'req-1', messages: [] });
 
-        expect(body).toMatchObject({ id: 'req-1', sessionId: 'sess-9', projectId: 'proj-7' });
+        expect(body).toMatchObject({ id: 'req-1', sessionId: 'sess-9' });
+        expect(body).not.toHaveProperty('projectId');
     });
 
     it('preserves per-request body fields from the caller', () => {
@@ -135,40 +136,40 @@ describe('useChatTransport — request body', () => {
         expect(body.mediaUrls).toEqual(['https://cdn/a.jpg']);
     });
 
-    it('does not let a caller override sessionId or projectId', () => {
-        const { prepareSendMessagesRequest } = buildTransport('sess-9', 'proj-7');
+    it('does not let a caller override the sessionId', () => {
+        const { prepareSendMessagesRequest } = buildTransport('sess-9');
 
         const { body } = prepareSendMessagesRequest({
             id: 'req-1',
             messages: [],
-            body: { sessionId: 'spoofed', projectId: 'spoofed' },
+            body: { sessionId: 'spoofed' },
         });
 
-        expect(body).toMatchObject({ sessionId: 'sess-9', projectId: 'proj-7' });
+        expect(body).toMatchObject({ sessionId: 'sess-9' });
     });
 });
 
 describe('useChatTransport — memoisation', () => {
-    it('keeps the same transport instance until sessionId or project changes', () => {
+    it('keeps the same transport instance until the sessionId changes', () => {
         mockRefreshToken.mockResolvedValue('tok');
         const { result, rerender } = renderHook(
-            (p: { sessionId: string; currentProjectId: string | null }) => useChatTransport(p),
-            { initialProps: { sessionId: 's1', currentProjectId: null } }
+            (p: { sessionId: string }) => useChatTransport(p),
+            { initialProps: { sessionId: 's1' } }
         );
 
         const first = result.current;
-        rerender({ sessionId: 's1', currentProjectId: null });
+        rerender({ sessionId: 's1' });
         expect(result.current).toBe(first);
 
         // A new transport is required, otherwise requests keep the old sessionId.
-        rerender({ sessionId: 's2', currentProjectId: null });
+        rerender({ sessionId: 's2' });
         expect(result.current).not.toBe(first);
     });
 });
 
 describe('useChatTransport — room of the turn (Phase 138)', () => {
     function buildWithRoom(activeRoomId: string | null) {
-        const { result } = renderHook(() => useChatTransport({ sessionId: 'p1', currentProjectId: 'p1', activeRoomId }));
+        const { result } = renderHook(() => useChatTransport({ sessionId: 'p1', activeRoomId }));
         return (result.current as unknown as { options: TransportOptions }).options;
     }
 

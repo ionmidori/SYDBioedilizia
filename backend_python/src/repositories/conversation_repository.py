@@ -11,6 +11,7 @@ from src.db.firebase_client import get_async_firestore_client, get_firestore_cli
 from src.db.projects import sync_project_cover
 from src.db.projects.constants import FILE_ROOM_FIELD, HISTORY_REVISION, MERGED_INTO
 from src.db.session_retention import clear_session_expiry, expiry_fields, needs_permanence
+from src.models.project import DEFAULT_CHAT_TITLE
 from src.utils.download import storage_path_from_url
 
 logger = logging.getLogger(__name__)
@@ -297,7 +298,7 @@ class ConversationRepository:
                 await session_ref.set({
                     'sessionId': session_id,
                     'userId': owner_id,
-                    'title': 'Nuovo Progetto',
+                    'title': DEFAULT_CHAT_TITLE,
                     'status': 'draft',
                     'thumbnailUrl': None,
                     'createdAt': async_firestore.SERVER_TIMESTAMP,
@@ -313,7 +314,7 @@ class ConversationRepository:
                 if not project_snap.exists:
                     await project_ref.set({
                         'id': session_id,
-                        'name': 'Nuovo Progetto',
+                        'name': DEFAULT_CHAT_TITLE,
                         'userId': owner_id,
                         'createdAt': async_firestore.SERVER_TIMESTAMP,
                         'updatedAt': async_firestore.SERVER_TIMESTAMP,

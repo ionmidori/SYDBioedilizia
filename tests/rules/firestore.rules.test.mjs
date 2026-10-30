@@ -34,6 +34,10 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   // Phase 139: one permanent chat per user, pointed at by users/{uid}.chat_id (backend-only).
   await setDoc(doc(db, 'sessions/chat-old'), { userId: 'owner', createdAt: new Date(Date.now() - 30 * 86_400_000) });
   await setDoc(doc(db, 'users/owner'), { displayName: 'Mario', chat_id: 'chat-old' });
+  await setDoc(doc(db, 'sessions/chat-old/messages/m1'), { role: 'user', content: 'ciao' });
+  // Legacy client-picked ids, without a parent session: no longer readable.
+  await setDoc(doc(db, 'sessions/global-owner/messages/m1'), { role: 'user', content: 'vecchio' });
+  await setDoc(doc(db, 'sessions/guest-owner/messages/m1'), { role: 'user', content: 'vecchio' });
 });
 
 const owner = env.authenticatedContext('owner', google).firestore();
@@ -91,6 +95,12 @@ const cases = [
   ['owner stamps the chat assignment', false, () => updateDoc(doc(owner, 'users/owner'), { chat_assigned_at: new Date() })],
   ['new user creates its doc with a chat', false, () => setDoc(doc(other, 'users/attacker'), { chat_id: 'chat-old' })],
   ['new user creates its doc', true, () => setDoc(doc(other, 'users/attacker'), { displayName: 'Eve' })],
+  // chat messages: only through a parent session the user owns (no more
+  // global-<uid> / guest-<uid> ids picked by the client)
+  ['owner reads its chat messages', true, () => getDocs(collection(owner, 'sessions/chat-old/messages'))],
+  ['other reads the chat messages', false, () => getDocs(collection(other, 'sessions/chat-old/messages'))],
+  ['owner reads legacy global-<uid> messages', false, () => getDocs(collection(owner, 'sessions/global-owner/messages'))],
+  ['owner reads legacy guest-<uid> messages', false, () => getDocs(collection(owner, 'sessions/guest-owner/messages'))],
 ];
 
 let failed = 0;

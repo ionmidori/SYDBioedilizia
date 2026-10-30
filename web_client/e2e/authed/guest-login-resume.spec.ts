@@ -1,5 +1,5 @@
 import type { Route } from '@playwright/test';
-import { test, expect } from './fixtures/authed-test';
+import { test, expect, userChatRoute } from './fixtures/authed-test';
 import { TEST_USER } from './fixtures/constants';
 import { seedMessages, seedSession, setSessionOwner, type SeedMessage } from './fixtures/emulator';
 import { caller } from './fixtures/guest';
@@ -15,8 +15,10 @@ import { UI_MESSAGE_STREAM_HEADERS, uiMessageStream } from './fixtures/ui-messag
  *
  * Real: Firebase Auth + Firestore emulators and rules, the whole client flow.
  * Faked, like every backend call in this suite: /api/chat (it writes the
- * reply to Firestore as the backend does, with its tool calls) and the two
- * guest-claim endpoints — the claim slower than the old 1.5 s timer.
+ * reply to Firestore as the backend does, with its tool calls), the two
+ * guest-claim endpoints — the claim slower than the old 1.5 s timer — and GET
+ * /api/me/chat: the account had no chat, so the guest's becomes its one chat
+ * (Phase 139).
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -84,6 +86,10 @@ test('a guest confirms, sees one login card, and the quote starts again in its c
     }
     await route.fulfill({ status: 200, headers: UI_MESSAGE_STREAM_HEADERS, body: uiMessageStream({ text: reply }) });
   });
+  await page.route('**/api/py/me/chat', (route) => {
+    calls.push(`me-chat:${caller(route).provider}`);
+    return userChatRoute(() => chats[0]?.sessionId ?? '')(route);
+  });
   await page.route('**/api/py/guest-claim/ticket', (route) => {
     calls.push(`ticket:${caller(route).provider}`);
     return route.fulfill({
@@ -134,7 +140,9 @@ test('a guest confirms, sees one login card, and the quote starts again in its c
   // 4. The confirmation is sent again, by the account, in the guest's chat, after the claim.
   await expect.poll(() => chats.length, { timeout: 30_000 }).toBe(3);
   expect(chats[2]).toEqual({ provider: 'password', sessionId: chats[0].sessionId, text: CONFIRM });
-  expect(calls).toEqual(['chat:anonymous', 'chat:anonymous', 'ticket:anonymous', 'claim:done', 'chat:password']);
+  expect(calls).toEqual([
+    'chat:anonymous', 'chat:anonymous', 'ticket:anonymous', 'claim:done', 'me-chat:password', 'chat:password',
+  ]);
   expect(chats.some((c) => c.sessionId.startsWith('global-'))).toBe(false);
 
   // 5. Signed in, the chat still open: no login card left in the old messages.

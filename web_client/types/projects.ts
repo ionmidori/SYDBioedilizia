@@ -16,19 +16,6 @@ export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 
 export type Project = z.infer<typeof projectSchema>;
 
-export const projectCreateSchema = z.object({
-    title: z.string().optional(),
-});
-export type ProjectCreate = z.infer<typeof projectCreateSchema>;
-
-export const projectUpdateSchema = z.object({
-    title: z.string().optional(),
-    status: projectStatusSchema.optional(),
-    thumbnail_url: z.string().optional(),
-    original_image_url: z.string().optional(),
-});
-export type ProjectUpdate = z.infer<typeof projectUpdateSchema>;
-
 /** Body of POST /api/projects/{id}/files — Golden Sync with ProjectFileMetadata (models/project.py). */
 export interface ProjectFileMetadata {
     file_id: string;

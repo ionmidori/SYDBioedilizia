@@ -1,5 +1,5 @@
 import { describeApiError, fetchWithAuth, fetchValidated } from '@/lib/api-client';
-import { ProjectListItem, ProjectCreate, ProjectUpdate, ProjectFileMetadata } from '@/types/projects';
+import { ProjectListItem, ProjectFileMetadata } from '@/types/projects';
 import { projectListResponseSchema, projectSchema } from '@/lib/validation/project-list-schema';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
@@ -40,45 +40,6 @@ export const projectsApi = {
     },
 
     /**
-     * Create a new project.
-     */
-    createProject: async (data: ProjectCreate = {}): Promise<{ session_id: string }> => {
-        const response = await fetchWithAuth(`${API_ROOT}/projects`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-            let detail = 'Impossibile creare il progetto';
-            try {
-                const errorBody = await response.json();
-                if (errorBody.detail) detail = errorBody.detail;
-            } catch {
-                // response body was not JSON — keep generic message
-            }
-            throw new Error(detail);
-        }
-
-        return response.json();
-    },
-
-    /**
-     * Update an existing project.
-     */
-    updateProject: async (sessionId: string, data: ProjectUpdate): Promise<void> => {
-        const response = await fetchWithAuth(`${API_ROOT}/projects/${sessionId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-            throw new Error('Impossibile aggiornare il progetto');
-        }
-    },
-
-    /**
      * Update the construction site details (PATCH /projects/{id}/details).
      * Called from the browser so the request carries the App Check token: the
      * former Server Action reached the backend without one and got 403.
@@ -95,21 +56,6 @@ export const projectsApi = {
         if (!response.ok) {
             const body: unknown = await response.json().catch(() => undefined);
             throw new Error(describeApiError(body));
-        }
-    },
-
-    /**
-     * Delete a project permanently.
-     * 
-     * @param sessionId - The ID of the project to delete.
-     */
-    deleteProject: async (sessionId: string): Promise<void> => {
-        const response = await fetchWithAuth(`${API_ROOT}/projects/${sessionId}`, {
-            method: 'DELETE',
-        });
-
-        if (!response.ok) {
-            throw new Error('Impossibile eliminare il progetto');
         }
     },
 

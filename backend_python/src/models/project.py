@@ -64,31 +64,17 @@ class ProjectDetails(BaseModel):
     model_config = ConfigDict(extra="forbid", from_attributes=True, use_enum_values=True)
 
 
-class ProjectBase(BaseModel):
-    """Base fields editable by user."""
-    model_config = {"extra": "forbid"}
-    title: str = Field(default="Nuovo Progetto", max_length=100, description="Project display name")
+# Title of a chat the backend creates; the user does not name it (Phase 139:
+# one chat per user, the house). Kept for the admin and the projection.
+DEFAULT_CHAT_TITLE = "Nuovo Progetto"
 
 
-class ProjectCreate(ProjectBase):
-    """Request body for creating a new project."""
-    pass
-
-
-class ProjectUpdate(BaseModel):
-    """Request body for updating project metadata."""
-    model_config = {"extra": "forbid"}
-    title: str | None = Field(None, max_length=100)
-    status: ProjectStatus | None = None
-    thumbnail_url: str | None = None
-    original_image_url: str | None = None
-
-
-class ProjectDocument(ProjectBase):
+class ProjectDocument(BaseModel):
     """
     Full project document as stored in Firestore.
     Maps to the `sessions` collection schema.
     """
+    title: str = Field(default=DEFAULT_CHAT_TITLE, max_length=100, description="Project display name")
     session_id: str = Field(..., description="Firestore document ID")
     user_id: str = Field(..., description="Owner Firebase UID or guest_* prefix")
     status: ProjectStatus = Field(default=ProjectStatus.DRAFT)

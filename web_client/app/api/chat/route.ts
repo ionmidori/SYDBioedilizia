@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     try {
         // Extract request body
         const body = await req.json();
-        const { messages, images, imageUrls, mediaUrls, mediaTypes, mediaMetadata, videoFileUris, sessionId, projectId, is_authenticated } = body;
+        const { messages, images, imageUrls, mediaUrls, mediaTypes, mediaMetadata, videoFileUris, sessionId, is_authenticated } = body;
 
         logger.debug('[Proxy] Request details:', {
             messagesCount: messages?.length || 0,
@@ -38,7 +38,6 @@ export async function POST(req: Request) {
             mediaTypesCount: mediaTypes?.length || 0,
             hasMediaMetadata: !!mediaMetadata,
             sessionId,
-            projectId,
             is_authenticated
         });
 

@@ -12,8 +12,33 @@ export interface MappedChatError {
     retryable: boolean;
 }
 
+/** Body of an error from the /api/chat proxy: `{ error_code, message }`. */
+export interface ChatErrorBody {
+    error_code?: string;
+    message?: string;
+}
+
+/** The proxy's JSON error body in `raw`, or null when it is plain text. */
+export function readErrorBody(raw: string | undefined): ChatErrorBody | null {
+    if (!raw?.startsWith('{')) return null;
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? (parsed as ChatErrorBody) : null;
+    } catch {
+        return null;
+    }
+}
+
+/** The turn went to a chat that is no longer the user's (Phase 139): retrying it
+ *  as it is gets the same refusal. */
+export const CHAT_MOVED_CODES: ReadonlySet<string> = new Set(['CHAT_MERGED', 'USER_CHAT_MISMATCH']);
+
 export function mapErrorToMessage(rawMessage: string | undefined): MappedChatError {
-    const msg = rawMessage || '';
+    const body = readErrorBody(rawMessage);
+    if (body?.message && body.error_code && CHAT_MOVED_CODES.has(body.error_code)) {
+        return { message: body.message, retryable: false };
+    }
+    const msg = body?.message || rawMessage || '';
     const lower = msg.toLowerCase();
 
     if (msg.includes('429') || lower.includes('quota') || lower.includes('rate limit')) {

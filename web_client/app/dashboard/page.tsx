@@ -4,15 +4,15 @@ import { useProjects } from '@/hooks/use-projects';
 import { describeApiError } from '@/lib/api-client';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { useAuth } from '@/hooks/useAuth';
+import { useChatContext } from '@/hooks/useChatContext';
 import { StatsGrid } from '@/components/dashboard/StatsGrid';
 import { QuickActionsRow } from '@/components/dashboard/QuickActionsRow';
 import { ProjectsCarousel } from '@/components/dashboard/ProjectsCarousel';
 import { EmptyProjectsState } from '@/components/dashboard/EmptyProjectsState';
-import { CreateProjectDialog } from '@/components/dashboard/CreateProjectDialog';
 import { MediaCarousel } from '@/components/dashboard/MediaCarousel';
-import { FolderKanban, FileText, Image as ImageIcon, Plus, Upload, Receipt, Ruler, Calculator, Wand2 } from 'lucide-react';
+import { FolderKanban, FileText, Image as ImageIcon, Upload, Receipt, Ruler, Calculator, Wand2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { createStaggerVariants, M3Spring } from '@/lib/m3-motion';
 
@@ -21,11 +21,14 @@ export default function DashboardPage() {
     const { data: projects = [], isLoading: projectsLoading, isError, error: queryError } = useProjects();
     const error = isError ? describeApiError(queryError) : null;
     const { stats, loading: statsLoading } = useDashboardStats();
-    const [createDialogOpen, setCreateDialogOpen] = useState(false);
+    const { userChatId } = useChatContext();
     const router = useRouter();
 
-    const handleCreateProject = () => {
-        setCreateDialogOpen(true);
+    // The user's one chat (Phase 139), optionally with an intent. Its id comes
+    // from the backend within moments of the page loading; until then nothing.
+    const openChatWith = (intent?: 'quote' | 'render' | 'cad') => {
+        if (!userChatId) return;
+        router.push(intent ? `/dashboard/${userChatId}?intent=${intent}` : `/dashboard/${userChatId}`);
     };
 
     // Get recent projects (last 6 modified)
@@ -122,13 +125,6 @@ export default function DashboardPage() {
                 <QuickActionsRow
                     actions={[
                         {
-                            label: 'Nuovo Progetto',
-                            description: 'Crea un nuovo cantiere',
-                            icon: Plus,
-                            onClick: handleCreateProject,
-                            highlight: true
-                        },
-                        {
                             label: 'Carica File',
                             description: 'Gestisci i tuoi documenti',
                             icon: Upload,
@@ -139,39 +135,21 @@ export default function DashboardPage() {
                             label: 'Crea Preventivo',
                             description: 'Genera preventivo col Cantiere AI',
                             icon: Calculator,
-                            onClick: () => {
-                                if (recentProjects[0]) {
-                                    router.push(`/dashboard/${recentProjects[0].session_id}?intent=quote`);
-                                } else {
-                                    handleCreateProject();
-                                }
-                            },
+                            onClick: () => openChatWith('quote'),
                             highlight: true
                         },
                         {
                             label: 'Crea Rendering',
                             description: 'Render architettonico via AI',
                             icon: Wand2,
-                            onClick: () => {
-                                if (recentProjects[0]) {
-                                    router.push(`/dashboard/${recentProjects[0].session_id}?intent=render`);
-                                } else {
-                                    handleCreateProject();
-                                }
-                            },
+                            onClick: () => openChatWith('render'),
                             highlight: true
                         },
                         {
                             label: 'Rilievo CAD',
                             description: 'Inizia la progettazione tecnica',
                             icon: Ruler,
-                            onClick: () => {
-                                if (recentProjects[0]) {
-                                    router.push(`/dashboard/${recentProjects[0].session_id}?intent=cad`);
-                                } else {
-                                    handleCreateProject();
-                                }
-                            },
+                            onClick: () => openChatWith('cad'),
                             highlight: true
                         }
                     ]}
@@ -181,12 +159,11 @@ export default function DashboardPage() {
             {/* 3. Recent Projects (Carousel) */}
             <motion.section variants={sectionItem} style={{ gridArea: 'projects' }} className="min-w-0 overflow-hidden">
                 {!projectsLoading && projects.length === 0 ? (
-                    <EmptyProjectsState onCreate={handleCreateProject} />
+                    <EmptyProjectsState onOpenChat={() => openChatWith()} />
                 ) : (
                     <ProjectsCarousel
                         projects={recentProjects}
                         isLoading={projectsLoading}
-                        onCreateNew={handleCreateProject}
                     />
                 )}
             </motion.section>
@@ -195,11 +172,6 @@ export default function DashboardPage() {
             <motion.section variants={sectionItem} style={{ gridArea: 'media' }} className="min-w-0 overflow-hidden">
                 <MediaCarousel />
             </motion.section>
-
-            <CreateProjectDialog
-                open={createDialogOpen}
-                onOpenChange={setCreateDialogOpen}
-            />
         </motion.div>
     );
 }

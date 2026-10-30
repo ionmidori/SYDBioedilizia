@@ -3,6 +3,7 @@ import {
   EMULATOR_PROJECT_ID,
   FIRESTORE_EMULATOR_HOST,
   SEEDED_MESSAGES,
+  USER_CHAT_ID,
 } from './constants';
 
 /**
@@ -100,11 +101,10 @@ export interface SeedMessage {
   toolCalls?: readonly string[];
 }
 
-/** Seeds the deterministic chat history used by the reload-persistence test. */
+/** Seeds the user's chat with the deterministic history of the reload-persistence test. */
 export async function seedChatHistory(uid: string): Promise<string> {
-  const sessionId = `global-${uid}`;
-  await seedSession(sessionId, uid, SEEDED_MESSAGES);
-  return sessionId;
+  await seedSession(USER_CHAT_ID, uid, SEEDED_MESSAGES);
+  return USER_CHAT_ID;
 }
 
 /** Gives an existing session to `uid`, as the backend's guest claim does. */
@@ -128,7 +128,7 @@ export async function seedSession(
   uid: string,
   messages: readonly SeedMessage[],
 ): Promise<void> {
-  // Parent session doc: the rules read its owner (not for the `global-<uid>` path).
+  // Parent session doc: the rules read its owner.
   await expectOk(
     await fetch(`${FIRESTORE_DOCS_URL}/sessions?documentId=${sessionId}`, {
       method: 'POST',

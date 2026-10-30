@@ -52,4 +52,21 @@ describe('mapErrorToMessage', () => {
             retryable: true,
         });
     });
+
+    it('shows the message of a JSON error body, never the raw JSON', () => {
+        // The /api/chat proxy answers {error_code, message}; the AI SDK puts that
+        // text in error.message.
+        const raw = JSON.stringify({ error_code: 'BACKEND_ERROR', message: 'Errore del servizio.' });
+
+        expect(mapErrorToMessage(raw)).toEqual({ message: 'Errore del servizio.', retryable: true });
+    });
+
+    it.each(['CHAT_MERGED', 'USER_CHAT_MISMATCH'])(
+        'does not offer a retry for %s: the same chat id would be refused again',
+        (code) => {
+            const raw = JSON.stringify({ error_code: code, message: 'Ricarica la pagina per continuare.' });
+
+            expect(mapErrorToMessage(raw)).toEqual({ message: 'Ricarica la pagina per continuare.', retryable: false });
+        },
+    );
 });

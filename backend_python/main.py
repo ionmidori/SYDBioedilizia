@@ -34,6 +34,7 @@ from src.services.base_orchestrator import BaseOrchestrator
 from src.services.model_armor.model_armor_client import get_model_armor_service
 from src.services.orchestrator_factory import get_orchestrator, warm_up_orchestrator
 from src.services.pricing_service import PricingService
+from src.services.user_chat.service import require_user_chat
 from starlette.datastructures import State
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -572,8 +573,6 @@ class ChatRequest(BaseModel):
     # 🎬 NEW: Native Video Support (File API URIs)
     video_file_uris: list[str] | None = Field(None, alias="videoFileUris")  # File API URIs from /upload endpoint
 
-    # 🌍 CONTEXT AWARENESS (Renovation-Next)
-    project_id: str | None = Field(None, alias="projectId", max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     # 🏠 Room of the project this turn is about (Phase 138). Checked against the
     # project before use; an unknown room is dropped, never trusted.
     room_id: str | None = Field(None, alias="roomId", pattern=ROOM_ID_PATTERN)
@@ -762,6 +761,12 @@ async def chat_stream(
     # save_message creates the doc first (without userId) and ensure_session
     # in the background task sees doc.exists=True and skips setting userId.
     repo = get_conversation_repository()
+    # 🛡️ A registered user writes only in their chat (Phase 139): any other id —
+    # a stale tab, an id the client picked — is a 409 the client recovers from by
+    # asking /api/me/chat again. Checked before ensure_session, which would create
+    # a session for an unknown id; a failed read fails the turn (fail closed).
+    if not user_session.is_guest:
+        await require_user_chat(get_async_firestore_client(), user_session.uid, body.session_id)
     # Only a room of this project tags the turn (the orchestrator reads body.room_id).
     # Looked up alongside ensure_session: no extra round-trip before the first token.
     room_check = asyncio.create_task(_is_project_room(body.session_id, body.room_id)) if body.room_id else None

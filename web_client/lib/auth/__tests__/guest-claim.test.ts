@@ -12,7 +12,8 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { guestClaimApi } from '@/lib/guest-claim-api';
-import { projectsApi } from '@/lib/projects-api';
+import { queryClient } from '@/lib/query-client';
+import { userChatApi } from '@/lib/user-chat-api';
 import { guestClaimStore } from '@/lib/auth/guest-claim-store';
 import {
     claimGuestChats,
@@ -35,8 +36,13 @@ jest.mock('firebase/auth', () => ({
 }));
 jest.mock('@/lib/firebase', () => ({ auth: { currentUser: null, authStateReady: jest.fn(() => Promise.resolve()) } }));
 jest.mock('@/lib/guest-claim-api', () => ({ guestClaimApi: { issueTicket: jest.fn(), claim: jest.fn() } }));
-jest.mock('@/lib/projects-api', () => ({ projectsApi: { listProjects: jest.fn() } }));
-jest.mock('@/lib/query-client', () => ({ queryClient: { invalidateQueries: jest.fn() } }));
+jest.mock('@/lib/user-chat-api', () => ({ userChatApi: { getMyChat: jest.fn() } }));
+jest.mock('@/lib/query-client', () => ({
+    queryClient: {
+        invalidateQueries: jest.fn(),
+        fetchQuery: jest.fn((query: { queryFn: () => unknown }) => query.queryFn()),
+    },
+}));
 
 const GUEST = { uid: 'anon-1', isAnonymous: true };
 const ACCOUNT = { uid: 'user-1', isAnonymous: false };
@@ -45,7 +51,7 @@ const TICKET = 't'.repeat(43);
 const mockAuth = auth as unknown as { currentUser: unknown; authStateReady: jest.Mock };
 const mockIssue = guestClaimApi.issueTicket as jest.Mock;
 const mockClaim = guestClaimApi.claim as jest.Mock;
-const mockList = projectsApi.listProjects as jest.Mock;
+const mockGetMyChat = userChatApi.getMyChat as jest.Mock;
 
 /** Let the claim, which runs on its own after the login, finish. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -81,8 +87,10 @@ describe('signing in to an existing account as a guest', () => {
         expect(mockIssue.mock.invocationCallOrder[0]).toBeLessThan(signInToAccount.mock.invocationCallOrder[0]);
         expect(mockClaim).toHaveBeenCalledWith(TICKET);
         expect(guestClaimStore.get()).toEqual({ status: 'done', openSessionId: 'guest-chat' });
-        // Also after a reload: the chat reopens the last active project.
-        expect(localStorage.getItem('last_active_project:user-1')).toBe('guest-chat');
+        // The account's chat changed: the chat asks the backend for it again
+        // (Phase 139), it keeps no id of its own.
+        expect(queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['me', 'chat'] });
+        expect(localStorage.getItem('last_active_project:user-1')).toBeNull();
         // The id now names the account's chat: a later guest starts a new one.
         expect(localStorage.getItem('chatSessionId')).toBeNull();
     });
@@ -144,9 +152,10 @@ describe('a failed claim', () => {
 describe('Google popup', () => {
     const provider = { providerId: 'google.com' } as never;
 
-    it('links a new account to the guest: same uid, the chat opens the latest guest chat', async () => {
+    it('links a new account to the guest: same uid, the chat opens the account’s chat', async () => {
+        // The guest's chats are already the account's: the backend picks its chat.
         (linkWithPopup as jest.Mock).mockResolvedValue({ operationType: 'link' });
-        mockList.mockResolvedValue([{ session_id: 'latest' }, { session_id: 'older' }]);
+        mockGetMyChat.mockResolvedValue({ chat_id: 'latest', created: false });
 
         await popupKeepingGuestChats(provider);
 
@@ -202,7 +211,7 @@ describe('back from a Google redirect', () => {
 
     it('opens the guest chat after a link', async () => {
         (getRedirectResult as jest.Mock).mockResolvedValue({ user: GUEST, operationType: 'link' });
-        mockList.mockResolvedValue([{ session_id: 'latest' }]);
+        mockGetMyChat.mockResolvedValue({ chat_id: 'latest', created: false });
 
         await expect(finishRedirectKeepingGuestChats()).resolves.toBe(true);
         expect(guestClaimStore.get()).toEqual({ status: 'done', openSessionId: 'latest' });
@@ -217,13 +226,13 @@ describe('back from a Google redirect', () => {
 describe('creating an email account as a guest', () => {
     it('links the credential to the guest instead of creating a new user', async () => {
         const create = jest.fn();
-        mockList.mockResolvedValue([]);
+        mockGetMyChat.mockResolvedValue({ chat_id: 'account-chat', created: true });
 
         await createAccountKeepingGuestChats({ providerId: 'password' } as never, create);
 
         expect(linkWithCredential).toHaveBeenCalledWith(GUEST, { providerId: 'password' });
         expect(create).not.toHaveBeenCalled();
-        expect(guestClaimStore.get()).toEqual({ status: 'done', openSessionId: null });
+        expect(guestClaimStore.get()).toEqual({ status: 'done', openSessionId: 'account-chat' });
     });
 });
 
@@ -254,7 +263,7 @@ describe('the chat waits for the whole login', () => {
 
     it('is pending while a Google popup links the guest', async () => {
         statusDuring(linkWithPopup as jest.Mock);
-        mockList.mockResolvedValue([]);
+        mockGetMyChat.mockResolvedValue({ chat_id: 'account-chat', created: false });
 
         await popupKeepingGuestChats({ providerId: 'google.com' } as never);
 

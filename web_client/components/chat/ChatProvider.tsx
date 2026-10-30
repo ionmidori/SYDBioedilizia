@@ -12,6 +12,7 @@ import { useChatTransport } from '@/hooks/useChatTransport';
 import { useAdkStreamEvents } from '@/hooks/useAdkStreamEvents';
 import { useProjectRooms } from '@/hooks/useProjectRooms';
 import { useActiveRoom } from '@/hooks/useActiveRoom';
+import { useChatMoveRecovery, type SentTurn } from '@/hooks/useChatMoveRecovery';
 import { auth } from '@/lib/firebase';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
@@ -40,11 +41,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // The actual cleanup effect is defined AFTER useChat (needs setMessages).
     const prevUserRef = useRef(user);
 
-    // -- SESSION IDENTITY (persistent guest id, project, derived sessionId) --
+    // -- SESSION IDENTITY (the user's chat from the backend, or the guest id) --
     const {
         sessionId,
-        currentProjectId,
-        setCurrentProjectId,
+        userChatId,
+        userChatError,
+        refreshUserChat,
         resetToNewGuestSession,
     } = useChatSession();
 
@@ -52,20 +54,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     const { streamData, onData } = useAdkStreamEvents(sessionId);
 
     // -- HISTORY SYNC --
-    const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId);
+    const { historyMessages, historyLoaded, loadedForSessionId } = useChatHistory(sessionId ?? undefined);
 
     // -- ROOMS (Phase 138: one chat for the whole home) --
-    // Only a signed-in user's project has rooms the client can read (owner-only
-    // rules on projects/{id}); guest and global chats get no chips.
-    const roomsProjectId = user && !user.isAnonymous ? currentProjectId : null;
-    const { rooms } = useProjectRooms(roomsProjectId);
-    const { activeRoomId, setActiveRoomId } = useActiveRoom(roomsProjectId, rooms);
+    // Only the signed-in user's chat has rooms the client can read (owner-only
+    // rules on projects/{id}); a guest chat gets no chips.
+    const { rooms } = useProjectRooms(userChatId);
+    const { activeRoomId, setActiveRoomId } = useActiveRoom(userChatId, rooms);
 
     // -- AI SDK v7 TRANSPORT (auth headers + request body enrichment) --
-    const transport = useChatTransport({ sessionId, currentProjectId, activeRoomId });
+    const transport = useChatTransport({ sessionId, activeRoomId });
 
     const chatHelpers = useChat({
-        id: sessionId,
+        // No id yet (the user's chat is being asked for): a placeholder chat that
+        // sendMessage never uses.
+        id: sessionId ?? undefined,
         transport,
         // Batch streamed updates: one React render per 50 ms instead of one per
         // SSE chunk (the whole chat context changes on every update).
@@ -142,6 +145,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     // -- FACADE: Flexible Send Message --
     // attachments: array of Firebase Storage URLs (strings) for images
+    const lastTurnRef = useRef<SentTurn | null>(null);
     const sendMessage = useCallback(async (content: string, attachments?: string[], data?: Record<string, unknown>) => {
         const trimmed = content.trim();
         const hasAttachments = attachments && attachments.length > 0;
@@ -150,6 +154,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             console.warn('[ChatProvider] Blocked empty/invalid message send:', { content, attachments });
             return;
         }
+        // The chat id is not known yet (the input is disabled meanwhile).
+        if (!sessionId) {
+            console.warn('[ChatProvider] Blocked send before the chat id is known');
+            return;
+        }
+        lastTurnRef.current = { content: trimmed, attachments, data };
 
         markChatSend();
         try {
@@ -202,7 +212,38 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             console.error('[ChatProvider] SendMessage Error:', err);
             throw err;
         }
-    }, [user, signInAnonymously, sdkSendMessage]);
+    }, [user, sessionId, signInAnonymously, sdkSendMessage]);
+
+    // -- CHAT MOVED (Phase 139): a turn refused for a chat that is no longer the
+    // user's goes again, once, in the chat the backend gives now --
+    const lastTurn = useCallback(() => lastTurnRef.current, []);
+    const resendTurn = useCallback((turn: SentTurn) => {
+        void sendMessage(turn.content, turn.attachments, turn.data);
+    }, [sendMessage]);
+    const { visibleError } = useChatMoveRecovery({
+        error: sdkError,
+        sessionId,
+        // The new chat's history is in the SDK messages (its first sync, welcome
+        // included, has run): sent earlier, the turn would be wiped by that sync.
+        historyReady: historyLoaded && loadedForSessionId === sessionId && messages.length > 0,
+        enabled: userChatId !== null,
+        refreshUserChat,
+        resend: resendTurn,
+        lastTurn,
+    });
+
+    // The user's chat could not be had: say so, and "Riprova" asks again.
+    const chatIdError = useMemo(
+        () => (userChatError ? new Error('Non riusciamo ad aprire la tua chat. Riprova.') : undefined),
+        [userChatError],
+    );
+    const reload = useCallback(async () => {
+        if (chatIdError && !visibleError) {
+            await refreshUserChat().catch(() => undefined);
+            return;
+        }
+        await regenerate();
+    }, [chatIdError, visibleError, refreshUserChat, regenerate]);
 
     // Unified submit handler
     const handleSubmit = useCallback(async (e?: FormEvent) => {
@@ -223,9 +264,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     // -- CONTEXT VALUE --
     const value = useMemo<ChatContextType>(() => ({
-        currentProjectId,
         sessionId,
-        setProjectId: setCurrentProjectId,
+        userChatId,
         isRestoringHistory,
         isLoading,
         messages,
@@ -234,8 +274,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         handleInputChange,
         submitMessage,
         sendMessage,
-        error: sdkError,
-        reload: regenerate,
+        error: visibleError ?? chatIdError,
+        reload,
         stop,
         setInput,
         refreshHistory,
@@ -244,11 +284,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         activeRoomId,
         setActiveRoomId,
     }), [
-        currentProjectId,
         sessionId,
-        // Stable useState setter from useChatSession; listed because the lint rule
-        // can only prove stability for setters destructured from useState inline.
-        setCurrentProjectId,
+        userChatId,
         isRestoringHistory,
         isLoading,
         messages,
@@ -257,8 +294,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         handleInputChange,
         submitMessage,
         sendMessage,
-        sdkError,
-        regenerate,
+        visibleError,
+        chatIdError,
+        reload,
         stop,
         setInput,
         refreshHistory,

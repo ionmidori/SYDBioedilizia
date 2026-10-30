@@ -18,12 +18,13 @@ from typing import Any
 
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+from src.core.exceptions import UserChatMismatch
 from src.db import transactions
 from src.db.ownership import is_owner
 from src.db.projects.constants import FILES_PARENT_COLLECTION, MERGED_INTO, PROJECTS_COLLECTION
 from src.db.projects.mutations import new_session_document, project_projection
 from src.db.session_retention import is_soft_deleted, last_activity
-from src.models.project import ProjectCreate
+from src.models.project import DEFAULT_CHAT_TITLE
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.utils.datetime_utils import utc_now
 
@@ -131,10 +132,10 @@ async def _resolve(db: Any, uid: str, now: datetime, prefer: str | None, transac
     created = chat_id is None
     if chat_id is None:
         chat_id = str(uuid.uuid4())
-        title = ProjectCreate().title
-        transaction.set(_session_ref(db, chat_id), new_session_document(chat_id, uid, title, now))
+        transaction.set(_session_ref(db, chat_id), new_session_document(chat_id, uid, DEFAULT_CHAT_TITLE, now))
         transaction.set(
-            db.collection(FILES_PARENT_COLLECTION).document(chat_id), project_projection(chat_id, uid, title, now)
+            db.collection(FILES_PARENT_COLLECTION).document(chat_id),
+            project_projection(chat_id, uid, DEFAULT_CHAT_TITLE, now),
         )
     transaction.set(user_ref, {CHAT_ID: chat_id, CHAT_ASSIGNED_AT: now}, merge=True)
     return _Resolution(chat_id, created=created, reason=reason)
@@ -165,6 +166,14 @@ async def resolve_user_chat(
             extra={"uid": uid, "reason": resolution.reason, "chat_created": resolution.created},
         )
     return UserChat(chat_id=resolution.chat_id, created=resolution.created)
+
+
+async def require_user_chat(db: Any, uid: str, chat_id: str) -> None:
+    """Raise `UserChatMismatch` unless `chat_id` is the chat the user's pointer
+    names. One read, nothing written: without a pointer the client gets one from
+    /api/me/chat; a pointer to a merged chat is refused by `ensure_session`."""
+    if _pointer(await _user_ref(db, uid).get()) != chat_id:
+        raise UserChatMismatch()
 
 
 async def read_user_chat(db: Any, uid: str) -> str | None:

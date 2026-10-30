@@ -40,3 +40,16 @@ describe('buildBackendPayload — rooms (Phase 138)', () => {
         expect(buildBackendPayload(base).roomId).toBeNull();
     });
 });
+
+describe('buildBackendPayload — the chat is the project (Phase 139)', () => {
+    test('sends no projectId, even from an old client that still posts one', () => {
+        const payload = buildBackendPayload({
+            messages: [],
+            sessionId: 's1',
+            ...({ projectId: 'other-chat' } as object),
+        });
+
+        expect(payload).not.toHaveProperty('projectId');
+        expect(payload.sessionId).toBe('s1');
+    });
+});

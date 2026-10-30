@@ -3,7 +3,7 @@
 import { Suspense, useEffect } from 'react';
 import ChatWidget from '@/components/chat/ChatWidget';
 import ProjectInfoCard from '@/components/dashboard/ProjectInfoCard';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useChatContext } from '@/hooks/useChatContext';
 import { cn } from '@/lib/utils';
 import { ProjectMobileTabs } from '@/components/mobile/ProjectMobileTabs';
@@ -18,16 +18,18 @@ export default function ProjectPage() {
 }
 
 function ProjectPageContent({ projectId }: { projectId: string }) {
-    const { setProjectId } = useChatContext();
+    const router = useRouter();
+    const { userChatId } = useChatContext();
     const { data: project, isLoading } = useProject(projectId);
 
+    // One chat per user (Phase 139): the page only shows the user's chat; any
+    // other id goes back to the dashboard.
+    const isOtherChat = userChatId !== null && projectId !== userChatId;
     useEffect(() => {
-        if (projectId) {
-            setProjectId(projectId);
-        }
-    }, [projectId, setProjectId]);
+        if (isOtherChat) router.replace('/dashboard');
+    }, [isOtherChat, router]);
 
-    if (isLoading) {
+    if (isLoading || userChatId === null || isOtherChat) {
         return (
             <ScallopedInlineLoader />
         );
@@ -50,7 +52,7 @@ function ProjectPageContent({ projectId }: { projectId: string }) {
                     {/* Main Chat Area */}
                     <main className="relative flex flex-col min-h-0 bg-black/20 overflow-hidden">
                         <Suspense fallback={<div className="flex-1 bg-luxury-bg animate-pulse" />}>
-                            <ChatWidget key={projectId} projectId={projectId} variant="inline" />
+                            <ChatWidget variant="inline" />
                         </Suspense>
                     </main>
 

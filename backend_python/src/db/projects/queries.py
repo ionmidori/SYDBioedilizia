@@ -7,6 +7,7 @@ from google.cloud.firestore_v1 import FieldFilter
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import MERGED_INTO, PROJECTS_COLLECTION
 from src.models.project import (
+    DEFAULT_CHAT_TITLE,
     Address,
     ProjectDetails,
     ProjectDocument,
@@ -78,7 +79,7 @@ async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListIt
             try:
                 projects.append(ProjectListItem(
                     session_id=doc.id,
-                    title=data.get("title", "Nuovo Progetto"),
+                    title=data.get("title", DEFAULT_CHAT_TITLE),
                     status=status_enum,
                     thumbnail_url=data.get("thumbnailUrl"),
                     original_image_url=data.get("originalImageUrl"),
@@ -99,62 +100,6 @@ async def get_user_projects(user_id: str, limit: int = 50) -> list[ProjectListIt
         # This is intentionally NOT silenced: query-level failures are critical and must be visible.
         logger.error(f"[Projects] Critical error fetching projects for user {user_id}: {str(e)}", exc_info=True)
         raise
-
-
-async def count_user_projects(user_id: str) -> int:
-    """
-    Count the number of projects owned by a user.
-
-    Args:
-        user_id: Firebase UID.
-
-    Returns:
-        Number of projects.
-    """
-    db = get_async_firestore_client()
-    # Count only ACTIVE projects — exclude soft-deleted ones.
-    # is_deleted may be absent on legacy docs; the fallback handles that with Python-side filtering.
-    query = (
-        db.collection(PROJECTS_COLLECTION)
-        .where(filter=FieldFilter("userId", "==", user_id))
-        .where(filter=FieldFilter("is_deleted", "==", False))
-    )
-
-    try:
-        # Use aggregation query (most efficient path)
-        aggregate_query = query.count()
-        results = await aggregate_query.get()
-        return results[0][0].value
-
-    except Exception as e:  # noqa: BLE001 — expected on a missing composite index, hence the fallback
-        logger.warning(
-            f"[Projects] Aggregation count failed for {user_id} (may lack composite index): {str(e)}. "
-            "Falling back to stream-based count."
-        )
-        # Fallback: stream without the is_deleted filter (for legacy docs / missing index)
-        # and apply Python-side filtering so we never count deleted projects.
-        try:
-            fallback_query = (
-                db.collection(PROJECTS_COLLECTION)
-                .where(filter=FieldFilter("userId", "==", user_id))
-            )
-            docs = fallback_query.select(['sessionId', 'is_deleted']).stream()
-            count = 0
-            async for doc in docs:
-                doc_data = doc.to_dict() or {}
-                # is_deleted absent on pre-soft-delete legacy docs → treat as active
-                if doc_data.get("is_deleted") is True:
-                    continue
-                count += 1
-            return count
-        except Exception as e2:
-            # FAIL CLOSED. This count feeds the 5-project quota check in
-            # projects_router.create_project; returning 0 here would report "no projects
-            # owned" and silently lift the limit for the whole duration of a Firestore
-            # outage. Propagating turns that into a 500, which is the correct answer when
-            # the quota is unknowable.
-            logger.error(f"[Projects] Fallback count failed for {user_id}: {str(e2)}", exc_info=True)
-            raise
 
 
 async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:
@@ -215,7 +160,7 @@ async def get_project(session_id: str, user_id: str) -> ProjectDocument | None:
         return ProjectDocument(
             session_id=doc.id,
             user_id=data.get("userId", ""),
-            title=data.get("title", "Nuovo Progetto"),
+            title=data.get("title", DEFAULT_CHAT_TITLE),
             status=parse_enum(ProjectStatus, data.get("status"), ProjectStatus.DRAFT),
             thumbnail_url=data.get("thumbnailUrl"),
             original_image_url=data.get("originalImageUrl"),

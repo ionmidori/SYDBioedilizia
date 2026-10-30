@@ -23,20 +23,19 @@ jest.mock('@/hooks/useAuth', () => ({
     useAuth: () => mockUseAuth(),
 }));
 
-const mockSetProjectId = jest.fn();
 // ADK stream data exposed by the chat context (status, notice, ...)
 const mockChatData: { current: unknown[] } = { current: [] };
+const mockSessionId: { current: string | null } = { current: 'chat-session-123' };
 jest.mock('@/hooks/useChatContext', () => ({
     useChatContext: () => ({
-        currentProjectId: null,
-        sessionId: 'chat-session-123',
+        sessionId: mockSessionId.current,
+        userChatId: null,
         isRestoringHistory: false,
         isLoading: false,
         messages: [],
         input: '',
         error: undefined,
         data: mockChatData.current,
-        setProjectId: mockSetProjectId,
         handleInputChange: jest.fn(),
         submitMessage: jest.fn(),
         sendMessage: jest.fn(),
@@ -64,9 +63,9 @@ jest.mock('../ChatHeader', () => ({ ChatHeader: (props: Record<string, unknown>)
 
 // Other Mocks
 jest.mock('../ChatMessages', () => ({ ChatMessages: () => <div /> }));
-jest.mock('../ChatInput', () => ({ ChatInput: () => <div /> }));
+const MockChatInput = jest.fn<React.ReactElement, [{ authLoading?: boolean }]>(() => <div />);
+jest.mock('../ChatInput', () => ({ ChatInput: (props: { authLoading?: boolean }) => MockChatInput(props) }));
 jest.mock('../ChatToggleButton', () => ({ ChatToggleButton: () => <button>Toggle</button> }));
-jest.mock('@/hooks/useSessionId', () => ({ useSessionId: () => 'fallback' }));
 jest.mock('@/hooks/useChatHistory', () => ({ useChatHistory: () => ({ historyLoaded: true, historyMessages: [] }) }));
 jest.mock('@/hooks/useChatScroll', () => ({ useChatScroll: () => ({ messagesContainerRef: { current: null }, messagesEndRef: { current: null }, scrollToBottom: jest.fn() }) }));
 jest.mock('@/hooks/useMobileViewport', () => ({ useMobileViewport: () => ({ isMobile: false }) }));
@@ -85,6 +84,7 @@ describe('ChatWidget', () => {
         jest.clearAllMocks();
         localStorage.clear();
         mockChatData.current = [];
+        mockSessionId.current = 'chat-session-123';
         mockUseAuth.mockReturnValue({ isInitialized: true, user: { uid: 'u1' }, refreshToken: jest.fn() });
     });
 
@@ -95,11 +95,22 @@ describe('ChatWidget', () => {
         expect(screen.getByTestId('chat-header')).toBeInTheDocument();
     });
 
-    test('passes projectId prop to context via setProjectId', () => {
-        render(<ChatWidget variant="inline" projectId="proj-42" />);
+    test('offers no way to switch to another chat: one chat per user (Phase 139)', () => {
+        render(<ChatWidget variant="inline" />);
 
-        // Component should call setProjectId with the provided projectId
-        expect(mockSetProjectId).toHaveBeenCalledWith('proj-42');
+        const headerProps = MockChatHeader.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+        expect(headerProps).not.toHaveProperty('showSelector');
+        expect(headerProps).not.toHaveProperty('onProjectSelect');
+    });
+
+    test('keeps the input disabled until the chat id is known', () => {
+        mockSessionId.current = null;
+        const view = render(<ChatWidget variant="inline" />);
+        expect(MockChatInput.mock.calls.at(-1)?.[0].authLoading).toBe(true);
+
+        mockSessionId.current = 'chat-of-u1';
+        view.rerender(<ChatWidget variant="inline" />);
+        expect(MockChatInput.mock.calls.at(-1)?.[0].authLoading).toBe(false);
     });
 
     test('uploads go to the chat session, not a shared guest id', () => {

@@ -7,19 +7,19 @@ import { getMessageText } from '@/lib/chat/messages';
 import { logger } from '@/lib/logger';
 
 interface UseChatTransportOptions {
-    sessionId: string;
-    currentProjectId: string | null;
-    /** Room of the project the turn is about (Phase 138). */
+    /** `null` while the chat id is not known: ChatProvider sends nothing then. */
+    sessionId: string | null;
+    /** Room of the chat the turn is about (Phase 138). */
     activeRoomId?: string | null;
 }
 
 /**
  * Build the AI SDK transport: authenticated headers plus the request body
- * enrichment that every chat call needs (sessionId / projectId / roomId).
+ * enrichment that every chat call needs (sessionId / roomId). The chat is the
+ * project (Phase 139): no separate project id.
  */
 export function useChatTransport({
     sessionId,
-    currentProjectId,
     activeRoomId = null,
 }: UseChatTransportOptions): DefaultChatTransport<Message> {
     const { refreshToken } = useAuth();
@@ -86,7 +86,6 @@ export function useChatTransport({
                 id,
                 messages,
                 ...extra,
-                projectId: currentProjectId,
                 sessionId,
                 // A room set by the caller wins: buildMediaPayload sends the room the
                 // photos of this turn were filed in.
@@ -101,7 +100,6 @@ export function useChatTransport({
                 logger.debug('[ChatProvider] prepareSendMessagesRequest body:', JSON.stringify({
                     sessionId: body.sessionId,
                     messagesCount: msgs?.length,
-                    projectId: body.projectId,
                     lastMessageRole: lastMsg?.role,
                     lastMessageContent: String(lastMsgContent).substring(0, 50),
                     mediaUrlsCount: Array.isArray(body.mediaUrls) ? (body.mediaUrls as unknown[]).length : 0,
@@ -109,5 +107,5 @@ export function useChatTransport({
             }
             return { body };
         },
-    }), [resolveHeaders, currentProjectId, sessionId, activeRoomId]);
+    }), [resolveHeaders, sessionId, activeRoomId]);
 }

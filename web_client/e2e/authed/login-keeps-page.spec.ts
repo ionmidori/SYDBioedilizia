@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from '@playwright/test';
-import { test, expect, blockUnstubbedBackend } from './fixtures/authed-test';
+import { test, expect, blockUnstubbedBackend, userChatRoute } from './fixtures/authed-test';
 import { AUTH_EMULATOR_URL, EMULATOR_PROJECT_ID, TEST_USER } from './fixtures/constants';
 import { seedSession, setSessionOwner, type SeedMessage } from './fixtures/emulator';
 import { caller, openLoginDialog } from './fixtures/guest';
@@ -14,7 +14,8 @@ import { chatStreamHandler } from './fixtures/ui-message-stream';
  * Real: Firebase Auth emulator (its Google sign-in page, the redirect round
  * trip, email links), Firestore emulator + rules, the whole client flow.
  * Faked, like every backend call in this suite: /api/chat (it saves the turn
- * to Firestore, as the backend does), the project list and the guest claim.
+ * to Firestore, as the backend does), the user's chat (GET /api/me/chat) and
+ * the guest claim.
  */
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -64,17 +65,11 @@ test.describe('Google by redirect, on a phone', () => {
 
   test('comes back to the same page with the chat open', async ({ page }) => {
     const guestSessionId = await guestChatsOnFaq(page);
-    // A new account: the guest is linked (same uid) and its chats are listed.
-    const listedBy: (string | undefined)[] = [];
-    await page.route('**/api/py/projects', (route) => {
-      listedBy.push(caller(route).provider);
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([
-          { session_id: guestSessionId, title: 'Cucina', status: 'draft', updated_at: '2026-10-29T10:00:05Z' },
-        ]),
-      });
+    // A new account: the guest is linked (same uid) and its chat becomes the account's.
+    const askedBy: (string | undefined)[] = [];
+    await page.route('**/api/py/me/chat', (route) => {
+      askedBy.push(caller(route).provider);
+      return userChatRoute(() => guestSessionId)(route);
     });
 
     const dialog = await openLoginDialog(page);
@@ -91,9 +86,9 @@ test.describe('Google by redirect, on a phone', () => {
     await page.locator('#sign-in').click();
 
     await page.waitForURL((url) => url.pathname === '/faq', { timeout: 30_000 });
-    // Linked on the way back: the chats are listed by the Google account.
-    await expect.poll(() => listedBy.length, { timeout: 30_000 }).toBeGreaterThan(0);
-    expect(new Set(listedBy)).toEqual(new Set(['google.com']));
+    // Linked on the way back: the Google account asks for its chat.
+    await expect.poll(() => askedBy.length, { timeout: 30_000 }).toBeGreaterThan(0);
+    expect(new Set(askedBy)).toEqual(new Set(['google.com']));
     await expectChatOpenWithGuestConversation(page);
   });
 });
@@ -127,8 +122,10 @@ test('a magic link, opened in another tab, comes back to the same page with the 
   await expectChatOpenWithGuestConversation(tab);
 });
 
-/** What the backend does on a claim: the guest's chat now belongs to the account. */
+/** What the backend does on a claim into an account without a chat: the guest's
+ *  chat becomes the account's one chat. */
 async function fakeGuestClaim(context: BrowserContext, uid: string, guestSessionId: string) {
+  await context.route('**/api/py/me/chat', userChatRoute(() => guestSessionId));
   await context.route('**/api/py/guest-claim/ticket', (route) =>
     route.fulfill({
       status: 200,

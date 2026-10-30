@@ -67,9 +67,10 @@ $env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
   emulator mode cannot be switched on an existing artifact. `build:e2e` emits a
   separate `.next-e2e` (via `NEXT_DIST_DIR`) so it never clobbers `.next`.
 - **Real security rules.** The emulator loads the production `firestore.rules`.
-  History is seeded at `sessions/global-<uid>/messages/*`, which is exactly the
-  path the rules permit for a signed-in user — so the suite exercises the real
-  rules rather than a permissive test ruleset.
+  History is seeded in the user's chat (`sessions/e2e-user-chat`, with its
+  owner) — the id the faked GET /api/me/chat returns (Phase 139: one chat per
+  user) — so the suite exercises the real rules (the parent session must exist
+  and be the user's) rather than a permissive test ruleset.
 - **Seeding bypasses rules** via the emulator's `Authorization: Bearer owner`
   admin token, because `messages` are backend-only writes in production.
 - **The `auth-token` cookie is minted by the setup project.**

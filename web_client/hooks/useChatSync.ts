@@ -15,7 +15,7 @@ interface UseChatSyncOptions {
     historyLoaded: boolean;
     /** Session the history was actually loaded for (see useChatHistory). */
     loadedForSessionId: string | undefined;
-    sessionId: string;
+    sessionId: string | null;
     status: ChatStatus;
 }
 

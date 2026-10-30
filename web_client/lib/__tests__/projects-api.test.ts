@@ -72,62 +72,11 @@ describe('projectsApi.getProject', () => {
     });
 });
 
-describe('projectsApi.createProject', () => {
-    it('POSTs the payload and returns the session id', async () => {
-        mockFetchWithAuth.mockResolvedValue(res({ session_id: 'new-1' }));
-        await expect(projectsApi.createProject({ title: 'Bagno' })).resolves.toEqual({
-            session_id: 'new-1',
-        });
-        expect(mockFetchWithAuth).toHaveBeenCalledWith(
-            expect.stringContaining('/projects'),
-            expect.objectContaining({ method: 'POST', body: JSON.stringify({ title: 'Bagno' }) })
-        );
-    });
-
-    it('surfaces the backend detail on failure', async () => {
-        mockFetchWithAuth.mockResolvedValue(res({ detail: 'Quota esaurita' }, { ok: false }));
-        await expect(projectsApi.createProject()).rejects.toThrow('Quota esaurita');
-    });
-
-    it('keeps the generic message when the error body is not JSON', async () => {
-        mockFetchWithAuth.mockResolvedValue(res(null, { ok: false, jsonFails: true }));
-        await expect(projectsApi.createProject()).rejects.toThrow('Impossibile creare il progetto');
-    });
-});
-
-describe('projectsApi.updateProject', () => {
-    it('PATCHes the project', async () => {
-        mockFetchWithAuth.mockResolvedValue(res({}));
-        await expect(projectsApi.updateProject('s1', { title: 'Nuovo' })).resolves.toBeUndefined();
-        expect(mockFetchWithAuth).toHaveBeenCalledWith(
-            expect.stringContaining('/projects/s1'),
-            expect.objectContaining({ method: 'PATCH' })
-        );
-    });
-
-    it('throws on failure', async () => {
-        mockFetchWithAuth.mockResolvedValue(res({}, { ok: false }));
-        await expect(projectsApi.updateProject('s1', {})).rejects.toThrow(
-            'Impossibile aggiornare il progetto'
-        );
-    });
-});
-
-describe('projectsApi.deleteProject', () => {
-    it('DELETEs the project', async () => {
-        mockFetchWithAuth.mockResolvedValue(res({}));
-        await expect(projectsApi.deleteProject('s1')).resolves.toBeUndefined();
-        expect(mockFetchWithAuth).toHaveBeenCalledWith(
-            expect.stringContaining('/projects/s1'),
-            expect.objectContaining({ method: 'DELETE' })
-        );
-    });
-
-    it('throws on failure', async () => {
-        mockFetchWithAuth.mockResolvedValue(res({}, { ok: false }));
-        await expect(projectsApi.deleteProject('s1')).rejects.toThrow(
-            'Impossibile eliminare il progetto'
-        );
+describe('projectsApi — no project to create, rename or delete (Phase 139)', () => {
+    it('has no such calls: the user has one chat, chosen by the backend', () => {
+        expect(projectsApi).not.toHaveProperty('createProject');
+        expect(projectsApi).not.toHaveProperty('updateProject');
+        expect(projectsApi).not.toHaveProperty('deleteProject');
     });
 });
 
