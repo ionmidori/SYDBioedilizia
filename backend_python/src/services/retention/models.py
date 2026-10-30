@@ -10,7 +10,6 @@ class RetentionReport:
 
     orphans_applied: bool
     guest_sessions: int = 0    # guest projects past their 30-day expiry
-    deleted_projects: int = 0  # projects in the bin for more than 30 days
     expired_holds: int = 0     # sent quotes past their 10-year legal hold
     orphans: int = 0           # remains of projects whose session no longer exists
     orphans_kept: int = 0      # remains left in place: they belong to a registered account

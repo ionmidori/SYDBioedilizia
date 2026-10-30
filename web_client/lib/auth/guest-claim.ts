@@ -34,7 +34,8 @@ import { describeApiError } from '@/lib/api-client';
 import { GUEST_SESSION_KEY } from '@/lib/chat-session-keys';
 import { guestClaimApi } from '@/lib/guest-claim-api';
 import { queryClient } from '@/lib/query-client';
-import { PROJECTS_QUERY_KEY } from '@/hooks/use-projects';
+import { HOUSE_QUOTE_QUERY_KEY } from '@/hooks/use-house-quote';
+import { QUOTES_QUERY_KEY } from '@/hooks/use-quotes';
 import { fetchUserChat, USER_CHAT_QUERY_KEY, userChatQuery } from '@/hooks/use-user-chat';
 import { guestClaimStore } from '@/lib/auth/guest-claim-store';
 
@@ -86,7 +87,11 @@ async function openAfterLogin(sessionId: string | null): Promise<void> {
     } catch {
         // localStorage unavailable: nothing kept to forget
     }
-    await queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY });
+    // A guest's quote is now the quote of the house (or one of its quotes).
+    await Promise.all([
+        queryClient.invalidateQueries({ queryKey: HOUSE_QUOTE_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY }),
+    ]);
     guestClaimStore.set({ status: 'done', openSessionId: sessionId });
 }
 

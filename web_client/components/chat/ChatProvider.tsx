@@ -13,6 +13,7 @@ import { useAdkStreamEvents } from '@/hooks/useAdkStreamEvents';
 import { useProjectRooms } from '@/hooks/useProjectRooms';
 import { useActiveRoom } from '@/hooks/useActiveRoom';
 import { useChatMoveRecovery, type SentTurn } from '@/hooks/useChatMoveRecovery';
+import { useRefreshHouseQuote } from '@/hooks/use-house-quote';
 import { auth } from '@/lib/firebase';
 
 import { GlobalAuthListener } from '@/components/auth/GlobalAuthListener';
@@ -65,6 +66,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     // -- AI SDK v7 TRANSPORT (auth headers + request body enrichment) --
     const transport = useChatTransport({ sessionId, activeRoomId });
 
+    // The agent writes the quote of the house during a turn (Phase 139 dashboard).
+    const refreshHouseQuote = useRefreshHouseQuote();
+
     const chatHelpers = useChat({
         // No id yet (the user's chat is being asked for): a placeholder chat that
         // sendMessage never uses.
@@ -76,6 +80,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         onData,
         onFinish(message) {
             markChatFinish();
+            void refreshHouseQuote();
             logger.debug('[ChatProvider] Turn finished. Last message:', message);
         },
         onError: (err) => {

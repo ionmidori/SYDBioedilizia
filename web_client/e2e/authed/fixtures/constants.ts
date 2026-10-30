@@ -49,6 +49,7 @@ export const QUOTES_FIXTURE = [
   {
     project_id: 'proj-approved',
     project_name: 'Bagno Trastevere',
+    quote_number: 'PRV-2026-0012',
     status: 'approved',
     grand_total: 18500.5,
     item_count: 12,

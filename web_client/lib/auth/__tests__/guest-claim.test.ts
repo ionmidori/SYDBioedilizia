@@ -96,6 +96,15 @@ describe('signing in to an existing account as a guest', () => {
         expect(localStorage.getItem('chatSessionId')).toBeNull();
     });
 
+    it('reads the quotes again: the guest’s quote is now the house’s (Phase 139)', async () => {
+        await signInKeepingGuestChats(signInToAccount);
+        await settle();
+
+        const keys = (queryClient.invalidateQueries as jest.Mock).mock.calls.map(([filters]) => filters.queryKey);
+        expect(keys).toEqual(expect.arrayContaining([['quote'], ['quotes']]));
+        expect(keys).not.toContainEqual(['projects']);
+    });
+
     it('does not start the login when the ticket cannot be had', async () => {
         mockIssue.mockRejectedValue(new TypeError('Failed to fetch'));
 

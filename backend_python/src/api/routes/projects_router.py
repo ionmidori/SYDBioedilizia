@@ -3,7 +3,6 @@ Projects API Router for Dashboard.
 
 Provides REST endpoints for the user's chat seen as a project (Phase 139: one chat
 per user, chosen by the backend; it is not created, renamed or deleted here):
-- List user projects
 - Get project details, construction details, files
 - Rooms of a project and the room of each file (Phase 138)
 """
@@ -20,7 +19,6 @@ from src.models.project import (
     ProjectDetails,
     ProjectDocument,
     ProjectFileMetadata,
-    ProjectListItem,
 )
 from src.repositories.room_repository import get_room_repository
 from src.schemas.internal import UserSession
@@ -47,33 +45,6 @@ async def _require_owned_project(session_id: str, user_id: str) -> Any:
         )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Accesso negato")
     return project_ref
-
-
-@router.get("", response_model=list[ProjectListItem])
-async def list_projects(
-    user_session: UserSession = Depends(verify_token)
-) -> list[ProjectListItem]:
-    """
-    List all projects for the authenticated user.
-
-    Returns:
-        List of projects ordered by last activity.
-    """
-    try:
-        user_id = user_session.uid
-        logger.info(f"[API] Listing projects for user_id: {user_id}")
-
-        projects = await projects_db.get_user_projects(user_id)
-
-        # DEBUG: Log count
-        logger.info(f"[API] Found {len(projects)} projects")
-        return projects
-    except Exception as e:
-        logger.error(f"[API] Error in list_projects: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Impossibile caricare i progetti"
-        ) from e
 
 
 @router.get("/{session_id}", response_model=ProjectDocument)

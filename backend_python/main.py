@@ -480,11 +480,6 @@ from src.api.routes.me import router as me_router
 
 app.include_router(me_router)
 
-# Register reports router (gallery + dashboard stats)
-from src.api.routes.reports import router as reports_router
-
-app.include_router(reports_router)
-
 # Register metadata update router
 from src.api.routes.update_metadata import router as metadata_router
 

@@ -99,36 +99,6 @@ class ProjectDocument(BaseModel):
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 
 
-class ProjectListItem(BaseModel):
-    """
-    Lightweight project model for dashboard grid.
-    Only includes fields needed for the list view.
-    """
-    session_id: str
-    title: str
-    status: ProjectStatus
-    thumbnail_url: str | None = None
-    original_image_url: str | None = None
-    updated_at: datetime
-    message_count: int = 0
-    has_quote: bool = Field(False, description="Whether this project has completed the quote generation flow")
-    # Free string, not QuoteStatusType: a legacy status must not drop the row from the list.
-    quote_status: str | None = Field(None, description="Status of the project's quote (None: no quote yet)")
-
-    @field_serializer('updated_at')
-    def serialize_updated_at(self, dt: _datetime_type, _info) -> str:
-        """Serialize datetime to UTC ISO 8601 with Z suffix.
-
-        Naive datetimes are treated as UTC per the Firestore SDK contract.
-        Output is always compatible with Zod .datetime({ offset: true }).
-        """
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=UTC)
-        return dt.isoformat().replace("+00:00", "Z")
-
-    model_config = ConfigDict(extra="forbid", from_attributes=True, use_enum_values=True)
-
-
 class ProjectFileMetadata(BaseModel):
     """Metadata for an uploaded project file."""
     model_config = {"extra": "forbid"}

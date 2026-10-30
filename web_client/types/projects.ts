@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { projectDetailsSchema, addressSchema } from '../lib/validation/project-details-schema';
-import { projectListItemSchema, projectSchema } from '../lib/validation/project-list-schema';
+import { projectSchema } from '../lib/validation/project-schema';
 
 export const projectStatusSchema = z.enum(['draft', 'analyzing', 'quoted', 'rendering', 'completed']);
 export type ProjectStatus = z.infer<typeof projectStatusSchema>;
@@ -11,8 +11,6 @@ export type PropertyType = z.infer<typeof propertyTypeSchema>;
 export type Address = z.infer<typeof addressSchema>;
 
 export type ProjectDetails = z.infer<typeof projectDetailsSchema>;
-
-export type ProjectListItem = z.infer<typeof projectListItemSchema>;
 
 export type Project = z.infer<typeof projectSchema>;
 

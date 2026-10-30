@@ -7,8 +7,9 @@ messages, files, projection and Storage. (The Firestore TTL policies on
 to subcollections or Storage.) A registered user's project is kept for as long
 as the account lives — the privacy policy promises it and the account
 lifecycle (12/13/24 months) governs it — so only guest sessions may carry
-`expireAt`. Projects soft-deleted by older code carry one too; the bin's own
-30 days (`deleted_at`) apply to them.
+`expireAt`. (Projects soft-deleted by older code carried one too: none is left
+and nothing soft-deletes a project any more, so the retention no longer has a
+bin to empty — Phase 139.)
 
 A session stops being a guest one when it is claimed by a registered user or when
 an anonymous account is upgraded (same uid). It must then lose `expireAt` on the

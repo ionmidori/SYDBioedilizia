@@ -11,14 +11,14 @@ import { describeApiError } from '@/lib/api-client';
 interface SubmitQuoteDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** The user's chat: the house the quote is of. */
     projectId: string;
-    projectTitle: string;
 }
 
 // The backend messages are for developers: the client reads these.
 const ERROR_MESSAGES: Record<string, string> = {
     QUOTE_EMPTY: 'Il preventivo non ha ancora lavorazioni: completalo in chat prima di inviarlo.',
-    QUOTE_NOT_FOUND: 'Questo progetto non ha ancora un preventivo: preparalo in chat.',
+    QUOTE_NOT_FOUND: 'La tua casa non ha ancora un preventivo: preparalo in chat.',
     INVALID_TRANSITION: 'Il preventivo non può essere inviato nello stato attuale (per esempio è stato chiuso dal nostro team). Scrivici e lo verifichiamo.',
     PERMISSION_DENIED: 'Accedi con il tuo account per inviare la richiesta.',
 };
@@ -36,18 +36,18 @@ function submitErrorMessage(error: unknown): string {
 }
 
 /**
- * "Invia al team" — explicit confirmation before the project's quote goes to
+ * "Invia al team" — explicit confirmation before the quote of the house goes to
  * the team (same path as the chat tool submit_quote_request). The body is
  * mounted only while open: each opening gets its own Idempotency-Key, reused
  * by a retry after an error, so a double click never sends two emails.
  */
-export function SubmitQuoteDialog({ open, onOpenChange, projectId, projectTitle }: SubmitQuoteDialogProps) {
+export function SubmitQuoteDialog({ open, onOpenChange, projectId }: SubmitQuoteDialogProps) {
     return (
         <ResponsiveDrawer
             open={open}
             onOpenChange={onOpenChange}
             title="Invia al team"
-            description={`Richiesta di preventivo per “${projectTitle}”`}
+            description="Richiesta di preventivo della tua casa"
             className="sm:max-w-[500px] bg-slate-900 border-slate-800"
         >
             {open && <SubmitQuoteBody projectId={projectId} onClose={() => onOpenChange(false)} />}

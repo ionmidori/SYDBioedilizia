@@ -40,6 +40,8 @@ export interface MediaAsset {
     metadata?: {
         projectId?: string;
         projectName?: string;
+        /** Room of the house the file belongs to (Phase 138); null: not filed yet. */
+        roomId?: string | null;
         size?: number;
         uploadedBy?: string;
     };

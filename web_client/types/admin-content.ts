@@ -179,7 +179,6 @@ export type GdprStatus = z.infer<typeof gdprStatusSchema>;
 export const retentionSummarySchema = z.object({
   orphans_applied: z.boolean(),
   guest_sessions: z.number(),
-  deleted_projects: z.number(),
   expired_holds: z.number(),
   orphans: z.number(),
   orphans_kept: z.number(),
