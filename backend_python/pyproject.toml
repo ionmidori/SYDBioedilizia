@@ -50,7 +50,7 @@ dev = [
     # Cloud Run image) and tests/unit/test_pdf_service_v2.py read PDFs with it.
     # The Dockerfile's `uv sync --no-dev` installs no extras, so it stays out of
     # the production image; CI installs it via `uv sync --all-extras`.
-    "pypdf>=6.21.1",
+    "pypdf>=6.21.4",
 ]
 
 [tool.ruff]
