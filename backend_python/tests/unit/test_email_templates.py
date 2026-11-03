@@ -142,6 +142,8 @@ def test_admin_email_marks_a_new_revision_of_a_sent_quote():
     assert mail.subject == "[SYD] Nuova revisione PRV-2026-0042 da Mario Rossi (€ 816,91)"
     assert "PRV-2026-0042 (nuova revisione) · Mario Rossi" in mail.text
     assert not digest_from_quote({"quote_number": "PRV-2026-0042"}).is_revision
+    # A revision of a quote the team rejected before ever sending it.
+    assert digest_from_quote({"quote_number": "PRV-2026-0042", "client_revision": True}).is_revision
 
 
 def test_admin_email_for_a_change_asked_in_the_chat():

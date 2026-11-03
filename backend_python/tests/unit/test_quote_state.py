@@ -97,7 +97,9 @@ def test_ai_draft_never_overwrites_the_work_of_the_team(status, expected):
 def test_a_sent_quote_whose_email_is_still_queued_is_not_revised():
     # Like the admin's revise: the previous email has not left yet.
     assert ai_draft_action("sent", delivery_status="queued") == "relay"
-    assert ai_draft_action("sent", delivery_status="failed") == "revise"
+    # A failed send never reached the client either (client_quote_view: not yet out).
+    assert ai_draft_action("sent", delivery_status="failed") == "relay"
+    assert ai_draft_action("sent", delivery_status="delivered") == "revise"
     assert ai_draft_action("rejected", delivery_status="queued") == "revise"
 
 

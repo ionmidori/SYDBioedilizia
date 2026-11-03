@@ -41,6 +41,8 @@ const LOCK_MINUTES = 30;
 // A sent quote being worked on again: the client still has the earlier version.
 // draft/pending_review: a revision the client opened in the chat (Phase 139 PR-3).
 const SENT_BEFORE_STATUSES: ReadonlySet<QuoteStatus> = new Set(['draft', 'pending_review', 'in_review', 'approved']);
+// Where a change asked in the chat is relayed instead of written (quote_state "relay").
+const FOLLOWUP_STATUSES: ReadonlySet<QuoteStatus> = new Set(['pending_review', 'in_review', 'approved']);
 
 /**
  * Unsaved edits, tied to the version they started from (the ETag).
@@ -181,8 +183,10 @@ export function DossierView({ projectId }: { projectId: string }) {
     .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
   const sentAt = quote.sent_at ?? lastSent?.sent_at ?? null;
   const alreadySent = !!sentAt;
-  // Asked on the version on screen: once the team changed the quote, it was taken into account.
-  const followup = quote.client_followup?.version === quote.version ? quote.client_followup : null;
+  // Asked on the version on screen, while the team still has it: once the team
+  // changed the quote, or sent it, the request was taken into account.
+  const followup =
+    quote.client_followup?.version === quote.version && FOLLOWUP_STATUSES.has(status) ? quote.client_followup : null;
   const sentTo = lastSent?.to ?? quote.client_snapshot?.email ?? 'il cliente';
   const statusChip = QUOTE_STATUS_CHIP[status];
   const deliveryChip = DELIVERY_STATUS_CHIP[quote.delivery_status];

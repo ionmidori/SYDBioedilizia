@@ -3,7 +3,8 @@
 When the quote is submitted, in review or approved and about to be sent, the
 chat must not write its items (`quote_state.ai_draft_action` → "relay"): the
 request goes to the team instead. The quote records it (`client_followup`,
-shown in the admin dossier) and the admin gets one email per quote version, so
+shown in the admin dossier) and the admin gets one email per quote version and
+status, so
 a chatty client does not flood the inbox while the team has not acted yet.
 """
 from __future__ import annotations
@@ -34,9 +35,10 @@ class FollowupResult:
     notified: bool
 
 
-def followup_id_for(project_id: str, version: int) -> str:
-    """Deterministic outbox id: one admin email per quote version."""
-    return "followup_" + hashlib.sha256(f"{project_id}:{version}".encode()).hexdigest()[:24]
+def followup_id_for(project_id: str, version: int, status: str) -> str:
+    """Deterministic outbox id: one admin email per quote version and status
+    (approving or sending does not change the version, the status does)."""
+    return "followup_" + hashlib.sha256(f"{project_id}:{version}:{status}".encode()).hexdigest()[:24]
 
 
 async def _transact(db: Any, body: Any) -> Any:
@@ -68,7 +70,7 @@ async def relay_tx(
     version = int(quote.get("version") or 1)
     previous = quote.get("client_followup") or {}
     count = int(previous.get("count") or 0) + 1 if previous.get("version") == version else 1
-    out_ref = db.collection(outbox.OUTBOX).document(followup_id_for(project_id, version))
+    out_ref = db.collection(outbox.OUTBOX).document(followup_id_for(project_id, version, str(status)))
     already_emailed = (await out_ref.get(transaction=transaction)).exists
 
     transaction.update(ref, {"client_followup": {"requested_at": now, "count": count, "version": version}})

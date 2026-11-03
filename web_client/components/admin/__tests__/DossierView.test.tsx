@@ -237,6 +237,11 @@ describe('DossierView', () => {
       expect(screen.queryByTestId('client-followup-banner')).not.toBeInTheDocument();
     });
 
+    it('is no longer shown once the quote was sent', () => {
+      setup(dossier({}, { status: 'sent', sent_at: '2026-10-13T08:00:00Z', client_followup: followup }));
+      expect(screen.queryByTestId('client-followup-banner')).not.toBeInTheDocument();
+    });
+
     it('is not shown without a request', () => {
       setup(dossier({}, { status: 'in_review' }));
       expect(screen.queryByTestId('client-followup-banner')).not.toBeInTheDocument();

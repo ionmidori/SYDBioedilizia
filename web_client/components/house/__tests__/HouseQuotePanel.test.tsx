@@ -163,7 +163,8 @@ describe('HouseQuotePanel — the quote of the house', () => {
 
 describe('HouseQuotePanel — a quote the client received, and its next revision', () => {
     // GET /quote/{id} serves the copy the client received while the next revision is prepared.
-    const RECEIVED = { ...DRAFT, status: 'sent', sent_at: '2026-10-12T09:00:00Z' };
+    // `version` of the copy received = the revision shown by the card.
+    const RECEIVED = { ...DRAFT, status: 'sent', version: 3, sent_at: '2026-10-12T09:00:00Z' };
     const LISTED = {
         project_id: 'chat-1', project_name: '', quote_number: 'PRV-2026-0007', status: 'sent',
         grand_total: 2440, item_count: 3, updated_at: '2026-10-12T09:00:00Z', pdf_available: true,
@@ -232,6 +233,18 @@ describe('HouseQuotePanel — a quote the client received, and its next revision
         await waitFor(() => expect(getQuotePdfUrl).toHaveBeenCalledWith('chat-1', 2));
         expect(open).toHaveBeenCalledWith('https://signed/r2.pdf', '_blank', 'noopener,noreferrer');
         open.mockRestore();
+    });
+
+    it('lists every other revision received, whichever one the card shows', async () => {
+        // The card shows rev. 5 (accepted, then bounced): the history lists the delivered ones only.
+        getQuote.mockResolvedValue({ ...RECEIVED, version: 5 });
+        getQuoteHistory.mockResolvedValue({ in_progress: null, sent: SENT });
+        renderPanel();
+
+        const older = await screen.findByRole('region', { name: 'Revisioni precedenti' });
+        expect(within(older).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+            expect.stringContaining('Rev. 3'), expect.stringContaining('Rev. 2'),
+        ]);
     });
 
     it('shows the quote even when its history cannot be read', async () => {

@@ -131,7 +131,7 @@ test.describe('the house', () => {
     // Phase 139 PR-3: the client asked for more work in the chat after the quote was sent.
     const { submits } = await stubHouseBackend(page, uid);
     let revisionState = 'draft';
-    const received = { ...draftQuote(uid, 'sent'), sent_at: '2026-10-12T09:00:00Z' };
+    const received = { ...draftQuote(uid, 'sent'), version: 3, sent_at: '2026-10-12T09:00:00Z' };
     await page.route(`**/api/py/quote/${USER_CHAT_ID}`, jsonRoute(received));
     await page.route('**/api/py/quote/user/**', jsonRoute([{
       project_id: USER_CHAT_ID, project_name: '', quote_number: 'PRV-2026-0007', status: 'sent',

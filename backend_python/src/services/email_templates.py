@@ -78,7 +78,8 @@ def digest_from_quote(quote: dict[str, Any]) -> RequestDigest:
         client_is_guest=bool(snapshot.get("is_guest")),
         grand_total=to_cents((quote.get("financials") or {}).get("grand_total") or 0),
         summary=str((quote.get("request") or {}).get("summary") or ""),
-        is_revision=bool(quote.get("sent_at")),
+        # Sent before, or a revision opened from the chat (a rejected quote too).
+        is_revision=bool(quote.get("sent_at") or quote.get("client_revision")),
     )
 
 

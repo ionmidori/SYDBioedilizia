@@ -217,8 +217,8 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
     }
 
     const isDraft = quote.status === 'draft';
-    // The newest revision received is the card itself.
-    const older = history?.sent.slice(1) ?? [];
+    // Every other revision received: the card shows the copy of `quote.version`.
+    const older = history?.sent.filter((entry) => entry.revision !== quote.version) ?? [];
     return (
         <div className="flex flex-col gap-5">
             <div className="flex items-baseline justify-between gap-3">

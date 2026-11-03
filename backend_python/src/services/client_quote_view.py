@@ -17,6 +17,7 @@ portal already showed that version before the revision.
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 
@@ -151,9 +152,11 @@ async def _reached_deliveries(db: Any, project_id: str) -> dict[int, dict[str, A
 async def sent_revisions(db: Any, project_id: str) -> list[SentRevision]:
     """Every revision the client received, newest first, with its total."""
     quote_ref = quote_doc_ref(db, project_id)
+    reached = sorted((await _reached_deliveries(db, project_id)).items(), reverse=True)
+    # One round-trip for the totals, not one per revision (read after every chat turn).
+    snaps = await asyncio.gather(*(revision_ref(quote_ref, revision).get() for revision, _ in reached))
     out: list[SentRevision] = []
-    for revision, delivery in sorted((await _reached_deliveries(db, project_id)).items(), reverse=True):
-        rev_snap = await revision_ref(quote_ref, revision).get()
+    for (revision, delivery), rev_snap in zip(reached, snaps, strict=True):
         financials = ((rev_snap.to_dict() or {}) if rev_snap.exists else {}).get("financials") or {}
         out.append(SentRevision(
             revision=revision,

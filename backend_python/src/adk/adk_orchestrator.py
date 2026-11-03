@@ -563,9 +563,9 @@ class ADKOrchestrator(BaseOrchestrator):
             ]
         if room_id:
             context_delta[ACTIVE_ROOM_STATE_KEY] = room_id
-        house_quote = await quote_task if quote_task is not None else None
-        if house_quote is not None:
-            context_delta[HOUSE_QUOTE_STATE_KEY] = house_quote
+        if quote_task is not None:
+            # None when unreadable: written anyway, so last turn's status does not linger.
+            context_delta[HOUSE_QUOTE_STATE_KEY] = await quote_task
 
         # Apply the Sandwich Defense boundary delimiters to the clean input
         delimited_input = f"###\n{sanitized_input}\n###"

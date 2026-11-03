@@ -458,11 +458,12 @@ async def test_state_delta_carries_the_house_quote_of_a_registered_user():
     assert kwargs["state_delta"][HOUSE_QUOTE_STATE_KEY] == {}  # no quote yet
 
 
-async def test_an_unreadable_quote_is_left_out_of_the_turn():
+async def test_an_unreadable_quote_clears_the_previous_status():
     repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
     failing = AsyncMock(side_effect=ServiceUnavailable("down"))
     _, kwargs, _ = await _run_turn(_request(), [], repo, quote=failing)
-    assert HOUSE_QUOTE_STATE_KEY not in kwargs["state_delta"]
+    # Explicitly cleared: the previous turn's status would otherwise stay in the session.
+    assert kwargs["state_delta"][HOUSE_QUOTE_STATE_KEY] is None
 
 
 async def test_a_guest_turn_does_not_read_the_quote():

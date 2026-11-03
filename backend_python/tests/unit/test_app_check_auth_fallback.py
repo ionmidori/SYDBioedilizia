@@ -38,6 +38,7 @@ def _verified(decoded):
         ("GET", "/api/quote/user/u1"),
         ("GET", "/api/quote/0a1b2c3d-1111-2222-3333-444455556666"),
         ("GET", "/api/quote/0a1b2c3d-1111-2222-3333-444455556666/pdf"),
+        ("GET", "/api/quote/0a1b2c3d-1111-2222-3333-444455556666/history"),
         ("POST", "/api/guest-claim"),
         ("GET", "/api/me/chat"),
     ],

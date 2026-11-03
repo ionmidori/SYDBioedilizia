@@ -37,7 +37,8 @@ SESSION_CONTEXT_STATE_KEY = "syd_session_context"
 ROOMS_STATE_KEY = "syd_rooms"
 # Room the conversation is about (chip in the UI or `select_room`).
 ACTIVE_ROOM_STATE_KEY = "syd_active_room_id"
-# Where the house quote stands ({} = no quote); absent when it could not be read.
+# Where the house quote stands ({} = no quote); None (or absent) when unknown:
+# it could not be read this turn, or the user is a guest.
 HOUSE_QUOTE_STATE_KEY = "syd_house_quote"
 
 _ROOM_TEXT_MAX = 120

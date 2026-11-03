@@ -135,8 +135,8 @@ def ai_draft_action(current_status: str | None, delivery_status: str | None = No
     - no quote, or a soft-deleted one → create a fresh draft (new number);
     - `draft` → update items/financials in place (number and admin notes kept);
     - `sent` or `rejected` → open the next revision as a draft (same number),
-      unless the email of a sent quote is still queued (as for the admin's
-      revise: the client has not received that revision yet);
+      unless the email of a sent quote is still queued or failed (the client
+      has not received that revision: the team must send it first);
     - anything else (submitted, in review, approved, or an unknown legacy
       status) → the team is working on it: do not write the items, relay the
       request to the team instead.
@@ -145,7 +145,7 @@ def ai_draft_action(current_status: str | None, delivery_status: str | None = No
         return "create"
     if current_status == QuoteStatus.DRAFT:
         return "update"
-    if current_status == QuoteStatus.SENT and delivery_status == "queued":
+    if current_status == QuoteStatus.SENT and delivery_status in ("queued", "failed"):
         return "relay"
     if current_status in (QuoteStatus.SENT, QuoteStatus.REJECTED):
         return "revise"

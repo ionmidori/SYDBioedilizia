@@ -42,6 +42,7 @@ _AUTH_FALLBACK_ROUTES: tuple[tuple[str, re.Pattern[str], bool], ...] = (
     # The house's quote and its PDF (Phase 139 dashboard): reads, owner-checked.
     ("GET", re.compile(r"/api/quote/[^/]+"), False),
     ("GET", re.compile(r"/api/quote/[^/]+/pdf"), False),
+    ("GET", re.compile(r"/api/quote/[^/]+/history"), False),  # Phase 139 PR-3, owner-checked
     ("POST", re.compile(r"/api/guest-claim"), False),
     ("POST", re.compile(r"/api/guest-claim/ticket"), True),
     ("GET", re.compile(r"/api/me/chat"), False),

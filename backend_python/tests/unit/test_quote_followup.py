@@ -53,7 +53,7 @@ async def test_the_request_is_recorded_and_the_admin_emailed_once(status):
     assert doc["items"] == [{"sku": "ADMIN-EDIT", "qty": 3}]  # the team's work is untouched
     assert doc["client_followup"] == {"requested_at": NOW, "count": 1, "version": 4}
     [entry] = _outbox(db)
-    assert outbox_id == quote_followup.followup_id_for(PID, 4)
+    assert outbox_id == quote_followup.followup_id_for(PID, 4, status)
     assert entry["kind"] == "admin_notification"
     assert entry["message"]["to"] == "team@example.it"
     assert entry["message"]["subject"] == "[SYD] PRV-2026-0007: Mario Rossi chiede modifiche in chat"
@@ -137,7 +137,7 @@ async def test_relay_client_request_dispatches_the_email(monkeypatch):
     result = await quote_followup.relay_client_request(db, PID, NOW)
 
     assert result is not None and result.notified
-    assert sent == [quote_followup.followup_id_for(PID, 4)]
+    assert sent == [quote_followup.followup_id_for(PID, 4, "in_review")]
 
 
 async def test_the_recorded_request_is_part_of_the_quote_schema():
@@ -147,3 +147,16 @@ async def test_the_recorded_request_is_part_of_the_quote_schema():
     stored = db.get_data(*QUOTE_PATH)["client_followup"]
     quote = QuoteSchema(project_id=PID, user_id="uid-1", client_followup=stored)  # extra="forbid"
     assert quote.client_followup is not None and quote.client_followup.count == 1
+
+
+async def test_a_request_after_the_approval_reaches_the_team_too():
+    # Approving does not bump the version: the email is per version AND status.
+    db = FakeDb()
+    _seed(db, "in_review")
+    await _relay(db)
+    db.docs[QUOTE_PATH]["status"] = "approved"
+
+    result, outbox_id = await _relay(db)
+
+    assert result is not None and result.notified and outbox_id is not None
+    assert len(_outbox(db)) == 2
