@@ -52,6 +52,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/stop-check.mjs\"",
+            "timeout": 120
+          }
+        ]
+      }
     ]
-  }
+  },
+  "autoMemoryEnabled": false
 }
