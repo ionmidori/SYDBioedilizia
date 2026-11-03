@@ -1,8 +1,28 @@
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { goldenSyncReminder, lintFor, spawnable } from './post-edit.mjs';
 
 const ROOT = process.cwd();
+
+// Claude Code sends ABSOLUTE paths in tool_input.file_path: the hook must work with those, not only with relative ones.
+test('absolute paths (as Claude Code sends them) are resolved against the repo root', () => {
+  const sep = (p) => p.replace(/\//g, process.platform === 'win32' ? '\\' : '/');
+  const py = lintFor(join(ROOT, sep('backend_python/src/core/money.py')), ROOT);
+  assert.equal(py?.command, 'uv');
+  assert.equal(py?.args.at(-1), 'backend_python/src/core/money.py');
+  const ts = lintFor(join(ROOT, sep('web_client/components/chat/ChatInput.tsx')), ROOT);
+  assert.equal(ts?.command, 'eslint');
+  assert.equal(ts?.args.at(-1), 'components/chat/ChatInput.tsx');
+  assert.match(goldenSyncReminder(join(ROOT, sep('backend_python/src/schemas/quote.py')), ROOT) ?? '', /web_client\/types\/quote\.ts/);
+});
+
+test('an absolute path outside the repo is ignored', () => {
+  const outside = join(tmpdir(), 'x', 'backend_python', 'src', 'a.py');
+  assert.equal(lintFor(outside, ROOT), null);
+  assert.equal(goldenSyncReminder(join(tmpdir(), 'backend_python', 'src', 'schemas', 'quote.py'), ROOT), null);
+});
 
 test('python files in the backend are linted with ruff from the repo root', () => {
   const plan = lintFor('backend_python/src/core/money.py', ROOT);

@@ -10,7 +10,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const SKIP = /(^|\/)(node_modules|\.venv|\.venv-eval|\.next[^/]*|\.claude\/skills)\//;
@@ -22,7 +22,7 @@ const TIMEOUT_MS = 30_000;
  * @returns {{ cwd: string, command: string, args: string[] } | null} lint command, if the file has one
  */
 export function lintFor(filePath, root) {
-  const rel = relative(root, join(root, filePath)).replace(/\\/g, '/');
+  const rel = relative(root, resolve(root, filePath)).replace(/\\/g, '/');
   if (rel.startsWith('..') || SKIP.test(rel)) return null;
   if (rel.startsWith('backend_python/') && rel.endsWith('.py')) {
     return { cwd: root, command: 'uv', args: ['run', '--project', 'backend_python', 'ruff', 'check', '--fix', '--force-exclude', rel] };
@@ -53,7 +53,7 @@ export function spawnable(lint, root) {
 
 /** @returns {string | null} the Golden Sync reminder for a Pydantic schema file */
 export function goldenSyncReminder(filePath, root) {
-  const rel = relative(root, join(root, filePath)).replace(/\\/g, '/');
+  const rel = relative(root, resolve(root, filePath)).replace(/\\/g, '/');
   const m = /^backend_python\/src\/schemas\/([a-z0-9_]+)\.py$/.exec(rel);
   if (!m || m[1] === '__init__') return null;
   const ts = `web_client/types/${m[1].replace(/_/g, '-')}.ts`;
