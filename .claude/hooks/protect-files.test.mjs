@@ -11,16 +11,31 @@ test('Grep and Glob are checked by path, with the read policy', () => {
   assert.equal(accessReason('Grep', { pattern: 'KEY', path: 'backend_python/uv.lock' }), null);
 });
 
-test('a Grep glob that could select a secret is refused, however it is spelled', () => {
-  const sneaky = ['**/.env*', '*.env', '{.env,x}', '{.env,src/*.ts}', '.[e]nv', '.e?v', '*nv', '{.e,x}nv', '[.]env', '.en[v]', '@(.env)', '.+(e)nv', '**/.ENV', '*', '**/*', '*.ts .env', '.env'];
+test('a Grep glob outside the allowed shapes is refused, however it is spelled', () => {
+  const sneaky = [
+    // the spellings that got past earlier versions of the filter
+    '**/.env*', '*.env', '{.env,x}', '{.env,src/*.ts}', '.[e]nv', '.e?v', '*nv', '{.e,x}nv', '[.]env', '.en[v]', '@(.env)', '.+(e)nv', '**/.ENV',
+    'web_client/.e?v', 'a/b/.[e]nv.local', '.env.f?o', '.env.*', 'x/.env.f?o',
+    // lists, escapes, broad globs
+    '*.ts,.env', '*.ts,*.env', '{*.ts,.env}', '*.ts .env', '.e\\nv', 'src\\*.ts', '*', '**/*', 'src/**', '**',
+    // an extension that could end a secret name, or a stem that could start one
+    '*.env.local', '*.{ts,env}', '*.{ts,envrc}', '.e*.ts', '.*.ts', '?env', '.env',
+  ];
   for (const glob of sneaky) assert.ok(accessReason('Grep', { pattern: 'KEY', glob }), glob);
 });
 
-test('ordinary Grep globs, exclusions and templates are not blocked', () => {
-  for (const glob of ['*.ts', '*.{ts,tsx}', 'src/**/*.py', 'docs/env.md', 'environment.ts', '.env.example', '!.env', '!**/.env*']) {
-    assert.equal(accessReason('Grep', { pattern: 'env', glob, path: 'web_client' }), null, glob);
-  }
+test('ordinary Grep globs, exclusions, literal names and templates are allowed', () => {
+  const fine = [
+    '*.ts', '*.tsx', '*.{ts,tsx}', '*.py', 'src/**/*.py', '**/*.test.tsx', 'web_client/**/*.{ts,tsx}', 'test_*.py', 'use*.ts',
+    '*.spec.ts', 'docs/env.md', 'environment.ts', 'main.py', 'web_client/package.json', '.env.example', 'pyproject.toml',
+    '!.env', '!**/.env*', '!*.ts', '*.ts !node_modules',
+  ];
+  for (const glob of fine) assert.equal(accessReason('Grep', { pattern: 'env', glob, path: 'web_client' }), null, glob);
   assert.equal(accessReason('Grep', { pattern: '.env' }), null, 'the regex of a content search is not a path');
+});
+
+test('a literal secret name in a glob is judged like any other path', () => {
+  for (const glob of ['.env', 'web_client/.env.local', 'cfg/PROD.ENV', 'x/.envrc', '.ENV.']) assert.ok(accessReason('Grep', { pattern: 'k', glob }), glob);
 });
 
 test('Glob only lists names, so its pattern is not refused', () => {
@@ -28,18 +43,8 @@ test('Glob only lists names, so its pattern is not refused', () => {
   assert.equal(accessReason('Glob', { pattern: '**/*.test.tsx' }), null);
 });
 
-test('without a glob matcher, wildcard globs are refused (fail closed) and literal ones still work', () => {
-  assert.match(accessReason('Grep', { pattern: 'x', glob: '*.ts' }, null) ?? '', /npm ci/);
-  assert.ok(accessReason('Grep', { pattern: 'x', glob: '.env' }, null), 'a literal secret name needs no matcher');
-  assert.equal(accessReason('Grep', { pattern: 'x', glob: 'main.py' }, null), null);
-  assert.equal(accessReason('Grep', { pattern: 'x', glob: '!*.ts' }, null), null, 'an exclusion needs no matcher');
-});
-
-test('an unparseable glob is refused', () => {
-  const broken = () => {
-    throw new Error('bad glob');
-  };
-  assert.match(accessReason('Grep', { pattern: 'x', glob: '[' }, broken) ?? '', /cannot be parsed/);
+test('a refused glob explains what to use instead', () => {
+  assert.match(accessReason('Grep', { pattern: 'x', glob: '**/*' }) ?? '', /use `path`/);
 });
 
 test('.envrc is a secret too', () => {
