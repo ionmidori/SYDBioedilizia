@@ -49,6 +49,36 @@ export function blockedReason(filePath, { write = true } = {}) {
   return null;
 }
 
+const READ_TOOLS = new Set(['Read', 'Grep', 'Glob']);
+// A glob that names a secret: `.env`, `**/.env*`, `{.env,x}`, `*.env`, `.envrc`. Templates are checked apart.
+const SECRET_GLOB = /(^|[\\/{,!])\.env|\.env([*?}]|$)/i;
+
+/** @returns {string | null} why a path glob is refused (it asks for secrets by name), or null */
+function globReason(glob) {
+  const last = glob.replace(/\\/g, '/').split('/').pop()?.toLowerCase() ?? '';
+  if (ENV_TEMPLATE.test(last)) return null;
+  return SECRET_GLOB.test(glob) ? `the pattern ${JSON.stringify(glob)} asks for secret files (.env*): do not read them through Claude.` : null;
+}
+
+/**
+ * Every tool that names files: Read/Edit/Write/NotebookEdit (`file_path`, `notebook_path`), Grep (`path`, `glob`),
+ * Glob (`path`, `pattern`). Reads protect secrets only; writes also protect the lock files.
+ * Not covered: Grep/Glob over a whole directory never names the secret (ripgrep skips git-ignored files, and the
+ * `deny` rules in settings.json cover the rest).
+ * @returns {string | null} why the call is refused, or null
+ */
+export function accessReason(toolName, toolInput = {}) {
+  const write = !READ_TOOLS.has(toolName);
+  for (const key of ['file_path', 'notebook_path', 'path']) {
+    if (typeof toolInput[key] === 'string') {
+      const reason = blockedReason(toolInput[key], { write });
+      if (reason) return reason;
+    }
+  }
+  const glob = toolName === 'Grep' ? toolInput.glob : toolName === 'Glob' ? toolInput.pattern : undefined;
+  return typeof glob === 'string' ? globReason(glob) : null;
+}
+
 function readStdin() {
   return new Promise((done) => {
     let data = '';
@@ -65,9 +95,7 @@ async function main() {
   } catch {
     return; // not our payload: never block on a parse problem
   }
-  const filePath = input?.tool_input?.file_path ?? input?.tool_input?.notebook_path;
-  if (typeof filePath !== 'string') return;
-  const reason = blockedReason(filePath, { write: input?.tool_name !== 'Read' });
+  const reason = accessReason(input?.tool_name, input?.tool_input ?? {});
   if (reason) {
     process.stderr.write(`Blocked by .claude/hooks/protect-files.mjs: ${reason}\n`);
     process.exit(2);

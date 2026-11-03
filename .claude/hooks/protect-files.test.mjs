@@ -3,7 +3,31 @@ import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { blockedReason, canonicalName } from './protect-files.mjs';
+import { accessReason, blockedReason, canonicalName } from './protect-files.mjs';
+
+test('Grep and Glob are checked by path and by glob, with the read policy', () => {
+  assert.ok(accessReason('Grep', { pattern: 'KEY', path: 'backend_python/.env' }));
+  assert.ok(accessReason('Grep', { pattern: 'KEY', glob: '**/.env*' }));
+  assert.ok(accessReason('Grep', { pattern: 'KEY', glob: '*.env' }));
+  assert.ok(accessReason('Grep', { pattern: 'KEY', glob: '{.env,src/*.ts}' }));
+  assert.ok(accessReason('Glob', { pattern: '**/.ENV*' }));
+  assert.ok(accessReason('Glob', { pattern: '.env.local', path: 'web_client' }));
+  assert.equal(accessReason('Grep', { pattern: 'KEY', path: 'backend_python/uv.lock' }), null);
+});
+
+test('ordinary searches and templates are not blocked', () => {
+  assert.equal(accessReason('Grep', { pattern: 'env', glob: '*.ts', path: 'web_client' }), null);
+  assert.equal(accessReason('Grep', { pattern: '.env' }), null, 'the regex of a content search is not a path');
+  assert.equal(accessReason('Glob', { pattern: '**/*.test.tsx' }), null);
+  assert.equal(accessReason('Glob', { pattern: '**/.env.example' }), null);
+  assert.equal(accessReason('Glob', { pattern: 'docs/env.md' }), null);
+});
+
+test('write tools still protect the lock files, read tools do not', () => {
+  assert.ok(accessReason('Edit', { file_path: 'backend_python/uv.lock' }));
+  assert.ok(accessReason('NotebookEdit', { notebook_path: 'a/.env' }));
+  assert.equal(accessReason('Read', { file_path: 'package-lock.json' }), null);
+});
 
 test('secrets are blocked at any depth and with either separator', () => {
   for (const p of ['.env', 'backend_python/.env', 'C:\\repo\\web_client\\.env.local', '/r/.env.production', 'cfg/prod.env']) {
