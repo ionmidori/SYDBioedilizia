@@ -66,6 +66,7 @@ def _seed(db: FakeDb, status: str = "draft", **extra) -> None:
         "project_id": PID, "user_id": OWNER, "status": status, "quote_number": "PRV-2026-0001", "version": 5,
         "items": [ITEM], "rooms": [{"room_id": "r_bagno", "room_label": "Bagno", "room_type": "bagno", "room_subtotal": 120.0}],
         "financials": FIN_R3, "sent_at": T2, "delivery_status": "delivered", "created_at": T1, "updated_at": T2,
+        "client_revision": True,
         **extra,
     })
     db.put(*QUOTE, "revisions", "2", {"version": 2, "items": [ITEM], "financials": FIN_R2})
@@ -107,21 +108,41 @@ def test_the_history_lists_every_revision_the_client_received_newest_first(db):
     assert body["sent"][1]["sent_at"].startswith("2026-10-05T09:00")  # the first time it was sent
 
 
-@pytest.mark.parametrize(
-    ("status", "state"),
-    [("draft", "draft"), ("pending_review", "with_team"), ("in_review", "with_team"), ("approved", "with_team"),
-     ("rejected", "rejected")],
-)
-def test_the_revision_in_progress_is_shown_without_prices(db, status, state):
-    _seed(db, status)
+def test_the_revision_the_client_asked_for_is_shown_without_prices(db):
+    _seed(db, "draft")
     progress = _client().get(f"/api/quote/{PID}/history").json()["in_progress"]
-    assert progress["state"] == state
+    assert progress["state"] == "draft"
     assert [(i["sku"], i["room_id"], i["unit_price"], i["total"]) for i in progress["items"]] == [
         ("PIT-001", "r_bagno", 0.0, 0.0),
     ]
     assert [(r["room_id"], r["room_label"], r["room_subtotal"]) for r in progress["rooms"]] == [
         ("r_bagno", "Bagno", 0.0),
     ]
+
+
+@pytest.mark.parametrize(
+    ("status", "state"),
+    [("pending_review", "with_team"), ("in_review", "with_team"), ("approved", "with_team"), ("rejected", "rejected")],
+)
+def test_once_the_team_has_the_revision_only_its_state_is_shown(db, status, state):
+    # The team may be editing the lines: work in progress stays confidential.
+    _seed(db, status)
+    progress = _client().get(f"/api/quote/{PID}/history").json()["in_progress"]
+    assert (progress["state"], progress["items"], progress["rooms"]) == (state, [], [])
+
+
+@pytest.mark.parametrize("status", ["in_review", "approved", "rejected"])
+def test_a_revision_the_admin_opened_is_not_shown_to_the_client(db, status):
+    # "Rivedi preventivo" in the admin console: the client keeps the quote they received, nothing else.
+    _seed(db, status, client_revision=None)
+    body = _client().get(f"/api/quote/{PID}/history").json()
+    assert body["in_progress"] is None
+    assert [r["revision"] for r in body["sent"]] == [3, 2]
+
+
+def test_the_marker_is_not_shown_to_the_client(db):
+    _seed(db, "in_review")
+    assert _client().get(f"/api/quote/{PID}").json()["client_revision"] is None
 
 
 @pytest.mark.parametrize("delivery_status", ["delivered", "queued"])

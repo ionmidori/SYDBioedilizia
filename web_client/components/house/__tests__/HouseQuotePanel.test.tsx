@@ -197,16 +197,18 @@ describe('HouseQuotePanel — a quote the client received, and its next revision
     });
 
     it('says when the new revision is with the team, with nothing to press', async () => {
-        getQuoteHistory.mockResolvedValue({ in_progress: progress('with_team'), sent: SENT });
+        // The backend sends no lines once the team has the revision (it may be editing them).
+        getQuoteHistory.mockResolvedValue({ in_progress: { state: 'with_team', items: [], rooms: [] }, sent: SENT });
         renderPanel();
 
         const revision = await screen.findByRole('region', { name: 'Nuova revisione' });
         expect(revision).toHaveTextContent('Inviata al team, in revisione');
+        expect(within(revision).queryByRole('region')).not.toBeInTheDocument(); // no empty section
         expect(screen.queryByRole('button', { name: 'Invia al team' })).not.toBeInTheDocument();
     });
 
     it('says when the team declined the new revision', async () => {
-        getQuoteHistory.mockResolvedValue({ in_progress: progress('rejected'), sent: SENT });
+        getQuoteHistory.mockResolvedValue({ in_progress: { state: 'rejected', items: [], rooms: [] }, sent: SENT });
         renderPanel();
 
         const revision = await screen.findByRole('region', { name: 'Nuova revisione' });

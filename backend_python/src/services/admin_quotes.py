@@ -295,6 +295,8 @@ async def reopen_tx(
         "review.approved_by": DELETE_FIELD,
         "review.approved_at": DELETE_FIELD,
         "review.approved_revision": DELETE_FIELD,
+        # The admin's revision is confidential: no longer the one the client asked for in the chat.
+        "client_revision": DELETE_FIELD,
         **_lock_fields(admin_uid, now),
     }
     if was_sent:

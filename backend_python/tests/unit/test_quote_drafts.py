@@ -157,6 +157,7 @@ async def test_a_new_request_opens_the_next_revision_of_the_same_quote(status):
         assert doc[key] == sent[key]
     # Not approved any more: the new revision needs the team again.
     assert "admin_decision" not in doc
+    assert doc["client_revision"] is True  # opened from the chat: the client history shows it
     assert doc["review"] == {"reason": "ok"}
     assert doc["admin_notes"] == "Sopralluogo fatto"
     assert doc["request"]["summary"] == "Anche il bagno"

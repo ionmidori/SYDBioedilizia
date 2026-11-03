@@ -138,11 +138,14 @@ test.describe('the house', () => {
       grand_total: 2440, item_count: 2, updated_at: '2026-10-12T09:00:00Z', pdf_available: true,
     }]));
     await page.route(`**/api/py/quote/${USER_CHAT_ID}/history`, (route: Route) => jsonRoute({
-      in_progress: {
-        state: revisionState,
-        items: [item('Porta nuova', 'bagno')],
-        rooms: [{ room_id: 'bagno', room_label: 'Bagno', room_type: 'bagno', room_subtotal: 0 }],
-      },
+      // Like the backend: the lines only while it is the client's draft.
+      in_progress: revisionState === 'draft'
+        ? {
+          state: revisionState,
+          items: [item('Porta nuova', 'bagno')],
+          rooms: [{ room_id: 'bagno', room_label: 'Bagno', room_type: 'bagno', room_subtotal: 0 }],
+        }
+        : { state: revisionState, items: [], rooms: [] },
       sent: [
         { revision: 3, sent_at: '2026-10-12T09:00:00Z', grand_total: 2440, pdf_available: true },
         { revision: 2, sent_at: '2026-10-05T09:00:00Z', grand_total: 1464, pdf_available: true },
@@ -170,6 +173,7 @@ test.describe('the house', () => {
 
     expect(submits).toHaveLength(1);
     await expect(revision).toContainText('Inviata al team, in revisione');
+    await expect(revision).not.toContainText('Porta nuova');
     await expect(quote.getByTestId('submit-quote-button')).toHaveCount(0);
     await expect(quote.getByTestId('quote-card')).toHaveAttribute('data-quote-status', 'sent');
   });

@@ -122,6 +122,7 @@ _CLIENT_HIDDEN_FIELDS = (
     "pdf_revision",
     "last_delivery_id",  # outbox/delivery internals
     "client_followup",  # changes relayed to the team (admin dossier)
+    "client_revision",  # who opened the revision in progress (the history reads it)
 )
 
 
@@ -311,9 +312,13 @@ async def get_quote_history(
 
     state = revision_state(data)
     in_progress = None
-    if state is not None:
+    if state == "draft":
+        # What the client asked for, before it reaches the team.
         masked = _mask_draft_prices(dict(data))
         in_progress = RevisionInProgress(state=state, items=masked["items"], rooms=masked["rooms"])
+    elif state is not None:
+        # The team may be editing the lines: only where the revision stands.
+        in_progress = RevisionInProgress(state=state)
     sent = [
         QuoteHistoryItem(
             revision=r.revision, sent_at=r.sent_at, grand_total=to_cents(r.grand_total),

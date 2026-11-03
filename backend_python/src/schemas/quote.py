@@ -215,6 +215,10 @@ class QuoteSchema(BaseModel):
     search_keys: list[str] = Field(default_factory=list)
     review: QuoteReview | None = None
     client_followup: ClientFollowup | None = None
+    # The revision in progress was opened by the client in the chat (Phase 139
+    # PR-3): only then does the client history show it. Cleared when the admin
+    # revises or reopens the quote (that work stays confidential).
+    client_revision: bool | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     # Optimistic-concurrency token: bumped on every content change.

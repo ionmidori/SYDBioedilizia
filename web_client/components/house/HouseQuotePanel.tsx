@@ -113,7 +113,8 @@ function RevisionBox({ revision, onSubmit }: { revision: RevisionInProgress; onS
                     Il team non ha accolto queste modifiche: scrivi in chat per prepararne altre.
                 </p>
             )}
-            <DraftSections lines={revision} />
+            {/* Lines only in the draft: once the team has it, it may be editing them. */}
+            {revision.items.length > 0 && <DraftSections lines={revision} />}
             <p className="text-xs text-luxury-text/40">
                 Il preventivo che hai ricevuto resta valido finché il team non ti invia quello aggiornato.
             </p>

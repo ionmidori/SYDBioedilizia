@@ -237,6 +237,8 @@ export const quoteSchema = z.object({
   search_keys: z.array(z.string()).default([]),
   review: quoteReviewSchema.nullable().optional(),
   client_followup: clientFollowupSchema.nullable().optional(),
+  // The revision in progress was opened by the client in the chat (Phase 139 PR-3).
+  client_revision: z.boolean().nullable().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   version: z.number().default(1),
@@ -281,7 +283,10 @@ export const quoteListResponseSchema = z.array(quoteListItemSchema);
 export const revisionInProgressStateSchema = z.enum(['draft', 'with_team', 'rejected']);
 export type RevisionInProgressState = z.infer<typeof revisionInProgressStateSchema>;
 
-/** The next revision of a quote the client received, WITHOUT prices (masked to 0). */
+/**
+ * The next revision of a quote the client received, opened from the chat. In
+ * `draft` its lines WITHOUT prices (masked to 0); once with the team, no lines.
+ */
 export const revisionInProgressSchema = z.object({
   state: revisionInProgressStateSchema,
   items: z.array(quoteItemSchema).default([]),

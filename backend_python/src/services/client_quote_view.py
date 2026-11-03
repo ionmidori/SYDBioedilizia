@@ -115,8 +115,9 @@ async def client_view_source(db: Any, project_id: str, quote: dict[str, Any]) ->
 
 def revision_state(quote: dict[str, Any]) -> RevisionInProgressState | None:
     """Where the next revision of a quote the client received stands, or None
-    when there is none (never sent, or the sent quote is the live one)."""
-    if not serves_sent_copy(quote) or quote.get("status") == "sent":
+    when there is none (never sent, or the sent quote is the live one) or it is
+    not the client's: a revision the admin opened stays confidential."""
+    if not quote.get("client_revision") or not serves_sent_copy(quote) or quote.get("status") == "sent":
         return None
     status = quote.get("status")
     if status == "draft":

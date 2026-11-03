@@ -229,6 +229,7 @@ def _revision_updates(current_status: str) -> dict[str, Any]:
         "review.approved_by": DELETE_FIELD,
         "review.approved_at": DELETE_FIELD,
         "client_followup": DELETE_FIELD,
+        "client_revision": True,
     }
 
 

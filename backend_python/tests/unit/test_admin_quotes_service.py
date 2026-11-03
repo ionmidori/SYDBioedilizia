@@ -348,3 +348,19 @@ async def test_a_quote_without_rooms_keeps_no_sections():
     await svc.edit_tx(tx(db), db, PID, ADMIN, 2, NOW, items=[QuoteItem(**_item())])
     doc = db.get_data(*QUOTE)
     assert doc["rooms"] == [] and doc["items"][0].get("room_id") is None
+
+
+@pytest.mark.parametrize(
+    "seed",
+    [
+        {"status": "sent", "sent_at": NOW - timedelta(days=2), "delivery_status": "delivered"},  # revise
+        {"status": "approved"},  # reopen
+        {"status": "rejected"},  # reopen
+    ],
+)
+async def test_a_revision_the_admin_opens_is_not_the_client_revision(seed):
+    # Phase 139 PR-3: the client history shows only a revision opened from the chat.
+    db = FakeDb()
+    _seed(db, client_revision=True, **seed)
+    await svc.reopen_tx(tx(db), db, PID, ADMIN, "Prezzi del materiale cambiati", NOW)
+    assert "client_revision" not in db.get_data(*QUOTE)
