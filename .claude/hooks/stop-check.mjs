@@ -6,8 +6,9 @@
  *  - backend_python/**.py changed     -> ruff check on those files only
  * "Changed" = the working tree against HEAD (staged, unstaged, untracked), so a clean tree or a
  * docs-only turn exits at once. A failure prints the tail of the output on stderr and exits 2,
- * which sends Claude back to work; Claude Code itself ends the turn after 8 blocks in a row.
- * A missing tool, a timeout or an unreadable git state never blocks.
+ * which sends Claude back to work; Claude Code itself ends the turn after 8 blocks in a row (hooks docs, Stop).
+ * Known limit: tsc checks the whole project, so a type error already present in a dirty .ts file blocks every
+ * Stop until it is fixed. A missing tool, a timeout, a tool failure (uv/ruff exit 2) or an unreadable git state never blocks.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -16,8 +17,11 @@ import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const SKIP = /(^|\/)(node_modules|\.venv|\.venv-eval|\.next[^/]*|\.claude\/(skills|worktrees))\//;
-// Per check: two checks in a row must stay under the hook's 120 s limit in settings.json.
-const TIMEOUT_MS = 50_000;
+// git (10 s) + two checks in a row (45 s each) + Node startup must stay under the hook's 120 s limit in settings.json.
+const TIMEOUT_MS = 45_000;
+const GIT_TIMEOUT_MS = 10_000;
+// spawnSync's default 1 MB cap kills the child with ENOBUFS (status null): a very noisy failure would then never block.
+const MAX_BUFFER = 64 * 1024 * 1024;
 const TAIL_LINES = 30;
 
 /**
@@ -31,7 +35,7 @@ export function parseStatus(porcelainZ) {
     const entry = parts[i];
     const code = entry.slice(0, 2);
     const path = entry.slice(3);
-    if (code[0] === 'R' || code[0] === 'C') i += 1; // the next NUL-separated field is the original path
+    if (code.includes('R') || code.includes('C')) i += 1; // the next NUL-separated field is the original path (either status column)
     if (code.includes('D')) continue;
     files.push(path.replace(/\\/g, '/'));
   }
@@ -71,11 +75,23 @@ export function spawnable(check, root) {
   }
 }
 
+/**
+ * @param {'tsc' | 'ruff'} kind
+ * @param {{ error?: Error, status: number | null }} run result of spawnSync
+ * @returns {boolean} true when the check found a real problem. A spawn error, a timeout (status null) or, for
+ * ruff, anything but exit 1 (`uv run` itself exits 2 when it cannot sync or start) is a tool problem and never blocks.
+ */
+export function isBlocking(kind, run) {
+  if (run.error || run.status === null || run.status === 0) return false;
+  return kind === 'ruff' ? run.status === 1 : true;
+}
+
 function changedFiles(root) {
   const run = spawnSync('git', ['-c', 'core.quotepath=false', 'status', '--porcelain=v1', '-z', '--untracked-files=all'], {
     cwd: root,
     encoding: 'utf8',
-    timeout: 20_000,
+    timeout: GIT_TIMEOUT_MS,
+    maxBuffer: MAX_BUFFER,
   });
   if (run.error || run.status !== 0) return [];
   return parseStatus(run.stdout);
@@ -87,8 +103,8 @@ async function main() {
   for (const check of checksFor(changedFiles(root), root)) {
     const cmd = spawnable(check, root);
     if (!cmd) continue;
-    const run = spawnSync(cmd.command, cmd.args, { cwd: check.cwd, encoding: 'utf8', timeout: TIMEOUT_MS });
-    if (!run.error && run.status !== 0 && run.status !== null) {
+    const run = spawnSync(cmd.command, cmd.args, { cwd: check.cwd, encoding: 'utf8', timeout: TIMEOUT_MS, maxBuffer: MAX_BUFFER });
+    if (isBlocking(check.kind, run)) {
       failures.push(`${check.id} failed:\n${(run.stdout + run.stderr).trim().split('\n').slice(-TAIL_LINES).join('\n')}`);
     }
   }
