@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from google.api_core.exceptions import RetryError, ServiceUnavailable
+from google.auth.exceptions import DefaultCredentialsError
 from src.adk import adk_orchestrator, tools
 from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
@@ -472,3 +473,9 @@ async def test_a_guest_turn_does_not_read_the_quote():
     _, kwargs, _ = await _run_turn(_request(), [], repo, quote=read, is_guest=True)
     read.assert_not_awaited()
     assert HOUSE_QUOTE_STATE_KEY not in kwargs["state_delta"]
+
+
+async def test_a_firestore_client_that_cannot_start_does_not_fail_the_turn(monkeypatch):
+    # No credentials (e.g. CI, a broken secret): the turn goes on without the quote line.
+    monkeypatch.setattr(adk_orchestrator, "get_async_firestore_client", MagicMock(side_effect=DefaultCredentialsError("x")))
+    assert await adk_orchestrator._house_quote(PROJECT) is None

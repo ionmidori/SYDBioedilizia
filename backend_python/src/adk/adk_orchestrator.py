@@ -21,6 +21,7 @@ from google.adk.agents.run_config import RunConfig, StreamingMode  # pyright: ig
 from google.adk.events import Event, EventActions
 from google.adk.sessions import BaseSessionService, Session
 from google.api_core.exceptions import GoogleAPIError
+from google.auth.exceptions import GoogleAuthError
 from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import ValidationError
@@ -336,7 +337,9 @@ async def _house_quote(session_id: str) -> dict[str, Any] | None:
     be read (the turn goes on without the line). A read error never fails the turn."""
     try:
         return house_quote_entry(await read_quote_status(get_async_firestore_client(), session_id))
-    except (GoogleAPIError, ValueError) as e:  # ValueError: a malformed stored version
+    # ValueError: bad service-account credentials or a malformed stored version;
+    # GoogleAuthError: no default credentials. Firestore down: GoogleAPIError.
+    except (GoogleAPIError, GoogleAuthError, ValueError) as e:
         logger.warning(f"[ADK] Could not read the house quote: {type(e).__name__}")
         return None
 
