@@ -54,8 +54,20 @@ export function blockedReason(filePath, { write = true } = {}) {
   return null;
 }
 
-// Allowed last segments of a Grep glob. The stem has no dot and no wildcard, so the match can never start with `.env`;
-// an extension that is `env`/`envrc` (alone or as a dotted component) could end a secret name, so it is refused.
+// Allowed last segments of a Grep glob. A non-empty stem has no dot, so it can never start `.env`. An EMPTY stem is
+// the dangerous one (`*` also covers `.env`, so `*.local` selects `.env.local`, `*.production` `.env.production`,
+// and ripgrep's --glob overrides .gitignore): its extension must therefore be a known code/doc one. Every
+// component of a dotted extension is a safe extension or an infix word, and the last one a real extension.
+// Known residual: a secret file literally named `.env.json`/`.env.ts` would match `*.json`/`*.ts`.
+const SAFE_EXTENSIONS = new Set([
+  'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'mts', 'cts', 'py', 'pyi', 'md', 'mdx', 'json', 'jsonc', 'css', 'scss', 'sass',
+  'html', 'htm', 'yml', 'yaml', 'toml', 'txt', 'sql', 'sh', 'ps1', 'xml', 'svg', 'csv', 'lock',
+]);
+const INFIX_WORDS = new Set(['test', 'spec', 'd', 'config', 'stories', 'module', 'min']);
+const isSafeExtension = (ext) => {
+  const parts = ext.toLowerCase().split('.');
+  return parts.every((p) => SAFE_EXTENSIONS.has(p) || INFIX_WORDS.has(p)) && SAFE_EXTENSIONS.has(parts[parts.length - 1]);
+};
 const EXT = '[a-z0-9]+(?:\\.[a-z0-9]+)*';
 const EXT_GLOB = new RegExp(`^[a-z0-9_-]*\\*\\.(?:(${EXT})|\\{(${EXT}(?:,${EXT})*)\\})$`, 'i');
 const LITERAL_NAME = /^[a-z0-9._-]+$/i;
@@ -77,8 +89,8 @@ function grepGlobReason(glob) {
     }
     const m = EXT_GLOB.exec(last);
     if (!m) return refuse('is not an allowed shape, so it could select secret files (.env*)');
-    const extensions = (m[1] ?? m[2]).split(/[,.]/).map((e) => e.toLowerCase());
-    if (extensions.includes('env') || extensions.includes('envrc')) return refuse('could select .env files');
+    const unsafe = (m[1] ?? m[2]).split(',').find((ext) => !isSafeExtension(ext));
+    if (unsafe) return refuse(`has the extension "${unsafe}", which could select .env files (*.local matches .env.local)`);
   }
   return null;
 }

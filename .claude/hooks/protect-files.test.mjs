@@ -20,6 +20,9 @@ test('a Grep glob outside the allowed shapes is refused, however it is spelled',
     '*.ts,.env', '*.ts,*.env', '{*.ts,.env}', '*.ts .env', '.e\\nv', 'src\\*.ts', '*', '**/*', 'src/**', '**',
     // an extension that could end a secret name, or a stem that could start one
     '*.env.local', '*.{ts,env}', '*.{ts,envrc}', '.e*.ts', '.*.ts', '?env', '.env',
+    // an empty stem lets `*` cover `.env`: the extension alone must not name a stage or a config format
+    '*.local', '*.production', '*.staging', '*.development', '*.development.local', '*.test', '*.{ts,local}', '*.cfg', '*.ini', '*.conf', '*.properties',
+    '*.example', '*.bak', 'x/y/*.local',
   ];
   for (const glob of sneaky) assert.ok(accessReason('Grep', { pattern: 'KEY', glob }), glob);
 });
@@ -27,7 +30,7 @@ test('a Grep glob outside the allowed shapes is refused, however it is spelled',
 test('ordinary Grep globs, exclusions, literal names and templates are allowed', () => {
   const fine = [
     '*.ts', '*.tsx', '*.{ts,tsx}', '*.py', 'src/**/*.py', '**/*.test.tsx', 'web_client/**/*.{ts,tsx}', 'test_*.py', 'use*.ts',
-    '*.spec.ts', 'docs/env.md', 'environment.ts', 'main.py', 'web_client/package.json', '.env.example', 'pyproject.toml',
+    '*.spec.ts', '*.d.ts', '*.stories.tsx', '*.config.mjs', '*.{md,mdx}', '*.min.js', 'docs/env.md', 'environment.ts', 'main.py', 'web_client/package.json', '.env.example', 'pyproject.toml',
     '!.env', '!**/.env*', '!*.ts', '*.ts !node_modules',
   ];
   for (const glob of fine) assert.equal(accessReason('Grep', { pattern: 'env', glob, path: 'web_client' }), null, glob);
