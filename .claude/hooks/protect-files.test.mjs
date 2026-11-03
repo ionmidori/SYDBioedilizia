@@ -5,22 +5,46 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { accessReason, blockedReason, canonicalName } from './protect-files.mjs';
 
-test('Grep and Glob are checked by path and by glob, with the read policy', () => {
+test('Grep and Glob are checked by path, with the read policy', () => {
   assert.ok(accessReason('Grep', { pattern: 'KEY', path: 'backend_python/.env' }));
-  assert.ok(accessReason('Grep', { pattern: 'KEY', glob: '**/.env*' }));
-  assert.ok(accessReason('Grep', { pattern: 'KEY', glob: '*.env' }));
-  assert.ok(accessReason('Grep', { pattern: 'KEY', glob: '{.env,src/*.ts}' }));
-  assert.ok(accessReason('Glob', { pattern: '**/.ENV*' }));
-  assert.ok(accessReason('Glob', { pattern: '.env.local', path: 'web_client' }));
+  assert.ok(accessReason('Glob', { pattern: '*', path: 'web_client/.env.local' }));
   assert.equal(accessReason('Grep', { pattern: 'KEY', path: 'backend_python/uv.lock' }), null);
 });
 
-test('ordinary searches and templates are not blocked', () => {
-  assert.equal(accessReason('Grep', { pattern: 'env', glob: '*.ts', path: 'web_client' }), null);
+test('a Grep glob that could select a secret is refused, however it is spelled', () => {
+  const sneaky = ['**/.env*', '*.env', '{.env,x}', '{.env,src/*.ts}', '.[e]nv', '.e?v', '*nv', '{.e,x}nv', '[.]env', '.en[v]', '@(.env)', '.+(e)nv', '**/.ENV', '*', '**/*', '*.ts .env', '.env'];
+  for (const glob of sneaky) assert.ok(accessReason('Grep', { pattern: 'KEY', glob }), glob);
+});
+
+test('ordinary Grep globs, exclusions and templates are not blocked', () => {
+  for (const glob of ['*.ts', '*.{ts,tsx}', 'src/**/*.py', 'docs/env.md', 'environment.ts', '.env.example', '!.env', '!**/.env*']) {
+    assert.equal(accessReason('Grep', { pattern: 'env', glob, path: 'web_client' }), null, glob);
+  }
   assert.equal(accessReason('Grep', { pattern: '.env' }), null, 'the regex of a content search is not a path');
+});
+
+test('Glob only lists names, so its pattern is not refused', () => {
+  assert.equal(accessReason('Glob', { pattern: '**/.ENV*' }), null);
   assert.equal(accessReason('Glob', { pattern: '**/*.test.tsx' }), null);
-  assert.equal(accessReason('Glob', { pattern: '**/.env.example' }), null);
-  assert.equal(accessReason('Glob', { pattern: 'docs/env.md' }), null);
+});
+
+test('without a glob matcher, wildcard globs are refused (fail closed) and literal ones still work', () => {
+  assert.match(accessReason('Grep', { pattern: 'x', glob: '*.ts' }, null) ?? '', /npm ci/);
+  assert.ok(accessReason('Grep', { pattern: 'x', glob: '.env' }, null), 'a literal secret name needs no matcher');
+  assert.equal(accessReason('Grep', { pattern: 'x', glob: 'main.py' }, null), null);
+  assert.equal(accessReason('Grep', { pattern: 'x', glob: '!*.ts' }, null), null, 'an exclusion needs no matcher');
+});
+
+test('an unparseable glob is refused', () => {
+  const broken = () => {
+    throw new Error('bad glob');
+  };
+  assert.match(accessReason('Grep', { pattern: 'x', glob: '[' }, broken) ?? '', /cannot be parsed/);
+});
+
+test('.envrc is a secret too', () => {
+  assert.ok(blockedReason('.envrc'));
+  assert.ok(blockedReason('web_client/.ENVRC', { write: false }));
 });
 
 test('write tools still protect the lock files, read tools do not', () => {
