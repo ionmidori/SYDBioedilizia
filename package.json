@@ -21,7 +21,7 @@
         "eval:run:rooms": "node scripts/run-evals.mjs --file multi_room --output results/"
     },
     "dependencies": {
-        "minimatch": "10.2.6",
+        "minimatch": "11.0.3",
         "next": "^16.4.3",
         "react": "19.3.1",
         "react-dom": "19.3.1"
