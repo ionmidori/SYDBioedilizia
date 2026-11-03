@@ -92,9 +92,6 @@ jobs:
         run: uv run pip-audit --strict --desc --ignore-vuln CVE-2026-28277
 
       - name: 'Run tests + coverage gate'
-        env:
-          GEMINI_API_KEY: '${{ secrets.GEMINI_API_KEY }}'
-          GOOGLE_API_KEY: '${{ secrets.GOOGLE_API_KEY }}'
         # --cov-fail-under is a ratchet floor (current total ~59%), not the goal.
         # Raise it as coverage improves.
         run: |
