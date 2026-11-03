@@ -31,7 +31,7 @@ from src.adk.session_context import (
 )
 from src.prompts.components.security import SECURITY_GUARDRAILS_TAIL
 from src.services.quote_drafts import QuoteStatusView
-from src.services.quote_state import status_label_it
+from src.services.quote_state import STATUS_LABEL_IT, status_label_it
 
 AGENTS = [syd_orchestrator, triage_agent, design_agent, quote_agent]
 USER_TEXT = "###\nfammi il render del bagno\n###"
@@ -150,5 +150,5 @@ def test_the_quote_prompt_reads_the_line_the_session_block_writes():
     assert marker == "PREVENTIVO DELLA CASA"
     prompt = str(quote_agent.static_instruction)
     assert f'"{marker}"' in prompt
-    for status in ("sent", "rejected", "pending_review", "in_review", "approved"):
+    for status in STATUS_LABEL_IT:
         assert status_label_it(status) in prompt  # every state the prompt branches on, as the block spells it

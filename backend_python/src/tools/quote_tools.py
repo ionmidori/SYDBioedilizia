@@ -854,7 +854,13 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         if saved.outcome is DraftSaveOutcome.WITH_THE_TEAM:
             # The team took the quote during the analysis.
             relayed = await relay_client_request(db, target_project_id)
-            return _relayed_reply(relayed or FollowupResult(saved.status, saved.quote_number, notified=False))
+            if relayed is None:
+                # The quote changed again: nothing was recorded, so nothing is claimed.
+                return (
+                    f"Il preventivo{reference} è in lavorazione dal nostro team proprio in questo momento: "
+                    "non ho potuto registrare la tua richiesta. Riprova tra qualche minuto."
+                )
+            return _relayed_reply(relayed)
 
         # 10. Return a NEUTRAL Italian summary — the draft (items + prices) is
         # deliberately NOT shown to the client: the admin reviews and adjusts

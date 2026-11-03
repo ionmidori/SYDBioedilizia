@@ -148,3 +148,25 @@ async def test_a_new_request_on_a_sent_quote_opens_a_revision(sent_before):
     assert ("che hai già ricevuto resta valido" in result) is sent_before
     assert "Vuoi che invii ora la revisione al team?" in result
     assert "€" not in result
+
+
+@pytest.mark.asyncio
+async def test_no_relay_claim_when_nothing_was_relayed():
+    # The team took the quote during the analysis, then it changed again: nothing recorded.
+    saved = DraftSaveResult(DraftSaveOutcome.WITH_THE_TEAM, "in_review", "PRV-2026-0009", 4)
+    with patch("src.tools.quote_tools.ConversationRepository") as MockRepo, patch(
+        "src.tools.quote_tools.get_insight_engine"
+    ) as mock_get_engine, patch("src.tools.quote_tools.get_async_firestore_client"), patch(
+        "src.tools.quote_tools.read_quote_status", new=AsyncMock(return_value=_status("draft"))
+    ), patch("src.tools.quote_tools.relay_client_request", new=AsyncMock(return_value=None)), patch(
+        "src.tools.quote_tools.gather_dossier_inputs", new=AsyncMock(return_value=DossierInputs())
+    ), patch("src.tools.quote_tools.save_ai_draft", new=AsyncMock(return_value=saved)):
+        _engine(mock_get_engine)
+        MockRepo.return_value.get_context = AsyncMock(return_value=[
+            {"role": "user", "content": "Rifai il bagno di 6 mq", "attachments": []}
+        ])
+        result = await suggest_quote_items_wrapper(session_id="s1", project_id="p1", user_id="u1")
+
+    assert "segnalat" not in result
+    assert "riprova" in result.lower()
+    assert "Vuoi che invii" not in result
