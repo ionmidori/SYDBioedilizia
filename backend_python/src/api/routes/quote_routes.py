@@ -5,8 +5,9 @@ Security: All endpoints require JWT authentication (Depends(verify_token)).
           Project-specific actions verify caller owns the project (or is admin).
 
   - GET  /user/{user_id}       — List all quotes for a user (IDOR-safe: enforces uid match)
-  - GET  /{project_id}         — Get quote by project
-  - GET  /{project_id}/pdf     — On-demand short-lived PDF signed URL (15 min)
+  - GET  /{project_id}         — Get quote by project (null when there is none)
+  - GET  /{project_id}/history — Revision in progress (no prices) + revisions received
+  - GET  /{project_id}/pdf     — On-demand short-lived PDF signed URL (15 min), ?revision=N
   - POST /{project_id}/submit  — Send the draft to the team (Idempotency-Key)
   - DELETE /{project_id}       — Delete quote draft (not approved/sent)
 
@@ -25,8 +26,9 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
+from google.api_core.exceptions import FailedPrecondition
 from pydantic import BaseModel
 from src.auth.admin import has_admin_role
 from src.auth.jwt_handler import verify_token
@@ -35,8 +37,15 @@ from src.core.money import Money, to_cents
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.internal import UserSession
-from src.schemas.quote import QuoteSchema
-from src.services.client_quote_view import client_view_source, serves_sent_copy
+from src.schemas.quote import QuoteHistoryItem, QuoteHistoryResponse, QuoteSchema, RevisionInProgress
+from src.services.client_quote_view import (
+    client_view_source,
+    revision_state,
+    sent_pdf_path,
+    sent_revisions,
+    serves_sent_copy,
+)
+from src.services.quote_state import QuoteEvent, transition
 from src.services.quote_submission import submit_project_quote
 from src.utils.datetime_utils import utc_now
 
@@ -112,6 +121,8 @@ _CLIENT_HIDDEN_FIELDS = (
     "review",  # admin uids, lock and approval metadata
     "pdf_revision",
     "last_delivery_id",  # outbox/delivery internals
+    "client_followup",  # changes relayed to the team (admin dossier)
+    "client_revision",  # who opened the revision in progress (the history reads it)
 )
 
 
@@ -248,30 +259,25 @@ async def list_user_quotes(
 
 @router.get(
     "/{project_id}",
-    response_model=QuoteSchema,
-    summary="Get quote by project ID",
+    response_model=QuoteSchema | None,
+    summary="Get quote by project ID (null when the project has none)",
 )
 @limiter.limit("60/minute")
 async def get_quote(
     request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
     project_id: str = _PROJECT_ID,
     user_session: UserSession = Depends(verify_token),
-) -> QuoteSchema:
-    """Retrieve the quote document for a project. Caller must own the project or be admin."""
+) -> QuoteSchema | None:
+    """Retrieve the quote document for a project. Caller must own the project or be admin.
+
+    A house without a quote (yet, or deleted) is a normal state, not an error:
+    null, so opening the house does not log a 404 every time."""
     await _verify_project_ownership(project_id, user_session)
 
     doc = await _quote_doc_ref(project_id).get()
-    if not doc.exists:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No quote found for project '{project_id}'.",
-        )
-    data = doc.to_dict() or {}
-    if data.get("status") == "deleted":
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No quote found for project '{project_id}'.",
-        )
+    data = (doc.to_dict() or {}) if doc.exists else {}
+    if not doc.exists or data.get("status") == "deleted":
+        return None
     data["id"] = doc.id
     if not _is_admin(user_session):
         if serves_sent_copy(data):
@@ -283,6 +289,47 @@ async def get_quote(
 
 
 @router.get(
+    "/{project_id}/history",
+    response_model=QuoteHistoryResponse,
+    summary="Revision in progress (without prices) and every revision the client received",
+)
+@limiter.limit("60/minute")
+async def get_quote_history(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+    project_id: str = _PROJECT_ID,
+    user_session: UserSession = Depends(verify_token),
+) -> QuoteHistoryResponse:
+    """The house quote over time: the next revision while it is prepared (by
+    room, prices masked like a draft) and the revisions emailed to the client.
+    Caller must own the project or be admin."""
+    await _verify_project_ownership(project_id, user_session)
+
+    db = get_async_firestore_client()
+    doc = await _quote_doc_ref(project_id).get()
+    data = (doc.to_dict() or {}) if doc.exists else {}
+    if not doc.exists or data.get("status") == "deleted":
+        return QuoteHistoryResponse()
+
+    state = revision_state(data)
+    in_progress = None
+    if state == "draft":
+        # What the client asked for, before it reaches the team.
+        masked = _mask_draft_prices(dict(data))
+        in_progress = RevisionInProgress(state=state, items=masked["items"], rooms=masked["rooms"])
+    elif state is not None:
+        # The team may be editing the lines: only where the revision stands.
+        in_progress = RevisionInProgress(state=state)
+    sent = [
+        QuoteHistoryItem(
+            revision=r.revision, sent_at=r.sent_at, grand_total=to_cents(r.grand_total),
+            pdf_available=bool(r.pdf_blob_path),
+        )
+        for r in await sent_revisions(db, project_id)
+    ]
+    return QuoteHistoryResponse(in_progress=in_progress, sent=sent)
+
+
+@router.get(
     "/{project_id}/pdf",
     response_model=QuotePdfUrlResponse,
     summary="Get on-demand short-lived PDF signed URL (15 min TTL)",
@@ -291,6 +338,7 @@ async def get_quote(
 async def get_quote_pdf_url(
     request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
     project_id: str = _PROJECT_ID,
+    revision: int | None = Query(None, ge=1, description="A revision the client received (history)"),
     user_session: UserSession = Depends(verify_token),
 ) -> QuotePdfUrlResponse:
     """
@@ -300,8 +348,19 @@ async def get_quote_pdf_url(
     Non-admin callers can only fetch the PDF of an approved or sent quote (the
     draft is confidential until the admin review — client area "Preventivi"
     section); while a sent quote is revised, the PDF they were sent.
+    With `revision`: the PDF emailed for that revision, only if it reached the
+    client (never the PDF of a revision that was not sent).
     """
     await _verify_project_ownership(project_id, user_session)
+
+    if revision is not None:
+        sent_path = await sent_pdf_path(get_async_firestore_client(), project_id, revision)
+        if sent_path is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="This revision was never sent.",
+            )
+        return await _signed_pdf_url(project_id, sent_path)
 
     quote_doc = await _quote_doc_ref(project_id).get()
     qdata = (quote_doc.to_dict() or {}) if quote_doc.exists else {}
@@ -316,7 +375,11 @@ async def get_quote_pdf_url(
         )
 
     # Blob path saved at approval time; legacy fallback for pre-existing quotes.
-    blob_path = qdata.get("pdf_blob_path") or f"projects/{project_id}/quote.pdf"
+    return await _signed_pdf_url(project_id, qdata.get("pdf_blob_path") or f"projects/{project_id}/quote.pdf")
+
+
+async def _signed_pdf_url(project_id: str, blob_path: str) -> QuotePdfUrlResponse:
+    """A fresh 15-minute signed URL for `blob_path` (404 if the blob is missing)."""
 
     try:
         from firebase_admin import storage as fb_storage
@@ -410,6 +473,18 @@ async def delete_quote(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Cannot delete a quote with status '{qdata.get('status')}'.",
         )
+    # Every status change goes through the state machine (409 for a legacy status).
+    new_status = transition(str(qdata.get("status") or ""), QuoteEvent.DELETE)
 
-    # Soft-delete: preserve audit trail
-    await ref.update({"status": "deleted", "deleted_at": utc_now()})
+    # Soft-delete: preserve audit trail. Precondition on the read: never delete a
+    # quote the team changed in the meantime (e.g. approved it).
+    db = get_async_firestore_client()
+    try:
+        await ref.update(
+            {"status": new_status.value, "deleted_at": utc_now()},
+            option=db.write_option(last_update_time=doc.update_time),
+        )
+    except FailedPrecondition as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="The quote changed meanwhile: reload it."
+        ) from exc

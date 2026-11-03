@@ -10,8 +10,11 @@ replaced items edited by the admin, and even reset an approved quote to
 - no quote / soft-deleted  → create the draft and assign its PRV number;
 - `draft`                  → update items + financials, keep number, notes
                              and creation date, bump `version`;
-- any later status         → no write; the caller tells the client the
-                             request is already with the team.
+- `sent` / `rejected`      → the next revision of the same quote as a draft
+                             (same number, `version + 1`, diff with the
+                             previous one); what the client received stays;
+- the team is working on it → no write; the caller relays the request to the
+                             team (`quote_followup`).
 
 Every content change also writes an immutable revision
 (`.../quote/revisions/{version}`), and the dossier data gathered outside the
@@ -25,7 +28,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
-from google.cloud.firestore_v1 import async_transactional
+from google.cloud.firestore_v1 import DELETE_FIELD, async_transactional
 
 from src.schemas.quote import (
     QuoteFinancials,
@@ -37,20 +40,24 @@ from src.schemas.quote import (
     RevisionActorType,
 )
 from src.services.client_profile import build_client_snapshot, build_search_keys, get_client_profile
+from src.services.quote_diff import diff_items
 from src.services.quote_dossier import DossierInputs
 from src.services.quote_numbering import allocate_quote_number
-from src.services.quote_state import ai_draft_action
+from src.services.quote_state import QuoteEvent, QuoteStatus, ai_draft_action, transition
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
 REVISIONS_SUBCOLLECTION = "revisions"
+CLIENT_REVISION_REASON = "Nuova richiesta del cliente in chat"
 
 
 class DraftSaveOutcome(StrEnum):
     CREATED = "created"
     UPDATED = "updated"
-    SKIPPED = "skipped"
+    REVISED = "revised"
+    # Nothing written: the team is working on the quote.
+    WITH_THE_TEAM = "with_the_team"
 
 
 @dataclass(frozen=True)
@@ -58,6 +65,20 @@ class DraftSaveResult:
     outcome: DraftSaveOutcome
     status: str
     quote_number: str | None
+    version: int
+    # The client already received a version of this quote (a revision of it).
+    sent_before: bool = False
+
+
+@dataclass(frozen=True)
+class QuoteStatusView:
+    """Where the quote of a chat stands (no items): the agent's context and
+    the quote tool's early exit read it outside any transaction."""
+    status: str
+    delivery_status: str | None
+    quote_number: str | None
+    version: int
+    sent_before: bool
 
 
 def quote_doc_ref(db: Any, project_id: str) -> Any:
@@ -114,10 +135,15 @@ async def apply_ai_draft(
     snap = await ref.get(transaction=transaction)
     current: dict[str, Any] = (snap.to_dict() or {}) if snap.exists else {}
     current_status = current.get("status") if snap.exists else None
-    action = ai_draft_action(current_status)
+    action = ai_draft_action(current_status, current.get("delivery_status"))
+    current_version = int(current.get("version") or 1)
+    sent_before = bool(current.get("sent_at"))
 
-    if action == "skip":
-        return DraftSaveResult(DraftSaveOutcome.SKIPPED, str(current_status), current.get("quote_number"))
+    if action == "relay":
+        return DraftSaveResult(
+            DraftSaveOutcome.WITH_THE_TEAM, str(current_status), current.get("quote_number"), current_version,
+            sent_before,
+        )
 
     media = [m.model_dump(exclude_none=True) for m in dossier.media]
 
@@ -146,10 +172,11 @@ async def apply_ai_draft(
             revision_ref(ref, 1),
             build_revision(1, quote.items, quote.financials, None, "ai", None, when, rooms=quote.rooms),
         )
-        return DraftSaveResult(DraftSaveOutcome.CREATED, "draft", number.formatted)
+        return DraftSaveResult(DraftSaveOutcome.CREATED, "draft", number.formatted, 1)
 
-    # action == "update": refresh the AI content of an unsubmitted draft.
-    version = int(current.get("version") or 1) + 1
+    # "update" refreshes an unsubmitted draft; "revise" opens the next revision
+    # of a sent/rejected quote. Both write the AI content as version n+1.
+    version = current_version + 1
     updates: dict[str, Any] = {
         "items": [item.model_dump(exclude_none=True) for item in quote.items],
         # Replaced, not merged: a quote regenerated without rooms has no sections.
@@ -175,14 +202,51 @@ async def apply_ai_draft(
         updates["client_snapshot"] = snapshot.model_dump(exclude_none=True)
     updates["search_keys"] = build_search_keys(quote_number, snapshot)
 
-    transaction.update(ref, updates)
-    transaction.set(
-        revision_ref(ref, version),
-        build_revision(
-            version, quote.items, quote.financials, current.get("admin_notes"), "ai", None, when, rooms=quote.rooms
-        ),
+    revision = build_revision(
+        version, quote.items, quote.financials, current.get("admin_notes"), "ai", None, when, rooms=quote.rooms
     )
-    return DraftSaveResult(DraftSaveOutcome.UPDATED, "draft", quote_number)
+    if action == "revise":
+        updates.update(_revision_updates(str(current_status)))
+        revision["reason"] = CLIENT_REVISION_REASON
+        revision["diff"] = [
+            c.model_dump(exclude_none=True) for c in diff_items(current.get("items") or [], updates["items"])
+        ]
+
+    transaction.update(ref, updates)
+    transaction.set(revision_ref(ref, version), revision)
+    outcome = DraftSaveOutcome.REVISED if action == "revise" else DraftSaveOutcome.UPDATED
+    return DraftSaveResult(outcome, "draft", quote_number, version, sent_before)
+
+
+def _revision_updates(current_status: str) -> dict[str, Any]:
+    """Back to a draft the client submits again, no longer approved. The sent
+    copy (`sent_at`, PDF, deliveries) is untouched: the client keeps seeing the
+    quote they received until the team sends the new revision."""
+    return {
+        "status": transition(current_status, QuoteEvent.CLIENT_REVISE).value,
+        "admin_decision": DELETE_FIELD,
+        "review.approved_revision": DELETE_FIELD,
+        "review.approved_by": DELETE_FIELD,
+        "review.approved_at": DELETE_FIELD,
+        "client_followup": DELETE_FIELD,
+        "client_revision": True,
+    }
+
+
+async def read_quote_status(db: Any, project_id: str) -> QuoteStatusView | None:
+    """The quote of `project_id`, or None when there is none (or it was deleted)."""
+    snap = await quote_doc_ref(db, project_id).get()
+    data: dict[str, Any] = (snap.to_dict() or {}) if snap.exists else {}
+    status = data.get("status")
+    if not snap.exists or status == QuoteStatus.DELETED:
+        return None
+    return QuoteStatusView(
+        status=str(status),
+        delivery_status=data.get("delivery_status"),
+        quote_number=data.get("quote_number"),
+        version=int(data.get("version") or 1),
+        sent_before=bool(data.get("sent_at")),
+    )
 
 
 async def save_ai_draft(

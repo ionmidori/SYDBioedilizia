@@ -17,7 +17,6 @@ answers like the first request (the outbox entry id derives from it).
 """
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 from dataclasses import dataclass
@@ -31,7 +30,7 @@ from src.core.exceptions import EmptyQuoteError, PermissionDenied, QuoteNotFound
 from src.db.firebase_client import get_async_firestore_client
 from src.db.ownership import real_owners
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
-from src.services.email import get_email_provider, outbox
+from src.services.email import outbox
 from src.services.email_templates import admin_new_requests_email, digest_from_quote
 from src.services.quote_drafts import quote_doc_ref
 from src.services.quote_state import QuoteEvent, QuoteStatus, transition
@@ -118,18 +117,6 @@ async def _submit_tx(
     return SubmissionResult(project_id, new_status.value, number, duplicate=False), out_ref.id
 
 
-_background_tasks: set[asyncio.Task[Any]] = set()
-
-
-async def _dispatch(db: Any, outbox_id: str, now: datetime) -> None:
-    """Safety task first (it recovers the email if this instance stops), then
-    send in the background: the client does not wait for the provider."""
-    await outbox.schedule_dispatch(outbox_id, now + outbox.SAFETY_DELAY, "safety")
-    task = asyncio.create_task(outbox.dispatch_one(db, outbox_id, get_email_provider()))
-    _background_tasks.add(task)  # keep a reference until done (asyncio holds only weak refs)
-    task.add_done_callback(_background_tasks.discard)
-
-
 async def submit_project_quote(
     user_id: str, project_id: str, *, idempotency_key: str | None = None, now: datetime | None = None
 ) -> SubmissionResult:
@@ -146,7 +133,7 @@ async def submit_project_quote(
     if result.duplicate:
         return result
     if queued_id:
-        await _dispatch(db, queued_id, when)
+        await outbox.dispatch_soon(db, queued_id, when)
     emit_audit_event(
         AuditAction.QUOTE_SUBMIT, AuditResourceType.QUOTE, project_id,
         user_id=user_id, metadata={"quote_number": result.quote_number},

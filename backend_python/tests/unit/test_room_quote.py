@@ -102,7 +102,7 @@ def _project(rooms=ROOMS, files=FILES, history=HISTORY, analyses=None, engine=No
     repo.list_rooms = AsyncMock(return_value=rooms)
     repo.list_files = AsyncMock(return_value=files)
     repo.files_for_room = AsyncMock(side_effect=_files_for_room(files))
-    saved = AsyncMock(return_value=DraftSaveResult(DraftSaveOutcome.CREATED, "draft", "PRV-2026-0042"))
+    saved = AsyncMock(return_value=DraftSaveResult(DraftSaveOutcome.CREATED, "draft", "PRV-2026-0042", 1))
     analyze = engine or _engine(analyses or ANALYSES)
     with patch.object(quote_tools, "get_room_repository", return_value=repo), \
          patch.object(quote_tools, "ConversationRepository") as conversations, \

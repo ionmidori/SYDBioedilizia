@@ -50,6 +50,8 @@ class RequestDigest:
     client_is_guest: bool
     grand_total: Decimal
     summary: str
+    # A new revision of a quote the client already received.
+    is_revision: bool = False
 
 
 def one_line(value: Any) -> str:
@@ -76,6 +78,8 @@ def digest_from_quote(quote: dict[str, Any]) -> RequestDigest:
         client_is_guest=bool(snapshot.get("is_guest")),
         grand_total=to_cents((quote.get("financials") or {}).get("grand_total") or 0),
         summary=str((quote.get("request") or {}).get("summary") or ""),
+        # Sent before, or a revision opened from the chat (a rejected quote too).
+        is_revision=bool(quote.get("sent_at") or quote.get("client_revision")),
     )
 
 
@@ -193,8 +197,9 @@ def admin_new_requests_email(*, requests: list[RequestDigest], admin_url: str) -
     first = requests[0]
     if len(requests) == 1:
         number = one_line(first.quote_number)
+        kind = "Nuova revisione" if first.is_revision else "Nuova richiesta"
         subject = (
-            f"Nuova richiesta {number} da {_who(first)} ({format_eur(first.grand_total)})"
+            f"{kind} {number} da {_who(first)} ({format_eur(first.grand_total)})"
             if number
             else f"Nuova richiesta di preventivo da {_who(first)} ({format_eur(first.grand_total)})"
         )
@@ -207,6 +212,8 @@ def admin_new_requests_email(*, requests: list[RequestDigest], admin_url: str) -
     def line(r: RequestDigest) -> str:
         contact = f" <{one_line(r.client_email)}>" if r.client_email else ""
         label = one_line(r.quote_number) or "Preventivo"
+        if r.is_revision:
+            label = f"{label} (nuova revisione)"
         summary = one_line(r.summary)
         summary = f" — {summary[:200]}{'…' if len(summary) > 200 else ''}" if summary else ""
         return f"{label} · {_who(r)}{contact} · {format_eur(r.grand_total)}{summary}"
@@ -226,6 +233,24 @@ def admin_new_requests_email(*, requests: list[RequestDigest], admin_url: str) -
         "<p>Hai nuove richieste di preventivo da revisionare:</p>"
         f'<ul style="padding-left:18px;">{rows}</ul>'
         + _button(admin_url, "Apri la console admin"),
+        preheader=subject,
+    )
+    return EmailContent(subject=subject, text=text, html=html)
+
+
+def admin_client_followup_email(*, digest: RequestDigest, status_label: str, admin_url: str) -> EmailContent:
+    """The client asked for changes in the chat while the team has the quote
+    (in review, or approved and about to be sent): nothing was written."""
+    number = one_line(digest.quote_number) or "senza numero"
+    who = _who(digest)
+    subject = f"[SYD] {number}: {who} chiede modifiche in chat"
+    intro = f"{who} ha chiesto in chat altre modifiche al preventivo {number}."
+    status = f"Stato attuale: {one_line(status_label)}."
+    text = "\n".join(
+        [intro, status, "", "Leggi la chat dalla scheda del preventivo nella console admin:", admin_url]
+    )
+    html = _layout(
+        f"<p>{escape(intro)}</p><p>{escape(status)}</p>" + _button(admin_url, "Apri la console admin"),
         preheader=subject,
     )
     return EmailContent(subject=subject, text=text, html=html)

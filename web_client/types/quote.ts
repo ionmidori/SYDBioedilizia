@@ -141,6 +141,15 @@ export const quoteReviewSchema = z.object({
 });
 export type QuoteReview = z.infer<typeof quoteReviewSchema>;
 
+// A change the client asked in the chat while the team had the quote
+// (backend src/services/quote_followup.py): nothing was written to the items.
+export const clientFollowupSchema = z.object({
+  requested_at: z.string(),
+  count: z.number().min(1),
+  version: z.number().min(1),
+});
+export type ClientFollowup = z.infer<typeof clientFollowupSchema>;
+
 export const quoteRevisionSchema = z.object({
   version: z.number().min(1),
   items: z.array(quoteItemSchema).default([]),
@@ -227,6 +236,9 @@ export const quoteSchema = z.object({
   media: z.array(mediaRefSchema).default([]),
   search_keys: z.array(z.string()).default([]),
   review: quoteReviewSchema.nullable().optional(),
+  client_followup: clientFollowupSchema.nullable().optional(),
+  // The revision in progress was opened by the client in the chat (Phase 139 PR-3).
+  client_revision: z.boolean().nullable().optional(),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
   version: z.number().default(1),
@@ -261,6 +273,42 @@ export const quoteListItemSchema = z.object({
 export type QuoteListItem = z.infer<typeof quoteListItemSchema>;
 
 export const quoteListResponseSchema = z.array(quoteListItemSchema);
+
+// ── History of the house quote (GET /quote/{id}/history, Phase 139 PR-3) ────
+// Golden Sync: backend_python/src/schemas/quote.py → RevisionInProgress,
+// QuoteHistoryItem, QuoteHistoryResponse.
+
+// draft: the client can send it to the team; with_team: the team has it;
+// rejected: the team declined it (a new request in the chat opens another).
+export const revisionInProgressStateSchema = z.enum(['draft', 'with_team', 'rejected']);
+export type RevisionInProgressState = z.infer<typeof revisionInProgressStateSchema>;
+
+/**
+ * The next revision of a quote the client received, opened from the chat. In
+ * `draft` its lines WITHOUT prices (masked to 0); once with the team, no lines.
+ */
+export const revisionInProgressSchema = z.object({
+  state: revisionInProgressStateSchema,
+  items: z.array(quoteItemSchema).default([]),
+  rooms: z.array(quoteRoomSchema).default([]),
+});
+export type RevisionInProgress = z.infer<typeof revisionInProgressSchema>;
+
+/** A revision that reached the client (Rev. N of the PDF and of the email). */
+export const quoteHistoryItemSchema = z.object({
+  revision: z.number().min(1),
+  sent_at: z.string(),
+  grand_total: z.number(),
+  pdf_available: z.boolean().default(false),
+});
+export type QuoteHistoryItem = z.infer<typeof quoteHistoryItemSchema>;
+
+export const quoteHistorySchema = z.object({
+  in_progress: revisionInProgressSchema.nullable().default(null),
+  // Newest first
+  sent: z.array(quoteHistoryItemSchema).default([]),
+});
+export type QuoteHistory = z.infer<typeof quoteHistorySchema>;
 
 export const quotePdfUrlSchema = z.object({
   pdf_url: z.string(),

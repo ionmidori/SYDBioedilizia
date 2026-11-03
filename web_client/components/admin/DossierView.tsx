@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { ArrowLeft, CheckCircle2, Loader2, Lock, Save, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Loader2, Lock, MessageSquare, Save, TriangleAlert } from 'lucide-react';
 
 import { ApproveDialog } from '@/components/admin/dossier/ApproveDialog';
 import { ClientCard, clientDisplayName, RequestCard } from '@/components/admin/dossier/DossierCards';
@@ -38,6 +38,11 @@ import type { QuoteItem, QuoteStatus } from '@/types/quote';
 const REVIEWABLE: ReadonlyArray<QuoteStatus> = ['draft', 'pending_review', 'in_review'];
 /** Mirrors LOCK_LEASE in backend_python/src/services/admin_quotes.py. */
 const LOCK_MINUTES = 30;
+// A sent quote being worked on again: the client still has the earlier version.
+// draft/pending_review: a revision the client opened in the chat (Phase 139 PR-3).
+const SENT_BEFORE_STATUSES: ReadonlySet<QuoteStatus> = new Set(['draft', 'pending_review', 'in_review', 'approved']);
+// Where a change asked in the chat is relayed instead of written (quote_state "relay").
+const FOLLOWUP_STATUSES: ReadonlySet<QuoteStatus> = new Set(['pending_review', 'in_review', 'approved']);
 
 /**
  * Unsaved edits, tied to the version they started from (the ETag).
@@ -178,6 +183,10 @@ export function DossierView({ projectId }: { projectId: string }) {
     .sort((a, b) => (b.sent_at ?? b.created_at ?? '').localeCompare(a.sent_at ?? a.created_at ?? ''))[0];
   const sentAt = quote.sent_at ?? lastSent?.sent_at ?? null;
   const alreadySent = !!sentAt;
+  // Asked on the version on screen, while the team still has it: once the team
+  // changed the quote, or sent it, the request was taken into account.
+  const followup =
+    quote.client_followup?.version === quote.version && FOLLOWUP_STATUSES.has(status) ? quote.client_followup : null;
   const sentTo = lastSent?.to ?? quote.client_snapshot?.email ?? 'il cliente';
   const statusChip = QUOTE_STATUS_CHIP[status];
   const deliveryChip = DELIVERY_STATUS_CHIP[quote.delivery_status];
@@ -318,7 +327,21 @@ export function DossierView({ projectId }: { projectId: string }) {
           <span className="text-luxury-text/50">(il link vale 15 minuti)</span>
         </p>
       )}
-      {alreadySent && (status === 'in_review' || status === 'approved') && (
+      {followup && (
+        <p
+          role="status"
+          data-testid="client-followup-banner"
+          className="flex items-start gap-2 rounded-xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm text-sky-100"
+        >
+          <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 text-sky-300" aria-hidden />
+          <span>
+            Il cliente ha chiesto modifiche in chat il {formatDateTime(followup.requested_at)} (
+            {followup.count === 1 ? '1 richiesta' : `${followup.count} richieste`}): leggi la chat prima di approvare
+            o inviare.
+          </span>
+        </p>
+      )}
+      {alreadySent && SENT_BEFORE_STATUSES.has(status) && (
         <p
           role="status"
           data-testid="sent-before-banner"

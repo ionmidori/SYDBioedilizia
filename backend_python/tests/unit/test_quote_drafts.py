@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 
 import pytest
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteRequest, QuoteSchema
-from src.services.quote_drafts import DraftSaveOutcome, apply_ai_draft
+from src.services.quote_drafts import DraftSaveOutcome, QuoteStatusView, apply_ai_draft, read_quote_status
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
 
 PID = "proj-123"
@@ -73,8 +73,11 @@ async def test_regenerating_a_draft_keeps_number_notes_and_creation_date():
     assert db.get_data("counters", "quote_2026")["next"] == 2  # no second number burnt
 
 
-@pytest.mark.parametrize("status", ["pending_review", "in_review", "approved", "sent", "rejected"])
-async def test_quote_owned_by_the_admin_is_never_written(status):
+@pytest.mark.parametrize(
+    "status,delivery",
+    [("pending_review", None), ("in_review", None), ("approved", None), ("delivered", None), ("sent", "queued")],
+)
+async def test_quote_the_team_is_working_on_is_never_written(status, delivery):
     db = FakeDb()
     original = {
         "status": status,
@@ -82,16 +85,101 @@ async def test_quote_owned_by_the_admin_is_never_written(status):
         "items": [{"sku": "ADMIN-EDIT", "qty": 3}],
         "version": 5,
     }
+    if delivery:
+        original["delivery_status"] = delivery
     db.put(*QUOTE_PATH, original)
     tx = FakeTransaction(db)
 
     result = await apply_ai_draft(tx, db, PID, _ai_quote(), _request(), NOW)
 
-    assert result.outcome is DraftSaveOutcome.SKIPPED
+    assert result.outcome is DraftSaveOutcome.WITH_THE_TEAM
     assert result.status == status
     assert result.quote_number == "PRV-2026-0007"
+    assert result.version == 5
     assert tx.writes == []
     assert db.get_data(*QUOTE_PATH) == original
+
+
+SENT_AT = datetime(2026, 10, 5, 8, 0, tzinfo=UTC)
+
+
+def _seed_sent(db: FakeDb, status: str = "sent") -> dict:
+    sent = {
+        "project_id": PID,
+        "user_id": "uid-1",
+        "doc_type": "quote",
+        "status": status,
+        "quote_number": "PRV-2026-0007",
+        "quote_year": 2026,
+        "quote_seq": 7,
+        "version": 3,
+        "items": [
+            {"sku": "PAV-001", "description": "Pavimento", "unit": "mq", "qty": 20.0, "unit_price": 55.0,
+             "total": 1100.0, "manual_override": True},
+        ],
+        "financials": {"subtotal": 1100.0, "vat_rate": 0.22, "vat_amount": 242.0, "grand_total": 1342.0},
+        "admin_notes": "Sopralluogo fatto",
+        "admin_decision": "approve",
+        "review": {"approved_revision": 3, "approved_by": "admin-1", "approved_at": SENT_AT, "reason": "ok"},
+        "pdf_blob_path": "quotes/PRV-2026-0007_r3.pdf",
+        "pdf_revision": 3,
+        "last_delivery_id": "d1",
+        "delivery_status": "delivered",
+        "sent_at": SENT_AT,
+        "request": {"summary": "Pavimento soggiorno", "address": "Via Roma 1"},
+        "created_at": SENT_AT,
+    }
+    db.put(*QUOTE_PATH, sent)
+    db.put("counters", "quote_2026", {"next": 8})
+    return sent
+
+
+@pytest.mark.parametrize("status", ["sent", "rejected"])
+async def test_a_new_request_opens_the_next_revision_of_the_same_quote(status):
+    db = FakeDb()
+    sent = _seed_sent(db, status)
+    later = datetime(2026, 10, 20, tzinfo=UTC)
+
+    result = await apply_ai_draft(
+        FakeTransaction(db), db, PID, _ai_quote(sku="PAV-002", qty=30.0), _request("Anche il bagno"), later
+    )
+
+    assert result.outcome is DraftSaveOutcome.REVISED
+    assert (result.status, result.quote_number, result.version) == ("draft", "PRV-2026-0007", 4)
+    doc = db.get_data(*QUOTE_PATH)
+    assert doc["status"] == "draft"
+    assert doc["version"] == 4
+    assert [i["sku"] for i in doc["items"]] == ["PAV-002"]
+    assert doc["quote_number"] == "PRV-2026-0007"
+    assert db.get_data("counters", "quote_2026")["next"] == 8  # no new PRV
+    # What the client received stays: the sent copy is served from it.
+    for key in ("sent_at", "pdf_blob_path", "pdf_revision", "last_delivery_id", "delivery_status", "created_at"):
+        assert doc[key] == sent[key]
+    # Not approved any more: the new revision needs the team again.
+    assert "admin_decision" not in doc
+    assert doc["client_revision"] is True  # opened from the chat: the client history shows it
+    assert doc["review"] == {"reason": "ok"}
+    assert doc["admin_notes"] == "Sopralluogo fatto"
+    assert doc["request"]["summary"] == "Anche il bagno"
+    assert doc["request"]["address"] == "Via Roma 1"
+    QuoteSchema(**doc)
+
+    revision = db.get_data(*QUOTE_PATH, "revisions", "4")
+    assert revision["actor_kind"] == "ai"
+    assert revision["reason"] == "Nuova richiesta del cliente in chat"
+    assert {(c["change"], c["sku"]) for c in revision["diff"]} == {("added", "PAV-002"), ("removed", "PAV-001")}
+
+
+async def test_a_draft_of_a_revision_is_updated_in_place():
+    db = FakeDb()
+    _seed_sent(db)
+    await apply_ai_draft(FakeTransaction(db), db, PID, _ai_quote(sku="PAV-002"), _request(), NOW)
+
+    result = await apply_ai_draft(FakeTransaction(db), db, PID, _ai_quote(sku="PAV-003"), _request(), NOW)
+
+    assert result.outcome is DraftSaveOutcome.UPDATED
+    doc = db.get_data(*QUOTE_PATH)
+    assert (doc["version"], doc["sent_at"]) == (5, SENT_AT)
 
 
 async def test_legacy_draft_without_number_gets_one_on_update():
@@ -124,3 +212,30 @@ async def test_numbers_are_sequential_across_projects():
     first = await apply_ai_draft(FakeTransaction(db), db, "p1", _ai_quote(), _request(), NOW)
     second = await apply_ai_draft(FakeTransaction(db), db, "p2", _ai_quote(), _request(), NOW)
     assert (first.quote_number, second.quote_number) == ("PRV-2026-0001", "PRV-2026-0002")
+
+
+async def test_the_result_tells_whether_the_client_already_received_a_quote():
+    db = FakeDb()
+    _seed_sent(db, "sent")
+    revised = await _save(db)
+    assert revised.sent_before
+
+    other = FakeDb()
+    _seed_sent(other, "rejected")
+    other.docs[QUOTE_PATH].pop("sent_at")  # rejected before it was ever sent
+    assert not (await _save(other)).sent_before
+    assert not (await _save(FakeDb())).sent_before
+
+
+async def test_read_quote_status_is_a_plain_read():
+    db = FakeDb()
+    assert await read_quote_status(db, PID) is None
+    _seed_sent(db)
+    db.docs[QUOTE_PATH]["delivery_status"] = "queued"
+
+    current = await read_quote_status(db, PID)
+
+    assert current == QuoteStatusView(status="sent", delivery_status="queued", quote_number="PRV-2026-0007",
+                                      version=3, sent_before=True)
+    db.docs[QUOTE_PATH]["status"] = "deleted"
+    assert await read_quote_status(db, PID) is None

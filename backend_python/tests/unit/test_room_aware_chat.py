@@ -12,16 +12,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from google.api_core.exceptions import RetryError, ServiceUnavailable
+from google.auth.exceptions import DefaultCredentialsError
 from src.adk import adk_orchestrator, tools
 from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
+    HOUSE_QUOTE_STATE_KEY,
     ROOMS_STATE_KEY,
+    house_quote_entry,
     room_index_entry,
     rooms_block,
     session_context_block,
 )
 from src.core.exceptions import ProjectFileNotFoundError, RoomLimitError, RoomNotFoundError
 from src.schemas.room import RoomSchema
+from src.services.quote_drafts import QuoteStatusView
 from src.tools import room_tools
 from src.utils.datetime_utils import utc_now
 from tests.unit.test_adk_orchestrator import _make_text_event
@@ -245,7 +249,7 @@ async def _iter(items):
         yield item
 
 
-async def _run_turn(request, events, room_repo):
+async def _run_turn(request, events, room_repo, *, quote=None, is_guest=False):
     orch = adk_orchestrator.ADKOrchestrator.__new__(adk_orchestrator.ADKOrchestrator)
     orch.runner = MagicMock()
     orch.runner.run_async = MagicMock(return_value=_iter(events))
@@ -253,8 +257,10 @@ async def _run_turn(request, events, room_repo):
     conv_repo.save_message = AsyncMock(return_value=True)
     session_svc = AsyncMock()
     session_svc.get_session = AsyncMock(return_value=MagicMock())
-    user = MagicMock(uid="uid-1", is_guest=False)
-    with patch.object(adk_orchestrator, "get_room_repository", return_value=room_repo), \
+    user = MagicMock(uid="uid-1", is_guest=is_guest)
+    read_quote = quote if isinstance(quote, AsyncMock) else AsyncMock(return_value=quote)
+    with patch.object(adk_orchestrator, "read_quote_status", new=read_quote), \
+         patch.object(adk_orchestrator, "get_room_repository", return_value=room_repo), \
          patch.object(adk_orchestrator, "get_conversation_repository", return_value=conv_repo), \
          patch.object(adk_orchestrator, "get_session_service", return_value=session_svc), \
          patch.object(adk_orchestrator, "get_async_firestore_client"), \
@@ -438,3 +444,38 @@ async def test_turn_without_a_saved_reply_schedules_nothing():
     with patch.object(adk_orchestrator, "schedule_room_brief_refresh", schedule):
         await _run_turn(_request(), [], repo)
     schedule.assert_not_called()
+
+
+SENT_QUOTE = QuoteStatusView(status="sent", delivery_status="delivered", quote_number="PRV-2026-0009", version=3,
+                             sent_before=True)
+
+
+async def test_state_delta_carries_the_house_quote_of_a_registered_user():
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    _, kwargs, _ = await _run_turn(_request(), [], repo, quote=SENT_QUOTE)
+    assert kwargs["state_delta"][HOUSE_QUOTE_STATE_KEY] == house_quote_entry(SENT_QUOTE)
+
+    _, kwargs, _ = await _run_turn(_request(), [], repo, quote=None)
+    assert kwargs["state_delta"][HOUSE_QUOTE_STATE_KEY] == {}  # no quote yet
+
+
+async def test_an_unreadable_quote_clears_the_previous_status():
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    failing = AsyncMock(side_effect=ServiceUnavailable("down"))
+    _, kwargs, _ = await _run_turn(_request(), [], repo, quote=failing)
+    # Explicitly cleared: the previous turn's status would otherwise stay in the session.
+    assert kwargs["state_delta"][HOUSE_QUOTE_STATE_KEY] is None
+
+
+async def test_a_guest_turn_does_not_read_the_quote():
+    repo = _repo(list_rooms=[KITCHEN], find_file_by_storage_path=None)
+    read = AsyncMock(return_value=SENT_QUOTE)
+    _, kwargs, _ = await _run_turn(_request(), [], repo, quote=read, is_guest=True)
+    read.assert_not_awaited()
+    assert HOUSE_QUOTE_STATE_KEY not in kwargs["state_delta"]
+
+
+async def test_a_firestore_client_that_cannot_start_does_not_fail_the_turn(monkeypatch):
+    # No credentials (e.g. CI, a broken secret): the turn goes on without the quote line.
+    monkeypatch.setattr(adk_orchestrator, "get_async_firestore_client", MagicMock(side_effect=DefaultCredentialsError("x")))
+    assert await adk_orchestrator._house_quote(PROJECT) is None

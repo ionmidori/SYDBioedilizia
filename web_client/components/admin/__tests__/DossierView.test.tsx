@@ -222,6 +222,32 @@ describe('DossierView', () => {
     expect(screen.queryByTestId('add-from-price-book')).not.toBeInTheDocument();
   });
 
+  describe('a change the client asked in the chat while the team has the quote', () => {
+    const followup = { requested_at: '2026-10-12T08:30:00Z', count: 2, version: 2 };
+
+    it('tells the admin, with when and how many times', () => {
+      setup(dossier({}, { status: 'in_review', client_followup: followup }));
+      const banner = screen.getByTestId('client-followup-banner');
+      expect(banner).toHaveTextContent('Il cliente ha chiesto modifiche in chat');
+      expect(banner).toHaveTextContent('2 richieste');
+    });
+
+    it('is no longer shown once the quote moved to a newer version', () => {
+      setup(dossier({}, { status: 'in_review', version: 3, client_followup: followup }));
+      expect(screen.queryByTestId('client-followup-banner')).not.toBeInTheDocument();
+    });
+
+    it('is no longer shown once the quote was sent', () => {
+      setup(dossier({}, { status: 'sent', sent_at: '2026-10-13T08:00:00Z', client_followup: followup }));
+      expect(screen.queryByTestId('client-followup-banner')).not.toBeInTheDocument();
+    });
+
+    it('is not shown without a request', () => {
+      setup(dossier({}, { status: 'in_review' }));
+      expect(screen.queryByTestId('client-followup-banner')).not.toBeInTheDocument();
+    });
+  });
+
   describe('revising a quote that was already sent', () => {
     const sent = (overrides: Record<string, unknown> = {}) =>
       dossier(
@@ -291,6 +317,11 @@ describe('DossierView', () => {
       const banner = screen.getByTestId('sent-before-banner');
       expect(banner).toHaveTextContent('già stato inviato a mario@example.it');
       expect(banner).toHaveTextContent('nuova revisione');
+    });
+
+    it.each(['draft', 'pending_review'])('reminds it too for a %s revision the client opened in the chat', (status) => {
+      setup(sent({ status, version: 3 }));
+      expect(screen.getByTestId('sent-before-banner')).toHaveTextContent('già stato inviato a mario@example.it');
     });
 
     it('shows no such reminder on a quote that was never sent', () => {

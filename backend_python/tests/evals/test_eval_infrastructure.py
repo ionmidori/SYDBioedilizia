@@ -261,6 +261,21 @@ class TestMultiRoomQuoteEval:
             "submit_quote_request called 1 times, expected 0"
         )
 
+    async def test_the_revision_and_relay_checks_follow_the_house_quote(self) -> None:
+        """Phase 139 PR-3: a sent quote is revised, a quote with the team is relayed (fakes only)."""
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS, multi_room_backend
+
+        with multi_room_backend("quote_revision.test.json") as run:
+            saved = await run.quotes.save(None, "eval", _eval_quote(), _eval_request())
+            assert await run.quotes.relay(None, "eval") is None
+        assert (saved.outcome.value, saved.quote_number, saved.version) == ("revised", "PRV-EVAL-0001", 4)
+        assert BACKEND_CHECKS["quote_revision.test.json"](run) == ["submit_quote_request called 0 times, expected 1"]
+
+        with multi_room_backend("quote_with_team.test.json") as run:
+            relayed = await run.quotes.relay(None, "eval")
+        assert relayed is not None and relayed.status == "in_review"
+        assert BACKEND_CHECKS["quote_with_team.test.json"](run) == []
+
     def test_every_multi_room_set_has_a_backend_check(self) -> None:
         from tests.evals.multi_room.fakes import BACKEND_CHECKS
 
@@ -404,3 +419,15 @@ class TestLoginAndGeneraleEvals:
         parquet = next(n for n, i in enumerate(items) if i.sku == "PAV-002")
         items[parquet] = items[parquet].model_copy(update={"room_id": "r_bagno"})  # the corridor counted in a room
         assert "corridor line PAV-002 in r_bagno" in run.quotes.general_problems()
+
+
+def _eval_quote():
+    from src.schemas.quote import QuoteSchema
+
+    return QuoteSchema(project_id="eval", user_id="eval-user")
+
+
+def _eval_request():
+    from src.schemas.quote import QuoteRequest
+
+    return QuoteRequest(summary="Porta e termoarredo", channel="chat", session_id="eval")

@@ -21,6 +21,7 @@ from google.adk.agents.run_config import RunConfig, StreamingMode  # pyright: ig
 from google.adk.events import Event, EventActions
 from google.adk.sessions import BaseSessionService, Session
 from google.api_core.exceptions import GoogleAPIError
+from google.auth.exceptions import GoogleAuthError
 from google.genai import errors as genai_errors
 from google.genai import types
 from pydantic import ValidationError
@@ -32,7 +33,9 @@ from src.adk.filters import MASKED_REPLY, StreamingOutputGuard, filter_agent_out
 from src.adk.session import get_artifact_service, get_session_service
 from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
+    HOUSE_QUOTE_STATE_KEY,
     ROOMS_STATE_KEY,
+    house_quote_entry,
     room_index_entry,
     session_context_delta,
 )
@@ -50,6 +53,7 @@ from src.repositories.conversation_repository import get_conversation_repository
 from src.repositories.room_repository import get_room_repository
 from src.schemas.room import RoomSchema
 from src.services.base_orchestrator import BaseOrchestrator
+from src.services.quote_drafts import read_quote_status
 from src.services.room_brief import BriefTurn, schedule_room_brief_refresh
 from src.tools.room_tools import brief_lines, media_label, room_of
 from src.utils.circuit_breaker import vertex_ai_breaker
@@ -328,6 +332,18 @@ async def _project_rooms(session_id: str) -> list[RoomSchema] | None:
         return None
 
 
+async def _house_quote(session_id: str) -> dict[str, Any] | None:
+    """Where the house quote stands, for the session block; None when it cannot
+    be read (the turn goes on without the line). A read error never fails the turn."""
+    try:
+        return house_quote_entry(await read_quote_status(get_async_firestore_client(), session_id))
+    # ValueError: bad service-account credentials or a malformed stored version;
+    # GoogleAuthError: no default credentials. Firestore down: GoogleAPIError.
+    except (GoogleAPIError, GoogleAuthError, ValueError) as e:
+        logger.warning(f"[ADK] Could not read the house quote: {type(e).__name__}")
+        return None
+
+
 async def _media_label_part(ref: str, file_type: str, session_id: str, room_labels: dict[str, str]) -> types.Part:
     """`[Foto <file_id> · <stanza>]` before a media of the turn: the model knows
     which file and which room it is looking at, and passes the id to the room
@@ -518,6 +534,8 @@ class ADKOrchestrator(BaseOrchestrator):
         )
         # Room index (session block and media labels), read alongside the profile lookup.
         rooms_task = asyncio.create_task(_project_rooms(session_id))
+        # The house quote (status, PRV, revision) for a registered user: a guest has none.
+        quote_task = None if is_guest else asyncio.create_task(_house_quote(session_id))
         # Check if phone is already on file (avoids asking again in quote flow)
         phone_on_file = False
         if not is_guest:
@@ -548,6 +566,9 @@ class ADKOrchestrator(BaseOrchestrator):
             ]
         if room_id:
             context_delta[ACTIVE_ROOM_STATE_KEY] = room_id
+        if quote_task is not None:
+            # None when unreadable: written anyway, so last turn's status does not linger.
+            context_delta[HOUSE_QUOTE_STATE_KEY] = await quote_task
 
         # Apply the Sandwich Defense boundary delimiters to the clean input
         delimited_input = f"###\n{sanitized_input}\n###"

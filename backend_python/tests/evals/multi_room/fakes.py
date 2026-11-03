@@ -40,7 +40,9 @@ from src.core.money import sum_amounts
 from src.schemas.quote import QuoteRequest, QuoteSchema
 from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema
 from src.services.pricing_service import PricingService
-from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult
+from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult, QuoteStatusView
+from src.services.quote_followup import FollowupResult
+from src.services.quote_state import ai_draft_action
 from src.services.room_aggregation import load_rules
 from src.tools.quota import QuotaDecision
 from src.utils.datetime_utils import utc_now
@@ -193,6 +195,14 @@ BATH_ONLY_HISTORY: list[dict[str, Any]] = [
     {"role": "assistant", "content": "Ho tutto quello che mi serve. Preparo la richiesta di preventivo?"},
     {"role": "user", "content": "Sì, prepara pure la richiesta di preventivo."},
 ]
+# Phase 139 PR-3: the bathroom quote was sent, then the client asks for more.
+REVISION_HISTORY: list[dict[str, Any]] = [
+    *BATH_ONLY_HISTORY,
+    {"role": "assistant", "content": "Richiesta inviata! ✅ Riceverai il preventivo via email dopo la revisione."},
+    {"role": "user", "content": (
+        "Ho ricevuto il preventivo del bagno, grazie. Vorrei aggiungere anche la sostituzione della porta "
+        "del bagno e un termoarredo nuovo: aggiorna pure il preventivo.")},
+]
 
 
 @dataclass
@@ -208,13 +218,53 @@ class FakeConversations:
 
 @dataclass
 class QuoteRecorder:
-    """Every quote `suggest_quote_items` would have saved (instead of Firestore)."""
+    """Every quote `suggest_quote_items` would have saved (instead of Firestore),
+    answering like `save_ai_draft` for the house quote the set starts with
+    (`current`: None = no quote yet), and every request relayed to the team."""
 
+    current: QuoteStatusView | None = None
     quotes: list[QuoteSchema] = field(default_factory=list)
+    outcomes: list[DraftSaveOutcome] = field(default_factory=list)
+    relayed: int = 0
+
+    def _action(self) -> str:
+        current = self.current
+        return ai_draft_action(current.status, current.delivery_status) if current else "create"
+
+    async def read(self, db: Any, project_id: str) -> QuoteStatusView | None:
+        return self.current
 
     async def save(self, db: Any, project_id: str, quote: QuoteSchema, request: QuoteRequest, **_: Any) -> DraftSaveResult:
-        self.quotes.append(quote)
-        return DraftSaveResult(DraftSaveOutcome.CREATED, "draft", "PRV-EVAL-0001")
+        current, action = self.current, self._action()
+        if current is not None and action == "relay":
+            result = DraftSaveResult(DraftSaveOutcome.WITH_THE_TEAM, current.status, current.quote_number,
+                                     current.version, current.sent_before)
+        elif current is not None and action in ("revise", "update"):
+            self.quotes.append(quote)
+            outcome = DraftSaveOutcome.REVISED if action == "revise" else DraftSaveOutcome.UPDATED
+            result = DraftSaveResult(outcome, "draft", current.quote_number, current.version + 1, current.sent_before)
+        else:
+            self.quotes.append(quote)
+            result = DraftSaveResult(DraftSaveOutcome.CREATED, "draft", "PRV-EVAL-0001", 1)
+        self.outcomes.append(result.outcome)
+        return result
+
+    async def relay(self, db: Any, project_id: str, now: Any = None) -> FollowupResult | None:
+        if self.current is None or self._action() != "relay":
+            return None
+        self.relayed += 1
+        return FollowupResult(self.current.status, self.current.quote_number, notified=True)
+
+    def revision_problems(self) -> list[str]:
+        """Phase 139 PR-3: a new request on a sent quote is its next revision."""
+        if self.outcomes != [DraftSaveOutcome.REVISED]:
+            return [f"quote saves {[o.value for o in self.outcomes]}, expected one revision"]
+        return [f"{self.relayed} requests relayed to the team, expected 0"] if self.relayed else []
+
+    def relay_problems(self) -> list[str]:
+        """Phase 139 PR-3: a change asked while the team has the quote reaches the team, nothing is written."""
+        found = [] if self.relayed == 1 else [f"{self.relayed} requests relayed to the team, expected 1"]
+        return found + ([f"{len(self.quotes)} quotes written, expected 0"] if self.quotes else [])
 
     def problems(self) -> list[str]:
         """Why the last quote is not one quote with a correct section per room."""
@@ -449,6 +499,10 @@ BACKEND_CHECKS: dict[str, Callable[[MultiRoomRun], list[str]]] = {
     # A price question is not a confirmation: the listino range, no login.
     "guest_price.test.json": lambda run: _login_problems(run, login_turn=None),
     "logged_in_quote.test.json": _logged_in_problems,
+    # A sent quote + a new request: the next revision (same PRV), sent after the explicit yes.
+    "quote_revision.test.json": lambda run: run.quotes.revision_problems() + run.submissions.problems(expected=1),
+    # The team has the quote: the change reaches the team, nothing written or sent again.
+    "quote_with_team.test.json": lambda run: run.quotes.relay_problems() + run.submissions.problems(expected=0),
 }
 
 # Sets whose user is a guest (the login gate of the premium tools answers "guest").
@@ -457,6 +511,18 @@ GUEST_SETS = frozenset({"guest_quote.test.json", "guest_render.test.json", "gues
 QUOTE_HISTORIES: dict[str, list[dict[str, Any]]] = {
     "multi_room_general.test.json": GENERAL_HISTORY,
     "logged_in_quote.test.json": BATH_ONLY_HISTORY,
+    "quote_revision.test.json": REVISION_HISTORY,
+    "quote_with_team.test.json": BATH_ONLY_HISTORY,
+}
+# The house quote each set starts with (default: none). Its session state seeds
+# the same status in "PREVENTIVO DELLA CASA" (session_input.state.syd_house_quote).
+INITIAL_QUOTES: dict[str, QuoteStatusView] = {
+    "quote_revision.test.json": QuoteStatusView(
+        status="sent", delivery_status="delivered", quote_number="PRV-EVAL-0001", version=3, sent_before=True
+    ),
+    "quote_with_team.test.json": QuoteStatusView(
+        status="in_review", delivery_status=None, quote_number="PRV-EVAL-0001", version=2, sent_before=False
+    ),
 }
 
 
@@ -466,7 +532,7 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
     backend and the quote store (no Firestore or Storage write), for the eval
     set `set_name` (its user, guest or registered, and its chat history)."""
     repo = FakeRoomRepository()
-    quotes = QuoteRecorder()
+    quotes = QuoteRecorder(current=INITIAL_QUOTES.get(set_name))
     run = MultiRoomRun(renders=RenderRecorder(), quotes=quotes, submissions=SubmitRecorder(quotes))
     RESPONSES.reset()
     TOOL_CALLS.reset()
@@ -490,6 +556,8 @@ def multi_room_backend(set_name: str = "") -> Iterator[MultiRoomRun]:
         # Quote: history and store in memory, seed price book (no Firestore read either).
         stack.enter_context(patch("src.tools.quote_tools.ConversationRepository", return_value=conversations))
         stack.enter_context(patch("src.tools.quote_tools.save_ai_draft", new=run.quotes.save))
+        stack.enter_context(patch("src.tools.quote_tools.read_quote_status", new=run.quotes.read))
+        stack.enter_context(patch("src.tools.quote_tools.relay_client_request", new=run.quotes.relay))
         stack.enter_context(patch("src.tools.quote_tools.gather_dossier_inputs", new=AsyncMock(return_value=None)))
         stack.enter_context(patch("src.tools.quote_tools.get_async_firestore_client", new=MagicMock()))
         stack.enter_context(patch("src.services.pricing_service.PricingService.ensure_fresh", new=AsyncMock()))

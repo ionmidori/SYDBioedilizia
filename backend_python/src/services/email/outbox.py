@@ -43,6 +43,7 @@ from google.cloud.firestore_v1 import FieldFilter, async_transactional
 from src.core.config import settings
 from src.core.exceptions import AppException, QuoteNotFoundError
 from src.core.money import to_cents
+from src.services.email import get_email_provider
 from src.services.email.scheduling import schedule_dispatch
 from src.services.email.types import (
     Attachment,
@@ -425,6 +426,18 @@ async def dispatch_one(db: Any, outbox_id: str, provider: EmailProvider, now: da
     await _record_success(db, entry, result.provider, result.message_id, finished())
     logger.info("[Email/Outbox] Sent.", extra={"outbox_id": outbox_id, "kind": entry.get("kind")})
     return "sent"
+
+
+_background_tasks: set[asyncio.Task[Any]] = set()
+
+
+async def dispatch_soon(db: Any, outbox_id: str, now: datetime) -> None:
+    """Safety task first (it recovers the email if this instance stops), then
+    send in the background: the caller does not wait for the provider."""
+    await schedule_dispatch(outbox_id, now + SAFETY_DELAY, "safety")
+    task = asyncio.create_task(dispatch_one(db, outbox_id, get_email_provider()))
+    _background_tasks.add(task)  # keep a reference until done (asyncio holds only weak refs)
+    task.add_done_callback(_background_tasks.discard)
 
 
 async def sweep(db: Any, provider: EmailProvider, now: datetime | None = None, limit: int = 25) -> dict[str, int]:

@@ -38,9 +38,10 @@ from src.core.exceptions import (
     QuoteVersionConflictError,
 )
 from src.core.money import line_total, to_cents
-from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteRoom, RevisionChange
+from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteRoom
 from src.services.pdf_service import quote_pdf_blob_path
 from src.services.pricing_service import PricingService
+from src.services.quote_diff import diff_items
 from src.services.quote_drafts import build_revision, quote_doc_ref, revision_ref
 from src.services.quote_state import QuoteEvent, QuoteStatus, transition
 from src.services.room_aggregation import assign_sections, with_subtotals
@@ -140,36 +141,6 @@ def normalise_items(new_items: list[QuoteItem], previous: list[dict[str, Any]]) 
         data["manual_override"] = bool(same.get("manual_override")) if same is not None else True
         out.append(QuoteItem(**data))
     return out
-
-
-def _summary(item: dict[str, Any]) -> dict[str, Any]:
-    return {k: item.get(k) for k in ("description", "unit", "qty", "unit_price", "total")}
-
-
-def diff_items(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> list[RevisionChange]:
-    """Line-item diff, matched by room and SKU (positionally among lines with the
-    same room and SKU): the same SKU in two rooms is two different lines, and a
-    line moved to another room is removed from one and added to the other."""
-    changes: list[RevisionChange] = []
-    remaining: dict[tuple[str | None, str], list[dict[str, Any]]] = {}
-    for item in before:
-        remaining.setdefault((item.get("room_id"), str(item.get("sku"))), []).append(item)
-    for item in after:
-        room_id, sku = key = (item.get("room_id"), str(item.get("sku")))
-        pool = remaining.get(key) or []
-        if not pool:
-            changes.append(RevisionChange(change="added", sku=sku, room_id=room_id, after=_summary(item)))
-            continue
-        old = pool.pop(0)
-        if _summary(old) != _summary(item):
-            changes.append(RevisionChange(
-                change="changed", sku=sku, room_id=room_id, before=_summary(old), after=_summary(item)
-            ))
-    for (room_id, sku), pool in remaining.items():
-        changes.extend(
-            RevisionChange(change="removed", sku=sku, room_id=room_id, before=_summary(old)) for old in pool
-        )
-    return changes
 
 
 # ── Transaction bodies ────────────────────────────────────────────────────────
@@ -324,6 +295,8 @@ async def reopen_tx(
         "review.approved_by": DELETE_FIELD,
         "review.approved_at": DELETE_FIELD,
         "review.approved_revision": DELETE_FIELD,
+        # The admin's revision is confidential: no longer the one the client asked for in the chat.
+        "client_revision": DELETE_FIELD,
         **_lock_fields(admin_uid, now),
     }
     if was_sent:

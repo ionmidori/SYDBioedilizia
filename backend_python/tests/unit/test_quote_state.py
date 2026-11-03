@@ -7,6 +7,7 @@ from src.services.quote_state import (
     QuoteStatus,
     ai_draft_action,
     can_transition,
+    status_label_it,
     transition,
 )
 
@@ -34,6 +35,9 @@ EXPECTED = {
     (S.APPROVED, E.SEND): S.SENT,
     (S.SENT, E.RESEND): S.SENT,
     (S.SENT, E.REVISE): S.IN_REVIEW,
+    # Phase 139 PR-3: a new request in the chat opens the next revision as a draft.
+    (S.SENT, E.CLIENT_REVISE): S.DRAFT,
+    (S.REJECTED, E.CLIENT_REVISE): S.DRAFT,
     **{(s, E.DELETE): S.DELETED for s in S if s is not S.DELETED},
 }
 
@@ -78,13 +82,29 @@ def test_sent_quote_cannot_be_approved_again_or_deleted_twice():
         (None, "create"),
         ("deleted", "create"),
         ("draft", "update"),
-        ("pending_review", "skip"),
-        ("in_review", "skip"),
-        ("approved", "skip"),
-        ("sent", "skip"),
-        ("rejected", "skip"),
-        ("delivered", "skip"),  # legacy/unknown → never overwrite
+        ("sent", "revise"),
+        ("rejected", "revise"),
+        ("pending_review", "relay"),
+        ("in_review", "relay"),
+        ("approved", "relay"),  # approved, about to be sent: the team decides
+        ("delivered", "relay"),  # legacy/unknown → never overwrite
     ],
 )
-def test_ai_draft_never_touches_a_quote_the_admin_owns(status, expected):
+def test_ai_draft_never_overwrites_the_work_of_the_team(status, expected):
     assert ai_draft_action(status) == expected
+
+
+def test_a_sent_quote_whose_email_is_still_queued_is_not_revised():
+    # Like the admin's revise: the previous email has not left yet.
+    assert ai_draft_action("sent", delivery_status="queued") == "relay"
+    # A failed send never reached the client either (client_quote_view: not yet out).
+    assert ai_draft_action("sent", delivery_status="failed") == "relay"
+    assert ai_draft_action("sent", delivery_status="delivered") == "revise"
+    assert ai_draft_action("rejected", delivery_status="queued") == "revise"
+
+
+def test_every_status_reads_in_italian():
+    assert {status_label_it(s) for s in S} and all(status_label_it(s) for s in S)
+    assert status_label_it("sent") == "inviato al cliente"
+    assert status_label_it("delivered") == "in lavorazione dal team"  # legacy status
+    assert status_label_it(None) == "in lavorazione dal team"

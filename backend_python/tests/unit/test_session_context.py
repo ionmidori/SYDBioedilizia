@@ -21,12 +21,17 @@ from google.genai import types
 from src.adk.agents import design_agent, quote_agent, syd_orchestrator, triage_agent
 from src.adk.session_context import (
     ACTIVE_ROOM_STATE_KEY,
+    HOUSE_QUOTE_STATE_KEY,
     ROOMS_STATE_KEY,
+    house_quote_entry,
+    house_quote_line,
     room_index_entry,
     session_context_delta,
     session_context_instruction,
 )
 from src.prompts.components.security import SECURITY_GUARDRAILS_TAIL
+from src.services.quote_drafts import QuoteStatusView
+from src.services.quote_state import STATUS_LABEL_IT, status_label_it
 
 AGENTS = [syd_orchestrator, triage_agent, design_agent, quote_agent]
 USER_TEXT = "###\nfammi il render del bagno\n###"
@@ -114,3 +119,36 @@ def test_provider_without_session_context_is_empty():
 def test_static_prompts_have_no_state_placeholder(agent):
     """static_instruction is sent literally: a `{name}` would reach the model as is."""
     assert not re.search(r"\{[A-Za-z_][A-Za-z0-9_:.?]*\}", str(agent.static_instruction))
+
+
+def _with_quote(entry: dict | None) -> SimpleNamespace:
+    state = _state()
+    if entry is not None:
+        state[HOUSE_QUOTE_STATE_KEY] = entry
+    return SimpleNamespace(state=state)
+
+
+def test_the_agent_knows_where_the_house_quote_stands():
+    view = QuoteStatusView(status="sent", delivery_status="delivered", quote_number="PRV-2026-0009", version=3,
+                           sent_before=True)
+    block = session_context_instruction(_with_quote(house_quote_entry(view)))
+    assert "PREVENTIVO DELLA CASA: PRV-2026-0009 · stato: inviato al cliente · rev. 3" in block
+
+
+def test_a_house_without_a_quote_says_so():
+    block = session_context_instruction(_with_quote(house_quote_entry(None)))
+    assert "PREVENTIVO DELLA CASA: nessuno" in block
+
+
+def test_an_unknown_quote_status_is_not_guessed():
+    # Read failed (or a guest): no line rather than a wrong "nessuno".
+    assert "PREVENTIVO DELLA CASA" not in session_context_instruction(_with_quote(None))
+
+
+def test_the_quote_prompt_reads_the_line_the_session_block_writes():
+    marker = house_quote_line({}).split(":")[0]
+    assert marker == "PREVENTIVO DELLA CASA"
+    prompt = str(quote_agent.static_instruction)
+    assert f'"{marker}"' in prompt
+    for status in STATUS_LABEL_IT:
+        assert status_label_it(status) in prompt  # every state the prompt branches on, as the block spells it
