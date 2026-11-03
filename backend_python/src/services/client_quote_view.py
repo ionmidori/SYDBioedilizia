@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from src.schemas.quote import RevisionInProgressState
 from src.services.quote_drafts import quote_doc_ref, revision_ref
 
 # Deliveries that left the provider: the client has (or had) that email.
@@ -107,3 +108,62 @@ async def client_view_source(db: Any, project_id: str, quote: dict[str, Any]) ->
         return quote
     copy = await last_sent_copy(db, project_id)
     return apply_sent_copy(quote, copy) if copy else quote
+
+
+# ── History of the house quote (Phase 139 PR-3) ───────────────────────────────
+
+
+def revision_state(quote: dict[str, Any]) -> RevisionInProgressState | None:
+    """Where the next revision of a quote the client received stands, or None
+    when there is none (never sent, or the sent quote is the live one)."""
+    if not serves_sent_copy(quote) or quote.get("status") == "sent":
+        return None
+    status = quote.get("status")
+    if status == "draft":
+        return "draft"
+    return "rejected" if status == "rejected" else "with_team"
+
+
+@dataclass(frozen=True)
+class SentRevision:
+    revision: int
+    sent_at: Any
+    pdf_blob_path: str | None
+    grand_total: Any
+
+
+async def _reached_deliveries(db: Any, project_id: str) -> dict[int, dict[str, Any]]:
+    """The first delivery that reached the client, per revision."""
+    first: dict[int, dict[str, Any]] = {}
+    async for snap in quote_doc_ref(db, project_id).collection("deliveries").stream():
+        delivery = snap.to_dict() or {}
+        if not delivery.get("sent_at") or delivery.get("status") not in _REACHED_CLIENT:
+            continue
+        if delivery.get("revision") is None:
+            continue
+        revision = int(delivery["revision"])
+        if revision not in first or delivery["sent_at"] < first[revision]["sent_at"]:
+            first[revision] = delivery
+    return first
+
+
+async def sent_revisions(db: Any, project_id: str) -> list[SentRevision]:
+    """Every revision the client received, newest first, with its total."""
+    quote_ref = quote_doc_ref(db, project_id)
+    out: list[SentRevision] = []
+    for revision, delivery in sorted((await _reached_deliveries(db, project_id)).items(), reverse=True):
+        rev_snap = await revision_ref(quote_ref, revision).get()
+        financials = ((rev_snap.to_dict() or {}) if rev_snap.exists else {}).get("financials") or {}
+        out.append(SentRevision(
+            revision=revision,
+            sent_at=delivery["sent_at"],
+            pdf_blob_path=delivery.get("pdf_blob_path"),
+            grand_total=financials.get("grand_total") or 0,
+        ))
+    return out
+
+
+async def sent_pdf_path(db: Any, project_id: str, revision: int) -> str | None:
+    """The PDF emailed for `revision`, only if that revision reached the client."""
+    delivery = (await _reached_deliveries(db, project_id)).get(revision)
+    return delivery.get("pdf_blob_path") if delivery else None

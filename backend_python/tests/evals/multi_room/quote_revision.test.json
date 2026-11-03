@@ -1,0 +1,85 @@
+{
+  "eval_set_id": "syd_quote_revision_v1",
+  "name": "SYD Quote Revision — a new request on a sent quote (Phase 139, PR-3)",
+  "description": "The house quote was sent; the client asks for more work: suggest_quote_items opens the next revision of the same quote (no new PRV), submitted only after the explicit yes.",
+  "eval_cases": [
+    {
+      "eval_id": "sent_quote_new_request",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-quote-revision"
+          },
+          "syd_rooms": [],
+          "syd_house_quote": {
+            "quote_number": "PRV-EVAL-0001",
+            "status": "sent",
+            "version": 3
+          }
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_sent_quote_new_request_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nHo ricevuto il preventivo del bagno, grazie. Vorrei aggiungere anche la sostituzione della porta del bagno e un termoarredo nuovo: aggiorna pure il preventivo.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Ho preparato una nuova revisione del preventivo PRV-EVAL-0001. Vuoi che la invii al team?"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_inv_sent_quote_new_request_001_1"
+              }
+            ]
+          }
+        },
+        {
+          "invocation_id": "inv_sent_quote_new_request_002",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nSì, invia la revisione al team.\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Richiesta inviata!"
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "submit_quote_request",
+                "args": {},
+                "id": "call_inv_sent_quote_new_request_002_1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

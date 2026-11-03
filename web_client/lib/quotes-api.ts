@@ -1,9 +1,11 @@
 import { describeApiError, fetchValidated, fetchWithAuth } from '@/lib/api-client';
 import {
   Quote,
+  QuoteHistory,
   QuoteListItem,
   QuotePdfUrl,
   QuoteSubmitResponse,
+  quoteHistorySchema,
   quoteListResponseSchema,
   quotePdfUrlSchema,
   quoteSchema,
@@ -16,14 +18,25 @@ export const quotesApi = {
   /**
    * The quote of the house (the user's chat, Phase 139), as the client may see
    * it: prices are hidden until the admin approves it. `null` while there is no
-   * quote yet (404 — FastAPI's body carries no status, so the response's is read).
+   * quote yet (200 null; the 404 of a backend deployed before Phase 139 PR-3 too).
    */
   getQuote: async (projectId: string): Promise<Quote | null> => {
     const response = await fetchWithAuth(`${API_ROOT}/quote/${encodeURIComponent(projectId)}`);
     if (response.status === 404) return null;
     const body: unknown = await response.json().catch(() => undefined);
     if (!response.ok) throw new Error(describeApiError(body));
-    return quoteSchema.parse(body);
+    return quoteSchema.nullable().parse(body);
+  },
+
+  /**
+   * The house quote over time: the next revision while it is prepared (by room,
+   * no prices) and every revision emailed to the client, newest first.
+   */
+  getQuoteHistory: async (projectId: string): Promise<QuoteHistory> => {
+    return fetchValidated(
+      `${API_ROOT}/quote/${encodeURIComponent(projectId)}/history`,
+      quoteHistorySchema
+    );
   },
 
   /**
@@ -39,11 +52,13 @@ export const quotesApi = {
 
   /**
    * Gets a fresh short-lived signed URL (15 min) for the approved quote PDF.
-   * The backend returns 404 until the admin has approved the quote.
+   * The backend returns 404 until the admin has approved the quote. With
+   * `revision`: the PDF of an older revision the client received (history).
    */
-  getQuotePdfUrl: async (projectId: string): Promise<QuotePdfUrl> => {
+  getQuotePdfUrl: async (projectId: string, revision?: number): Promise<QuotePdfUrl> => {
+    const query = revision === undefined ? '' : `?revision=${revision}`;
     return fetchValidated(
-      `${API_ROOT}/quote/${encodeURIComponent(projectId)}/pdf`,
+      `${API_ROOT}/quote/${encodeURIComponent(projectId)}/pdf${query}`,
       quotePdfUrlSchema
     );
   },

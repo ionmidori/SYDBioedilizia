@@ -5,6 +5,7 @@ import re
 from src.core.company import COMPANY
 from src.services.email_templates import (
     RequestDigest,
+    admin_client_followup_email,
     admin_new_requests_email,
     attachment_filename,
     client_quote_email,
@@ -132,3 +133,25 @@ def test_digest_from_a_stored_quote():
         "PRV-2026-0042", "Mario Rossi", 99.5, "Pittura")
     legacy = digest_from_quote({"user_id": UID})
     assert legacy.quote_number is None and legacy.client_name is None and legacy.grand_total == 0.0
+
+
+def test_admin_email_marks_a_new_revision_of_a_sent_quote():
+    sent_before = digest_from_quote({"quote_number": "PRV-2026-0042", "sent_at": "2026-10-05T08:00:00Z"})
+    assert sent_before.is_revision
+    mail = admin_new_requests_email(requests=[_digest(is_revision=True)], admin_url="https://a/")
+    assert mail.subject == "[SYD] Nuova revisione PRV-2026-0042 da Mario Rossi (€ 816,91)"
+    assert "PRV-2026-0042 (nuova revisione) · Mario Rossi" in mail.text
+    assert not digest_from_quote({"quote_number": "PRV-2026-0042"}).is_revision
+
+
+def test_admin_email_for_a_change_asked_in_the_chat():
+    mail = admin_client_followup_email(digest=_digest(), status_label="in revisione dal team", admin_url="https://a/")
+    assert mail.subject == "[SYD] PRV-2026-0042: Mario Rossi chiede modifiche in chat"
+    assert "Mario Rossi ha chiesto in chat altre modifiche al preventivo PRV-2026-0042" in mail.text
+    assert "Stato attuale: in revisione dal team." in mail.text
+    assert mail.text.splitlines()[-1] == "https://a/"
+    assert re.findall(r'href="([^"]+)"', mail.html) == ["https://a/"]
+    hostile = admin_client_followup_email(
+        digest=_digest(client_name="<i>x</i>\nBcc: e@x.it"), status_label="approvato", admin_url="https://a/"
+    )
+    assert "\n" not in hostile.subject and "<i>x</i>" not in hostile.html

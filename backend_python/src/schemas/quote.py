@@ -133,6 +133,15 @@ class QuoteReview(BaseModel):
     reason: str | None = Field(default=None, description="Last reject/reopen reason")
 
 
+class ClientFollowup(BaseModel):
+    """A change the client asked in the chat while the team had the quote
+    (src/services/quote_followup.py): nothing was written to the items."""
+    model_config = {"extra": "forbid"}
+    requested_at: datetime
+    count: int = Field(..., ge=1, description="Requests on this version")
+    version: int = Field(..., ge=1, description="Quote version the requests were made on")
+
+
 class QuoteRevision(BaseModel):
     """Immutable snapshot at projects/{pid}/private_data/quote/revisions/{version}."""
     model_config = {"extra": "forbid"}
@@ -205,6 +214,7 @@ class QuoteSchema(BaseModel):
     # Lower-cased tokens (number, name, email) for the admin inbox search.
     search_keys: list[str] = Field(default_factory=list)
     review: QuoteReview | None = None
+    client_followup: ClientFollowup | None = None
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
     # Optimistic-concurrency token: bumped on every content change.
@@ -223,3 +233,36 @@ class QuoteSchema(BaseModel):
     deleted_at: datetime | None = None
 
     model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+
+# ── Client history of the house quote (GET /api/quote/{id}/history) ──────────
+
+RevisionInProgressState = Literal["draft", "with_team", "rejected"]
+
+
+class RevisionInProgress(BaseModel):
+    """The next revision of a quote the client already received, before it is
+    sent: what the client asked for, by room, WITHOUT prices (masked to 0).
+    Golden Sync: web_client/types/quote.ts → RevisionInProgress."""
+    model_config = {"extra": "forbid"}
+    # draft: the client can send it to the team; with_team: the team has it;
+    # rejected: the team declined it (a new request in the chat opens another).
+    state: RevisionInProgressState
+    items: list[QuoteItem] = Field(default_factory=list)
+    rooms: list[QuoteRoom] = Field(default_factory=list)
+
+
+class QuoteHistoryItem(BaseModel):
+    """A revision that reached the client. Golden Sync: types/quote.ts → QuoteHistoryItem."""
+    model_config = {"extra": "forbid"}
+    revision: int = Field(..., ge=1, description="Version of the quote that was emailed (Rev. N)")
+    sent_at: datetime = Field(..., description="First time this revision left the provider")
+    grand_total: Money
+    pdf_available: bool = False
+
+
+class QuoteHistoryResponse(BaseModel):
+    """Golden Sync: web_client/types/quote.ts → QuoteHistory."""
+    model_config = {"extra": "forbid"}
+    in_progress: RevisionInProgress | None = None
+    sent: list[QuoteHistoryItem] = Field(default_factory=list, description="Newest first")

@@ -1,0 +1,57 @@
+{
+  "eval_set_id": "syd_quote_with_team_v1",
+  "name": "SYD Quote With The Team — a change is relayed (Phase 139, PR-3)",
+  "description": "The team is reviewing the house quote; the client asks for a change: suggest_quote_items relays it to the team, nothing is written or sent again.",
+  "eval_cases": [
+    {
+      "eval_id": "in_review_quote_change",
+      "session_input": {
+        "app_name": "syd_orchestrator",
+        "user_id": "eval-user",
+        "state": {
+          "syd_session_context": {
+            "is_guest": false,
+            "phone_on_file": true,
+            "session_id": "eval-quote-with-team"
+          },
+          "syd_rooms": [],
+          "syd_house_quote": {
+            "quote_number": "PRV-EVAL-0001",
+            "status": "in_review",
+            "version": 2
+          }
+        }
+      },
+      "conversation": [
+        {
+          "invocation_id": "inv_in_review_quote_change_001",
+          "user_content": {
+            "parts": [
+              {
+                "text": "###\nHo dimenticato di dirvi che vorrei anche un termoarredo nuovo nel bagno. Potete aggiungerlo al preventivo?\n###"
+              }
+            ],
+            "role": "user"
+          },
+          "final_response": {
+            "parts": [
+              {
+                "text": "Ho segnalato al team la tua richiesta."
+              }
+            ],
+            "role": "model"
+          },
+          "intermediate_data": {
+            "tool_uses": [
+              {
+                "name": "suggest_quote_items",
+                "args": {},
+                "id": "call_inv_in_review_quote_change_001_1"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

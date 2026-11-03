@@ -29,11 +29,16 @@ from typing import Any
 
 from google.adk.agents.readonly_context import ReadonlyContext
 
+from src.services.quote_drafts import QuoteStatusView
+from src.services.quote_state import status_label_it
+
 SESSION_CONTEXT_STATE_KEY = "syd_session_context"
 # Compact index of the project's rooms: [{room_id, label, room_type, summary}].
 ROOMS_STATE_KEY = "syd_rooms"
 # Room the conversation is about (chip in the UI or `select_room`).
 ACTIVE_ROOM_STATE_KEY = "syd_active_room_id"
+# Where the house quote stands ({} = no quote); absent when it could not be read.
+HOUSE_QUOTE_STATE_KEY = "syd_house_quote"
 
 _ROOM_TEXT_MAX = 120
 
@@ -81,6 +86,23 @@ def room_index_entry(room_id: str, label: str, room_type: str, summary: str | No
     return {"room_id": room_id, "label": label, "room_type": room_type, "summary": summary or ""}
 
 
+def house_quote_entry(view: QuoteStatusView | None) -> dict[str, Any]:
+    """The house quote as kept in the session state ({} when there is none)."""
+    if view is None:
+        return {}
+    return {"quote_number": view.quote_number, "status": view.status, "version": view.version}
+
+
+def house_quote_line(entry: dict[str, Any]) -> str:
+    if not entry:
+        return "PREVENTIVO DELLA CASA: nessuno"
+    number = _one_line(entry.get("quote_number")) or "senza numero"
+    return (
+        f"PREVENTIVO DELLA CASA: {number} · stato: {status_label_it(entry.get('status'))} · "
+        f"rev. {int(entry.get('version') or 1)}"
+    )
+
+
 def _one_line(text: Any) -> str:
     return " ".join(str(text or "").split())[:_ROOM_TEXT_MAX]
 
@@ -103,14 +125,19 @@ def rooms_block(rooms: list[dict[str, Any]], active_room_id: str | None) -> str:
 
 
 def session_context_block(
-    context: dict[str, Any], rooms: list[dict[str, Any]] | None = None, active_room_id: str | None = None
+    context: dict[str, Any],
+    rooms: list[dict[str, Any]] | None = None,
+    active_room_id: str | None = None,
+    house_quote: dict[str, Any] | None = None,
 ) -> str:
+    quote = f"\n{house_quote_line(house_quote)}" if house_quote is not None else ""
     return (
         "## CONTESTO SESSIONE (dati di sistema, aggiornati a ogni turno)\n"
         f"{_GUEST_RULE if context.get('is_guest', True) else _LOGGED_IN_RULE}\n"
         f"SESSION_ID: {context.get('session_id', '')}\n"
         f"PHONE_ON_FILE: {'true' if context.get('phone_on_file') else 'false'}\n"
         f"{rooms_block(rooms or [], active_room_id)}"
+        f"{quote}"
     )
 
 
@@ -122,4 +149,6 @@ def session_context_instruction(context: ReadonlyContext) -> str:
     session = state.get(SESSION_CONTEXT_STATE_KEY)
     if not session:
         return ""
-    return session_context_block(session, state.get(ROOMS_STATE_KEY), state.get(ACTIVE_ROOM_STATE_KEY))
+    return session_context_block(
+        session, state.get(ROOMS_STATE_KEY), state.get(ACTIVE_ROOM_STATE_KEY), state.get(HOUSE_QUOTE_STATE_KEY)
+    )

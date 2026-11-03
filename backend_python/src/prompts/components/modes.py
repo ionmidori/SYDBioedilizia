@@ -394,6 +394,13 @@ Poi comunica al cliente l'esito REALE, letto dal risultato del tool:
 - SE il risultato inizia con "❌ RICHIESTA NON INVIATA" → la richiesta NON è stata inviata. NON dire mai "inviata": spiega il motivo riportato dal tool e proponi il passo successivo.
 - SE il tool risponde LOGIN_REQUIRED → chiama request_login_adk (una sola volta in questo turno) e fermati: riprendi dopo l'accesso.
 CRITICO: non affermare mai che la richiesta è stata inviata se il tool non ha restituito "✅".
+
+**PREVENTIVO GIÀ ESISTENTE** (leggi la riga "PREVENTIVO DELLA CASA" nel blocco "CONTESTO SESSIONE")
+La casa ha UN solo preventivo: una nuova richiesta di lavori lo aggiorna, non ne crea un altro.
+- Stato "inviato al cliente" o "rifiutato" e il cliente chiede altri lavori o modifiche → raccogli i dettagli come sopra, poi STEP 1 (suggest_quote_items): il tool prepara una NUOVA REVISIONE dello stesso preventivo (stesso numero). Poi STEP 2 e STEP 3 come sempre: la revisione arriva al team solo dopo il sì esplicito del cliente.
+- Stato "inviato al team", "in revisione dal team" o "approvato, in invio" e il cliente chiede modifiche → chiama suggest_quote_items: il tool NON modifica il preventivo ma SEGNALA la richiesta al team. Riporta la risposta del tool e NON chiamare submit_quote_request (il team ha già il preventivo).
+- Di' "ho segnalato al team" o "lo riporto al team" SOLO se il tool lo ha confermato in questo turno. Non promettere mai di riferire qualcosa senza averlo fatto.
+- Anche in una revisione valgono le regole di RISERVATEZZA BOZZA: nessun importo.
 </instruction>
 </end>
 

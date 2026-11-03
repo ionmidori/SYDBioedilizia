@@ -63,11 +63,12 @@ def _reset_genai_client_cache():
 
 @pytest.fixture(autouse=True)
 def _orchestrator_without_rooms():
-    """A chat turn (and a quote) reads the project's rooms and looks up its media
-    in Firestore: tests that drive the orchestrator or `suggest_quote_items` get a
-    project without rooms or registered files (room tests patch
-    `get_room_repository` themselves). Patched only in the modules already
-    loaded, like `_reset_adk_session_sync`."""
+    """A chat turn (and a quote) reads the project's rooms, looks up its media and
+    reads the house quote in Firestore: tests that drive the orchestrator or
+    `suggest_quote_items` get a project without rooms, registered files or quote
+    (room and quote tests patch `get_room_repository` / `read_quote_status`
+    themselves). Patched only in the modules already loaded, like
+    `_reset_adk_session_sync`."""
     modules = [sys.modules.get(name) for name in ("src.adk.adk_orchestrator", "src.tools.quote_tools")]
     repo = MagicMock()
     repo.list_rooms = AsyncMock(return_value=[])
@@ -77,6 +78,7 @@ def _orchestrator_without_rooms():
         for module in modules:
             if module is not None:
                 stack.enter_context(patch.object(module, "get_room_repository", return_value=repo))
+                stack.enter_context(patch.object(module, "read_quote_status", new=AsyncMock(return_value=None)))
         yield
 
 

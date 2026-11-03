@@ -28,14 +28,14 @@ const STATUS_UI: Record<string, { label: string; className: string; Icon: typeof
     rejected: { label: 'Non approvato', className: 'text-red-400 bg-red-400/10 border-red-400/20', Icon: XCircle },
 };
 
-function formatDate(iso: string): string {
+export function formatDate(iso: string): string {
     if (!iso) return '';
     const date = new Date(iso);
     if (isNaN(date.getTime())) return '';
     return date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatEuro(value: number): string {
+export function formatEuro(value: number): string {
     return value.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' });
 }
 

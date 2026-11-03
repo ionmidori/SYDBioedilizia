@@ -1,5 +1,10 @@
 import { fetchValidated, fetchWithAuth } from '@/lib/api-client';
-import { quoteListResponseSchema, quotePdfUrlSchema, quoteSubmitResponseSchema } from '@/types/quote';
+import {
+    quoteHistorySchema,
+    quoteListResponseSchema,
+    quotePdfUrlSchema,
+    quoteSubmitResponseSchema,
+} from '@/types/quote';
 import { quotesApi } from '../quotes-api';
 
 jest.mock('@/lib/api-client', () => ({
@@ -30,7 +35,13 @@ describe('quotesApi.getQuote (the quote of the house)', () => {
         expect(mockFetchWithAuth.mock.calls[0][0]).toMatch(/\/quote\/chat-1$/);
     });
 
-    it('is null while the house has no quote (404)', async () => {
+    it('is null while the house has no quote (200 null)', async () => {
+        mockFetchWithAuth.mockResolvedValue(res(200, null));
+
+        await expect(quotesApi.getQuote('chat-1')).resolves.toBeNull();
+    });
+
+    it('is null on the 404 of a backend not yet updated', async () => {
         mockFetchWithAuth.mockResolvedValue(res(404, { detail: "No quote found for project 'chat-1'." }));
 
         await expect(quotesApi.getQuote('chat-1')).resolves.toBeNull();
@@ -71,6 +82,12 @@ describe('quotesApi.getQuotePdfUrl', () => {
         );
     });
 
+    it('asks for a revision the client received', async () => {
+        mockFetchValidated.mockResolvedValue({ pdf_url: 'https://signed/r2.pdf' });
+        await quotesApi.getQuotePdfUrl('proj-1', 2);
+        expect(mockFetchValidated.mock.calls[0][0]).toMatch(/\/quote\/proj-1\/pdf\?revision=2$/);
+    });
+
     it('propagates the 404 thrown before admin approval', async () => {
         mockFetchValidated.mockRejectedValue({ status: 404 });
         await expect(quotesApi.getQuotePdfUrl('proj-1')).rejects.toEqual({ status: 404 });
@@ -86,6 +103,17 @@ describe('quotesApi.submitQuote', () => {
             expect.stringContaining('/quote/p%2F1/submit'),
             quoteSubmitResponseSchema,
             { method: 'POST', headers: { 'Idempotency-Key': 'key-0001' } }
+        );
+    });
+});
+
+describe('quotesApi.getQuoteHistory', () => {
+    it('reads the revision in progress and the revisions received', async () => {
+        mockFetchValidated.mockResolvedValue({ in_progress: null, sent: [] });
+        await expect(quotesApi.getQuoteHistory('chat/1')).resolves.toEqual({ in_progress: null, sent: [] });
+        expect(mockFetchValidated).toHaveBeenCalledWith(
+            expect.stringMatching(/\/quote\/chat%2F1\/history$/),
+            quoteHistorySchema
         );
     });
 });

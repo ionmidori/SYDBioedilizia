@@ -6,7 +6,10 @@ import { HouseQuotePanel } from '../HouseQuotePanel';
 import { quotesApi } from '@/lib/quotes-api';
 
 jest.mock('@/lib/quotes-api', () => ({
-    quotesApi: { getQuote: jest.fn(), submitQuote: jest.fn(), listUserQuotes: jest.fn(), getQuotePdfUrl: jest.fn() },
+    quotesApi: {
+        getQuote: jest.fn(), getQuoteHistory: jest.fn(), submitQuote: jest.fn(), listUserQuotes: jest.fn(),
+        getQuotePdfUrl: jest.fn(),
+    },
 }));
 jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: { uid: 'u1' }, isAnonymous: false }) }));
 const replace = jest.fn();
@@ -20,6 +23,8 @@ jest.mock('@/components/ui/responsive-drawer', () => ({
 const getQuote = quotesApi.getQuote as jest.Mock;
 const submitQuote = quotesApi.submitQuote as jest.Mock;
 const listUserQuotes = quotesApi.listUserQuotes as jest.Mock;
+const getQuoteHistory = quotesApi.getQuoteHistory as jest.Mock;
+const getQuotePdfUrl = quotesApi.getQuotePdfUrl as jest.Mock;
 
 const item = (description: string, room_id: string) => ({
     sku: 'X', description, unit: 'mq', qty: 6, unit_price: 0, total: 0, room_id,
@@ -45,6 +50,7 @@ function renderPanel() {
 beforeEach(() => {
     jest.clearAllMocks();
     listUserQuotes.mockResolvedValue([]);
+    getQuoteHistory.mockResolvedValue({ in_progress: null, sent: [] });
 });
 
 describe('HouseQuotePanel — the quote of the house', () => {
@@ -151,5 +157,86 @@ describe('HouseQuotePanel — the quote of the house', () => {
         fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Invia al team' }));
 
         await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('non ha ancora lavorazioni'));
+    });
+});
+
+
+describe('HouseQuotePanel — a quote the client received, and its next revision', () => {
+    // GET /quote/{id} serves the copy the client received while the next revision is prepared.
+    const RECEIVED = { ...DRAFT, status: 'sent', sent_at: '2026-10-12T09:00:00Z' };
+    const LISTED = {
+        project_id: 'chat-1', project_name: '', quote_number: 'PRV-2026-0007', status: 'sent',
+        grand_total: 2440, item_count: 3, updated_at: '2026-10-12T09:00:00Z', pdf_available: true,
+    };
+    const SENT = [
+        { revision: 3, sent_at: '2026-10-12T09:00:00Z', grand_total: 2440, pdf_available: true },
+        { revision: 2, sent_at: '2026-10-05T09:00:00Z', grand_total: 1464, pdf_available: true },
+    ];
+    const progress = (state: string) => ({
+        state,
+        items: [item('Porta nuova', 'bagno'), item('Termoarredo', 'bagno')],
+        rooms: [{ room_id: 'bagno', room_label: 'Bagno', room_type: 'bagno', room_subtotal: 0 }],
+    });
+
+    beforeEach(() => {
+        getQuote.mockResolvedValue(RECEIVED);
+        listUserQuotes.mockResolvedValue([LISTED]);
+    });
+
+    it('keeps the quote received in front and shows the new revision without prices, to send to the team', async () => {
+        getQuoteHistory.mockResolvedValue({ in_progress: progress('draft'), sent: SENT });
+        renderPanel();
+
+        const revision = await screen.findByRole('region', { name: 'Nuova revisione' });
+        expect(revision).toHaveTextContent('Porta nuova');
+        expect(revision).toHaveTextContent('Termoarredo');
+        expect(revision).not.toHaveTextContent('€');
+        expect(within(revision).getByRole('button', { name: 'Invia al team' })).toBeInTheDocument();
+        expect(screen.getByTestId('quote-card')).toHaveAttribute('data-quote-status', 'sent');
+        expect(screen.getByText(/resta valido/)).toBeInTheDocument();
+    });
+
+    it('says when the new revision is with the team, with nothing to press', async () => {
+        getQuoteHistory.mockResolvedValue({ in_progress: progress('with_team'), sent: SENT });
+        renderPanel();
+
+        const revision = await screen.findByRole('region', { name: 'Nuova revisione' });
+        expect(revision).toHaveTextContent('Inviata al team, in revisione');
+        expect(screen.queryByRole('button', { name: 'Invia al team' })).not.toBeInTheDocument();
+    });
+
+    it('says when the team declined the new revision', async () => {
+        getQuoteHistory.mockResolvedValue({ in_progress: progress('rejected'), sent: SENT });
+        renderPanel();
+
+        const revision = await screen.findByRole('region', { name: 'Nuova revisione' });
+        expect(revision).toHaveTextContent(/non ha accolto/);
+        expect(screen.queryByRole('button', { name: 'Invia al team' })).not.toBeInTheDocument();
+    });
+
+    it('lists the older revisions received, with their PDF', async () => {
+        getQuoteHistory.mockResolvedValue({ in_progress: null, sent: SENT });
+        getQuotePdfUrl.mockResolvedValue({ pdf_url: 'https://signed/r2.pdf' });
+        const open = jest.spyOn(window, 'open').mockImplementation(() => null);
+        renderPanel();
+
+        const older = await screen.findByRole('region', { name: 'Revisioni precedenti' });
+        const rows = within(older).getAllByRole('listitem');
+        expect(rows).toHaveLength(1); // rev. 3 is the card above
+        expect(rows[0]).toHaveTextContent('Rev. 2');
+        expect(rows[0]).toHaveTextContent('05 ott 2026');
+        fireEvent.click(within(rows[0]).getByRole('button', { name: 'Scarica il PDF della revisione 2' }));
+
+        await waitFor(() => expect(getQuotePdfUrl).toHaveBeenCalledWith('chat-1', 2));
+        expect(open).toHaveBeenCalledWith('https://signed/r2.pdf', '_blank', 'noopener,noreferrer');
+        open.mockRestore();
+    });
+
+    it('shows the quote even when its history cannot be read', async () => {
+        getQuoteHistory.mockRejectedValue(new Error('down'));
+        renderPanel();
+
+        expect(await screen.findByTestId('quote-card')).toBeInTheDocument();
+        expect(screen.queryByRole('region', { name: 'Revisioni precedenti' })).not.toBeInTheDocument();
     });
 });

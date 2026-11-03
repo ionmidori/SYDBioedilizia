@@ -18,7 +18,9 @@ from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services.insight_engine import InsightAnalysis, InsightEngineError, SKUItemSuggestion, get_insight_engine
 from src.services.pricing_service import PricingService
 from src.services.quote_dossier import gather_dossier_inputs
-from src.services.quote_drafts import DraftSaveOutcome, save_ai_draft
+from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_ai_draft
+from src.services.quote_followup import FollowupResult, relay_client_request
+from src.services.quote_state import QuoteStatus, ai_draft_action
 from src.services.room_aggregation import aggregate_rooms, load_rules, room_sections
 from src.tools.room_tools import brief_lines, room_of
 from src.utils.datetime_utils import utc_now
@@ -702,6 +704,23 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
     )
 
 
+def _relayed_reply(relayed: FollowupResult) -> str:
+    """The request reached the team (quote_followup): nothing was written."""
+    reference = f" (riferimento **{relayed.quote_number}**)" if relayed.quote_number else ""
+    if relayed.status in (QuoteStatus.APPROVED, QuoteStatus.SENT):
+        return (
+            f"Il preventivo{reference} è stato approvato dal nostro team ed è in partenza: "
+            "ho segnalato al team la tua nuova richiesta. Quando lo avrai ricevuto potrai "
+            "chiedermi le modifiche e preparerò una nuova revisione."
+        )
+    return (
+        f"La tua richiesta di preventivo{reference} è già in mano al nostro team tecnico, "
+        "quindi non la modifico da qui: ho segnalato al team che vuoi aggiungere o cambiare "
+        "qualcosa, e terrà conto della tua richiesta prima di inviarti il preventivo. "
+        "Non serve inviarla di nuovo."
+    )
+
+
 async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = None, user_id: str | None = None) -> str:
     """
     Analyzes the current chat session and suggests a list of quote items based on the Master Price Book.
@@ -716,6 +735,16 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
     """
     target_project_id = project_id or session_id
     try:
+        db = get_async_firestore_client()
+        # The team has the quote: the request is relayed, not drafted, so the
+        # costly analysis (photos + InsightEngine) is skipped altogether.
+        current = await read_quote_status(db, target_project_id)
+        if current is not None and ai_draft_action(current.status, current.delivery_status) == "relay":
+            relayed = await relay_client_request(db, target_project_id)
+            if relayed is not None:
+                return _relayed_reply(relayed)
+            # The status changed meanwhile: draft as usual (the save re-checks it).
+
         # 1. Load context (wide window: the original photo analysis and every room discussed)
         repo = ConversationRepository()
         history = await repo.get_context(session_id, limit=_QUOTE_HISTORY_MESSAGES)
@@ -806,9 +835,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
             )
 
         # 9. Save the draft to Firestore (projects/{projectId}/private_data/quote)
-        # in a transaction: never overwrite a quote the admin already owns, and
-        # assign the human-readable PRV number on creation.
-        db = get_async_firestore_client()
+        # in a transaction: never overwrite a quote the team is working on, open
+        # the next revision of a sent one, assign the PRV number on creation.
         # Dossier for the admin (client, site details, photos/renders):
         # gathered outside the transaction, best-effort, never blocks the draft.
         now = utc_now()
@@ -823,13 +851,10 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         )
         reference = f" (riferimento **{saved.quote_number}**)" if saved.quote_number else ""
 
-        if saved.outcome is DraftSaveOutcome.SKIPPED:
-            return (
-                f"La tua richiesta di preventivo{reference} è già in mano al nostro team "
-                "tecnico, quindi non la modifico da qui. Se vuoi aggiungere o cambiare "
-                "qualcosa scrivimelo pure: lo riporto al team, che aggiornerà il preventivo "
-                "prima di inviartelo via email."
-            )
+        if saved.outcome is DraftSaveOutcome.WITH_THE_TEAM:
+            # The team took the quote during the analysis.
+            relayed = await relay_client_request(db, target_project_id)
+            return _relayed_reply(relayed or FollowupResult(saved.status, saved.quote_number, notified=False))
 
         # 10. Return a NEUTRAL Italian summary — the draft (items + prices) is
         # deliberately NOT shown to the client: the admin reviews and adjusts
@@ -837,6 +862,19 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # by email after approval. Only the works summary is disclosed.
         room_labels = ", ".join(room.room_label for room in quote.rooms)
         sections = f" in {len(quote.rooms)} sezioni ({room_labels})" if len(quote.rooms) > 1 else ""
+        if saved.outcome is DraftSaveOutcome.REVISED:
+            still_valid = (
+                " Il preventivo che hai già ricevuto resta valido finché il team non ti invia quello aggiornato."
+                if saved.sent_before
+                else ""
+            )
+            return (
+                f"{headline}\n\n"
+                f"Ho preparato una nuova revisione del preventivo{reference}: ho identificato "
+                f"{len(quote.items)} lavorazioni{sections} da sottoporre al nostro team tecnico.{still_valid}\n\n"
+                "Il team esaminerà le modifiche e riceverai il preventivo aggiornato via email.\n\n"
+                "Vuoi che invii ora la revisione al team?"
+            )
         response = (
             f"{headline}\n\n"
             f"Ho registrato la tua richiesta di preventivo{reference}: ho identificato "

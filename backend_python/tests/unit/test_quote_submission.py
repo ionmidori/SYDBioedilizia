@@ -53,7 +53,7 @@ def db(monkeypatch):
 @pytest.fixture
 def dispatch(monkeypatch):
     mock = AsyncMock()
-    monkeypatch.setattr(quote_submission, "_dispatch", mock)
+    monkeypatch.setattr(outbox, "dispatch_soon", mock)
     return mock
 
 
@@ -172,8 +172,8 @@ async def test_dispatch_schedules_the_safety_task_then_sends(monkeypatch):
     schedule, send = AsyncMock(return_value=True), AsyncMock()
     monkeypatch.setattr(outbox, "schedule_dispatch", schedule)
     monkeypatch.setattr(outbox, "dispatch_one", send)
-    await quote_submission._dispatch(object(), "submit_x", NOW)
-    await asyncio.gather(*quote_submission._background_tasks)
+    await outbox.dispatch_soon(object(), "submit_x", NOW)
+    await asyncio.gather(*outbox._background_tasks)
     schedule.assert_awaited_once_with("submit_x", NOW + outbox.SAFETY_DELAY, "safety")
     send.assert_awaited_once()
 

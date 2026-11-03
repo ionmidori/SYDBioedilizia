@@ -25,3 +25,17 @@ export function useRefreshHouseQuote() {
     const queryClient = useQueryClient();
     return useCallback(() => queryClient.invalidateQueries({ queryKey: HOUSE_QUOTE_QUERY_KEY }), [queryClient]);
 }
+
+/**
+ * The house quote over time (revision in progress, revisions received), under
+ * the same prefix: the refresh after a chat turn reads it again too.
+ */
+export function useQuoteHistory(chatId: string | null, enabled = true) {
+    return useQuery({
+        queryKey: [...HOUSE_QUOTE_QUERY_KEY, chatId, 'history'],
+        queryFn: () => quotesApi.getQuoteHistory(chatId!),
+        enabled: enabled && chatId !== null,
+        staleTime: 30 * 1000,
+        refetchOnWindowFocus: true,
+    });
+}

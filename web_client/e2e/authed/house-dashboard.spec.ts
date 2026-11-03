@@ -127,6 +127,53 @@ test.describe('the house', () => {
     await expect(quote.getByTestId('submit-quote-button')).toHaveCount(0);
   });
 
+  test('on a desktop: the next revision of a quote received goes to the team, the quote received stays', async ({ page, uid }) => {
+    // Phase 139 PR-3: the client asked for more work in the chat after the quote was sent.
+    const { submits } = await stubHouseBackend(page, uid);
+    let revisionState = 'draft';
+    const received = { ...draftQuote(uid, 'sent'), sent_at: '2026-10-12T09:00:00Z' };
+    await page.route(`**/api/py/quote/${USER_CHAT_ID}`, jsonRoute(received));
+    await page.route('**/api/py/quote/user/**', jsonRoute([{
+      project_id: USER_CHAT_ID, project_name: '', quote_number: 'PRV-2026-0007', status: 'sent',
+      grand_total: 2440, item_count: 2, updated_at: '2026-10-12T09:00:00Z', pdf_available: true,
+    }]));
+    await page.route(`**/api/py/quote/${USER_CHAT_ID}/history`, (route: Route) => jsonRoute({
+      in_progress: {
+        state: revisionState,
+        items: [item('Porta nuova', 'bagno')],
+        rooms: [{ room_id: 'bagno', room_label: 'Bagno', room_type: 'bagno', room_subtotal: 0 }],
+      },
+      sent: [
+        { revision: 3, sent_at: '2026-10-12T09:00:00Z', grand_total: 2440, pdf_available: true },
+        { revision: 2, sent_at: '2026-10-05T09:00:00Z', grand_total: 1464, pdf_available: true },
+      ],
+    })(route));
+    await page.route(`**/api/py/quote/${USER_CHAT_ID}/submit`, (route: Route) => {
+      submits.push(route.request().headers()['idempotency-key'] ?? '');
+      revisionState = 'with_team';
+      return jsonRoute({ project_id: USER_CHAT_ID, status: 'pending_review', quote_number: 'PRV-2026-0007', duplicate: false })(route);
+    });
+    await page.goto('/dashboard?view=quote', { waitUntil: 'load' });
+
+    const quote = page.getByRole('tabpanel', { name: 'Preventivo' });
+    const revision = quote.getByRole('region', { name: 'Nuova revisione' });
+    await expect(revision).toContainText('Porta nuova');
+    await expect(revision).not.toContainText('€');
+    await expect(quote.getByTestId('quote-card')).toHaveAttribute('data-quote-status', 'sent');
+    await expect(quote.getByRole('region', { name: 'Revisioni precedenti' })).toContainText('Rev. 2');
+
+    await revision.getByTestId('submit-quote-button').click();
+    const dialog = page.getByRole('dialog', { name: 'Invia al team' });
+    await dialog.getByRole('button', { name: 'Invia al team' }).click();
+    await expect(dialog.getByRole('status')).toContainText('Richiesta inviata');
+    await page.keyboard.press('Escape');
+
+    expect(submits).toHaveLength(1);
+    await expect(revision).toContainText('Inviata al team, in revisione');
+    await expect(quote.getByTestId('submit-quote-button')).toHaveCount(0);
+    await expect(quote.getByTestId('quote-card')).toHaveAttribute('data-quote-status', 'sent');
+  });
+
   test('on a phone: the four tabs of the house, one at a time', async ({ page, uid }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     // The first visit on a phone shows the tour of the house: seen already.
