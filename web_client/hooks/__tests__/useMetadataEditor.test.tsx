@@ -57,6 +57,63 @@ describe('useMetadataEditor', () => {
         errorSpy.mockRestore();
     });
 
+    it('surfaces the message of an AppException error body', async () => {
+        fetchMock.mockResolvedValue({
+            ok: false,
+            status: 403,
+            json: () =>
+                Promise.resolve({
+                    error_code: 'PERMISSION_DENIED',
+                    message: "You don't have permission to edit this file",
+                    detail: {},
+                }),
+        });
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        const { result } = renderHook(() => useMetadataEditor());
+        await expect(result.current.updateMetadata(request)).resolves.toBe(false);
+
+        await waitFor(() =>
+            expect(result.current.error).toBe("You don't have permission to edit this file")
+        );
+        errorSpy.mockRestore();
+    });
+
+    it('surfaces the message of a validation error (422, main.py handler shape)', async () => {
+        fetchMock.mockResolvedValue({
+            ok: false,
+            status: 422,
+            json: () =>
+                Promise.resolve({
+                    error_code: 'VALIDATION_ERROR',
+                    message: 'Request validation failed.',
+                    detail: { errors: [{ loc: ['body', 'room'], msg: 'Input should be ...' }] },
+                }),
+        });
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        const { result } = renderHook(() => useMetadataEditor());
+        await expect(result.current.updateMetadata(request)).resolves.toBe(false);
+
+        await waitFor(() => expect(result.current.error).toBe('Request validation failed.'));
+        errorSpy.mockRestore();
+    });
+
+    it('falls back to the HTTP status when no message is a string', async () => {
+        fetchMock.mockResolvedValue({
+            ok: false,
+            status: 502,
+            json: () => Promise.resolve({ detail: { reason: 'upstream' } }),
+        });
+        const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        const { result } = renderHook(() => useMetadataEditor());
+        await expect(result.current.updateMetadata(request)).resolves.toBe(false);
+
+        await waitFor(() => expect(result.current.error).toBe('HTTP 502'));
+        errorSpy.mockRestore();
+    });
+
     it('falls back to the HTTP status when the error body is not JSON', async () => {
         fetchMock.mockResolvedValue({
             ok: false,

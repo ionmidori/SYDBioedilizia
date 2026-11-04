@@ -106,6 +106,9 @@ def show_project_gallery(
                     "id": doc["id"] if doc else None,
                     "url": url,
                     "name": blob.name.split("/")[-1],
+                    # Storage path for the metadata editor: only here, where
+                    # the room/status shown come from the blob metadata it edits.
+                    "path": blob.name,
                     "metadata": metadata,
                     "type": content_type,
                     "room": view.room_label(doc),
