@@ -99,7 +99,7 @@ def test_update_metadata_uses_bucket_directly(metadata_client):
     fake_bucket.blob.return_value = fake_blob
 
     with patch(
-        "src.api.routes.update_metadata.get_firestore_client", return_value=fake_db
+        "src.tools.project_storage.firestore.client", return_value=fake_db
     ), patch(
         "src.api.routes.update_metadata.get_storage_client", return_value=fake_bucket
     ):
@@ -107,14 +107,14 @@ def test_update_metadata_uses_bucket_directly(metadata_client):
             "/update-file-metadata",
             json={
                 "project_id": "proj123",
-                "file_path": "renders/img.png",
-                "room": "Cucina",
+                "file_path": "renders/proj123/img.png",
+                "room": "cucina",
             },
         )
 
     # Before the fix, storage.bucket() raised AttributeError -> 500.
     assert resp.status_code == 200, resp.text
-    fake_bucket.blob.assert_called_once_with("renders/img.png")
+    fake_bucket.blob.assert_called_once_with("renders/proj123/img.png")
 
 
 
@@ -130,7 +130,7 @@ def test_update_metadata_is_reachable_through_the_frontend_proxy(monkeypatch):
     monkeypatch.setattr(main, "validate_app_check_token", _app_check_ok)
     resp = TestClient(main.app, raise_server_exceptions=False).post(
         "/api/update-file-metadata",
-        json={"project_id": "p", "file_path": "renders/a.png", "room": "Cucina"},
+        json={"project_id": "p", "file_path": "renders/p/a.png", "room": "cucina"},
     )
     # Route exists and is guarded: no credentials -> 401, never 404.
     assert resp.status_code == 401, resp.text

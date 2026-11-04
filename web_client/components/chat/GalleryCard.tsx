@@ -8,6 +8,8 @@ import { ROOM_TYPES } from '@/types/room';
 interface GalleryImage {
     url: string;
     name: string;
+    /** Storage object path: required to edit the metadata (older cards lack it). */
+    path?: string;
     metadata?: Record<string, unknown>;
     type: string;
 }
@@ -21,14 +23,19 @@ interface GalleryCardProps {
  * GalleryCard - Visual Grid for Project Images
  * Displays images in a responsive grid with lightbox functionality.
  */
-const STATUS_OPTIONS = ['approvato', 'bozza', 'in_revisione', 'scartato'];
+// Same values as GalleryStatus in backend_python/src/api/routes/update_metadata.py.
+const STATUS_OPTIONS = ['approvato', 'bozza', 'in_revisione', 'scartato'] as const;
+
+type MetadataEdit = { room?: string; status?: string };
 
 export function GalleryCard({ items, projectId }: GalleryCardProps) {
     const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [editRoom, setEditRoom] = useState<string>('');
     const [editStatus, setEditStatus] = useState<string>('');
-    const { updateMetadata, isUpdating } = useMetadataEditor();
+    const { updateMetadata, isUpdating, error: updateError } = useMetadataEditor();
+    // Saved edits, by storage path: the card shows them without a refetch.
+    const [savedEdits, setSavedEdits] = useState<Record<string, MetadataEdit>>({});
 
     if (!items || items.length === 0) {
         return (
@@ -39,6 +46,10 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
     }
 
     const selectedImage = selectedIndex !== null ? items[selectedIndex] : null;
+    const metaOf = (item: GalleryImage) => ({
+        ...item.metadata,
+        ...(item.path ? savedEdits[item.path] : undefined),
+    });
 
     return (
         <>
@@ -67,24 +78,27 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
                             <div className="text-white text-xs font-medium truncate">
-                                {(item.metadata?.room as string) || item.name}
+                                {(metaOf(item).room as string) || item.name}
                             </div>
                         </div>
 
                         {/* Action Icons */}
                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {/* Edit Button */}
+                            {/* Edit Button: only with the Storage path */}
+                            {item.path && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingIndex(idx);
-                                    setEditRoom((item.metadata?.room as string) || '');
-                                    setEditStatus((item.metadata?.status as string) || '');
+                                    setEditRoom((metaOf(item).room as string) || '');
+                                    setEditStatus((metaOf(item).status as string) || '');
                                 }}
                                 className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-1.5 transition-colors"
+                                aria-label="Modifica stanza e stato"
                             >
                                 <Edit2 className="w-4 h-4 text-white" />
                             </button>
+                            )}
                             {/* Zoom Icon */}
                             <div className="bg-white/20 backdrop-blur-sm rounded-full p-1.5">
                                 <ZoomIn className="w-4 h-4 text-white" />
@@ -143,23 +157,34 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                                 </select>
                             </div>
 
+                            {updateError && (
+                                <p role="alert" className="mb-4 text-sm text-red-400">
+                                    Salvataggio non riuscito: {updateError}
+                                </p>
+                            )}
+
                             {/* Action Buttons */}
                             <div className="flex gap-3">
                                 <button
                                     onClick={async () => {
-                                        const item = items[editingIndex];
-                                        const success = await updateMetadata({
-                                            projectId,
-                                            filePath: item.name, // Assumes 'name' is the storage path
-                                            room: editRoom || undefined,
-                                            status: editStatus || undefined,
-                                        });
+                                        const filePath = items[editingIndex]?.path;
+                                        if (!filePath) return;
+                                        // Only the chosen fields: an empty select leaves the value as is.
+                                        const edit: MetadataEdit = {
+                                            ...(editRoom ? { room: editRoom } : {}),
+                                            ...(editStatus ? { status: editStatus } : {}),
+                                        };
+                                        const success = await updateMetadata({ projectId, filePath, ...edit });
                                         if (success) {
-                                            // Real app should refetch/revalidate the query here
+                                            setSavedEdits((prev) => ({
+                                                ...prev,
+                                                [filePath]: { ...prev[filePath], ...edit },
+                                            }));
                                             setEditingIndex(null);
                                         }
                                     }}
-                                    disabled={isUpdating}
+                                    // The backend needs at least one field to update.
+                                    disabled={isUpdating || (!editRoom && !editStatus)}
                                     className="flex-1 bg-luxury-gold hover:bg-luxury-gold/80 text-black font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     <Check className="w-4 h-4" />

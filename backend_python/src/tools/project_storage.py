@@ -23,15 +23,26 @@ class ProjectAccessError(Exception):
     """The project does not exist or is not owned by the caller."""
 
 
+class ProjectNotFoundError(ProjectAccessError):
+    """The project document does not exist."""
+
+
+def project_owner(session_id: str) -> str | None:
+    """Owner uid of the project (None when no owner field is set).
+
+    Raises ProjectNotFoundError when the project does not exist.
+    """
+    snap = firestore.client().collection("projects").document(session_id).get()
+    if not snap.exists:
+        raise ProjectNotFoundError("Project not found")
+    data = snap.to_dict() or {}
+    return next((data[f] for f in _OWNER_FIELDS if data.get(f)), None)
+
+
 def assert_project_owner(session_id: str, user_id: str) -> None:
     if not user_id:
         raise ProjectAccessError("User not authenticated")
-    snap = firestore.client().collection("projects").document(session_id).get()
-    if not snap.exists:
-        raise ProjectAccessError("Project not found")
-    data = snap.to_dict() or {}
-    owner = next((data[f] for f in _OWNER_FIELDS if data.get(f)), None)
-    if owner != user_id:
+    if project_owner(session_id) != user_id:
         # No ids in the log: a session id is an access token (CodeQL py/clear-text-logging).
         logger.warning("[Tool] Project access denied (caller is not the owner)")
         raise ProjectAccessError("Access Denied")

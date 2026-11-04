@@ -43,8 +43,11 @@ export function useMetadataEditor() {
             });
 
             if (!response.ok) {
+                // The backend error envelope (AppException and 422) carries `message`.
                 const errorData = await response.json().catch(() => ({ detail: 'Failed to update metadata' }));
-                throw new Error(errorData.detail || `HTTP ${response.status}`);
+                const message = typeof errorData?.message === 'string' ? errorData.message : null;
+                const detail = typeof errorData?.detail === 'string' ? errorData.detail : null;
+                throw new Error(message ?? detail ?? `HTTP ${response.status}`);
             }
 
             const data: UpdateMetadataResponse = await response.json();

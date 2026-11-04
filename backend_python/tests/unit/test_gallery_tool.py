@@ -70,6 +70,8 @@ def test_gallery_success_basic(mock_context_user, mock_firebase):
     # Validate items
     item1 = data["items"][0]
     assert "kitchen_1.jpg" in item1["name"]
+    # The editor needs the full object path (the name is only a label).
+    assert item1["path"] == f"projects/{MOCK_SESSION_ID}/kitchen_1.jpg"
     assert item1["metadata"]["room"] == "cucina"
     assert "signed" in item1["url"]
 
@@ -298,6 +300,8 @@ def test_gallery_of_one_room_lists_only_its_photos_and_renders(mock_context_user
     )
     data = json.loads(show_project_gallery(MOCK_SESSION_ID, MOCK_USER_ID, view=view))
     assert [i["id"] for i in data["items"]] == ["f1", "r1"]
+    # No editor here: the room view reads Firestore, the editor patches Storage.
+    assert all("path" not in i for i in data["items"])
     assert data["items"][0]["url"] == "https://signed/u/a.jpg" and data["items"][0]["room"] == "Bagno"
     mock_bucket.return_value.list_blobs.assert_not_called()
     assert signed.call_count == 2
