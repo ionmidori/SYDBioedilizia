@@ -191,6 +191,16 @@ async def test_unused_sku_unit_can_change(db):
     assert result.changed == 1
 
 
+async def test_a_live_book_already_out_of_sync_can_still_be_saved(db):
+    """A SKU missing before this save is not blamed on it: the admin can keep editing."""
+    without = [i for i in price_book.seed_items() if i["sku"] != "SMAL-001"]
+    db.put(*PATH, {"items": without, "version": 3})
+    free = next(i["sku"] for i in without if i["sku"] not in price_book.assembly_skus())
+    edited = [{**i, "unit_price": i["unit_price"] + 1} if i["sku"] == free else i for i in without]
+    result = await price_book.save(db, _models(edited), 3, "admin-a", NOW)
+    assert (result.version, result.changed) == (4, 1)
+
+
 async def test_a_dependency_rule_sku_cannot_be_removed(db, monkeypatch):
     library = AssemblyLibrary.model_validate({
         "version": "t", "description": "t", "assemblies": [],
