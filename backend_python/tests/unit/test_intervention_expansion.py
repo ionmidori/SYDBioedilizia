@@ -7,10 +7,10 @@ from decimal import Decimal
 
 import pytest
 from pydantic import ValidationError
-from src.schemas.assembly_library import FORMULA_VARIABLES, AssemblyLibrary
+from src.schemas.assembly_library import FORMULA_VARIABLES, AssemblyLibrary, ElementAction
 from src.schemas.room import RoomBrief
 from src.services import assembly_library, price_book
-from src.services.insight_engine import InsightAnalysis, PackageChoice, SpecMeasure
+from src.services.insight_engine import ElementChoice, InsightAnalysis, PackageChoice, SKUItemSuggestion, SpecMeasure
 from src.services.intervention_expansion import (
     MEASURE_QUESTIONS,
     Expansion,
@@ -35,12 +35,33 @@ def units() -> dict[str, str]:
     return {str(i["sku"]): str(i["unit"]) for i in price_book.seed_items()}
 
 
-def _analysis(*packages: tuple[str, list[str]], measures: list[SpecMeasure] | None = None) -> InsightAnalysis:
+def _analysis(
+    *packages: tuple[str, list[str]],
+    measures: list[SpecMeasure] | None = None,
+    elements: dict[str, ElementAction] | None = None,
+    extras: list[tuple[str, float]] | None = None,
+    unmapped: list[str] | None = None,
+) -> InsightAnalysis:
     return InsightAnalysis(
         summary="s",
         packages=[PackageChoice(assembly_id=a, conditions=c) for a, c in packages],
         measures=measures or [],
+        element_choices=[ElementChoice(element=e, action=a) for e, a in (elements or {}).items()],
+        suggestions=[SKUItemSuggestion(sku=s, qty=q, ai_reasoning=f"extra {s}") for s, q in (extras or [])],
+        unmapped_work_requests=unmapped or [],
     )
+
+
+def _kinds(expansion: Expansion) -> list[str]:
+    return [w.kind for w in expansion.warnings]
+
+
+def _manual(expansion: Expansion) -> list[tuple[str, str]]:
+    return [(m.work, m.origin) for m in expansion.manual_work]
+
+
+_BATH = ("ASM-BAGNO-FULL", [])
+_REUSE_SANITARI = "Smontaggio con cura e rimontaggio dei sanitari esistenti"
 
 
 def _qty(expansion: Expansion) -> dict[str, Decimal]:
@@ -216,3 +237,130 @@ def test_default_warning_only_when_the_default_line_is_there(library: AssemblyLi
     assert "INF-FIN-001" not in _qty(result)
     assert "choice_defaulted" not in [w.kind for w in result.warnings]
     assert result.missing_measures == ["n_finestre"]
+
+
+# ── Elements, extras, dependency rules, live price book (Task 3) ─────────────
+
+
+def test_reuse_sanitari_keeps_removal_and_drops_supply(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(_BATH, elements={"sanitari": "reuse"}), mq="6")
+    assert "DEM-006" in _qty(result)
+    assert "BAG-SAN-001" not in _qty(result)
+    assert (_REUSE_SANITARI, "reuse") in _manual(result)
+    assert "element_kept_but_demolished" not in _kinds(result)
+
+
+def test_keep_sanitari_while_demolishing_becomes_reuse_with_warning(
+    library: AssemblyLibrary, units: dict[str, str]
+) -> None:
+    result = _run(library, units, _analysis(_BATH, elements={"sanitari": "keep"}), mq="6")
+    assert "DEM-006" in _qty(result), "they must come off before floor and walls are demolished"
+    assert "BAG-SAN-001" not in _qty(result)
+    assert (_REUSE_SANITARI, "reuse") in _manual(result)
+    warning = next(w for w in result.warnings if w.kind == "element_kept_but_demolished")
+    assert "Sanitari" in warning.message and "DEM-002" in warning.message
+
+
+def test_keep_sanitari_in_light_bathroom_drops_both(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(("ASM-BAGNO-LIGHT", []), elements={"sanitari": "keep"}))
+    assert set(_qty(result)) == {"IMP-ID-001"}
+    assert result.warnings == []
+    assert _REUSE_SANITARI not in [work for work, _ in _manual(result)]
+
+
+def test_keep_floor_drops_floor_lines(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    choices: dict[str, ElementAction] = {"pavimento": "keep", "rivestimento_pareti": "keep", "sanitari": "keep"}
+    result = _run(library, units, _analysis(_BATH, elements=choices), mq="6")
+    gone = {"DEM-002", "PAV-004", "PAV-001", "DEM-003", "MUR-004", "BAG-RIV-001", "DEM-006", "BAG-SAN-001"}
+    assert not gone & set(_qty(result))
+    assert "element_kept_but_demolished" not in _kinds(result)
+
+
+def test_kept_rubinetteria_drops_its_supply_work(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    choices: dict[str, ElementAction] = {"rubinetteria": "keep", "rivestimento_pareti": "keep"}
+    result = _run(library, units, _analysis(_BATH, elements=choices), mq="6")
+    assert "Rubinetteria (fornitura)" not in [work for work, _ in _manual(result)]
+    assert "element_kept_but_demolished" not in _kinds(result)
+
+
+def test_reuse_without_reuse_work_is_keep_with_warning(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(_BATH, elements={"pavimento": "reuse"}), mq="6")
+    assert not {"DEM-002", "PAV-004", "PAV-001"} & set(_qty(result))
+    assert "reuse_not_possible" in _kinds(result)
+
+
+def test_choice_for_an_element_of_no_chosen_package_changes_nothing(
+    library: AssemblyLibrary, units: dict[str, str]
+) -> None:
+    plain = _run(library, units, _analysis(("ASM-PAVIMENTO", [])), mq="20")
+    chosen = _run(library, units, _analysis(("ASM-PAVIMENTO", []), elements={"sanitari": "keep"}), mq="20")
+    assert _qty(chosen) == _qty(plain)
+
+
+def test_extra_line_is_added_with_the_model_quantity(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(extras=[("PIT-001", 30.456)]))
+    line = result.lines[0]
+    assert (line.sku, line.qty, line.origin, line.reasoning) == ("PIT-001", Decimal("30.46"), "extra", "extra PIT-001")
+
+
+def test_extra_duplicate_of_a_package_line_is_dropped(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(_BATH, extras=[("PAV-001", 40), ("PIT-001", 20)]), mq="6")
+    pav = [line for line in result.lines if line.sku == "PAV-001"]
+    assert [(line.qty, line.origin) for line in pav] == [(Decimal("6.3"), "package")]
+    assert _qty(result)["PIT-001"] == Decimal("20")
+
+
+def test_extra_out_of_bounds_or_unknown_is_dropped(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(extras=[("PIT-001", 9999), ("NON-ESISTE-1", 2)]))
+    assert [line.sku for line in result.lines] == ["PIT-001"]
+    for huge in (10001, 1e60):
+        over = _run(library, units, _analysis(extras=[("PIT-001", huge)]))
+        assert over.lines == []
+        assert _kinds(over) == ["qty_out_of_bounds"]
+
+
+def test_rule_adds_disposal_for_an_extra_floor_removal(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(extras=[("DEM-002", 20)]), mq="20")
+    smal = next(line for line in result.lines if line.sku == "SMAL-001")
+    assert (smal.qty, smal.origin) == (Decimal("1.14"), "rule")
+
+
+def test_rule_disposal_without_the_measure_asks_for_it(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(extras=[("DEM-002", 20)]))
+    assert "SMAL-001" not in _qty(result)
+    assert result.missing_measures == ["mq"]
+
+
+def test_rule_excludes_screed_with_underfloor_heating(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    analysis = _analysis(_BATH, ("ASM-RISCALDAMENTO", ["if_pavimento_radiante"]))
+    result = _run(library, units, analysis, mq="6")
+    assert "PAV-004" not in _qty(result)
+    assert "TERM-PAV-001" in _qty(result)
+
+
+def test_load_bearing_wall_flags_admin(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(("ASM-ABBATTIMENTO-PARETI", ["if_portante"])), mq_parete="8")
+    assert _qty(result)["MUR-003"] == Decimal("1")
+    assert _kinds(result) == ["admin_check"]
+    assert _run(library, units, _analysis(("ASM-ABBATTIMENTO-PARETI", [])), mq_parete="8").warnings == []
+
+
+def test_live_price_book_missing_or_unit_changed_becomes_manual_work(
+    library: AssemblyLibrary, units: dict[str, str]
+) -> None:
+    live = {**units, "MUR-004": "cad"}
+    del live["SMAL-001"]
+    result = _run(library, live, _analysis(_BATH), mq="6")
+    assert not {"MUR-004", "SMAL-001"} & set(_qty(result))
+    assert "BAG-RIV-001" in _qty(result)
+    mismatches = [w for w in result.warnings if w.kind == "price_book_mismatch"]
+    assert sorted(w.skus for w in mismatches) == [("MUR-004",), ("SMAL-001",)]
+    manual = [work for work, origin in _manual(result) if origin == "price_book"]
+    assert len(manual) == 2
+    assert any("MUR-004" in work for work in manual) and any("SMAL-001" in work for work in manual)
+
+
+def test_unmapped_requests_become_manual_work(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    requests = ["Vespaio aerato sotto il pavimento", "  ", "Vespaio aerato sotto il pavimento"]
+    result = _run(library, units, _analysis(unmapped=requests))
+    assert _manual(result) == [("Vespaio aerato sotto il pavimento", "client_request")]

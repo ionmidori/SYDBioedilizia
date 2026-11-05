@@ -18,9 +18,18 @@ from typing import Literal
 
 from src.core.logger import get_logger
 from src.core.money import round_half_up, to_decimal
-from src.schemas.assembly_library import Assembly, AssemblyLibrary, AssemblySku, formula_variables, validate_formula
+from src.schemas.assembly_library import (
+    Assembly,
+    AssemblyElement,
+    AssemblyLibrary,
+    AssemblySku,
+    ElementAction,
+    formula_variables,
+    validate_formula,
+)
 from src.schemas.room import RoomBrief
-from src.services.insight_engine import InsightAnalysis, PackageChoice
+from src.services.assembly_library import referenced_skus
+from src.services.insight_engine import InsightAnalysis, PackageChoice, SKUItemSuggestion
 
 logger = get_logger(__name__)
 
@@ -73,6 +82,8 @@ class ExpandedLine:
     reasoning: str
     origin: LineOrigin
     assembly_id: str | None = None
+    # Short name of the work (library note or rule), used when the line has to be quoted by hand.
+    note: str = ""
 
 
 @dataclass(frozen=True)
@@ -257,6 +268,7 @@ def _expand_package(
             reasoning=f"{assembly.name}: {item.note} ({_measures_text(item.qty_formula, measures)})",
             origin="package",
             assembly_id=assembly.id,
+            note=item.note,
         ))
     for manual in assembly.manual_items:
         draft.add_manual(manual.work, "package")
@@ -270,19 +282,189 @@ def _merged_choices(packages: Sequence[PackageChoice]) -> dict[str, set[str]]:
     return merged
 
 
+# ── Elements: replace (default), reuse, keep in place ─────────────────────────
+
+
+@dataclass(frozen=True)
+class _ElementDecision:
+    assembly_id: str
+    element: AssemblyElement
+    action: ElementAction
+
+    def dropped_skus(self) -> set[str]:
+        if self.action == "keep":
+            return {*self.element.remove_skus, *self.element.supply_skus}
+        if self.action == "reuse":
+            return set(self.element.supply_skus)
+        return set()
+
+    def dropped_manual(self) -> set[str]:
+        return set(self.element.supply_manual) if self.action != "replace" else set()
+
+
+def _dropped_lines(decisions: Sequence[_ElementDecision]) -> set[tuple[str, str]]:
+    """(package id, SKU) of the lines the element choices remove."""
+    return {(d.assembly_id, sku) for d in decisions for sku in d.dropped_skus()}
+
+
+def _requested_actions(analysis: InsightAnalysis) -> dict[str, ElementAction]:
+    """Element → action; the first choice of an element wins."""
+    actions: dict[str, ElementAction] = {}
+    for choice in analysis.element_choices:
+        actions.setdefault(choice.element, choice.action)
+    return actions
+
+
+def _decide_elements(
+    assemblies: Sequence[Assembly], actions: Mapping[str, ElementAction], draft: _Draft
+) -> list[_ElementDecision]:
+    """The action applied to each element of the chosen packages.
+
+    A reuse without rebuild work is a keep. A keep with a demolition around the
+    element (`keep_conflicts_with` still among the lines once every choice is
+    applied) cannot stay in place: it is reused (taken off and put back).
+    Only package lines count here: extra lines are added after the choices."""
+    decisions: list[_ElementDecision] = []
+    for assembly in assemblies:
+        for element in assembly.elements:
+            action = actions.get(element.element, "replace")
+            if action == "reuse" and element.reuse_work is None:
+                draft.warnings.append(ExpansionWarning(
+                    "reuse_not_possible",
+                    f"{assembly.name}: {element.label} non si può riutilizzare, lasciato in posa",
+                ))
+                action = "keep"
+            decisions.append(_ElementDecision(assembly.id, element, action))
+
+    dropped = _dropped_lines(decisions)
+    remaining = {line.sku for line in draft.lines if (line.assembly_id, line.sku) not in dropped}
+    final: list[_ElementDecision] = []
+    for decision in decisions:
+        conflicts = sorted(set(decision.element.keep_conflicts_with) & remaining)
+        if decision.action == "keep" and conflicts and decision.element.reuse_work is not None:
+            draft.warnings.append(ExpansionWarning(
+                "element_kept_but_demolished",
+                f"Il cliente vuole tenere {decision.element.label}, ma si demoliscono {', '.join(conflicts)}: "
+                "previsto smontaggio e rimontaggio, da verificare",
+                tuple(conflicts),
+            ))
+            decision = _ElementDecision(decision.assembly_id, decision.element, "reuse")
+        final.append(decision)
+    return final
+
+
+def _apply_elements(decisions: Sequence[_ElementDecision], draft: _Draft) -> None:
+    dropped = _dropped_lines(decisions)
+    dropped_manual = {work for d in decisions for work in d.dropped_manual()}
+    draft.lines = [line for line in draft.lines if (line.assembly_id, line.sku) not in dropped]
+    draft.manual_work = [m for m in draft.manual_work if not (m.origin == "package" and m.work in dropped_manual)]
+    for decision in decisions:
+        if decision.action == "reuse" and decision.element.reuse_work is not None:
+            draft.add_manual(decision.element.reuse_work, "reuse")
+
+
+# ── Extra lines, dependency rules, live price book ────────────────────────────
+
+
+def _add_extras(suggestions: Sequence[SKUItemSuggestion], price_book_units: Mapping[str, str], draft: _Draft) -> None:
+    """The model's single lines outside the packages: a SKU a package already has
+    is dropped (the package line wins), an unknown SKU is left out."""
+    from_packages = {line.sku for line in draft.lines}
+    for suggestion in suggestions:
+        if suggestion.sku in from_packages:
+            logger.info("[Expansion] Extra line already in a package: dropped.", extra={"sku": suggestion.sku})
+            continue
+        if suggestion.sku not in price_book_units:
+            logger.info("[Expansion] Extra line not in the price book: dropped.", extra={"sku": suggestion.sku})
+            continue
+        value = to_decimal(suggestion.qty)
+        if value > MAX_QTY:  # before rounding, like the package lines
+            draft.warnings.append(ExpansionWarning(
+                "qty_out_of_bounds", f"{suggestion.sku}: quantità {value:.2f} fuori dai limiti, voce non inserita",
+                (suggestion.sku,),
+            ))
+            continue
+        qty = round_half_up(value, _QTY_PLACES)
+        draft.lines.append(ExpandedLine(
+            sku=suggestion.sku, qty=qty, reasoning=suggestion.ai_reasoning, origin="extra", note=suggestion.ai_reasoning,
+        ))
+
+
+def _apply_rules(library: AssemblyLibrary, measures: Mapping[str, Decimal], draft: _Draft) -> None:
+    """Dependency rules on the lines found so far: required lines added, excluded
+    lines removed, structural checks flagged to the admin."""
+    present = {line.sku for line in draft.lines}
+    excluded: set[str] = set()
+    for rule in library.dependency_rules:
+        if not present.intersection(rule.triggers_sku):
+            continue
+        for sku in rule.requires_sku:
+            if sku in present or rule.requires_qty_formula is None:
+                continue
+            qty = _line_quantity(rule.requires_qty_formula, measures, sku, draft)
+            if qty is not None:
+                draft.lines.append(ExpandedLine(
+                    sku=sku, qty=qty, origin="rule", note=rule.rule,
+                    reasoning=f"{rule.rule} ({_measures_text(rule.requires_qty_formula, measures)})",
+                ))
+                present.add(sku)
+        excluded.update(rule.excludes_sku)
+        if rule.requires_admin_flag:
+            draft.warnings.append(ExpansionWarning(
+                "admin_check", rule.admin_note or rule.rule, tuple(sorted(present.intersection(rule.triggers_sku))),
+            ))
+    if excluded:
+        draft.lines = [line for line in draft.lines if line.sku not in excluded]
+
+
+def _check_price_book(library: AssemblyLibrary, price_book_units: Mapping[str, str], draft: _Draft) -> None:
+    """A library line the live price book lacks, or prices in another unit, would be
+    priced with a meaningless formula: it becomes work quoted by hand."""
+    expected = {sku: unit for sku, (unit, _) in referenced_skus(library).items()}
+    kept: list[ExpandedLine] = []
+    for line in draft.lines:
+        unit = expected.get(line.sku, "")
+        actual = price_book_units.get(line.sku)
+        if line.origin == "extra" or (actual is not None and (not unit or actual == unit)):
+            kept.append(line)
+            continue
+        problem = "non disponibile nel listino" if actual is None else f"con unità {actual} invece di {unit}"
+        logger.warning(
+            "[Expansion] Library line out of sync with the live price book.",
+            extra={"sku": line.sku, "expected_unit": unit, "actual_unit": actual},
+        )
+        draft.warnings.append(ExpansionWarning(
+            "price_book_mismatch", f"Voce {line.sku} {problem}: da quotare a mano", (line.sku,),
+        ))
+        draft.add_manual(f"{line.note or line.sku} (voce {line.sku} {problem})", "price_book")
+    draft.lines = kept
+
+
 def expand(
     analysis: InsightAnalysis,
     library: AssemblyLibrary,
     price_book_units: Mapping[str, str],
     measures: Mapping[str, Decimal],
 ) -> Expansion:
-    """The quote lines of a spec, computed from the library formulas."""
+    """The quote lines of a spec, computed from the library formulas.
+
+    Fixed order: packages → element choices → extra lines → dependency rules →
+    live price-book check → requests outside the price book."""
     draft = _Draft()
     by_id = {assembly.id: assembly for assembly in library.assemblies}
+    chosen: list[Assembly] = []
     for assembly_id, conditions in _merged_choices(analysis.packages).items():
         assembly = by_id.get(assembly_id)
         if assembly is None:
             draft.warnings.append(ExpansionWarning("unknown_package", f"Pacchetto sconosciuto ignorato: {assembly_id}"))
             continue
+        chosen.append(assembly)
         _expand_package(assembly, conditions, measures, draft)
+    _apply_elements(_decide_elements(chosen, _requested_actions(analysis), draft), draft)
+    _add_extras(analysis.suggestions, price_book_units, draft)
+    _apply_rules(library, measures, draft)
+    _check_price_book(library, price_book_units, draft)
+    for request in analysis.unmapped_work_requests:
+        if request.strip():
+            draft.add_manual(request.strip(), "client_request")
     return draft.freeze()
