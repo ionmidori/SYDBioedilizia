@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 from src.schemas.assembly_library import AssemblyLibrary, AssemblyProblem, AssemblySku
-from src.services import assembly_library
+from src.services import assembly_library, price_book
 
 
 @pytest.fixture(autouse=True)
@@ -75,6 +75,26 @@ def test_unreadable_library_returns_none(tmp_path: Path, monkeypatch: pytest.Mon
     broken.write_text("{not json", encoding="utf-8")
     monkeypatch.setattr(assembly_library, "LIBRARY_PATH", broken)
     assert assembly_library.load_library() is None
+
+
+# ── The bundled library ───────────────────────────────────────────────────────
+
+
+def test_bundled_library_loads() -> None:
+    assert assembly_library.load_library() is not None
+
+
+def test_bundled_library_matches_seed_price_book() -> None:
+    library = assembly_library.load_library()
+    assert library is not None
+    assert assembly_library.check_against_price_book(library, price_book.seed_items()) == []
+
+
+def test_admin_flag_rule_points_to_structural_item() -> None:
+    library = assembly_library.load_library()
+    assert library is not None
+    flagged = [r for r in library.dependency_rules if r.requires_admin_flag]
+    assert [r.triggers_sku for r in flagged] == [["MUR-003"]]
 
 
 def test_invalid_formula_in_file_returns_none(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
