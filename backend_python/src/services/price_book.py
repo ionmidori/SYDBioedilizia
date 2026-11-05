@@ -12,7 +12,8 @@ Price book storage — Firestore is the source of truth, the bundled JSON is the
 * Every version is kept in `history` (who, when, why, how many lines changed)
   so a bad edit can be traced. History entries have auto ids: a replaced or
   reset document can never overwrite an earlier entry.
-* A save cannot remove a SKU that the assembly library points to.
+* A save cannot remove, rename or change the unit of a SKU the assembly
+  library uses (src/services/assembly_library.py).
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ from pydantic import ValidationError
 
 from src.core.exceptions import PriceBookConflictError, PriceBookSkuInUseError
 from src.schemas.price_book import PriceBookItem
+from src.services.assembly_library import check_against_price_book, load_library, referenced_skus
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +40,6 @@ HISTORY = "history"
 
 _DATA = Path(__file__).resolve().parent.parent / "data"
 _SEED_PATH = _DATA / "master_price_book.json"
-_ASSEMBLIES_PATH = _DATA / "renovation_assemblies.json"
 
 
 @dataclass(frozen=True)
@@ -124,42 +125,25 @@ async def read_state(db: Any) -> PriceBookState:
     return _state_from(snap.to_dict() if snap.exists else None)
 
 
-_assembly_skus_cache: frozenset[str] | None = None
-
-
 def assembly_skus() -> frozenset[str]:
-    """SKUs the assembly library tells the AI to use (renovation_assemblies.json)."""
-    global _assembly_skus_cache
-    cached = _assembly_skus_cache
-    if cached is None:
-        found: set[str] = set()
-
-        def walk(node: Any) -> None:
-            if isinstance(node, dict):
-                for key, value in node.items():
-                    if key == "sku" and isinstance(value, str):
-                        found.add(value)
-                    else:
-                        walk(value)
-            elif isinstance(node, list):
-                for value in node:
-                    walk(value)
-
-        try:
-            walk(json.loads(_ASSEMBLIES_PATH.read_text(encoding="utf-8")))
-        except (OSError, ValueError):
-            logger.exception("[PriceBook] The assembly library could not be read.")
-        cached = _assembly_skus_cache = frozenset(found)
-    return cached
+    """SKUs the assembly library uses (package phases and dependency rules).
+    Empty when the library cannot be loaded (load_library logs why)."""
+    library = load_library()
+    return frozenset(referenced_skus(library)) if library is not None else frozenset()
 
 
-def check_removed_skus(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> None:
-    """Refuse to drop a SKU the assembly library still points to (the prompt
-    would then contradict itself and Gemini's lines would be dropped)."""
-    removed = {i["sku"] for i in before} - {i["sku"] for i in after}
-    in_use = sorted(removed & assembly_skus())
-    if in_use:
-        raise PriceBookSkuInUseError(in_use)
+def check_assembly_skus(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> None:
+    """Refuse a save that removes (or renames) a SKU the assembly library uses,
+    or changes its unit: the prompt would then contradict the price book and
+    Gemini's lines would be dropped or mispriced. Problems the price book
+    already had are not blamed on this save."""
+    library = load_library()
+    if library is None:
+        return
+    already = {p.sku for p in check_against_price_book(library, before)}
+    introduced = sorted({p.sku for p in check_against_price_book(library, after)} - already)
+    if introduced:
+        raise PriceBookSkuInUseError(introduced)
 
 
 def diff_counts(before: list[dict[str, Any]], after: list[dict[str, Any]]) -> tuple[int, int, int]:
@@ -202,7 +186,7 @@ async def save(
         current = _state_from(snap.to_dict() if snap.exists else None)
         if current.version != expected_version:
             raise PriceBookConflictError(expected_version, current.version)
-        check_removed_skus(current.items, new_items)
+        check_assembly_skus(current.items, new_items)
         added, removed, changed = diff_counts(current.items, new_items)
         version = current.version + 1
         transaction.set(

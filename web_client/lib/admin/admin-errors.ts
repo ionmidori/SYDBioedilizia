@@ -50,7 +50,7 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
       const skus = Array.isArray(error.detail.skus) ? (error.detail.skus as unknown[]).map(String) : [];
       return {
         kind: 'invalid',
-        message: `Queste voci sono usate dalle ricette dell'AI e non si possono eliminare: ${skus.slice(0, 10).join(', ')}.`,
+        message: `Queste voci sono usate dalle ricette dell'AI e non si possono eliminare, rinominare o cambiare unità: ${skus.slice(0, 10).join(', ')}.`,
         stale: false,
       };
     }

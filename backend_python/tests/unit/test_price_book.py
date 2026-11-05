@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from src.api.routes import admin_price_book as routes
 from src.auth.jwt_handler import verify_token
 from src.core.exceptions import AppException, PriceBookConflictError, PriceBookSkuInUseError
+from src.schemas.assembly_library import AssemblyLibrary
 from src.schemas.internal import UserSession
 from src.schemas.price_book import PriceBookItem, PutPriceBookBody
 from src.services import price_book
@@ -165,6 +166,54 @@ async def test_other_skus_can_be_removed(db):
     without = [i for i in price_book.seed_items() if i["sku"] != free["sku"]]
     result = await price_book.save(db, _models(without), 0, "admin-a", NOW)
     assert result.removed == 1
+
+
+def _seed_with(target: str, **changes) -> list[dict]:
+    return [{**i, **changes} if i["sku"] == target else i for i in price_book.seed_items()]
+
+
+async def test_unit_change_of_a_used_sku_is_refused(db):
+    with pytest.raises(PriceBookSkuInUseError) as exc:
+        await price_book.save(db, _models(_seed_with("MUR-004", unit="cad")), 0, "admin-a", NOW)
+    assert "MUR-004" in exc.value.detail["skus"]
+    assert db.get_data(*PATH) is None
+
+
+async def test_rename_of_a_used_sku_is_refused(db):
+    with pytest.raises(PriceBookSkuInUseError) as exc:
+        await price_book.save(db, _models(_seed_with("SMAL-001", sku="SMAL-01")), 0, "admin-a", NOW)
+    assert "SMAL-001" in exc.value.detail["skus"]
+
+
+async def test_unused_sku_unit_can_change(db):
+    free = next(i["sku"] for i in price_book.seed_items() if i["sku"] not in price_book.assembly_skus())
+    result = await price_book.save(db, _models(_seed_with(free, unit="ml")), 0, "admin-a", NOW)
+    assert result.changed == 1
+
+
+async def test_a_dependency_rule_sku_cannot_be_removed(db, monkeypatch):
+    library = AssemblyLibrary.model_validate({
+        "version": "t", "description": "t", "assemblies": [],
+        "dependency_rules": [{"rule": "r", "triggers_sku": ["TST-001"]}],
+    })
+    monkeypatch.setattr(price_book, "load_library", lambda: library)
+    await price_book.save(db, _models(_book(_item())), 0, "admin-a", NOW)
+    with pytest.raises(PriceBookSkuInUseError) as exc:
+        await price_book.save(db, _models(_book()), 1, "admin-a", NOW)
+    assert exc.value.detail["skus"] == ["TST-001"]
+
+
+async def test_live_price_book_out_of_sync_is_logged_once_per_version(db, caplog):
+    PricingService.reset_price_book_cache()
+    without = [i for i in price_book.seed_items() if i["sku"] != "SMAL-001"]
+    with caplog.at_level("ERROR", logger="src.services.pricing_service"):
+        PricingService.apply_price_book(without, 3, NOW)
+        PricingService.apply_price_book(without, 3, NOW)
+        PricingService.apply_price_book(price_book.seed_items(), 4, NOW + timedelta(minutes=1))
+    errors = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert len(errors) == 1
+    assert errors[0].skus == ["SMAL-001"]
+    assert errors[0].version == 3
 
 
 # ── A document written by another tool (the removed Streamlit editor) ─────────
