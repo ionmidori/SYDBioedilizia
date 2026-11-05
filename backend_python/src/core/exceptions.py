@@ -231,7 +231,7 @@ class PriceBookConflictError(AppException):
 
 
 class PriceBookSkuInUseError(AppException):
-    """A save would remove SKUs that the AI's assembly library still points to."""
+    """A save would remove, rename or re-unit SKUs that the AI's assembly library uses."""
     status_code = 422
     error_code = "PRICE_BOOK_SKU_IN_USE"
 
@@ -239,7 +239,7 @@ class PriceBookSkuInUseError(AppException):
         super().__init__(
             message=(
                 "These SKUs are used by the assembly library (renovation_assemblies.json) and cannot be "
-                f"removed: {', '.join(skus[:10])}."
+                f"removed, renamed or given another unit: {', '.join(skus[:10])}."
             ),
             detail={"skus": skus},
         )

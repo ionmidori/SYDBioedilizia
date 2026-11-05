@@ -170,6 +170,7 @@ export function PriceBookEditor() {
   };
 
   const ignored = book.data.ignored_document;
+  const assemblyProblems = book.data.assembly_problems ?? [];
   const changes = counts.added + counts.changed + counts.removed;
 
   return (
@@ -210,6 +211,28 @@ export function PriceBookEditor() {
           Nel database c&apos;era un listino salvato da un altro strumento, senza versione: non viene usato. Qui vedi il
           listino di base; salvando lo sostituisci.
         </p>
+      )}
+      {book.data.assembly_library_ok === false && (
+        <p role="status" data-testid="pb-assembly-library-broken" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+          La libreria dei pacchetti di lavorazioni non è stata caricata: i preventivi AI vengono preparati senza
+          pacchetti e il salvataggio non può proteggerne le voci. Avvisa lo sviluppo.
+        </p>
+      )}
+      {assemblyProblems.length > 0 && (
+        <div role="status" data-testid="pb-assembly-problems" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+          <p>
+            Alcune voci usate dai pacchetti di lavorazioni mancano o hanno un&apos;unità diversa: i preventivi AI le
+            scartano. Ripristinale o avvisa lo sviluppo.
+          </p>
+          <ul className="mt-2 list-disc pl-5">
+            {assemblyProblems.map((p) => (
+              <li key={p.sku}>
+                {p.sku} — {p.kind === 'missing' ? 'mancante' : `unità attesa ${p.expected_unit}, trovata ${p.actual_unit ?? '—'}`}{' '}
+                — {p.assemblies.join(', ')}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {notice && (
         <p role="status" data-testid="notice" className="flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">

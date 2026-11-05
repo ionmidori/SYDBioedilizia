@@ -9,15 +9,14 @@ Features:
   - Guided Questions: returns completeness_score + missing_info for C-option logic
   - Chain-of-Thought reasoning: Phase → Sub-work → SKU mapping
 """
-import json
 import logging
-from pathlib import Path
 from typing import Any, Literal
 
 from google.genai import types as genai_types
 from pydantic import BaseModel, Field
 
 from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
+from src.services.assembly_library import load_library
 from src.services.pricing_service import PricingService
 from src.utils.download import download_session_media
 
@@ -112,12 +111,9 @@ class InsightEngine:
     Per fastapi-enterprise-patterns skill: services contain business rules only.
     """
 
-    _ASSEMBLIES_PATH = Path(__file__).parent.parent / "data" / "renovation_assemblies.json"
-
     def __init__(self, model_name: str | None = None) -> None:
         self.model_name = model_name or get_model_id(ModelRole.INSIGHT)
         self.client = get_genai_client()
-        self._assemblies: dict[str, Any] | None = None
 
     def _build_price_book_prompt(self) -> str:
         """
@@ -141,7 +137,7 @@ class InsightEngine:
             "## Master Price Book — SKU Disponibili",
             "",
             "⚠️ REGOLA ASSOLUTA: Usa ESCLUSIVAMENTE i codici SKU presenti in questo elenco.",
-            "Non inventare mai codici SKU. Se un lavoro non è mappabile, ometti la voce.",
+            "Non inventare mai codici SKU. Un lavoro senza codice non va nei suggestions (vedi regola 1).",
             "",
         ]
         for category, items in sorted(by_category.items()):
@@ -159,31 +155,18 @@ class InsightEngine:
 
         return "\n".join(lines)
 
-    def _load_assemblies(self) -> dict[str, Any]:
-        """Loads renovation_assemblies.json (cached after first load)."""
-        if self._assemblies is None:
-            try:
-                with open(self._ASSEMBLIES_PATH, encoding="utf-8") as f:
-                    self._assemblies = json.load(f)
-            except Exception as exc:  # noqa: BLE001
-                logger.error("[InsightEngine] Failed to load assemblies.", extra={"error": str(exc)})
-                self._assemblies = {"assemblies": [], "dependency_rules": []}
-        # Set in both branches above; narrow away the Optional for the return type.
-        return self._assemblies if self._assemblies is not None else {"assemblies": [], "dependency_rules": []}
-
     def _build_assembly_prompt(self) -> str:
         """
         Builds a WBS Assembly context section for the LLM.
 
         Teaches the AI how to expand user desires (e.g. 'bagno nuovo') into
         complete BOQ phases following the industry 'Assembly Intelligence' pattern.
-        Each assembly shows the required WBS phases and dependency rules.
+        Each assembly shows the required WBS phases (SKU, unit, quantity formula),
+        the work quoted by hand (no price-book line) and the dependency rules.
+        Empty when the library cannot be loaded (load_library logs why).
         """
-        data = self._load_assemblies()
-        assemblies = data.get("assemblies", [])
-        dep_rules = data.get("dependency_rules", [])
-
-        if not assemblies:
+        library = load_library()
+        if library is None or not library.assemblies:
             return ""
 
         lines: list[str] = [
@@ -194,21 +177,27 @@ class InsightEngine:
             "Non limitarti alla voce superficiale — includi SEMPRE le voci prerequisito.",
             "",
         ]
-        for asm in assemblies:
-            lines.append(f"### 🔧 {asm['name']} (`{asm['id']}`"+ ")")
-            lines.append(f"*Trigger*: {', '.join(asm.get('triggers', [])[:4])}...")
-            lines.append(f"*Domande richieste*: {', '.join(asm.get('questions_required', []))}")
-            lines.append("*Fasi WBS*:")
-            for ph in asm.get("phases", []):
-                sku_list = ", ".join(s["sku"] for s in ph.get("skus", []))
-                cond = f" *(condizionale: {ph['conditional']})*" if ph.get("conditional") else ""
-                lines.append(f"  - **{ph['phase']}**{cond}: {sku_list}")
+        for asm in library.assemblies:
+            lines.append(f"### 🔧 {asm.name} (`{asm.id}`)")
+            lines.append(f"*Trigger*: {', '.join(asm.triggers[:4])}...")
+            lines.append(f"*Domande richieste*: {', '.join(asm.questions_required)}")
+            lines.append("*Fasi WBS* (codice, unità, quantità):")
+            for ph in asm.phases:
+                cond = f" *(condizionale: {ph.conditional})*" if ph.conditional else ""
+                items = ", ".join(
+                    f"`{s.sku}` ({s.unit}, {s.qty_formula})" + (f" (se: {s.conditional})" if s.conditional else "")
+                    for s in ph.skus
+                )
+                lines.append(f"  - **{ph.phase}**{cond}: {items}")
+            if asm.manual_items:
+                manual = "; ".join(m.work for m in asm.manual_items)
+                lines.append(f"*Da quotare a mano dal tecnico (nessuna voce di listino)*: {manual}")
             lines.append("")
 
-        if dep_rules:
+        if library.dependency_rules:
             lines.append("## Regole di Dipendenza")
-            for rule in dep_rules:
-                lines.append(f"- {rule['rule']}")
+            for rule in library.dependency_rules:
+                lines.append(f"- {rule.rule}")
             lines.append("")
 
         return "\n".join(lines)
@@ -258,7 +247,7 @@ Cerca nella cronologia conversazione:
 
 Usa queste informazioni per:
 - Identificare le demolizioni necessarie (es. piastrelle vecchie → DEM-003)
-- Stimare le preparazioni (es. intonaco deteriorato → MUR-003)
+- Stimare le preparazioni (es. intonaco deteriorato → MUR-004)
 - Rilevare impianti da rifare (es. tubature anni '70 → IMP-ID-001)
 - Escludere lavori sugli elementi dichiarati da mantenere
 
@@ -303,7 +292,8 @@ Assegna `completeness_score` (0.0-1.0):
 
 ## Regole Operative
 
-1. **Solo SKU del listino**: MAI inventare codici. Se un lavoro non è mappabile, ometti.
+1. **Solo SKU del listino**: MAI inventare codici. Un lavoro senza codice non va nei `suggestions`:
+   se è tra quelli "Da quotare a mano dal tecnico" della libreria, citalo nel `summary` (regola 8).
 2. **Fase WBS obbligatoria**: Ogni SKU deve avere il campo `phase` compilato.
 3. **Quantità plausibili**: es. 10-14 punti luce per 70mq; non 100 prese per 10mq.
 4. **ZERO arredamento**: Niente mobili, cucine componibili, elettrodomestici, tende, lampade.
@@ -312,6 +302,12 @@ Assegna `completeness_score` (0.0-1.0):
 6. **Parete portante**: Se sospettata, segnalarlo in `ai_reasoning` e abbassare score.
 7. **Vision-driven**: Se la foto originale mostra materiali specifici, usa quella info per
    scegliere le voci di demolizione/preparazione corrette invece di usare defaults generici.
+8. **Lavorazioni da quotare a mano**: quelle indicate nella libreria come "Da quotare a mano
+   dal tecnico" non hanno una voce di listino: NON metterle nei `suggestions`, citale nel `summary`.
+   Sono lavori edili, non arredamento.
+9. **Formule della libreria**: `mq` = pavimento della stanza, `mq_pareti` = pareti da trattare,
+   `mq_parete` = parete da abbattere, `ml_pensili` = metri lineari di pensili, `n_*` = numero di pezzi.
+   `SMAL-001` si indica come quota di container da 7 m³ (es. 0.6): il backend li somma in container interi.
 
 ## Esempio Few-Shot (Vision → Preventivo)
 
@@ -323,13 +319,13 @@ Assegna `completeness_score` (0.0-1.0):
 - DEM-006: demolizione sanitari esistenti (qty: 1)
 - DEM-003: rimozione piastrelle pareti (qty: ~13mq = 5mq × 2.6h)
 - DEM-002: rimozione pavimento granito (qty: ~5mq)
-- IMP-ID-001: ridistribuzione punti idraulici (qty: 1) ← condizionale se impianto da rifare
-- MUR-003: intonaco liscio pareti (qty: ~13mq)
+- IMP-ID-001: punti acqua WC, bidet, lavabo, doccia (qty: 4) ← condizionale se impianto da rifare
+- MUR-004: intonaco civile pareti (qty: ~13mq)
 - PAV-001: posa gres porcellanato pavimento (qty: ~5.25mq con +5%)
 - BAG-RIV-001: rivestimento ceramico pareti (qty: ~13.65mq con +5%)
 - BAG-SAN-001: fornitura e posa set sanitari sospesi (qty: 1)
 - BAG-BOX-001: box doccia walk-in (qty: 1)
-- SME-001: smaltimento macerie (qty: ~4mc)
+- SMAL-001: smaltimento macerie (qty: ~0.6 = quota di un container da 7 m³ per ~4 m³ di macerie)
 
 **NON incluso**: mobili, specchio, lampade, asciugamani, accessori. ← ESCLUSO perché arredamento.
 

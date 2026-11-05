@@ -11,6 +11,7 @@ describe('describeAdminError', () => {
   it('lists the SKUs the AI recipes still use', () => {
     const info = describeAdminError(new AdminApiError(422, 'PRICE_BOOK_SKU_IN_USE', 'x', { skus: ['DEM-001', 'BAG-001'] }));
     expect(info.message).toContain('DEM-001, BAG-001');
+    expect(info.message).toMatch(/eliminare, rinominare o cambiare unità/);
     expect(info.stale).toBe(false);
   });
 

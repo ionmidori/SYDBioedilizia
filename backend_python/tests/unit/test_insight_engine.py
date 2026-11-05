@@ -16,11 +16,13 @@ Verifies:
 """
 from __future__ import annotations
 
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import src.services.insight_engine as insight_engine_module
 from src.core.models import ModelRole
+from src.services import assembly_library, price_book
 from src.services.insight_engine import (
     InsightAnalysis,
     InsightEngine,
@@ -97,6 +99,52 @@ class TestBuildSystemPrompt:
         """System prompt must explicitly exclude furniture from scope."""
         prompt = engine._build_system_prompt(self._MOCK_PRICE, self._MOCK_ASSEMBLY)
         assert "arredamento" in prompt.lower() or "arredi" in prompt.lower()
+
+
+# ─── _build_assembly_prompt (renovation packages) ─────────────────────────────
+
+_SKU_CODE = re.compile(r"\b[A-Z]{2,5}(?:-[A-Z]{2,8})?-\d{3}\b")
+
+
+class TestAssemblyPrompt:
+    def test_every_code_in_the_system_prompt_is_in_the_price_book(self, engine: InsightEngine) -> None:
+        """The packages and the few-shot example only name codes the price book has
+        (a stale code is dropped by validate_sku_suggestions and the line is lost)."""
+        prompt = engine._build_system_prompt("", engine._build_assembly_prompt())
+        known = {item["sku"] for item in price_book.seed_items()}
+        assert sorted(set(_SKU_CODE.findall(prompt)) - known) == []
+
+    def test_assembly_prompt_lists_every_assembly_and_manual_items(self, engine: InsightEngine) -> None:
+        library = assembly_library.load_library()
+        assert library is not None
+        prompt = engine._build_assembly_prompt()
+        for assembly in library.assemblies:
+            assert assembly.id in prompt
+        assert "Rubinetteria (fornitura)" in prompt
+        assert "`MUR-004` (mq, mq * 2.2)" in prompt
+
+    def test_plaster_is_never_mapped_to_the_structural_opening(self, engine: InsightEngine) -> None:
+        """MUR-003 is the load-bearing opening (850 EUR cad), MUR-004 the plaster."""
+        prompt = engine._build_system_prompt("", engine._build_assembly_prompt())
+        wrong = [line for line in prompt.splitlines() if "MUR-003" in line and "intonaco" in line.lower()]
+        assert wrong == []
+
+    def test_unmappable_work_rule_points_to_the_summary(self, engine: InsightEngine) -> None:
+        prompt = engine._build_system_prompt("", "")
+        rule = prompt.split("1. **Solo SKU del listino**", 1)[1].split("2. **", 1)[0]
+        assert "summary" in rule
+        assert "ometti" not in rule
+
+    def test_few_shot_water_points_match_the_bathroom_package(self, engine: InsightEngine) -> None:
+        prompt = engine._build_system_prompt("", "")
+        line = next(line for line in prompt.splitlines() if line.startswith("- IMP-ID-001"))
+        assert "qty: 4" in line
+
+    def test_assembly_prompt_is_empty_when_library_is_unreadable(
+        self, engine: InsightEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(insight_engine_module, "load_library", lambda: None)
+        assert engine._build_assembly_prompt() == ""
 
 
 # ─── analyze_project_for_quote ────────────────────────────────────────────────

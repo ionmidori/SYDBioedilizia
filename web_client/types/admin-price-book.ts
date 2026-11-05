@@ -36,6 +36,20 @@ export const priceBookItemSchema = z
   });
 export type PriceBookItem = z.infer<typeof priceBookItemSchema>;
 
+/**
+ * A SKU the renovation packages use that the price book lacks or prices in
+ * another unit — Golden Sync with AssemblyProblem in
+ * backend_python/src/schemas/assembly_library.py.
+ */
+export const assemblyProblemSchema = z.object({
+  sku: z.string(),
+  kind: z.enum(['missing', 'unit_changed']),
+  assemblies: z.array(z.string()),
+  expected_unit: z.string(),
+  actual_unit: z.string().nullable().optional(),
+});
+export type AssemblyProblem = z.infer<typeof assemblyProblemSchema>;
+
 export const priceBookResponseSchema = z.object({
   etag: z.string(),
   version: z.number(),
@@ -45,6 +59,10 @@ export const priceBookResponseSchema = z.object({
   updated_by: z.string().nullable().optional(),
   /** Set when the stored document was ignored (written by another tool). */
   ignored_document: z.enum(['legacy_document', 'invalid_items']).nullable().optional(),
+  /** SKUs the renovation packages use that this price book lacks or re-units. */
+  assembly_problems: z.array(assemblyProblemSchema).default([]),
+  /** False when the renovation package library could not be loaded on the backend. */
+  assembly_library_ok: z.boolean().default(true),
   items: z.array(priceBookItemSchema),
 });
 export type PriceBookResponse = z.infer<typeof priceBookResponseSchema>;

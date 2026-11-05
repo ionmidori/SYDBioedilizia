@@ -1,5 +1,5 @@
 {
-    "version": "1.0.0",
+    "version": "2.0.0",
     "description": "Renovation Assembly Library for SYD Bioedilizia. Maps user desires (natural language intents) to structured Work Breakdown Structure (WBS) phases, each composed of required SKUs from the master_price_book. Used by InsightEngine to expand implicit user requests into complete technical BOQ.",
     "assemblies": [
         {
@@ -28,16 +28,19 @@
                     "skus": [
                         {
                             "sku": "DEM-006",
+                            "unit": "ps",
                             "qty_formula": "1",
                             "note": "Set sanitari completo"
                         },
                         {
                             "sku": "DEM-003",
+                            "unit": "mq",
                             "qty_formula": "mq * 2.2",
                             "note": "Piastrelle pareti (h media 2.2m)"
                         },
                         {
                             "sku": "DEM-002",
+                            "unit": "mq",
                             "qty_formula": "mq",
                             "note": "Pavimento + massetto"
                         }
@@ -48,14 +51,16 @@
                     "note": "Rifacimento impianto idraulico e scarichi",
                     "skus": [
                         {
-                            "sku": "IMP-002",
-                            "qty_formula": "1",
-                            "note": "Scarichi e distribuzione idrica bagno"
+                            "sku": "IMP-ID-001",
+                            "unit": "cad",
+                            "qty_formula": "4",
+                            "note": "Punti acqua: WC, bidet, lavabo, doccia"
                         },
                         {
-                            "sku": "IMP-003",
-                            "qty_formula": "mq * 1.5",
-                            "note": "Impianto elettrico bagno (punti luce + prese)"
+                            "sku": "IMP-EL-001",
+                            "unit": "cad",
+                            "qty_formula": "3",
+                            "note": "Punti luce e prese del bagno"
                         }
                     ]
                 },
@@ -64,12 +69,14 @@
                     "note": "Preparazione pareti e pavimento",
                     "skus": [
                         {
-                            "sku": "MUR-003",
+                            "sku": "MUR-004",
+                            "unit": "mq",
                             "qty_formula": "mq * 2.2",
                             "note": "Intonaco pareti"
                         },
                         {
-                            "sku": "MUR-004",
+                            "sku": "PAV-004",
+                            "unit": "mq",
                             "qty_formula": "mq",
                             "note": "Massetto pavimento"
                         }
@@ -81,28 +88,27 @@
                     "skus": [
                         {
                             "sku": "PAV-001",
+                            "unit": "mq",
                             "qty_formula": "mq * 1.05",
                             "note": "Gres pavimento (+5% scarti)"
                         },
                         {
-                            "sku": "PAV-002",
+                            "sku": "BAG-RIV-001",
+                            "unit": "mq",
                             "qty_formula": "mq * 2.2 * 1.05",
                             "note": "Rivestimento pareti (+5% scarti)"
                         },
                         {
-                            "sku": "BAG-001",
+                            "sku": "BAG-SAN-001",
+                            "unit": "ps",
                             "qty_formula": "1",
-                            "note": "Set sanitari (WC+bidet o WC+lavabo)"
+                            "note": "Set sanitari (fornitura e posa)"
                         },
                         {
-                            "sku": "BAG-002",
+                            "sku": "BAG-BOX-001",
+                            "unit": "cad",
                             "qty_formula": "1",
-                            "note": "Rubinetteria completa"
-                        },
-                        {
-                            "sku": "BAG-003",
-                            "qty_formula": "1",
-                            "note": "Box doccia o piatto doccia filo-pavimento"
+                            "note": "Box doccia"
                         }
                     ]
                 },
@@ -111,11 +117,18 @@
                     "note": "Trasporto e smaltimento macerie",
                     "skus": [
                         {
-                            "sku": "SME-001",
-                            "qty_formula": "mq * 0.8",
-                            "note": "Stima macerie bagno"
+                            "sku": "SMAL-001",
+                            "unit": "cad",
+                            "qty_formula": "mq * 0.8 / 7",
+                            "note": "Quota di container: circa 0,8 m³ di macerie per mq, container da 7 m³"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Rubinetteria (fornitura)",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -139,6 +152,7 @@
                     "skus": [
                         {
                             "sku": "DEM-006",
+                            "unit": "ps",
                             "qty_formula": "1",
                             "note": "Rimozione vecchi sanitari"
                         }
@@ -148,9 +162,10 @@
                     "phase": "Impianti",
                     "skus": [
                         {
-                            "sku": "IMP-002",
-                            "qty_formula": "1",
-                            "note": "Adeguamento scarichi/allacci"
+                            "sku": "IMP-ID-001",
+                            "unit": "cad",
+                            "qty_formula": "3",
+                            "note": "Adeguamento allacci dei sanitari"
                         }
                     ]
                 },
@@ -158,16 +173,18 @@
                     "phase": "Finiture",
                     "skus": [
                         {
-                            "sku": "BAG-001",
+                            "sku": "BAG-SAN-001",
+                            "unit": "ps",
                             "qty_formula": "1",
                             "note": "Nuovi sanitari"
-                        },
-                        {
-                            "sku": "BAG-002",
-                            "qty_formula": "1",
-                            "note": "Rubinetteria"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Rubinetteria (fornitura)",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -194,11 +211,13 @@
                     "skus": [
                         {
                             "sku": "DEM-002",
+                            "unit": "mq",
                             "qty_formula": "mq",
                             "note": "Rimozione pavimento"
                         },
                         {
                             "sku": "DEM-003",
+                            "unit": "mq",
                             "qty_formula": "ml_pensili * 0.6",
                             "note": "Rimozione rivestimento backsplash"
                         }
@@ -208,19 +227,23 @@
                     "phase": "Impianti",
                     "skus": [
                         {
-                            "sku": "IMP-002",
-                            "qty_formula": "1",
-                            "note": "Impianto idraulico cucina (allacci lavello)"
+                            "sku": "IMP-ID-001",
+                            "unit": "cad",
+                            "qty_formula": "2",
+                            "note": "Punti acqua: lavello, lavastoviglie"
                         },
                         {
-                            "sku": "IMP-001",
-                            "qty_formula": "1",
-                            "note": "Impianto elettrico cucina (prese + punti luce)"
+                            "sku": "IMP-EL-003",
+                            "unit": "cad",
+                            "qty_formula": "3",
+                            "note": "Prese forza: forno, lavastoviglie, frigo"
                         },
                         {
-                            "sku": "IMP-004",
+                            "sku": "CUC-GAS-001",
+                            "unit": "cad",
                             "qty_formula": "1",
-                            "note": "Impianto gas (se cottura a gas)"
+                            "note": "Allacciamento gas",
+                            "conditional": "if_cottura_gas"
                         }
                     ]
                 },
@@ -228,12 +251,14 @@
                     "phase": "Opere Murarie",
                     "skus": [
                         {
-                            "sku": "MUR-004",
+                            "sku": "PAV-004",
+                            "unit": "mq",
                             "qty_formula": "mq",
                             "note": "Massetto livellamento"
                         },
                         {
-                            "sku": "MUR-003",
+                            "sku": "MUR-005",
+                            "unit": "mq",
                             "qty_formula": "mq * 0.4",
                             "note": "Rasatura pareti (quota parte)"
                         }
@@ -244,13 +269,9 @@
                     "skus": [
                         {
                             "sku": "PAV-001",
+                            "unit": "mq",
                             "qty_formula": "mq * 1.05",
                             "note": "Pavimento cucina"
-                        },
-                        {
-                            "sku": "PAV-002",
-                            "qty_formula": "ml_pensili * 0.6 * 1.05",
-                            "note": "Rivestimento backsplash"
                         }
                     ]
                 },
@@ -258,11 +279,18 @@
                     "phase": "Smaltimento",
                     "skus": [
                         {
-                            "sku": "SME-001",
-                            "qty_formula": "mq * 0.6",
-                            "note": "Stima macerie cucina"
+                            "sku": "SMAL-001",
+                            "unit": "cad",
+                            "qty_formula": "mq * 0.6 / 7",
+                            "note": "Quota di container: circa 0,6 m³ di macerie per mq"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Posa rivestimento cucina (backsplash)",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -291,6 +319,7 @@
                     "skus": [
                         {
                             "sku": "DEM-003",
+                            "unit": "mq",
                             "qty_formula": "mq_pareti",
                             "note": "Rimozione piastrelle pareti (solo se presenti)"
                         }
@@ -300,12 +329,15 @@
                     "phase": "Opere Murarie",
                     "skus": [
                         {
-                            "sku": "MUR-003",
+                            "sku": "MUR-004",
+                            "unit": "mq",
                             "qty_formula": "mq_pareti",
-                            "note": "Intonaco pareti (se necessario)"
+                            "note": "Intonaco pareti (se necessario)",
+                            "conditional": "if_intonaco_ammalorato"
                         },
                         {
-                            "sku": "MUR-002",
+                            "sku": "MUR-005",
+                            "unit": "mq",
                             "qty_formula": "mq_pareti",
                             "note": "Rasatura pareti (lisciatura per verniciatura)"
                         }
@@ -316,15 +348,17 @@
                     "skus": [
                         {
                             "sku": "PIT-001",
+                            "unit": "mq",
                             "qty_formula": "mq_pareti",
-                            "note": "Verniciatura (2 mani primer + finitura)"
-                        },
-                        {
-                            "sku": "PIT-002",
-                            "qty_formula": "ml_perimetro * 0.15",
-                            "note": "Stuccatura / ripristino angoli e cornici"
+                            "note": "Verniciatura (2 mani)"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Stuccatura angoli e cornici",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -348,7 +382,8 @@
                     "phase": "Opere Murarie",
                     "skus": [
                         {
-                            "sku": "MUR-002",
+                            "sku": "MUR-005",
+                            "unit": "mq",
                             "qty_formula": "mq",
                             "note": "Rasatura soffitto"
                         }
@@ -359,12 +394,15 @@
                     "note": "Se controsoffitto cartongesso richiesto",
                     "skus": [
                         {
-                            "sku": "CTN-001",
+                            "sku": "CS-001",
+                            "unit": "mq",
                             "qty_formula": "mq",
-                            "note": "Controsoffitto in cartongesso (se richiesto)"
+                            "note": "Controsoffitto in cartongesso (se richiesto)",
+                            "conditional": "if_controsoffitto"
                         },
                         {
                             "sku": "PIT-001",
+                            "unit": "mq",
                             "qty_formula": "mq",
                             "note": "Tinteggiatura soffitto"
                         }
@@ -395,6 +433,7 @@
                     "skus": [
                         {
                             "sku": "DEM-002",
+                            "unit": "mq",
                             "qty_formula": "mq",
                             "note": "Rimozione pavimento + massetto esistente"
                         }
@@ -404,7 +443,8 @@
                     "phase": "Opere Murarie",
                     "skus": [
                         {
-                            "sku": "MUR-004",
+                            "sku": "PAV-004",
+                            "unit": "mq",
                             "qty_formula": "mq",
                             "note": "Massetto di livellamento"
                         }
@@ -415,13 +455,9 @@
                     "skus": [
                         {
                             "sku": "PAV-001",
+                            "unit": "mq",
                             "qty_formula": "mq * 1.05",
                             "note": "Posa gres/ceramica (+5% scarti)"
-                        },
-                        {
-                            "sku": "PAV-003",
-                            "qty_formula": "ml_perimetro",
-                            "note": "Battiscopa"
                         }
                     ]
                 },
@@ -429,11 +465,18 @@
                     "phase": "Smaltimento",
                     "skus": [
                         {
-                            "sku": "SME-001",
-                            "qty_formula": "mq * 0.4",
-                            "note": "Macerie pavimento"
+                            "sku": "SMAL-001",
+                            "unit": "cad",
+                            "qty_formula": "mq * 0.4 / 7",
+                            "note": "Quota di container: circa 0,4 m³ di macerie per mq"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Battiscopa",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -460,6 +503,7 @@
                     "skus": [
                         {
                             "sku": "DEM-004",
+                            "unit": "cad",
                             "qty_formula": "n_finestre",
                             "note": "Rimozione infissi esistenti con controtelaio"
                         }
@@ -469,9 +513,10 @@
                     "phase": "Opere Murarie",
                     "skus": [
                         {
-                            "sku": "MUR-001",
+                            "sku": "MUR-004",
+                            "unit": "mq",
                             "qty_formula": "n_finestre * 0.5",
-                            "note": "Ripristino muratura attorno vano infisso"
+                            "note": "Ripristino intonaco attorno al vano"
                         }
                     ]
                 },
@@ -479,21 +524,32 @@
                     "phase": "Finiture",
                     "skus": [
                         {
-                            "sku": "INF-001",
+                            "sku": "INF-FIN-001",
+                            "unit": "cad",
                             "qty_formula": "n_finestre",
-                            "note": "Fornitura e posa infissi (PVC/alluminio)"
+                            "note": "Fornitura e posa infissi in PVC",
+                            "conditional": "if_pvc"
                         },
                         {
-                            "sku": "INF-002",
+                            "sku": "INF-FIN-002",
+                            "unit": "cad",
                             "qty_formula": "n_finestre",
-                            "note": "Davanzale e controtelaio"
+                            "note": "Fornitura e posa infissi in alluminio",
+                            "conditional": "if_alluminio"
                         },
                         {
-                            "sku": "PIT-002",
+                            "sku": "PIT-001",
+                            "unit": "mq",
                             "qty_formula": "n_finestre * 1.5",
-                            "note": "Ritocco intonaco e verniciatura contorno"
+                            "note": "Ritocco pittura attorno al vano"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Davanzale e controtelaio",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -517,6 +573,7 @@
                     "skus": [
                         {
                             "sku": "DEM-005",
+                            "unit": "cad",
                             "qty_formula": "n_porte",
                             "note": "Rimozione porte interne + telai"
                         }
@@ -526,14 +583,24 @@
                     "phase": "Finiture",
                     "skus": [
                         {
-                            "sku": "INF-003",
+                            "sku": "INF-POR-001",
+                            "unit": "cad",
                             "qty_formula": "n_porte",
-                            "note": "Fornitura e posa porte interne"
+                            "note": "Fornitura e posa porte battenti",
+                            "conditional": "if_battente"
                         },
                         {
-                            "sku": "PIT-002",
+                            "sku": "INF-POR-002",
+                            "unit": "cad",
+                            "qty_formula": "n_porte",
+                            "note": "Fornitura e posa porte scorrevoli a scomparsa",
+                            "conditional": "if_scorrevole"
+                        },
+                        {
+                            "sku": "PIT-001",
+                            "unit": "mq",
                             "qty_formula": "n_porte * 2",
-                            "note": "Ritocco stipiti e intonaco"
+                            "note": "Ritocco pittura attorno agli stipiti"
                         }
                     ]
                 }
@@ -558,40 +625,25 @@
             ],
             "phases": [
                 {
-                    "phase": "Demolizioni",
-                    "note": "Demolizione tracce per nuovo cablaggio",
-                    "skus": [
-                        {
-                            "sku": "DEM-007",
-                            "qty_formula": "mq * 0.3",
-                            "note": "Tracce per cavi (ml lineari)"
-                        }
-                    ]
-                },
-                {
                     "phase": "Impianti",
                     "skus": [
                         {
-                            "sku": "IMP-001",
-                            "qty_formula": "mq",
-                            "note": "Impianto elettrico (€/mq comprensivo di cavi, frutti, quadro)"
-                        },
-                        {
-                            "sku": "IMP-005",
+                            "sku": "IMP-EL-001",
+                            "unit": "cad",
                             "qty_formula": "mq * 0.15",
                             "note": "Punti luce aggiuntivi / faretti LED"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Apertura e chiusura tracce impianti",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 },
                 {
-                    "phase": "Opere Murarie",
-                    "skus": [
-                        {
-                            "sku": "MUR-002",
-                            "qty_formula": "mq * 0.3",
-                            "note": "Chiusura tracce elettriche"
-                        }
-                    ]
+                    "work": "Impianto elettrico completo a mq (cavi, frutti, quadro)",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -614,34 +666,35 @@
             ],
             "phases": [
                 {
-                    "phase": "Demolizioni",
-                    "skus": [
-                        {
-                            "sku": "DEM-008",
-                            "qty_formula": "1",
-                            "note": "Rimozione vecchio impianto/caldaia"
-                        }
-                    ]
-                },
-                {
                     "phase": "Impianti",
                     "skus": [
                         {
-                            "sku": "RIS-001",
+                            "sku": "TERM-CAL-001",
+                            "unit": "cad",
                             "qty_formula": "1",
-                            "note": "Fornitura e installazione caldaia (kW in base a mq)"
+                            "note": "Caldaia a condensazione"
                         },
                         {
-                            "sku": "RIS-002",
+                            "sku": "TERM-PAV-001",
+                            "unit": "mq",
                             "qty_formula": "mq",
-                            "note": "Riscaldamento a pavimento (se richiesto)"
+                            "note": "Riscaldamento a pavimento (massetto incluso)",
+                            "conditional": "if_pavimento_radiante"
                         },
                         {
-                            "sku": "RIS-003",
+                            "sku": "TERM-RAD-001",
+                            "unit": "cad",
                             "qty_formula": "n_radiatori",
-                            "note": "Radiatori / termoconvettori (alternativa)"
+                            "note": "Radiatori (alternativa)",
+                            "conditional": "if_radiatori"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Rimozione vecchio impianto termico",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -668,13 +721,9 @@
                     "skus": [
                         {
                             "sku": "DEM-001",
+                            "unit": "mq",
                             "qty_formula": "mq_parete",
                             "note": "Demolizione tramezzi interni"
-                        },
-                        {
-                            "sku": "DEM-009",
-                            "qty_formula": "mq_parete * 0.1",
-                            "note": "Pulizia tracce elettriche/idrauliche nella parete"
                         }
                     ]
                 },
@@ -683,9 +732,11 @@
                     "note": "Se parete portante: obbligatoria trave o architrave",
                     "skus": [
                         {
-                            "sku": "STR-001",
-                            "qty_formula": "ml_parete",
-                            "note": "Trave/architrave (solo se parete portante — VERIFICA STRUTTURALE OBBLIGATORIA)"
+                            "sku": "MUR-003",
+                            "unit": "cad",
+                            "qty_formula": "1",
+                            "note": "Apertura con cerchiatura (solo se parete portante — VERIFICA STRUTTURALE OBBLIGATORIA)",
+                            "conditional": "if_portante"
                         }
                     ]
                 },
@@ -693,12 +744,14 @@
                     "phase": "Opere Murarie",
                     "skus": [
                         {
-                            "sku": "MUR-002",
+                            "sku": "MUR-004",
+                            "unit": "mq",
                             "qty_formula": "mq_parete * 2",
-                            "note": "Rasatura e intonaco pareti adiacenti post-demolizione"
+                            "note": "Intonaco pareti adiacenti post-demolizione"
                         },
                         {
-                            "sku": "MUR-004",
+                            "sku": "PAV-004",
+                            "unit": "mq",
                             "qty_formula": "mq_parete * 0.1",
                             "note": "Livellamento pavimento nella zona demolita"
                         }
@@ -709,11 +762,13 @@
                     "skus": [
                         {
                             "sku": "PIT-001",
+                            "unit": "mq",
                             "qty_formula": "mq_parete * 2",
                             "note": "Tinteggiatura pareti adiacenti"
                         },
                         {
                             "sku": "PAV-001",
+                            "unit": "mq",
                             "qty_formula": "mq_parete * 0.5",
                             "note": "Integrazione pavimento (se non si rimuove tutto)"
                         }
@@ -723,11 +778,18 @@
                     "phase": "Smaltimento",
                     "skus": [
                         {
-                            "sku": "SME-001",
-                            "qty_formula": "mq_parete * 0.3",
-                            "note": "Macerie tramezzi"
+                            "sku": "SMAL-001",
+                            "unit": "cad",
+                            "qty_formula": "mq_parete * 0.3 / 7",
+                            "note": "Quota di container: circa 0,3 m³ di macerie per mq di parete"
                         }
                     ]
+                }
+            ],
+            "manual_items": [
+                {
+                    "work": "Apertura e chiusura tracce impianti",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         },
@@ -752,47 +814,39 @@
                     "phase": "Opere Murarie",
                     "skus": [
                         {
-                            "sku": "ISO-001",
+                            "sku": "ISO-TERM-001",
+                            "unit": "mq",
                             "qty_formula": "mq_pareti",
-                            "note": "Pannelli isolanti EPS/lana di roccia"
-                        },
-                        {
-                            "sku": "MUR-003",
-                            "qty_formula": "mq_pareti",
-                            "note": "Intonaco di finitura su cappotto"
+                            "note": "Cappotto termico (rasatura, rete e finitura incluse)"
                         }
                     ]
-                },
+                }
+            ],
+            "manual_items": [
                 {
-                    "phase": "Finiture",
-                    "skus": [
-                        {
-                            "sku": "PIT-001",
-                            "qty_formula": "mq_pareti",
-                            "note": "Tinteggiatura esterna (tinta al silicone)"
-                        }
-                    ]
+                    "work": "Pittura esterna ai silossani",
+                    "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
             ]
         }
     ],
     "dependency_rules": [
         {
-            "rule": "Se si rimuove un pavimento, includere sempre smaltimento macerie",
+            "rule": "Se si rimuove un pavimento, includere sempre lo smaltimento macerie",
             "triggers_sku": [
                 "DEM-002"
             ],
             "requires_sku": [
-                "SME-001"
+                "SMAL-001"
             ]
         },
         {
-            "rule": "Se si installa riscaldamento a pavimento, includere sempre massetto sopra",
+            "rule": "Il riscaldamento a pavimento include già il massetto: non aggiungere un massetto separato",
             "triggers_sku": [
-                "RIS-002"
+                "TERM-PAV-001"
             ],
-            "requires_sku": [
-                "MUR-004"
+            "excludes_sku": [
+                "PAV-004"
             ]
         },
         {
@@ -805,7 +859,7 @@
         {
             "rule": "Parete portante richiede verifica strutturale — NON quotare senza accertamento",
             "triggers_sku": [
-                "STR-001"
+                "MUR-003"
             ],
             "requires_admin_flag": true,
             "admin_note": "ATTENZIONE: Segnalare all'admin per verifica strutturale obbligatoria prima dell'approvazione."

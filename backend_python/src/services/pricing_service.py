@@ -12,6 +12,7 @@ from src.core.money import compute_totals, line_total
 from src.db.firebase_client import get_async_firestore_client
 from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteSchema
 from src.services import price_book
+from src.services.assembly_library import check_against_price_book, load_library
 from src.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class PricingService:
     _loaded_once: bool = False  # the first load is awaited, later ones run in the background
     _refresh_lock: asyncio.Lock | None = None
     _refresh_task: asyncio.Task[None] | None = None
+    _out_of_sync_logged: int | None = None  # version already reported as out of sync with the assembly library
 
     @classmethod
     def load_price_book(cls) -> list[dict[str, Any]]:
@@ -76,6 +78,28 @@ class PricingService:
         cls._live_updated_at = updated_at
         cls._loaded_once = True
         cls._refresh_after = time.monotonic() + PRICE_BOOK_TTL_SECONDS
+        cls._report_assembly_problems(items, version)
+
+    @classmethod
+    def _report_assembly_problems(cls, items: list[dict[str, Any]], version: int) -> None:
+        """Log once per version when the live price book lacks (or re-units) SKUs the
+        assembly library uses: the AI's lines for them are dropped. The admin
+        price-book page shows the same list."""
+        library = load_library()
+        if library is None or cls._out_of_sync_logged == version:
+            return
+        try:
+            problems = check_against_price_book(library, items)
+        except (ValueError, TypeError, KeyError) as exc:
+            # A diagnostic only: it must never fail a save that is already committed.
+            logger.warning("[PriceBook] The assembly library could not be checked [%s].", type(exc).__name__)
+            return
+        if problems:
+            cls._out_of_sync_logged = version
+            logger.error(
+                "[PriceBook] The live price book is out of sync with the assembly library.",
+                extra={"version": version, "skus": [p.sku for p in problems]},
+            )
 
     @classmethod
     def reset_price_book_cache(cls) -> None:
@@ -86,6 +110,7 @@ class PricingService:
         cls._refresh_after = 0.0
         cls._loaded_once = False
         cls._refresh_task = None
+        cls._out_of_sync_logged = None
 
     @classmethod
     async def ensure_fresh(cls) -> None:
