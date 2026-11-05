@@ -364,3 +364,79 @@ def test_unmapped_requests_become_manual_work(library: AssemblyLibrary, units: d
     requests = ["Vespaio aerato sotto il pavimento", "  ", "Vespaio aerato sotto il pavimento"]
     result = _run(library, units, _analysis(unmapped=requests))
     assert _manual(result) == [("Vespaio aerato sotto il pavimento", "client_request")]
+
+
+# ── Review fixes (Task 3) ─────────────────────────────────────────────────────
+
+
+def _rules_library(rules: list[dict[str, object]]) -> AssemblyLibrary:
+    return AssemblyLibrary.model_validate({
+        "version": "t", "description": "t", "dependency_rules": rules,
+        "assemblies": [{
+            "id": "ASM-T", "name": "Prova", "description": "t", "triggers": ["t"], "questions_required": [],
+            "phases": [{"phase": "Lavori", "skus": [
+                {"sku": "PIT-001", "unit": "mq", "qty_formula": "mq", "note": "Pittura"},
+                {"sku": "DEM-002", "unit": "mq", "qty_formula": "mq", "note": "Rimozione pavimento"},
+            ]}],
+        }],
+    })
+
+
+def test_extra_cannot_bring_back_a_line_an_element_choice_removed(
+    library: AssemblyLibrary, units: dict[str, str]
+) -> None:
+    kept = _analysis(("ASM-BAGNO-LIGHT", []), elements={"sanitari": "keep"}, extras=[("BAG-SAN-001", 1), ("DEM-006", 1)])
+    assert not {"BAG-SAN-001", "DEM-006"} & set(_qty(_run(library, units, kept)))
+    reused = _analysis(_BATH, elements={"sanitari": "reuse"}, extras=[("BAG-SAN-001", 1)])
+    assert "BAG-SAN-001" not in _qty(_run(library, units, reused, mq="6"))
+
+
+def test_kept_element_conflicting_with_another_package_is_reused(
+    library: AssemblyLibrary, units: dict[str, str]
+) -> None:
+    choices: dict[str, ElementAction] = {"pavimento": "keep", "rivestimento_pareti": "keep", "sanitari": "keep"}
+    result = _run(library, units, _analysis(_BATH, ("ASM-PAVIMENTO", []), elements=choices), mq="6")
+    assert "DEM-006" in _qty(result)
+    warning = next(w for w in result.warnings if w.kind == "element_kept_but_demolished")
+    assert warning.skus == ("DEM-002",)
+    assert "smontaggio e rimontaggio" in warning.message
+
+
+def test_keep_conflict_warning_names_the_demolitions(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(_BATH, elements={"sanitari": "keep"}), mq="6")
+    warning = next(w for w in result.warnings if w.kind == "element_kept_but_demolished")
+    assert warning.skus == ("DEM-002", "DEM-003")
+    assert "smontaggio e rimontaggio" in warning.message
+
+
+def test_an_excluded_line_does_not_trigger_other_rules(units: dict[str, str]) -> None:
+    lib = _rules_library([
+        {"rule": "la pittura esclude la rimozione", "triggers_sku": ["PIT-001"], "excludes_sku": ["DEM-002"]},
+        {"rule": "rimozione: smaltimento", "triggers_sku": ["DEM-002"], "requires_sku": ["SMAL-001"],
+         "requires_qty_formula": "1"},
+    ])
+    result = _run(lib, units, _analysis(("ASM-T", [])), mq="10")
+    assert set(_qty(result)) == {"PIT-001"}
+
+
+def test_a_line_added_by_a_rule_triggers_an_earlier_rule(units: dict[str, str]) -> None:
+    lib = _rules_library([
+        {"rule": "smaltimento da verificare", "triggers_sku": ["SMAL-001"], "requires_admin_flag": True,
+         "admin_note": "Verifica il container"},
+        {"rule": "rimozione: smaltimento", "triggers_sku": ["DEM-002"], "requires_sku": ["SMAL-001"],
+         "requires_qty_formula": "1"},
+    ])
+    result = _run(lib, units, _analysis(("ASM-T", [])), mq="10")
+    assert "SMAL-001" in _qty(result)
+    assert [(w.kind, w.message) for w in result.warnings] == [("admin_check", "Verifica il container")]
+
+
+def test_rule_line_missing_from_the_live_book_is_named_as_work(
+    library: AssemblyLibrary, units: dict[str, str]
+) -> None:
+    live = {sku: unit for sku, unit in units.items() if sku != "SMAL-001"}
+    result = _run(library, live, _analysis(extras=[("DEM-002", 20)]), mq="20")
+    assert "SMAL-001" not in _qty(result)
+    work = next(work for work, origin in _manual(result) if origin == "price_book")
+    assert "SMAL-001" in work
+    assert not work.startswith("Se si rimuove"), work

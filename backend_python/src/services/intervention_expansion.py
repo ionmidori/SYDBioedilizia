@@ -366,12 +366,18 @@ def _apply_elements(decisions: Sequence[_ElementDecision], draft: _Draft) -> Non
 # ── Extra lines, dependency rules, live price book ────────────────────────────
 
 
-def _add_extras(suggestions: Sequence[SKUItemSuggestion], price_book_units: Mapping[str, str], draft: _Draft) -> None:
-    """The model's single lines outside the packages: a SKU a package already has
-    is dropped (the package line wins), an unknown SKU is left out."""
-    from_packages = {line.sku for line in draft.lines}
+def _add_extras(
+    suggestions: Sequence[SKUItemSuggestion],
+    covered: set[str],
+    price_book_units: Mapping[str, str],
+    draft: _Draft,
+) -> None:
+    """The model's single lines outside the packages. A SKU the chosen packages
+    cover (`covered`: their lines before the element choices) is dropped: the
+    package line wins, and a line an element choice removed stays removed.
+    An unknown SKU is left out (quote_tools reports it)."""
     for suggestion in suggestions:
-        if suggestion.sku in from_packages:
+        if suggestion.sku in covered:
             logger.info("[Expansion] Extra line already in a package: dropped.", extra={"sku": suggestion.sku})
             continue
         if suggestion.sku not in price_book_units:
@@ -386,35 +392,56 @@ def _add_extras(suggestions: Sequence[SKUItemSuggestion], price_book_units: Mapp
             continue
         qty = round_half_up(value, _QTY_PLACES)
         draft.lines.append(ExpandedLine(
-            sku=suggestion.sku, qty=qty, reasoning=suggestion.ai_reasoning, origin="extra", note=suggestion.ai_reasoning,
+            sku=suggestion.sku, qty=qty, reasoning=suggestion.ai_reasoning, origin="extra",
         ))
 
 
+def _library_notes(library: AssemblyLibrary) -> dict[str, str]:
+    """SKU → the first package note naming it (a work description for the technician)."""
+    notes: dict[str, str] = {}
+    for assembly in library.assemblies:
+        for phase in assembly.phases:
+            for item in phase.skus:
+                notes.setdefault(item.sku, item.note)
+    return notes
+
+
 def _apply_rules(library: AssemblyLibrary, measures: Mapping[str, Decimal], draft: _Draft) -> None:
-    """Dependency rules on the lines found so far: required lines added, excluded
-    lines removed, structural checks flagged to the admin."""
+    """Dependency rules on the lines found so far.
+
+    Exclusions first, so an excluded line triggers nothing. Then every rule whose
+    trigger is present fires once: required lines are added (and may trigger
+    other rules, in any order), structural checks are flagged to the admin."""
+    rules = library.dependency_rules
     present = {line.sku for line in draft.lines}
-    excluded: set[str] = set()
-    for rule in library.dependency_rules:
-        if not present.intersection(rule.triggers_sku):
-            continue
-        for sku in rule.requires_sku:
-            if sku in present or rule.requires_qty_formula is None:
-                continue
-            qty = _line_quantity(rule.requires_qty_formula, measures, sku, draft)
-            if qty is not None:
-                draft.lines.append(ExpandedLine(
-                    sku=sku, qty=qty, origin="rule", note=rule.rule,
-                    reasoning=f"{rule.rule} ({_measures_text(rule.requires_qty_formula, measures)})",
-                ))
-                present.add(sku)
-        excluded.update(rule.excludes_sku)
-        if rule.requires_admin_flag:
-            draft.warnings.append(ExpansionWarning(
-                "admin_check", rule.admin_note or rule.rule, tuple(sorted(present.intersection(rule.triggers_sku))),
-            ))
+    excluded = {sku for rule in rules if present.intersection(rule.triggers_sku) for sku in rule.excludes_sku}
     if excluded:
         draft.lines = [line for line in draft.lines if line.sku not in excluded]
+        present -= excluded
+    notes = _library_notes(library)
+    fired: set[int] = set()
+    progress = True
+    while progress:  # at most one pass per rule: each fires once
+        progress = False
+        for index, rule in enumerate(rules):
+            if index in fired or not present.intersection(rule.triggers_sku):
+                continue
+            fired.add(index)
+            progress = True
+            for sku in rule.requires_sku:
+                if sku in present or sku in excluded or rule.requires_qty_formula is None:
+                    continue
+                qty = _line_quantity(rule.requires_qty_formula, measures, sku, draft)
+                if qty is not None:
+                    draft.lines.append(ExpandedLine(
+                        sku=sku, qty=qty, origin="rule", note=notes.get(sku, rule.rule),
+                        reasoning=f"{rule.rule} ({_measures_text(rule.requires_qty_formula, measures)})",
+                    ))
+                    present.add(sku)
+            if rule.requires_admin_flag:
+                draft.warnings.append(ExpansionWarning(
+                    "admin_check", rule.admin_note or rule.rule, tuple(sorted(present.intersection(rule.triggers_sku))),
+                ))
 
 
 def _check_price_book(library: AssemblyLibrary, price_book_units: Mapping[str, str], draft: _Draft) -> None:
@@ -460,8 +487,9 @@ def expand(
             continue
         chosen.append(assembly)
         _expand_package(assembly, conditions, measures, draft)
+    covered = {line.sku for line in draft.lines}
     _apply_elements(_decide_elements(chosen, _requested_actions(analysis), draft), draft)
-    _add_extras(analysis.suggestions, price_book_units, draft)
+    _add_extras(analysis.suggestions, covered, price_book_units, draft)
     _apply_rules(library, measures, draft)
     _check_price_book(library, price_book_units, draft)
     for request in analysis.unmapped_work_requests:
