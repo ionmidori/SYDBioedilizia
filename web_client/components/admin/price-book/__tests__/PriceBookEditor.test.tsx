@@ -182,10 +182,17 @@ describe('PriceBookEditor', () => {
     expect(banner).toHaveTextContent('ASM-BAGNO-FULL');
   });
 
+  it('warns when the renovation package library could not be loaded', () => {
+    book({ assembly_library_ok: false, assembly_problems: [] });
+    render(<PriceBookEditor />);
+    expect(screen.getByTestId('pb-assembly-library-broken')).toHaveTextContent('non è stata caricata');
+  });
+
   it('shows no package warning when the price book matches the packages', () => {
     book({ assembly_problems: [] });
     render(<PriceBookEditor />);
     expect(screen.queryByTestId('pb-assembly-problems')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('pb-assembly-library-broken')).not.toBeInTheDocument();
   });
 
   it('shows the rule that stops removing a SKU the AI recipes use', () => {

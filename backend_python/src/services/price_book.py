@@ -140,8 +140,9 @@ def check_assembly_skus(before: list[dict[str, Any]], after: list[dict[str, Any]
     library = load_library()
     if library is None:
         return
-    already = {p.sku for p in check_against_price_book(library, before)}
-    introduced = sorted({p.sku for p in check_against_price_book(library, after)} - already)
+    # Compared as (sku, kind): a SKU whose unit was already wrong may not be deleted.
+    already = {(p.sku, p.kind) for p in check_against_price_book(library, before)}
+    introduced = sorted({p.sku for p in check_against_price_book(library, after) if (p.sku, p.kind) not in already})
     if introduced:
         raise PriceBookSkuInUseError(introduced)
 

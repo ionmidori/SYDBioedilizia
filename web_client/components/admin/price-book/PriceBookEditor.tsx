@@ -212,6 +212,12 @@ export function PriceBookEditor() {
           listino di base; salvando lo sostituisci.
         </p>
       )}
+      {book.data.assembly_library_ok === false && (
+        <p role="status" data-testid="pb-assembly-library-broken" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+          La libreria dei pacchetti di lavorazioni non è stata caricata: i preventivi AI vengono preparati senza
+          pacchetti e il salvataggio non può proteggerne le voci. Avvisa lo sviluppo.
+        </p>
+      )}
       {assemblyProblems.length > 0 && (
         <div role="status" data-testid="pb-assembly-problems" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
           <p>

@@ -42,7 +42,8 @@ def test_formula_accepts_allowed_arithmetic(formula: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "formula", ["mq_bagno * 2", "__import__('os')", "mq ** 2", "mq if 1 else 2", "", "mq.real", "-"]
+    "formula",
+    ["mq_bagno * 2", "__import__('os')", "mq ** 2", "mq if 1 else 2", "", "mq.real", "-", "mq / 0", "mq / 0.0", "1e309"],
 )
 def test_formula_rejects_unknown_or_unsafe(formula: str) -> None:
     with pytest.raises(ValidationError):

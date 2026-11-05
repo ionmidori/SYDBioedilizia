@@ -12,6 +12,7 @@ price-book response carries (Golden Sync: web_client/types/admin-price-book.ts).
 from __future__ import annotations
 
 import ast
+import math
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -25,13 +26,20 @@ FORMULA_VARIABLES: frozenset[str] = frozenset({
 _OPERATORS = (ast.Add, ast.Sub, ast.Mult, ast.Div)
 
 
+def _is_zero(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and type(node.value) in (int, float) and node.value == 0
+
+
 def _is_arithmetic(node: ast.AST) -> bool:
     if isinstance(node, ast.BinOp):
+        if isinstance(node.op, ast.Div) and _is_zero(node.right):
+            return False
         return isinstance(node.op, _OPERATORS) and _is_arithmetic(node.left) and _is_arithmetic(node.right)
     if isinstance(node, ast.UnaryOp):
         return isinstance(node.op, ast.USub) and _is_arithmetic(node.operand)
     if isinstance(node, ast.Constant):
-        return type(node.value) in (int, float)
+        value = node.value
+        return type(value) in (int, float) and isinstance(value, int | float) and math.isfinite(value)
     if isinstance(node, ast.Name):
         return node.id in FORMULA_VARIABLES
     return False

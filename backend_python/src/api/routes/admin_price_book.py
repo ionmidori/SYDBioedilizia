@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from src.auth.admin import require_admin
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_async_firestore_client
@@ -48,7 +49,7 @@ async def get_price_book(
 ) -> PriceBookResponse:
     """The whole price book, read fresh (not from the pricing cache)."""
     state = await price_book.read_state(get_async_firestore_client())
-    library = load_library()
+    library = await run_in_threadpool(load_library)  # the first call reads the file
     etag = etag_for(state.version)
     response.headers["ETag"] = etag
     return PriceBookResponse(
@@ -60,6 +61,7 @@ async def get_price_book(
         updated_by=state.updated_by,
         ignored_document=state.problem,
         assembly_problems=check_against_price_book(library, state.items) if library is not None else [],
+        assembly_library_ok=library is not None,
         items=[PriceBookItem(**item) for item in state.items],
     )
 

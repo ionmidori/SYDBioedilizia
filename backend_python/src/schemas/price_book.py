@@ -80,6 +80,9 @@ class PriceBookResponse(BaseModel):
     # SKUs the renovation packages use that this price book lacks or prices in
     # another unit (the AI's lines for them are dropped): shown as a warning.
     assembly_problems: list[AssemblyProblem] = Field(default_factory=list)
+    # False when renovation_assemblies.json could not be loaded: the AI quotes
+    # without the packages and the save guard cannot protect them.
+    assembly_library_ok: bool = True
     items: list[PriceBookItem]
 
 

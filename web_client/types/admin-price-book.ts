@@ -61,6 +61,8 @@ export const priceBookResponseSchema = z.object({
   ignored_document: z.enum(['legacy_document', 'invalid_items']).nullable().optional(),
   /** SKUs the renovation packages use that this price book lacks or re-units. */
   assembly_problems: z.array(assemblyProblemSchema).default([]),
+  /** False when the renovation package library could not be loaded on the backend. */
+  assembly_library_ok: z.boolean().default(true),
   items: z.array(priceBookItemSchema),
 });
 export type PriceBookResponse = z.infer<typeof priceBookResponseSchema>;

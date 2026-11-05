@@ -88,7 +88,12 @@ class PricingService:
         library = load_library()
         if library is None or cls._out_of_sync_logged == version:
             return
-        problems = check_against_price_book(library, items)
+        try:
+            problems = check_against_price_book(library, items)
+        except (ValueError, TypeError, KeyError) as exc:
+            # A diagnostic only: it must never fail a save that is already committed.
+            logger.warning("[PriceBook] The assembly library could not be checked [%s].", type(exc).__name__)
+            return
         if problems:
             cls._out_of_sync_logged = version
             logger.error(

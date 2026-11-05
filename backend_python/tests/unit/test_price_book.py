@@ -201,6 +201,39 @@ async def test_a_live_book_already_out_of_sync_can_still_be_saved(db):
     assert (result.version, result.changed) == (4, 1)
 
 
+async def test_a_sku_already_re_united_still_cannot_be_removed(db):
+    """The exemption is per problem, not per SKU: a wrong unit does not license a deletion."""
+    re_united = _seed_with("MUR-004", unit="cad")
+    db.put(*PATH, {"items": re_united, "version": 3})
+    without = [i for i in re_united if i["sku"] != "MUR-004"]
+    with pytest.raises(PriceBookSkuInUseError) as exc:
+        await price_book.save(db, _models(without), 3, "admin-a", NOW)
+    assert exc.value.detail["skus"] == ["MUR-004"]
+
+
+def test_a_failing_out_of_sync_check_never_breaks_applying_the_price_book(monkeypatch, caplog):
+    PricingService.reset_price_book_cache()
+
+    def boom(*_a, **_k):
+        raise ValueError("bad item")
+
+    monkeypatch.setattr(pricing_module, "check_against_price_book", boom)
+    PricingService.apply_price_book([_item(unit_price=7.0)], 2, NOW)
+    assert PricingService.get_item_by_sku("TST-001")["unit_price"] == 7.0
+    assert any("could not be checked" in r.getMessage() for r in caplog.records)
+
+
+def test_get_tells_when_the_assembly_library_cannot_be_loaded(db, monkeypatch):
+    monkeypatch.setattr(routes, "load_library", lambda: None)
+    body = _client().get("/api/admin/price-book").json()
+    assert body["assembly_library_ok"] is False
+    assert body["assembly_problems"] == []
+
+
+def test_get_says_the_assembly_library_is_loaded(db):
+    assert _client().get("/api/admin/price-book").json()["assembly_library_ok"] is True
+
+
 async def test_a_dependency_rule_sku_cannot_be_removed(db, monkeypatch):
     library = AssemblyLibrary.model_validate({
         "version": "t", "description": "t", "assemblies": [],
