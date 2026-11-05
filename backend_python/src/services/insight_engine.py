@@ -13,9 +13,10 @@ import logging
 from typing import Any, Literal
 
 from google.genai import types as genai_types
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
+from src.schemas.assembly_library import FORMULA_VARIABLES, ElementAction
 from src.services.assembly_library import load_library
 from src.services.pricing_service import PricingService
 from src.utils.download import download_session_media
@@ -51,12 +52,53 @@ class SKUItemSuggestion(BaseModel):
     )
 
 
+# ── Intervention spec (Phase 140, step 1) ──────────────────────────────────────
+# The model chooses packages, conditions, element choices and measures; the
+# code computes the lines (src/services/intervention_expansion.py).
+# Same response_schema rules as SKUItemSuggestion: no extra="forbid", ge/le only, no dict.
+
+MeasureSource = Literal["declared", "photo", "estimated"]
+
+
+class SpecMeasure(BaseModel):
+    """A room measure a package formula uses, with where it comes from."""
+    name: str = Field(..., description="One of the formula measures (mq, mq_pareti, n_finestre...)")
+    value: float = Field(..., ge=0, description="Value of the measure (m², m or pieces)")
+    source: MeasureSource = Field(
+        ..., description="declared: said by the client or in the room brief; photo: from the measurements; estimated: Italian averages"
+    )
+
+
+class PackageChoice(BaseModel):
+    """A package of the assembly library the room needs."""
+    assembly_id: str = Field(..., description="Id of a package of the library (e.g. ASM-BAGNO-FULL)")
+    conditions: list[str] = Field(
+        default_factory=list, description="Conditions of the package that hold (e.g. if_cottura_gas)"
+    )
+    reasoning: str = Field("", description="Why the package is needed")
+
+
+class ElementChoice(BaseModel):
+    """What the client wants for an existing element: replace (default), reuse or keep in place."""
+    element: str = Field(..., description="Element of a chosen package (e.g. sanitari)")
+    action: ElementAction
+
+
 class InsightAnalysis(BaseModel):
     """Structured output produced by InsightEngine.analyze_project_for_quote()."""
     # NO extra="forbid" — see SKUItemSuggestion (used as Gemini response_schema).
     suggestions: list[SKUItemSuggestion] = Field(
         default_factory=list,
-        description="List of suggested SKU items derived from the conversation."
+        description="Single price-book items NOT covered by the chosen packages."
+    )
+    packages: list[PackageChoice] = Field(default_factory=list, description="Packages the room needs")
+    measures: list[SpecMeasure] = Field(default_factory=list, description="Measures the chosen packages need")
+    element_choices: list[ElementChoice] = Field(
+        default_factory=list, description="Only the elements the client wants to keep or reuse"
+    )
+    unmapped_work_requests: list[str] = Field(
+        default_factory=list,
+        description="Building work the client asked for that is neither in a package nor in the price book (short Italian sentence each)",
     )
     summary: str = Field(..., description="Brief summary of the identified project requirements.")
     completeness_score: float = Field(
@@ -87,6 +129,12 @@ class InsightAnalysis(BaseModel):
     room_id: str | None = Field(None, description="UUID of the room being analyzed (multi-room flow)")
     room_type: str | None = Field(None, description="bagno | cucina | soggiorno | camera | altro")
     room_label: str | None = Field(None, description="Human-readable room label")
+
+    @field_validator("measures")
+    @classmethod
+    def _known_measures(cls, value: list[SpecMeasure]) -> list[SpecMeasure]:
+        """A measure no formula uses is dropped, not an error (the model may invent a name)."""
+        return [m for m in value if m.name in FORMULA_VARIABLES]
 
 
 # ── Domain Exception ───────────────────────────────────────────────────────────
