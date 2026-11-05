@@ -133,6 +133,15 @@ class AssemblyElement(BaseModel):
         description="Lines (demolitions around it) that make keeping the element in place impossible: it is reused instead",
     )
 
+    @model_validator(mode="after")
+    def _consistent(self) -> AssemblyElement:
+        if not (self.remove_skus or self.supply_skus or self.supply_manual):
+            raise ValueError(f"Elemento {self.element!r}: nessuna voce da togliere o da fornire.")
+        if self.keep_conflicts_with and self.reuse_work is None:
+            # A conflicting "keep" is applied as a reuse: it needs the rebuild work.
+            raise ValueError(f"Elemento {self.element!r}: keep_conflicts_with richiede reuse_work.")
+        return self
+
 
 class Assembly(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -157,11 +166,11 @@ class Assembly(BaseModel):
             seen.add(element.element)
             for sku in (*element.remove_skus, *element.supply_skus, *element.keep_conflicts_with):
                 if sku not in skus:
-                    raise ValueError(f"{self.id}/{element.element}: {sku} non e' una voce del pacchetto.")
+                    raise ValueError(f"{self.id}/{element.element}: {sku} non è una voce del pacchetto.")
             for work in element.supply_manual:
                 if work not in manual:
                     raise ValueError(
-                        f"{self.id}/{element.element}: {work!r} non e' una lavorazione manuale del pacchetto."
+                        f"{self.id}/{element.element}: {work!r} non è una lavorazione manuale del pacchetto."
                     )
         return self
 

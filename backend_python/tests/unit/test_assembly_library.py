@@ -141,7 +141,7 @@ def test_element_skus_must_belong_to_the_package() -> None:
     with pytest.raises(ValidationError):
         _assembly([{"element": "e", "label": "E", "remove_skus": ["XYZ-001"]}])
     with pytest.raises(ValidationError):
-        _assembly([{"element": "e", "label": "E", "keep_conflicts_with": ["XYZ-001"]}])
+        _assembly([{"element": "e", "label": "E", "supply_skus": ["A-1"], "keep_conflicts_with": ["XYZ-001"], "reuse_work": "r"}])
     assert _assembly([{"element": "e", "label": "E", "supply_skus": ["A-1"]}]).elements[0].element == "e"
 
 
@@ -203,10 +203,41 @@ def test_bundled_library_v2_1_has_bathroom_elements() -> None:
     library = assembly_library.load_library()
     assert library is not None
     assert library.version == "2.1.0"
+    found = {
+        (a.id, e.element): (e.remove_skus, e.supply_skus, e.supply_manual, e.reuse_work, e.keep_conflicts_with)
+        for a in library.assemblies
+        for e in a.elements
+    }
+    sanitari_work = "Smontaggio con cura e rimontaggio dei sanitari esistenti"
+    rubinetteria_work = "Rimontaggio della rubinetteria esistente"
+    assert found == {
+        ("ASM-BAGNO-FULL", "sanitari"): (["DEM-006"], ["BAG-SAN-001"], [], sanitari_work, ["DEM-002", "DEM-003"]),
+        ("ASM-BAGNO-FULL", "box_doccia"): (
+            [], ["BAG-BOX-001"], [], "Smontaggio e rimontaggio del box doccia esistente", ["DEM-002", "DEM-003"],
+        ),
+        ("ASM-BAGNO-FULL", "rubinetteria"): ([], [], ["Rubinetteria (fornitura)"], rubinetteria_work, ["DEM-003"]),
+        ("ASM-BAGNO-FULL", "pavimento"): (["DEM-002"], ["PAV-004", "PAV-001"], [], None, []),
+        ("ASM-BAGNO-FULL", "rivestimento_pareti"): (["DEM-003"], ["MUR-004", "BAG-RIV-001"], [], None, []),
+        ("ASM-BAGNO-LIGHT", "sanitari"): (["DEM-006"], ["BAG-SAN-001"], [], sanitari_work, []),
+        ("ASM-BAGNO-LIGHT", "rubinetteria"): ([], [], ["Rubinetteria (fornitura)"], rubinetteria_work, []),
+        ("ASM-CUCINA-FULL", "pavimento"): (["DEM-002"], ["PAV-004", "PAV-001"], [], None, []),
+    }
     bathroom = next(a for a in library.assemblies if a.id == "ASM-BAGNO-FULL")
     assert [e.element for e in bathroom.elements] == [
         "sanitari", "box_doccia", "rubinetteria", "pavimento", "rivestimento_pareti",
     ]
+
+
+def test_element_needs_something_to_remove_or_supply() -> None:
+    with pytest.raises(ValidationError):
+        _assembly([{"element": "e", "label": "E"}])
+
+
+def test_conflicting_keep_needs_reuse_work() -> None:
+    element = {"element": "e", "label": "E", "remove_skus": ["A-1"], "keep_conflicts_with": ["A-1"]}
+    with pytest.raises(ValidationError):
+        _assembly([element])
+    assert _assembly([{**element, "reuse_work": "Rimontaggio"}]).elements[0].reuse_work == "Rimontaggio"
 
 
 def test_bundled_defaults_and_rule_quantity() -> None:
