@@ -137,7 +137,7 @@ class InsightEngine:
             "## Master Price Book — SKU Disponibili",
             "",
             "⚠️ REGOLA ASSOLUTA: Usa ESCLUSIVAMENTE i codici SKU presenti in questo elenco.",
-            "Non inventare mai codici SKU. Se un lavoro non è mappabile, ometti la voce.",
+            "Non inventare mai codici SKU. Un lavoro senza codice non va nei suggestions (vedi regola 1).",
             "",
         ]
         for category, items in sorted(by_category.items()):
@@ -247,7 +247,7 @@ Cerca nella cronologia conversazione:
 
 Usa queste informazioni per:
 - Identificare le demolizioni necessarie (es. piastrelle vecchie → DEM-003)
-- Stimare le preparazioni (es. intonaco deteriorato → MUR-003)
+- Stimare le preparazioni (es. intonaco deteriorato → MUR-004)
 - Rilevare impianti da rifare (es. tubature anni '70 → IMP-ID-001)
 - Escludere lavori sugli elementi dichiarati da mantenere
 
@@ -292,7 +292,8 @@ Assegna `completeness_score` (0.0-1.0):
 
 ## Regole Operative
 
-1. **Solo SKU del listino**: MAI inventare codici. Se un lavoro non è mappabile, ometti.
+1. **Solo SKU del listino**: MAI inventare codici. Un lavoro senza codice non va nei `suggestions`:
+   se è tra quelli "Da quotare a mano dal tecnico" della libreria, citalo nel `summary` (regola 8).
 2. **Fase WBS obbligatoria**: Ogni SKU deve avere il campo `phase` compilato.
 3. **Quantità plausibili**: es. 10-14 punti luce per 70mq; non 100 prese per 10mq.
 4. **ZERO arredamento**: Niente mobili, cucine componibili, elettrodomestici, tende, lampade.
@@ -303,6 +304,10 @@ Assegna `completeness_score` (0.0-1.0):
    scegliere le voci di demolizione/preparazione corrette invece di usare defaults generici.
 8. **Lavorazioni da quotare a mano**: quelle indicate nella libreria come "Da quotare a mano
    dal tecnico" non hanno una voce di listino: NON metterle nei `suggestions`, citale nel `summary`.
+   Sono lavori edili, non arredamento.
+9. **Formule della libreria**: `mq` = pavimento della stanza, `mq_pareti` = pareti da trattare,
+   `mq_parete` = parete da abbattere, `ml_pensili` = metri lineari di pensili, `n_*` = numero di pezzi.
+   `SMAL-001` si indica come quota di container da 7 m³ (es. 0.6): il backend li somma in container interi.
 
 ## Esempio Few-Shot (Vision → Preventivo)
 
@@ -314,7 +319,7 @@ Assegna `completeness_score` (0.0-1.0):
 - DEM-006: demolizione sanitari esistenti (qty: 1)
 - DEM-003: rimozione piastrelle pareti (qty: ~13mq = 5mq × 2.6h)
 - DEM-002: rimozione pavimento granito (qty: ~5mq)
-- IMP-ID-001: ridistribuzione punti idraulici (qty: 1) ← condizionale se impianto da rifare
+- IMP-ID-001: punti acqua WC, bidet, lavabo, doccia (qty: 4) ← condizionale se impianto da rifare
 - MUR-004: intonaco civile pareti (qty: ~13mq)
 - PAV-001: posa gres porcellanato pavimento (qty: ~5.25mq con +5%)
 - BAG-RIV-001: rivestimento ceramico pareti (qty: ~13.65mq con +5%)

@@ -123,6 +123,23 @@ class TestAssemblyPrompt:
         assert "Rubinetteria (fornitura)" in prompt
         assert "`MUR-004` (mq, mq * 2.2)" in prompt
 
+    def test_plaster_is_never_mapped_to_the_structural_opening(self, engine: InsightEngine) -> None:
+        """MUR-003 is the load-bearing opening (850 EUR cad), MUR-004 the plaster."""
+        prompt = engine._build_system_prompt("", engine._build_assembly_prompt())
+        wrong = [line for line in prompt.splitlines() if "MUR-003" in line and "intonaco" in line.lower()]
+        assert wrong == []
+
+    def test_unmappable_work_rule_points_to_the_summary(self, engine: InsightEngine) -> None:
+        prompt = engine._build_system_prompt("", "")
+        rule = prompt.split("1. **Solo SKU del listino**", 1)[1].split("2. **", 1)[0]
+        assert "summary" in rule
+        assert "ometti" not in rule
+
+    def test_few_shot_water_points_match_the_bathroom_package(self, engine: InsightEngine) -> None:
+        prompt = engine._build_system_prompt("", "")
+        line = next(line for line in prompt.splitlines() if line.startswith("- IMP-ID-001"))
+        assert "qty: 4" in line
+
     def test_assembly_prompt_is_empty_when_library_is_unreadable(
         self, engine: InsightEngine, monkeypatch: pytest.MonkeyPatch
     ) -> None:
