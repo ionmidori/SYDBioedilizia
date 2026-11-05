@@ -16,11 +16,13 @@ Verifies:
 """
 from __future__ import annotations
 
+import re
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import src.services.insight_engine as insight_engine_module
 from src.core.models import ModelRole
+from src.services import assembly_library, price_book
 from src.services.insight_engine import (
     InsightAnalysis,
     InsightEngine,
@@ -97,6 +99,35 @@ class TestBuildSystemPrompt:
         """System prompt must explicitly exclude furniture from scope."""
         prompt = engine._build_system_prompt(self._MOCK_PRICE, self._MOCK_ASSEMBLY)
         assert "arredamento" in prompt.lower() or "arredi" in prompt.lower()
+
+
+# ─── _build_assembly_prompt (renovation packages) ─────────────────────────────
+
+_SKU_CODE = re.compile(r"\b[A-Z]{2,5}(?:-[A-Z]{2,8})?-\d{3}\b")
+
+
+class TestAssemblyPrompt:
+    def test_every_code_in_the_system_prompt_is_in_the_price_book(self, engine: InsightEngine) -> None:
+        """The packages and the few-shot example only name codes the price book has
+        (a stale code is dropped by validate_sku_suggestions and the line is lost)."""
+        prompt = engine._build_system_prompt("", engine._build_assembly_prompt())
+        known = {item["sku"] for item in price_book.seed_items()}
+        assert sorted(set(_SKU_CODE.findall(prompt)) - known) == []
+
+    def test_assembly_prompt_lists_every_assembly_and_manual_items(self, engine: InsightEngine) -> None:
+        library = assembly_library.load_library()
+        assert library is not None
+        prompt = engine._build_assembly_prompt()
+        for assembly in library.assemblies:
+            assert assembly.id in prompt
+        assert "Rubinetteria (fornitura)" in prompt
+        assert "`MUR-004` (mq, mq * 2.2)" in prompt
+
+    def test_assembly_prompt_is_empty_when_library_is_unreadable(
+        self, engine: InsightEngine, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(insight_engine_module, "load_library", lambda: None)
+        assert engine._build_assembly_prompt() == ""
 
 
 # ─── analyze_project_for_quote ────────────────────────────────────────────────
