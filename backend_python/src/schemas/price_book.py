@@ -15,6 +15,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from src.schemas.assembly_library import AssemblyProblem
+
 # SKU as used in quotes and prompts: short, no spaces or exotic characters.
 SKU_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._\-]{0,39}$"
 MAX_ITEMS = 2000
@@ -75,6 +77,9 @@ class PriceBookResponse(BaseModel):
     # Set when the stored document was ignored (e.g. written by another tool
     # without a version): the seed is shown and saving replaces the document.
     ignored_document: str | None = None
+    # SKUs the renovation packages use that this price book lacks or prices in
+    # another unit (the AI's lines for them are dropped): shown as a warning.
+    assembly_problems: list[AssemblyProblem] = Field(default_factory=list)
     items: list[PriceBookItem]
 
 

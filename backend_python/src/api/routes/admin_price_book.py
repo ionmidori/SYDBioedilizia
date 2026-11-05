@@ -27,6 +27,7 @@ from src.schemas.price_book import (
 )
 from src.services import price_book
 from src.services.admin_quotes import etag_for, parse_if_match
+from src.services.assembly_library import check_against_price_book, load_library
 from src.services.audit import AuditAction, AuditResourceType, emit_audit_event
 from src.services.pricing_service import PricingService
 from src.utils.datetime_utils import utc_now
@@ -47,6 +48,7 @@ async def get_price_book(
 ) -> PriceBookResponse:
     """The whole price book, read fresh (not from the pricing cache)."""
     state = await price_book.read_state(get_async_firestore_client())
+    library = load_library()
     etag = etag_for(state.version)
     response.headers["ETag"] = etag
     return PriceBookResponse(
@@ -57,6 +59,7 @@ async def get_price_book(
         updated_at=state.updated_at,
         updated_by=state.updated_by,
         ignored_document=state.problem,
+        assembly_problems=check_against_price_book(library, state.items) if library is not None else [],
         items=[PriceBookItem(**item) for item in state.items],
     )
 

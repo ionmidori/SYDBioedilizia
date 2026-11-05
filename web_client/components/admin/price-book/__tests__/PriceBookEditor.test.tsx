@@ -168,6 +168,26 @@ describe('PriceBookEditor', () => {
     expect(screen.getByTestId('pb-ignored')).toHaveTextContent('senza versione');
   });
 
+  it('warns when SKUs the renovation packages use are missing or re-united', () => {
+    book({
+      assembly_problems: [
+        { sku: 'SMAL-001', kind: 'missing', assemblies: ['ASM-BAGNO-FULL'], expected_unit: 'cad', actual_unit: null },
+        { sku: 'MUR-004', kind: 'unit_changed', assemblies: ['ASM-PAVIMENTO'], expected_unit: 'mq', actual_unit: 'cad' },
+      ],
+    });
+    render(<PriceBookEditor />);
+    const banner = screen.getByTestId('pb-assembly-problems');
+    expect(banner).toHaveTextContent('SMAL-001 — mancante');
+    expect(banner).toHaveTextContent('MUR-004 — unità attesa mq, trovata cad');
+    expect(banner).toHaveTextContent('ASM-BAGNO-FULL');
+  });
+
+  it('shows no package warning when the price book matches the packages', () => {
+    book({ assembly_problems: [] });
+    render(<PriceBookEditor />);
+    expect(screen.queryByTestId('pb-assembly-problems')).not.toBeInTheDocument();
+  });
+
   it('shows the rule that stops removing a SKU the AI recipes use', () => {
     book();
     saveMutation.error = new AdminApiError(422, 'PRICE_BOOK_SKU_IN_USE', 'x', { skus: ['DEM-001'] });

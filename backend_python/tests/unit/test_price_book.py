@@ -402,6 +402,18 @@ def test_get_tells_when_a_foreign_document_was_ignored(db):
     assert (body["source"], body["version"], body["ignored_document"]) == ("seed", 0, "legacy_document")
 
 
+def test_get_with_the_seed_reports_no_assembly_problems(db):
+    assert _client().get("/api/admin/price-book").json()["assembly_problems"] == []
+
+
+def test_get_lists_the_assembly_skus_the_live_price_book_lacks(db):
+    without = [i for i in price_book.seed_items() if i["sku"] != "SMAL-001"]
+    db.put(*PATH, {"items": without, "version": 3})
+    problems = _client().get("/api/admin/price-book").json()["assembly_problems"]
+    assert [(p["sku"], p["kind"], p["expected_unit"]) for p in problems] == [("SMAL-001", "missing", "cad")]
+    assert "ASM-BAGNO-FULL" in problems[0]["assemblies"]
+
+
 def test_put_requires_if_match(db):
     resp = _client().put("/api/admin/price-book", json={"items": _book()})
     assert resp.status_code == 428 and resp.json()["error_code"] == "PRECONDITION_REQUIRED"
