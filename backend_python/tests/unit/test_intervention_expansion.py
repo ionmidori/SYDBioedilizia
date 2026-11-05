@@ -6,6 +6,7 @@ line from the library formulas. Real bundled library and seed price book.
 from decimal import Decimal
 
 import pytest
+from pydantic import ValidationError
 from src.schemas.assembly_library import FORMULA_VARIABLES, AssemblyLibrary
 from src.schemas.room import RoomBrief
 from src.services import assembly_library, price_book
@@ -147,3 +148,71 @@ def test_quantity_over_bound_is_dropped(library: AssemblyLibrary, units: dict[st
     result = _run(library, units, _analysis(("ASM-BAGNO-FULL", [])), mq="9000")
     assert "BAG-RIV-001" not in _qty(result)
     assert any(w.kind == "qty_out_of_bounds" and w.skus == ("BAG-RIV-001",) for w in result.warnings)
+
+
+def _one_line_library(formula: str) -> AssemblyLibrary:
+    return AssemblyLibrary.model_validate({
+        "version": "t", "description": "t", "dependency_rules": [],
+        "assemblies": [{
+            "id": "ASM-T", "name": "Prova", "description": "t", "triggers": ["t"], "questions_required": [],
+            "phases": [{"phase": "Lavori", "skus": [{"sku": "PIT-001", "unit": "mq", "qty_formula": formula, "note": "n"}]}],
+        }],
+    })
+
+
+def test_unknown_package_is_skipped_and_flagged(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(("ASM-INVENTATO", [])), mq="6")
+    assert result.lines == []
+    assert [w.kind for w in result.warnings] == ["unknown_package"]
+
+
+def test_package_chosen_twice_is_expanded_once_with_both_conditions(
+    library: AssemblyLibrary, units: dict[str, str]
+) -> None:
+    analysis = _analysis(("ASM-CUCINA-FULL", []), ("ASM-CUCINA-FULL", ["if_cottura_gas"]))
+    result = _run(library, units, analysis, mq="10", ml_pensili="4")
+    skus = [line.sku for line in result.lines]
+    assert len(skus) == len(set(skus))
+    assert "CUC-GAS-001" in skus
+
+
+def test_quantity_rounding_below_a_cent_is_skipped(units: dict[str, str]) -> None:
+    result = _run(_one_line_library("mq * 0.001"), units, _analysis(("ASM-T", [])), mq="4")
+    assert result.lines == [] and result.warnings == []
+    negative = _run(_one_line_library("1 - mq"), units, _analysis(("ASM-T", [])), mq="4")
+    assert negative.lines == []
+
+
+def test_first_spec_measure_wins() -> None:
+    analysis = InsightAnalysis(summary="s", measures=[
+        SpecMeasure(name="mq", value=6, source="declared"), SpecMeasure(name="mq", value=9, source="estimated"),
+    ])
+    assert resolve_measures(analysis, None) == {"mq": Decimal("6")}
+
+
+def test_absurd_measure_is_rejected_by_the_spec() -> None:
+    with pytest.raises(ValidationError):
+        SpecMeasure(name="mq", value=1e60, source="estimated")
+    with pytest.raises(ValidationError):
+        SpecMeasure(name="mq", value=float("inf"), source="estimated")
+
+
+def test_huge_formula_result_is_out_of_bounds_not_a_crash(units: dict[str, str]) -> None:
+    result = _run(_one_line_library("mq * 100000000000000000000000000000000000000000000000000000000000"),
+                  units, _analysis(("ASM-T", [])), mq="10000")
+    assert result.lines == []
+    assert [w.kind for w in result.warnings] == ["qty_out_of_bounds"]
+
+
+def test_formula_arithmetic_error_is_flagged_not_raised(units: dict[str, str]) -> None:
+    result = _run(_one_line_library("mq / (mq_pareti - mq_pareti)"), units, _analysis(("ASM-T", [])),
+                  mq="4", mq_pareti="10")
+    assert result.lines == []
+    assert [w.kind for w in result.warnings] == ["admin_check"]
+
+
+def test_default_warning_only_when_the_default_line_is_there(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(("ASM-INFISSI", [])))
+    assert "INF-FIN-001" not in _qty(result)
+    assert "choice_defaulted" not in [w.kind for w in result.warnings]
+    assert result.missing_measures == ["n_finestre"]

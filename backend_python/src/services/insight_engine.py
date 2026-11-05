@@ -63,7 +63,8 @@ MeasureSource = Literal["declared", "photo", "estimated"]
 class SpecMeasure(BaseModel):
     """A room measure a package formula uses, with where it comes from."""
     name: str = Field(..., description="One of the formula measures (mq, mq_pareti, n_finestre...)")
-    value: float = Field(..., ge=0, description="Value of the measure (m², m or pieces)")
+    # Same bound as RoomBrief: a home measure, never astronomic (le also rejects inf).
+    value: float = Field(..., ge=0, le=10_000, description="Value of the measure (m², m or pieces)")
     source: MeasureSource = Field(
         ..., description="declared: said by the client or in the room brief; photo: from the measurements; estimated: Italian averages"
     )

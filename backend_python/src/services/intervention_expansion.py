@@ -188,15 +188,22 @@ def _line_quantity(
     except MissingMeasure as exc:
         draft.missing(exc.variable)
         return None
+    except ArithmeticError:
+        # A library formula the validator admits but the measures break (e.g. a zero divisor).
+        logger.exception("[Expansion] Formula not computable.", extra={"sku": sku, "formula": formula})
+        draft.warnings.append(ExpansionWarning(
+            "admin_check", f"{sku}: la formula {formula} non è calcolabile con queste misure, voce non inserita", (sku,),
+        ))
+        return None
+    if value > MAX_QTY:  # checked before rounding: a huge value cannot be quantized
+        logger.warning("[Expansion] Quantity out of bounds.", extra={"sku": sku, "qty": f"{value:.2E}"})
+        draft.warnings.append(ExpansionWarning(
+            "qty_out_of_bounds", f"{sku}: quantità {value:.2f} fuori dai limiti, voce non inserita", (sku,),
+        ))
+        return None
     qty = round_half_up(value, _QTY_PLACES)
     if qty < MIN_QTY:
         return None  # e.g. n_finestre = 0: nothing to quote
-    if qty > MAX_QTY:
-        logger.warning("[Expansion] Quantity out of bounds.", extra={"sku": sku, "qty": str(qty)})
-        draft.warnings.append(ExpansionWarning(
-            "qty_out_of_bounds", f"{sku}: quantità {qty} fuori dai limiti, voce non inserita", (sku,),
-        ))
-        return None
     return qty
 
 
@@ -209,9 +216,10 @@ def _package_conditions(assembly: Assembly) -> set[str]:
     }
 
 
-def _chosen_items(assembly: Assembly, chosen: set[str], draft: _Draft) -> list[AssemblySku]:
-    """The package lines the chosen conditions select (with the default alternatives)."""
-    items: list[AssemblySku] = []
+def _chosen_items(assembly: Assembly, chosen: set[str]) -> list[tuple[AssemblySku, bool]]:
+    """The package lines the chosen conditions select, each with whether it is a
+    default alternative (no condition of its phase was chosen)."""
+    items: list[tuple[AssemblySku, bool]] = []
     for phase in assembly.phases:
         if phase.conditional and phase.conditional not in chosen:
             continue
@@ -219,14 +227,9 @@ def _chosen_items(assembly: Assembly, chosen: set[str], draft: _Draft) -> list[A
         any_chosen = any(item.conditional in chosen for item in alternatives)
         for item in phase.skus:
             if item.conditional is None or item.conditional in chosen:
-                items.append(item)
+                items.append((item, False))
             elif not any_chosen and item.default_choice:
-                items.append(item)
-                draft.warnings.append(ExpansionWarning(
-                    "choice_defaulted",
-                    f"{assembly.name}: scelta non indicata dal cliente, previsto {item.sku} ({item.note})",
-                    (item.sku,),
-                ))
+                items.append((item, True))
     return items
 
 
@@ -238,10 +241,16 @@ def _expand_package(
         draft.warnings.append(ExpansionWarning(
             "unknown_condition", f"{assembly.name}: condizioni ignorate {', '.join(unknown)}",
         ))
-    for item in _chosen_items(assembly, conditions, draft):
+    for item, defaulted in _chosen_items(assembly, conditions):
         qty = _line_quantity(item.qty_formula, measures, item.sku, draft)
         if qty is None:
             continue
+        if defaulted:
+            draft.warnings.append(ExpansionWarning(
+                "choice_defaulted",
+                f"{assembly.name}: scelta non indicata dal cliente, previsto {item.sku} ({item.note})",
+                (item.sku,),
+            ))
         draft.lines.append(ExpandedLine(
             sku=item.sku,
             qty=qty,
