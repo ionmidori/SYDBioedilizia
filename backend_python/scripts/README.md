@@ -38,6 +38,7 @@ Gli script che leggono PDF (`extract_prezzario.py`, `pinecone_upload_pdf.py`) us
 | `cleanup_orphaned_files.py`, `cleanup_orphaned_firestore_files.py`, `cleanup_orphaned_storage.py` | Rimozione di file/record orfani |
 | `cleanup_zombie_projects.py` | Cancella (con la sottocollezione `files`) i documenti `projects` senza `sessions` corrispondente |
 | `repair_project_projections.py` | Ricostruisce le proiezioni denormalizzate dei progetti |
+| `add_portfolio_project.py` | Aggiunge un progetto al portfolio pubblico da una foto + manifest JSON (stessa pipeline della Console admin: WebP, metadati/GPS rimossi; `--dry-run` per l'anteprima) |
 | `sync_all_covers.py`, `sync_project_names.py` | Risincronizza copertine e nomi dei progetti |
 | `reset_guest_render_quota.py` | **Cancella** `usage_quotas/guest-session-_generate_render` (azzera la quota render degli ospiti). Senza `--yes` fa solo un dry run |
 | `clear_registered_session_expiry.py` | Toglie `expireAt` (TTL 30 giorni) dalle sessioni degli utenti registrati e dai loro messaggi: riparazione una tantum dei dati scritti prima che la scadenza valesse solo per gli ospiti. Senza `--apply` fa solo un dry run |

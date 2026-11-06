@@ -109,6 +109,8 @@ class PortfolioStats(BaseModel):
 
 
 class PortfolioOut(BaseModel):
+    """Public gallery item. Golden Sync: `portfolioItemSchema` in web_client/lib/portfolio/types.ts."""
+
     id: str
     title: str
     category: str
