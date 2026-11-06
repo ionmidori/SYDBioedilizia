@@ -202,4 +202,15 @@ describe('link preview', () => {
         });
         expect(portfolioShareImage([])).toBeNull();
     });
+
+    it('carries a page title, description and URL into both OpenGraph and Twitter', () => {
+        const meta = shareMetadata(undefined, { title: 'FAQ', description: 'Domande', path: '/faq' });
+        expect(meta.openGraph).toMatchObject({
+            title: 'FAQ',
+            description: 'Domande',
+            url: 'https://sydbioedilizia.vercel.app/faq',
+            images: [DEFAULT_SHARE_IMAGE],
+        });
+        expect(meta.twitter).toMatchObject({ title: 'FAQ', description: 'Domande', images: [DEFAULT_SHARE_IMAGE.url] });
+    });
 });

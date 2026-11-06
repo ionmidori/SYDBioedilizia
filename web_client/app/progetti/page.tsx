@@ -4,24 +4,27 @@ import { Navbar } from '@/components/sections/Navbar';
 import { Footer } from '@/components/sections/Footer';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { getPortfolio } from '@/lib/portfolio/server';
-import { portfolioItemList, serializeJsonLd } from '@/lib/portfolio/structured-data';
+import { portfolioItemList, portfolioShareImage, serializeJsonLd } from '@/lib/portfolio/structured-data';
+import { shareMetadata } from '@/lib/site-share';
 import { ProjectsArchiveClient } from './ProjectsArchiveClient';
 
-export const metadata: Metadata = {
-    title: 'Progetti e Ristrutturazioni | SYD Bioedilizia',
-    description:
-        'L\'archivio completo delle ristrutturazioni SYD Bioedilizia a Roma e provincia: interni, cucine, bagni e riqualificazioni energetiche in bioedilizia.',
-    alternates: {
-        canonical: 'https://sydbioedilizia.vercel.app/progetti',
-    },
-    openGraph: {
+/** Link preview with a real project photo, else the brand logo (same cached fetch as the page). */
+export async function generateMetadata(): Promise<Metadata> {
+    const image = portfolioShareImage(await getPortfolio());
+    return {
         title: 'Progetti e Ristrutturazioni | SYD Bioedilizia',
         description:
-            'L\'archivio completo delle ristrutturazioni SYD Bioedilizia a Roma e provincia.',
-        url: 'https://sydbioedilizia.vercel.app/progetti',
-        type: 'website',
-    },
-};
+            'L\'archivio completo delle ristrutturazioni SYD Bioedilizia a Roma e provincia: interni, cucine, bagni e riqualificazioni energetiche in bioedilizia.',
+        alternates: {
+            canonical: 'https://sydbioedilizia.vercel.app/progetti',
+        },
+        ...shareMetadata(image ?? undefined, {
+            title: 'Progetti e Ristrutturazioni | SYD Bioedilizia',
+            description: 'L\'archivio completo delle ristrutturazioni SYD Bioedilizia a Roma e provincia.',
+            path: '/progetti',
+        }),
+    };
+}
 
 const collectionPage = {
     '@context': 'https://schema.org',

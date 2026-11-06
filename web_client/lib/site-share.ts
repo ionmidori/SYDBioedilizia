@@ -24,12 +24,28 @@ export const DEFAULT_SHARE_IMAGE: ShareImage = {
     height: DEFAULT_OG_IMAGE.height,
 };
 
-export function shareMetadata(image: ShareImage = DEFAULT_SHARE_IMAGE): Pick<Metadata, 'openGraph' | 'twitter'> {
+/** Per-page text of the preview; `path` is appended to the site URL (e.g. '/faq'). */
+export interface SharePage {
+    title?: string;
+    description?: string;
+    path?: string;
+}
+
+/**
+ * A page that sets its own `openGraph` replaces the layout's whole object (Next
+ * does not merge it), so it would lose the image: pages build theirs here.
+ */
+export function shareMetadata(
+    image: ShareImage = DEFAULT_SHARE_IMAGE,
+    page: SharePage = {}
+): Pick<Metadata, 'openGraph' | 'twitter'> {
+    const title = page.title ?? TITLE;
+    const description = page.description ?? DESCRIPTION;
     return {
         openGraph: {
-            title: TITLE,
-            description: DESCRIPTION,
-            url: 'https://sydbioedilizia.vercel.app',
+            title,
+            description,
+            url: `https://sydbioedilizia.vercel.app${page.path ?? ''}`,
             siteName: 'SYD BIOEDILIZIA',
             locale: 'it_IT',
             type: 'website',
@@ -37,8 +53,8 @@ export function shareMetadata(image: ShareImage = DEFAULT_SHARE_IMAGE): Pick<Met
         },
         twitter: {
             card: 'summary_large_image',
-            title: TITLE,
-            description: DESCRIPTION,
+            title,
+            description,
             images: [image.url],
         },
     };
