@@ -7,6 +7,7 @@ import { Footer } from '@/components/sections/Footer';
 import { Coins, FileText, Sparkles, Wrench, Phone } from 'lucide-react';
 import { OpenChatButton } from '@/components/ui/open-chat-button';
 import ChatWidget from '@/components/chat/ChatWidget';
+import { shareMetadata } from '@/lib/site-share';
 
 const iconMap = {
   Coins,
@@ -18,13 +19,12 @@ const iconMap = {
 export const metadata: Metadata = {
   title: 'Domande Frequenti (FAQ) | SYD Bioedilizia',
   description: 'Risposte immediate su costi ristrutturazione, tempistiche, permessi (CILA/SCIA), bonus 2026 e rendering AI. Scopri come funziona il metodo SYD.',
-  openGraph: {
+  // Brand logo as the preview image (the page has no photo of its own).
+  ...shareMetadata(undefined, {
     title: 'Domande Frequenti (FAQ) | SYD Bioedilizia',
     description: 'Tutto quello che devi sapere prima di ristrutturare: costi, tempi, bonus 2026 e tecnologia AI.',
-    type: 'website',
-    locale: 'it_IT',
-    siteName: 'SYD Bioedilizia',
-  },
+    path: '/faq',
+  }),
   alternates: {
     canonical: '/faq',
   },
