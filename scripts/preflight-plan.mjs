@@ -172,6 +172,21 @@ export function badCommitSubjects(subjects) {
     return subjects.filter((s) => !s.startsWith('Merge ') && !COMMIT_SUBJECT.test(s));
 }
 
+// CI and Vercel run `npm ci` with the npm bundled with Node 24 (no pin).
+const CI_NPM_MAJOR = 11;
+
+/**
+ * Warning for a lockfile change made with an npm older than CI's, or null.
+ * An older npm drops fields npm 11 writes (e.g. `libc`), adding noise to the diff.
+ */
+export function lockfileNpmWarning(npmVersion) {
+    const version = String(npmVersion ?? '').trim();
+    const major = Number.parseInt(version, 10);
+    if (Number.isInteger(major) && major >= CI_NPM_MAJOR) return null;
+    const used = version || 'sconosciuto';
+    return `package-lock.json modificato con npm ${used}: la CI usa l'npm di Node 24 (${CI_NPM_MAJOR}), rigeneralo con quello`;
+}
+
 /** Added lines (`+`, not the `+++` header) of a unified diff that look like a credential. */
 export function secretHits(diffText) {
     const hits = [];

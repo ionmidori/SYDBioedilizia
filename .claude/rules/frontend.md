@@ -13,12 +13,8 @@ paths:
 ## Dependencies & Lockfile (CRITICAL — read before any `npm install`)
 - This is an **npm workspace**: the single `package-lock.json` lives at the **repo root**, not in `web_client/`. Run npm from the repo root.
 - **Node version comes from `engines.node` (`^24.12.0`, the floor firebase 13 requires)** — CI reads it via `node-version-file: 'package.json'`, Vercel deploys the latest 24.x. Never hardcode `node-version` in a workflow (`__tests__/node-engines.test.ts` fails).
-- **Use npm 10 (10.9.9) to touch the lockfile** — this is what CI runs: Node 24 bundles npm 11, so every workflow pins npm with a `Pin npm 10` step (`.github/workflows/frontend-checks.yml`: `npm ci` + `npm audit --audit-level=high` + `npm run type-check`).
-- **Do NOT regenerate the lockfile with npm 11.** On Windows/npm 11 a plain `npm install` silently corrupts it in ways CI's npm 10 rejects:
-  - prunes optional cross-platform deps (`@emnapi/*`, `@tailwindcss/oxide`/`sharp` WASM variants),
-  - re-resolves unrelated ranges (e.g. downgrades the `eslint@10` tree).
-  - Result: CI fails fast (~8s) at `npm ci` with `Missing <pkg> from lock file`, **even though local `npm ci` on npm 11 passes** (false green).
-- Safe dependency bump: change the version in `web_client/package.json`, then regenerate the lockfile with **npm 10** (`npx -y npm@10 install --package-lock-only` if your default npm is 11), and confirm the diff vs `main` touches **only** the bumped package's subtree. The repo lockfile uses **4-space indentation** — preserve it.
+- **Touch the lockfile with the npm bundled with Node 24 (npm 11)** — the same npm CI (`npm ci` in every workflow, no pin) and Vercel (`installCommand: npm ci` in `web_client/vercel.json`) use. The old "npm 10 only" rule was dropped on 6 Nov 2026: npm 11 on Windows was verified to write only the bumped subtree, and `main` already carried npm 11 fields (`libc`) from Dependabot.
+- Safe dependency bump: change the version in `web_client/package.json`, run `npm install` from the repo root, and confirm the diff vs `main` touches **only** the bumped package's subtree (no pruned `@tailwindcss/oxide-*` / `@img/sharp-*` optional variants, no unrelated re-resolutions). Never delete and regenerate the lockfile from scratch. The repo lockfile uses **4-space indentation** — preserve it.
 - Verify locally before pushing: `npm ci` (mirrors CI), `npm run type-check`, `npm test`.
 
 ## Critical Files

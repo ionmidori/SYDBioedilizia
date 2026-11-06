@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import {
     badCommitSubjects,
     classifyChanges,
+    lockfileNpmWarning,
     parseArgs,
     planSteps,
     secretHits,
@@ -121,5 +122,20 @@ test('build placeholders match the CI build step', () => {
     for (const [key, value] of Object.entries(build.env)) {
         if (key === 'NEXT_DIST_DIR') continue;
         assert.ok(ci.includes(`${key}: '${value}'`), `${key}=${value} diverso dal workflow`);
+    }
+});
+
+// CI and Vercel use the npm bundled with Node 24; the npm 10 pin was dropped.
+test('lockfile warning only for an npm older than CI', () => {
+    assert.equal(lockfileNpmWarning('11.19.0\n'), null);
+    assert.equal(lockfileNpmWarning('12.0.0'), null);
+    assert.match(lockfileNpmWarning('10.9.9'), /npm 10\.9\.9/);
+    assert.match(lockfileNpmWarning(''), /sconosciuto/);
+    assert.match(lockfileNpmWarning(undefined), /sconosciuto/);
+});
+
+test('no workflow pins npm 10 any more', () => {
+    for (const name of ['frontend-checks.yml', 'e2e-smoke.yml', 'security-audit.yml', 'storage-rules.yml']) {
+        assert.ok(!/npm@10\b/.test(workflow(name)), `${name} fissa ancora npm 10`);
     }
 });

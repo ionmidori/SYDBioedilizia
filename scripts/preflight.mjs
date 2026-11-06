@@ -14,7 +14,15 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { badCommitSubjects, classifyChanges, parseArgs, planSteps, secretHits, tailLines } from './preflight-plan.mjs';
+import {
+    badCommitSubjects,
+    classifyChanges,
+    lockfileNpmWarning,
+    parseArgs,
+    planSteps,
+    secretHits,
+    tailLines,
+} from './preflight-plan.mjs';
 
 const TAIL_LINES = 30;
 const STEP_TIMEOUT_MS = 15 * 60 * 1000;
@@ -93,10 +101,8 @@ function repoChecks({ branch, base, files, scope }) {
 
     if (scope.lockfile) {
         const npm = spawnSync('npm -v', { encoding: 'utf8', shell: true });
-        const major = Number.parseInt(npm.stdout, 10);
-        if (major !== 10) {
-            add('lockfile', 'warn', `package-lock.json modificato con npm ${npm.stdout.trim()}: la CI usa npm 10.9.9, rigenera con npm 10`);
-        }
+        const warning = lockfileNpmWarning(npm.stdout);
+        if (warning) add('lockfile', 'warn', warning);
     }
     if (scope.modelsWithoutTypes) {
         add('golden-sync', 'warn', 'cambiato un modello Pydantic (src/models) ma nessun tipo in web_client/types');
