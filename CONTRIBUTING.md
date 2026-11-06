@@ -22,7 +22,7 @@ README: [`backend_python/README.md`](backend_python/README.md) and
 ## Prerequisites
 
 - **Node.js 24.12+** (`engines.node` `^24.12.0`, required by firebase 13) and
-  npm 10 for lockfile changes (frontend is an npm workspace — always `npm install`
+  the npm it bundles (npm 11; frontend is an npm workspace — always `npm install`
   from the repo root, never from `web_client/`).
 - **Python 3.12+** and [`uv`](https://docs.astral.sh/uv/) (backend).
 
@@ -130,11 +130,10 @@ Dependabot opens grouped version-update PRs (see `.github/dependabot.yml`).
 > CI runs `uv lock --check` and fails on a stale lock.
 
 > ⚠️ **Frontend lockfile note:** there is one `package-lock.json`, at the
-> repository root, and it must be regenerated with **npm 10** (CI pins it).
-> npm 11, which ships with Node 24, silently prunes optional cross-platform
-> dependencies on Windows and CI then fails at `npm ci`. Use
-> `npx -y npm@10 install --package-lock-only`, keep the 4-space indentation, and
-> check that the diff only touches the bumped package. The details are in
+> repository root. Update it with the npm bundled with Node 24 (npm 11, the same
+> one CI and Vercel use for `npm ci`): run `npm install` from the root, keep the
+> 4-space indentation, never regenerate it from scratch, and check that the diff
+> only touches the bumped package. The details are in
 > [`.claude/rules/frontend.md`](.claude/rules/frontend.md).
 
 ## Security

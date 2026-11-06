@@ -56,11 +56,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: 'tests/rules/package-lock.json'
 
-      # Node 24 bundles npm 11; the lockfile toolchain is npm 10 (see
-      # .claude/rules/frontend.md). Pin it so CI resolves like the lockfile.
-      - name: 'Pin npm 10 (lockfile toolchain)'
-        run: npm install -g npm@10.9.9 && npm -v
-
       # Both emulators are JVM binaries. ubuntu-latest ships a JDK; this
       # asserts it is really there so a runner-image change fails loudly.
       - name: 'Verify Java is available (emulator runtime)'

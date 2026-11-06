@@ -76,11 +76,6 @@ jobs:
           node-version-file: 'package.json'
           cache: 'npm'
 
-      # Node 24 bundles npm 11; the lockfile toolchain is npm 10 (see
-      # .claude/rules/frontend.md). Pin it so CI resolves like the lockfile.
-      - name: 'Pin npm 10 (lockfile toolchain)'
-        run: npm install -g npm@10.9.9 && npm -v
-
       - name: 'Install dependencies'
         run: npm ci
 
@@ -141,11 +136,6 @@ jobs:
         with:
           node-version-file: 'package.json'
           cache: 'npm'
-
-      # Node 24 bundles npm 11; the lockfile toolchain is npm 10 (see
-      # .claude/rules/frontend.md). Pin it so CI resolves like the lockfile.
-      - name: 'Pin npm 10 (lockfile toolchain)'
-        run: npm install -g npm@10.9.9 && npm -v
 
       # The Firestore emulator is a JVM binary. The Playwright image has no JDK,
       # so install one (Temurin, downloaded from Adoptium — not apt), then
