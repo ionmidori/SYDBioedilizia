@@ -7,13 +7,13 @@
  * Next.js and refreshed in the background every `PORTFOLIO_REVALIDATE_SECONDS`
  * (ISR), so visitors never wait for a Cloud Run cold start.
  *
- * What happens when the backend cannot be reached depends on when:
- *   - `next build` / `next dev` / tests: the placeholders, so a build never fails
- *     on the backend (the browser retries, see `usePortfolioProjects`);
- *   - a background revalidation in production: an error is THROWN, so Next.js keeps
- *     serving the last good page instead of caching one made of stock photos.
- * A successful empty list is a real state (nothing published) and always gives
- * the placeholders.
+ * When the backend cannot be reached, the last real list this server instance
+ * received is reused, else the placeholders (the browser then retries, see
+ * `usePortfolioProjects`). It never throws: the page is not only rendered by ISR
+ * but also on demand — e.g. a Server Action that sets a cookie (login, see
+ * AuthProvider) re-renders the current page, and an error there broke the
+ * homepage for every user logging in while the backend was down (E2E, PR #566).
+ * A successful empty list is a real state (nothing published): placeholders.
  *
  * Import this only from Server Components: it reads a server-only env var.
  */
@@ -26,28 +26,29 @@ import type { PortfolioData, PortfolioItem } from './types';
 // Same variable as the chat/feedback proxies (app/api/*/route.ts).
 const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8080';
 
-// Build: short, two pages wait for it inside the build budget, and a cold backend
-// only means placeholders until the first revalidation. Revalidation: above the
-// backend's cold start (~11–15 s); it runs in the background, never on a request.
+// Build: short, two pages wait for it inside the build budget. Runtime: the
+// request can be on a user's path (a Server Action re-render after login), so it
+// stays short too. Usually it is not even made: the response sits in the Next.js
+// data cache, which serves the stale copy while refreshing it in the background
+// and keeps it when the refresh fails — the timeout only matters with no copy.
 const BUILD_TIMEOUT_MS = 5_000;
-const REVALIDATE_TIMEOUT_MS = 20_000;
+const RUNTIME_TIMEOUT_MS = 8_000;
 
-export class PortfolioUnavailableError extends Error {
-    constructor() {
-        super('[portfolio] backend unreachable during revalidation: keeping the cached page');
-        this.name = 'PortfolioUnavailableError';
-    }
+// Last successful response of this server instance (Fluid Compute reuses instances).
+let lastGood: PortfolioItem[] | null = null;
+
+/** Test hook: forget the remembered list. */
+export function resetServerPortfolioMemory(): void {
+    lastGood = null;
 }
 
-/** Placeholders, or a throw when a production revalidation failed (see above). */
-export function resolveServerPortfolio(
-    projects: PortfolioItem[] | null,
-    { isBuild, isProduction }: { isBuild: boolean; isProduction: boolean },
-): PortfolioData {
-    if (projects === null && isProduction && !isBuild) {
-        throw new PortfolioUnavailableError();
+/** The data to render: the response, else the last good list, else the placeholders. */
+export function resolveServerPortfolio(projects: PortfolioItem[] | null): PortfolioData {
+    if (projects !== null) {
+        lastGood = projects.length > 0 ? projects : null;
+        return withFallback(projects);
     }
-    return withFallback(projects);
+    return lastGood ? { projects: lastGood, isFallback: false } : withFallback(null);
 }
 
 export async function getPortfolio(): Promise<PortfolioData> {
@@ -60,10 +61,7 @@ export async function getPortfolio(): Promise<PortfolioData> {
     const isBuild = process.env.NEXT_PHASE === PHASE_PRODUCTION_BUILD;
     const projects = await requestPortfolio(`${BACKEND_URL}/api`, {
         next: { revalidate: PORTFOLIO_REVALIDATE_SECONDS },
-        signal: AbortSignal.timeout(isBuild ? BUILD_TIMEOUT_MS : REVALIDATE_TIMEOUT_MS),
+        signal: AbortSignal.timeout(isBuild ? BUILD_TIMEOUT_MS : RUNTIME_TIMEOUT_MS),
     });
-    return resolveServerPortfolio(projects, {
-        isBuild,
-        isProduction: process.env.NODE_ENV === 'production',
-    });
+    return resolveServerPortfolio(projects);
 }

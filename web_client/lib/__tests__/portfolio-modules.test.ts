@@ -6,7 +6,7 @@ import {
     withFallback,
     type PortfolioItem,
 } from '@/lib/portfolio';
-import { PortfolioUnavailableError, getPortfolio, resolveServerPortfolio } from '@/lib/portfolio/server';
+import { getPortfolio, resetServerPortfolioMemory, resolveServerPortfolio } from '@/lib/portfolio/server';
 import { portfolioItemList, serializeJsonLd } from '@/lib/portfolio/structured-data';
 
 function makeProject(overrides: Partial<PortfolioItem> = {}): PortfolioItem {
@@ -107,23 +107,26 @@ describe('getPortfolio in the browser', () => {
 });
 
 describe('resolveServerPortfolio', () => {
-    const revalidation = { isBuild: false, isProduction: true };
-
-    it('throws on a failed production revalidation, so Next.js keeps the last good page', () => {
-        expect(() => resolveServerPortfolio(null, revalidation)).toThrow(PortfolioUnavailableError);
-    });
-
-    it('never fails a build or a dev render: placeholders instead', () => {
-        expect(resolveServerPortfolio(null, { isBuild: true, isProduction: true }).isFallback).toBe(true);
-        expect(resolveServerPortfolio(null, { isBuild: false, isProduction: false }).isFallback).toBe(true);
-    });
-
-    it('treats a successful empty list as nothing published, not as a failure', () => {
-        expect(resolveServerPortfolio([], revalidation)).toEqual({ projects: defaultProjects, isFallback: true });
-    });
+    beforeEach(() => resetServerPortfolioMemory());
 
     it('passes real projects through', () => {
         const projects = [makeProject()];
-        expect(resolveServerPortfolio(projects, revalidation)).toEqual({ projects, isFallback: false });
+        expect(resolveServerPortfolio(projects)).toEqual({ projects, isFallback: false });
+    });
+
+    it('never throws on a failure: placeholders when nothing was ever received', () => {
+        expect(resolveServerPortfolio(null)).toEqual({ projects: defaultProjects, isFallback: true });
+    });
+
+    it('reuses the last real list when the backend later fails', () => {
+        const projects = [makeProject()];
+        resolveServerPortfolio(projects);
+        expect(resolveServerPortfolio(null)).toEqual({ projects, isFallback: false });
+    });
+
+    it('treats a successful empty list as nothing published, and forgets the old list', () => {
+        resolveServerPortfolio([makeProject()]);
+        expect(resolveServerPortfolio([])).toEqual({ projects: defaultProjects, isFallback: true });
+        expect(resolveServerPortfolio(null).isFallback).toBe(true);
     });
 });
