@@ -84,8 +84,5 @@
         "test-exclude": {
             "minimatch": "$minimatch"
         }
-    },
-    "devDependencies": {
-        "svgo": "4.1.0"
     }
 }
