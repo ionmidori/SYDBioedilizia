@@ -1,30 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { ProjectImage } from '@/components/portfolio/ProjectImage';
 import { ProjectStats } from '@/components/portfolio/ProjectStats';
 import { cn } from '@/lib/utils';
 import {
     ALL_CATEGORIES,
-    defaultProjects,
     deriveCategories,
-    fetchPortfolio,
     filterByCategory,
     type PortfolioData,
     type PortfolioItem,
 } from '@/lib/portfolio';
+import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
 export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) {
-    const [projects, setProjects] = useState<PortfolioItem[]>(initial?.projects ?? defaultProjects);
+    const projects = usePortfolioProjects(initial);
     const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
-
-    // Same rule as the homepage gallery: fetch only when the server did not
-    // provide real projects (none at all, or placeholders after a failed render).
-    const needsFetch = !initial || initial.isFallback;
-    useEffect(() => {
-        if (needsFetch) fetchPortfolio().then(setProjects);
-    }, [needsFetch]);
 
     const categories = deriveCategories(projects);
     const filtered = filterByCategory(projects, activeCategory);

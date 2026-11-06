@@ -6,6 +6,8 @@
  *   config.ts        display settings (rail size, visible stats, cache time)
  *   api.ts           fetch + parse + fallback, browser side
  *   server.ts        `getPortfolio()` for Server Components (not re-exported here)
+ *   use-portfolio-projects.ts  client hook: server data + browser retry (not re-exported)
+ *   runtime.ts       browser/server detection (stubbed in tests)
  *   categories.ts    filter vocabulary derived from the data
  *   presentation.ts  alt text and stats formatting
  *   fallback.ts      placeholder projects for an empty or unreachable backend

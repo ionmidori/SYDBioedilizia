@@ -47,7 +47,9 @@ from src.db.firebase_client import get_async_firestore_client, init_firebase  # 
 from src.schemas.admin_content import PortfolioProject, PortfolioWrite  # noqa: E402
 from src.services import admin_content as svc  # noqa: E402
 from src.services import portfolio_images  # noqa: E402
+from src.services.audit import AuditAction, AuditResourceType, write_audit_event  # noqa: E402
 from src.utils.datetime_utils import utc_now  # noqa: E402
+from src.utils.security import detect_image_type  # noqa: E402
 
 # Shape-valid stand-in used to validate the manifest before anything is uploaded.
 _PENDING_IMAGE = "pending-upload"
@@ -55,6 +57,10 @@ _PENDING_IMAGE = "pending-upload"
 
 class ManifestError(ValueError):
     """The manifest cannot become a portfolio project."""
+
+
+class PhotoError(ValueError):
+    """The photo cannot be published."""
 
 
 def parse_manifest(data: Any) -> PortfolioWrite:
@@ -84,34 +90,36 @@ def find_duplicate(existing: list[PortfolioProject], title: str, location: str) 
     return next((p for p in existing if (key(p.title), key(p.location)) == wanted), None)
 
 
-async def _audit(action: str, resource_id: str, operator: str) -> None:
-    # Written directly (not via emit_audit_event): that one is fire-and-forget and
-    # the script would exit before the background write ran.
-    await get_async_firestore_client().collection("audit_logs").add(
-        {
-            "action": action,
-            "resource_type": "content",
-            "resource_id": resource_id,
-            "status": "success",
-            "user_id": operator,
-            "metadata": {"via": "scripts/add_portfolio_project.py"},
-            "timestamp": utc_now(),
-        }
-    )
+def check_photo(raw: bytes) -> str:
+    """The photo's MIME type, with the same size limit and format allowlist as
+    the admin upload route (`POST /api/admin/portfolio/image`)."""
+    if len(raw) > portfolio_images.MAX_UPLOAD_BYTES:
+        raise PhotoError(f"larger than {portfolio_images.MAX_UPLOAD_BYTES // (1024 * 1024)} MB")
+    mime = detect_image_type(raw[:16])
+    if mime is None:
+        raise PhotoError("not a JPEG, PNG, GIF or WebP file")
+    return mime
 
 
 async def _publish(project: PortfolioWrite, webp: bytes, operator: str) -> PortfolioProject:
     blob_path = portfolio_images.new_blob_path()
     await asyncio.to_thread(portfolio_images.upload_sync, blob_path, webp)
     image_url = portfolio_images.public_url(svc.bucket_name(), blob_path)
-    await _audit("portfolio.upload", blob_path, operator)
     try:
         created = await svc.create_project(get_async_firestore_client(), with_image(project, image_url), utc_now())
     except Exception:
         # No project points at the photo: do not leave it in the public folder.
         await svc.delete_image_quietly(image_url)
         raise
-    await _audit("portfolio.create", created.id, operator)
+    # Awaited (the script exits right after) and never raising: a failed audit
+    # write cannot undo or orphan what was just published.
+    metadata = {"via": "scripts/add_portfolio_project.py"}
+    await write_audit_event(
+        AuditAction.PORTFOLIO_UPLOAD, AuditResourceType.CONTENT, blob_path, user_id=operator, metadata=metadata
+    )
+    await write_audit_event(
+        AuditAction.PORTFOLIO_CREATE, AuditResourceType.CONTENT, created.id, user_id=operator, metadata=metadata
+    )
     return created
 
 
@@ -122,10 +130,11 @@ async def _run(args: argparse.Namespace) -> None:
         sys.exit(f"Invalid manifest: {exc}")
 
     image = Path(args.image)
-    raw = image.read_bytes()
-    if len(raw) > portfolio_images.MAX_UPLOAD_BYTES:
-        sys.exit(f"The photo is larger than {portfolio_images.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
-    webp, width, height = await asyncio.to_thread(portfolio_images.process_image, raw)
+    try:
+        check_photo(raw := image.read_bytes())
+        webp, width, height = await asyncio.to_thread(portfolio_images.process_image, raw)
+    except (OSError, PhotoError, portfolio_images.InvalidImageError) as exc:
+        sys.exit(f"Unusable photo: {exc}")
     print(f"photo:   {width}x{height} WebP, {len(webp) // 1024} KB (metadata removed)")
     print(f"project: {project.title} · {project.category} · {project.location} · active={project.active}")
 
@@ -148,7 +157,7 @@ async def _run(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--manifest", required=True, help="JSON file with the project fields")
-    parser.add_argument("--image", required=True, help="the photo (JPEG, PNG or WebP)")
+    parser.add_argument("--image", required=True, help="the photo (JPEG, PNG, GIF or WebP, max 10 MB)")
     parser.add_argument("--dry-run", action="store_true", help="validate and process the photo, upload nothing")
     parser.add_argument("--preview", help="where --dry-run writes the processed photo")
     parser.add_argument("--allow-duplicate", action="store_true", help="add it even if title+location exist")

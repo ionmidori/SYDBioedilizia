@@ -1,5 +1,4 @@
 import {
-    PORTFOLIO_REVALIDATE_SECONDS,
     defaultProjects,
     parsePortfolio,
     projectImageAlt,
@@ -7,7 +6,7 @@ import {
     withFallback,
     type PortfolioItem,
 } from '@/lib/portfolio';
-import { getPortfolio } from '@/lib/portfolio/server';
+import { PortfolioUnavailableError, getPortfolio, resolveServerPortfolio } from '@/lib/portfolio/server';
 import { portfolioItemList, serializeJsonLd } from '@/lib/portfolio/structured-data';
 
 function makeProject(overrides: Partial<PortfolioItem> = {}): PortfolioItem {
@@ -101,25 +100,30 @@ describe('structured data', () => {
     });
 });
 
-describe('getPortfolio (server)', () => {
-    const originalFetch = global.fetch;
-    afterEach(() => {
-        global.fetch = originalFetch;
+describe('getPortfolio in the browser', () => {
+    it('refuses to run: it reads a server-only env var', async () => {
+        await expect(getPortfolio()).rejects.toThrow('server-only');
+    });
+});
+
+describe('resolveServerPortfolio', () => {
+    const revalidation = { isBuild: false, isProduction: true };
+
+    it('throws on a failed production revalidation, so Next.js keeps the last good page', () => {
+        expect(() => resolveServerPortfolio(null, revalidation)).toThrow(PortfolioUnavailableError);
     });
 
-    it('asks the backend directly, cached for the ISR interval', async () => {
+    it('never fails a build or a dev render: placeholders instead', () => {
+        expect(resolveServerPortfolio(null, { isBuild: true, isProduction: true }).isFallback).toBe(true);
+        expect(resolveServerPortfolio(null, { isBuild: false, isProduction: false }).isFallback).toBe(true);
+    });
+
+    it('treats a successful empty list as nothing published, not as a failure', () => {
+        expect(resolveServerPortfolio([], revalidation)).toEqual({ projects: defaultProjects, isFallback: true });
+    });
+
+    it('passes real projects through', () => {
         const projects = [makeProject()];
-        global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => projects });
-
-        await expect(getPortfolio()).resolves.toEqual({ projects, isFallback: false });
-        expect(global.fetch).toHaveBeenCalledWith(
-            expect.stringMatching(/\/api\/content\/portfolio$/),
-            expect.objectContaining({ next: { revalidate: PORTFOLIO_REVALIDATE_SECONDS } }),
-        );
-    });
-
-    it('falls back to the placeholders when the backend is down', async () => {
-        global.fetch = jest.fn().mockRejectedValue(new Error('timeout'));
-        await expect(getPortfolio()).resolves.toEqual({ projects: defaultProjects, isFallback: true });
+        expect(resolveServerPortfolio(projects, revalidation)).toEqual({ projects, isFallback: false });
     });
 });

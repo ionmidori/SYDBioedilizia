@@ -12,13 +12,8 @@ import { RowArrow } from '@/components/portfolio/RowArrow';
 import { cn } from '@/lib/utils';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 import { prefersReducedMotion } from '@/lib/reduced-motion';
-import {
-    PORTFOLIO_RAIL_LIMIT,
-    defaultProjects,
-    fetchPortfolio,
-    type PortfolioData,
-    type PortfolioItem,
-} from '@/lib/portfolio';
+import { PORTFOLIO_RAIL_LIMIT, type PortfolioData } from '@/lib/portfolio';
+import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
 export function Portfolio({
     className,
@@ -28,19 +23,12 @@ export function Portfolio({
     /** Server-rendered data (`getPortfolio()`); without it the gallery fetches on mount. */
     initial?: PortfolioData;
 }) {
-    const [projects, setProjects] = useState<PortfolioItem[]>(initial?.projects ?? defaultProjects);
+    const projects = usePortfolioProjects(initial);
     const [activeRailIndex, setActiveRailIndex] = useState(0);
     // Descriptions are visible by default; this tracks which one (if any) the user has
     // chosen to hide. null means "none hidden" — i.e. everything showing.
     const [hiddenId, setHiddenId] = useState<string | null>(null);
 
-    // Fetch from the backend (3-Tier: no direct Firestore) only when the server did
-    // not provide real projects: no data at all, or placeholders because the backend
-    // was unreachable when the page was rendered — the browser gets a second chance.
-    const needsFetch = !initial || initial.isFallback;
-    useEffect(() => {
-        if (needsFetch) fetchPortfolio().then(setProjects);
-    }, [needsFetch]);
 
     // No category filters here — they live on the archive page (`/progetti`), which
     // the CTA below links to. `fetchPortfolio` never resolves to an empty list.
