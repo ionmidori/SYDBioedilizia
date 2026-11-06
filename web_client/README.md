@@ -60,17 +60,21 @@ pages get an allowlist policy because they can't carry a per-request nonce.
 
 ## Branding and PWA assets
 
-The site logo is the `SydLogo` component (`components/branding/SydLogo.tsx`).
-Static copies live in `public/`:
+Everything brand-related is generated from [`brand/`](brand/README.md) (design
+tokens, the colour-free master logo, the wordmark font) by `npm run brand:build`
+at the repo root. Do not edit the outputs by hand:
 
-- `syd-logo.svg` and `syd-logo.png`: the lockup, used by the structured data
-  (JSON-LD) of the homepage and the blog.
-- `syd-icon.svg`: the square mark. `icon-192.png`, `icon-512.png` and
-  `icon-maskable-512.png` are generated from it and declared in
-  `public/manifest.json`.
+- `app/brand-tokens.css`: Tailwind `@theme` colours, the `--logo-*` role
+  variables and the logo tone classes.
+- `lib/brand/*.generated.ts`: colours, logo artwork per variant, URL/type/size
+  of every logo file. Application code imports them through `@/lib/brand`.
+- `public/favicon.ico` and `public/brand/`: SVG favicon (with dark mode),
+  touch/PWA/maskable icons, logo SVG/PNG for JSON-LD, default Open Graph image.
 
-`__tests__/public-assets.test.ts` checks that every declared icon exists, is a
-real PNG and matches its declared size.
+In components use `<BrandLogo variant tone />` (`components/brand/BrandLogo.tsx`).
+`app/manifest.ts` and the `icons` metadata in `app/layout.tsx` read `@/lib/brand`.
+`__tests__/brand-pipeline.test.ts` fails when a generated file is stale and
+`__tests__/public-assets.test.ts` checks the shipped files are what they declare.
 
 ## Project structure
 
@@ -82,7 +86,7 @@ web_client/
 │   ├── mobile/          # Swipe navigation between dashboard, gallery and chat
 │   ├── admin/, dashboard/, quotes/, projects/, gallery/   # Feature components
 │   ├── sections/        # Homepage sections
-│   ├── branding/        # SydLogo
+│   ├── brand/           # BrandLogo (artwork generated from brand/)
 │   ├── providers/       # Auth, App Check, query client
 │   └── ui/              # Shared primitives
 ├── hooks/               # Chat, auth, upload, data-fetching and viewport hooks

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
-import { LOGO_ART, LOGO_VARIANTS } from '@/lib/brand';
+import { LOGO_ART, LOGO_PARTS, LOGO_VARIANTS } from '@/lib/brand';
 
 describe('BrandLogo', () => {
     it('is an image named after the brand', () => {
@@ -28,7 +28,9 @@ describe('BrandLogo', () => {
         expect(svg).toHaveAttribute('viewBox', `${x} ${y} ${w} ${h}`);
         expect(svg).toHaveAttribute('width', String(w));
         expect(svg).toHaveAttribute('height', String(h));
-        expect(svg.querySelectorAll('path')).toHaveLength(LOGO_ART[variant].paths.length);
+        const layers = LOGO_ART[variant].layers;
+        expect(Array.from(svg.querySelectorAll('g')).map((g) => g.getAttribute('data-part'))).toEqual(layers.map((l) => l.part));
+        expect(svg.querySelectorAll('path')).toHaveLength(layers.reduce((n, l) => n + LOGO_PARTS[l.part].length, 0));
     });
 
     it('fills shapes with the logo role variables, never with a colour', () => {
@@ -37,6 +39,13 @@ describe('BrandLogo', () => {
             expect(p.getAttribute('fill')).toBeNull();
             expect(p.style.fill).toMatch(/^var\(--logo-[a-z0-9-]+\)$/);
         }
+    });
+
+    it('scales the wordmark beside the symbol in the horizontal lockup', () => {
+        const { container } = render(<BrandLogo variant="horizontal" />);
+        const [k, tx, ty] = LOGO_ART.horizontal.layers.find((l) => l.part === 'wordmark')!.transform!;
+        expect(container.querySelector('g[data-part="wordmark"]')).toHaveAttribute('transform', `matrix(${k} 0 0 ${k} ${tx} ${ty})`);
+        expect(container.querySelector('g[data-part="icon"]')).not.toHaveAttribute('transform');
     });
 
     it('applies the tone class for dark surfaces only when asked', () => {

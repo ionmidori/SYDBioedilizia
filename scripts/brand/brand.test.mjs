@@ -3,11 +3,13 @@
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 import { contrastRatio, adjustToContrast, hexToOklch, oklchToHex } from './lib/color.mjs';
 import { decodeIco, encodeIco } from './lib/ico.mjs';
 import { MASTER_FILE, VARIANTS, composeSvg, readMaster, scalePath, variantBox, variantPaths } from './lib/logo.mjs';
-import { deriveTones, loadTokenFiles, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
+import { ROOT, deriveTones, loadTokenFiles, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
+import { ASSETS } from './build-assets.mjs';
 import { renderAll, sameText } from './build-tokens.mjs';
 
 const tokens = loadTokens();
@@ -32,27 +34,36 @@ describe('colour maths', () => {
 });
 
 describe('tokens', () => {
+    const derived = Object.entries(loadTokenFiles().tone).filter(([, t]) => t.$extensions?.['syd.tone']);
+
     it('resolve every logo role to a #rrggbb colour', () => {
-        for (const tone of ['default', 'on-dark']) {
+        for (const tone of ['default', ...derived.map(([name]) => name)]) {
             for (const [role, c] of Object.entries(logoPalette(tokens, tone))) assert.match(c, /^#[0-9a-f]{6}$/i, `${tone}/${role}`);
         }
     });
 
-    it('derive each on-dark role to its declared contrast on the tone surface', () => {
-        const rule = loadTokenFiles().tone['on-dark'].$extensions['syd.tone'];
-        const surface = resolveValue(tokens, rule.surface);
-        const onDark = logoPalette(tokens, 'on-dark');
-        for (const [rolePath, ratio] of Object.entries(rule.minContrast)) {
-            const role = rolePath.split('.').pop();
-            assert.ok(contrastRatio(onDark[role], surface) >= ratio, `${role}: ${contrastRatio(onDark[role], surface)} < ${ratio}`);
-        }
+    it('declare the site and the browser-tab tones', () => {
+        assert.deepEqual(derived.map(([name]) => name).sort(), ['on-dark', 'tab-dark']);
     });
 
-    it('keep the facet order (darkest first) in the on-dark tone', () => {
-        const onDark = logoPalette(tokens, 'on-dark');
-        const l = (i) => hexToOklch(onDark[`facet-${i}`]).l;
-        for (let i = 1; i < 9; i++) assert.ok(l(i) <= l(i + 1) + 0.02, `facet-${i} vs facet-${i + 1}`);
-    });
+    for (const [tone, def] of derived) {
+        it(`derive every ${tone} role to its declared contrast on the tone surface`, () => {
+            const rule = def.$extensions['syd.tone'];
+            const surface = resolveValue(tokens, rule.surface);
+            const pal = logoPalette(tokens, tone);
+            for (const [rolePath, ratio] of Object.entries(rule.minContrast)) {
+                const role = rolePath.split('.').pop();
+                const got = contrastRatio(pal[role], surface);
+                assert.ok(got >= ratio, `${tone}/${role}: ${got.toFixed(2)} < ${ratio}`);
+            }
+        });
+
+        it(`keep the facet order (darkest first) in the ${tone} tone`, () => {
+            const pal = logoPalette(tokens, tone);
+            const l = (i) => hexToOklch(pal[`facet-${i}`]).l;
+            for (let i = 1; i < 9; i++) assert.ok(l(i) <= l(i + 1) + 0.02, `${tone}: facet-${i} vs facet-${i + 1}`);
+        });
+    }
 
     it('never overwrite an explicit tone value', () => {
         const tree = deriveTones(loadTokenFiles());
@@ -125,6 +136,17 @@ describe('ICO encoder', () => {
 
     it('rejects non-PNG payloads', () => {
         assert.throws(() => encodeIco([{ size: 16, png: Buffer.from('nope') }]), /PNG/);
+    });
+
+    it('shipped favicon.ico holds one PNG per declared size, each of that size', () => {
+        const spec = ASSETS.find((a) => a.kind === 'ico');
+        const file = path.join(ROOT, 'web_client', 'public', ...spec.url.split('/').filter(Boolean));
+        const entries = decodeIco(fs.readFileSync(file));
+        assert.deepEqual(entries.map((e) => e.size), spec.sizes);
+        for (const { size, png } of entries) {
+            // PNG IHDR: width / height are big-endian uint32 at offsets 16 / 20.
+            assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [size, size]);
+        }
     });
 });
 

@@ -13,6 +13,7 @@
   --color-brand-blue-800: #025b90;
   --color-brand-sand-500: #cda865;
   --color-brand-white: #ffffff;
+  --color-ui-browser-tab-dark: #35363a;
   --color-luxury-bg: #264653;
   --color-luxury-gold: #e9c46a;
   --color-luxury-gold-dark: #b38b36;
@@ -50,4 +51,16 @@
   --logo-facet-8: #3daad7;
   --logo-facet-9: #44b3df;
   --logo-wordmark-secondary: #64b6ed;
+}
+.brand-tone-tab-dark {
+  --logo-facet-1: #45739e;
+  --logo-facet-2: #4778a9;
+  --logo-facet-3: #367fb7;
+  --logo-facet-4: #5783b0;
+  --logo-facet-5: #388bc0;
+  --logo-facet-6: #3390c3;
+  --logo-facet-7: #2f98c8;
+  --logo-facet-8: #30a0cc;
+  --logo-facet-9: #35a8d3;
+  --logo-accent: #cda865;
 }

@@ -1,5 +1,5 @@
 import type { SVGProps } from 'react';
-import { BRAND_NAME, LOGO_ART, logoToneClass, type LogoTone, type LogoVariant } from '@/lib/brand';
+import { BRAND_NAME, LOGO_ART, LOGO_PARTS, logoToneClass, type LogoTone, type LogoVariant } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
 export interface BrandLogoProps extends Omit<SVGProps<SVGSVGElement>, 'viewBox' | 'role' | 'children'> {
@@ -27,7 +27,7 @@ export function BrandLogo({
     className,
     ...svgProps
 }: BrandLogoProps) {
-    const { viewBox, paths } = LOGO_ART[variant];
+    const { viewBox, layers } = LOGO_ART[variant];
     const [minX, minY, width, height] = viewBox;
     const a11y = decorative
         ? ({ 'aria-hidden': true, focusable: 'false' } as const)
@@ -45,8 +45,16 @@ export function BrandLogo({
             {...svgProps}
         >
             {decorative ? null : <title>{title}</title>}
-            {paths.map((p, i) => (
-                <path key={i} d={p.d} style={{ fill: `var(--logo-${p.role})` }} />
+            {layers.map(({ part, transform }) => (
+                <g
+                    key={part}
+                    data-part={part}
+                    transform={transform ? `matrix(${transform[0]} 0 0 ${transform[0]} ${transform[1]} ${transform[2]})` : undefined}
+                >
+                    {LOGO_PARTS[part].map((p, i) => (
+                        <path key={i} d={p.d} style={{ fill: `var(--logo-${p.role})` }} />
+                    ))}
+                </g>
             ))}
         </svg>
     );

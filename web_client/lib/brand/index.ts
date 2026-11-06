@@ -5,15 +5,18 @@
  * colour, size or file path is written by hand anywhere else.
  */
 import type { Metadata, MetadataRoute } from 'next';
+import identity from '../../brand/brand.json';
 import { BRAND_ASSETS } from './assets.generated';
 import { LOGO_TONE_CLASS, brandColors, type LogoTone } from './tokens.generated';
 
 export { BRAND_ASSETS } from './assets.generated';
-export { LOGO_ART, LOGO_VARIANTS, type LogoArt, type LogoVariant } from './logo-art.generated';
+export { LOGO_ART, LOGO_PARTS, LOGO_VARIANTS, type LogoArt, type LogoPart, type LogoVariant } from './logo-art.generated';
 export { LOGO_ROLES, LOGO_TONES, brandColors, logoColors, type LogoRole, type LogoTone } from './tokens.generated';
 
-export const BRAND_NAME = 'SYD Bioedilizia';
-export const BRAND_SHORT_NAME = 'SYD';
+/** Identity: web_client/brand/brand.json (also read by the asset build, e.g. the SVG <title>). */
+export const BRAND_NAME: string = identity.name;
+export const BRAND_SHORT_NAME: string = identity.shortName;
+export const BRAND_DESCRIPTION: string = identity.description;
 
 /** Browser chrome and PWA splash: the site surface (dark theme until the light theme lands). */
 export const THEME_COLOR = brandColors.luxury.bg;

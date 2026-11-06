@@ -16,14 +16,15 @@ import { pathToFileURL } from 'node:url';
 import sharp from 'sharp';
 import { optimize } from 'svgo';
 import { encodeIco } from './lib/ico.mjs';
-import { VARIANTS, composeSvg, readMaster, variantBox, variantPaths } from './lib/logo.mjs';
+import { VARIANTS, composeSvg, layout, readMaster, variantBox, variantPaths } from './lib/logo.mjs';
 import { ROOT, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
 import { sameText } from './build-tokens.mjs';
 
 const WEB = path.join(ROOT, 'web_client');
 const PUBLIC = path.join(WEB, 'public');
-const BRAND_NAME = 'SYD Bioedilizia';
+const BRAND_NAME = JSON.parse(fs.readFileSync(path.join(WEB, 'brand', 'brand.json'), 'utf8')).name;
 const BACKGROUND = '{logo.background}';
+const SUPERSAMPLE = 4;
 
 /**
  * Every shipped logo file. `url` is where the site serves it from.
@@ -38,7 +39,7 @@ const BACKGROUND = '{logo.background}';
 export const ASSETS = [
     // Browser tab: ICO for legacy/fallback, SVG (adapts to dark tabs) for the rest.
     { key: 'favicon', url: '/favicon.ico', kind: 'ico', variant: 'icon', sizes: [16, 32, 48], fit: 0.94 },
-    { key: 'iconSvg', url: '/brand/icon.svg', kind: 'svg', variant: 'icon', canvas: [64, 64], fit: 0.94, darkTone: 'on-dark' },
+    { key: 'iconSvg', url: '/brand/icon.svg', kind: 'svg', variant: 'icon', canvas: [64, 64], fit: 0.94, darkTone: 'tab-dark' },
     // Home screens. iOS fills transparency with black, so the touch icon has a plate.
     { key: 'appleTouchIcon', url: '/brand/apple-touch-icon.png', kind: 'png', variant: 'icon', canvas: [180, 180], fit: 0.72, plate: true },
     { key: 'pwa192', url: '/brand/icon-192.png', kind: 'png', variant: 'icon', canvas: [192, 192], fit: 0.8, plate: true },
@@ -96,8 +97,11 @@ function assetSvg(master, tokens, a) {
     return composeSvg(master, a.variant, { ...common, canvas: a.canvas });
 }
 
+/** Rasterise at SUPERSAMPLE x the target size (librsvg: density 72 = 1 px per unit), then downscale. */
 async function rasterize(svg, width, height) {
-    return sharp(Buffer.from(svg), { density: 72 * 8 })
+    const [, , vbW, vbH] = /viewBox="([^"]+)"/.exec(svg)[1].split(/\s+/).map(Number);
+    const density = 72 * SUPERSAMPLE * Math.max(width / vbW, height / vbH);
+    return sharp(Buffer.from(svg), { density })
         .resize(width, height, { fit: 'fill' })
         .png({ compressionLevel: 9, effort: 10 })
         .toBuffer();
@@ -109,10 +113,19 @@ function renderText(master, tokens) {
     for (const a of ASSETS.filter((x) => x.kind === 'svg')) {
         out.push([fileFor(a.url), svgoClean(assetSvg(master, tokens, a), { keepStyles: Boolean(a.darkTone) }) + '\n']);
     }
+    // Each part is stored once; a variant lists the parts it shows, with the
+    // lockup transform where it has one: ~5 KB for all variants together.
+    const round = (n) => Number(n.toFixed(4));
     const art = Object.fromEntries(
         Object.keys(VARIANTS).map((v) => {
-            const [x, y, w, h] = variantBox(master, v);
-            return [v, { viewBox: [x, y, w, h].map((n) => Number(n.toFixed(2))), paths: variantPaths(master, v) }];
+            const { box, parts } = layout(master, v);
+            return [
+                v,
+                {
+                    viewBox: box.map((n) => Number(n.toFixed(2))),
+                    layers: parts.map(({ part, transform }) => (transform ? { part, transform: transform.map(round) } : { part })),
+                },
+            ];
         }),
     );
     const json = (v) => JSON.stringify(v, null, 4);
@@ -120,15 +133,19 @@ function renderText(master, tokens) {
         TS_ART,
         [
             `// ${HEADER}`,
-            '// Logo geometry per variant. Each path is filled with var(--logo-<role>)',
-            '// (app/brand-tokens.css), so colours and tones never live in this file.',
+            '// Logo geometry. Paths are filled with var(--logo-<role>) (app/brand-tokens.css),',
+            '// so colours and tones never live in this file.',
             '',
             "import type { LogoRole } from './tokens.generated';",
+            '',
+            `export const LOGO_PARTS = ${json(master.groups)} as const satisfies Record<string, readonly { role: LogoRole; d: string }[]>;`,
+            'export type LogoPart = keyof typeof LOGO_PARTS;',
             '',
             'export interface LogoArt {',
             '    /** [minX, minY, width, height] */',
             '    readonly viewBox: readonly [number, number, number, number];',
-            '    readonly paths: readonly { readonly role: LogoRole; readonly d: string }[];',
+            '    /** Parts drawn in order; transform = [scale, translateX, translateY]. */',
+            '    readonly layers: readonly { readonly part: LogoPart; readonly transform?: readonly [number, number, number] }[];',
             '}',
             '',
             `export const LOGO_VARIANTS = ${json(Object.keys(VARIANTS))} as const;`,
@@ -204,4 +221,4 @@ export async function main(argv = process.argv.slice(2)) {
     }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main();

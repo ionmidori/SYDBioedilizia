@@ -22,6 +22,9 @@ export const brandColors = {
         },
         "white": "#ffffff"
     },
+    "ui": {
+        "browser-tab-dark": "#35363a"
+    },
     "luxury": {
         "bg": "#264653",
         "gold": "#e9c46a",
@@ -66,11 +69,13 @@ export type LogoRole = (typeof LOGO_ROLES)[number];
 
 export const LOGO_TONES = [
     "default",
-    "on-dark"
+    "on-dark",
+    "tab-dark"
 ] as const;
 export type LogoTone = (typeof LOGO_TONES)[number];
 
 /** CSS class that applies a tone (defined in app/brand-tokens.css). */
 export const LOGO_TONE_CLASS: Record<Exclude<LogoTone, 'default'>, string> = {
-    "on-dark": "brand-tone-on-dark"
+    "on-dark": "brand-tone-on-dark",
+    "tab-dark": "brand-tone-tab-dark"
 };

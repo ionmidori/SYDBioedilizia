@@ -23,16 +23,6 @@ function pngSize(buf: Buffer): { width: number; height: number } | null {
     return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
 }
 
-function icoEntries(buf: Buffer) {
-    expect(buf.readUInt16LE(0)).toBe(0);
-    expect(buf.readUInt16LE(2)).toBe(1);
-    return Array.from({ length: buf.readUInt16LE(4) }, (_, i) => {
-        const at = 6 + 16 * i;
-        const png = buf.subarray(buf.readUInt32LE(at + 12), buf.readUInt32LE(at + 12) + buf.readUInt32LE(at + 8));
-        return { size: buf.readUInt8(at) || 256, png };
-    });
-}
-
 describe('brand files', () => {
     it.each(Object.entries(BRAND_ASSETS))('%s exists in public/', (_key, asset) => {
         expect(fs.existsSync(file(asset.url))).toBe(true);
@@ -44,11 +34,7 @@ describe('brand files', () => {
         expect(pngSize(fs.readFileSync(file(asset.url)))).toEqual({ width: asset.width, height: asset.height });
     });
 
-    it('favicon.ico holds 16, 32 and 48 px PNGs', () => {
-        const entries = icoEntries(fs.readFileSync(file(BRAND_ASSETS.favicon.url)));
-        expect(entries.map((e) => e.size)).toEqual([16, 32, 48]);
-        for (const e of entries) expect(pngSize(e.png)).toEqual({ width: e.size, height: e.size });
-    });
+    // favicon.ico entries are checked by scripts/brand/brand.test.mjs (decodeIco).
 
     it('icon.svg is square and switches tone in dark mode', () => {
         const svg = fs.readFileSync(file(BRAND_ASSETS.iconSvg.url), 'utf8');

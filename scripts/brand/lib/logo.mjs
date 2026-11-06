@@ -69,7 +69,8 @@ export function readMaster(file = MASTER_FILE) {
     };
 }
 
-function layout(master, variant) {
+/** { box, parts: [{ part, transform?: [k, tx, ty] }] } of a variant. */
+export function layout(master, variant) {
     const spec = VARIANTS[variant];
     if (!spec) throw new Error(`Unknown logo variant "${variant}"`);
     return spec(master);
@@ -92,6 +93,11 @@ const fmt = (n) => Number(n.toFixed(3)).toString();
 
 /** x' = k·x + tx, y' = k·y + ty on absolute path data (M L H V C Q Z). */
 export function scalePath(d, k, tx, ty) {
+    // Anything else (arcs, relative or smooth commands) would be folded into the
+    // previous command's numbers and silently distort the art: refuse it.
+    // ('e' / 'E' are skipped: they are exponents in numbers, not commands.)
+    const unsupported = [...new Set(d.match(/[A-DF-Za-df-z]/g) ?? [])].filter((c) => !'MLHVCQZ'.includes(c));
+    if (unsupported.length) throw new Error(`scalePath supports absolute M L H V C Q Z only, got "${unsupported.join('')}"`);
     return d.replace(/([MLHVCQZ])([^MLHVCQZ]*)/g, (_, cmd, args) => {
         const n = args.trim() ? args.trim().split(/[\s,]+/).map(num) : [];
         if (cmd === 'Z') return 'Z';

@@ -13,7 +13,7 @@
 
 import path from 'node:path';
 import sharp from 'sharp';
-import { deltaE } from './lib/color.mjs';
+import { rgbToOklab } from './lib/color.mjs';
 import { composeSvg, readMaster, variantPaths } from './lib/logo.mjs';
 import { BRAND_DIR, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
 
@@ -28,47 +28,62 @@ const master = readMaster();
 const palette = logoPalette(tokens);
 const white = resolveValue(tokens, '{color.brand.white}');
 
-function atSourceScale(size) {
+/** The full logo, default tone, at the original's scale and position on white. */
+function atSourceScale(width, height) {
     const [ox, oy] = master.origin;
     const body = variantPaths(master, 'full')
         .map((p) => `<path fill="${palette[p.role]}" d="${p.d}"/>`)
         .join('');
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="${-ox} ${-oy} ${size} ${size}"><rect x="${-ox}" y="${-oy}" width="${size}" height="${size}" fill="${white}"/>${body}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${-ox} ${-oy} ${width} ${height}"><rect x="${-ox}" y="${-oy}" width="${width}" height="${height}" fill="${white}"/>${body}</svg>`;
+}
+
+/** OKLab of every pixel, computed once (ΔE is then a plain distance). */
+function oklabPixels(rgb, n) {
+    const lab = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) lab.set(rgbToOklab([rgb[i * 3], rgb[i * 3 + 1], rgb[i * 3 + 2]]), i * 3);
+    return lab;
 }
 
 async function fidelity() {
     const src = sharp(SOURCE);
     const { width, height } = await src.metadata();
     const a = await src.removeAlpha().raw().toBuffer();
-    const b = await sharp(Buffer.from(atSourceScale(width))).removeAlpha().raw().toBuffer();
-    const W = [255, 255, 255];
-    const px = (buf, i) => [buf[i * 3], buf[i * 3 + 1], buf[i * 3 + 2]];
+    const b = await sharp(Buffer.from(atSourceScale(width, height))).removeAlpha().raw().toBuffer();
+    const n = width * height;
+    const [la, lb] = [oklabPixels(a, n), oklabPixels(b, n)];
+    // ΔE ×100 as in color.mjs#deltaE, compared squared.
+    const close = (p, i, q, j, limit) => {
+        const d0 = p[i * 3] - q[j * 3];
+        const d1 = p[i * 3 + 1] - q[j * 3 + 1];
+        const d2 = p[i * 3 + 2] - q[j * 3 + 2];
+        return 1e4 * (d0 * d0 + d1 * d1 + d2 * d2) <= limit * limit;
+    };
+    const white3 = Float32Array.from(rgbToOklab([255, 255, 255]));
     // A pixel matches when some pixel of the other image within SHIFT px is close
     // in colour: sub-pixel edge placement and the original's soft edges are not
     // differences in the drawing.
-    const matches = (pa, other, x, y) => {
+    const matches = (p, other, x, y) => {
+        const i = y * width + x;
         for (let dy = -SHIFT; dy <= SHIFT; dy++) {
             for (let dx = -SHIFT; dx <= SHIFT; dx++) {
                 const xx = x + dx;
                 const yy = y + dy;
                 if (xx < 0 || yy < 0 || xx >= width || yy >= height) continue;
-                if (deltaE(pa, px(other, yy * width + xx)) <= MAX_DELTA_E) return true;
+                if (close(p, i, other, yy * width + xx, MAX_DELTA_E)) return true;
             }
         }
         return false;
     };
     const stats = { symbol: { ink: 0, diff: 0 }, wordmark: { ink: 0, diff: 0 } };
     const wordTop = master.origin[1] + master.symbolHeight + 10;
-    const heat = Buffer.alloc(width * height * 3, 255);
+    const heat = Buffer.alloc(n * 3, 255);
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
             const i = y * width + x;
-            const pa = px(a, i);
-            const pb = px(b, i);
-            if (deltaE(pa, W) < INK && deltaE(pb, W) < INK) continue;
+            if (close(la, i, white3, 0, INK) && close(lb, i, white3, 0, INK)) continue;
             const s = stats[y < wordTop ? 'symbol' : 'wordmark'];
             s.ink++;
-            if (matches(pa, b, x, y) && matches(pb, a, x, y)) {
+            if (matches(la, lb, x, y) && matches(lb, la, x, y)) {
                 heat[i * 3] = heat[i * 3 + 1] = heat[i * 3 + 2] = 225;
             } else {
                 s.diff++;
@@ -119,8 +134,8 @@ async function sheet(out, f) {
     y += 50;
     let x = 30;
     for (const [bg, pal, name] of [
-        ['#ffffff', palette, 'chiaro'],
-        ['#202124', onDark, 'scuro'],
+        [white, palette, 'chiaro'],
+        [resolveValue(tokens, '{color.ui.browser-tab-dark}'), logoPalette(tokens, 'tab-dark'), 'scuro'],
     ]) {
         for (const s of [16, 32, 48]) {
             const icon = await png(composeSvg(master, 'icon', { palette: pal, canvas: [1, 1], fit: 0.94 }), s, s);

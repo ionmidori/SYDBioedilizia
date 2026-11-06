@@ -1,11 +1,11 @@
 import type { MetadataRoute } from 'next';
-import { BRAND_NAME, BRAND_SHORT_NAME, MANIFEST_ICONS, THEME_COLOR } from '@/lib/brand';
+import { BRAND_DESCRIPTION, BRAND_NAME, BRAND_SHORT_NAME, MANIFEST_ICONS, THEME_COLOR } from '@/lib/brand';
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
         name: BRAND_NAME,
         short_name: BRAND_SHORT_NAME,
-        description: 'Ristrutturazioni e bioedilizia a Roma e provincia.',
+        description: BRAND_DESCRIPTION,
         start_url: '/',
         display: 'standalone',
         background_color: THEME_COLOR,

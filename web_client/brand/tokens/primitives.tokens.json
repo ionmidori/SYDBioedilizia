@@ -23,6 +23,10 @@
       },
       "white": { "$value": "#ffffff" }
     },
+    "ui": {
+      "$description": "Surfaces we do not own but must stay legible on.",
+      "browser-tab-dark": { "$value": "#35363a", "$description": "Active tab in Chrome dark mode: the lightest dark tab surface, so the worst case for the favicon" }
+    },
     "luxury": {
       "$description": "Current site palette (dark luxury theme). Kept as-is until the light theme (PR-2) replaces it.",
       "bg": { "$value": "#264653" },

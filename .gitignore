@@ -109,8 +109,8 @@ next-env.d.ts
 !.eslintrc.json
 !tailwind.config.json
 !package-root.json
-!manifest.json
-# Brand design tokens (W3C DTCG), the only source of the brand colours
+# Brand sources: identity (name, description) and W3C DTCG design tokens
+!web_client/brand/brand.json
 !web_client/brand/tokens/*.tokens.json
 
 # python
