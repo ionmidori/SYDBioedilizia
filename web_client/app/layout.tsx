@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { shareMetadata } from "@/lib/site-share";
 import { Playfair_Display, Lato, Cinzel } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
@@ -53,32 +54,8 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   manifest: "/manifest.json",
-  openGraph: {
-    title: "SYD BIOEDILIZIA - Ristrutturazioni e Bioedilizia a Roma",
-    description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
-    url: "https://sydbioedilizia.vercel.app",
-    siteName: "SYD BIOEDILIZIA",
-    locale: "it_IT",
-    type: "website",
-    // One of the Portfolio section's example project photos (see
-    // lib/portfolio/examples.ts `exampleProjects[0]`), cropped to the standard OG
-    // 1200x630 via Unsplash's own URL params — a real ristrutturazione shot
-    // reads better as a link preview than a generic marketing slide.
-    images: [
-      {
-        url: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1200&h=630&fit=crop&auto=format",
-        width: 1200,
-        height: 630,
-        alt: "Esempio di ristrutturazione SYD BIOEDILIZIA - soggiorno moderno",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "SYD BIOEDILIZIA - Ristrutturazioni e Bioedilizia a Roma",
-    description: "Eccellenza nelle ristrutturazioni tradizionali e bioedilizia a Roma e provincia.",
-    images: ["https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?q=80&w=1200&h=630&fit=crop&auto=format"],
-  },
+  // Link previews: brand logo by default; the homepage uses a real project photo.
+  ...shareMetadata(),
   robots: {
     index: true,
     follow: true,

@@ -12,10 +12,11 @@ import type { PortfolioCard, PortfolioItem } from './types';
 const BUSINESS_ID = `${COMPANY.url}/#business`;
 
 export function portfolioItemList(
-    projects: ReadonlyArray<PortfolioItem | PortfolioCard>,
+    // `isExample?: never`: passing the output of withExamples() is a type error.
+    projects: ReadonlyArray<PortfolioItem & { isExample?: never }>,
 ): Record<string, unknown> | null {
-    // Defence in depth: drop examples even if cards were passed by mistake.
-    const real = projects.filter((p) => !('isExample' in p && p.isExample));
+    // Defence in depth at runtime too (e.g. data that went through `as`).
+    const real = projects.filter((p) => !(p as Partial<PortfolioCard>).isExample);
     if (real.length === 0) return null;
     return {
         '@type': 'ItemList',
@@ -50,4 +51,16 @@ export function portfolioItemList(
  */
 export function serializeJsonLd(value: unknown): string {
     return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+/**
+ * Link-preview image for the homepage: the photo of the first real project with
+ * one, or null (the caller keeps the default logo). Real projects only, like the
+ * JSON-LD above.
+ */
+export function portfolioShareImage(
+    projects: ReadonlyArray<PortfolioItem & { isExample?: never }>,
+): { url: string; alt: string } | null {
+    const withPhoto = projects.find((p) => !(p as Partial<PortfolioCard>).isExample && p.image);
+    return withPhoto?.image ? { url: withPhoto.image, alt: projectImageAlt(withPhoto) } : null;
 }

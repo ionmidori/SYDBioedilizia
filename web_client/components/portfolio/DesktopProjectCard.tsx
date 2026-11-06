@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
-import { EXAMPLE_LABEL, type PortfolioCard } from '@/lib/portfolio';
+import { EXAMPLE_LABEL, cardShowsStats, type PortfolioCard } from '@/lib/portfolio';
 import { ProjectImage } from './ProjectImage';
 import { ProjectStats } from './ProjectStats';
 
@@ -53,7 +53,7 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioCard;
                             <p className="text-luxury-text/80 text-sm mb-4 font-light">
                                 {project.description}
                             </p>
-                            {!project.isExample && <ProjectStats stats={project.stats} />}
+                            {cardShowsStats(project) && <ProjectStats stats={project.stats} />}
                         </div>
                     </div>
                 </div>

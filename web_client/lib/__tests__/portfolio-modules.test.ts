@@ -1,6 +1,10 @@
 import {
     EXAMPLE_LABEL,
     PORTFOLIO_MIN_CARDS,
+    cardAccessibleName,
+    cardBadge,
+    cardShowsStats,
+    cardSubtitle,
     exampleProjects,
     parsePortfolio,
     projectImageAlt,
@@ -9,7 +13,8 @@ import {
     type PortfolioItem,
 } from '@/lib/portfolio';
 import { getPortfolio, resetServerPortfolioMemory, resolveServerPortfolio } from '@/lib/portfolio/server';
-import { portfolioItemList, serializeJsonLd } from '@/lib/portfolio/structured-data';
+import { portfolioItemList, portfolioShareImage, serializeJsonLd } from '@/lib/portfolio/structured-data';
+import { DEFAULT_SHARE_IMAGE, shareMetadata } from '@/lib/site-share';
 
 function makeProject(overrides: Partial<PortfolioItem> = {}): PortfolioItem {
     return {
@@ -95,8 +100,9 @@ describe('presentation', () => {
 describe('structured data', () => {
     it('never describes the examples, even if cards are passed by mistake', () => {
         expect(portfolioItemList([])).toBeNull();
-        expect(portfolioItemList(withExamples([]))).toBeNull();
-        expect(portfolioItemList(withExamples([makeProject()]))).toMatchObject({ numberOfItems: 1 });
+        // Cards are refused at compile time; the runtime filter still drops examples.
+        expect(portfolioItemList(withExamples([]) as never)).toBeNull();
+        expect(portfolioItemList(withExamples([makeProject()]) as never)).toMatchObject({ numberOfItems: 1 });
     });
 
     it('lists real projects with their photo and place, linked to the business', () => {
@@ -155,5 +161,45 @@ describe('resolveServerPortfolio', () => {
         resolveServerPortfolio([makeProject()]);
         expect(resolveServerPortfolio([])).toEqual([]);
         expect(resolveServerPortfolio(null)).toEqual([]);
+    });
+});
+
+describe('card helpers', () => {
+    const [real, example] = withExamples([makeProject()], 2);
+
+    it('labels examples everywhere a card describes itself', () => {
+        expect(cardBadge(example)).toBe(`${EXAMPLE_LABEL} · ${example.category}`);
+        expect(cardSubtitle(example)).toBe(cardBadge(example));
+        expect(cardAccessibleName(example)).toBe(`${EXAMPLE_LABEL}: ${example.title}`);
+        expect(projectImageAlt(example)).toMatch(/^Esempio: /);
+        expect(cardShowsStats(example)).toBe(false);
+    });
+
+    it('shows a real project as it is', () => {
+        expect(cardBadge(real)).toBe('Bagno');
+        expect(cardSubtitle(real)).toBe('Roma');
+        expect(cardAccessibleName(real)).toBe('Bagno in terracotta, Roma');
+        expect(cardShowsStats(real)).toBe(true);
+    });
+
+    it('leaves no dangling comma when a real project has no place', () => {
+        const [noPlace] = withExamples([makeProject({ location: '' })], 0);
+        expect(cardAccessibleName(noPlace)).toBe('Bagno in terracotta');
+    });
+});
+
+describe('link preview', () => {
+    it('defaults to the brand logo, never a stock photo', () => {
+        expect(DEFAULT_SHARE_IMAGE.url).toBe('/syd-logo.png');
+        expect(shareMetadata().openGraph?.images).toEqual([DEFAULT_SHARE_IMAGE]);
+    });
+
+    it('uses the photo of the first real project that has one', () => {
+        const projects = [makeProject({ id: 'a', image: null }), makeProject({ id: 'b' })];
+        expect(portfolioShareImage(projects)).toEqual({
+            url: projects[1].image,
+            alt: 'Bagno in terracotta · Bagno, Roma',
+        });
+        expect(portfolioShareImage([])).toBeNull();
     });
 });

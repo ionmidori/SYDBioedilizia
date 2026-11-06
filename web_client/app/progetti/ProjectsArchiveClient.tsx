@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { ProjectImage } from '@/components/portfolio/ProjectImage';
 import { ProjectStats } from '@/components/portfolio/ProjectStats';
@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import {
     ALL_CATEGORIES,
     EXAMPLE_LABEL,
+    cardBadge,
+    cardShowsStats,
     deriveCategories,
     filterByCategory,
     withExamples,
@@ -25,12 +27,19 @@ function countLabel(cards: PortfolioCard[]): string {
 }
 
 export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }) {
+    const realProjects = usePortfolioProjects(initial);
     // Real projects first, then labelled examples up to PORTFOLIO_MIN_CARDS.
-    const projects = withExamples(usePortfolioProjects(initial));
+    const cards = useMemo(() => withExamples(realProjects), [realProjects]);
     const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
 
-    const categories = deriveCategories(projects);
-    const filtered = filterByCategory(projects, activeCategory);
+    // Filters come from REAL projects only: a chip must never advertise a kind of
+    // work that only a stock example shows. Examples appear under "Tutti" only.
+    const categories = deriveCategories(realProjects);
+    const filtered =
+        activeCategory === ALL_CATEGORIES
+            ? cards
+            : filterByCategory(cards.filter((c) => !c.isExample), activeCategory);
+    const hasExamples = cards.some((c) => c.isExample);
 
     return (
         <section className="py-12 md:py-20">
@@ -44,6 +53,13 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
                         L&apos;archivio completo delle nostre ristrutturazioni. Filtra per ambiente
                         per trovare il progetto più vicino al tuo.
                     </p>
+                    {hasExamples && (
+                        <p className="mt-3 max-w-xl text-sm text-luxury-text/50">
+                            Le schede «{EXAMPLE_LABEL}» sono foto di riferimento per lo stile, non
+                            lavori realizzati da noi: lasciano il posto ai nostri progetti man mano
+                            che li pubblichiamo.
+                        </p>
+                    )}
                 </header>
 
                 <div
@@ -109,7 +125,7 @@ function ArchiveCard({ project }: { project: PortfolioCard }) {
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <span className="absolute top-3 left-3 rounded-full border border-luxury-gold/20 bg-luxury-bg/80 px-3 py-1 text-xs font-medium text-luxury-gold backdrop-blur-sm">
-                    {project.isExample ? `${EXAMPLE_LABEL} · ${project.category}` : project.category}
+                    {cardBadge(project)}
                 </span>
             </div>
 
@@ -130,7 +146,7 @@ function ArchiveCard({ project }: { project: PortfolioCard }) {
                 </p>
 
                 {/* Examples carry no measures: nothing to show, nothing invented. */}
-                {!project.isExample && <ProjectStats stats={project.stats} />}
+                {cardShowsStats(project) && <ProjectStats stats={project.stats} />}
             </div>
         </article>
     );

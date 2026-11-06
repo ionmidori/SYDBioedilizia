@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
@@ -12,7 +12,7 @@ import { RowArrow } from '@/components/portfolio/RowArrow';
 import { cn } from '@/lib/utils';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 import { prefersReducedMotion } from '@/lib/reduced-motion';
-import { EXAMPLE_LABEL, PORTFOLIO_RAIL_LIMIT, withExamples, type PortfolioItem } from '@/lib/portfolio';
+import { PORTFOLIO_RAIL_LIMIT, cardSubtitle, withExamples, type PortfolioItem } from '@/lib/portfolio';
 import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
 export function Portfolio({
@@ -24,7 +24,9 @@ export function Portfolio({
     initial?: PortfolioItem[];
 }) {
     // Real projects first, then labelled examples up to PORTFOLIO_MIN_CARDS.
-    const projects = withExamples(usePortfolioProjects(initial));
+    // Memoised: the rail autoplays, so this component re-renders every few seconds.
+    const realProjects = usePortfolioProjects(initial);
+    const projects = useMemo(() => withExamples(realProjects), [realProjects]);
     const [activeRailIndex, setActiveRailIndex] = useState(0);
     // Descriptions are visible by default; this tracks which one (if any) the user has
     // chosen to hide. null means "none hidden" — i.e. everything showing.
@@ -113,9 +115,7 @@ export function Portfolio({
                                 {activeProject?.title}
                             </h3>
                             <p className="text-sm text-luxury-gold/80 font-light truncate">
-                                {activeProject?.isExample
-                                    ? `${EXAMPLE_LABEL} · ${activeProject.category}`
-                                    : activeProject?.location}
+                                {activeProject && cardSubtitle(activeProject)}
                             </p>
                         </motion.div>
                     </AnimatePresence>

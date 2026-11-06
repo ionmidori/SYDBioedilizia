@@ -41,6 +41,21 @@ describe('ProjectsArchiveClient', () => {
         expect(screen.queryByRole('button', { name: 'Esterni' })).not.toBeInTheDocument();
     });
 
+    it('builds filters from real projects only and shows examples under "Tutti" only', () => {
+        render(<ProjectsArchiveClient initial={[makeProject({ id: 'a', title: 'Bagno vero', category: 'Bagno' })]} />);
+
+        // 1 real + 5 labelled examples, with a note explaining what they are.
+        expect(screen.getByText('1 progetto · 5 esempi')).toBeInTheDocument();
+        expect(screen.getByText(/sono foto di riferimento per lo stile/)).toBeInTheDocument();
+        // Chips: only the real project's category (examples have Cucina, Ufficio, ...).
+        expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Tutti', 'Bagno']);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Bagno' }));
+
+        expect(screen.getByText('1 progetto')).toBeInTheDocument();
+        expect(screen.queryByText(/^Esempio/)).not.toBeInTheDocument();
+    });
+
     it('shows the configured stats as a description list', () => {
         render(<ProjectsArchiveClient initial={[makeProject()]} />);
 
