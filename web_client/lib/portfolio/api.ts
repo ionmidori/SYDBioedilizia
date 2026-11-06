@@ -3,8 +3,7 @@
  * Shared by the browser (`fetchPortfolio`) and the server (`server.ts`).
  */
 import { PORTFOLIO_ENDPOINT } from './config';
-import { defaultProjects } from './fallback';
-import { portfolioItemSchema, type PortfolioData, type PortfolioItem } from './types';
+import { portfolioItemSchema, type PortfolioItem } from './types';
 
 /**
  * Keeps the well-formed projects of a response; null when it is not a list at all.
@@ -23,19 +22,11 @@ export function parsePortfolio(body: unknown): PortfolioItem[] | null {
     return projects;
 }
 
-/** Real projects when there are some, else the placeholder set. */
-export function withFallback(projects: PortfolioItem[] | null): PortfolioData {
-    return projects && projects.length > 0
-        ? { projects, isFallback: false }
-        : { projects: defaultProjects, isFallback: true };
-}
-
 /**
  * Requests the portfolio; null on any failure.
  *
- * A genuinely empty collection and a broken request end up in the same fallback
- * by design, but only the failure paths are logged: an empty response is an
- * expected state, a non-ok status or a thrown request is not.
+ * Only the failure paths are logged: an empty response is an expected state
+ * (nothing published yet), a non-ok status or a thrown request is not.
  */
 export async function requestPortfolio(
     apiRoot: string,
@@ -57,9 +48,9 @@ export async function requestPortfolio(
 }
 
 /**
- * Browser fetch, through the Next.js `/api/py` rewrite.
- * Returns `defaultProjects` on any failure or empty response.
+ * Browser fetch, through the Next.js `/api/py` rewrite: the real projects,
+ * `[]` when there are none or the request failed (the gallery adds examples).
  */
 export async function fetchPortfolio(apiRoot = '/api/py'): Promise<PortfolioItem[]> {
-    return withFallback(await requestPortfolio(apiRoot)).projects;
+    return (await requestPortfolio(apiRoot)) ?? [];
 }

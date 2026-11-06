@@ -7,10 +7,10 @@ import { StatCounter } from '@/components/ui/stat-counter';
 import { Palette, FileText } from 'lucide-react';
 import { Portfolio } from './Portfolio';
 import { openChat } from '@/lib/chat-events';
-import type { PortfolioData } from '@/lib/portfolio';
+import type { PortfolioItem } from '@/lib/portfolio';
 
-/** `portfolio`: server-rendered gallery data from `getPortfolio()` (app/page.tsx). */
-export function Hero({ portfolio }: { portfolio?: PortfolioData }) {
+/** `portfolio`: server-rendered real projects from `getPortfolio()` (app/page.tsx). */
+export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
     return (
         // overflow-clip, not overflow-hidden: a hidden box is still programmatically
         // scrollable, so the "Progetti" anchor (#portfolio lives in here) scrolled the

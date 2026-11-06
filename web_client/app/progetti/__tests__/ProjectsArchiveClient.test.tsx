@@ -28,7 +28,7 @@ describe('ProjectsArchiveClient', () => {
             makeProject({ id: 'b', title: 'Cucina vera', category: 'Cucina' }),
         ];
 
-        render(<ProjectsArchiveClient initial={{ projects, isFallback: false }} />);
+        render(<ProjectsArchiveClient initial={projects} />);
 
         expect(global.fetch).not.toHaveBeenCalled();
         expect(screen.getByRole('heading', { name: 'Bagno vero' })).toBeInTheDocument();
@@ -42,7 +42,7 @@ describe('ProjectsArchiveClient', () => {
     });
 
     it('shows the configured stats as a description list', () => {
-        render(<ProjectsArchiveClient initial={{ projects: [makeProject()], isFallback: false }} />);
+        render(<ProjectsArchiveClient initial={[makeProject()]} />);
 
         expect(screen.getByRole('term')).toHaveTextContent('Area');
         expect(screen.getByRole('definition')).toHaveTextContent('6 mq');

@@ -8,6 +8,12 @@ import type { PortfolioStatKey } from './types';
 /** How many projects the homepage rail shows before the "see all" card. */
 export const PORTFOLIO_RAIL_LIMIT = 8;
 
+/**
+ * A gallery shows at least this many cards: real projects first, then examples
+ * (labelled "Esempio") for the missing ones. 0 turns the examples off.
+ */
+export const PORTFOLIO_MIN_CARDS = 6;
+
 /** Label for the pseudo-category that disables filtering. */
 export const ALL_CATEGORIES = 'Tutti';
 

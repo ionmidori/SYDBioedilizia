@@ -33,11 +33,8 @@ export type PortfolioItem = z.infer<typeof portfolioItemSchema>;
 export type PortfolioStatKey = keyof PortfolioStats;
 
 /**
- * What the UI renders: the projects, and whether they are real or the
- * placeholder set. Placeholders must never reach structured data (JSON-LD):
- * they are stock photos, not work of the company.
+ * One card of a gallery: a real project, or an example (stock photo) that fills
+ * the gallery up to `PORTFOLIO_MIN_CARDS` — see `withExamples`. Examples must be
+ * labelled as such and never reach structured data.
  */
-export interface PortfolioData {
-    projects: PortfolioItem[];
-    isFallback: boolean;
-}
+export type PortfolioCard = PortfolioItem & { isExample: boolean };

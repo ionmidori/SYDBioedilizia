@@ -1,5 +1,23 @@
-import { PORTFOLIO_VISIBLE_STATS } from './config';
-import type { PortfolioItem } from './types';
+import { PORTFOLIO_MIN_CARDS, PORTFOLIO_VISIBLE_STATS } from './config';
+import { exampleProjects } from './examples';
+import type { PortfolioCard, PortfolioItem } from './types';
+
+/** Label shown on example cards (and read by screen readers). */
+export const EXAMPLE_LABEL = 'Esempio';
+
+/**
+ * The cards of a gallery: every real project, then as many examples as needed
+ * to reach `minimum` (never more than exist). Real projects always come first.
+ */
+export function withExamples(
+    projects: PortfolioItem[],
+    minimum: number = PORTFOLIO_MIN_CARDS,
+): PortfolioCard[] {
+    const real = projects.map((project) => ({ ...project, isExample: false }));
+    const missing = Math.max(0, minimum - real.length);
+    const examples = exampleProjects.slice(0, missing).map((project) => ({ ...project, isExample: true }));
+    return [...real, ...examples];
+}
 
 /**
  * Alt text of a project photo: what it shows and where, not just the title —

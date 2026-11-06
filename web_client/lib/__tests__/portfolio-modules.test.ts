@@ -1,9 +1,11 @@
 import {
-    defaultProjects,
+    EXAMPLE_LABEL,
+    PORTFOLIO_MIN_CARDS,
+    exampleProjects,
     parsePortfolio,
     projectImageAlt,
     visibleStats,
-    withFallback,
+    withExamples,
     type PortfolioItem,
 } from '@/lib/portfolio';
 import { getPortfolio, resetServerPortfolioMemory, resolveServerPortfolio } from '@/lib/portfolio/server';
@@ -45,14 +47,37 @@ describe('parsePortfolio', () => {
     });
 });
 
-describe('withFallback', () => {
-    it('marks real projects as real', () => {
-        const projects = [makeProject()];
-        expect(withFallback(projects)).toEqual({ projects, isFallback: false });
+describe('withExamples', () => {
+    it('fills the gallery up to the minimum, real projects first', () => {
+        const cards = withExamples([makeProject({ id: 'r1' })]);
+        expect(cards).toHaveLength(PORTFOLIO_MIN_CARDS);
+        expect(cards[0]).toMatchObject({ id: 'r1', isExample: false });
+        expect(cards.slice(1).every((c) => c.isExample)).toBe(true);
     });
 
-    it.each([[null], [[]]])('uses the placeholders for %p', (input) => {
-        expect(withFallback(input)).toEqual({ projects: defaultProjects, isFallback: true });
+    it('shows only examples when nothing is published yet', () => {
+        expect(withExamples([]).map((c) => c.id)).toEqual(
+            exampleProjects.slice(0, PORTFOLIO_MIN_CARDS).map((p) => p.id),
+        );
+    });
+
+    it('adds no example once there are enough real projects', () => {
+        const real = Array.from({ length: PORTFOLIO_MIN_CARDS + 2 }, (_, i) => makeProject({ id: `r${i}` }));
+        const cards = withExamples(real);
+        expect(cards).toHaveLength(real.length);
+        expect(cards.some((c) => c.isExample)).toBe(false);
+    });
+
+    it('can be turned off with a minimum of 0', () => {
+        expect(withExamples([], 0)).toEqual([]);
+    });
+
+    it('never gives examples invented places or measures', () => {
+        for (const example of exampleProjects) {
+            expect(example.location).toBe('');
+            expect(example.stats).toEqual({ area: '', duration: '', budget: '' });
+        }
+        expect(EXAMPLE_LABEL).toBe('Esempio');
     });
 });
 
@@ -68,12 +93,14 @@ describe('presentation', () => {
 });
 
 describe('structured data', () => {
-    it('never describes the placeholder projects', () => {
-        expect(portfolioItemList(withFallback(null))).toBeNull();
+    it('never describes the examples, even if cards are passed by mistake', () => {
+        expect(portfolioItemList([])).toBeNull();
+        expect(portfolioItemList(withExamples([]))).toBeNull();
+        expect(portfolioItemList(withExamples([makeProject()]))).toMatchObject({ numberOfItems: 1 });
     });
 
     it('lists real projects with their photo and place, linked to the business', () => {
-        const list = portfolioItemList(withFallback([makeProject(), makeProject({ id: 'p2', image: null })]));
+        const list = portfolioItemList([makeProject(), makeProject({ id: 'p2', image: null })]);
         expect(list).toMatchObject({
             '@type': 'ItemList',
             numberOfItems: 2,
@@ -111,22 +138,22 @@ describe('resolveServerPortfolio', () => {
 
     it('passes real projects through', () => {
         const projects = [makeProject()];
-        expect(resolveServerPortfolio(projects)).toEqual({ projects, isFallback: false });
+        expect(resolveServerPortfolio(projects)).toEqual(projects);
     });
 
-    it('never throws on a failure: placeholders when nothing was ever received', () => {
-        expect(resolveServerPortfolio(null)).toEqual({ projects: defaultProjects, isFallback: true });
+    it('never throws on a failure: no project when nothing was ever received', () => {
+        expect(resolveServerPortfolio(null)).toEqual([]);
     });
 
     it('reuses the last real list when the backend later fails', () => {
         const projects = [makeProject()];
         resolveServerPortfolio(projects);
-        expect(resolveServerPortfolio(null)).toEqual({ projects, isFallback: false });
+        expect(resolveServerPortfolio(null)).toEqual(projects);
     });
 
     it('treats a successful empty list as nothing published, and forgets the old list', () => {
         resolveServerPortfolio([makeProject()]);
-        expect(resolveServerPortfolio([])).toEqual({ projects: defaultProjects, isFallback: true });
-        expect(resolveServerPortfolio(null).isFallback).toBe(true);
+        expect(resolveServerPortfolio([])).toEqual([]);
+        expect(resolveServerPortfolio(null)).toEqual([]);
     });
 });

@@ -7,15 +7,26 @@ import { ProjectStats } from '@/components/portfolio/ProjectStats';
 import { cn } from '@/lib/utils';
 import {
     ALL_CATEGORIES,
+    EXAMPLE_LABEL,
     deriveCategories,
     filterByCategory,
-    type PortfolioData,
+    withExamples,
+    type PortfolioCard,
     type PortfolioItem,
 } from '@/lib/portfolio';
 import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
-export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) {
-    const projects = usePortfolioProjects(initial);
+/** "1 progetto", "3 progetti", plus the examples when there are some. */
+function countLabel(cards: PortfolioCard[]): string {
+    const examples = cards.filter((c) => c.isExample).length;
+    const real = cards.length - examples;
+    const projects = `${real} ${real === 1 ? 'progetto' : 'progetti'}`;
+    return examples > 0 ? `${projects} · ${examples} ${examples === 1 ? 'esempio' : 'esempi'}` : projects;
+}
+
+export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }) {
+    // Real projects first, then labelled examples up to PORTFOLIO_MIN_CARDS.
+    const projects = withExamples(usePortfolioProjects(initial));
     const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
 
     const categories = deriveCategories(projects);
@@ -58,7 +69,7 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) 
                 </div>
 
                 <p className="text-sm text-luxury-text/50 mb-6" aria-live="polite">
-                    {filtered.length} {filtered.length === 1 ? 'progetto' : 'progetti'}
+                    {countLabel(filtered)}
                 </p>
 
                 {filtered.length === 0 ? (
@@ -88,7 +99,7 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) 
     );
 }
 
-function ArchiveCard({ project }: { project: PortfolioItem }) {
+function ArchiveCard({ project }: { project: PortfolioCard }) {
     return (
         <article className="group h-full overflow-hidden rounded-2xl border border-luxury-gold/10 bg-luxury-bg/40 transition-colors hover:border-luxury-gold/40">
             <div className="relative aspect-[4/3] bg-slate-950">
@@ -98,7 +109,7 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <span className="absolute top-3 left-3 rounded-full border border-luxury-gold/20 bg-luxury-bg/80 px-3 py-1 text-xs font-medium text-luxury-gold backdrop-blur-sm">
-                    {project.category}
+                    {project.isExample ? `${EXAMPLE_LABEL} · ${project.category}` : project.category}
                 </span>
             </div>
 
@@ -107,7 +118,7 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
                     {project.title}
                 </h2>
 
-                {project.location && (
+                {!project.isExample && project.location && (
                     <p className="flex items-center gap-1.5 text-sm text-luxury-text/50 mb-3">
                         <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
                         {project.location}
@@ -118,7 +129,8 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
                     {project.description}
                 </p>
 
-                <ProjectStats stats={project.stats} />
+                {/* Examples carry no measures: nothing to show, nothing invented. */}
+                {!project.isExample && <ProjectStats stats={project.stats} />}
             </div>
         </article>
     );
