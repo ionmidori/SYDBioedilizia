@@ -1,25 +1,22 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import { ImageOff, MapPin } from 'lucide-react';
+import { useState } from 'react';
+import { MapPin } from 'lucide-react';
+import { ProjectImage } from '@/components/portfolio/ProjectImage';
+import { ProjectStats } from '@/components/portfolio/ProjectStats';
 import { cn } from '@/lib/utils';
 import {
     ALL_CATEGORIES,
-    defaultProjects,
     deriveCategories,
-    fetchPortfolio,
     filterByCategory,
+    type PortfolioData,
     type PortfolioItem,
 } from '@/lib/portfolio';
+import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
-export function ProjectsArchiveClient() {
-    const [projects, setProjects] = useState<PortfolioItem[]>(defaultProjects);
+export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) {
+    const projects = usePortfolioProjects(initial);
     const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
-
-    useEffect(() => {
-        fetchPortfolio().then(setProjects);
-    }, []);
 
     const categories = deriveCategories(projects);
     const filtered = filterByCategory(projects, activeCategory);
@@ -95,19 +92,11 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
     return (
         <article className="group h-full overflow-hidden rounded-2xl border border-luxury-gold/10 bg-luxury-bg/40 transition-colors hover:border-luxury-gold/40">
             <div className="relative aspect-[4/3] bg-slate-950">
-                {project.image ? (
-                    <Image
-                        src={project.image}
-                        alt={project.title}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <ImageOff className="w-8 h-8 text-luxury-text/20" aria-hidden="true" />
-                    </div>
-                )}
+                <ProjectImage
+                    project={project}
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                />
                 <span className="absolute top-3 left-3 rounded-full border border-luxury-gold/20 bg-luxury-bg/80 px-3 py-1 text-xs font-medium text-luxury-gold backdrop-blur-sm">
                     {project.category}
                 </span>
@@ -129,18 +118,7 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
                     {project.description}
                 </p>
 
-                <dl className="flex gap-4 border-t border-luxury-text/10 pt-3">
-                    {([
-                        ['Area', project.stats.area],
-                    ] as const).map(([label, value]) => (
-                        <div key={label}>
-                            <dt className="text-[10px] uppercase tracking-wider text-luxury-gold/80">
-                                {label}
-                            </dt>
-                            <dd className="text-xs font-medium text-luxury-text">{value || '—'}</dd>
-                        </div>
-                    ))}
-                </dl>
+                <ProjectStats stats={project.stats} />
             </div>
         </article>
     );

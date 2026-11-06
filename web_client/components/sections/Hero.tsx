@@ -7,8 +7,10 @@ import { StatCounter } from '@/components/ui/stat-counter';
 import { Palette, FileText } from 'lucide-react';
 import { Portfolio } from './Portfolio';
 import { openChat } from '@/lib/chat-events';
+import type { PortfolioData } from '@/lib/portfolio';
 
-export function Hero() {
+/** `portfolio`: server-rendered gallery data from `getPortfolio()` (app/page.tsx). */
+export function Hero({ portfolio }: { portfolio?: PortfolioData }) {
     return (
         // overflow-clip, not overflow-hidden: a hidden box is still programmatically
         // scrollable, so the "Progetti" anchor (#portfolio lives in here) scrolled the
@@ -60,7 +62,7 @@ export function Hero() {
                     transition={{ delay: 0.15, ...M3Spring.standard }}
                     className="min-w-0"
                 >
-                    <Portfolio />
+                    <Portfolio initial={portfolio} />
                 </motion.div>
 
                 {/* CTAs + stats */}

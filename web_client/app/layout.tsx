@@ -61,7 +61,7 @@ export const metadata: Metadata = {
     locale: "it_IT",
     type: "website",
     // One of the Portfolio section's example project photos (see
-    // lib/portfolio.ts `defaultProjects[0]`), cropped to the standard OG
+    // lib/portfolio/fallback.ts `defaultProjects[0]`), cropped to the standard OG
     // 1200x630 via Unsplash's own URL params — a real ristrutturazione shot
     // reads better as a link preview than a generic marketing slide.
     images: [

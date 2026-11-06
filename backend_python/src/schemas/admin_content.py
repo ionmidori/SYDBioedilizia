@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from decimal import Decimal
-from typing import Literal
+from typing import Literal, get_args
 from urllib.parse import unquote, urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -18,16 +18,13 @@ from src.core.money import Money
 
 # ── Portfolio ─────────────────────────────────────────────────────────────────
 
-PORTFOLIO_CATEGORIES = (
-    "Soggiorno",
-    "Cucina",
-    "Bagno",
-    "Camera da letto",
-    "Ufficio",
-    "Intero Appartamento",
-    "Esterni",
-    "Altro",
-)
+# The single definition of the gallery's categories: the request models and the
+# public tuple below both derive from it, so a new category is added in one place
+# (plus `PORTFOLIO_CATEGORIES` in web_client/types/admin-content.ts — Golden Sync).
+PortfolioCategory = Literal[
+    "Soggiorno", "Cucina", "Bagno", "Camera da letto", "Ufficio", "Intero Appartamento", "Esterni", "Altro"
+]
+PORTFOLIO_CATEGORIES: tuple[str, ...] = get_args(PortfolioCategory)
 PORTFOLIO_FOLDER = "portfolio"
 
 
@@ -97,9 +94,7 @@ class PortfolioWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str = Field(..., min_length=1, max_length=120)
-    category: Literal[
-        "Soggiorno", "Cucina", "Bagno", "Camera da letto", "Ufficio", "Intero Appartamento", "Esterni", "Altro"
-    ]
+    category: PortfolioCategory
     location: str = Field(..., min_length=1, max_length=120)
     description: str = Field(default="", max_length=2000)
     stats: PortfolioStats = Field(default_factory=PortfolioStats)
@@ -125,10 +120,7 @@ class PortfolioPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str | None = Field(default=None, min_length=1, max_length=120)
-    category: (
-        Literal["Soggiorno", "Cucina", "Bagno", "Camera da letto", "Ufficio", "Intero Appartamento", "Esterni", "Altro"]
-        | None
-    ) = None
+    category: PortfolioCategory | None = None
     location: str | None = Field(default=None, min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=2000)
     stats: PortfolioStats | None = None

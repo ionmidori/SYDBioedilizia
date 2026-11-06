@@ -75,6 +75,41 @@ async def _write_audit_record(record: dict[str, Any]) -> None:
         )
 
 
+def _build_record(
+    action: AuditAction,
+    resource_type: AuditResourceType,
+    resource_id: str,
+    status: str,
+    user_id: str | None,
+    metadata: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """The audit document, with the request context captured from ContextVars."""
+    return {
+        "timestamp": utc_now(),
+        "request_id": get_request_id(),
+        "session_id": get_session_id() or "",
+        "user_id": user_id or get_user_id() or "system",
+        "action": action.value,
+        "resource_type": resource_type.value,
+        "resource_id": resource_id,
+        "status": status,
+        "metadata": metadata or {},
+    }
+
+
+async def write_audit_event(
+    action: AuditAction,
+    resource_type: AuditResourceType,
+    resource_id: str,
+    status: str = "success",
+    user_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    """Awaited variant of `emit_audit_event`, for code that exits right after
+    (CLI scripts): the record is written before returning. Never raises."""
+    await _write_audit_record(_build_record(action, resource_type, resource_id, status, user_id, metadata))
+
+
 def emit_audit_event(
     action: AuditAction,
     resource_type: AuditResourceType,
@@ -91,17 +126,7 @@ def emit_audit_event(
 
     This function is synchronous to callers — it returns immediately.
     """
-    record = {
-        "timestamp": utc_now(),
-        "request_id": get_request_id(),
-        "session_id": get_session_id() or "",
-        "user_id": user_id or get_user_id() or "system",
-        "action": action.value,
-        "resource_type": resource_type.value,
-        "resource_id": resource_id,
-        "status": status,
-        "metadata": metadata or {},
-    }
+    record = _build_record(action, resource_type, resource_id, status, user_id, metadata)
 
     try:
         loop = asyncio.get_running_loop()

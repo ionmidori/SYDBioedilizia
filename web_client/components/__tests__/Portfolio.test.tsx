@@ -103,6 +103,33 @@ describe('Portfolio', () => {
         expect(within(card).getByText('Mostra descrizione')).toBeInTheDocument();
     });
 
+    it('uses the server-rendered projects without fetching again', async () => {
+        global.fetch = jest.fn();
+        const projects = [makeProject({ id: 'a', title: 'Bagno vero' })];
+
+        render(<Portfolio initial={{ projects, isFallback: false }} />);
+
+        expect(screen.getAllByText('Bagno vero').length).toBeGreaterThan(0);
+        expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('retries in the browser when the server could only render the placeholders', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a', title: 'Arrivato dopo' })]);
+
+        render(<Portfolio initial={{ projects: [makeProject({ id: 'f', title: 'Segnaposto' })], isFallback: true }} />);
+
+        expect((await screen.findAllByText('Arrivato dopo')).length).toBeGreaterThan(0);
+        expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('describes each photo with title, category and place', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a', title: 'Bagno', category: 'Bagno', location: 'Roma' })]);
+
+        render(<Portfolio />);
+
+        expect((await screen.findAllByAltText('Bagno · Bagno, Roma')).length).toBeGreaterThan(0);
+    });
+
     describe('desktop row controls', () => {
         const originalScrollBy = HTMLElement.prototype.scrollBy;
 

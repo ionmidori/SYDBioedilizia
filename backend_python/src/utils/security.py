@@ -129,6 +129,22 @@ async def validate_video_magic_bytes(file: UploadFile, max_header_size: int = 20
         ) from e
 
 
+def detect_image_type(header: bytes) -> str | None:
+    """MIME type of an allowed image format from its first bytes (>= 12 for WebP), else None.
+
+    The same allowlist as the upload routes, usable on bytes already in memory
+    (e.g. scripts/add_portfolio_project.py).
+    """
+    for mime_type, signatures in IMAGE_SIGNATURES.items():
+        for signature in signatures:
+            if header.startswith(signature):
+                # Extra check for WebP: bytes 8-11 must be "WEBP"
+                if mime_type != "image/webp" or header[8:12] == b"WEBP":
+                    return mime_type
+                break
+    return None
+
+
 async def validate_image_magic_bytes(file: UploadFile, max_header_size: int = 16) -> str:
     """
     Validate image file using Magic Bytes inspection.
@@ -156,20 +172,7 @@ async def validate_image_magic_bytes(file: UploadFile, max_header_size: int = 16
                 detail="File too small or corrupted. Minimum 4 bytes required."
             )
 
-        detected_type: str | None = None
-
-        for mime_type, signatures in IMAGE_SIGNATURES.items():
-            for signature in signatures:
-                if header.startswith(signature):
-                    # Extra check for WebP: bytes 8-11 must be "WEBP"
-                    if mime_type == "image/webp":
-                        if len(header) >= 12 and header[8:12] == b'WEBP':
-                            detected_type = mime_type
-                    else:
-                        detected_type = mime_type
-                    break
-            if detected_type:
-                break
+        detected_type = detect_image_type(header)
 
         declared_type = file.content_type
 

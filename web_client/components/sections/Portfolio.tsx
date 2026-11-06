@@ -2,34 +2,33 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpRight, ChevronLeft, ChevronRight, ImageOff, LayoutGrid } from 'lucide-react';
+import { LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { SnapRail } from '@/components/ui/snap-rail';
+import { DesktopProjectCard } from '@/components/portfolio/DesktopProjectCard';
+import { MobileProjectCard } from '@/components/portfolio/MobileProjectCard';
+import { RowArrow } from '@/components/portfolio/RowArrow';
 import { cn } from '@/lib/utils';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 import { prefersReducedMotion } from '@/lib/reduced-motion';
-import { triggerHaptic } from '@/lib/haptics';
-import {
-    PORTFOLIO_RAIL_LIMIT,
-    defaultProjects,
-    fetchPortfolio,
-    type PortfolioItem,
-} from '@/lib/portfolio';
+import { PORTFOLIO_RAIL_LIMIT, type PortfolioData } from '@/lib/portfolio';
+import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
-export function Portfolio({ className }: { className?: string }) {
-    const [hoveredProject, setHoveredProject] = useState<string | null>(null);
-    const [projects, setProjects] = useState<PortfolioItem[]>(defaultProjects);
+export function Portfolio({
+    className,
+    initial,
+}: {
+    className?: string;
+    /** Server-rendered data (`getPortfolio()`); without it the gallery fetches on mount. */
+    initial?: PortfolioData;
+}) {
+    const projects = usePortfolioProjects(initial);
     const [activeRailIndex, setActiveRailIndex] = useState(0);
     // Descriptions are visible by default; this tracks which one (if any) the user has
     // chosen to hide. null means "none hidden" — i.e. everything showing.
     const [hiddenId, setHiddenId] = useState<string | null>(null);
 
-    // Load from backend API (3-Tier: no direct Firestore)
-    useEffect(() => {
-        fetchPortfolio().then(setProjects);
-    }, []);
 
     // No category filters here — they live on the archive page (`/progetti`), which
     // the CTA below links to. `fetchPortfolio` never resolves to an empty list.
@@ -157,64 +156,7 @@ export function Portfolio({ className }: { className?: string }) {
                 className="hidden md:grid md:grid-cols-2 gap-6 lg:flex lg:overflow-x-auto lg:snap-x lg:snap-mandatory lg:overscroll-x-contain scrollbar-hide"
             >
                 {projects.map((project, idx) => (
-                    <motion.div
-                        key={project.id}
-                        // Opacity only: on lg the row scrolls horizontally, so it also
-                        // clips vertically (overflow-x: auto forces overflow-y) and a
-                        // slide-up entry showed the cards with their bottom cut off.
-                        initial={{ opacity: 0 }}
-                        whileInView={{ opacity: 1 }}
-                        // Capped: cards further along the row reveal as they are scrolled in,
-                        // and shouldn't then wait a second for their turn.
-                        transition={{ duration: 0.5, delay: Math.min(idx, 3) * 0.1, ease: 'easeOut' }}
-                        // No negative margin: the row sits in the hero, partly above the
-                        // fold, and must not wait for a scroll to show its first cards.
-                        viewport={{ once: true, amount: 0.2 }}
-                        className={cn(
-                            "group relative aspect-[4/5] lg:shrink-0 lg:snap-start lg:w-[calc((100%-4.5rem)/4)] rounded-2xl overflow-hidden cursor-pointer bg-slate-950 border border-luxury-gold/10 hover:border-luxury-gold/50 transition-colors",
-                            hoveredProject === project.id && "border-luxury-gold/50"
-                        )}
-                        onMouseEnter={() => setHoveredProject(project.id)}
-                        onMouseLeave={() => setHoveredProject(null)}
-                    >
-                        <ProjectImage
-                            project={project}
-                            sizes="(max-width: 1024px) 50vw, 25vw"
-                            eager={idx < 4}
-                            className={cn(
-                                "object-cover transition-transform duration-700 group-hover:scale-110",
-                                hoveredProject === project.id && "scale-110"
-                            )}
-                        />
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
-
-                        <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                            <div className="relative z-20">
-                                <p className="text-white text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
-                                    {project.category}
-                                </p>
-
-                                <h3 className="text-2xl font-bold text-luxury-text mb-2">{project.title}</h3>
-
-                                {/* grid-rows trick: animates height without touching layout-triggering properties */}
-                                <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">
-                                    <div className="overflow-hidden">
-                                        <p className="text-luxury-text/80 text-sm mb-4 font-light">
-                                            {project.description}
-                                        </p>
-                                        <ProjectStats stats={project.stats} />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
-                            <div className="w-10 h-10 rounded-full bg-luxury-teal/20 backdrop-blur-md flex items-center justify-center border border-luxury-teal/50 text-luxury-text hover:bg-luxury-teal hover:text-white transition-colors">
-                                <ArrowUpRight className="w-5 h-5" />
-                            </div>
-                        </div>
-                    </motion.div>
+                    <DesktopProjectCard key={project.id} project={project} index={idx} />
                 ))}
             </div>
 
@@ -233,188 +175,5 @@ export function Portfolio({ className }: { className?: string }) {
             </div>
 
         </section>
-    );
-}
-
-// ── Mobile card ──────────────────────────────────────────────────────────────
-
-function MobileProjectCard({
-    project,
-    eager,
-    isActive,
-    isHidden,
-    onToggle,
-}: {
-    project: PortfolioItem;
-    eager: boolean;
-    isActive: boolean;
-    isHidden: boolean;
-    onToggle: () => void;
-}) {
-    const handleToggle = () => {
-        triggerHaptic();
-        onToggle();
-    };
-
-    return (
-        <button
-            type="button"
-            onClick={handleToggle}
-            aria-expanded={!isHidden}
-            className={cn(
-                "relative block w-full aspect-[3/4] rounded-2xl overflow-hidden text-left bg-slate-950 border transition-colors duration-300 cinematic-focus",
-                isActive ? "border-luxury-gold/50" : "border-luxury-gold/10"
-            )}
-        >
-            <ProjectImage
-                project={project}
-                sizes="85vw"
-                eager={eager}
-                className={cn(
-                    "object-cover transition-transform duration-700",
-                    isActive ? "scale-105" : "scale-100"
-                )}
-            />
-
-            {/* Scrim reaches higher than before (to-70%, was to-55%): the description is
-                now visible by default rather than hidden until tapped, so it needs
-                coverage further up the card at rest, not just when expanded.
-                Renovation shots are often near-white there, so it needs to carry text —
-                but it's kept translucent (not fully opaque) and clears early so the
-                photo itself, which is the actual product, stays as visible as possible. */}
-            <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg/75 from-25% to-transparent to-70%" />
-
-            {/* Positioned absolutely, not inside the bottom-anchored column below: it
-                used to sit at the top of that flex-col and get pushed off the card's
-                top edge (past the button's overflow-hidden) whenever the description
-                expanded and grew the column upward. */}
-            <span className="absolute top-4 left-4 z-10 inline-flex px-3 py-1 rounded-full text-xs font-medium bg-luxury-bg/70 backdrop-blur-sm border border-luxury-gold/20 text-luxury-gold">
-                {project.category}
-            </span>
-
-            <div className="absolute inset-0 p-5 flex flex-col justify-end">
-                {/* The reveal follows the user's swipe, not the page scroll.
-                    text-shadow (inherited by every descendant) is what keeps the stats
-                    line legible on a near-white shot now that the scrim above is lighter:
-                    the fix for low contrast is a shadow under the text, not a darker
-                    scrim — that would defeat the point of lightening it. */}
-                <motion.div
-                    animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 12 }}
-                    transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
-                    className="[text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_2px_10px_rgba(0,0,0,0.6)]"
-                >
-                    {/* grid-rows 1fr→0fr animates height without touching layout-triggering
-                        properties — the CLS-safe replacement for animating max-height.
-                        Visible by default (isHidden false ⇒ 1fr): the description reads
-                        as part of the card, not a hidden extra. line-clamp-4 bounds how
-                        tall it can grow at rest — without it a long real-world
-                        description (longer than the placeholder copy) could push past
-                        the card's top edge the same way the chip used to. */}
-                    <div
-                        className={cn(
-                            "grid transition-[grid-template-rows] duration-300",
-                            isHidden ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
-                        )}
-                    >
-                        <div className="overflow-hidden">
-                            <p className="text-luxury-text/85 text-sm font-light pb-3 line-clamp-4">
-                                {project.description}
-                            </p>
-                        </div>
-                    </div>
-
-                    <span className="block text-xs text-luxury-gold/70 font-medium pb-3">
-                        {isHidden ? 'Mostra descrizione' : 'Nascondi descrizione'}
-                    </span>
-
-                    <ProjectStats stats={project.stats} />
-                </motion.div>
-            </div>
-
-            <span className="sr-only">
-                {project.title}, {project.location}. Tocca per {isHidden ? 'mostrare' : 'nascondere'} la descrizione.
-            </span>
-        </button>
-    );
-}
-
-// ── Desktop row arrow ────────────────────────────────────────────────────────
-
-function RowArrow({
-    direction,
-    disabled,
-    onClick,
-}: {
-    direction: 'prev' | 'next';
-    disabled: boolean;
-    onClick: () => void;
-}) {
-    const Icon = direction === 'prev' ? ChevronLeft : ChevronRight;
-
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            disabled={disabled}
-            aria-label={direction === 'prev' ? 'Progetti precedenti' : 'Progetti successivi'}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-luxury-gold/30 text-luxury-gold transition-colors hover:bg-luxury-gold/10 hover:border-luxury-gold disabled:opacity-30 disabled:pointer-events-none"
-        >
-            <Icon className="w-5 h-5" aria-hidden="true" />
-        </button>
-    );
-}
-
-// ── Shared bits ──────────────────────────────────────────────────────────────
-
-function ProjectImage({
-    project,
-    sizes,
-    eager = false,
-    className,
-}: {
-    project: PortfolioItem;
-    sizes: string;
-    /** The gallery sits in the hero, so its first photos are above the fold (and the LCP). */
-    eager?: boolean;
-    className?: string;
-}) {
-    if (!project.image) {
-        return (
-            <div className="absolute inset-0 flex items-center justify-center bg-luxury-bg/80">
-                <ImageOff className="w-8 h-8 text-luxury-text/20" aria-hidden="true" />
-            </div>
-        );
-    }
-
-    return (
-        <Image
-            src={project.image}
-            alt={project.title}
-            fill
-            sizes={sizes}
-            loading={eager ? 'eager' : 'lazy'}
-            className={className}
-        />
-    );
-}
-
-/**
- * Area only. `duration` and `budget` are still carried by `PortfolioItem` and still
- * written by the admin tool — they are deliberately not surfaced here, because the card
- * reads as a photo of the work rather than a spec sheet. The loop shape is kept so
- * restoring a stat is a one-line change.
- */
-function ProjectStats({ stats }: { stats: PortfolioItem['stats'] }) {
-    return (
-        <div className="flex gap-4 border-t border-luxury-text/10 pt-3">
-            {([
-                ['Area', stats.area],
-            ] as const).map(([label, value]) => (
-                <div key={label}>
-                    <p className="text-[10px] text-luxury-gold/80 uppercase tracking-wider">{label}</p>
-                    <p className="text-xs text-luxury-text font-medium">{value || '—'}</p>
-                </div>
-            ))}
-        </div>
     );
 }

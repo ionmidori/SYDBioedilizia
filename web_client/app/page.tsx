@@ -7,8 +7,12 @@ import { Footer } from '@/components/sections/Footer';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { Suspense } from 'react';
 import { COMPANY } from '@/lib/company';
+import { getPortfolio } from '@/lib/portfolio/server';
 
-export default function Home() {
+export default async function Home() {
+  // Rendered on the server (ISR, see lib/portfolio/server.ts): the real projects are
+  // in the HTML, with no flash of the placeholder set while the browser fetches.
+  const portfolio = await getPortfolio();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "GeneralContractor",
@@ -69,7 +73,7 @@ export default function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Navbar />
-      <Hero />
+      <Hero portfolio={portfolio} />
       <Services />
       <WhatWeDo />
       <Testimonials />
