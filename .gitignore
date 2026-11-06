@@ -167,3 +167,4 @@ skills_dev/
 skills_pkg/
 /skills/
 backend_python/deploy/.vertex-previous-revision
+web_client/e2e/.visual-baseline/
