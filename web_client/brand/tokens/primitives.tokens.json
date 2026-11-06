@@ -1,0 +1,35 @@
+{
+  "$description": "SYD Bioedilizia brand primitives (W3C DTCG). The ONLY place where brand colour values are written. Brand hues were measured on the flat interiors of the master logo (brand/source/syd-logo-source.jpg).",
+  "color": {
+    "$type": "color",
+    "brand": {
+      "navy": {
+        "900": { "$value": "#07385f", "$description": "Deepest leaf facet, D stem foot, 'BIO' of the wordmark" }
+      },
+      "steel": {
+        "700": { "$value": "#20517f", "$description": "Lower leaf facet" },
+        "500": { "$value": "#35608b", "$description": "Lower leaf facet, lightest" }
+      },
+      "blue": {
+        "800": { "$value": "#025b90", "$description": "Leaf left facet, D bowl" },
+        "700": { "$value": "#0c6c9f", "$description": "Y right arm, D bowl top, 'EDILIZIA' of the wordmark" },
+        "600": { "$value": "#127aac", "$description": "Leaf facet, Y stem" },
+        "500": { "$value": "#1889b8", "$description": "Leaf facet, D stem" },
+        "450": { "$value": "#2095c1", "$description": "Leaf facet, third stripe" },
+        "400": { "$value": "#269dc8", "$description": "Leaf tip, Y left arm" }
+      },
+      "sand": {
+        "500": { "$value": "#cda865", "$description": "The 'S' shape" }
+      },
+      "white": { "$value": "#ffffff" }
+    },
+    "luxury": {
+      "$description": "Current site palette (dark luxury theme). Kept as-is until the light theme (PR-2) replaces it.",
+      "bg": { "$value": "#264653" },
+      "gold": { "$value": "#E9C46A" },
+      "gold-dark": { "$value": "#B38B36" },
+      "teal": { "$value": "#2A9D8F" },
+      "text": { "$value": "#F4F1DE" }
+    }
+  }
+}

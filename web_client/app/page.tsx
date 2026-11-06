@@ -7,6 +7,7 @@ import { Footer } from '@/components/sections/Footer';
 import ChatWidget from '@/components/chat/ChatWidget';
 import { Suspense } from 'react';
 import { COMPANY } from '@/lib/company';
+import { STRUCTURED_DATA_LOGO } from '@/lib/brand';
 import { getPortfolio } from '@/lib/portfolio/server';
 import { portfolioShareImage } from '@/lib/portfolio/structured-data';
 import { shareMetadata } from '@/lib/site-share';
@@ -30,8 +31,8 @@ export default async function Home() {
     "legalName": COMPANY.legalName,
     "description": "Leader a Roma e Provincia: ristrutturazioni tradizionali e bioedilizia.",
     "url": COMPANY.url,
-    "logo": `${COMPANY.url}/syd-logo.png`,
-    "image": `${COMPANY.url}/syd-logo.png`,
+    "logo": `${COMPANY.url}${STRUCTURED_DATA_LOGO.url}`,
+    "image": `${COMPANY.url}${STRUCTURED_DATA_LOGO.url}`,
     "telephone": COMPANY.phone,
     "email": COMPANY.email,
     "vatID": `IT${COMPANY.vatId}`,

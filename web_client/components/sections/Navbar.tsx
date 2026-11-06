@@ -8,7 +8,7 @@ import { M3Spring, M3Transition, createStaggerVariants } from '@/lib/m3-motion';
 import { Menu, Mail } from 'lucide-react';
 import { SignInButton } from '@/components/auth/SignInButton';
 import { cn } from '@/lib/utils';
-import { SydLogo } from '@/components/branding/SydLogo';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { useAuth } from '@/hooks/useAuth';
 import {
     Sheet,
@@ -144,7 +144,7 @@ export function Navbar() {
                     {/* Left: Logo & Contacts */}
                     <div className="flex items-center gap-4 xl:gap-8 z-10 shrink-0">
                         <Link href="/" onClick={() => triggerHaptic()} className="group shrink-0">
-                            <SydLogo className="group-hover:opacity-90 transition-opacity" />
+                            <BrandLogo variant="horizontal" tone="on-dark" className="h-8 md:h-10 group-hover:opacity-90 transition-opacity" />
                         </Link>
                         {/* Desktop Contact Dropdown - M3 Expressive */}
                         <div className="hidden xl:flex items-center gap-2 relative" ref={contactMenuRefDesktop}>

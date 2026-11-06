@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter } from 'react-icons/fa6';
-import { SydLogo } from '@/components/branding/SydLogo';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { M3EasingFM } from '@/lib/m3-motion';
 import { COMPANY } from '@/lib/company';
 
@@ -35,8 +35,8 @@ export function Footer() {
 
                     {/* Brand Column */}
                     <div className="col-span-2 lg:col-span-1 space-y-6">
-                        <Link href="/" className="group">
-                            <SydLogo className="group-hover:opacity-90 transition-opacity" />
+                        <Link href="/" className="group block w-fit">
+                            <BrandLogo variant="full" tone="on-dark" className="h-20 md:h-24 group-hover:opacity-90 transition-opacity" />
                         </Link>
                         <p className="text-luxury-text/70 text-sm leading-relaxed max-w-xs font-light">
                             Rivoluzioniamo il modo di progettare e ristrutturare casa. Tecnologia AI all&apos;avanguardia per risultati garantiti e senza sorprese.

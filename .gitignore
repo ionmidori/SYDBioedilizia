@@ -110,6 +110,8 @@ next-env.d.ts
 !tailwind.config.json
 !package-root.json
 !manifest.json
+# Brand design tokens (W3C DTCG), the only source of the brand colours
+!web_client/brand/tokens/*.tokens.json
 
 # python
 .venv/

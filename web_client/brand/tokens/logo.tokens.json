@@ -1,0 +1,19 @@
+{
+  "$description": "Semantic logo roles. The master SVGs reference these roles (class=\"logo-…\"), never a colour. Facets are numbered from darkest (1) to lightest (9).",
+  "logo": {
+    "$type": "color",
+    "facet-1": { "$value": "{color.brand.navy.900}" },
+    "facet-2": { "$value": "{color.brand.steel.700}" },
+    "facet-3": { "$value": "{color.brand.blue.800}" },
+    "facet-4": { "$value": "{color.brand.steel.500}" },
+    "facet-5": { "$value": "{color.brand.blue.700}" },
+    "facet-6": { "$value": "{color.brand.blue.600}" },
+    "facet-7": { "$value": "{color.brand.blue.500}" },
+    "facet-8": { "$value": "{color.brand.blue.450}" },
+    "facet-9": { "$value": "{color.brand.blue.400}" },
+    "accent": { "$value": "{color.brand.sand.500}" },
+    "wordmark-primary": { "$value": "{color.brand.navy.900}", "$description": "'BIO'" },
+    "wordmark-secondary": { "$value": "{color.brand.blue.700}", "$description": "'EDILIZIA'" },
+    "background": { "$value": "{color.brand.white}", "$description": "Plate behind the logo in raster outputs (app icons, link previews)" }
+  }
+}

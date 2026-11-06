@@ -1,0 +1,27 @@
+{
+  "$description": "Logo tones: overrides of the semantic logo roles for a given surface. Values are DERIVED by the build (scripts/brand/build-tokens.mjs): each role listed under `syd.tone.minContrast` is lightened in OKLCH (hue and chroma kept) just enough to reach the ratio against the tone's surface. Explicit $value entries are used as-is.",
+  "tone": {
+    "$type": "color",
+    "on-dark": {
+      "$description": "Logo on the dark site surface (navbar, footer, dashboard header).",
+      "$extensions": {
+        "syd.tone": {
+          "surface": "{color.luxury.bg}",
+          "minContrast": {
+            "logo.facet-1": 1.9,
+            "logo.facet-2": 2.1,
+            "logo.facet-3": 2.3,
+            "logo.facet-4": 2.5,
+            "logo.facet-5": 2.8,
+            "logo.facet-6": 3.1,
+            "logo.facet-7": 3.5,
+            "logo.facet-8": 3.8,
+            "logo.facet-9": 4.2,
+            "logo.wordmark-secondary": 4.5
+          }
+        }
+      },
+      "wordmark-primary": { "$value": "{color.luxury.text}" }
+    }
+  }
+}

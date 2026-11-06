@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./brand-tokens.css";
 @import "./scroll-animations.css";
 @plugin "@tailwindcss/typography";
 
@@ -43,12 +44,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Luxury Tech Palette */
-  --color-luxury-bg: #264653;
-  --color-luxury-gold: #E9C46A;
-  --color-luxury-gold-dark: #B38B36;
-  --color-luxury-teal: #2A9D8F;
-  --color-luxury-text: #F4F1DE;
+  /* Brand and site palette (brand-*, luxury-*) and the logo roles come from the
+     design tokens: see ./brand-tokens.css, generated from web_client/brand/tokens. */
 }
 
 @utility pb-safe {

@@ -14,7 +14,7 @@ export function About() {
             <div className="container mx-auto px-4 md:px-6 relative z-10">
 
                 {/* Header. h1: this is /chi-siamo's only section, and its own page
-                    heading — SydLogo (Navbar/Footer) is no longer marked up as one. */}
+                    heading — BrandLogo (Navbar/Footer) is an image, not a heading. */}
                 <div className="text-center mb-16 space-y-4">
                     <motion.h1
                         initial={{ opacity: 0, y: 20 }}
