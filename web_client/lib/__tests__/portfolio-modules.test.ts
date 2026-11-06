@@ -190,7 +190,7 @@ describe('card helpers', () => {
 
 describe('link preview', () => {
     it('defaults to the brand logo, never a stock photo', () => {
-        expect(DEFAULT_SHARE_IMAGE.url).toBe('/syd-logo.png');
+        expect(DEFAULT_SHARE_IMAGE).toEqual({ url: '/brand/og-default.png', alt: 'SYD Bioedilizia', width: 1200, height: 630 });
         expect(shareMetadata().openGraph?.images).toEqual([DEFAULT_SHARE_IMAGE]);
     });
 

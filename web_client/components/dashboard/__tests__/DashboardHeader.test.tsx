@@ -13,7 +13,7 @@ jest.mock('next/navigation', () => ({
     useSearchParams: () => ({ get: (key: string) => (key === 'view' ? mockView : null) }),
     useRouter: () => ({ push: mockPush, replace: mockReplace }),
 }));
-jest.mock('@/components/branding/SydLogo', () => ({ SydLogo: () => <span /> }));
+jest.mock('@/components/brand/BrandLogo', () => ({ BrandLogo: () => <span /> }));
 
 const tabNames = () => screen.getAllByRole('button', { name: /^Vai a / }).map((b) => b.getAttribute('aria-label'));
 

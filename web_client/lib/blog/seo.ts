@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { STRUCTURED_DATA_LOGO } from "@/lib/brand";
 import { COMPANY } from "@/lib/company";
 import type { BlogPost } from "./types";
 
@@ -11,7 +12,7 @@ import type { BlogPost } from "./types";
  * index) and a publisher logo at /images/logo.png that does not exist.
  */
 
-export const BLOG_LOGO_URL = `${COMPANY.url}/syd-logo.png`;
+export const BLOG_LOGO_URL = `${COMPANY.url}${STRUCTURED_DATA_LOGO.url}`;
 
 /** Articles carry a date only; OG publishedTime keeps the historical 08:00 UTC. */
 const toIsoDateTime = (date: string) => `${date}T08:00:00.000Z`;

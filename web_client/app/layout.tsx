@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { shareMetadata } from "@/lib/site-share";
+import { BRAND_ICONS, THEME_COLOR } from "@/lib/brand";
 import { Playfair_Display, Lato, Cinzel } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
@@ -53,7 +54,8 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/",
   },
-  manifest: "/manifest.json",
+  // Icons from the brand system; the web app manifest is app/manifest.ts.
+  icons: BRAND_ICONS,
   // Link previews: brand logo by default; the homepage uses a real project photo.
   ...shareMetadata(),
   robots: {
@@ -82,7 +84,7 @@ export const viewport = {
   // Form fields use 16px text on mobile so iOS doesn't auto-zoom on focus.
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
-  themeColor: "#264653",
+  themeColor: THEME_COLOR,
 };
 
 import { ChatProvider } from "@/components/chat/ChatProvider";
