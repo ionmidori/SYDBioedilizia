@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 import { triggerHaptic } from '@/lib/haptics';
-import type { PortfolioItem } from '@/lib/portfolio';
+import { cardAccessibleName, cardBadge, cardShowsStats, type PortfolioCard } from '@/lib/portfolio';
 import { ProjectImage } from './ProjectImage';
 import { ProjectStats } from './ProjectStats';
 
@@ -16,7 +16,7 @@ export function MobileProjectCard({
     isHidden,
     onToggle,
 }: {
-    project: PortfolioItem;
+    project: PortfolioCard;
     eager: boolean;
     isActive: boolean;
     isHidden: boolean;
@@ -55,7 +55,7 @@ export function MobileProjectCard({
             {/* Positioned absolutely, not inside the bottom-anchored column below: there
                 it was pushed off the card's top edge whenever the description grew. */}
             <span className="absolute top-4 left-4 z-10 inline-flex px-3 py-1 rounded-full text-xs font-medium bg-luxury-bg/70 backdrop-blur-sm border border-luxury-gold/20 text-luxury-gold">
-                {project.category}
+                {cardBadge(project)}
             </span>
 
             <span className="absolute inset-0 p-5 flex flex-col justify-end">
@@ -86,12 +86,12 @@ export function MobileProjectCard({
                         {isHidden ? 'Mostra descrizione' : 'Nascondi descrizione'}
                     </span>
 
-                    <ProjectStats stats={project.stats} inline />
+                    {cardShowsStats(project) && <ProjectStats stats={project.stats} inline />}
                 </motion.span>
             </span>
 
             <span className="sr-only">
-                {project.title}, {project.location}. Tocca per {isHidden ? 'mostrare' : 'nascondere'} la descrizione.
+                {cardAccessibleName(project)}. Tocca per {isHidden ? 'mostrare' : 'nascondere'} la descrizione.
             </span>
         </button>
     );

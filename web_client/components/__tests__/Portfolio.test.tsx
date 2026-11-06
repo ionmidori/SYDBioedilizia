@@ -93,13 +93,15 @@ describe('Portfolio', () => {
 
         render(<Portfolio />);
 
-        const card = await screen.findByRole('button', { expanded: true });
+        // The real project's card (the examples after it are cards too).
+        const card = (await screen.findByText('Descrizione del progetto', { selector: 'span' })).closest('button')!;
+        expect(card).toHaveAttribute('aria-expanded', 'true');
         expect(within(card).getByText('Descrizione del progetto')).toBeVisible();
         expect(within(card).getByText('Nascondi descrizione')).toBeInTheDocument();
 
         fireEvent.click(card);
 
-        expect(screen.getByRole('button', { expanded: false })).toBe(card);
+        expect(card).toHaveAttribute('aria-expanded', 'false');
         expect(within(card).getByText('Mostra descrizione')).toBeInTheDocument();
     });
 
@@ -107,16 +109,16 @@ describe('Portfolio', () => {
         global.fetch = jest.fn();
         const projects = [makeProject({ id: 'a', title: 'Bagno vero' })];
 
-        render(<Portfolio initial={{ projects, isFallback: false }} />);
+        render(<Portfolio initial={projects} />);
 
         expect(screen.getAllByText('Bagno vero').length).toBeGreaterThan(0);
         expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('retries in the browser when the server could only render the placeholders', async () => {
+    it('retries in the browser when the server had no real project', async () => {
         mockPortfolioResponse([makeProject({ id: 'a', title: 'Arrivato dopo' })]);
 
-        render(<Portfolio initial={{ projects: [makeProject({ id: 'f', title: 'Segnaposto' })], isFallback: true }} />);
+        render(<Portfolio initial={[]} />);
 
         expect((await screen.findAllByText('Arrivato dopo')).length).toBeGreaterThan(0);
         expect(global.fetch).toHaveBeenCalledTimes(1);
@@ -128,6 +130,21 @@ describe('Portfolio', () => {
         render(<Portfolio />);
 
         expect((await screen.findAllByAltText('Bagno · Bagno, Roma')).length).toBeGreaterThan(0);
+    });
+
+    it('fills the rail with labelled examples after the real projects', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a', title: 'Bagno vero', category: 'Bagno' })]);
+
+        render(<Portfolio />);
+
+        // Before the response the rail already shows 6 examples: wait for the real one.
+        await screen.findAllByText('Bagno vero');
+        // 1 real + 5 examples = PORTFOLIO_MIN_CARDS cards in the mobile rail.
+        expect(screen.getAllByRole('button', { name: /Vai all'elemento/ })).toHaveLength(6);
+        expect(screen.getAllByText(/^Esempio/).length).toBeGreaterThan(0);
+        // The real project carries no "Esempio" label.
+        const realCard = screen.getByText(/^Bagno vero, Roma./).closest('button')!;
+        expect(within(realCard).queryByText(/^Esempio/)).not.toBeInTheDocument();
     });
 
     describe('desktop row controls', () => {

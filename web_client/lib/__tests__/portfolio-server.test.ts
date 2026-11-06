@@ -1,4 +1,4 @@
-import { PORTFOLIO_REVALIDATE_SECONDS, defaultProjects, type PortfolioItem } from '@/lib/portfolio';
+import { PORTFOLIO_REVALIDATE_SECONDS, type PortfolioItem } from '@/lib/portfolio';
 import { getPortfolio, resetServerPortfolioMemory } from '@/lib/portfolio/server';
 
 // jsdom has a `window`, where getPortfolio() refuses to run: pretend to be the server.
@@ -34,21 +34,21 @@ describe('getPortfolio (server)', () => {
         const projects = [makeProject()];
         global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => projects });
 
-        await expect(getPortfolio()).resolves.toEqual({ projects, isFallback: false });
+        await expect(getPortfolio()).resolves.toEqual(projects);
         expect(global.fetch).toHaveBeenCalledWith(
             expect.stringMatching(/\/api\/content\/portfolio$/),
             expect.objectContaining({ next: { revalidate: PORTFOLIO_REVALIDATE_SECONDS } }),
         );
     });
 
-    it('never throws when the backend is down: placeholders, then the last real list', async () => {
+    it('never throws when the backend is down: no project, then the last real list', async () => {
         global.fetch = jest.fn().mockRejectedValue(new Error('timeout'));
-        await expect(getPortfolio()).resolves.toEqual({ projects: defaultProjects, isFallback: true });
+        await expect(getPortfolio()).resolves.toEqual([]);
 
         const projects = [makeProject()];
         global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => projects });
         await getPortfolio();
         global.fetch = jest.fn().mockRejectedValue(new Error('timeout'));
-        await expect(getPortfolio()).resolves.toEqual({ projects, isFallback: false });
+        await expect(getPortfolio()).resolves.toEqual(projects);
     });
 });

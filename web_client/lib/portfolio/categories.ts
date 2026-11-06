@@ -9,7 +9,7 @@ import type { PortfolioItem } from './types';
  * become unreachable. Blank categories are dropped, and order follows first
  * appearance (the backend already sorts by the `order` field).
  */
-export function deriveCategories(projects: PortfolioItem[]): string[] {
+export function deriveCategories(projects: ReadonlyArray<Pick<PortfolioItem, 'category'>>): string[] {
     const seen: string[] = [];
     for (const project of projects) {
         const category = project.category.trim();
@@ -21,10 +21,10 @@ export function deriveCategories(projects: PortfolioItem[]): string[] {
 }
 
 /** Filters by category, treating `ALL_CATEGORIES` as no filter. */
-export function filterByCategory(
-    projects: PortfolioItem[],
+export function filterByCategory<T extends Pick<PortfolioItem, 'category'>>(
+    projects: T[],
     category: string,
-): PortfolioItem[] {
+): T[] {
     if (category === ALL_CATEGORIES) return projects;
     return projects.filter((p) => p.category === category);
 }

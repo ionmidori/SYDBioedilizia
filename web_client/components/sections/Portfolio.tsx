@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
@@ -12,7 +12,7 @@ import { RowArrow } from '@/components/portfolio/RowArrow';
 import { cn } from '@/lib/utils';
 import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 import { prefersReducedMotion } from '@/lib/reduced-motion';
-import { PORTFOLIO_RAIL_LIMIT, type PortfolioData } from '@/lib/portfolio';
+import { PORTFOLIO_RAIL_LIMIT, cardSubtitle, withExamples, type PortfolioItem } from '@/lib/portfolio';
 import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
 export function Portfolio({
@@ -20,10 +20,13 @@ export function Portfolio({
     initial,
 }: {
     className?: string;
-    /** Server-rendered data (`getPortfolio()`); without it the gallery fetches on mount. */
-    initial?: PortfolioData;
+    /** Server-rendered real projects (`getPortfolio()`); without them the gallery fetches on mount. */
+    initial?: PortfolioItem[];
 }) {
-    const projects = usePortfolioProjects(initial);
+    // Real projects first, then labelled examples up to PORTFOLIO_MIN_CARDS.
+    // Memoised: the rail autoplays, so this component re-renders every few seconds.
+    const realProjects = usePortfolioProjects(initial);
+    const projects = useMemo(() => withExamples(realProjects), [realProjects]);
     const [activeRailIndex, setActiveRailIndex] = useState(0);
     // Descriptions are visible by default; this tracks which one (if any) the user has
     // chosen to hide. null means "none hidden" — i.e. everything showing.
@@ -31,9 +34,9 @@ export function Portfolio({
 
 
     // No category filters here — they live on the archive page (`/progetti`), which
-    // the CTA below links to. `fetchPortfolio` never resolves to an empty list.
+    // the CTA below links to. Never empty while examples are on (PORTFOLIO_MIN_CARDS).
     const railProjects = projects.slice(0, PORTFOLIO_RAIL_LIMIT);
-    // Clamped: the backend response can be shorter than the fallback it replaces.
+    // Clamped: the list can shrink when the backend response replaces the first render.
     const activeProject = railProjects[Math.min(activeRailIndex, railProjects.length - 1)];
 
     // ── Desktop row (lg+): horizontal scroll driven by the arrow buttons ──
@@ -112,7 +115,7 @@ export function Portfolio({
                                 {activeProject?.title}
                             </h3>
                             <p className="text-sm text-luxury-gold/80 font-light truncate">
-                                {activeProject?.location}
+                                {activeProject && cardSubtitle(activeProject)}
                             </p>
                         </motion.div>
                     </AnimatePresence>

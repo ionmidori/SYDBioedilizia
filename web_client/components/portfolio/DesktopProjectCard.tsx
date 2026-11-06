@@ -2,12 +2,12 @@
 
 import { motion } from 'framer-motion';
 import { ArrowUpRight } from 'lucide-react';
-import type { PortfolioItem } from '@/lib/portfolio';
+import { EXAMPLE_LABEL, cardShowsStats, type PortfolioCard } from '@/lib/portfolio';
 import { ProjectImage } from './ProjectImage';
 import { ProjectStats } from './ProjectStats';
 
 /** A card of the tablet grid / desktop row: details reveal on hover. */
-export function DesktopProjectCard({ project, index }: { project: PortfolioItem; index: number }) {
+export function DesktopProjectCard({ project, index }: { project: PortfolioCard; index: number }) {
     return (
         <motion.article
             // Opacity only: on lg the row scrolls horizontally, so it also clips
@@ -32,6 +32,13 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioItem;
 
             <div className="absolute inset-0 bg-gradient-to-t from-luxury-bg via-luxury-bg/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
 
+            {/* Always visible, not only on hover: an example must never pass for our work. */}
+            {project.isExample && (
+                <span className="absolute top-4 left-4 z-20 inline-flex px-3 py-1 rounded-full text-xs font-medium bg-luxury-bg/70 backdrop-blur-sm border border-luxury-gold/20 text-luxury-gold">
+                    {EXAMPLE_LABEL}
+                </span>
+            )}
+
             <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                 <div className="relative z-20">
                     <p className="text-white text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
@@ -46,7 +53,7 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioItem;
                             <p className="text-luxury-text/80 text-sm mb-4 font-light">
                                 {project.description}
                             </p>
-                            <ProjectStats stats={project.stats} />
+                            {cardShowsStats(project) && <ProjectStats stats={project.stats} />}
                         </div>
                     </div>
                 </div>

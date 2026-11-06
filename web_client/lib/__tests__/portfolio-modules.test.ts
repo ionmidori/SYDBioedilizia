@@ -1,13 +1,20 @@
 import {
-    defaultProjects,
+    EXAMPLE_LABEL,
+    PORTFOLIO_MIN_CARDS,
+    cardAccessibleName,
+    cardBadge,
+    cardShowsStats,
+    cardSubtitle,
+    exampleProjects,
     parsePortfolio,
     projectImageAlt,
     visibleStats,
-    withFallback,
+    withExamples,
     type PortfolioItem,
 } from '@/lib/portfolio';
 import { getPortfolio, resetServerPortfolioMemory, resolveServerPortfolio } from '@/lib/portfolio/server';
-import { portfolioItemList, serializeJsonLd } from '@/lib/portfolio/structured-data';
+import { portfolioItemList, portfolioShareImage, serializeJsonLd } from '@/lib/portfolio/structured-data';
+import { DEFAULT_SHARE_IMAGE, shareMetadata } from '@/lib/site-share';
 
 function makeProject(overrides: Partial<PortfolioItem> = {}): PortfolioItem {
     return {
@@ -45,14 +52,37 @@ describe('parsePortfolio', () => {
     });
 });
 
-describe('withFallback', () => {
-    it('marks real projects as real', () => {
-        const projects = [makeProject()];
-        expect(withFallback(projects)).toEqual({ projects, isFallback: false });
+describe('withExamples', () => {
+    it('fills the gallery up to the minimum, real projects first', () => {
+        const cards = withExamples([makeProject({ id: 'r1' })]);
+        expect(cards).toHaveLength(PORTFOLIO_MIN_CARDS);
+        expect(cards[0]).toMatchObject({ id: 'r1', isExample: false });
+        expect(cards.slice(1).every((c) => c.isExample)).toBe(true);
     });
 
-    it.each([[null], [[]]])('uses the placeholders for %p', (input) => {
-        expect(withFallback(input)).toEqual({ projects: defaultProjects, isFallback: true });
+    it('shows only examples when nothing is published yet', () => {
+        expect(withExamples([]).map((c) => c.id)).toEqual(
+            exampleProjects.slice(0, PORTFOLIO_MIN_CARDS).map((p) => p.id),
+        );
+    });
+
+    it('adds no example once there are enough real projects', () => {
+        const real = Array.from({ length: PORTFOLIO_MIN_CARDS + 2 }, (_, i) => makeProject({ id: `r${i}` }));
+        const cards = withExamples(real);
+        expect(cards).toHaveLength(real.length);
+        expect(cards.some((c) => c.isExample)).toBe(false);
+    });
+
+    it('can be turned off with a minimum of 0', () => {
+        expect(withExamples([], 0)).toEqual([]);
+    });
+
+    it('never gives examples invented places or measures', () => {
+        for (const example of exampleProjects) {
+            expect(example.location).toBe('');
+            expect(example.stats).toEqual({ area: '', duration: '', budget: '' });
+        }
+        expect(EXAMPLE_LABEL).toBe('Esempio');
     });
 });
 
@@ -68,12 +98,15 @@ describe('presentation', () => {
 });
 
 describe('structured data', () => {
-    it('never describes the placeholder projects', () => {
-        expect(portfolioItemList(withFallback(null))).toBeNull();
+    it('never describes the examples, even if cards are passed by mistake', () => {
+        expect(portfolioItemList([])).toBeNull();
+        // Cards are refused at compile time; the runtime filter still drops examples.
+        expect(portfolioItemList(withExamples([]) as never)).toBeNull();
+        expect(portfolioItemList(withExamples([makeProject()]) as never)).toMatchObject({ numberOfItems: 1 });
     });
 
     it('lists real projects with their photo and place, linked to the business', () => {
-        const list = portfolioItemList(withFallback([makeProject(), makeProject({ id: 'p2', image: null })]));
+        const list = portfolioItemList([makeProject(), makeProject({ id: 'p2', image: null })]);
         expect(list).toMatchObject({
             '@type': 'ItemList',
             numberOfItems: 2,
@@ -111,22 +144,62 @@ describe('resolveServerPortfolio', () => {
 
     it('passes real projects through', () => {
         const projects = [makeProject()];
-        expect(resolveServerPortfolio(projects)).toEqual({ projects, isFallback: false });
+        expect(resolveServerPortfolio(projects)).toEqual(projects);
     });
 
-    it('never throws on a failure: placeholders when nothing was ever received', () => {
-        expect(resolveServerPortfolio(null)).toEqual({ projects: defaultProjects, isFallback: true });
+    it('never throws on a failure: no project when nothing was ever received', () => {
+        expect(resolveServerPortfolio(null)).toEqual([]);
     });
 
     it('reuses the last real list when the backend later fails', () => {
         const projects = [makeProject()];
         resolveServerPortfolio(projects);
-        expect(resolveServerPortfolio(null)).toEqual({ projects, isFallback: false });
+        expect(resolveServerPortfolio(null)).toEqual(projects);
     });
 
     it('treats a successful empty list as nothing published, and forgets the old list', () => {
         resolveServerPortfolio([makeProject()]);
-        expect(resolveServerPortfolio([])).toEqual({ projects: defaultProjects, isFallback: true });
-        expect(resolveServerPortfolio(null).isFallback).toBe(true);
+        expect(resolveServerPortfolio([])).toEqual([]);
+        expect(resolveServerPortfolio(null)).toEqual([]);
+    });
+});
+
+describe('card helpers', () => {
+    const [real, example] = withExamples([makeProject()], 2);
+
+    it('labels examples everywhere a card describes itself', () => {
+        expect(cardBadge(example)).toBe(`${EXAMPLE_LABEL} · ${example.category}`);
+        expect(cardSubtitle(example)).toBe(cardBadge(example));
+        expect(cardAccessibleName(example)).toBe(`${EXAMPLE_LABEL}: ${example.title}`);
+        expect(projectImageAlt(example)).toMatch(/^Esempio: /);
+        expect(cardShowsStats(example)).toBe(false);
+    });
+
+    it('shows a real project as it is', () => {
+        expect(cardBadge(real)).toBe('Bagno');
+        expect(cardSubtitle(real)).toBe('Roma');
+        expect(cardAccessibleName(real)).toBe('Bagno in terracotta, Roma');
+        expect(cardShowsStats(real)).toBe(true);
+    });
+
+    it('leaves no dangling comma when a real project has no place', () => {
+        const [noPlace] = withExamples([makeProject({ location: '' })], 0);
+        expect(cardAccessibleName(noPlace)).toBe('Bagno in terracotta');
+    });
+});
+
+describe('link preview', () => {
+    it('defaults to the brand logo, never a stock photo', () => {
+        expect(DEFAULT_SHARE_IMAGE.url).toBe('/syd-logo.png');
+        expect(shareMetadata().openGraph?.images).toEqual([DEFAULT_SHARE_IMAGE]);
+    });
+
+    it('uses the photo of the first real project that has one', () => {
+        const projects = [makeProject({ id: 'a', image: null }), makeProject({ id: 'b' })];
+        expect(portfolioShareImage(projects)).toEqual({
+            url: projects[1].image,
+            alt: 'Bagno in terracotta · Bagno, Roma',
+        });
+        expect(portfolioShareImage([])).toBeNull();
     });
 });

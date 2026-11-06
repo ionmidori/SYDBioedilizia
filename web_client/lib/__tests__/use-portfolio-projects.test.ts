@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { defaultProjects, type PortfolioItem } from '@/lib/portfolio';
+import type { PortfolioItem } from '@/lib/portfolio';
 import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
 const real: PortfolioItem = {
@@ -31,15 +31,15 @@ function resolveWith(projects: PortfolioItem[]) {
 describe('usePortfolioProjects', () => {
     it('keeps real server data and does not fetch', () => {
         global.fetch = jest.fn();
-        const { result } = renderHook(() => usePortfolioProjects({ projects: [real], isFallback: false }));
+        const { result } = renderHook(() => usePortfolioProjects([real]));
         expect(result.current).toEqual([real]);
         expect(global.fetch).not.toHaveBeenCalled();
     });
 
-    it('shows the placeholders first, then what the browser fetch returns', async () => {
+    it('starts empty without server data, then shows what the browser fetch returns', async () => {
         const release = resolveWith([real]);
         const { result } = renderHook(() => usePortfolioProjects());
-        expect(result.current).toBe(defaultProjects);
+        expect(result.current).toEqual([]);
         release();
         await waitFor(() => expect(result.current).toEqual([real]));
     });
@@ -47,7 +47,7 @@ describe('usePortfolioProjects', () => {
     it('ignores a response that arrives after unmount', async () => {
         const release = resolveWith([real]);
         const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-        const { unmount } = renderHook(() => usePortfolioProjects({ projects: defaultProjects, isFallback: true }));
+        const { unmount } = renderHook(() => usePortfolioProjects([]));
         unmount();
         release();
         await new Promise((r) => setTimeout(r, 0));

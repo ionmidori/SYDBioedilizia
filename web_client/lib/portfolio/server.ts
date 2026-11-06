@@ -8,20 +8,20 @@
  * (ISR), so visitors never wait for a Cloud Run cold start.
  *
  * When the backend cannot be reached, the last real list this server instance
- * received is reused, else the placeholders (the browser then retries, see
- * `usePortfolioProjects`). It never throws: the page is not only rendered by ISR
+ * received is reused, else `[]` (the gallery shows examples and the browser
+ * retries, see `usePortfolioProjects`). It never throws: the page is not only rendered by ISR
  * but also on demand — e.g. a Server Action that sets a cookie (login, see
  * AuthProvider) re-renders the current page, and an error there broke the
  * homepage for every user logging in while the backend was down (E2E, PR #566).
- * A successful empty list is a real state (nothing published): placeholders.
+ * A successful empty list is a real state (nothing published yet).
  *
  * Import this only from Server Components: it reads a server-only env var.
  */
 import { PHASE_PRODUCTION_BUILD } from 'next/constants';
-import { requestPortfolio, withFallback } from './api';
+import { requestPortfolio } from './api';
 import { PORTFOLIO_REVALIDATE_SECONDS } from './config';
 import { isBrowser } from './runtime';
-import type { PortfolioData, PortfolioItem } from './types';
+import type { PortfolioItem } from './types';
 
 // Same variable as the chat/feedback proxies (app/api/*/route.ts).
 const BACKEND_URL = process.env.PYTHON_BACKEND_URL || 'http://127.0.0.1:8080';
@@ -42,16 +42,16 @@ export function resetServerPortfolioMemory(): void {
     lastGood = null;
 }
 
-/** The data to render: the response, else the last good list, else the placeholders. */
-export function resolveServerPortfolio(projects: PortfolioItem[] | null): PortfolioData {
+/** The real projects to render: the response, else the last good list, else none. */
+export function resolveServerPortfolio(projects: PortfolioItem[] | null): PortfolioItem[] {
     if (projects !== null) {
         lastGood = projects.length > 0 ? projects : null;
-        return withFallback(projects);
+        return projects;
     }
-    return lastGood ? { projects: lastGood, isFallback: false } : withFallback(null);
+    return lastGood ?? [];
 }
 
-export async function getPortfolio(): Promise<PortfolioData> {
+export async function getPortfolio(): Promise<PortfolioItem[]> {
     if (isBrowser()) {
         throw new Error('lib/portfolio/server is server-only: use fetchPortfolio() in the browser');
     }

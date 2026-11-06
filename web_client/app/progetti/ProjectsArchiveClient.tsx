@@ -1,25 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { ProjectImage } from '@/components/portfolio/ProjectImage';
 import { ProjectStats } from '@/components/portfolio/ProjectStats';
 import { cn } from '@/lib/utils';
 import {
     ALL_CATEGORIES,
+    EXAMPLE_LABEL,
+    cardBadge,
+    cardShowsStats,
     deriveCategories,
     filterByCategory,
-    type PortfolioData,
+    withExamples,
+    type PortfolioCard,
     type PortfolioItem,
 } from '@/lib/portfolio';
 import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
-export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) {
-    const projects = usePortfolioProjects(initial);
+/** "1 progetto", "3 progetti", plus the examples when there are some. */
+function countLabel(cards: PortfolioCard[]): string {
+    const examples = cards.filter((c) => c.isExample).length;
+    const real = cards.length - examples;
+    const projects = `${real} ${real === 1 ? 'progetto' : 'progetti'}`;
+    return examples > 0 ? `${projects} · ${examples} ${examples === 1 ? 'esempio' : 'esempi'}` : projects;
+}
+
+export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }) {
+    const realProjects = usePortfolioProjects(initial);
+    // Real projects first, then labelled examples up to PORTFOLIO_MIN_CARDS.
+    const cards = useMemo(() => withExamples(realProjects), [realProjects]);
     const [activeCategory, setActiveCategory] = useState(ALL_CATEGORIES);
 
-    const categories = deriveCategories(projects);
-    const filtered = filterByCategory(projects, activeCategory);
+    // Filters come from REAL projects only: a chip must never advertise a kind of
+    // work that only a stock example shows. Examples appear under "Tutti" only.
+    const categories = deriveCategories(realProjects);
+    const filtered =
+        activeCategory === ALL_CATEGORIES
+            ? cards
+            : filterByCategory(cards.filter((c) => !c.isExample), activeCategory);
+    const hasExamples = cards.some((c) => c.isExample);
 
     return (
         <section className="py-12 md:py-20">
@@ -33,6 +53,13 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) 
                         L&apos;archivio completo delle nostre ristrutturazioni. Filtra per ambiente
                         per trovare il progetto più vicino al tuo.
                     </p>
+                    {hasExamples && (
+                        <p className="mt-3 max-w-xl text-sm text-luxury-text/50">
+                            Le schede «{EXAMPLE_LABEL}» sono foto di riferimento per lo stile, non
+                            lavori realizzati da noi: lasciano il posto ai nostri progetti man mano
+                            che li pubblichiamo.
+                        </p>
+                    )}
                 </header>
 
                 <div
@@ -58,7 +85,7 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) 
                 </div>
 
                 <p className="text-sm text-luxury-text/50 mb-6" aria-live="polite">
-                    {filtered.length} {filtered.length === 1 ? 'progetto' : 'progetti'}
+                    {countLabel(filtered)}
                 </p>
 
                 {filtered.length === 0 ? (
@@ -88,7 +115,7 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioData }) 
     );
 }
 
-function ArchiveCard({ project }: { project: PortfolioItem }) {
+function ArchiveCard({ project }: { project: PortfolioCard }) {
     return (
         <article className="group h-full overflow-hidden rounded-2xl border border-luxury-gold/10 bg-luxury-bg/40 transition-colors hover:border-luxury-gold/40">
             <div className="relative aspect-[4/3] bg-slate-950">
@@ -98,7 +125,7 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <span className="absolute top-3 left-3 rounded-full border border-luxury-gold/20 bg-luxury-bg/80 px-3 py-1 text-xs font-medium text-luxury-gold backdrop-blur-sm">
-                    {project.category}
+                    {cardBadge(project)}
                 </span>
             </div>
 
@@ -107,7 +134,7 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
                     {project.title}
                 </h2>
 
-                {project.location && (
+                {!project.isExample && project.location && (
                     <p className="flex items-center gap-1.5 text-sm text-luxury-text/50 mb-3">
                         <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
                         {project.location}
@@ -118,7 +145,8 @@ function ArchiveCard({ project }: { project: PortfolioItem }) {
                     {project.description}
                 </p>
 
-                <ProjectStats stats={project.stats} />
+                {/* Examples carry no measures: nothing to show, nothing invented. */}
+                {cardShowsStats(project) && <ProjectStats stats={project.stats} />}
             </div>
         </article>
     );

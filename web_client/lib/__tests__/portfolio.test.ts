@@ -1,6 +1,5 @@
 import {
     ALL_CATEGORIES,
-    defaultProjects,
     deriveCategories,
     fetchPortfolio,
     filterByCategory,
@@ -119,7 +118,7 @@ describe('fetchPortfolio', () => {
         expect(errorSpy).not.toHaveBeenCalled();
     });
 
-    it('falls back to defaults when the backend returns an empty list, without logging', async () => {
+    it('returns no project when nothing is published, without logging', async () => {
         // An empty collection is an expected state today (see project memory),
         // not a failure — it must not be logged as one.
         global.fetch = jest.fn().mockResolvedValue({
@@ -127,22 +126,22 @@ describe('fetchPortfolio', () => {
             json: async () => [],
         });
 
-        await expect(fetchPortfolio()).resolves.toEqual(defaultProjects);
+        await expect(fetchPortfolio()).resolves.toEqual([]);
         expect(errorSpy).not.toHaveBeenCalled();
     });
 
-    it('falls back to defaults and logs on a non-ok response', async () => {
+    it('returns no project and logs on a non-ok response', async () => {
         global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500 });
 
-        await expect(fetchPortfolio()).resolves.toEqual(defaultProjects);
+        await expect(fetchPortfolio()).resolves.toEqual([]);
         expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('500'));
     });
 
-    it('falls back to defaults and logs when the network throws', async () => {
+    it('returns no project and logs when the network throws', async () => {
         const networkError = new Error('offline');
         global.fetch = jest.fn().mockRejectedValue(networkError);
 
-        await expect(fetchPortfolio()).resolves.toEqual(defaultProjects);
+        await expect(fetchPortfolio()).resolves.toEqual([]);
         expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('threw'), networkError);
     });
 });
