@@ -66,14 +66,14 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
                     key={i}
                     type="button"
                     onClick={() => onIndexClick?.(i)}
-                    className="group/dot relative flex items-center justify-center min-w-6 h-6 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-luxury-gold/60 transition-transform active:scale-75 touch-manipulation"
+                    className="group/dot relative flex items-center justify-center min-w-6 h-6 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-transform active:scale-75 touch-manipulation"
                     aria-label={`Vai a ${label}`}
                     aria-current={i === activeIndex ? 'page' : undefined}
                 >
                     <motion.div
                         className={cn(
                             "rounded-full transition-colors duration-200",
-                            i === activeIndex ? "bg-luxury-gold" : "bg-luxury-text/20 group-hover/dot:bg-luxury-text/40"
+                            i === activeIndex ? "bg-accent" : "bg-line group-hover/dot:bg-line-strong"
                         )}
                         animate={{
                             width: i === activeIndex ? dotWidth : inactiveDot,
@@ -84,7 +84,7 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
                 </button>
             ))}
             <span className={cn(
-                "ml-1.5 font-bold uppercase tracking-wider text-luxury-text/40 select-none",
+                "ml-1.5 font-bold uppercase tracking-wider text-ink-subtle select-none",
                 size === 'small' ? "text-[8px]" : "text-[10px]"
             )}>
                 {labels[activeIndex]}
@@ -104,7 +104,7 @@ export function MobileSwipeLayout({ children }: MobileSwipeLayoutProps) {
     if (!isMobile) return <>{children}</>;
 
     return (
-        <div className="relative min-h-[100dvh] w-full bg-luxury-bg overflow-x-hidden">
+        <div className="relative min-h-[100dvh] w-full bg-canvas overflow-x-hidden">
             {children}
         </div>
     );

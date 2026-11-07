@@ -21,7 +21,7 @@ export function UploadErrorNotice({ items }: UploadErrorNoticeProps) {
     if (reasons.length === 0) return null;
 
     return (
-        <div role="alert" data-testid="upload-errors" className="px-1 text-xs leading-snug text-red-300">
+        <div role="alert" data-testid="upload-errors" className="px-1 text-xs leading-snug text-danger-ink">
             <ul className="space-y-0.5">
                 {reasons.map((reason) => (
                     <li key={reason}>{reason}</li>

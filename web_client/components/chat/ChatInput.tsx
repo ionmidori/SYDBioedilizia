@@ -210,9 +210,9 @@ export function ChatInput({
 
     return (
         <div
-            className="px-4 border-t border-luxury-gold/10 backdrop-blur-md flex-shrink-0 w-full"
+            className="px-4 border-t border-line backdrop-blur-md flex-shrink-0 w-full"
             style={{
-                backgroundColor: 'rgb(var(--luxury-bg-rgb) / 0.95)',
+                backgroundColor: 'color-mix(in oklab, var(--color-canvas) 95%, transparent)',
                 paddingTop: '10px',
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)', // Explicit safe area + 24px
             }}
@@ -224,9 +224,9 @@ export function ChatInput({
                         variant="ghost"
                         size="icon"
                         className={cn(
-                            'text-luxury-text/60 hover:text-luxury-gold shrink-0 relative',
-                            'hover:bg-luxury-gold/5 transition-all w-10 h-10 sm:w-9 sm:h-9',
-                            'focus-visible:ring-2 focus-visible:ring-luxury-gold/50 rounded-full',
+                            'text-ink-muted hover:text-accent-ink shrink-0 relative',
+                            'hover:bg-accent-subtle transition-all w-10 h-10 sm:w-9 sm:h-9',
+                            'focus-visible:ring-2 focus-visible:ring-ring rounded-full',
                             'mb-1' // Align with Send button
                         )}
                         onClick={() => setIsAttachMenuOpen(!isAttachMenuOpen)}
@@ -238,7 +238,7 @@ export function ChatInput({
                     >
                         <motion.button whileTap={{ scale: 0.9 }}>
                             {isGlobalUploading ? (
-                                <Loader2 className="w-5 h-5 animate-spin text-luxury-teal" />
+                                <Loader2 className="w-5 h-5 animate-spin text-primary-ink" />
                             ) : (
                                 <Paperclip className="w-5 h-5" />
                             )}
@@ -384,11 +384,11 @@ export function ChatInput({
                     {/* Text Input Area */}
                     <div
                         className={cn(
-                            'bg-luxury-bg/30 border border-luxury-gold/10 rounded-2xl',
+                            'bg-canvas/30 border border-line rounded-2xl',
                             'flex items-center p-1 transition-all duration-300',
-                            'focus-within:ring-1 focus-within:ring-luxury-gold/30',
+                            'focus-within:ring-1 focus-within:ring-ring',
                             'min-h-[44px]', // Enforce min-height on wrapper
-                            isFocused && 'ring-1 ring-luxury-gold/30',
+                            isFocused && 'ring-1 ring-ring',
                             'mb-1' // Align with buttons
                         )}
                     >
@@ -403,8 +403,8 @@ export function ChatInput({
                             }
                             aria-label="Messaggio chat"
                             className={cn(
-                                'w-full bg-transparent text-luxury-text caret-luxury-gold',
-                                'placeholder:text-luxury-text/60 px-3 py-2',
+                                'w-full bg-transparent text-ink caret-accent-ink',
+                                'placeholder:text-ink-muted px-3 py-2',
                                 'text-base md:text-sm', // Mobile: 16px (no zoom), Desktop: 14px
                                 'max-h-24 min-h-[24px] focus:outline-none resize-none', // Reduced min-h to let wrapper control height
                                 'scrollbar-hide block opacity-100'
@@ -425,10 +425,10 @@ export function ChatInput({
                     className={cn(
                         'rounded-xl transition-all duration-300 shrink-0 mb-1',
                         'w-10 h-10 sm:w-9 sm:h-9',
-                        'focus-visible:ring-2 focus-visible:ring-luxury-gold/50',
+                        'focus-visible:ring-2 focus-visible:ring-ring',
                         !isSendDisabled
-                            ? 'bg-luxury-teal hover:bg-luxury-teal/90 text-white shadow-lg shadow-luxury-teal/20'
-                            : 'bg-luxury-gold/10 text-luxury-text/20'
+                            ? 'bg-primary hover:bg-primary-hover text-on-primary shadow-lg'
+                            : 'bg-accent-subtle text-ink-subtle'
                     )}
                     size="icon"
                     aria-label="Invia messaggio"
@@ -441,12 +441,12 @@ export function ChatInput({
             </div>
 
             {/* Disclaimer GDPR / AI Act — trasparenza sull'uso di IA e rinvio all'informativa privacy */}
-            <p className="mt-2 text-center text-[10px] leading-tight text-luxury-text/40">
+            <p className="mt-2 text-center text-[10px] leading-tight text-ink-subtle">
                 SYD è un&apos;intelligenza artificiale e può commettere errori. I tuoi dati sono
                 trattati secondo la nostra{' '}
                 <Link
                     href="/privacy"
-                    className="underline hover:text-luxury-gold transition-colors"
+                    className="underline hover:text-accent-ink transition-colors"
                 >
                     Informativa Privacy
                 </Link>

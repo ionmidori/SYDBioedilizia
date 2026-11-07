@@ -132,23 +132,23 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
-            <DialogOverlay className="bg-black/80 backdrop-blur-sm" />
-            <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-luxury-bg border-luxury-gold/20 shadow-2xl">
+            <DialogOverlay className="bg-shade/80 backdrop-blur-sm" />
+            <DialogContent className="sm:max-w-[425px] p-0 overflow-hidden bg-canvas border-line shadow-2xl">
                 <DialogTitle className="sr-only">Ritaglio Video</DialogTitle>
                 <DialogDescription className="sr-only">Seleziona la parte di video da inviare.</DialogDescription>
 
                 {/* Header */}
-                <div className="flex justify-between items-center p-4 border-b border-luxury-gold/10 bg-luxury-bg/50">
-                    <h2 className="text-lg font-semibold text-luxury-gold flex items-center gap-2">
+                <div className="flex justify-between items-center p-4 border-b border-line bg-canvas/50">
+                    <h2 className="text-lg font-semibold text-accent-ink flex items-center gap-2">
                         <Scissors className="w-5 h-5" /> Ritaglia Video
                     </h2>
-                    <Button variant="ghost" size="icon" onClick={onCancel} className="text-luxury-text/60 hover:text-white rounded-full">
+                    <Button variant="ghost" size="icon" onClick={onCancel} className="text-ink-muted hover:text-on-scrim rounded-full">
                         <X className="w-5 h-5" />
                     </Button>
                 </div>
 
                 {/* Video Container */}
-                <div className="relative w-full aspect-video bg-black flex items-center justify-center overflow-hidden">
+                <div className="relative w-full aspect-video bg-shade flex items-center justify-center overflow-hidden">
                     {videoState.url && (
                         <video
                             ref={videoRef}
@@ -170,10 +170,10 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     exit={{ opacity: 0, scale: 0.8 }}
-                                    className="w-16 h-16 rounded-full bg-luxury-teal/80 flex items-center justify-center shadow-[0_0_30px_rgba(20,184,166,0.5)] backdrop-blur-md pointer-events-auto cursor-pointer"
+                                    className="w-16 h-16 rounded-full bg-primary/80 flex items-center justify-center shadow-[0_0_30px_color-mix(in_oklab,var(--color-primary)_50%,transparent)] backdrop-blur-md pointer-events-auto cursor-pointer"
                                     onClick={togglePlay}
                                 >
-                                    <Play className="w-8 h-8 text-white ml-1" />
+                                    <Play className="w-8 h-8 text-on-scrim ml-1" />
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -181,10 +181,10 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
                 </div>
 
                 {/* Controls Area (Glassmorphism) */}
-                <div className="p-5 flex flex-col gap-6 bg-gradient-to-t from-luxury-bg to-luxury-bg/80">
+                <div className="p-5 flex flex-col gap-6 bg-gradient-to-t from-canvas to-canvas/80">
                     
                     {/* Time display */}
-                    <div className="flex justify-between text-xs text-luxury-text/60 font-mono">
+                    <div className="flex justify-between text-xs text-ink-muted font-mono">
                         <span>{formatTime(videoState.range[0])}</span>
                         <span>{formatTime(videoState.range[1])}</span>
                     </div>
@@ -206,14 +206,14 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
 
                     {/* Action Buttons */}
                     <div className="flex justify-between items-center mt-2">
-                         <div className="text-sm text-luxury-text/60">
+                         <div className="text-sm text-ink-muted">
                             Durata: {formatTime(videoState.range[1] - videoState.range[0])}
                          </div>
                         <div className="flex gap-3">
-                            <Button variant="ghost" onClick={onCancel} className="text-luxury-text hover:bg-white/5 rounded-xl">
+                            <Button variant="ghost" onClick={onCancel} className="text-ink hover:bg-on-scrim/5 rounded-xl">
                                 Annulla
                             </Button>
-                            <Button onClick={handleConfirm} className="bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-xl shadow-lg shadow-luxury-teal/20">
+                            <Button onClick={handleConfirm} className="bg-primary hover:bg-primary-hover text-on-primary rounded-xl shadow-lg">
                                 Conferma
                             </Button>
                         </div>

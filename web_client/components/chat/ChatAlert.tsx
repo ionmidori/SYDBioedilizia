@@ -26,16 +26,16 @@ interface ChatAlertProps {
 
 const styles = {
     error: {
-        box: 'bg-red-900/50 border-red-500/30 text-red-200',
-        dot: 'bg-red-500 animate-pulse',
-        button: 'bg-red-500/20 hover:bg-red-500/40',
-        close: 'hover:bg-red-500/20',
+        box: 'bg-danger-subtle border-danger/30 text-danger-ink',
+        dot: 'bg-danger animate-pulse',
+        button: 'bg-danger-subtle hover:bg-danger/20',
+        close: 'hover:bg-danger-subtle',
     },
     warning: {
-        box: 'bg-amber-900/40 border-amber-500/30 text-amber-100',
-        dot: 'bg-amber-400',
-        button: 'bg-amber-500/20 hover:bg-amber-500/40',
-        close: 'hover:bg-amber-500/20',
+        box: 'bg-warning-subtle border-warning/30 text-warning-ink',
+        dot: 'bg-warning',
+        button: 'bg-warning-subtle hover:bg-warning/20',
+        close: 'hover:bg-warning-subtle',
     },
 } as const;
 

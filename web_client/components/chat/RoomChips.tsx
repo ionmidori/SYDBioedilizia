@@ -32,7 +32,7 @@ const ROOM_TYPE_ICONS: Record<RoomType, LucideIcon> = {
 const CHIP_CLASS = cn(
     'inline-flex items-center gap-1.5 shrink-0 snap-start rounded-full border px-3',
     'h-11 md:h-9 text-sm font-medium whitespace-nowrap transition-colors',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-luxury-gold/50',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
 );
 
 interface RoomChipsProps {
@@ -72,8 +72,8 @@ export function RoomChips({ projectId, rooms, activeRoomId, onSelect }: RoomChip
                         className={cn(
                             CHIP_CLASS,
                             isActive
-                                ? 'bg-luxury-gold text-luxury-bg border-luxury-gold'
-                                : 'bg-luxury-bg/40 text-luxury-text/80 border-luxury-gold/20 hover:border-luxury-gold/50',
+                                ? 'bg-accent text-on-accent border-accent'
+                                : 'bg-canvas/40 text-ink border-line hover:border-accent',
                         )}
                     >
                         <Icon className="w-4 h-4" aria-hidden="true" />
@@ -87,7 +87,7 @@ export function RoomChips({ projectId, rooms, activeRoomId, onSelect }: RoomChip
                 onClick={() => setIsCreating(true)}
                 className={cn(
                     CHIP_CLASS,
-                    'border-dashed border-luxury-gold/40 text-luxury-gold hover:bg-luxury-gold/10',
+                    'border-dashed border-accent text-accent-ink hover:bg-accent-subtle',
                 )}
             >
                 <Plus className="w-4 h-4" aria-hidden="true" />
@@ -141,7 +141,7 @@ function NewRoomForm({ projectId, onCreated }: { projectId: string; onCreated: (
     return (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 px-4 pb-4 md:px-0 md:pb-0">
             <fieldset className="flex flex-wrap gap-2">
-                <legend className="text-sm text-luxury-text/70 mb-2">Tipo di stanza</legend>
+                <legend className="text-sm text-ink-muted mb-2">Tipo di stanza</legend>
                 {ROOM_TYPES.map((type) => {
                     const Icon = ROOM_TYPE_ICONS[type];
                     const isSelected = type === roomType;
@@ -154,8 +154,8 @@ function NewRoomForm({ projectId, onCreated }: { projectId: string; onCreated: (
                             className={cn(
                                 CHIP_CLASS,
                                 isSelected
-                                    ? 'bg-luxury-gold text-luxury-bg border-luxury-gold'
-                                    : 'text-luxury-text/80 border-luxury-gold/20 hover:border-luxury-gold/50',
+                                    ? 'bg-accent text-on-accent border-accent'
+                                    : 'text-ink border-line hover:border-accent',
                             )}
                         >
                             <Icon className="w-4 h-4" aria-hidden="true" />
@@ -165,7 +165,7 @@ function NewRoomForm({ projectId, onCreated }: { projectId: string; onCreated: (
                 })}
             </fieldset>
 
-            <label className="flex flex-col gap-1.5 text-sm text-luxury-text/70">
+            <label className="flex flex-col gap-1.5 text-sm text-ink-muted">
                 Nome (facoltativo)
                 <input
                     value={label}
@@ -173,15 +173,15 @@ function NewRoomForm({ projectId, onCreated }: { projectId: string; onCreated: (
                     maxLength={60}
                     placeholder={`es. ${ROOM_TYPE_LABELS[roomType]} principale`}
                     className={cn(
-                        'h-11 rounded-xl border border-luxury-gold/20 bg-luxury-bg/30 px-3',
-                        'text-base text-luxury-text placeholder:text-luxury-text/40',
-                        'focus:outline-none focus:ring-1 focus:ring-luxury-gold/40',
+                        'h-11 rounded-xl border border-line bg-canvas/30 px-3',
+                        'text-base text-ink placeholder:text-ink-subtle',
+                        'focus:outline-none focus:ring-1 focus:ring-ring',
                     )}
                 />
             </label>
 
             {error && (
-                <p role="alert" className="text-sm text-red-400">
+                <p role="alert" className="text-sm text-danger-ink">
                     {error}
                 </p>
             )}

@@ -42,7 +42,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                     onClick={onClose}
                     role="dialog"
                     aria-label="Anteprima immagine"
-                    className="fixed inset-0 z-[120] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
+                    className="fixed inset-0 z-[120] bg-shade/95 backdrop-blur-md flex items-center justify-center p-4"
                 >
                     <div
                         className="relative w-full h-full"
@@ -66,7 +66,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                                     animate={{ scale: 1, opacity: 1 }}
                                     src={imageUrl}
                                     alt="Full preview"
-                                    className="max-w-[95vw] max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+                                    className="max-w-[95vw] max-h-[75vh] object-contain rounded-2xl shadow-2xl border border-on-scrim/10"
                                     style={parallaxSupported ? getTransform(15) : {}}  // 🎮 Apply parallax
                                 />
                             </TransformComponent>
@@ -77,7 +77,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                                 onClick={onClose}
                                 variant="secondary"
                                 aria-label="Chiudi anteprima"
-                                className="border-white/20 text-white hover:bg-white/10"
+                                className="border-on-scrim/20 text-on-scrim hover:bg-on-scrim/10"
                             >
                                 <X className="w-4 h-4 mr-2" />
                                 Chiudi
@@ -89,7 +89,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                                     onClick={handleShare}
                                     variant="secondary"
                                     aria-label="Condividi rendering"
-                                    className="border-white/20 text-white hover:bg-white/10"
+                                    className="border-on-scrim/20 text-on-scrim hover:bg-on-scrim/10"
                                 >
                                     <Share2 className="w-4 h-4 mr-2" />
                                     Condividi
@@ -100,7 +100,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                                 href={imageUrl}
                                 download="renovation-ai-vision.png"
                                 aria-label="Scarica immagine"
-                                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors bg-blue-600 text-white hover:bg-blue-700 h-10 px-4 py-2"
+                                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-canvas transition-colors bg-info text-on-scrim hover:bg-info h-10 px-4 py-2"
                             >
                                 <Send className="w-4 h-4 mr-2 rotate-180" />
                                 Scarica HD

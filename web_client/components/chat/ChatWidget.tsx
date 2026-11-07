@@ -227,7 +227,7 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                 <div className="flex-1 overflow-hidden p-0 flex flex-col relative">
                     {isRestoringHistory && (
                         <div className="flex justify-center py-4">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-luxury-gold"></div>
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent"></div>
                         </div>
                     )}
 
@@ -325,7 +325,7 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="fixed inset-0 z-[90] bg-[#0f172a]/80 backdrop-blur-md touch-none md:bg-transparent md:backdrop-blur-none"
+                                className="fixed inset-0 z-[90] bg-scrim backdrop-blur-md touch-none md:bg-transparent md:backdrop-blur-none"
                                 onClick={() => setIsOpen(false)}
                             />
                         )}
@@ -341,8 +341,8 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                                     transition: 'padding-bottom 0.3s cubic-bezier(0.05, 0.7, 0.1, 1.0)'
                                 }}
                                 className={cn(
-                                    "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-10",
-                                    "relative !w-full !max-w-none h-full rounded-3xl border border-luxury-gold/10 shadow-2xl"
+                                    "bg-canvas backdrop-blur-xl md:border border-line flex flex-col overflow-hidden z-10",
+                                    "relative !w-full !max-w-none h-full rounded-3xl border border-line shadow-2xl"
                                 )}
                             >
                                 <ChatHeader />
@@ -373,7 +373,7 @@ function ChatWidgetContent({ variant = 'floating' }: ChatWidgetProps) {
                                     position: 'fixed'
                                 }}
                                 className={cn(
-                                    "bg-luxury-bg/95 backdrop-blur-xl md:border border-luxury-gold/20 flex flex-col overflow-hidden z-[100]",
+                                    "bg-canvas backdrop-blur-xl md:border border-line flex flex-col overflow-hidden z-[100]",
                                     "fixed inset-x-0 md:inset-auto md:bottom-4 md:right-6 w-full md:w-[450px] md:h-[850px] md:max-h-[calc(100vh-40px)] md:rounded-3xl shadow-2xl"
                                 )}
                             >

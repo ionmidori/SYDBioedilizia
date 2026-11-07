@@ -45,10 +45,10 @@ export const LoginRequest = () => {
             initial={{ opacity: 0, y: 10, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-            className="my-3 w-72 overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-2xl"
+            className="my-3 w-72 overflow-hidden rounded-3xl border border-line bg-surface shadow-2xl backdrop-blur-2xl"
         >
             {/* Top accent stripe */}
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-luxury-gold/70 to-transparent" />
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-accent/70 to-transparent" />
 
             <div className="px-5 py-4">
                 {/* Header row */}
@@ -56,17 +56,17 @@ export const LoginRequest = () => {
                     <motion.div
                         animate={{ scale: [1, 1.12, 1] }}
                         transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-luxury-gold/15 ring-1 ring-inset ring-luxury-gold/25"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-accent-subtle ring-1 ring-inset ring-ring"
                     >
-                        <Sparkles className="h-4 w-4 text-luxury-gold" />
+                        <Sparkles className="h-4 w-4 text-accent-ink" />
                     </motion.div>
-                    <span className="text-xs font-semibold uppercase tracking-widest text-luxury-gold/80">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-accent-ink">
                         Funzione Premium
                     </span>
                 </div>
 
                 {/* Body */}
-                <p className="mb-4 text-sm leading-relaxed text-luxury-text/70">
+                <p className="mb-4 text-sm leading-relaxed text-ink-muted">
                     Il rendering e il preventivo richiedono un account gratuito.
                     <br />
                     Accedi in pochi secondi — procediamo subito dopo.
@@ -77,7 +77,7 @@ export const LoginRequest = () => {
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.96 }}
                     onClick={triggerLogin}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-luxury-gold py-2.5 text-sm font-bold text-luxury-bg shadow-md transition-colors hover:bg-luxury-gold/90 active:bg-luxury-gold/80"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-2.5 text-sm font-bold text-on-accent shadow-md transition-colors hover:bg-accent active:bg-accent/80"
                 >
                     <LogIn className="h-4 w-4" />
                     Accedi o Registrati
@@ -85,7 +85,7 @@ export const LoginRequest = () => {
             </div>
 
             {/* Bottom accent stripe */}
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-luxury-gold/30 to-transparent" />
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
         </motion.div>
     );
 };

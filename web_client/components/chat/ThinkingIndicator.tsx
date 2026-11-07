@@ -24,15 +24,15 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
     }
 
     const getRiskColor = (score: number) => {
-        if (score < 0.3) return "text-green-400 bg-green-900/20 border-green-800";
-        if (score < 0.7) return "text-yellow-400 bg-yellow-900/20 border-yellow-800";
-        return "text-red-400 bg-red-900/20 border-red-800";
+        if (score < 0.3) return "text-success-ink bg-success-subtle border-success";
+        if (score < 0.7) return "text-warning-ink bg-warning-subtle border-warning";
+        return "text-danger-ink bg-danger-subtle border-danger";
     };
 
     const getConfidenceColor = (score: number) => {
-        if (score > 0.8) return "bg-green-500";
-        if (score > 0.5) return "bg-yellow-500";
-        return "bg-red-500";
+        if (score > 0.8) return "bg-success";
+        if (score > 0.5) return "bg-warning";
+        return "bg-danger";
     };
 
     const displayMessage = statusMessage || message || "Elaborazione in corso...";
@@ -40,7 +40,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
     return (
         <div data-testid="thinking-indicator" className="flex flex-col gap-2 min-w-[200px] max-w-full">
             {/* Header / Summary */}
-            <div className="flex items-center justify-between gap-3 text-luxury-gold/80 text-sm h-8">
+            <div className="flex items-center justify-between gap-3 text-accent-ink text-sm h-8">
                 <div className="flex items-center gap-3">
                     <M3LoaderShape />
                     
@@ -63,7 +63,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
                 {reasoningData && (
                     <button
                         onClick={() => setIsExpanded(!isExpanded)}
-                        className="p-1 hover:bg-luxury-gold/10 rounded-full transition-colors"
+                        className="p-1 hover:bg-accent-subtle rounded-full transition-colors"
                     >
                         {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                     </button>
@@ -79,12 +79,12 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                     >
-                        <div className="mt-2 pt-2 border-t border-luxury-gold/10 space-y-3 text-xs">
+                        <div className="mt-2 pt-2 border-t border-line space-y-3 text-xs">
 
                             {/* Analysis Block */}
-                            <div className="bg-black/20 p-2 rounded border border-white/5">
-                                <div className="text-white/50 mb-1 font-mono uppercase text-[10px]">Reasoning</div>
-                                <div className="text-white/80 leading-relaxed font-light">
+                            <div className="bg-surface-muted p-2 rounded border border-line">
+                                <div className="text-ink-subtle mb-1 font-mono uppercase text-[10px]">Reasoning</div>
+                                <div className="text-ink leading-relaxed font-light">
                                     {reasoningData.analysis}
                                 </div>
                             </div>
@@ -92,17 +92,17 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
                             {/* Metrics Grid */}
                             <div className="grid grid-cols-2 gap-2">
                                 {/* Confidence */}
-                                <div className="bg-black/20 p-2 rounded border border-white/5 flex flex-col gap-1">
-                                    <div className="text-white/50 text-[10px] uppercase flex items-center gap-1">
+                                <div className="bg-surface-muted p-2 rounded border border-line flex flex-col gap-1">
+                                    <div className="text-ink-subtle text-[10px] uppercase flex items-center gap-1">
                                         <Zap size={10} /> Confidence
                                     </div>
-                                    <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden mt-1">
+                                    <div className="w-full bg-surface-muted h-1 rounded-full overflow-hidden mt-1">
                                         <div
                                             className={cn("h-full transition-all duration-500", getConfidenceColor(reasoningData.confidence_score))}
                                             style={{ width: `${reasoningData.confidence_score * 100}%` }}
                                         />
                                     </div>
-                                    <div className="text-right text-[10px] text-white/70">
+                                    <div className="text-right text-[10px] text-ink-muted">
                                         {Math.round(reasoningData.confidence_score * 100)}%
                                     </div>
                                 </div>
@@ -120,15 +120,15 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
 
                             {/* Intent Badge */}
                             <div className="flex justify-start">
-                                <span className="px-2 py-0.5 rounded-full bg-blue-900/30 border border-blue-500/30 text-blue-300 text-[10px] uppercase tracking-wide">
+                                <span className="px-2 py-0.5 rounded-full bg-info-subtle border border-info/30 text-info-ink text-[10px] uppercase tracking-wide">
                                     Intent: {reasoningData.intent_category?.replace('_', ' ') || 'Processing'}
                                 </span>
                             </div>
 
                             {/* Criticism Warning */}
                             {reasoningData.criticism && (
-                                <div className="bg-red-900/10 border border-red-500/20 p-2 rounded text-red-200/80 italic">
-                                    <div className="flex items-center gap-1 mb-1 text-red-400 text-[10px] uppercase not-italic font-bold">
+                                <div className="bg-danger-subtle border border-danger/20 p-2 rounded text-danger-ink italic">
+                                    <div className="flex items-center gap-1 mb-1 text-danger-ink text-[10px] uppercase not-italic font-bold">
                                         <AlertTriangle size={10} /> Self-Correction
                                     </div>
                                     &quot;{reasoningData.criticism}&quot;

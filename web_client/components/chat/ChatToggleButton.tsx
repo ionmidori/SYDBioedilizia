@@ -200,12 +200,12 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                     className={cn(
                         "rounded-full transition-all duration-300 relative flex items-center justify-center !overflow-visible",
                         isOpen
-                            ? "bg-luxury-bg text-luxury-text shadow-2xl border border-luxury-gold/20 w-14 h-14 md:w-16 md:h-16"
+                            ? "bg-canvas text-ink shadow-2xl border border-line w-14 h-14 md:w-16 md:h-16"
                             : "bg-transparent shadow-none border-none hover:scale-105 w-[158px] h-[158px] md:w-52 md:h-48"
                     )}
                 >
                     {isOpen ? (
-                        <X className="w-8 h-8 text-luxury-gold" />
+                        <X className="w-8 h-8 text-accent-ink" />
                     ) : (
                         <>
                             {/* Visual Image */}

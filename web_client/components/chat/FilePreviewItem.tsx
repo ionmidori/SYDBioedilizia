@@ -52,22 +52,22 @@ function getStatusInfo(status: UploadStatus): {
             return {
                 showOverlay: true,
                 showProgress: false,
-                overlayColor: 'bg-black/60',
-                icon: <Loader2 className="w-4 h-4 animate-spin text-luxury-teal" />,
+                overlayColor: 'bg-shade/60',
+                icon: <Loader2 className="w-4 h-4 animate-spin text-primary-ink" />,
             };
         case 'uploading':
             return {
                 showOverlay: true,
                 showProgress: true,
-                overlayColor: 'bg-black/60',
-                icon: <Loader2 className="w-4 h-4 animate-spin text-white" />,
+                overlayColor: 'bg-shade/60',
+                icon: <Loader2 className="w-4 h-4 animate-spin text-on-scrim" />,
             };
         case 'error':
             return {
                 showOverlay: true,
                 showProgress: false,
-                overlayColor: 'bg-red-900/80',
-                icon: <AlertCircle className="w-4 h-4 text-white" />,
+                overlayColor: 'bg-danger',
+                icon: <AlertCircle className="w-4 h-4 text-on-scrim" />,
             };
         case 'success':
         case 'idle':
@@ -115,9 +115,9 @@ export function FilePreviewItem({
                 'relative group rounded-lg overflow-hidden border shadow-lg',
                 sizeClasses[size],
                 item.status === 'error'
-                    ? 'border-red-500/50'
-                    : 'border-luxury-gold/20',
-                'bg-luxury-bg/50'
+                    ? 'border-danger/50'
+                    : 'border-line',
+                'bg-canvas/50'
             )}
             role="listitem"
             aria-label={`File: ${item.file.name}`}
@@ -140,15 +140,15 @@ export function FilePreviewItem({
             )}
 
             {isVideo && (
-                <div className="w-full h-full flex items-center justify-center bg-luxury-bg">
-                    <FileVideo className="w-8 h-8 text-luxury-teal" />
+                <div className="w-full h-full flex items-center justify-center bg-canvas">
+                    <FileVideo className="w-8 h-8 text-primary-ink" />
                 </div>
             )}
 
             {/* Fallback for other file types */}
             {!isImage && !isVideo && (
-                <div className="w-full h-full flex items-center justify-center bg-luxury-bg">
-                    <ImageIcon className="w-6 h-6 text-luxury-text/40" />
+                <div className="w-full h-full flex items-center justify-center bg-canvas">
+                    <ImageIcon className="w-6 h-6 text-ink-subtle" />
                 </div>
             )}
 
@@ -168,9 +168,9 @@ export function FilePreviewItem({
 
                     {/* Progress Bar */}
                     {statusInfo.showProgress && item.progress > 0 && (
-                        <div className="w-full max-w-[80%] bg-slate-700 h-1 rounded-full overflow-hidden">
+                        <div className="w-full max-w-[80%] bg-on-scrim/20 h-1 rounded-full overflow-hidden">
                             <motion.div
-                                className="h-full bg-luxury-teal"
+                                className="h-full bg-primary"
                                 initial={{ width: 0 }}
                                 animate={{ width: `${item.progress}%` }}
                                 transition={{ duration: 0.3 }}
@@ -180,7 +180,7 @@ export function FilePreviewItem({
 
                     {/* Compressing label */}
                     {item.status === 'compressing' && (
-                        <span className="text-[10px] text-luxury-teal font-medium">
+                        <span className="text-[10px] text-primary-ink font-medium">
                             Compressing...
                         </span>
                     )}
@@ -189,16 +189,16 @@ export function FilePreviewItem({
                         which has room for it) and retry, only when it can help */}
                     {item.status === 'error' && (
                         <>
-                            <span title={item.error} className="text-[10px] text-white font-bold">
+                            <span title={item.error} className="text-[10px] text-on-scrim font-bold">
                                 Non riuscito
                             </span>
                             {onRetry && item.retryable !== false && (
                                 <button
                                     onClick={handleRetry}
-                                    className="mt-1 p-1 rounded-full bg-white/20 hover:bg-white/40 transition-colors"
+                                    className="mt-1 p-1 rounded-full bg-on-scrim/20 hover:bg-on-scrim/40 transition-colors"
                                     aria-label="Riprova il caricamento"
                                 >
-                                    <RefreshCw className="w-3 h-3 text-white" />
+                                    <RefreshCw className="w-3 h-3 text-on-scrim" />
                                 </button>
                             )}
                         </>
@@ -210,8 +210,8 @@ export function FilePreviewItem({
             {!hideRemove && (
                 <button
                     className={cn(
-                        'absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-white transition-all z-10',
-                        'bg-black/50 hover:bg-black/80',
+                        'absolute top-0.5 right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-on-scrim transition-all z-10',
+                        'bg-shade/50 hover:bg-shade/80',
                         'opacity-70 group-hover:opacity-100'
                     )}
                     onClick={handleRemove}
@@ -227,9 +227,9 @@ export function FilePreviewItem({
 
             {/* Success Indicator */}
             {item.status === 'success' && (
-                <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                <div className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-success rounded-full flex items-center justify-center">
                     <svg
-                        className="w-2.5 h-2.5 text-white"
+                        className="w-2.5 h-2.5 text-on-scrim"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
