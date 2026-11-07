@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
-import { contrastRatio, adjustToContrast, hexToOklch, oklchToHex } from './lib/color.mjs';
+import { contrastRatio, adjustToContrast, deltaE, hexToOklch, hexToRgb, oklchToHex } from './lib/color.mjs';
+import { ramp } from './lib/ramp.mjs';
 import { decodeIco, encodeIco } from './lib/ico.mjs';
 import { MASTER_FILE, VARIANTS, composeSvg, readMaster, scalePath, variantBox, variantPaths } from './lib/logo.mjs';
 import { ROOT, deriveTones, loadTokenFiles, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
@@ -30,6 +31,61 @@ describe('colour maths', () => {
         assert.ok(contrastRatio(out, '#264653') >= 3);
         assert.ok(contrastRatio(out, '#264653') < 3.1, 'should be the smallest step');
         assert.ok(Math.abs(hexToOklch(out).h - hexToOklch('#07385f').h) < 0.05);
+    });
+});
+
+describe('ramps', () => {
+    // Driven by the declarations in primitives.tokens.json: a ramp added there is tested here.
+    const raw = loadTokenFiles();
+    const scale = raw.palette.$extensions['syd.rampScale'];
+    const steps = Object.keys(scale);
+    const ramps = Object.entries(raw.palette).filter(([k, v]) => !k.startsWith('$') && v.$extensions?.['syd.ramp']);
+    const deg = (rad) => ((rad * 180) / Math.PI + 360) % 360;
+
+    it('declare at least one ramp and one shared lightness scale', () => {
+        assert.ok(ramps.length > 0);
+        assert.ok(steps.length >= 5);
+    });
+
+    for (const [name, decl] of ramps) {
+        const rule = decl.$extensions['syd.ramp'];
+        const colours = steps.map((s) => resolveValue(tokens, `{palette.${name}.${s}}`));
+
+        it(`${name}: every step is a #rrggbb colour in the sRGB gamut`, () => {
+            for (const c of colours) assert.equal(oklchToHex(hexToOklch(c)), c);
+        });
+
+        it(`${name}: lightness decreases from the first to the last step`, () => {
+            const l = colours.map((c) => hexToOklch(c).l);
+            for (let i = 1; i < l.length; i++) assert.ok(l[i] < l[i - 1], `${name}.${steps[i]}`);
+        });
+
+        it(`${name}: chromatic steps keep the ramp hue (±3°)`, () => {
+            const from = rule.anchor ?? rule.hueFrom;
+            const target = from ? deg(hexToOklch(resolveValue(tokens, from)).h) : rule.hue;
+            for (const c of colours) {
+                const { c: chroma, h } = hexToOklch(c);
+                if (chroma <= 0.02) continue;
+                const diff = Math.abs(((deg(h) - target + 540) % 360) - 180);
+                assert.ok(diff <= 3, `${name} ${c}: hue off by ${diff.toFixed(1)}°`);
+            }
+        });
+
+        if (rule.anchor) {
+            it(`${name}: contains its anchor ${rule.anchor}`, () => {
+                const anchor = hexToRgb(resolveValue(tokens, rule.anchor));
+                assert.ok(colours.some((c) => deltaE(hexToRgb(c), anchor) < 2));
+            });
+        }
+    }
+
+    it('hueFrom takes the hue only, never the colour itself', () => {
+        const out = Object.values(ramp({ hueFromHex: '#cda865', chroma: 0.012 }, { 400: 0.74, 500: 0.64 }));
+        assert.ok(!out.includes('#cda865'));
+    });
+
+    it('reject a ramp with neither anchor nor hue', () => {
+        assert.throws(() => ramp({ chroma: 0.1 }, { 50: 0.9 }), /anchor or a hue/);
     });
 });
 

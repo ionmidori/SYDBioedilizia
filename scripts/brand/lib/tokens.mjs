@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { adjustToContrast } from './color.mjs';
+import { expandRamps } from './ramp.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 export const BRAND_DIR = path.join(ROOT, 'web_client', 'brand');
@@ -72,7 +73,7 @@ export function deriveTones(tree) {
 }
 
 export function loadTokens(dir = TOKENS_DIR) {
-    return deriveTones(loadTokenFiles(dir));
+    return deriveTones(expandRamps(loadTokenFiles(dir), resolveValue));
 }
 
 /** Logo role -> hex for a tone ('default' = the plain logo roles). */
