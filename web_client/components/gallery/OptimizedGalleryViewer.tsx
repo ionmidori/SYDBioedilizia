@@ -83,15 +83,15 @@ export function OptimizedGalleryViewer({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={M3Spring.standard}
-                className="flex flex-col items-center justify-center py-24 text-center border border-luxury-gold/10 rounded-3xl bg-luxury-bg/30 p-8"
+                className="flex flex-col items-center justify-center py-24 text-center border border-line rounded-3xl bg-canvas/30 p-8"
             >
-                <div className="p-6 bg-luxury-gold/10 rounded-2xl mb-4 inline-block">
-                    <svg className="w-16 h-16 text-luxury-gold/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="p-6 bg-accent-subtle rounded-2xl mb-4 inline-block">
+                    <svg className="w-16 h-16 text-accent-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                 </div>
-                <h3 className="text-xl md:text-2xl font-bold text-luxury-text/60 mb-2">Nessun File</h3>
-                <p className="text-sm md:text-base text-luxury-text/40 max-w-md">
+                <h3 className="text-xl md:text-2xl font-bold text-ink-muted mb-2">Nessun File</h3>
+                <p className="text-sm md:text-base text-ink-subtle max-w-md">
                     I tuoi file generati dalla conversazione appariranno qui.
                 </p>
             </motion.div>
@@ -110,12 +110,12 @@ export function OptimizedGalleryViewer({
                 {/* Header */}
                 {title && (
                     <div className="mb-6">
-                        <h2 className="text-2xl md:text-3xl font-bold text-luxury-text font-serif">
+                        <h2 className="text-2xl md:text-3xl font-bold text-ink font-serif">
                             {title}
-                            <span className="text-luxury-gold ml-2">({galleryImages.length})</span>
+                            <span className="text-accent-ink ml-2">({galleryImages.length})</span>
                         </h2>
                         {subtitle && (
-                            <p className="text-luxury-text/60 text-sm md:text-base mt-2">{subtitle}</p>
+                            <p className="text-ink-muted text-sm md:text-base mt-2">{subtitle}</p>
                         )}
                     </div>
                 )}
@@ -140,7 +140,7 @@ export function OptimizedGalleryViewer({
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     onClick={() => handleImageClick(image, index)}
-                                    className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer group bg-luxury-bg/30 border border-luxury-gold/10 hover:border-luxury-gold/30 transition-all"
+                                    className="relative aspect-square rounded-2xl overflow-hidden cursor-pointer group bg-canvas/30 border border-line hover:border-line transition-all"
                                     role="button"
                                     tabIndex={0}
                                     aria-label={`Apri ${image.title || 'immagine'}`}
@@ -157,15 +157,15 @@ export function OptimizedGalleryViewer({
                                             decoding="async"
                                         />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-luxury-bg via-luxury-bg/80 to-luxury-bg/60">
-                                            <span className="text-luxury-gold/60 text-xs font-bold uppercase tracking-widest">
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-canvas via-canvas/80 to-canvas/60">
+                                            <span className="text-accent-ink text-xs font-bold uppercase tracking-widest">
                                                 {image.type === 'quote' ? 'PDF' : image.type.toUpperCase()}
                                             </span>
                                         </div>
                                     )}
 
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                                        <div className="text-white text-xs font-bold truncate pr-8">
+                                    <div className="absolute inset-0 bg-gradient-to-t from-shade/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                                        <div className="text-on-scrim text-xs font-bold truncate pr-8">
                                             {image.title || `${image.type} ${index + 1}`}
                                         </div>
                                     </div>
@@ -177,14 +177,14 @@ export function OptimizedGalleryViewer({
                                                 e.stopPropagation();
                                                 onDeleteClick(image);
                                             }}
-                                            className="absolute top-2 left-2 z-20 p-2 bg-red-500/80 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
+                                            className="absolute top-2 left-2 z-20 p-2 bg-danger hover:bg-danger text-on-scrim rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
                                             title="Elimina"
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>
                                     )}
 
-                                    <div className="absolute top-2 right-2 px-2 py-1 bg-luxury-gold/20 text-luxury-gold text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-luxury-gold/30 z-10">
+                                    <div className="absolute top-2 right-2 px-2 py-1 bg-accent-subtle text-accent-ink text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-line z-10">
                                         {image.type === 'quote' ? 'PDF' : image.type.substring(0, 3).toUpperCase()}
                                     </div>
                                 </motion.div>

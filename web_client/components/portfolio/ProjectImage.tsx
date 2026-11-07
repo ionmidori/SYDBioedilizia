@@ -20,8 +20,8 @@ export function ProjectImage({
 }) {
     if (!project.image) {
         return (
-            <div className="absolute inset-0 flex items-center justify-center bg-luxury-bg/80">
-                <ImageOff className="w-8 h-8 text-luxury-text/20" aria-hidden="true" />
+            <div className="absolute inset-0 flex items-center justify-center bg-canvas/80">
+                <ImageOff className="w-8 h-8 text-ink-subtle" aria-hidden="true" />
             </div>
         );
     }

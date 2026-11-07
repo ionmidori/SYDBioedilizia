@@ -16,9 +16,9 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
         // scrollable, so the "Progetti" anchor (#portfolio lives in here) scrolled the
         // hero itself and hid the h1 for good. clip crops the glows the same way but
         // only lets the page scroll.
-        <section className="relative min-h-[100dvh] flex items-center pt-20 pb-12 md:pb-16 overflow-clip bg-luxury-bg">
+        <section className="relative min-h-[100dvh] flex items-center pt-20 pb-12 md:pb-16 overflow-clip bg-canvas">
             {/* Background Elements - Luxury Tech */}
-            <div className="absolute inset-0 bg-luxury-bg z-0" />
+            <div className="absolute inset-0 bg-canvas z-0" />
             <div className="absolute top-0 right-0 w-[600px] h-[600px] ambient-glow ambient-glow-teal [--glow-blur:60px] md:[--glow-blur:120px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-[600px] h-[600px] ambient-glow ambient-glow-gold translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
@@ -33,25 +33,25 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                     transition={M3Spring.gentle}
                 >
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-luxury-bg border border-luxury-gold/30 text-white text-xs font-semibold uppercase tracking-wider mb-8 shadow-sm shadow-luxury-gold/10">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-canvas border border-line text-ink text-xs font-semibold uppercase tracking-wider mb-8 shadow-sm">
                         <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-luxury-gold opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-luxury-gold"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
                         </span>
                         La Nuova Era della Ristrutturazione
                     </div>
 
                     {/* Headline */}
-                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold tracking-tight text-luxury-text leading-[1.2] mb-6">
+                    <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold tracking-tight text-ink leading-[1.2] mb-6">
                         Realizza la <br />
-                        <span className="text-luxury-gold italic relative">
+                        <span className="text-accent-ink italic relative">
                             Casa dei Sogni
-                            <span className="absolute -bottom-2 left-0 w-full h-1 bg-luxury-teal/30 rounded-full blur-sm"></span>
+                            <span className="absolute -bottom-2 left-0 w-full h-1 bg-primary/30 rounded-full blur-sm"></span>
                         </span>
                         <br /> con <span className="font-trajan tracking-tight">SYD BIOEDILIZIA</span>
                     </h1>
 
-                    <p className="text-lg md:text-xl text-luxury-text/80 max-w-xl leading-relaxed font-light">
+                    <p className="text-lg md:text-xl text-ink max-w-xl leading-relaxed font-light">
                         Ristruttura il tuo appartamento in maniera tradizionale o in bioedilizia. Dall&apos;idea alla realtà in pochi click. Ottieni preventivi veloci, visualizzazioni 3D fotorealistiche e un team di esperti pronto a realizzare il tuo progetto.
                     </p>
                 </motion.div>
@@ -78,7 +78,7 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Button
                                 size="lg"
-                                className="h-14 px-8 text-base min-w-[300px] bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
+                                className="h-14 px-8 text-base min-w-[300px] bg-primary hover:bg-primary-hover text-on-primary rounded-lg shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
                                 onClick={() => openChat()}
                             >
                                 Richiedi Preventivo Gratuito
@@ -90,7 +90,7 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Button
                                 size="lg"
-                                className="h-14 px-8 text-base min-w-[300px] bg-luxury-teal hover:bg-luxury-teal/90 text-white rounded-lg shadow-lg shadow-luxury-teal/20 transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
+                                className="h-14 px-8 text-base min-w-[300px] bg-primary hover:bg-primary-hover text-on-primary rounded-lg shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
                                 onClick={() => openChat()}
                             >
                                 Crea Rendering Gratuito
@@ -100,24 +100,24 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                     </div>
 
                     {/* Stats - Luxury Style */}
-                    <div className="grid grid-cols-3 gap-6 border-t border-luxury-gold/20 pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
+                    <div className="grid grid-cols-3 gap-6 border-t border-line pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-luxury-text">
+                            <h4 className="text-2xl font-bold text-ink">
                                 <StatCounter value={100} suffix="+" />
                             </h4>
-                            <p className="text-sm text-luxury-text/60">Progetti Completati</p>
+                            <p className="text-sm text-ink-muted">Progetti Completati</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-luxury-text">
+                            <h4 className="text-2xl font-bold text-ink">
                                 <StatCounter value={24} suffix="h" />
                             </h4>
-                            <p className="text-sm text-luxury-text/60">Tempo Preventivo</p>
+                            <p className="text-sm text-ink-muted">Tempo Preventivo</p>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-luxury-text">
+                            <h4 className="text-2xl font-bold text-ink">
                                 <StatCounter value={4.9} decimals={1} suffix="/5" />
                             </h4>
-                            <p className="text-sm text-luxury-text/60">Soddisfazione Clienti</p>
+                            <p className="text-sm text-ink-muted">Soddisfazione Clienti</p>
                         </div>
                     </div>
                 </motion.div>

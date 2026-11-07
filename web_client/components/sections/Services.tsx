@@ -65,7 +65,7 @@ export function Services() {
         // scroll container and silently kill the sticky stack below.
         // Bottom trimmed (paired with WhatWeDo's trimmed top) so "Cosa facciamo"
         // follows on from the last service card instead of a full section gap away.
-        <section id="services" className="pt-20 pb-8 md:pb-10 relative bg-luxury-bg overflow-clip">
+        <section id="services" className="pt-20 pb-8 md:pb-10 relative bg-canvas overflow-clip">
             {/* Section Background Decoration */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-7xl opacity-30 pointer-events-none">
                 <div className="absolute top-0 right-0 w-96 h-96 ambient-glow ambient-glow-teal" />
@@ -79,16 +79,16 @@ export function Services() {
                         initial={reduceMotion ? false : HEADER_HIDDEN}
                         whileInView={HEADER_SHOWN}
                         viewport={{ once: true }}
-                        className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-luxury-text mb-4 tracking-tight"
+                        className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-ink mb-4 tracking-tight"
                     >
-                        Tecnologia al servizio del <span className="text-luxury-gold italic">Design</span>
+                        Tecnologia al servizio del <span className="text-accent-ink italic">Design</span>
                     </motion.h2>
                     <motion.p
                         initial={reduceMotion ? false : HEADER_HIDDEN}
                         whileInView={HEADER_SHOWN}
                         viewport={{ once: true }}
                         transition={{ delay: 0.2 }}
-                        className="text-luxury-text/70 text-lg md:text-xl font-light"
+                        className="text-ink-muted text-lg md:text-xl font-light"
                     >
                         Abbiamo reingegnerizzato il processo di ristrutturazione per renderlo semplice, trasparente e sorprendentemente veloce.
                     </motion.p>
@@ -147,7 +147,7 @@ export function Services() {
                                             <span
                                                 data-stack-shade
                                                 aria-hidden="true"
-                                                className="pointer-events-none absolute inset-0 m3-shape-xl bg-black opacity-0"
+                                                className="pointer-events-none absolute inset-0 m3-shape-xl bg-shade opacity-0"
                                                 style={{ animationTimeline: stackTimeline(index) } as CSSProperties}
                                             />
                                         )}
@@ -200,7 +200,7 @@ export function Services() {
                                 // class's own pseudo-elements, so no Tailwind `border` here.
                                 "glass-services-card",
                                 hoveredService === index
-                                    ? "shadow-elevation-high shadow-luxury-teal/20"
+                                    ? "shadow-elevation-high"
                                     : "shadow-elevation-low"
                             )}
                         >
@@ -209,16 +209,16 @@ export function Services() {
                                 transform — it never nudges the title beside it. */}
                             <div className="flex items-center gap-3.5 mb-2.5">
                                 <div className={cn(
-                                    "w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center border border-luxury-gold/10 transition-transform duration-500",
-                                    "bg-[radial-gradient(circle_at_30%_20%,rgba(233,196,106,0.14),rgba(38,70,83,0.55)_70%)] text-luxury-teal",
+                                    "w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center border border-line transition-transform duration-500",
+                                    "bg-[radial-gradient(circle_at_30%_20%,color-mix(in_oklab,var(--color-accent)_14%,transparent),color-mix(in_oklab,var(--color-canvas)_55%,transparent)_70%)] text-primary-ink",
                                     hoveredService === index && "scale-110 shadow-premium"
                                 )}>
                                     <service.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
                                 </div>
 
                                 <h3 className={cn(
-                                    "font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-text transition-colors duration-300",
-                                    hoveredService === index && "text-luxury-gold"
+                                    "font-serif text-xl md:text-2xl font-semibold leading-tight text-ink transition-colors duration-300",
+                                    hoveredService === index && "text-accent-ink"
                                 )}>
                                     {service.title}
                                 </h3>
@@ -226,7 +226,7 @@ export function Services() {
 
                             {/* /70 rather than /60: at font-light 14–16px over the glass
                                 backdrop, /60 measures 3.8:1 — short of WCAG AA. */}
-                            <p className="text-luxury-text/70 text-base leading-relaxed font-light">
+                            <p className="text-ink-muted text-base leading-relaxed font-light">
                                 {service.description}
                             </p>
                         </motion.div>
@@ -255,7 +255,7 @@ function ServiceCard({
                 // Fully opaque, not `surface-container-high` (85% alpha) and not
                 // glassmorphism: at anything below 100% the text of three stacked
                 // cards shows through at once. `.elevated-service-card` keeps that
-                // rule (alpha-free gradient stops, a hair lighter than the #264653
+                // rule (alpha-free gradient stops, a hair lighter than the canvas
                 // page background) and layers shadows for the elevated look.
                 'elevated-service-card',
                 'transition-transform duration-200 active:scale-[0.98]',
@@ -265,15 +265,15 @@ function ServiceCard({
                 title wraps to a second line. */}
             <div className="flex items-center gap-3.5 mb-2.5">
                 <div className={cn(
-                    'w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center border border-luxury-gold/15',
+                    'w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center border border-line',
                     // Alpha is safe here: the chip sits inside an already-opaque
                     // card, so it only blends with its own parent, not the stack.
-                    'bg-gradient-to-br from-luxury-bg/70 to-luxury-bg/40 text-luxury-teal',
+                    'bg-gradient-to-br from-canvas/70 to-canvas/40 text-primary-ink',
                 )}>
                     <service.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
                 </div>
 
-                <h3 className="font-serif text-xl font-semibold leading-tight text-luxury-text">
+                <h3 className="font-serif text-xl font-semibold leading-tight text-ink">
                     {service.title}
                 </h3>
             </div>
@@ -281,7 +281,7 @@ function ServiceCard({
             {/* /75 rather than /70: /70 measures 4.47:1 against the card
                 gradient, just short of WCAG AA. Same 16px as the "Cosa facciamo"
                 cards, as are the title, icon and padding. */}
-            <p className="text-luxury-text/75 text-base leading-relaxed font-light">
+            <p className="text-ink-muted text-base leading-relaxed font-light">
                 {service.description}
             </p>
         </button>

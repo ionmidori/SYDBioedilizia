@@ -33,8 +33,8 @@ export function MobileProjectCard({
             onClick={handleToggle}
             aria-expanded={!isHidden}
             className={cn(
-                "relative block w-full aspect-[3/4] rounded-2xl overflow-hidden text-left bg-slate-950 border transition-colors duration-300 cinematic-focus",
-                isActive ? "border-luxury-gold/50" : "border-luxury-gold/10"
+                "relative block w-full aspect-[3/4] rounded-2xl overflow-hidden text-left bg-shade border transition-colors duration-300 cinematic-focus",
+                isActive ? "border-accent" : "border-line"
             )}
         >
             <ProjectImage
@@ -50,11 +50,11 @@ export function MobileProjectCard({
             {/* The description is visible by default, so the scrim reaches up to 70%
                 of the card at rest. Renovation shots are often near-white there, but
                 the scrim stays translucent and clears early: the photo is the product. */}
-            <span className="absolute inset-0 bg-gradient-to-t from-luxury-bg/75 from-25% to-transparent to-70%" />
+            <span className="absolute inset-0 bg-gradient-to-t from-canvas/75 from-25% to-transparent to-70%" />
 
             {/* Positioned absolutely, not inside the bottom-anchored column below: there
                 it was pushed off the card's top edge whenever the description grew. */}
-            <span className="absolute top-4 left-4 z-10 inline-flex px-3 py-1 rounded-full text-xs font-medium bg-luxury-bg/70 backdrop-blur-sm border border-luxury-gold/20 text-luxury-gold">
+            <span className="absolute top-4 left-4 z-10 inline-flex px-3 py-1 rounded-full text-xs font-medium bg-canvas/70 backdrop-blur-sm border border-line text-accent-ink">
                 {cardBadge(project)}
             </span>
 
@@ -65,7 +65,7 @@ export function MobileProjectCard({
                 <motion.span
                     animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 12 }}
                     transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
-                    className="block [text-shadow:0_1px_2px_rgba(0,0,0,0.9),0_2px_10px_rgba(0,0,0,0.6)]"
+                    className="block [text-shadow:0_1px_2px_color-mix(in_oklab,var(--color-shade)_90%,transparent),0_2px_10px_color-mix(in_oklab,var(--color-shade)_60%,transparent)]"
                 >
                     {/* grid-rows 1fr↔0fr animates height without layout-triggering
                         properties (CLS-safe). line-clamp-4 bounds a long real description. */}
@@ -76,13 +76,13 @@ export function MobileProjectCard({
                         )}
                     >
                         <span className="block overflow-hidden">
-                            <span className="block text-luxury-text/85 text-sm font-light pb-3 line-clamp-4">
+                            <span className="block text-ink text-sm font-light pb-3 line-clamp-4">
                                 {project.description}
                             </span>
                         </span>
                     </span>
 
-                    <span className="block text-xs text-luxury-gold/70 font-medium pb-3">
+                    <span className="block text-xs text-accent-ink font-medium pb-3">
                         {isHidden ? 'Mostra descrizione' : 'Nascondi descrizione'}
                     </span>
 

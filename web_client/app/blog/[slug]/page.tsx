@@ -36,7 +36,7 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-luxury-bg text-luxury-text py-12 px-4 md:px-8">
+      <main className="min-h-screen bg-canvas text-ink py-12 px-4 md:px-8">
         <script
           type="application/ld+json"
           // Inert JSON built from typed data; `<` is escaped by serializeJsonLd.
@@ -58,27 +58,27 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
               <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
                 {post.title}
               </h1>
-              <p className="text-xl text-muted-foreground font-medium max-w-2xl">
+              <p className="text-xl text-ink-muted font-medium max-w-2xl">
                 {post.subtitle}
               </p>
             </header>
 
             <ArticleBody blocks={post.body} />
 
-            <section className="mt-16 not-prose border-t border-border pt-12">
-              <h2 className="text-2xl font-bold mb-8 text-foreground">
+            <section className="mt-16 not-prose border-t border-line pt-12">
+              <h2 className="text-2xl font-bold mb-8 text-ink">
                 {post.faqHeading}
               </h2>
               <div className="space-y-4">
                 {post.faq.map((faq) => (
                   <div
                     key={faq.question}
-                    className="bg-card p-5 rounded-lg border border-border"
+                    className="bg-surface p-5 rounded-lg border border-line"
                   >
                     <h3 className="font-bold mb-2">
                       {faq.question}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-ink-muted">
                       {faq.answer}
                     </p>
                   </div>
