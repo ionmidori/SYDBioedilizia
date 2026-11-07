@@ -1,0 +1,149 @@
+{
+  "$comment": "Colour class -> semantic role, read by scripts/theme/migrate.mjs. The first rule that matches wins. match: utility | color | group | family (lists), shade [min,max], opacity [min,max] (no modifier counts as 100). to: role (+ keepOpacity), byUtility {utility: role} (<family> = the matched family), drop, or ambiguous: <reason> (never rewritten; reported for a human, see the plan Task 5 step 2). Target roles are checked against scripts/brand/generated/roles.json.",
+  "utilities": [
+    "bg",
+    "text",
+    "border",
+    "border-t",
+    "border-b",
+    "border-l",
+    "border-r",
+    "border-x",
+    "border-y",
+    "ring",
+    "ring-offset",
+    "outline",
+    "from",
+    "via",
+    "to",
+    "fill",
+    "stroke",
+    "divide",
+    "placeholder",
+    "decoration",
+    "shadow",
+    "caret",
+    "accent"
+  ],
+  "colors": {
+    "luxury": ["luxury-bg", "luxury-text", "luxury-gold", "luxury-gold-dark", "luxury-teal"],
+    "neutral": ["white", "black", "slate", "gray", "zinc", "neutral", "stone"],
+    "decorative": ["teal", "cyan", "indigo", "violet", "purple", "fuchsia", "pink", "lime"],
+    "shadcn": [
+      "background",
+      "foreground",
+      "card",
+      "card-foreground",
+      "popover",
+      "popover-foreground",
+      "primary-foreground",
+      "secondary",
+      "secondary-foreground",
+      "muted",
+      "muted-foreground",
+      "accent-foreground",
+      "destructive",
+      "destructive-foreground",
+      "border",
+      "input",
+      "sidebar",
+      "sidebar-foreground"
+    ],
+    "m3": [
+      "surface-variant",
+      "surface-container-lowest",
+      "surface-container-low",
+      "surface-container",
+      "surface-container-high",
+      "on-surface",
+      "on-surface-variant",
+      "outline-variant",
+      "secondary-container",
+      "on-secondary-container",
+      "error",
+      "error-container",
+      "on-error-container"
+    ],
+    "brand": ["brand-navy", "brand-steel", "brand-blue", "brand-sand", "brand-white"]
+  },
+  "families": {
+    "danger": ["red", "rose"],
+    "warning": ["amber", "yellow", "orange"],
+    "success": ["emerald", "green"],
+    "info": ["sky", "blue"]
+  },
+  "rules": [
+    { "match": { "utility": "text", "color": "luxury-text", "opacity": [80, 100] }, "to": { "role": "ink" } },
+    { "match": { "utility": "text", "color": "luxury-text", "opacity": [50, 79] }, "to": { "role": "ink-muted" } },
+    { "match": { "utility": "text", "color": "luxury-text", "opacity": [0, 49] }, "to": { "role": "ink-subtle" } },
+    { "match": { "utility": ["placeholder", "caret", "decoration"], "color": "luxury-text" }, "to": { "role": "ink-muted" } },
+    { "match": { "utility": ["fill", "stroke"], "color": "luxury-text" }, "to": { "role": "ink", "keepOpacity": true } },
+    {
+      "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": "luxury-text", "opacity": [0, 30] },
+      "to": { "role": "line" }
+    },
+    {
+      "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": "luxury-text" },
+      "to": { "role": "line-strong" }
+    },
+    { "match": { "utility": "bg", "color": "luxury-text" }, "to": { "ambiguous": "light fill on the dark theme: surface, surface-muted or ink (inverted chip)? Decide by context" } },
+
+    { "match": { "utility": "bg", "color": "luxury-bg", "opacity": [90, 100] }, "to": { "role": "canvas" } },
+    { "match": { "utility": ["bg", "from", "via", "to"], "color": "luxury-bg" }, "to": { "role": "canvas", "keepOpacity": true } },
+    { "match": { "utility": ["text", "fill", "stroke"], "color": "luxury-bg" }, "to": { "ambiguous": "dark text on a light fill: on-primary, on-<status> or ink? Decide by the background" } },
+    { "match": { "color": "luxury-bg" }, "to": { "role": "canvas", "keepOpacity": true } },
+
+    { "match": { "utility": ["text", "placeholder", "decoration", "caret"], "color": ["luxury-gold", "luxury-gold-dark"] }, "to": { "role": "accent-ink" } },
+    { "match": { "utility": "bg", "color": ["luxury-gold", "luxury-gold-dark"], "opacity": [0, 29] }, "to": { "role": "accent-subtle" } },
+    { "match": { "utility": "bg", "color": ["luxury-gold", "luxury-gold-dark"], "opacity": [90, 100] }, "to": { "role": "accent" } },
+    { "match": { "utility": "bg", "color": ["luxury-gold", "luxury-gold-dark"] }, "to": { "ambiguous": "translucent gold fill (30-89 %): accent-subtle or accent?" } },
+    {
+      "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": ["luxury-gold", "luxury-gold-dark"], "opacity": [0, 30] },
+      "to": { "role": "line" }
+    },
+    { "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": ["luxury-gold", "luxury-gold-dark"] }, "to": { "role": "accent" } },
+    { "match": { "utility": ["ring", "outline"], "color": ["luxury-gold", "luxury-gold-dark", "luxury-teal", "luxury-text"] }, "to": { "role": "ring" } },
+    { "match": { "utility": "ring-offset", "color": ["luxury-gold", "luxury-gold-dark", "luxury-teal", "luxury-text"] }, "to": { "role": "canvas" } },
+    { "match": { "utility": "shadow", "group": "luxury" }, "to": { "drop": true } },
+    { "match": { "utility": ["from", "via", "to", "fill", "stroke", "accent"], "color": ["luxury-gold", "luxury-gold-dark"] }, "to": { "role": "accent", "keepOpacity": true } },
+
+    { "match": { "utility": "bg", "color": "luxury-teal", "opacity": [95, 100] }, "to": { "role": "primary" } },
+    { "match": { "utility": "bg", "color": "luxury-teal", "opacity": [85, 94] }, "to": { "role": "primary-hover" } },
+    { "match": { "utility": "bg", "color": "luxury-teal", "opacity": [0, 29] }, "to": { "role": "primary-subtle" } },
+    { "match": { "utility": "bg", "color": "luxury-teal" }, "to": { "ambiguous": "translucent teal fill (30-84 %): primary-subtle or primary?" } },
+    { "match": { "utility": ["text", "placeholder", "decoration", "caret"], "color": "luxury-teal" }, "to": { "role": "primary-ink" } },
+    { "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": "luxury-teal", "opacity": [50, 100] }, "to": { "role": "primary" } },
+    { "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": "luxury-teal" }, "to": { "role": "primary", "keepOpacity": true } },
+    { "match": { "utility": ["from", "via", "to", "fill", "stroke", "accent"], "color": "luxury-teal" }, "to": { "role": "primary", "keepOpacity": true } },
+
+    { "match": { "color": "background", "utility": ["bg", "ring-offset", "from", "via", "to"] }, "to": { "role": "canvas", "keepOpacity": true } },
+    { "match": { "color": ["foreground", "card-foreground", "popover-foreground", "secondary-foreground", "accent-foreground", "sidebar-foreground"], "utility": "text", "opacity": [80, 100] }, "to": { "role": "ink" } },
+    { "match": { "color": ["foreground", "card-foreground", "popover-foreground", "secondary-foreground", "accent-foreground", "sidebar-foreground"], "utility": "text" }, "to": { "role": "ink-muted" } },
+    { "match": { "color": "muted-foreground", "utility": ["text", "placeholder"] }, "to": { "role": "ink-muted" } },
+    { "match": { "color": ["card", "popover", "sidebar"], "utility": "bg" }, "to": { "role": "surface", "keepOpacity": true } },
+    { "match": { "color": ["muted", "secondary"], "utility": "bg" }, "to": { "role": "surface-muted", "keepOpacity": true } },
+    { "match": { "color": "border", "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"] }, "to": { "role": "line" } },
+    { "match": { "color": "input", "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y"] }, "to": { "role": "line-strong" } },
+    { "match": { "color": "destructive" }, "to": { "byUtility": { "text": "danger-ink", "bg": "danger", "border": "danger", "ring": "danger" } } },
+    { "match": { "color": "destructive-foreground", "utility": "text" }, "to": { "role": "on-danger" } },
+    { "match": { "color": "primary-foreground", "utility": "text" }, "to": { "role": "on-primary" } },
+    { "match": { "group": "shadcn" }, "to": { "ambiguous": "shadcn class outside its usual utility: pick the role by context" } },
+
+    { "match": { "family": ["danger", "warning", "success", "info"], "utility": ["text", "placeholder", "decoration"] }, "to": { "byUtility": { "*": "<family>-ink" } } },
+    { "match": { "family": ["danger", "warning", "success", "info"], "utility": "bg", "opacity": [0, 30] }, "to": { "byUtility": { "bg": "<family>-subtle" } } },
+    { "match": { "family": ["danger", "warning", "success", "info"], "utility": "bg", "shade": [50, 200] }, "to": { "byUtility": { "bg": "<family>-subtle" } } },
+    { "match": { "family": ["danger", "warning", "success", "info"], "utility": "bg", "shade": [400, 800], "opacity": [80, 100] }, "to": { "byUtility": { "bg": "<family>" } } },
+    {
+      "match": { "family": ["danger", "warning", "success", "info"], "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide", "ring", "outline", "fill", "stroke", "accent"] },
+      "to": { "byUtility": { "*": "<family>" }, "keepOpacity": true }
+    },
+    { "match": { "family": ["danger", "warning", "success", "info"] }, "to": { "ambiguous": "status colour in an unusual shade/opacity or a gradient: pick <status>, -subtle or -ink" } },
+
+    { "match": { "group": "neutral", "utility": "text" }, "to": { "ambiguous": "text-white/black/grey depends on the background: on-primary, on-scrim, ink, ink-muted?" } },
+    { "match": { "group": "neutral", "utility": "bg" }, "to": { "ambiguous": "neutral fill: surface (bg-white/5), surface-muted, scrim (bg-black/60) or canvas?" } },
+    { "match": { "group": "neutral" }, "to": { "ambiguous": "neutral colour: line (border-white/10), line-strong, scrim or ink? Decide by context" } },
+    { "match": { "group": "decorative" }, "to": { "ambiguous": "palette colour outside the logo colours: use primary, accent or a status role" } },
+    { "match": { "group": "m3" }, "to": { "ambiguous": "M3 class with no CSS today (renders nothing): pick the role the design meant" } },
+    { "match": { "group": "brand" }, "to": { "ambiguous": "brand primitive used directly: use a role (or BrandLogo for the logo)" } }
+  ]
+}

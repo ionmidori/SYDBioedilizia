@@ -18,6 +18,12 @@ describe('brand pipeline', () => {
         expect(() => run('--test', 'scripts/brand/brand.test.mjs')).not.toThrow();
     });
 
+    it('has a theme codemod that passes its tests and whose rules cover every colour class (scripts/theme)', () => {
+        expect(() => run('--test', 'scripts/theme/migrate.test.mjs')).not.toThrow();
+        const report = JSON.parse(run('scripts/theme/migrate.mjs', '--report'));
+        expect(report.unmapped).toEqual([]);
+    });
+
     it('has generated files in sync with web_client/brand (run `npm run brand:build`)', () => {
         expect(() => run('scripts/brand/build-tokens.mjs', '--check')).not.toThrow();
         expect(() => run('scripts/brand/build-assets.mjs', '--check')).not.toThrow();

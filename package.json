@@ -17,6 +17,7 @@
         "brand:construct": "uv run scripts/brand/construct-mark.py",
         "brand:build": "node scripts/brand/build-tokens.mjs && node scripts/brand/build-assets.mjs",
         "brand:check": "node scripts/brand/build-tokens.mjs --check && node scripts/brand/build-assets.mjs --check && node scripts/brand/check.mjs",
+        "theme:migrate": "node scripts/theme/migrate.mjs",
         "test:preflight": "node --test scripts/preflight.test.mjs .claude/hooks/protect-files.test.mjs .claude/hooks/post-edit.test.mjs .claude/hooks/stop-check.test.mjs",
         "eval:run": "node scripts/run-evals.mjs --output results/",
         "eval:run:quote": "node scripts/run-evals.mjs --file quote_flow.test.json --output results/",
