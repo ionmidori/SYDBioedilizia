@@ -119,11 +119,11 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
     if (resetSent) {
         return (
             <div className="text-center py-6 space-y-3">
-                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center mx-auto">
-                    <Mail className="w-6 h-6 text-green-400" />
+                <div className="w-12 h-12 bg-success-subtle rounded-full flex items-center justify-center mx-auto">
+                    <Mail className="w-6 h-6 text-success-ink" />
                 </div>
-                <h3 className="text-lg font-semibold text-white">Email Inviata!</h3>
-                <p className="text-sm text-slate-400">
+                <h3 className="text-lg font-semibold text-ink">Email Inviata!</h3>
+                <p className="text-sm text-ink-muted">
                     Controlla la tua casella di posta per reimpostare la password.
                 </p>
             </div>
@@ -133,51 +133,51 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
     return (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-300">Email</Label>
+                <Label htmlFor="email" className="text-ink-muted">Email</Label>
                 <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-subtle" />
                     <Input
                         {...register('email')}
                         id="email"
                         type="email"
                         placeholder="nome@esempio.com"
-                        className={`pl-10 bg-slate-800/50 border-slate-700 text-white transition-all ${
-                            shake || errors.email ? 'animate-shake border-red-500' : ''
+                        className={`pl-10 bg-surface-muted border-line-strong text-ink transition-all ${
+                            shake || errors.email ? 'animate-shake border-danger' : ''
                         }`}
                         autoComplete="email"
                     />
                 </div>
                 {errors.email && (
-                    <p className="text-xs text-red-400 mt-1">{errors.email.message}</p>
+                    <p className="text-xs text-danger-ink mt-1">{errors.email.message}</p>
                 )}
             </div>
 
             {mode !== 'reset' && (
                 <div className="space-y-2">
-                    <Label htmlFor="password" className="text-slate-300">Password</Label>
+                    <Label htmlFor="password" className="text-ink-muted">Password</Label>
                     <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-subtle" />
                         <Input
                             {...register('password')}
                             id="password"
                             type="password"
                             placeholder="••••••••"
-                            className={`pl-10 bg-slate-800/50 border-slate-700 text-white transition-all ${
-                                shake || errors.password ? 'animate-shake border-red-500' : ''
+                            className={`pl-10 bg-surface-muted border-line-strong text-ink transition-all ${
+                                shake || errors.password ? 'animate-shake border-danger' : ''
                             }`}
                             autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
                         />
                     </div>
                     {errors.password && (
-                        <p className="text-xs text-red-400 mt-1">{errors.password.message}</p>
+                        <p className="text-xs text-danger-ink mt-1">{errors.password.message}</p>
                     )}
                 </div>
             )}
 
             {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-                    <p className="text-sm text-red-400">
+                <div className="flex items-center gap-2 p-3 bg-danger-subtle border border-danger/20 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-danger-ink flex-shrink-0" />
+                    <p className="text-sm text-danger-ink">
                         {lockoutTime > 0 
                             ? `Troppi tentativi falliti. Attendi ${lockoutTime} secondi.` 
                             : error}
@@ -187,7 +187,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
 
             <Button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-info hover:bg-info"
                 disabled={loading || lockoutTime > 0}
             >
                 {loading && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
@@ -202,16 +202,16 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                         <button
                             type="button"
                             onClick={() => setMode('reset')}
-                            className="text-blue-400 hover:text-blue-300 transition-colors"
+                            className="text-info-ink hover:text-info-ink transition-colors"
                         >
                             Password dimenticata?
                         </button>
-                        <div className="text-slate-400">
+                        <div className="text-ink-muted">
                             Non hai un account?{' '}
                             <button
                                 type="button"
                                 onClick={() => setMode('signup')}
-                                className="text-blue-400 hover:text-blue-300 transition-colors"
+                                className="text-info-ink hover:text-info-ink transition-colors"
                             >
                                 Registrati
                             </button>
@@ -222,7 +222,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                     <button
                         type="button"
                         onClick={() => setMode('signin')}
-                        className="text-blue-400 hover:text-blue-300 transition-colors"
+                        className="text-info-ink hover:text-info-ink transition-colors"
                     >
                         &larr; Torna all&apos;accesso
                     </button>

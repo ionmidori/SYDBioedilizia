@@ -68,8 +68,8 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
 
     if (!isSupported) {
         return mode === 'register' ? (
-            <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
-                <p className="text-sm text-luxury-text/50 text-center">
+            <div className="p-3 bg-surface border border-line rounded-lg">
+                <p className="text-sm text-ink-muted text-center">
                     Il tuo dispositivo o browser non supporta l&apos;accesso biometrico (WebAuthn).
                 </p>
             </div>
@@ -118,16 +118,16 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                     disabled={isLoading}
                     className={cn(
                         "relative w-full h-14 flex items-center justify-center gap-3 font-bold rounded-[16px] overflow-hidden group",
-                        "bg-gradient-to-r from-luxury-gold via-[#F3E5AB] to-luxury-gold bg-[length:200%_auto] text-luxury-bg",
-                        "border border-white/20 shadow-[0_4px_15px_-6px_rgba(212,175,55,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]",
-                        "hover:bg-[100%_center] hover:shadow-[0_4px_20px_-6px_rgba(212,175,55,0.5)] hover:scale-[1.02]",
+                        "bg-gradient-to-r from-accent via-accent-subtle to-accent bg-[length:200%_auto] text-on-accent",
+                        "border border-line-strong shadow-[0_4px_15px_-6px_color-mix(in_oklab,var(--color-accent)_40%,transparent),inset_0_1px_1px_color-mix(in_oklab,var(--color-on-primary)_40%,transparent)]",
+                        "hover:bg-[100%_center] hover:shadow-[0_4px_20px_-6px_color-mix(in_oklab,var(--color-accent)_50%,transparent)] hover:scale-[1.02]",
                         "transition-all duration-500 ease-out",
                         "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
                         className
                     )}
                 >
                     {/* Shimmer effect overlay */}
-                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent group-hover:animate-shimmer" />
+                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-on-scrim/20 to-transparent group-hover:animate-shimmer" />
 
                     {isLoading ? (
                         <>
@@ -143,28 +143,28 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                 </button>
 
                 {error && mode === 'register' && (
-                    <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                        <p className="text-sm text-red-400 text-center flex items-center justify-center gap-2">
+                    <div className="p-3 bg-danger-subtle border border-danger/20 rounded-lg">
+                        <p className="text-sm text-danger-ink text-center flex items-center justify-center gap-2">
                             ⚠️ {error}
                         </p>
                     </div>
                 )}
 
                 {mode === 'register' && !error && (
-                    <p className="text-xs text-luxury-text/50 text-center font-medium">
+                    <p className="text-xs text-ink-muted text-center font-medium">
                         Usa FaceID o TouchID per accedere senza password
                     </p>
                 )}
             </div>
 
             <Dialog open={showGuidanceDialog} onOpenChange={setShowGuidanceDialog}>
-                <DialogContent className="sm:max-w-md bg-luxury-bg/95 backdrop-blur-xl border-luxury-gold/20 text-luxury-text rounded-[24px]">
+                <DialogContent className="sm:max-w-md bg-canvas backdrop-blur-xl border-line text-ink rounded-[24px]">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-serif text-luxury-gold flex items-center gap-2">
+                        <DialogTitle className="text-xl font-serif text-accent-ink flex items-center gap-2">
                             <Fingerprint className="w-6 h-6" />
                             Biometria non attiva
                         </DialogTitle>
-                        <DialogDescription className="text-luxury-text/70 pt-2">
+                        <DialogDescription className="text-ink-muted pt-2">
                             Non abbiamo trovato credenziali biometriche associate a questo dispositivo.
                             <br /><br />
                             Per usare FaceID o TouchID, devi prima accedere con <strong>Email</strong> o <strong>Google</strong>, e poi attivare la biometria dal tuo Profilo.
@@ -173,7 +173,7 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                     <DialogFooter className="sm:justify-center mt-4">
                         <Button 
                             onClick={() => setShowGuidanceDialog(false)}
-                            className="bg-luxury-gold text-luxury-bg hover:bg-luxury-gold/90 w-full sm:w-auto rounded-xl font-bold"
+                            className="bg-accent text-on-accent hover:bg-accent w-full sm:w-auto rounded-xl font-bold"
                         >
                             Ho capito, accedo con Email
                         </Button>

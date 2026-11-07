@@ -10,39 +10,39 @@
         }
       },
       "steel": {
-        "700": {
-          "$value": "#20517f",
-          "$description": "Lower leaf facet"
-        },
         "500": {
           "$value": "#35608b",
           "$description": "Lower leaf facet, lightest"
+        },
+        "700": {
+          "$value": "#20517f",
+          "$description": "Lower leaf facet"
         }
       },
       "blue": {
-        "800": {
-          "$value": "#025b90",
-          "$description": "Leaf left facet, D bowl"
-        },
-        "700": {
-          "$value": "#0c6c9f",
-          "$description": "Y right arm, D bowl top, 'EDILIZIA' of the wordmark"
-        },
-        "600": {
-          "$value": "#127aac",
-          "$description": "Leaf facet, Y stem"
-        },
-        "500": {
-          "$value": "#1889b8",
-          "$description": "Leaf facet, D stem"
+        "400": {
+          "$value": "#269dc8",
+          "$description": "Leaf tip, Y left arm"
         },
         "450": {
           "$value": "#2095c1",
           "$description": "Leaf facet, third stripe"
         },
-        "400": {
-          "$value": "#269dc8",
-          "$description": "Leaf tip, Y left arm"
+        "500": {
+          "$value": "#1889b8",
+          "$description": "Leaf facet, D stem"
+        },
+        "600": {
+          "$value": "#127aac",
+          "$description": "Leaf facet, Y stem"
+        },
+        "700": {
+          "$value": "#0c6c9f",
+          "$description": "Y right arm, D bowl top, 'EDILIZIA' of the wordmark"
+        },
+        "800": {
+          "$value": "#025b90",
+          "$description": "Leaf left facet, D bowl"
         }
       },
       "sand": {
@@ -60,6 +60,27 @@
       "browser-tab-dark": {
         "$value": "#35363a",
         "$description": "Active tab in Chrome dark mode: the lightest dark tab surface, so the worst case for the favicon"
+      }
+    },
+    "third-party": {
+      "$description": "Colours imposed by third-party brand guidelines (sign-in buttons). Never used as our roles.",
+      "google": {
+        "surface": {
+          "$value": "#ffffff",
+          "$description": "Google sign-in button fill (light)"
+        },
+        "surface-hover": {
+          "$value": "#f8fafc",
+          "$description": "Google sign-in button hover"
+        },
+        "ink": {
+          "$value": "#1f1f1f",
+          "$description": "Google sign-in label"
+        },
+        "line": {
+          "$value": "#747775",
+          "$description": "Google sign-in outline"
+        }
       }
     },
     "luxury": {

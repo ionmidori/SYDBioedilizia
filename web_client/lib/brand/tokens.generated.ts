@@ -25,6 +25,14 @@ export const brandColors = {
     "ui": {
         "browser-tab-dark": "#35363a"
     },
+    "third-party": {
+        "google": {
+            "surface": "#ffffff",
+            "surface-hover": "#f8fafc",
+            "ink": "#1f1f1f",
+            "line": "#747775"
+        }
+    },
     "luxury": {
         "bg": "#264653",
         "gold": "#e9c46a",

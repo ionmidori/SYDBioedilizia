@@ -17,20 +17,20 @@ export function GuestClaimNotice() {
     return (
         <div
             role="alert"
-            className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[210] mx-auto max-w-md rounded-2xl border border-amber-400/30 bg-slate-900/95 p-4 shadow-xl md:left-auto md:right-6 md:mx-0"
+            className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[210] mx-auto max-w-md rounded-2xl border border-warning/30 bg-surface p-4 shadow-xl md:left-auto md:right-6 md:mx-0"
         >
             <div className="flex gap-3">
-                <AlertCircle className="h-5 w-5 shrink-0 text-amber-400" aria-hidden="true" />
+                <AlertCircle className="h-5 w-5 shrink-0 text-warning-ink" aria-hidden="true" />
                 <div className="flex-1 space-y-3">
-                    <p className="text-sm font-semibold text-slate-100">Conversazioni da ospite non recuperate</p>
-                    <p className="text-xs leading-relaxed text-slate-300">{message}</p>
+                    <p className="text-sm font-semibold text-ink">Conversazioni da ospite non recuperate</p>
+                    <p className="text-xs leading-relaxed text-ink-muted">{message}</p>
                     <div className="flex gap-2">
                         {retry && (
                             <Button size="sm" onClick={() => void retry()}>
                                 Riprova
                             </Button>
                         )}
-                        <Button size="sm" variant="ghost" className="text-slate-300" onClick={guestClaimStore.reset}>
+                        <Button size="sm" variant="ghost" className="text-ink-muted" onClick={guestClaimStore.reset}>
                             Chiudi
                         </Button>
                     </div>

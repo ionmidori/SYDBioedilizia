@@ -23,9 +23,9 @@ const providerConfig = {
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
             </svg>
         ),
-        bgColor: 'bg-white hover:bg-gray-50',
-        textColor: 'text-gray-900',
-        borderColor: 'border-gray-300',
+        bgColor: 'bg-third-party-google-surface hover:bg-third-party-google-surface-hover',
+        textColor: 'text-third-party-google-ink',
+        borderColor: 'border-third-party-google-line',
     },
     email: {
         label: 'Continua con Email',
@@ -34,9 +34,9 @@ const providerConfig = {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
         ),
-        bgColor: 'bg-slate-800 hover:bg-slate-700',
-        textColor: 'text-white',
-        borderColor: 'border-slate-600',
+        bgColor: 'bg-surface-muted hover:bg-surface',
+        textColor: 'text-ink',
+        borderColor: 'border-line-strong',
     },
 };
 
