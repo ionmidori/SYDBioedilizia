@@ -183,8 +183,8 @@ export default function ProfilePage() {
         <div className="max-w-4xl mx-auto space-y-10 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
             <div className="flex flex-col gap-2">
-                <h1 className="text-3xl md:text-4xl font-bold text-luxury-text font-serif">Il Tuo <span className="text-luxury-gold italic">Profilo</span></h1>
-                <p className="text-luxury-text/50">Gestisci le tue informazioni personali e le preferenze dell&apos;account.</p>
+                <h1 className="text-3xl md:text-4xl font-bold text-ink font-serif">Il Tuo <span className="text-accent-ink italic">Profilo</span></h1>
+                <p className="text-ink-muted">Gestisci le tue informazioni personali e le preferenze dell&apos;account.</p>
             </div>
 
             {/* Feedback banner */}
@@ -194,8 +194,8 @@ export default function ProfilePage() {
                     className={cn(
                         "flex items-center gap-3 p-4 rounded-2xl border text-sm font-medium",
                         errorMessage
-                            ? "bg-red-500/10 border-red-500/20 text-red-400"
-                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                            ? "bg-danger-subtle border-danger/20 text-danger-ink"
+                            : "bg-success-subtle border-success/20 text-success-ink"
                     )}
                 >
                     {errorMessage ? (
@@ -208,8 +208,8 @@ export default function ProfilePage() {
             )}
 
             {/* Profile Section */}
-            <div className="flex flex-col md:flex-row items-center gap-8 p-8 glass-premium border border-luxury-gold/10 rounded-3xl relative overflow-hidden">
-                <div className="absolute -top-24 -right-24 w-64 h-64 bg-luxury-gold/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col md:flex-row items-center gap-8 p-8 glass-premium border border-line rounded-3xl relative overflow-hidden">
+                <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent-subtle rounded-full blur-3xl pointer-events-none" />
 
                 <div className="relative">
                     {avatarPreview && isObjectUrl(avatarPreview) ? (
@@ -219,7 +219,7 @@ export default function ProfilePage() {
                             alt="Avatar"
                             width={100}
                             height={100}
-                            className="w-24 h-24 object-cover rounded-full border-4 border-luxury-gold/20 shadow-xl"
+                            className="w-24 h-24 object-cover rounded-full border-4 border-line shadow-xl"
                         />
                     ) : user?.photoURL ? (
                         <NextImage
@@ -227,17 +227,17 @@ export default function ProfilePage() {
                             alt="Avatar"
                             width={100}
                             height={100}
-                            className="rounded-full border-4 border-luxury-gold/20 shadow-xl"
+                            className="rounded-full border-4 border-line shadow-xl"
                         />
                     ) : (
-                        <div className="w-24 h-24 rounded-full border-4 border-luxury-gold/30 bg-luxury-gold/10 flex items-center justify-center text-luxury-gold font-black text-2xl shadow-xl">
+                        <div className="w-24 h-24 rounded-full border-4 border-line bg-accent-subtle flex items-center justify-center text-accent-ink font-black text-2xl shadow-xl">
                             {initials}
                         </div>
                     )}
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploadingAvatar}
-                        className="absolute bottom-0 right-0 p-2 bg-luxury-gold text-luxury-bg rounded-full shadow-lg hover:bg-luxury-gold/90 transition-colors disabled:opacity-50"
+                        className="absolute bottom-0 right-0 p-2 bg-accent text-on-accent rounded-full shadow-lg hover:bg-accent transition-colors disabled:opacity-50"
                     >
                         {isUploadingAvatar ? (
                             <SydLoader size="sm" />
@@ -254,53 +254,53 @@ export default function ProfilePage() {
                     />
                 </div>
                 <div className="space-y-2">
-                    <p className="text-luxury-text font-medium">Cambia la tua foto profilo</p>
-                    <p className="text-luxury-text/50 text-sm">JPG, PNG, WEBP o HEIC. Max 5MB.</p>
+                    <p className="text-ink font-medium">Cambia la tua foto profilo</p>
+                    <p className="text-ink-muted text-sm">JPG, PNG, WEBP o HEIC. Max 5MB.</p>
                 </div>
             </div>
 
             {/* Info Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-6 glass-premium border border-white/5 rounded-2xl space-y-4">
-                    <div className="flex items-center gap-3 text-luxury-gold">
+                <div className="p-6 glass-premium border border-line rounded-2xl space-y-4">
+                    <div className="flex items-center gap-3 text-accent-ink">
                         <User className="w-5 h-5" />
                         <h3 className="font-bold uppercase tracking-widest text-xs">Informazioni Personali</h3>
                     </div>
                     <div className="space-y-4">
                         <div className="space-y-1">
-                            <label htmlFor="displayName" className="text-[10px] uppercase font-bold text-luxury-text/60">Nome Visualizzato</label>
+                            <label htmlFor="displayName" className="text-[10px] uppercase font-bold text-ink-muted">Nome Visualizzato</label>
                             <input
                                 id="displayName"
                                 type="text"
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
                                 placeholder="Il tuo nome"
-                                className="w-full bg-transparent border-b border-white/10 focus:border-luxury-gold outline-none text-luxury-text font-medium py-1 transition-colors"
+                                className="w-full bg-transparent border-b border-line focus:border-accent outline-none text-ink font-medium py-1 transition-colors"
                             />
-                            {nameError && <p className="text-xs text-red-400">{nameError}</p>}
+                            {nameError && <p className="text-xs text-danger-ink">{nameError}</p>}
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[10px] uppercase font-bold text-luxury-text/60">Email</label>
-                            <p className="text-luxury-text font-medium">{user?.email}</p>
+                            <label className="text-[10px] uppercase font-bold text-ink-muted">Email</label>
+                            <p className="text-ink font-medium">{user?.email}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="p-6 glass-premium border border-white/5 rounded-2xl space-y-4">
+                <div className="p-6 glass-premium border border-line rounded-2xl space-y-4">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 text-luxury-gold">
+                        <div className="flex items-center gap-3 text-accent-ink">
                             <Lock className="w-5 h-5" />
                             <h3 className="font-bold uppercase tracking-widest text-xs">Sicurezza Biometrica</h3>
                         </div>
                         {hasPasskeys && (
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold tracking-wide">
+                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-success-subtle border border-success/20 text-success-ink text-xs font-bold tracking-wide">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 ATTIVA
                             </span>
                         )}
                     </div>
                     <div className="space-y-4">
-                        <p className="text-sm text-luxury-text/60 leading-relaxed">
+                        <p className="text-sm text-ink-muted leading-relaxed">
                             {hasPasskeys
                                 ? "Hai configurato l'accesso biometrico per questo account. Puoi usare FaceID o TouchID per accedere rapidamente."
                                 : "Accedi istantaneamente senza password usando FaceID o TouchID sul tuo dispositivo."
@@ -315,19 +315,20 @@ export default function ProfilePage() {
             </div>
 
             {/* Notifications */}
-            <div className="p-8 glass-premium border border-white/5 rounded-3xl space-y-6">
-                <div className="flex items-center gap-3 text-luxury-gold">
+            <div className="p-8 glass-premium border border-line rounded-3xl space-y-6">
+                <div className="flex items-center gap-3 text-accent-ink">
                     <Bell className="w-5 h-5" />
                     <h3 className="font-bold uppercase tracking-widest text-xs">Preferenze Notifiche</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label className="flex items-center justify-between p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group">
+                    <label className="flex items-center justify-between p-4 rounded-xl bg-surface hover:bg-surface-muted transition-colors cursor-pointer group">
                         <div className="space-y-0.5">
-                            <p className="text-luxury-text font-medium group-hover:text-luxury-gold transition-colors">Aggiornamenti Preventivi</p>
-                            <p className="text-sm text-luxury-text/50">Ricevi notifiche quando i preventivi sono pronti</p>
+                            <p className="text-ink font-medium group-hover:text-accent-ink transition-colors">Aggiornamenti Preventivi</p>
+                            <p className="text-sm text-ink-muted">Ricevi notifiche quando i preventivi sono pronti</p>
                         </div>
-                        <div className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-luxury-gold focus:ring-offset-2 focus:ring-offset-luxury-bg"
-                            style={{ backgroundColor: preferences?.notifications?.quoteReady ? '#D4AF37' : '#334155' }}
+                        <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-canvas ${
+                                preferences?.notifications?.quoteReady ? 'bg-primary' : 'bg-line-strong'
+                            }`}
                             onClick={(e) => {
                                 e.preventDefault();
                                 toggleQuoteNotifications();
@@ -336,7 +337,7 @@ export default function ProfilePage() {
                             aria-checked={preferences?.notifications?.quoteReady}
                         >
                             <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
                                     preferences?.notifications?.quoteReady ? 'translate-x-6' : 'translate-x-1'
                                 }`}
                             />
@@ -350,7 +351,7 @@ export default function ProfilePage() {
                 <button
                     onClick={handleSaveProfile}
                     disabled={isSavingProfile}
-                    className="px-8 py-4 bg-luxury-gold text-luxury-bg font-bold rounded-xl hover:bg-luxury-gold/90 transition-all shadow-lg shadow-luxury-gold/20 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-4 bg-accent text-on-accent font-bold rounded-xl hover:bg-accent transition-all shadow-lg flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isSavingProfile ? (
                         <SydLoader size="sm" />

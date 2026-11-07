@@ -60,12 +60,12 @@ function DraftSections({ lines }: { lines: Lines }) {
         <div className="space-y-4">
             {sectionsOf(lines).map((section) => (
                 <section key={section.id} aria-label={section.label} className="space-y-2">
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-luxury-gold/70">{section.label}</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-accent-ink">{section.label}</h3>
                     <ul className="space-y-1.5">
                         {section.items.map((item, index) => (
-                            <li key={`${item.sku}-${index}`} className="flex items-baseline justify-between gap-3 text-sm text-luxury-text/80">
+                            <li key={`${item.sku}-${index}`} className="flex items-baseline justify-between gap-3 text-sm text-ink">
                                 <span className="min-w-0">{item.description}</span>
-                                <span className="shrink-0 tabular-nums text-xs text-luxury-text/50">
+                                <span className="shrink-0 tabular-nums text-xs text-ink-muted">
                                     {item.qty} {item.unit}
                                 </span>
                             </li>
@@ -83,7 +83,7 @@ function SendToTeamButton({ onClick }: { onClick: () => void }) {
             type="button"
             onClick={onClick}
             data-testid="submit-quote-button"
-            className="flex items-center justify-center gap-2 min-h-11 w-full touch-manipulation rounded-xl bg-luxury-gold/10 hover:bg-luxury-gold/20 border border-luxury-gold/30 hover:border-luxury-gold/50 text-luxury-gold text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-luxury-gold/60"
+            className="flex items-center justify-center gap-2 min-h-11 w-full touch-manipulation rounded-xl bg-accent-subtle hover:bg-accent-subtle border border-line hover:border-accent text-accent-ink text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
             <Send aria-hidden="true" className="w-4 h-4" />
             Invia al team
@@ -98,24 +98,24 @@ function RevisionBox({ revision, onSubmit }: { revision: RevisionInProgress; onS
             aria-label="Nuova revisione"
             data-testid="quote-revision"
             data-revision-state={revision.state}
-            className="space-y-4 p-4 rounded-2xl border border-luxury-gold/20 bg-luxury-gold/5"
+            className="space-y-4 p-4 rounded-2xl border border-line bg-accent-subtle"
         >
-            <h3 className="text-sm font-bold text-luxury-text">Nuova revisione</h3>
+            <h3 className="text-sm font-bold text-ink">Nuova revisione</h3>
             {revision.state === 'with_team' && (
-                <p className="flex items-center gap-2 text-sm font-medium text-emerald-300/90">
+                <p className="flex items-center gap-2 text-sm font-medium text-success-ink">
                     <CheckCircle2 aria-hidden="true" className="w-4 h-4" />
                     Inviata al team, in revisione
                 </p>
             )}
             {revision.state === 'rejected' && (
-                <p className="flex items-center gap-2 text-sm text-red-300/90">
+                <p className="flex items-center gap-2 text-sm text-danger-ink">
                     <XCircle aria-hidden="true" className="w-4 h-4" />
                     Il team non ha accolto queste modifiche: scrivi in chat per prepararne altre.
                 </p>
             )}
             {/* Lines only in the draft: once the team has it, it may be editing them. */}
             {revision.items.length > 0 && <DraftSections lines={revision} />}
-            <p className="text-xs text-luxury-text/40">
+            <p className="text-xs text-ink-subtle">
                 Il preventivo che hai ricevuto resta valido finché il team non ti invia quello aggiornato.
             </p>
             {revision.state === 'draft' && <SendToTeamButton onClick={onSubmit} />}
@@ -143,11 +143,11 @@ function OlderRevision({ chatId, entry }: { chatId: string; entry: QuoteHistoryI
     }, [chatId, entry.revision]);
 
     return (
-        <li className="flex items-center justify-between gap-3 text-sm text-luxury-text/70">
+        <li className="flex items-center justify-between gap-3 text-sm text-ink-muted">
             <span className="min-w-0">
                 Rev. {entry.revision} · {formatDate(entry.sent_at)}
                 {entry.grand_total > 0 && <> · {formatEuro(entry.grand_total)}</>}
-                {failed && <span className="block text-xs text-red-400">PDF non disponibile al momento.</span>}
+                {failed && <span className="block text-xs text-danger-ink">PDF non disponibile al momento.</span>}
             </span>
             {entry.pdf_available && (
                 <button
@@ -155,7 +155,7 @@ function OlderRevision({ chatId, entry }: { chatId: string; entry: QuoteHistoryI
                     onClick={download}
                     disabled={downloading}
                     aria-label={`Scarica il PDF della revisione ${entry.revision}`}
-                    className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl text-luxury-gold hover:bg-luxury-gold/10 disabled:opacity-50 touch-manipulation"
+                    className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl text-accent-ink hover:bg-accent-subtle disabled:opacity-50 touch-manipulation"
                 >
                     {downloading ? <Loader2 aria-hidden="true" className="w-4 h-4 animate-spin" /> : <Download aria-hidden="true" className="w-4 h-4" />}
                 </button>
@@ -191,7 +191,7 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
 
     if (error) {
         return (
-            <p role="alert" className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-sm text-red-200">
+            <p role="alert" className="p-4 rounded-2xl bg-danger-subtle border border-danger/20 text-sm text-danger-ink">
                 {describeApiError(error)}
             </p>
         );
@@ -200,14 +200,14 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
     if (!quote) {
         return (
             <div className="flex flex-col items-center gap-4 py-10 text-center">
-                <p className="text-sm text-luxury-text/60 max-w-xs">
+                <p className="text-sm text-ink-muted max-w-xs">
                     Ancora nessun preventivo. Racconta in chat i lavori che vuoi fare: SYD lo prepara stanza per stanza.
                 </p>
                 {/* On desktop the chat is already beside the panel. */}
                 <button
                     type="button"
                     onClick={() => router.replace(houseTabHref('chat'), { scroll: false })}
-                    className="md:hidden flex items-center gap-2 min-h-11 px-5 rounded-xl bg-luxury-gold text-luxury-bg text-sm font-bold hover:bg-luxury-gold/90 touch-manipulation"
+                    className="md:hidden flex items-center gap-2 min-h-11 px-5 rounded-xl bg-accent text-on-accent text-sm font-bold hover:bg-accent touch-manipulation"
                 >
                     <MessageSquare aria-hidden="true" className="w-4 h-4" />
                     Chiedilo in chat
@@ -222,9 +222,9 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
     return (
         <div className="flex flex-col gap-5">
             <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-lg font-serif font-bold text-luxury-text">Preventivo</h2>
+                <h2 className="text-lg font-serif font-bold text-ink">Preventivo</h2>
                 {quote.quote_number && (
-                    <span className="text-xs font-medium tracking-wide text-luxury-gold/80 tabular-nums">{quote.quote_number}</span>
+                    <span className="text-xs font-medium tracking-wide text-accent-ink tabular-nums">{quote.quote_number}</span>
                 )}
             </div>
 
@@ -233,19 +233,19 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
             )}
 
             {isDraft && quote.items.length === 0 && (
-                <p className="text-sm text-luxury-text/60">Il preventivo è in preparazione in chat.</p>
+                <p className="text-sm text-ink-muted">Il preventivo è in preparazione in chat.</p>
             )}
 
             {isDraft && quote.items.length > 0 && (
                 <>
                     <DraftSections lines={quote} />
-                    <p className="text-xs text-luxury-text/40">I prezzi arrivano con il preventivo approvato dal nostro team.</p>
+                    <p className="text-xs text-ink-subtle">I prezzi arrivano con il preventivo approvato dal nostro team.</p>
                     <SendToTeamButton onClick={() => setSubmitOpen(true)} />
                 </>
             )}
 
             {WITH_THE_TEAM.has(quote.status) && (
-                <p data-testid="quote-with-team" className="flex items-center gap-2 text-sm font-medium text-emerald-300/90">
+                <p data-testid="quote-with-team" className="flex items-center gap-2 text-sm font-medium text-success-ink">
                     <CheckCircle2 aria-hidden="true" className="w-4 h-4" />
                     Inviato al team, in revisione
                 </p>
@@ -257,8 +257,8 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
 
             {older.length > 0 && (
                 <section aria-label="Revisioni precedenti" className="space-y-2">
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-luxury-gold/70">Revisioni precedenti</h3>
-                    <ul className="divide-y divide-luxury-gold/10">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-accent-ink">Revisioni precedenti</h3>
+                    <ul className="divide-y divide-line">
                         {older.map((entry) => (
                             <OlderRevision key={entry.revision} chatId={chatId} entry={entry} />
                         ))}
@@ -266,7 +266,7 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
                 </section>
             )}
 
-            <p className="text-xs text-luxury-text/40">Per modificarlo scrivi in chat.</p>
+            <p className="text-xs text-ink-subtle">Per modificarlo scrivi in chat.</p>
 
             {/* Outside the draft: once sent, the quote read again is with the team,
                 and the dialog must stay to confirm it. */}

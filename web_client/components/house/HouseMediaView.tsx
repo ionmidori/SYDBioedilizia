@@ -34,8 +34,8 @@ function FilterButton({ active, label, count, onClick }: { active: boolean; labe
             className={cn(
                 "px-4 py-2 min-h-11 rounded-xl font-bold text-xs whitespace-nowrap transition-colors border touch-manipulation",
                 active
-                    ? "bg-luxury-gold text-luxury-bg border-luxury-gold"
-                    : "glass-premium border-luxury-gold/10 text-luxury-text/60 hover:text-luxury-text"
+                    ? "bg-accent text-on-accent border-accent"
+                    : "glass-premium border-line text-ink-muted hover:text-ink"
             )}
         >
             {label}
@@ -85,12 +85,12 @@ export function HouseMediaView({ chatId }: HouseMediaViewProps) {
     return (
         <div className="flex flex-col w-full gap-4">
             <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-serif font-bold text-luxury-text">Stanze e media</h2>
+                <h2 className="text-lg font-serif font-bold text-ink">Stanze e media</h2>
                 <button
                     type="button"
                     onClick={() => setUploading(true)}
                     aria-label="Carica file"
-                    className="flex items-center gap-2 min-h-11 px-4 rounded-xl bg-luxury-gold text-luxury-bg text-xs font-bold hover:bg-luxury-gold/90 shadow-lg shadow-luxury-gold/20 touch-manipulation"
+                    className="flex items-center gap-2 min-h-11 px-4 rounded-xl bg-accent text-on-accent text-xs font-bold hover:bg-accent shadow-lg touch-manipulation"
                 >
                     <Upload aria-hidden="true" className="w-4 h-4" />
                     Carica
@@ -126,14 +126,14 @@ export function HouseMediaView({ chatId }: HouseMediaViewProps) {
             </div>
 
             {error && (
-                <div role="alert" className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3">
-                    <AlertCircle aria-hidden="true" className="w-5 h-5 text-red-500 shrink-0" />
-                    <p className="text-sm text-red-200 font-medium">{error}</p>
+                <div role="alert" className="p-4 bg-danger-subtle border border-danger/20 rounded-2xl flex items-center gap-3">
+                    <AlertCircle aria-hidden="true" className="w-5 h-5 text-danger-ink shrink-0" />
+                    <p className="text-sm text-danger-ink font-medium">{error}</p>
                 </div>
             )}
 
             {!error && shown.length === 0 ? (
-                <p className="py-10 text-center text-sm text-luxury-text/50">
+                <p className="py-10 text-center text-sm text-ink-muted">
                     Nessun file qui. Mandali in chat o caricali con «Carica».
                 </p>
             ) : (
@@ -141,17 +141,17 @@ export function HouseMediaView({ chatId }: HouseMediaViewProps) {
             )}
 
             {uploading && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                    <div className="glass-premium border-luxury-gold/20 rounded-2xl max-w-lg w-full p-6 relative">
+                <div className="fixed inset-0 bg-scrim backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="glass-premium border-line rounded-2xl max-w-lg w-full p-6 relative">
                         <button
                             type="button"
                             onClick={() => setUploading(false)}
                             aria-label="Chiudi"
-                            className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg transition-colors"
+                            className="absolute top-4 right-4 p-2 hover:bg-surface-muted rounded-lg transition-colors"
                         >
-                            <X aria-hidden="true" className="w-6 h-6 text-luxury-text/60" />
+                            <X aria-hidden="true" className="w-6 h-6 text-ink-muted" />
                         </button>
-                        <h2 className="text-xl font-bold text-luxury-text mb-4">Carica file</h2>
+                        <h2 className="text-xl font-bold text-ink mb-4">Carica file</h2>
                         <FileUploader projectId={chatId} roomId={uploadRoom} onUploadComplete={() => setUploading(false)} />
                     </div>
                 </div>

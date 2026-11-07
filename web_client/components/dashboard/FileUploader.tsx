@@ -251,9 +251,9 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
             case 'uploading':
                 return <SydLoader size="sm" />;
             case 'success':
-                return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+                return <CheckCircle2 className="w-5 h-5 text-success-ink" />;
             case 'error':
-                return <AlertCircle className="w-5 h-5 text-red-500" />;
+                return <AlertCircle className="w-5 h-5 text-danger-ink" />;
             default:
                 return null;
         }
@@ -265,17 +265,17 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
         <div className="space-y-6">
             {/* Drop Zone */}
             {user?.isAnonymous ? (
-                <div className="border-2 border-dashed border-luxury-gold/20 rounded-2xl p-12 text-center bg-white/5">
-                    <AlertCircle className="w-16 h-16 mx-auto mb-4 text-luxury-gold" />
-                    <h3 className="text-xl font-bold text-luxury-text mb-2">
+                <div className="border-2 border-dashed border-line rounded-2xl p-12 text-center bg-surface">
+                    <AlertCircle className="w-16 h-16 mx-auto mb-4 text-accent-ink" />
+                    <h3 className="text-xl font-bold text-ink mb-2">
                         Login Richiesto
                     </h3>
-                    <p className="text-luxury-text/60 mb-6">
+                    <p className="text-ink-muted mb-6">
                         Devi essere registrato per caricare file nella tua casa.
                     </p>
                     <button
                         onClick={() => router.push('/auth')}
-                        className="px-6 py-2 bg-luxury-gold text-luxury-bg font-bold rounded-xl hover:bg-luxury-gold/90 transition-all"
+                        className="px-6 py-2 bg-accent text-on-accent font-bold rounded-xl hover:bg-accent transition-all"
                     >
                         Accedi o Registrati
                     </button>
@@ -289,8 +289,8 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                         relative border-2 border-dashed rounded-2xl p-8 sm:p-12 text-center
                         transition-all duration-300
                         ${isDragging
-                            ? 'border-luxury-gold bg-luxury-gold/5 scale-[1.02]'
-                            : 'border-luxury-gold/20 bg-white/5 hover:border-luxury-gold/40 hover:bg-white/10'
+                            ? 'border-accent bg-accent-subtle scale-[1.02]'
+                            : 'border-line bg-surface hover:border-accent hover:bg-surface-muted'
                         }
                     `}
                 >
@@ -312,30 +312,30 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                         className="hidden"
                     />
 
-                    <Upload className="w-16 h-16 mx-auto mb-6 text-luxury-gold/50" />
+                    <Upload className="w-16 h-16 mx-auto mb-6 text-accent-ink" />
 
                     <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
                         <DialogTrigger asChild>
                             <div className="flex justify-center mb-6">
                                 <Button
                                     variant="primary"
-                                    className="bg-luxury-gold text-luxury-bg hover:bg-luxury-gold/90 w-full sm:w-auto font-bold shadow-lg shadow-luxury-gold/20"
+                                    className="bg-accent text-on-accent hover:bg-accent w-full sm:w-auto font-bold shadow-lg"
                                 >
                                     <Upload className="w-4 h-4 mr-2" /> Carica File
                                 </Button>
                             </div>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-md bg-luxury-bg border-luxury-gold/20 z-[100]">
+                        <DialogContent className="sm:max-w-md bg-canvas border-line z-[100]">
                             <DialogHeader>
-                                <DialogTitle className="text-luxury-text">Scegli la modalità di caricamento</DialogTitle>
-                                <DialogDescription className="text-luxury-text/60">
+                                <DialogTitle className="text-ink">Scegli la modalità di caricamento</DialogTitle>
+                                <DialogDescription className="text-ink-muted">
                                     Vuoi scattare una foto/video dal vivo o caricare un file esistente?
                                 </DialogDescription>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <Button
                                     variant="secondary"
-                                    className="h-16 justify-start px-6 bg-white/5 border-luxury-gold/20 hover:border-luxury-gold/60 hover:bg-white/10 text-luxury-text transition-all"
+                                    className="h-16 justify-start px-6 bg-surface border-line hover:border-accent hover:bg-surface-muted text-ink transition-all"
                                     onClick={async (e) => {
                                         e.stopPropagation();
                                         setIsUploadDialogOpen(false);
@@ -356,38 +356,38 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                                         setTimeout(() => cameraInputRef.current?.click(), 100);
                                     }}
                                 >
-                                    <Camera className="w-6 h-6 mr-4 text-luxury-gold" />
+                                    <Camera className="w-6 h-6 mr-4 text-accent-ink" />
                                     <div className="flex flex-col items-start">
                                         <span className="font-semibold text-base">Fotocamera / Videocamera</span>
-                                        <span className="text-xs text-luxury-text/60">Scatta dal vivo con il dispositivo</span>
+                                        <span className="text-xs text-ink-muted">Scatta dal vivo con il dispositivo</span>
                                     </div>
                                 </Button>
                                 <Button
                                     variant="secondary"
-                                    className="h-16 justify-start px-6 bg-white/5 border-luxury-gold/20 hover:border-luxury-gold/60 hover:bg-white/10 text-luxury-text transition-all"
+                                    className="h-16 justify-start px-6 bg-surface border-line hover:border-accent hover:bg-surface-muted text-ink transition-all"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         setIsUploadDialogOpen(false);
                                         setTimeout(() => fileInputRef.current?.click(), 100);
                                     }}
                                 >
-                                    <ImageIcon className="w-6 h-6 mr-4 text-luxury-gold" />
+                                    <ImageIcon className="w-6 h-6 mr-4 text-accent-ink" />
                                     <div className="flex flex-col items-start">
                                         <span className="font-semibold text-base">Galleria o Documenti</span>
-                                        <span className="text-xs text-luxury-text/60">Scegli file già salvati</span>
+                                        <span className="text-xs text-ink-muted">Scegli file già salvati</span>
                                     </div>
                                 </Button>
                             </div>
                         </DialogContent>
                     </Dialog>
 
-                    <h3 className="text-xl font-bold text-luxury-text mb-2 hidden sm:block">
+                    <h3 className="text-xl font-bold text-ink mb-2 hidden sm:block">
                         oppure trascina i file qui
                     </h3>
-                    <p className="text-sm text-luxury-text/40 mt-4">
+                    <p className="text-sm text-ink-subtle mt-4">
                         Immagini (JPG, PNG, WEBP) • PDF • Video (MP4, MOV)
                     </p>
-                    <p className="text-xs text-luxury-text/60 mt-2">
+                    <p className="text-xs text-ink-muted mt-2">
                         Max {maxFiles} file • Immagini: 10MB • PDF: 25MB • Video: 100MB
                     </p>
                 </div>
@@ -401,7 +401,7 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                             key={fileData.id}
                             data-testid="file-row"
                             data-file-status={fileData.status}
-                            className="glass-premium border-luxury-gold/10 p-4 rounded-xl flex items-center gap-4"
+                            className="glass-premium border-line p-4 rounded-xl flex items-center gap-4"
                         >
                             {/* File Icon/Preview */}
                             <div className="flex-shrink-0">
@@ -409,10 +409,10 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                                     <img
                                         src={fileData.preview}
                                         alt={fileData.file.name}
-                                        className="w-12 h-12 rounded-lg object-cover border border-luxury-gold/20"
+                                        className="w-12 h-12 rounded-lg object-cover border border-line"
                                     />
                                 ) : (
-                                    <div className="w-12 h-12 rounded-lg bg-luxury-gold/10 flex items-center justify-center text-luxury-gold border border-luxury-gold/20">
+                                    <div className="w-12 h-12 rounded-lg bg-accent-subtle flex items-center justify-center text-accent-ink border border-line">
                                         {getFileIcon(fileData.file)}
                                     </div>
                                 )}
@@ -420,18 +420,18 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
 
                             {/* File Info */}
                             <div className="flex-1 min-w-0">
-                                <p className="text-luxury-text font-medium truncate">
+                                <p className="text-ink font-medium truncate">
                                     {fileData.file.name}
                                 </p>
-                                <p className="text-sm text-luxury-text/50">
+                                <p className="text-sm text-ink-muted">
                                     {(fileData.file.size / 1024 / 1024).toFixed(2)} MB
                                 </p>
 
                                 {/* Progress Bar */}
                                 {fileData.status === 'uploading' && (
-                                    <div className="mt-2 w-full bg-white/5 rounded-full h-1.5">
+                                    <div className="mt-2 w-full bg-surface rounded-full h-1.5">
                                         <div
-                                            className="bg-luxury-gold h-1.5 rounded-full transition-all"
+                                            className="bg-accent h-1.5 rounded-full transition-all"
                                             style={{ width: `${fileData.progress}%` }}
                                         />
                                     </div>
@@ -439,7 +439,7 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
 
                                 {/* Error Message */}
                                 {fileData.error && (
-                                    <p data-testid="file-error" className="text-xs text-red-400 mt-1">{fileData.error}</p>
+                                    <p data-testid="file-error" className="text-xs text-danger-ink mt-1">{fileData.error}</p>
                                 )}
                             </div>
 
@@ -451,10 +451,10 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                             {/* Remove Button */}
                             <button
                                 onClick={() => removeFile(fileData.id)}
-                                className="flex-shrink-0 p-2 hover:bg-red-500/10 rounded-lg transition-colors"
+                                className="flex-shrink-0 p-2 hover:bg-danger-subtle rounded-lg transition-colors"
                                 disabled={fileData.status === 'uploading'}
                             >
-                                <X className="w-5 h-5 text-luxury-text/50 hover:text-red-400" />
+                                <X className="w-5 h-5 text-ink-muted hover:text-danger-ink" />
                             </button>
                         </div>
                     ))}
@@ -465,7 +465,7 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
             {pendingCount > 0 && (
                 <button
                     onClick={uploadAll}
-                    className="w-full px-6 py-4 bg-luxury-gold text-luxury-bg font-bold rounded-xl hover:bg-luxury-gold/90 transition-all shadow-lg shadow-luxury-gold/20 flex items-center justify-center gap-3"
+                    className="w-full px-6 py-4 bg-accent text-on-accent font-bold rounded-xl hover:bg-accent transition-all shadow-lg flex items-center justify-center gap-3"
                 >
                     <Upload className="w-5 h-5" />
                     Carica {pendingCount} {pendingCount === 1 ? 'File' : 'File'}

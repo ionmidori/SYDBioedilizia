@@ -26,37 +26,37 @@ export default function DashboardError({
     }, [error]);
 
     return (
-        <div className="min-h-screen bg-luxury-bg flex items-center justify-center p-6">
+        <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
             <div className="max-w-lg w-full space-y-6 text-center">
                 {/* Error Icon */}
-                <div className="w-20 h-20 mx-auto rounded-full glass-premium border-red-500/20 flex items-center justify-center mb-6 shadow-xl">
-                    <AlertTriangle className="w-10 h-10 text-red-500" />
+                <div className="w-20 h-20 mx-auto rounded-full glass-premium border-danger/20 flex items-center justify-center mb-6 shadow-xl">
+                    <AlertTriangle className="w-10 h-10 text-danger-ink" />
                 </div>
 
                 {/* Title */}
-                <h1 className="text-3xl md:text-4xl font-bold text-luxury-text font-serif leading-tight">
-                    Errore nella <span className="text-luxury-gold italic">Dashboard</span>
+                <h1 className="text-3xl md:text-4xl font-bold text-ink font-serif leading-tight">
+                    Errore nella <span className="text-accent-ink italic">Dashboard</span>
                 </h1>
 
                 {/* Description */}
-                <p className="text-luxury-text/60 leading-relaxed max-w-md mx-auto">
+                <p className="text-ink-muted leading-relaxed max-w-md mx-auto">
                     Si è verificato un problema durante il caricamento di questa sezione.
                     I tuoi dati sono al sicuro. Prova a ricaricare la pagina.
                 </p>
 
                 {/* Error Details (Development Only) */}
                 {process.env.NODE_ENV === 'development' && (
-                    <div className="glass-premium border-red-500/20 p-4 rounded-xl">
-                        <p className="text-xs text-red-400 mb-2 font-mono text-left break-all">
+                    <div className="glass-premium border-danger/20 p-4 rounded-xl">
+                        <p className="text-xs text-danger-ink mb-2 font-mono text-left break-all">
                             <strong>Error:</strong> {error.message}
                         </p>
                         {error.digest && (
-                            <p className="text-xs text-gray-500 font-mono text-left">
+                            <p className="text-xs text-ink-muted font-mono text-left">
                                 <strong>Digest:</strong> {error.digest}
                             </p>
                         )}
                         {error.stack && (
-                            <pre className="text-[10px] text-left text-gray-600 mt-2 overflow-auto max-h-32 bg-black/20 p-2 rounded">
+                            <pre className="text-[10px] text-left text-ink-subtle mt-2 overflow-auto max-h-32 bg-surface-muted p-2 rounded">
                                 {error.stack.slice(0, 500)}
                             </pre>
                         )}
@@ -67,7 +67,7 @@ export default function DashboardError({
                 <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                     <Button
                         onClick={reset}
-                        className="px-8 py-6 bg-luxury-teal hover:bg-luxury-teal/90 text-white font-bold rounded-xl shadow-lg shadow-luxury-teal/20 transition-all active:scale-95 flex items-center justify-center gap-3"
+                        className="px-8 py-6 bg-primary hover:bg-primary-hover text-on-primary font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
                         <RefreshCw className="w-5 h-5" />
                         Riprova
@@ -75,7 +75,7 @@ export default function DashboardError({
                     <Button
                         asChild
                         variant="secondary"
-                        className="px-8 py-6 border-luxury-gold/30 hover:bg-luxury-gold/10 text-luxury-text font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
+                        className="px-8 py-6 border-line hover:bg-accent-subtle text-ink font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
                         <Link href="/dashboard">
                             <LayoutDashboard className="w-5 h-5" />

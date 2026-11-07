@@ -34,12 +34,12 @@ function House({ chatId }: { chatId: string }) {
     const panelTab = panelTabFromView(view);
 
     return (
-        <div className="w-full grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] overflow-hidden bg-luxury-bg h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh-3.5rem)]">
+        <div className="w-full grid md:grid-cols-[1fr_320px] lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_400px] overflow-hidden bg-canvas h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh-3.5rem)]">
             <main
                 data-testid="chat-column"
-                className={cn('relative flex-col min-h-0 bg-black/20 overflow-hidden md:flex', onChat ? 'flex' : 'hidden')}
+                className={cn('relative flex-col min-h-0 bg-surface-muted overflow-hidden md:flex', onChat ? 'flex' : 'hidden')}
             >
-                <Suspense fallback={<div className="flex-1 bg-luxury-bg animate-pulse" />}>
+                <Suspense fallback={<div className="flex-1 bg-canvas animate-pulse" />}>
                     <ChatWidget variant="inline" />
                 </Suspense>
             </main>
@@ -48,12 +48,12 @@ function House({ chatId }: { chatId: string }) {
                 data-testid="panel-column"
                 aria-label="La tua casa"
                 className={cn(
-                    'relative flex-col min-h-0 md:border-l border-luxury-gold/10 bg-luxury-bg/50 backdrop-blur-xl md:flex',
+                    'relative flex-col min-h-0 md:border-l border-line bg-canvas/50 backdrop-blur-xl md:flex',
                     onChat ? 'hidden' : 'flex',
                 )}
             >
                 {/* On a phone the tabs are in DashboardHeader. */}
-                <div role="tablist" aria-label="La tua casa" className="hidden md:flex gap-1 p-2 border-b border-luxury-gold/10">
+                <div role="tablist" aria-label="La tua casa" className="hidden md:flex gap-1 p-2 border-b border-line">
                     {PANEL_TABS.map((tab) => (
                         <button
                             key={tab.id}
@@ -66,8 +66,8 @@ function House({ chatId }: { chatId: string }) {
                             className={cn(
                                 'flex-1 min-h-11 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors touch-manipulation',
                                 tab.id === panelTab
-                                    ? 'bg-luxury-gold/15 text-luxury-gold'
-                                    : 'text-luxury-text/50 hover:text-luxury-text hover:bg-white/5',
+                                    ? 'bg-accent-subtle text-accent-ink'
+                                    : 'text-ink-muted hover:text-ink hover:bg-surface',
                             )}
                         >
                             {tab.label}
