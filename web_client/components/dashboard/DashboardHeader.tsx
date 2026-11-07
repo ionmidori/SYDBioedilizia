@@ -39,7 +39,7 @@ export function DashboardHeader() {
     };
 
     return (
-        <header className="md:hidden sticky top-0 z-30 w-full px-4 bg-luxury-bg/90 backdrop-blur-md border-b border-luxury-gold/10 transition-all duration-300 pt-[env(safe-area-inset-top)]">
+        <header className="md:hidden sticky top-0 z-30 w-full px-4 bg-canvas backdrop-blur-md border-b border-line transition-all duration-300 pt-[env(safe-area-inset-top)]">
             <div className="h-14 flex items-center justify-between">
                 {/* Left: SYD mark (the full wordmark is too small at header height) */}
                 <div className="flex-shrink-0">

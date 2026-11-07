@@ -69,11 +69,6 @@
     font-weight: 600;
   }
 
-  /* Scroll-snap opt-in: apply .snap-section to sections that need snapping (e.g. landing page) */
-  .snap-section {
-    scroll-snap-align: start;
-  }
-
   /* 4. VISUAL POLISH: Minimal Scrollbars */
   ::-webkit-scrollbar {
     width: 6px;

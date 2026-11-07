@@ -73,7 +73,7 @@ function GalleryCell({
                 onClick={() => onItemClick(item, itemIndex)}
                 onMouseEnter={() => setHoveredId(item.id)}
                 onMouseLeave={() => setHoveredId(null)}
-                className="relative w-full aspect-square rounded-2xl overflow-hidden cursor-pointer group bg-luxury-bg/30 border border-luxury-gold/10 hover:border-luxury-gold/30 transition-all duration-300"
+                className="relative w-full aspect-square rounded-2xl overflow-hidden cursor-pointer group bg-canvas/30 border border-line hover:border-line transition-all duration-300"
                 role="button"
                 tabIndex={0}
                 aria-label={`Apri ${item.title || 'immagine'}`}
@@ -91,16 +91,16 @@ function GalleryCell({
                         decoding="async"
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-luxury-bg via-luxury-bg/80 to-luxury-bg/60">
-                        <span className="text-luxury-gold/60 text-xs font-bold uppercase tracking-widest">
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-canvas via-canvas/80 to-canvas/60">
+                        <span className="text-accent-ink text-xs font-bold uppercase tracking-widest">
                             {item.type === 'quote' ? 'PDF' : item.type.toUpperCase()}
                         </span>
                     </div>
                 )}
 
                 {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
-                    <div className="text-white text-xs font-bold truncate pr-8">
+                <div className="absolute inset-0 bg-gradient-to-t from-shade/70 via-shade/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-3">
+                    <div className="text-on-scrim text-xs font-bold truncate pr-8">
                         {item.title || `${item.type} ${itemIndex + 1}`}
                     </div>
                 </div>
@@ -112,7 +112,7 @@ function GalleryCell({
                             e.stopPropagation();
                             onDeleteClick(item);
                         }}
-                        className="absolute top-2 left-2 z-20 p-2 bg-red-500/80 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
+                        className="absolute top-2 left-2 z-20 p-2 bg-danger hover:bg-danger text-on-scrim rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
                         title="Elimina"
                     >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -120,7 +120,7 @@ function GalleryCell({
                 )}
 
                 {/* Type Badge */}
-                <div className="absolute top-2 right-2 px-2 py-1 bg-luxury-gold/20 text-luxury-gold text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-luxury-gold/30 z-10">
+                <div className="absolute top-2 right-2 px-2 py-1 bg-accent-subtle text-accent-ink text-[8px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm border border-line z-10">
                     {item.type === 'quote' ? 'PDF' : item.type.substring(0, 3).toUpperCase()}
                 </div>
 
@@ -128,7 +128,7 @@ function GalleryCell({
                 {hoveredId === item.id && (
                     <motion.div
                         layoutId="focus-ring"
-                        className="absolute inset-0 border-2 border-luxury-gold/50 rounded-2xl pointer-events-none"
+                        className="absolute inset-0 border-2 border-accent rounded-2xl pointer-events-none"
                         transition={M3Spring.expressive}
                     />
                 )}
@@ -179,14 +179,14 @@ export function VirtualizedGalleryGrid({
 
     if (items.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-24 text-center border border-luxury-gold/10 rounded-3xl bg-luxury-bg/30 p-12">
-                <div className="p-6 bg-luxury-gold/10 rounded-2xl mb-4 inline-block">
-                    <svg className="w-12 h-12 text-luxury-gold/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="flex flex-col items-center justify-center py-24 text-center border border-line rounded-3xl bg-canvas/30 p-12">
+                <div className="p-6 bg-accent-subtle rounded-2xl mb-4 inline-block">
+                    <svg className="w-12 h-12 text-accent-ink" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                 </div>
-                <h3 className="text-lg font-bold text-luxury-text/60 mb-2">Nessun File</h3>
-                <p className="text-sm text-luxury-text/40">I tuoi file appariranno qui</p>
+                <h3 className="text-lg font-bold text-ink-muted mb-2">Nessun File</h3>
+                <p className="text-sm text-ink-subtle">I tuoi file appariranno qui</p>
             </div>
         );
     }

@@ -74,12 +74,18 @@
       }
     },
     "accent": {
-      "$description": "Brand sand, decorative only (hairlines, ornaments, illustrations): never text, never the only cue.",
+      "$description": "Brand sand: decorative (hairlines, ornaments, illustrations) and the fill of accent buttons (with on-accent text). Never text, never the only cue.",
       "$extensions": { "syd.role": {} }
     },
     "accent-subtle": {
       "$description": "Sand-tinted background.",
       "$extensions": { "syd.role": {} }
+    },
+    "on-accent": {
+      "$description": "Text and icons on an accent fill (accent buttons).",
+      "$extensions": {
+        "syd.role": { "textRole": true, "contrast": [{ "against": ["accent"], "min": 4.5 }] }
+      }
     },
     "accent-ink": {
       "$description": "Text in the accent colour (a darker sand on light surfaces).",

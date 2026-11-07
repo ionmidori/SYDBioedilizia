@@ -111,10 +111,10 @@ export function Portfolio({
                             exit={{ y: '-100%', opacity: 0 }}
                             transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
                         >
-                            <h3 className="text-2xl font-serif font-bold text-luxury-text truncate">
+                            <h3 className="text-2xl font-serif font-bold text-ink truncate">
                                 {activeProject?.title}
                             </h3>
-                            <p className="text-sm text-luxury-gold/80 font-light truncate">
+                            <p className="text-sm text-accent-ink font-light truncate">
                                 {activeProject && cardSubtitle(activeProject)}
                             </p>
                         </motion.div>
@@ -166,9 +166,9 @@ export function Portfolio({
             <div className="mt-8 text-center">
                 <Button
                     asChild
-                    variant="outline"
+                    variant="secondary"
                     size="lg"
-                    className="h-14 px-8 text-base min-w-[300px] border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold/10 hover:border-luxury-gold rounded-lg transition-all duration-200 active:scale-95 active:bg-luxury-gold/20"
+                    className="h-14 px-8 text-base min-w-[300px] border-accent text-accent-ink hover:bg-accent-subtle hover:border-accent rounded-lg transition-all duration-200 active:scale-95 active:bg-accent-subtle"
                 >
                     <Link href="/progetti">
                         <LayoutGrid className="mr-2 w-5 h-5" />

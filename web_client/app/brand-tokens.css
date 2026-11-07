@@ -18,6 +18,7 @@
   --role-primary-ink: #2a9d8f;
   --role-accent: #e9c46a;
   --role-accent-subtle: #3a5355;
+  --role-on-accent: #264653;
   --role-accent-ink: #e9c46a;
   --role-scrim: #221f1999;
   --role-shade: #221f19;
@@ -67,6 +68,7 @@
   --color-primary-ink: var(--role-primary-ink);
   --color-accent: var(--role-accent);
   --color-accent-subtle: var(--role-accent-subtle);
+  --color-on-accent: var(--role-on-accent);
   --color-accent-ink: var(--role-accent-ink);
   --color-scrim: var(--role-scrim);
   --color-shade: var(--role-shade);
@@ -106,6 +108,10 @@
   --color-brand-sand-500: #cda865;
   --color-brand-white: #ffffff;
   --color-ui-browser-tab-dark: #35363a;
+  --color-third-party-google-surface: #ffffff;
+  --color-third-party-google-surface-hover: #f8fafc;
+  --color-third-party-google-ink: #1f1f1f;
+  --color-third-party-google-line: #747775;
   --color-luxury-bg: #264653;
   --color-luxury-gold: #e9c46a;
   --color-luxury-gold-dark: #b38b36;

@@ -8,7 +8,7 @@ import { COMPANY_LEGAL_LINE } from '@/lib/company';
 
 export default function CookiePolicyPage() {
     return (
-        <div className="min-h-screen bg-luxury-bg text-luxury-text selection:bg-luxury-gold/30 selection:text-luxury-gold">
+        <div className="min-h-screen bg-canvas text-ink selection:bg-accent/30 selection:text-accent-ink">
             {/* Background Atmosphere */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none">
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] ambient-glow ambient-glow-teal [--glow-alpha:5%] [--glow-blur:60px] md:[--glow-blur:120px]" />
@@ -16,15 +16,15 @@ export default function CookiePolicyPage() {
             </div>
 
             {/* Navigation */}
-            <nav className="sticky top-0 z-50 glass-premium border-b border-white/5 px-6 py-4">
+            <nav className="sticky top-0 z-50 glass-premium border-b border-line px-6 py-4">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
-                    <Link href="/" className="flex items-center gap-2 text-luxury-gold hover:text-luxury-text transition-colors group">
+                    <Link href="/" className="flex items-center gap-2 text-accent-ink hover:text-ink transition-colors group">
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                         <span className="text-xs font-bold uppercase tracking-widest">Torna alla Home</span>
                     </Link>
                     <div className="flex items-center gap-2">
-                        <Cookie className="w-5 h-5 text-luxury-gold" />
-                        <span className="text-sm font-serif italic text-luxury-text/60">Syd Bioedilizia - Cookie Policy</span>
+                        <Cookie className="w-5 h-5 text-accent-ink" />
+                        <span className="text-sm font-serif italic text-ink-muted">Syd Bioedilizia - Cookie Policy</span>
                     </div>
                 </div>
             </nav>
@@ -36,30 +36,30 @@ export default function CookiePolicyPage() {
                     className="space-y-12"
                 >
                     {/* Header */}
-                    <header className="border-b border-luxury-gold/10 pb-12">
+                    <header className="border-b border-line pb-12">
                         <h1 className="text-5xl md:text-7xl font-bold font-serif tracking-tight leading-tight">
-                            Cookie <span className="text-luxury-gold italic">Policy</span>
+                            Cookie <span className="text-accent-ink italic">Policy</span>
                         </h1>
-                        <p className="mt-6 text-luxury-text/40 font-medium tracking-[0.2em] uppercase text-xs">
+                        <p className="mt-6 text-ink-subtle font-medium tracking-[0.2em] uppercase text-xs">
                             Syd Bioedilizia - Gestione Consenso Trasparente
                         </p>
                     </header>
 
                     {/* Content */}
-                    <div className="prose prose-invert prose-luxury max-w-none space-y-10 text-luxury-text/80 leading-relaxed font-medium">
+                    <div className="prose prose-invert prose-luxury max-w-none space-y-10 text-ink leading-relaxed font-medium">
                         <p className="text-lg leading-relaxed">
                             Questo Sito utilizza cookie tecnici (necessari), e con il tuo consenso anche cookie analitici e di profilazione, utili rispettivamente per consentire funzionalità fondamentali, misurare le performance o fornirti indicazioni promozionali in linea con i tuoi interessi.
                         </p>
 
                         <section className="space-y-6">
-                            <h2 className="text-2xl font-serif text-luxury-gold italic">Cosa sono i cookie</h2>
+                            <h2 className="text-2xl font-serif text-accent-ink italic">Cosa sono i cookie</h2>
                             <p>
                                 I cookie sono piccoli file di testo che vengono automaticamente posizionati sul PC del navigatore all&apos;interno del browser. Essi contengono informazioni di base sulla navigazione in Internet e grazie al browser vengono riconosciuti ogni volta che l&apos;utente visita il sito.
                             </p>
                         </section>
 
                         <section className="space-y-8">
-                            <h2 className="text-2xl font-serif text-luxury-gold italic">Le nostre Categorie</h2>
+                            <h2 className="text-2xl font-serif text-accent-ink italic">Le nostre Categorie</h2>
 
                             <div className="grid gap-6">
                                 <CookieCategoryItem
@@ -83,7 +83,7 @@ export default function CookiePolicyPage() {
                         </section>
 
                         <section className="space-y-6">
-                            <h2 className="text-2xl font-serif text-luxury-gold italic">Come gestire le tue preferenze</h2>
+                            <h2 className="text-2xl font-serif text-accent-ink italic">Come gestire le tue preferenze</h2>
                             <p>
                                 Puoi gestire le tue preferenze tramite il pop-up banner che appare al primo accesso o cliccando sull&apos;icona della gestione consenso presente in basso a sinistra in ogni pagina. Inoltre, puoi gestire i cookie direttamente dalle impostazioni del tuo browser:
                             </p>
@@ -93,8 +93,8 @@ export default function CookiePolicyPage() {
                                 <BrowserLink name="Safari" url="https://support.apple.com/it-it/guide/deployment/depf7d5714d4/web" />
                                 <BrowserLink name="Microsoft Edge" url="https://support.microsoft.com/it-it/microsoft-edge/eliminare-i-cookie-in-microsoft-edge-63947406-40ac-c3b8-57b9-2a946a29ae09" />
                             </ul>
-                            <div className="mt-8 p-6 bg-luxury-teal/5 border border-luxury-teal/10 rounded-3xl space-y-4">
-                                <h3 className="text-sm font-bold uppercase tracking-widest text-luxury-gold">Dettagli per Browser</h3>
+                            <div className="mt-8 p-6 bg-primary-subtle border border-primary/10 rounded-3xl space-y-4">
+                                <h3 className="text-sm font-bold uppercase tracking-widest text-accent-ink">Dettagli per Browser</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[11px] leading-relaxed opacity-60">
                                     <div className="space-y-2">
                                         <p className="font-bold">Firefox:</p>
@@ -109,12 +109,12 @@ export default function CookiePolicyPage() {
                         </section>
                     </div>
 
-                    <footer className="pt-20 border-t border-luxury-gold/10 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <footer className="pt-20 border-t border-line flex flex-col md:flex-row justify-between items-center gap-6">
                         <div className="flex items-center gap-6">
-                            <Link href="/privacy" className="text-xs font-bold uppercase tracking-widest text-luxury-text/40 hover:text-luxury-gold transition-colors">Privacy Policy</Link>
-                            <Link href="/terms" className="text-xs font-bold uppercase tracking-widest text-luxury-text/40 hover:text-luxury-gold transition-colors">Termini e Condizioni</Link>
+                            <Link href="/privacy" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Privacy Policy</Link>
+                            <Link href="/terms" className="text-xs font-bold uppercase tracking-widest text-ink-subtle hover:text-accent-ink transition-colors">Termini e Condizioni</Link>
                         </div>
-                        <p className="text-xs text-luxury-text/60">&copy; {new Date().getFullYear()} {COMPANY_LEGAL_LINE}</p>
+                        <p className="text-xs text-ink-muted">&copy; {new Date().getFullYear()} {COMPANY_LEGAL_LINE}</p>
                     </footer>
                 </motion.div>
             </main>
@@ -124,12 +124,12 @@ export default function CookiePolicyPage() {
 
 function CookieCategoryItem({ title, desc, required = false }: { title: string, desc: string, required?: boolean }) {
     return (
-        <div className="p-6 bg-white/5 border border-white/10 rounded-[2rem] hover:border-luxury-gold/30 transition-all group">
+        <div className="p-6 bg-surface border border-line rounded-[2rem] hover:border-line transition-all group">
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-serif italic text-luxury-gold">{title}</h3>
-                {required && <span className="text-[10px] uppercase tracking-widest font-bold text-luxury-gold/40 border border-luxury-gold/20 px-3 py-1 rounded-full">Sempre Attivo</span>}
+                <h3 className="text-lg font-serif italic text-accent-ink">{title}</h3>
+                {required && <span className="text-[10px] uppercase tracking-widest font-bold text-accent-ink border border-line px-3 py-1 rounded-full">Sempre Attivo</span>}
             </div>
-            <p className="text-sm text-luxury-text/60 leading-relaxed">{desc}</p>
+            <p className="text-sm text-ink-muted leading-relaxed">{desc}</p>
         </div>
     );
 }
@@ -141,10 +141,10 @@ function BrowserLink({ name, url }: { name: string, url: string }) {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between p-4 bg-luxury-teal/5 border border-luxury-teal/10 rounded-2xl hover:bg-luxury-teal/10 hover:border-luxury-gold/30 transition-all group"
+                className="flex items-center justify-between p-4 bg-primary-subtle border border-primary/10 rounded-2xl hover:bg-primary-subtle hover:border-line transition-all group"
             >
                 <span className="text-sm font-bold opacity-70 group-hover:opacity-100">{name}</span>
-                <ArrowLeft className="w-4 h-4 rotate-180 text-luxury-gold/40 group-hover:text-luxury-gold transition-colors" />
+                <ArrowLeft className="w-4 h-4 rotate-180 text-accent-ink group-hover:text-accent-ink transition-colors" />
             </a>
         </li>
     );

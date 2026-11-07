@@ -65,8 +65,8 @@ export function ComparisonThumbnail({
                 <div className={cn(
                     "px-2.5 py-1 backdrop-blur-md rounded-lg text-[9px] uppercase font-bold tracking-widest shadow-lg flex items-center gap-1.5 transition-all duration-500",
                     showAfter
-                        ? "bg-luxury-gold/20 border border-luxury-gold/30 text-luxury-gold shadow-luxury-gold/10"
-                        : "bg-luxury-bg/60 border border-white/10 text-white/70"
+                        ? "bg-accent-subtle border border-line text-accent-ink "
+                        : "bg-canvas/60 border border-on-scrim/10 text-on-scrim"
                 )}>
                     {showAfter ? (
                         <>
@@ -83,19 +83,19 @@ export function ComparisonThumbnail({
             </div>
 
             {/* Bottom Glow Overlay */}
-            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent z-30 pointer-events-none" />
+            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-shade/60 to-transparent z-30 pointer-events-none" />
 
             {/* Progress Bar Indicator */}
             <div className="absolute bottom-4 left-4 right-4 z-40 flex gap-1 pointer-events-none">
-                <div className="h-1 flex-1 rounded-full overflow-hidden bg-white/20">
+                <div className="h-1 flex-1 rounded-full overflow-hidden bg-on-scrim/20">
                     <div
-                        className="h-full bg-white transition-all duration-[3000ms] ease-linear"
+                        className="h-full bg-on-scrim transition-all duration-[3000ms] ease-linear"
                         style={{ width: !showAfter ? '100%' : '0%', opacity: !showAfter ? 1 : 0 }}
                     />
                 </div>
-                <div className="h-1 flex-1 rounded-full overflow-hidden bg-white/20">
+                <div className="h-1 flex-1 rounded-full overflow-hidden bg-on-scrim/20">
                     <div
-                        className="h-full bg-luxury-gold transition-all duration-[3000ms] ease-linear"
+                        className="h-full bg-accent transition-all duration-[3000ms] ease-linear"
                         style={{ width: showAfter ? '100%' : '0%', opacity: showAfter ? 1 : 0 }}
                     />
                 </div>

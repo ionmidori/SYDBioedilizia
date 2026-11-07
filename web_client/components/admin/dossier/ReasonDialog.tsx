@@ -28,7 +28,7 @@ interface Props {
 export function ReasonDialog({ open, onOpenChange, ...rest }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-luxury-bg border-luxury-gold/20 text-luxury-text">
+      <DialogContent className="max-w-md bg-canvas border-line text-ink">
         {/* Mounted only while open: the typed reason never leaks into the next use. */}
         {open && <ReasonForm {...rest} onCancel={() => onOpenChange(false)} />}
       </DialogContent>
@@ -68,9 +68,9 @@ function ReasonForm({
         <div
           role="alert"
           data-testid={noticeTestId}
-          className="flex gap-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200"
+          className="flex gap-3 rounded-xl border border-warning/40 bg-warning-subtle px-4 py-3 text-sm text-warning-ink"
         >
-          <TriangleAlert className="w-5 h-5 shrink-0 text-amber-400" aria-hidden />
+          <TriangleAlert className="w-5 h-5 shrink-0 text-warning-ink" aria-hidden />
           <div className="space-y-1">{notice}</div>
         </div>
       )}
@@ -82,13 +82,13 @@ function ReasonForm({
           rows={3}
           maxLength={1000}
           data-testid="reason-input"
-          className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50"
+          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent"
         />
-        <span className="block text-xs text-luxury-text/50">Almeno 3 caratteri. Resta nello storico del preventivo.</span>
+        <span className="block text-xs text-ink-muted">Almeno 3 caratteri. Resta nello storico del preventivo.</span>
       </label>
       <ErrorBanner error={error} onReload={onReload} />
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer">
+        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
           Annulla
         </button>
         <button
@@ -97,8 +97,8 @@ function ReasonForm({
           data-testid="reason-confirm"
           className={
             destructive
-              ? 'inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/80 text-white text-sm disabled:opacity-50 cursor-pointer'
-              : 'inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-luxury-gold text-black text-sm font-medium disabled:opacity-50 cursor-pointer'
+              ? 'inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-danger text-on-danger text-sm disabled:opacity-50 cursor-pointer'
+              : 'inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer'
           }
         >
           {pending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}

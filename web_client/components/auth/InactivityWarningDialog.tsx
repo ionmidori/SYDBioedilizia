@@ -41,8 +41,8 @@ export function InactivityWarningDialog({
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-amber-100 dark:bg-amber-900/30">
-                            <AlertCircle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                        <div className="p-2 rounded-full bg-warning-subtle dark:bg-warning-subtle">
+                            <AlertCircle className="h-6 w-6 text-warning-ink dark:text-warning-ink" />
                         </div>
                         <DialogTitle>Sessione in scadenza</DialogTitle>
                     </div>
@@ -52,21 +52,21 @@ export function InactivityWarningDialog({
                 </DialogHeader>
 
                 <div className="flex items-center justify-center py-6">
-                    <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                        <Timer className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                        <span className="text-2xl font-mono font-semibold text-amber-900 dark:text-amber-100">
+                    <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-warning-subtle dark:bg-warning-subtle border border-warning dark:border-warning">
+                        <Timer className="h-5 w-5 text-warning-ink dark:text-warning-ink" />
+                        <span className="text-2xl font-mono font-semibold text-warning-ink dark:text-warning-ink">
                             {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                         </span>
                     </div>
                 </div>
 
-                <p className="text-sm text-muted-foreground text-center">
+                <p className="text-sm text-ink-muted text-center">
                     Clicca &quot;Rimani connesso&quot; per continuare a lavorare al tuo progetto.
                 </p>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                     <Button
-                        variant="outline"
+                        variant="secondary"
                         onClick={onLogout}
                         className="w-full sm:w-auto"
                     >

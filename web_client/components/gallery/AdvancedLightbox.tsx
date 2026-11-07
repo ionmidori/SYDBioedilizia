@@ -224,7 +224,7 @@ export function AdvancedLightbox({
             exit={{ opacity: 0 }}
             transition={M3Spring.expressive}
             className={cn(
-                'fixed inset-0 z-[9999] bg-black/95 backdrop-blur-2xl',
+                'fixed inset-0 z-[9999] bg-shade/95 backdrop-blur-2xl',
                 'flex flex-col items-center justify-center overflow-hidden',
                 'cursor-grab active:cursor-grabbing touch-action-none'
             )}
@@ -236,13 +236,13 @@ export function AdvancedLightbox({
             onTouchEnd={handleTouchEnd}
         >
             {/* Header Bar */}
-            <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent px-4 py-3 md:px-6 md:py-4">
+            <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-shade/80 to-transparent px-4 py-3 md:px-6 md:py-4">
                 <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0 pr-4">
-                        <h2 className="text-white font-bold text-base md:text-lg truncate tracking-tight">
+                        <h2 className="text-on-scrim font-bold text-base md:text-lg truncate tracking-tight">
                             {currentImage.title === 'Render generated' ? 'Rendering Generato' : (currentImage.title || `Immagine ${currentIndex + 1}`)}
                         </h2>
-                        <p className="text-white/50 text-[10px] md:text-xs tracking-[0.2em] uppercase font-bold">
+                        <p className="text-on-scrim text-[10px] md:text-xs tracking-[0.2em] uppercase font-bold">
                             {currentIndex + 1} di {images.length}
                         </p>
                     </div>
@@ -254,10 +254,10 @@ export function AdvancedLightbox({
                             whileTap={{ scale: 0.95 }}
                             onClick={() => setShowInfo(!showInfo)}
                             aria-label="Mostra informazioni"
-                            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            className="p-2 hover:bg-on-scrim/10 rounded-full transition-colors"
                             title="Info (I)"
                         >
-                            <Info className="w-5 h-5 text-white" />
+                            <Info className="w-5 h-5 text-on-scrim" />
                         </motion.button>
 
                         <motion.button
@@ -265,10 +265,10 @@ export function AdvancedLightbox({
                             whileTap={{ scale: 0.95 }}
                             onClick={handleFullscreen}
                             aria-label="Schermo intero"
-                            className="p-2 hover:bg-white/10 rounded-full transition-colors hidden md:block"
+                            className="p-2 hover:bg-on-scrim/10 rounded-full transition-colors hidden md:block"
                             title="Fullscreen (F)"
                         >
-                            <Maximize2 className="w-5 h-5 text-white" />
+                            <Maximize2 className="w-5 h-5 text-on-scrim" />
                         </motion.button>
 
                         <motion.button
@@ -276,10 +276,10 @@ export function AdvancedLightbox({
                             whileTap={{ scale: 0.95 }}
                             onClick={onClose}
                             aria-label="Chiudi"
-                            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                            className="p-2 hover:bg-on-scrim/10 rounded-full transition-colors"
                             title="Chiudi (ESC)"
                         >
-                            <X className="w-5 h-5 text-white" />
+                            <X className="w-5 h-5 text-on-scrim" />
                         </motion.button>
                     </div>
                 </div>
@@ -334,13 +334,13 @@ export function AdvancedLightbox({
                         aria-label="Immagine precedente"
                         className={cn(
                             'absolute left-4 top-1/2 -translate-y-1/2 z-40',
-                            'p-3 rounded-full bg-white/10 hover:bg-white/20',
-                            'transition-colors backdrop-blur-md border border-white/10',
+                            'p-3 rounded-full bg-on-scrim/10 hover:bg-on-scrim/20',
+                            'transition-colors backdrop-blur-md border border-on-scrim/10',
                             'hidden sm:flex items-center justify-center'
                         )}
                         title="Precedente (←)"
                     >
-                        <ChevronLeft className="w-6 h-6 text-white" />
+                        <ChevronLeft className="w-6 h-6 text-on-scrim" />
                     </motion.button>
 
                     <motion.button
@@ -350,47 +350,47 @@ export function AdvancedLightbox({
                         aria-label="Immagine successiva"
                         className={cn(
                             'absolute right-4 top-1/2 -translate-y-1/2 z-40',
-                            'p-3 rounded-full bg-white/10 hover:bg-white/20',
-                            'transition-colors backdrop-blur-md border border-white/10',
+                            'p-3 rounded-full bg-on-scrim/10 hover:bg-on-scrim/20',
+                            'transition-colors backdrop-blur-md border border-on-scrim/10',
                             'hidden sm:flex items-center justify-center'
                         )}
                         title="Successiva (→)"
                     >
-                        <ChevronRight className="w-6 h-6 text-white" />
+                        <ChevronRight className="w-6 h-6 text-on-scrim" />
                     </motion.button>
                 </>
             )}
 
             {/* Bottom Controls Bar */}
-            <div className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/80 to-transparent px-4 py-4 md:px-6 md:py-6">
+            <div className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-shade/80 to-transparent px-4 py-4 md:px-6 md:py-6">
                 <div className="flex items-center justify-between gap-4">
                     {/* Zoom Controls */}
-                    <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md border border-white/10 rounded-full p-1">
+                    <div className="flex items-center gap-1.5 bg-on-scrim/5 backdrop-blur-md border border-on-scrim/10 rounded-full p-1">
                         <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => transformWrapperRef.current?.zoomOut?.()}
-                            className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg font-light transition-colors"
+                            className="w-8 h-8 flex items-center justify-center bg-on-scrim/10 hover:bg-on-scrim/20 rounded-full text-on-scrim text-lg font-light transition-colors"
                             title="Zoom out (-)"
                         >
                             −
                         </motion.button>
-                        <span className="text-white text-[10px] uppercase tracking-wider font-bold px-2 hidden sm:block">Zoom</span>
+                        <span className="text-on-scrim text-[10px] uppercase tracking-wider font-bold px-2 hidden sm:block">Zoom</span>
                         <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => transformWrapperRef.current?.zoomIn?.()}
-                            className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white text-lg font-light transition-colors"
+                            className="w-8 h-8 flex items-center justify-center bg-on-scrim/10 hover:bg-on-scrim/20 rounded-full text-on-scrim text-lg font-light transition-colors"
                             title="Zoom in (+)"
                         >
                             +
                         </motion.button>
-                        <div className="w-[1px] h-4 bg-white/10 mx-1" />
+                        <div className="w-[1px] h-4 bg-on-scrim/10 mx-1" />
                         <motion.button
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
                             onClick={() => transformWrapperRef.current?.resetTransform?.()}
-                            className="w-8 h-8 flex items-center justify-center bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+                            className="w-8 h-8 flex items-center justify-center bg-on-scrim/10 hover:bg-on-scrim/20 rounded-full text-on-scrim transition-colors"
                             title="Reset (0)"
                             aria-label="Ripristina zoom"
                         >
@@ -408,7 +408,7 @@ export function AdvancedLightbox({
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={() => onDelete(currentImage)}
-                                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/30 border border-red-500/20 text-red-400 rounded-full text-sm font-bold transition-colors mr-2"
+                                className="px-4 py-2 bg-danger-subtle hover:bg-danger-subtle border border-danger/20 text-danger-ink rounded-full text-sm font-bold transition-colors mr-2"
                                 title="Elimina"
                                 aria-label="Elimina immagine"
                             >
@@ -421,7 +421,7 @@ export function AdvancedLightbox({
                                 whileTap={{ scale: 0.95 }}
                                 onClick={handleShare}
                                 disabled={isSharing}
-                                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-full text-white text-sm font-bold transition-colors disabled:opacity-50"
+                                className="px-4 py-2 bg-on-scrim/10 hover:bg-on-scrim/20 rounded-full text-on-scrim text-sm font-bold transition-colors disabled:opacity-50"
                                 title="Condividi"
                             >
                                 <Share2 className="w-4 h-4" />
@@ -432,7 +432,7 @@ export function AdvancedLightbox({
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={handleDownload}
-                            className="px-4 py-2 bg-luxury-gold hover:bg-luxury-gold/80 text-luxury-bg rounded-full text-sm font-bold transition-colors"
+                            className="px-4 py-2 bg-accent hover:bg-accent/80 text-on-accent rounded-full text-sm font-bold transition-colors"
                             title="Scarica"
                             aria-label="Scarica immagine"
                         >
@@ -443,7 +443,7 @@ export function AdvancedLightbox({
 
                 {/* Keyboard Shortcuts Hint */}
                 {enableKeyboardShortcuts && (
-                    <div className="mt-3 text-[10px] text-white/40 text-center space-y-1 hidden md:block">
+                    <div className="mt-3 text-[10px] text-on-scrim text-center space-y-1 hidden md:block">
                         <p>⌨️ Scorciatoie: ← → Naviga · + − Zoom · 0 Reset · I Info · F Fullscreen · ESC Chiudi</p>
                     </div>
                 )}
@@ -457,13 +457,13 @@ export function AdvancedLightbox({
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: 20 }}
                         transition={M3Spring.standard}
-                        className="absolute top-20 right-4 z-40 bg-black/80 backdrop-blur-xl border border-white/10 rounded-xl p-4 max-w-xs"
+                        className="absolute top-20 right-4 z-40 bg-shade/80 backdrop-blur-xl border border-on-scrim/10 rounded-xl p-4 max-w-xs"
                     >
-                        <h3 className="text-white font-bold text-sm mb-3">Info Immagine</h3>
-                        <div className="space-y-2 text-xs text-white/70">
+                        <h3 className="text-on-scrim font-bold text-sm mb-3">Info Immagine</h3>
+                        <div className="space-y-2 text-xs text-on-scrim">
                             {Object.entries(currentImage.metadata).map(([key, value]) => (
                                 <div key={key}>
-                                    <span className="font-bold text-white/90">{key}:</span> {String(value)}
+                                    <span className="font-bold text-on-scrim">{key}:</span> {String(value)}
                                 </div>
                             ))}
                         </div>

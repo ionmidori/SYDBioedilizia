@@ -13,7 +13,7 @@ export function OpenChatButton({ children = "Parla con l'AI", className, ...prop
     <button
       onClick={() => openChat()}
       className={cn(
-        "inline-flex items-center justify-center px-6 py-3 rounded-full border border-luxury-gold/30 text-luxury-gold font-medium hover:bg-luxury-gold/10 transition-all duration-200 cursor-pointer",
+        "inline-flex items-center justify-center px-6 py-3 rounded-full border border-line text-accent-ink font-medium hover:bg-accent-subtle transition-all duration-200 cursor-pointer",
         className
       )}
       {...props}

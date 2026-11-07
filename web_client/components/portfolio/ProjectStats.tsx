@@ -23,11 +23,11 @@ export function ProjectStats({
     const Value = inline ? 'span' : 'dd';
 
     return (
-        <Root className="flex gap-4 border-t border-luxury-text/10 pt-3">
+        <Root className="flex gap-4 border-t border-line pt-3">
             {items.map(({ key, label, value }) => (
                 <Item key={key} className="block">
-                    <Term className="block text-[10px] text-luxury-gold/80 uppercase tracking-wider">{label}</Term>
-                    <Value className="block text-xs text-luxury-text font-medium">{value || '—'}</Value>
+                    <Term className="block text-[10px] text-accent-ink uppercase tracking-wider">{label}</Term>
+                    <Value className="block text-xs text-ink font-medium">{value || '—'}</Value>
                 </Item>
             ))}
         </Root>

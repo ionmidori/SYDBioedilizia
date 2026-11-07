@@ -36,7 +36,7 @@ interface Props {
 export function PriceBookPicker({ open, onOpenChange, onPick }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-luxury-bg border-luxury-gold/20 text-luxury-text">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-canvas border-line text-ink">
         <DialogHeader>
           <DialogTitle>Aggiungi dal listino</DialogTitle>
           <DialogDescription>Cerca per SKU, descrizione, categoria o parola chiave.</DialogDescription>
@@ -59,13 +59,13 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
   if (book.isPending) {
     return (
       <div className="py-10 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
       </div>
     );
   }
   if (book.isError) {
     return (
-      <p role="alert" className="py-6 text-center text-sm text-red-400">
+      <p role="alert" className="py-6 text-center text-sm text-danger-ink">
         Impossibile caricare il listino.
       </p>
     );
@@ -74,7 +74,7 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-luxury-text/40" aria-hidden />
+        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" aria-hidden />
         <label htmlFor="picker-search" className="sr-only">
           Cerca nel listino
         </label>
@@ -85,20 +85,20 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Es. piastrelle bagno, DEM-001…"
           data-testid="picker-search"
-          className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50"
+          className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-none focus:border-accent"
         />
       </div>
       {results.length === 0 ? (
-        <p className="py-6 text-center text-sm text-luxury-text/60" data-testid="picker-empty">
+        <p className="py-6 text-center text-sm text-ink-muted" data-testid="picker-empty">
           Nessuna voce trovata.
         </p>
       ) : (
-        <ul className="divide-y divide-white/5" data-testid="picker-results">
+        <ul className="divide-y divide-line" data-testid="picker-results">
           {results.map(({ item }) => (
             <li key={item.sku} className="flex items-center gap-3 py-2" data-testid="picker-row">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium truncate">{item.description}</p>
-                <p className="text-xs text-luxury-text/60">
+                <p className="text-xs text-ink-muted">
                   <span className="tabular-nums">{item.sku}</span> · {item.category}
                 </p>
               </div>
@@ -109,7 +109,7 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
                 type="button"
                 onClick={() => onPick(quoteItemFromPriceBook(item))}
                 aria-label={`Aggiungi ${item.sku}`}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-luxury-gold/15 border border-luxury-gold/30 text-luxury-gold text-sm cursor-pointer"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-accent-subtle border border-line text-accent-ink text-sm cursor-pointer"
               >
                 <Plus className="w-4 h-4" aria-hidden /> Aggiungi
               </button>
@@ -118,7 +118,7 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
         </ul>
       )}
       {book.data.items.length > 0 && (
-        <p className="text-xs text-luxury-text/50">
+        <p className="text-xs text-ink-muted">
           {results.length >= MAX_RESULTS ? `Primi ${MAX_RESULTS} risultati: affina la ricerca. ` : ''}
           {book.data.items.length} voci nel listino.
         </p>

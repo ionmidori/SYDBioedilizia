@@ -20,12 +20,12 @@ import { logger } from '@/lib/logger';
  */
 
 const STATUS_UI: Record<string, { label: string; className: string; Icon: typeof Clock }> = {
-    pending_review: { label: 'In revisione', className: 'text-amber-400 bg-amber-400/10 border-amber-400/20', Icon: Clock },
+    pending_review: { label: 'In revisione', className: 'text-warning-ink bg-warning-subtle border-warning/20', Icon: Clock },
     // The admin opened the request: still "in revisione" for the client.
-    in_review: { label: 'In revisione', className: 'text-amber-400 bg-amber-400/10 border-amber-400/20', Icon: Clock },
-    approved: { label: 'Approvato', className: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', Icon: CheckCircle2 },
-    sent: { label: 'Inviato', className: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20', Icon: Mail },
-    rejected: { label: 'Non approvato', className: 'text-red-400 bg-red-400/10 border-red-400/20', Icon: XCircle },
+    in_review: { label: 'In revisione', className: 'text-warning-ink bg-warning-subtle border-warning/20', Icon: Clock },
+    approved: { label: 'Approvato', className: 'text-success-ink bg-success-subtle border-success/20', Icon: CheckCircle2 },
+    sent: { label: 'Inviato', className: 'text-success-ink bg-success-subtle border-success/20', Icon: Mail },
+    rejected: { label: 'Non approvato', className: 'text-danger-ink bg-danger-subtle border-danger/20', Icon: XCircle },
 };
 
 export function formatDate(iso: string): string {
@@ -73,21 +73,21 @@ export function QuoteCard({ quote }: { quote: QuoteListItem }) {
             data-project-id={quote.project_id}
             // Lets E2E select approved vs pending without asserting on Italian copy.
             data-quote-status={quote.status}
-            className="p-5 rounded-2xl glass-premium border border-luxury-gold/10 hover:border-luxury-gold/25 transition-colors space-y-4"
+            className="p-5 rounded-2xl glass-premium border border-line hover:border-line transition-colors space-y-4"
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                     {/* The house has no name (Phase 139): the quote is known by its number. */}
-                    <h3 className="font-semibold text-luxury-text truncate">Preventivo</h3>
+                    <h3 className="font-semibold text-ink truncate">Preventivo</h3>
                     {quote.quote_number && (
                         <p
                             data-testid="quote-number"
-                            className="text-xs font-medium tracking-wide text-luxury-gold/80 mt-0.5 tabular-nums"
+                            className="text-xs font-medium tracking-wide text-accent-ink mt-0.5 tabular-nums"
                         >
                             {quote.quote_number}
                         </p>
                     )}
-                    <p className="text-xs text-luxury-text/50 mt-1">
+                    <p className="text-xs text-ink-muted mt-1">
                         {quote.item_count} lavorazioni
                         {quote.updated_at && <> · aggiornato {formatDate(quote.updated_at)}</>}
                     </p>
@@ -103,10 +103,10 @@ export function QuoteCard({ quote }: { quote: QuoteListItem }) {
 
             {isApproved ? (
                 <div className="flex items-center justify-between gap-3 pt-1">
-                    <p className="text-lg font-bold text-luxury-gold">
+                    <p className="text-lg font-bold text-accent-ink">
                         {quote.grand_total > 0 ? formatEuro(quote.grand_total) : ''}
                         {quote.grand_total > 0 && (
-                            <span className="text-[10px] font-normal text-luxury-text/40 ml-1.5">IVA inclusa</span>
+                            <span className="text-[10px] font-normal text-ink-subtle ml-1.5">IVA inclusa</span>
                         )}
                     </p>
                     {quote.pdf_available && (
@@ -114,7 +114,7 @@ export function QuoteCard({ quote }: { quote: QuoteListItem }) {
                             onClick={handleDownload}
                             disabled={downloading}
                             data-testid="quote-download-pdf"
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-luxury-gold/10 hover:bg-luxury-gold/20 border border-luxury-gold/30 text-luxury-gold text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent-subtle hover:bg-accent-subtle border border-line text-accent-ink text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
                         >
                             {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                             Scarica PDF
@@ -122,7 +122,7 @@ export function QuoteCard({ quote }: { quote: QuoteListItem }) {
                     )}
                 </div>
             ) : (
-                <p className="text-xs text-luxury-text/40">
+                <p className="text-xs text-ink-subtle">
                     {quote.status === 'rejected'
                         ? 'Il team ti contatterà per un preventivo personalizzato.'
                         : 'Il nostro team sta esaminando la richiesta: riceverai il preventivo via email e lo troverai qui appena approvato.'}
@@ -130,7 +130,7 @@ export function QuoteCard({ quote }: { quote: QuoteListItem }) {
             )}
 
             {downloadError && (
-                <p data-testid="quote-download-error" className="text-xs text-red-400">{downloadError}</p>
+                <p data-testid="quote-download-error" className="text-xs text-danger-ink">{downloadError}</p>
             )}
         </motion.div>
     );
@@ -152,31 +152,31 @@ export function QuoteListClient() {
     return (
         <div data-testid="quotes-page" className="max-w-4xl mx-auto space-y-10 py-6 px-4 md:px-8">
             {/* Header */}
-            <div className="space-y-3 border-b border-luxury-gold/10 pb-8">
-                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-luxury-text font-serif flex items-center gap-4">
-                    <div className="p-2 md:p-3 bg-luxury-gold/10 rounded-xl md:rounded-2xl border border-luxury-gold/20 shadow-lg shadow-luxury-gold/5 shrink-0">
-                        <FileText className="w-6 h-6 md:w-8 md:h-8 text-luxury-gold" />
+            <div className="space-y-3 border-b border-line pb-8">
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-ink font-serif flex items-center gap-4">
+                    <div className="p-2 md:p-3 bg-accent-subtle rounded-xl md:rounded-2xl border border-line shadow-lg shrink-0">
+                        <FileText className="w-6 h-6 md:w-8 md:h-8 text-accent-ink" />
                     </div>
-                    I Miei <span className="text-luxury-gold italic">Preventivi</span>
+                    I Miei <span className="text-accent-ink italic">Preventivi</span>
                 </h1>
-                <p className="text-luxury-text/50 max-w-xl font-medium text-xs md:text-sm leading-relaxed">
+                <p className="text-ink-muted max-w-xl font-medium text-xs md:text-sm leading-relaxed">
                     Le tue richieste di preventivo e i documenti approvati dal nostro team.
                 </p>
             </div>
 
             {isError && (
-                <p className="text-sm text-red-400">
+                <p className="text-sm text-danger-ink">
                     Errore nel caricamento dei preventivi. Riprova tra poco.
                 </p>
             )}
 
             {!isError && visibleQuotes.length === 0 && (
                 <div data-testid="quotes-empty" className="text-center py-16 space-y-3">
-                    <FileText className="w-10 h-10 text-luxury-text/20 mx-auto" />
-                    <p className="text-luxury-text/50 text-sm">
+                    <FileText className="w-10 h-10 text-ink-subtle mx-auto" />
+                    <p className="text-ink-muted text-sm">
                         Nessuna richiesta di preventivo ancora inviata.
                     </p>
-                    <p className="text-luxury-text/35 text-xs max-w-md mx-auto">
+                    <p className="text-ink-subtle text-xs max-w-md mx-auto">
                         Completa un preventivo in chat, poi invialo al team dalla chat o con
                         &ldquo;Invia al team&rdquo; nella scheda Preventivo della tua casa.
                     </p>

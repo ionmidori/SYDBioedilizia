@@ -16,7 +16,7 @@ interface ImagePreviewProps {
 export function ImagePreview({ src, alt = 'Generated image', onClick, className = '' }: ImagePreviewProps) {
     return (
         <span
-            className={`group relative mt-2 cursor-pointer overflow-hidden rounded-lg border border-white/10 block ${className}`}
+            className={`group relative mt-2 cursor-pointer overflow-hidden rounded-lg border border-on-scrim/10 block ${className}`}
             onClick={() => onClick(src)}
         >
             <Image
@@ -27,8 +27,8 @@ export function ImagePreview({ src, alt = 'Generated image', onClick, className 
                 sizes="100vw"
                 className="w-full h-auto transition-transform hover:scale-105"
             />
-            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="text-xs text-white font-medium bg-black/60 px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/20 flex items-center gap-1">
+            <span className="absolute inset-0 bg-shade/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-xs text-on-scrim font-medium bg-shade/60 px-3 py-1.5 rounded-full backdrop-blur-sm border border-on-scrim/20 flex items-center gap-1">
                     <Minimize2 className="w-3 h-3 rotate-45" /> Espandi
                 </span>
             </span>

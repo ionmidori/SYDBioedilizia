@@ -48,7 +48,7 @@ export function SubmitQuoteDialog({ open, onOpenChange, projectId }: SubmitQuote
             onOpenChange={onOpenChange}
             title="Invia al team"
             description="Richiesta di preventivo della tua casa"
-            className="sm:max-w-[500px] bg-slate-900 border-slate-800"
+            className="sm:max-w-[500px] bg-surface border-line"
         >
             {open && <SubmitQuoteBody projectId={projectId} onClose={() => onOpenChange(false)} />}
         </ResponsiveDrawer>
@@ -71,8 +71,8 @@ function SubmitQuoteBody({ projectId, onClose }: { projectId: string; onClose: (
                 onPointerDown={(e) => e.stopPropagation()}
             >
                 <div role="status" className="flex items-start gap-3">
-                    <CheckCircle2 aria-hidden="true" className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" />
-                    <p className="text-sm text-slate-300">
+                    <CheckCircle2 aria-hidden="true" className="w-6 h-6 text-success-ink shrink-0 mt-0.5" />
+                    <p className="text-sm text-ink-muted">
                         {/* duplicate: a retry of this same click, or the quote was already sent from the chat */}
                         {submit.data.duplicate
                             ? 'La richiesta è con il nostro team: la sta esaminando e riceverai il preventivo finale via email.'
@@ -80,7 +80,7 @@ function SubmitQuoteBody({ projectId, onClose }: { projectId: string; onClose: (
                     </p>
                 </div>
                 <div className="flex justify-end pt-2">
-                    <Button type="button" onClick={onClose} className="bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg">
+                    <Button type="button" onClick={onClose} className="bg-accent hover:bg-accent text-on-accent">
                         Chiudi
                     </Button>
                 </div>
@@ -94,14 +94,14 @@ function SubmitQuoteBody({ projectId, onClose }: { projectId: string; onClose: (
             onClick={(e) => e.stopPropagation()}
             onPointerDown={(e) => e.stopPropagation()}
         >
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-ink-muted">
                 Il team esamina tutte le stanze del preventivo, definisce voci e prezzi e ti invia il
                 preventivo finale via email. Dopo l&apos;invio, per aggiungere o cambiare qualcosa
                 scrivilo in chat: lo riportiamo al team.
             </p>
 
             {submit.isError && (
-                <p role="alert" className="text-sm text-red-400">
+                <p role="alert" className="text-sm text-danger-ink">
                     {submitErrorMessage(submit.error)}
                 </p>
             )}
@@ -112,7 +112,7 @@ function SubmitQuoteBody({ projectId, onClose }: { projectId: string; onClose: (
                     variant="ghost"
                     onClick={onClose}
                     disabled={submit.isPending}
-                    className="text-slate-400 hover:text-white hover:bg-slate-800"
+                    className="text-ink-muted hover:text-ink hover:bg-surface-muted"
                 >
                     Annulla
                 </Button>
@@ -120,7 +120,7 @@ function SubmitQuoteBody({ projectId, onClose }: { projectId: string; onClose: (
                     type="button"
                     onClick={handleSubmit}
                     disabled={submit.isPending}
-                    className="bg-luxury-gold hover:bg-luxury-gold/90 text-luxury-bg font-bold flex items-center gap-2"
+                    className="bg-accent hover:bg-accent text-on-accent font-bold flex items-center gap-2"
                 >
                     {submit.isPending ? (
                         <>

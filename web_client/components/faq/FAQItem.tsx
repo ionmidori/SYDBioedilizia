@@ -21,20 +21,20 @@ export function FAQItemCard({ item }: FAQItemProps) {
       className={cn(
         "group border backdrop-blur-sm rounded-2xl overflow-hidden transition-all duration-300",
         isOpen
-          ? "bg-white/10 border-luxury-gold/30 shadow-lg shadow-luxury-gold/5"
-          : "bg-white/5 border-luxury-gold/10 hover:bg-white/[0.07] hover:border-luxury-gold/20"
+          ? "bg-surface-muted border-line shadow-lg"
+          : "bg-surface border-line hover:bg-surface-muted hover:border-line"
       )}
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-luxury-teal/40 rounded-2xl"
+        className="w-full flex items-center justify-between p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
         aria-expanded={isOpen}
         aria-controls={`faq-content-${item.slug}`}
       >
         <span
           className={cn(
             "text-lg font-medium pr-4 leading-snug transition-colors duration-200",
-            isOpen ? "text-luxury-gold" : "text-luxury-text/90 group-hover:text-luxury-gold"
+            isOpen ? "text-accent-ink" : "text-ink group-hover:text-accent-ink"
           )}
         >
           {item.question}
@@ -43,8 +43,8 @@ export function FAQItemCard({ item }: FAQItemProps) {
           className={cn(
             "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200",
             isOpen
-              ? "bg-luxury-teal/15 text-luxury-teal"
-              : "bg-white/5 text-luxury-text/50 group-hover:bg-luxury-teal/10 group-hover:text-luxury-teal"
+              ? "bg-primary-subtle text-primary-ink"
+              : "bg-surface text-ink-muted group-hover:bg-primary-subtle group-hover:text-primary-ink"
           )}
         >
           <motion.div
@@ -71,7 +71,7 @@ export function FAQItemCard({ item }: FAQItemProps) {
             }}
             transition={M3Transition.containerTransform}
           >
-            <div className="px-6 prose prose-invert max-w-none text-luxury-text/80 leading-relaxed prose-strong:text-luxury-text prose-li:text-luxury-text/80">
+            <div className="px-6 prose prose-invert max-w-none text-ink leading-relaxed prose-strong:text-ink prose-li:text-ink">
               {/* SECURITY: rendered as structured React elements, no HTML injection */}
               <FAQAnswer blocks={item.answer} />
             </div>

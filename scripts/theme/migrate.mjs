@@ -187,7 +187,8 @@ const EXCLUDE = [/[\\/]__tests__[\\/]/, /\.generated\.ts$/, /[\\/]brand-tokens\.
 
 export function sourceFiles(globs = DEFAULT_GLOBS) {
     const files = new Set(globs.flatMap((g) => fs.globSync(g, { cwd: ROOT })));
-    return [...files].filter((f) => !EXCLUDE.some((re) => re.test(f))).sort();
+    // A broad glob (dir/**) also matches directories: keep regular files only.
+    return [...files].filter((f) => !EXCLUDE.some((re) => re.test(f)) && fs.statSync(path.join(ROOT, f)).isFile()).sort();
 }
 
 function main(argv) {

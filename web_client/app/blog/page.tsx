@@ -46,7 +46,7 @@ export default function BlogIndexPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-luxury-bg text-luxury-text py-20 px-4 md:px-8">
+      <main className="min-h-screen bg-canvas text-ink py-20 px-4 md:px-8">
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
@@ -56,7 +56,7 @@ export default function BlogIndexPage() {
             <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6">
               Il Blog della Ristrutturazione
             </h1>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-xl text-ink-muted">
               Idee, approfondimenti tecnici e soluzioni pratiche per trasformare
               la tua casa con consapevolezza e stile.
             </p>
@@ -67,9 +67,9 @@ export default function BlogIndexPage() {
               <Link
                 key={post.slug}
                 href={`/blog/${post.slug}`}
-                className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border hover:shadow-xl transition-all duration-300"
+                className="group flex flex-col bg-surface rounded-2xl overflow-hidden border border-line hover:shadow-xl transition-all duration-300"
               >
-                <div className="relative h-56 w-full overflow-hidden bg-muted">
+                <div className="relative h-56 w-full overflow-hidden bg-surface-muted">
                   <Image
                     src={post.image}
                     alt={post.indexTitle ?? post.title}
@@ -78,20 +78,20 @@ export default function BlogIndexPage() {
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                   <div className="absolute top-4 left-4">
-                    <span className="bg-background/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold">
+                    <span className="bg-canvas/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold">
                       {post.category}
                     </span>
                   </div>
                 </div>
 
                 <div className="p-6 flex flex-col flex-grow">
-                  <div className="text-sm text-muted-foreground mb-2 font-medium">
+                  <div className="text-sm text-ink-muted mb-2 font-medium">
                     {post.date}
                   </div>
-                  <h2 className="text-xl font-bold mb-3 text-card-foreground transition-colors line-clamp-2">
+                  <h2 className="text-xl font-bold mb-3 text-ink transition-colors line-clamp-2">
                     {post.indexTitle ?? post.title}
                   </h2>
-                  <p className="text-muted-foreground mb-6 flex-grow line-clamp-3 leading-relaxed text-sm">
+                  <p className="text-ink-muted mb-6 flex-grow line-clamp-3 leading-relaxed text-sm">
                     {post.excerpt}
                   </p>
 

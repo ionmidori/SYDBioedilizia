@@ -46,15 +46,15 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
             <div className="container mx-auto px-4 md:px-6">
 
                 <header className="mb-8 md:mb-12">
-                    <h1 className="text-3xl md:text-5xl font-serif font-bold text-luxury-text mb-4">
-                        Tutti i <span className="text-luxury-gold italic">Progetti</span>
+                    <h1 className="text-3xl md:text-5xl font-serif font-bold text-ink mb-4">
+                        Tutti i <span className="text-accent-ink italic">Progetti</span>
                     </h1>
-                    <p className="text-luxury-text/70 max-w-xl text-lg font-light">
+                    <p className="text-ink-muted max-w-xl text-lg font-light">
                         L&apos;archivio completo delle nostre ristrutturazioni. Filtra per ambiente
                         per trovare il progetto più vicino al tuo.
                     </p>
                     {hasExamples && (
-                        <p className="mt-3 max-w-xl text-sm text-luxury-text/50">
+                        <p className="mt-3 max-w-xl text-sm text-ink-muted">
                             Le schede «{EXAMPLE_LABEL}» sono foto di riferimento per lo stile, non
                             lavori realizzati da noi: lasciano il posto ai nostri progetti man mano
                             che li pubblichiamo.
@@ -75,8 +75,8 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
                             className={cn(
                                 'shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border',
                                 activeCategory === cat
-                                    ? 'bg-luxury-gold text-luxury-bg border-luxury-gold'
-                                    : 'bg-transparent text-luxury-text/60 border-luxury-gold/20 hover:border-luxury-gold/50 hover:text-luxury-text',
+                                    ? 'bg-accent text-on-accent border-accent'
+                                    : 'bg-transparent text-ink-muted border-line hover:border-accent hover:text-ink',
                             )}
                         >
                             {cat}
@@ -84,18 +84,18 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
                     ))}
                 </div>
 
-                <p className="text-sm text-luxury-text/50 mb-6" aria-live="polite">
+                <p className="text-sm text-ink-muted mb-6" aria-live="polite">
                     {countLabel(filtered)}
                 </p>
 
                 {filtered.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-luxury-text/10 bg-luxury-bg/20 py-16 px-6 text-center">
-                        <p className="text-luxury-text/60 text-sm mb-4">
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-canvas/20 py-16 px-6 text-center">
+                        <p className="text-ink-muted text-sm mb-4">
                             Nessun progetto nella categoria &laquo;{activeCategory}&raquo;.
                         </p>
                         <button
                             onClick={() => setActiveCategory(ALL_CATEGORIES)}
-                            className="min-h-[44px] px-5 rounded-full bg-luxury-gold text-luxury-bg text-sm font-bold transition-colors hover:bg-luxury-gold/90"
+                            className="min-h-[44px] px-5 rounded-full bg-accent text-on-accent text-sm font-bold transition-colors hover:bg-accent"
                         >
                             Mostra tutti
                         </button>
@@ -117,31 +117,31 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
 
 function ArchiveCard({ project }: { project: PortfolioCard }) {
     return (
-        <article className="group h-full overflow-hidden rounded-2xl border border-luxury-gold/10 bg-luxury-bg/40 transition-colors hover:border-luxury-gold/40">
-            <div className="relative aspect-[4/3] bg-slate-950">
+        <article className="group h-full overflow-hidden rounded-2xl border border-line bg-canvas/40 transition-colors hover:border-accent">
+            <div className="relative aspect-[4/3] bg-shade">
                 <ProjectImage
                     project={project}
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                 />
-                <span className="absolute top-3 left-3 rounded-full border border-luxury-gold/20 bg-luxury-bg/80 px-3 py-1 text-xs font-medium text-luxury-gold backdrop-blur-sm">
+                <span className="absolute top-3 left-3 rounded-full border border-line bg-canvas/80 px-3 py-1 text-xs font-medium text-accent-ink backdrop-blur-sm">
                     {cardBadge(project)}
                 </span>
             </div>
 
             <div className="p-5">
-                <h2 className="font-serif text-xl font-bold text-luxury-text mb-1">
+                <h2 className="font-serif text-xl font-bold text-ink mb-1">
                     {project.title}
                 </h2>
 
                 {!project.isExample && project.location && (
-                    <p className="flex items-center gap-1.5 text-sm text-luxury-text/50 mb-3">
+                    <p className="flex items-center gap-1.5 text-sm text-ink-muted mb-3">
                         <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
                         {project.location}
                     </p>
                 )}
 
-                <p className="text-sm font-light leading-relaxed text-luxury-text/70 mb-4">
+                <p className="text-sm font-light leading-relaxed text-ink-muted mb-4">
                     {project.description}
                 </p>
 

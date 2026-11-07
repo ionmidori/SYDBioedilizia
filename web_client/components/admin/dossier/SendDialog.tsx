@@ -28,7 +28,7 @@ export function parseCc(raw: string): string[] {
 }
 
 const INPUT =
-  'w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50';
+  'w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent';
 
 /**
  * Send the approved PDF. Everything is pre-filled from the server (recipient,
@@ -37,7 +37,7 @@ const INPUT =
 export function SendDialog({ projectId, open, onOpenChange, ...rest }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-luxury-bg border-luxury-gold/20 text-luxury-text">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto bg-canvas border-line text-ink">
         <DialogHeader>
           <DialogTitle>Invia il preventivo al cliente</DialogTitle>
           <DialogDescription>
@@ -61,7 +61,7 @@ function SendDialogBody({
   if (defaults.isPending) {
     return (
       <div className="py-10 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
       </div>
     );
   }
@@ -119,13 +119,13 @@ function SendForm({
       className="space-y-4"
     >
       {!defaults.pdf_ready && (
-        <div role="alert" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300 space-y-2">
+        <div role="alert" className="rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink space-y-2">
           <p>Il PDF di questa revisione non è pronto: senza non si può inviare.</p>
           <button
             type="button"
             disabled={regenerate.isPending}
             onClick={() => regenerate.mutate(undefined, { onSuccess: (r) => setPreviewUrl(r.pdf_preview_url ?? null) })}
-            className="px-3 py-1.5 rounded-lg border border-amber-300/40 hover:bg-amber-300/10 disabled:opacity-50 cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-warning/40 hover:bg-warning-subtle disabled:opacity-50 cursor-pointer"
           >
             {regenerate.isPending ? 'Generazione…' : 'Rigenera il PDF'}
           </button>
@@ -145,12 +145,12 @@ function SendForm({
           className={INPUT}
         />
         {defaults.to_source === 'none' && (
-          <span className="block text-xs text-amber-400">Il cliente non ha lasciato un&apos;email: inseriscila a mano.</span>
+          <span className="block text-xs text-warning-ink">Il cliente non ha lasciato un&apos;email: inseriscila a mano.</span>
         )}
         {defaults.to_source === 'profile' && (
-          <span className="block text-xs text-luxury-text/50">Presa dal profilo attuale del cliente.</span>
+          <span className="block text-xs text-ink-muted">Presa dal profilo attuale del cliente.</span>
         )}
-        {toInvalid && <span role="alert" className="block text-xs text-red-400">Indirizzo email non valido.</span>}
+        {toInvalid && <span role="alert" className="block text-xs text-danger-ink">Indirizzo email non valido.</span>}
       </label>
 
       <label className="block space-y-1.5">
@@ -164,7 +164,7 @@ function SendForm({
           data-testid="send-cc"
           className={INPUT}
         />
-        {ccInvalid && <span role="alert" className="block text-xs text-red-400">Massimo 3 indirizzi email validi.</span>}
+        {ccInvalid && <span role="alert" className="block text-xs text-danger-ink">Massimo 3 indirizzi email validi.</span>}
       </label>
 
       <label className="block space-y-1.5">
@@ -191,15 +191,15 @@ function SendForm({
         />
       </label>
 
-      <details className="rounded-xl border border-white/10 px-3 py-2 text-sm">
-        <summary className="cursor-pointer text-luxury-text/70">Testo standard dell&apos;email</summary>
-        <pre className="mt-2 whitespace-pre-wrap font-sans text-xs text-luxury-text/70" data-testid="send-body-preview">
+      <details className="rounded-xl border border-line px-3 py-2 text-sm">
+        <summary className="cursor-pointer text-ink-muted">Testo standard dell&apos;email</summary>
+        <pre className="mt-2 whitespace-pre-wrap font-sans text-xs text-ink-muted" data-testid="send-body-preview">
           {defaults.body_preview}
         </pre>
       </details>
 
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="inline-flex items-center gap-1.5 text-luxury-text/70">
+        <span className="inline-flex items-center gap-1.5 text-ink-muted">
           <FileText className="w-4 h-4" aria-hidden /> Allegato: <span className="font-medium">{defaults.attachment_name}</span>{' '}
           (rev. {defaults.revision})
         </span>
@@ -209,7 +209,7 @@ function SendForm({
             target="_blank"
             rel="noopener noreferrer"
             data-testid="send-pdf-preview"
-            className="text-luxury-gold hover:underline"
+            className="text-accent-ink hover:underline"
           >
             Apri anteprima PDF
           </a>
@@ -218,21 +218,21 @@ function SendForm({
 
       <ErrorBanner error={send.error} onReload={onReload} />
       {send.error && !(send.error instanceof AdminApiError && send.error.status < 500) && (
-        <p role="note" data-testid="send-ambiguous" className="text-xs text-amber-300">
+        <p role="note" data-testid="send-ambiguous" className="text-xs text-warning-ink">
           Il server potrebbe aver già ricevuto la richiesta: controlla «Invii al cliente» prima di riprovare. Se cambi
           qualcosa e invii di nuovo, partirà una nuova email.
         </p>
       )}
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer">
+        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
           Annulla
         </button>
         <button
           type="submit"
           disabled={!canSend}
           data-testid="send-confirm"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-luxury-gold text-black text-sm font-medium disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
         >
           {send.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
           Invia email

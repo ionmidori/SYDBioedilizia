@@ -35,7 +35,7 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
     if (tool.state === 'call') {
         if (tool.toolName === 'generate_render') {
             return (
-                <div className="flex items-center gap-2 text-sm text-luxury-gold/70 italic mt-2">
+                <div className="flex items-center gap-2 text-sm text-accent-ink italic mt-2">
                     <span className="animate-pulse">🎨</span>
                     Generando rendering...
                 </div>
@@ -44,9 +44,9 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
 
         if (tool.toolName === 'processing_request') {
             return (
-                <div className="flex items-center gap-3 p-3 mt-2 rounded-lg bg-luxury-gold/5 border border-luxury-gold/10 animate-pulse">
+                <div className="flex items-center gap-3 p-3 mt-2 rounded-lg bg-accent-subtle border border-line animate-pulse">
                     <span className="text-xl">🧠</span>
-                    <span className="text-sm font-medium text-luxury-gold">
+                    <span className="text-sm font-medium text-accent-ink">
                         Sto analizzando la richiesta...
                     </span>
                 </div>
@@ -55,12 +55,12 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
 
         if (tool.toolName === 'analyze_room' || tool.toolName === 'analyze_media_triage') {
             return (
-                <div className="flex flex-col gap-1 mt-2 p-3 bg-luxury-gold/5 border border-luxury-gold/20 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-luxury-gold font-medium">
+                <div className="flex flex-col gap-1 mt-2 p-3 bg-accent-subtle border border-line rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-accent-ink font-medium">
                         <span className="animate-pulse text-lg">🧠</span>
                         Agentic Vision in corso...
                     </div>
-                    <div className="text-xs text-luxury-gold/60 pl-7">
+                    <div className="text-xs text-accent-ink pl-7">
                         <span className="animate-pulse">⚡</span> Analisi parametri strutturali
                     </div>
                 </div>
@@ -69,7 +69,7 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
 
         // Fallback for any other tool
         return (
-            <div className="flex items-center gap-2 text-sm text-luxury-gold/70 italic mt-2 relative overflow-hidden rounded-md px-2 py-1">
+            <div className="flex items-center gap-2 text-sm text-accent-ink italic mt-2 relative overflow-hidden rounded-md px-2 py-1">
                 <div className="absolute inset-0 animate-shimmer opacity-20 pointer-events-none" />
                 <span className="animate-pulse">⚙️</span>
                 Elaborazione in corso...
@@ -129,7 +129,7 @@ export const ToolStatus = React.memo<ToolStatusProps>(({ tool, onImageClick }) =
         // Error: the render failed
         if (isRenderError(tool.toolName, typedResult)) {
             return (
-                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                <div className="mt-3 p-3 bg-danger-subtle border border-danger/20 rounded-lg text-danger-ink text-sm">
                     <p className="font-medium">Errore generazione immagine:</p>
                     <p>{typedResult?.error || 'Si è verificato un errore sconosciuto.'}</p>
                 </div>

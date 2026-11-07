@@ -66,10 +66,10 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                         mass: 0.8
                     }}
                     // M3 Expressive Shapes: Asymmetric bubble (rounded-[24px_24px_4px_24px]) + Glassmorphism
-                    className="backdrop-blur-xl bg-luxury-teal/90 text-white px-5 py-4 shadow-2xl border border-luxury-gold/20 flex flex-col gap-2 relative cursor-pointer hover:shadow-luxury-gold/20 hover:scale-105 hover:bg-luxury-teal transition-colors duration-300 w-52 rounded-[24px_24px_4px_24px]"
+                    className="backdrop-blur-xl bg-primary-hover text-on-primary px-5 py-4 shadow-2xl border border-line flex flex-col gap-2 relative cursor-pointer hover:scale-105 hover:bg-primary transition-colors duration-300 w-52 rounded-[24px_24px_4px_24px]"
                     onClick={onOpenChat}
                     style={{
-                        boxShadow: '0 8px 32px -8px rgba(0,0,0,0.4), inset 0 1px 1px rgba(255,255,255,0.1)'
+                        boxShadow: '0 8px 32px -8px color-mix(in oklab, var(--color-shade) 40%, transparent), inset 0 1px 1px color-mix(in oklab, var(--color-on-primary) 10%, transparent)'
                     }}
                 >
                     <button
@@ -78,15 +78,15 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                             setIsDismissed(true);
                             setShowWelcomeBadge(false);
                         }}
-                        className="absolute top-2 right-2 p-1 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/10 z-10"
+                        className="absolute top-2 right-2 p-1 text-on-primary hover:text-on-primary transition-colors rounded-full hover:bg-on-primary/10 z-10"
                         aria-label="Chiudi messaggio di benvenuto"
                     >
                         <X className="w-3.5 h-3.5" />
                     </button>
 
                     <div className="flex items-center gap-2 mb-1 pr-4">
-                        <Sparkles className="w-4 h-4 text-luxury-gold animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-luxury-gold/80">
+                        <Sparkles className="w-4 h-4 text-accent-ink animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-accent-ink">
                             Architetto SYD
                         </span>
                     </div>
@@ -94,7 +94,7 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                     <p className="text-sm font-medium leading-relaxed drop-shadow-sm min-h-[42px]">
                         {typewriterText}
                         {typewriterText.length < fullMessage.length && (
-                            <span className="inline-block w-1 h-4 bg-luxury-gold ml-1 animate-pulse align-middle rounded-full"></span>
+                            <span className="inline-block w-1 h-4 bg-accent ml-1 animate-pulse align-middle rounded-full"></span>
                         )}
                     </p>
 
@@ -106,9 +106,9 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                         xmlns="http://www.w3.org/2000/svg"
                     >
                         {/* Solid fill to hide the parent border underneath and prevent translucent double-overlap */}
-                        <path d="M0 0 L11 15 H0 V0Z" className="fill-luxury-teal" />
+                        <path d="M0 0 L11 15 H0 V0Z" className="fill-primary" />
                         {/* Stroke to match the parent's border on the outer edge */}
-                        <path d="M0 0 L11 15" className="stroke-luxury-gold/20" strokeWidth="1" />
+                        <path d="M0 0 L11 15" className="stroke-accent/20" strokeWidth="1" />
                     </svg>
                 </motion.div>
             )}

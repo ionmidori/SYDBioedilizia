@@ -48,7 +48,7 @@ export default async function ProgettiPage() {
     const jsonLd = itemList ? { ...collectionPage, mainEntity: itemList } : collectionPage;
 
     return (
-        <main className="min-h-screen bg-luxury-bg text-luxury-text overflow-x-clip selection:bg-luxury-teal/30">
+        <main className="min-h-screen bg-canvas text-ink overflow-x-clip selection:bg-primary/30">
             <script
                 type="application/ld+json"
                 dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}

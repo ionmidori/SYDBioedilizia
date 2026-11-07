@@ -25,6 +25,14 @@ export const brandColors = {
     "ui": {
         "browser-tab-dark": "#35363a"
     },
+    "third-party": {
+        "google": {
+            "surface": "#ffffff",
+            "surface-hover": "#f8fafc",
+            "ink": "#1f1f1f",
+            "line": "#747775"
+        }
+    },
     "luxury": {
         "bg": "#264653",
         "gold": "#e9c46a",
@@ -101,6 +109,7 @@ export const ROLE_NAMES = [
     "primary-ink",
     "accent",
     "accent-subtle",
+    "on-accent",
     "accent-ink",
     "scrim",
     "shade",
@@ -131,6 +140,7 @@ export const TEXT_ROLES = [
     "ink-subtle",
     "on-primary",
     "primary-ink",
+    "on-accent",
     "accent-ink",
     "on-scrim",
     "danger-ink",
@@ -185,6 +195,7 @@ export const themeRoles = {
         "primary-ink": "#2a9d8f",
         "accent": "#e9c46a",
         "accent-subtle": "#3a5355",
+        "on-accent": "#264653",
         "accent-ink": "#e9c46a",
         "scrim": "#221f1999",
         "shade": "#221f19",
@@ -223,6 +234,7 @@ export const themeRoles = {
         "primary-ink": "#2a9d8f",
         "accent": "#e9c46a",
         "accent-subtle": "#3a5355",
+        "on-accent": "#264653",
         "accent-ink": "#e9c46a",
         "scrim": "#221f1999",
         "shade": "#221f19",

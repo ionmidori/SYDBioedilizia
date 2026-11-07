@@ -82,7 +82,7 @@ function DashboardContent({
     // Mobile: Always '4rem' (Rail width) because expansion is Overlay
     return (
         <>
-            <div className="flex min-h-[100dvh] w-full bg-luxury-bg text-luxury-text relative">
+            <div className="flex min-h-[100dvh] w-full bg-canvas text-ink relative">
                 {/* Desktop Sidebar (AppSidebar handles its own responsive visibility) */}
                 <AppSidebar />
 

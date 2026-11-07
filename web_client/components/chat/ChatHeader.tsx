@@ -16,12 +16,12 @@ export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
     return (
         <div
             onPointerDown={onPointerDown}
-            className={`flex flex-col p-0 bg-luxury-bg/90 backdrop-blur-md border-b border-luxury-gold/10 shadow-sm flex-shrink-0 relative z-[60] ${onPointerDown ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
+            className={`flex flex-col p-0 bg-canvas backdrop-blur-md border-b border-line shadow-sm flex-shrink-0 relative z-[60] ${onPointerDown ? 'touch-none cursor-grab active:cursor-grabbing' : ''}`}
             style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}
         >
             {/* M3 Drag Handle Indicator */}
             {onPointerDown && (
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-luxury-gold/20 rounded-full pointer-events-none" />
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 bg-accent-subtle rounded-full pointer-events-none" />
             )}
             
             {/* Standard spacing for desktop/mobile without handle */}
@@ -34,10 +34,10 @@ export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
                     <ArchitectAvatar />
                     <div>
                         <div className="flex flex-col">
-                            <h3 className="font-serif font-bold text-luxury-text text-lg leading-none">
+                            <h3 className="font-serif font-bold text-ink text-lg leading-none">
                                 SYD
                             </h3>
-                            <span className="text-[10px] font-sans font-medium text-luxury-gold/80 mt-0.5">
+                            <span className="text-[10px] font-sans font-medium text-accent-ink mt-0.5">
                                 Architetto personale
                             </span>
                         </div>
@@ -51,7 +51,7 @@ export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
                             variant="ghost"
                             size="icon"
                             onClick={onMinimize}
-                            className="text-luxury-text/60 hover:text-luxury-gold hover:bg-luxury-gold/5"
+                            className="text-ink-muted hover:text-accent-ink hover:bg-accent-subtle"
                             // Prevent drag when clicking the button
                             onPointerDown={(e) => e.stopPropagation()}
                         >

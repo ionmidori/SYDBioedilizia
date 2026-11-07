@@ -53,7 +53,7 @@ export function DeleteAssetDialog({
             onOpenChange={onOpenChange}
             title="Elimina File"
             description="Questa azione è permanente."
-            className="sm:max-w-[400px] bg-luxury-bg/95 backdrop-blur-xl border-luxury-gold/20"
+            className="sm:max-w-[400px] bg-canvas backdrop-blur-xl border-line"
         >
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -63,24 +63,24 @@ export function DeleteAssetDialog({
                 onPointerDown={(e) => e.stopPropagation()}
             >
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 shrink-0">
-                        <Trash2 className="w-5 h-5 text-red-400" />
+                    <div className="w-10 h-10 rounded-full bg-danger-subtle flex items-center justify-center border border-danger/20 shrink-0">
+                        <Trash2 className="w-5 h-5 text-danger-ink" />
                     </div>
-                    <p className="text-luxury-text/70 text-sm">
-                        Stai per eliminare il file <span className="font-semibold text-luxury-text">{assetTitle || 'selezionato'}</span>.
+                    <p className="text-ink-muted text-sm">
+                        Stai per eliminare il file <span className="font-semibold text-ink">{assetTitle || 'selezionato'}</span>.
                     </p>
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="confirm" className="text-xs text-luxury-text/60">
-                        Scrivi <span className="font-mono bg-luxury-gold/10 px-1.5 py-0.5 rounded text-red-400">elimina</span> per confermare:
+                    <Label htmlFor="confirm" className="text-xs text-ink-muted">
+                        Scrivi <span className="font-mono bg-accent-subtle px-1.5 py-0.5 rounded text-danger-ink">elimina</span> per confermare:
                     </Label>
                     <Input
                         id="confirm"
                         value={confirmText}
                         onChange={(e) => setConfirmText(e.target.value)}
                         placeholder="elimina"
-                        className="bg-black/20 border-luxury-gold/10 text-white placeholder:text-luxury-text/60 focus:border-red-500"
+                        className="bg-surface-muted border-line text-ink placeholder:text-ink-muted focus:border-danger"
                         autoComplete="off"
                         disabled={isDeleting}
                     />
@@ -91,7 +91,7 @@ export function DeleteAssetDialog({
                         variant="ghost"
                         onClick={handleCancel}
                         disabled={isDeleting}
-                        className="text-luxury-text/50 hover:text-luxury-text hover:bg-white/5"
+                        className="text-ink-muted hover:text-ink hover:bg-surface"
                     >
                         Annulla
                     </Button>
@@ -99,7 +99,7 @@ export function DeleteAssetDialog({
                         type="button"
                         onClick={handleDelete}
                         disabled={!isValid || isDeleting}
-                        className="bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-danger-subtle hover:bg-danger/20 text-danger-ink border border-danger/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isDeleting ? <SydLoader size="sm" /> : 'Elimina File'}
                     </Button>

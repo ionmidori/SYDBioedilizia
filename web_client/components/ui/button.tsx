@@ -8,22 +8,24 @@ import { motion } from "framer-motion"
 
 const Slot = SlotPrimitive;
 
+/** Variants, all coloured with semantic roles (web_client/brand/tokens/roles.tokens.json). */
+export const BUTTON_VARIANTS = ["primary", "accent", "secondary", "ghost", "danger", "link"] as const;
+export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
+
+const VARIANT_CLASSES: Record<ButtonVariant, string> = {
+    primary: "bg-primary text-on-primary hover:bg-primary-hover",
+    accent: "bg-accent text-on-accent hover:bg-accent/90",
+    secondary: "border border-line text-ink hover:bg-surface-muted",
+    ghost: "text-ink-muted hover:bg-surface-muted hover:text-ink",
+    danger: "bg-danger text-on-danger hover:bg-danger/90",
+    link: "text-primary-ink underline-offset-4 hover:underline",
+};
+
 const buttonVariants = cva(
-    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-canvas transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
     {
         variants: {
-            variant: {
-                default: "text-primary-foreground",
-                destructive:
-                    "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-                outline:
-                    "border border-input bg-background hover:text-accent-foreground",
-                secondary:
-                    "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-                ghost: "hover:text-accent-foreground",
-                link: "underline-offset-4 hover:underline",
-                premium: "bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-lg hover:shadow-cyan-500/25 hover:scale-[1.02] transition-all duration-300 border-0",
-            },
+            variant: VARIANT_CLASSES,
             size: {
                 default: "h-10 px-4 py-2",
                 sm: "h-9 rounded-md px-3",
@@ -32,7 +34,7 @@ const buttonVariants = cva(
             },
         },
         defaultVariants: {
-            variant: "default",
+            variant: "primary",
             size: "default",
         },
     }

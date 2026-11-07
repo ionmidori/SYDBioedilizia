@@ -42,7 +42,7 @@ export function ScallopedPageTransition({ isNavigating }: ScallopedPageTransitio
                 >
                     {/* Scrim */}
                     <motion.div
-                        className="absolute inset-0 bg-luxury-bg/70 backdrop-blur-sm"
+                        className="absolute inset-0 bg-canvas/70 backdrop-blur-sm"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
@@ -59,7 +59,7 @@ export function ScallopedPageTransition({ isNavigating }: ScallopedPageTransitio
                     >
                         {/* Pulse ring */}
                         <motion.div
-                            className="absolute inset-0 rounded-full bg-luxury-gold/20"
+                            className="absolute inset-0 rounded-full bg-accent-subtle"
                             animate={{ scale: [1, 2], opacity: [0.5, 0] }}
                             transition={{
                                 duration: 2,
@@ -73,7 +73,7 @@ export function ScallopedPageTransition({ isNavigating }: ScallopedPageTransitio
 
                     {/* Bottom sheet hint — slides up from bottom */}
                     <motion.div
-                        className="absolute bottom-0 left-0 right-0 h-20 bg-white/[0.03] rounded-t-[32px] border-t border-luxury-gold/10"
+                        className="absolute bottom-0 left-0 right-0 h-20 bg-white/[0.03] rounded-t-[32px] border-t border-line"
                         initial={{ y: '100%' }}
                         animate={{ y: '0%' }}
                         exit={{ y: '100%' }}

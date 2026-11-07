@@ -9,8 +9,8 @@ const CHANNEL_LABEL: Record<string, string> = {
   dashboard: 'Dashboard del cliente',
 };
 
-const CARD = 'glass-premium rounded-2xl p-4 border border-white/5';
-const TITLE = 'text-xs font-semibold uppercase tracking-wide text-luxury-gold mb-2';
+const CARD = 'glass-premium rounded-2xl p-4 border border-line';
+const TITLE = 'text-xs font-semibold uppercase tracking-wide text-accent-ink mb-2';
 
 export function clientDisplayName(client: ClientSnapshot | null | undefined): string {
   return client?.display_name || (client?.is_guest ? 'Cliente ospite' : 'Cliente senza nome');
@@ -32,11 +32,11 @@ export function ClientCard({
       <p className="font-medium" data-testid="client-name">
         {clientDisplayName(client)}
       </p>
-      <ul className="mt-1.5 space-y-1 text-sm text-luxury-text/70">
+      <ul className="mt-1.5 space-y-1 text-sm text-ink-muted">
         {client?.email && (
           <li className="flex items-center gap-2">
             <Mail className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            <a href={`mailto:${client.email}`} className="break-all hover:text-luxury-gold">
+            <a href={`mailto:${client.email}`} className="break-all hover:text-accent-ink">
               {client.email}
             </a>
           </li>
@@ -44,7 +44,7 @@ export function ClientCard({
         {client?.phone && (
           <li className="flex items-center gap-2">
             <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden />
-            <a href={`tel:${client.phone}`} className="hover:text-luxury-gold">
+            <a href={`tel:${client.phone}`} className="hover:text-accent-ink">
               {client.phone}
             </a>
           </li>
@@ -52,12 +52,12 @@ export function ClientCard({
         {!client?.email && !client?.phone && <li>Nessun recapito salvato.</li>}
       </ul>
       {client?.captured_at && (
-        <p className="mt-2 text-xs text-luxury-text/40">Dati rilevati il {formatDateTime(client.captured_at)}</p>
+        <p className="mt-2 text-xs text-ink-subtle">Dati rilevati il {formatDateTime(client.captured_at)}</p>
       )}
       {profileChanged && live && (
         <div
           data-testid="profile-changed"
-          className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-xs text-amber-300 space-y-1"
+          className="mt-3 rounded-xl border border-warning/30 bg-warning-subtle p-3 text-xs text-warning-ink space-y-1"
         >
           <p className="inline-flex items-center gap-1.5 font-medium">
             <AlertCircle className="w-3.5 h-3.5" aria-hidden /> Il profilo del cliente è cambiato
@@ -90,9 +90,9 @@ export function RequestCard({
         {request?.summary || 'Nessuna descrizione disponibile.'}
       </p>
       {request?.technical_notes && (
-        <p className="mt-2 text-sm text-luxury-text/70 whitespace-pre-line">{request.technical_notes}</p>
+        <p className="mt-2 text-sm text-ink-muted whitespace-pre-line">{request.technical_notes}</p>
       )}
-      <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-luxury-text/70">
+      <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-ink-muted">
         {request?.address && (
           <div className="flex items-center gap-1.5">
             <MapPin className="w-3.5 h-3.5" aria-hidden />

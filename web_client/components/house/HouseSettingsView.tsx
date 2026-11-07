@@ -22,9 +22,9 @@ export function HouseSettingsView({ chatId }: { chatId: string }) {
 
     if (error || !project) {
         return (
-            <div role="alert" className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center gap-3">
-                <AlertCircle aria-hidden="true" className="w-5 h-5 text-red-500 shrink-0" />
-                <p className="text-sm text-red-200 font-medium">
+            <div role="alert" className="p-4 bg-danger-subtle border border-danger/20 rounded-2xl flex items-center gap-3">
+                <AlertCircle aria-hidden="true" className="w-5 h-5 text-danger-ink shrink-0" />
+                <p className="text-sm text-danger-ink font-medium">
                     Non riusciamo a leggere i dettagli della tua casa. Ricarica la pagina per riprovare.
                 </p>
             </div>

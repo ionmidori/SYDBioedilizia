@@ -79,15 +79,15 @@ export default function ConstructionDetailsForm({
     };
 
     return (
-        <div className="w-full max-w-4xl mx-auto p-10 glass-premium border-luxury-gold/10 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+        <div className="w-full max-w-4xl mx-auto p-10 glass-premium border-line rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
             {/* Design Element - Radial Glow */}
-            <div className="absolute -top-20 -right-20 w-80 h-80 bg-luxury-teal/5 rounded-full blur-[100px] pointer-events-none transition-all duration-1000 group-hover:bg-luxury-teal/10" />
+            <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary-subtle rounded-full blur-[100px] pointer-events-none transition-all duration-1000 group-hover:bg-primary-subtle" />
 
             <div className="mb-12 relative z-10">
-                <h2 className="text-3xl font-bold text-luxury-text mb-3 font-serif">
-                    Dettagli della <span className="text-luxury-gold italic">Casa</span>
+                <h2 className="text-3xl font-bold text-ink mb-3 font-serif">
+                    Dettagli della <span className="text-accent-ink italic">Casa</span>
                 </h2>
-                <p className="text-luxury-text/60 font-medium leading-relaxed max-w-2xl">
+                <p className="text-ink-muted font-medium leading-relaxed max-w-2xl">
                     Questi dettagli tecnici permettono al nostro sistema AI di calcolare preventivi accurati e suggerimenti di design ottimizzati per il tuo spazio reale.
                 </p>
             </div>
@@ -98,21 +98,21 @@ export default function ConstructionDetailsForm({
                     <div className="space-y-2.5">
                         <label
                             htmlFor="property_type"
-                            className="block text-xs font-bold text-luxury-gold uppercase tracking-[0.2em]"
+                            className="block text-xs font-bold text-accent-ink uppercase tracking-[0.2em]"
                         >
                             Tipo di Immobile *
                         </label>
                         <select
                             {...register("property_type")}
                             id="property_type"
-                            className="w-full px-5 py-4 border border-luxury-gold/20 rounded-xl bg-luxury-bg/50 text-luxury-text focus:ring-2 focus:ring-luxury-teal/50 focus:border-luxury-teal transition-all outline-none appearance-none font-medium shadow-inner"
+                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none appearance-none font-medium shadow-inner"
                         >
                             <option value="apartment">Appartamento</option>
                             <option value="villa">Villa</option>
                             <option value="commercial">Locale Commerciale</option>
                         </select>
                         {errors.property_type && (
-                            <p className="mt-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                            <p className="mt-1 text-[10px] font-bold text-danger-ink uppercase tracking-wider">
                                 {errors.property_type.message}
                             </p>
                         )}
@@ -122,7 +122,7 @@ export default function ConstructionDetailsForm({
                     <div className="space-y-2.5">
                         <label
                             htmlFor="footage_sqm"
-                            className="block text-xs font-bold text-luxury-gold uppercase tracking-[0.2em]"
+                            className="block text-xs font-bold text-accent-ink uppercase tracking-[0.2em]"
                         >
                             Metratura (m²) *
                         </label>
@@ -132,13 +132,13 @@ export default function ConstructionDetailsForm({
                                 type="number"
                                 id="footage_sqm"
                                 step="0.01"
-                                className="w-full px-5 py-4 border border-luxury-gold/20 rounded-xl bg-luxury-bg/50 text-luxury-text focus:ring-2 focus:ring-luxury-teal/50 focus:border-luxury-teal transition-all outline-none font-medium shadow-inner"
+                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner"
                                 placeholder="es. 120"
                             />
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-luxury-text/60 font-bold text-xs">SQM</div>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-muted font-bold text-xs">SQM</div>
                         </div>
                         {errors.footage_sqm && (
-                            <p className="mt-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                            <p className="mt-1 text-[10px] font-bold text-danger-ink uppercase tracking-wider">
                                 {errors.footage_sqm.message}
                             </p>
                         )}
@@ -146,16 +146,16 @@ export default function ConstructionDetailsForm({
                 </div>
 
                 {/* Address Section */}
-                <div className="space-y-6 pt-6 border-t border-luxury-gold/10">
-                    <h3 className="text-xl font-bold text-luxury-text font-serif flex items-center gap-3">
-                        <span className="w-8 h-[1px] bg-luxury-gold/30" />
+                <div className="space-y-6 pt-6 border-t border-line">
+                    <h3 className="text-xl font-bold text-ink font-serif flex items-center gap-3">
+                        <span className="w-8 h-[1px] bg-line" />
                         Indirizzo della casa
                     </h3>
 
                     <div className="space-y-2.5">
                         <label
                             htmlFor="address_street"
-                            className="block text-xs font-bold text-luxury-gold uppercase tracking-[0.2em]"
+                            className="block text-xs font-bold text-accent-ink uppercase tracking-[0.2em]"
                         >
                             Indirizzo e Civico *
                         </label>
@@ -163,11 +163,11 @@ export default function ConstructionDetailsForm({
                             {...register("address.street")}
                             type="text"
                             id="address_street"
-                            className="w-full px-5 py-4 border border-luxury-gold/20 rounded-xl bg-luxury-bg/50 text-luxury-text focus:ring-2 focus:ring-luxury-teal/50 focus:border-luxury-teal transition-all outline-none font-medium shadow-inner"
+                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner"
                             placeholder="es. Via Alessandro Manzoni 15"
                         />
                         {errors.address?.street && (
-                            <p className="mt-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                            <p className="mt-1 text-[10px] font-bold text-danger-ink uppercase tracking-wider">
                                 {errors.address.street.message}
                             </p>
                         )}
@@ -177,7 +177,7 @@ export default function ConstructionDetailsForm({
                         <div className="space-y-2.5">
                             <label
                                 htmlFor="address_city"
-                                className="block text-xs font-bold text-luxury-gold uppercase tracking-[0.2em]"
+                                className="block text-xs font-bold text-accent-ink uppercase tracking-[0.2em]"
                             >
                                 Città *
                             </label>
@@ -185,11 +185,11 @@ export default function ConstructionDetailsForm({
                                 {...register("address.city")}
                                 type="text"
                                 id="address_city"
-                                className="w-full px-5 py-4 border border-luxury-gold/20 rounded-xl bg-luxury-bg/50 text-luxury-text focus:ring-2 focus:ring-luxury-teal/50 focus:border-luxury-teal transition-all outline-none font-medium shadow-inner"
+                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner"
                                 placeholder="es. Milano"
                             />
                             {errors.address?.city && (
-                                <p className="mt-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                                <p className="mt-1 text-[10px] font-bold text-danger-ink uppercase tracking-wider">
                                     {errors.address.city.message}
                                 </p>
                             )}
@@ -198,7 +198,7 @@ export default function ConstructionDetailsForm({
                         <div className="space-y-2.5">
                             <label
                                 htmlFor="address_zip"
-                                className="block text-xs font-bold text-luxury-gold uppercase tracking-[0.2em]"
+                                className="block text-xs font-bold text-accent-ink uppercase tracking-[0.2em]"
                             >
                                 CAP *
                             </label>
@@ -206,11 +206,11 @@ export default function ConstructionDetailsForm({
                                 {...register("address.zip")}
                                 type="text"
                                 id="address_zip"
-                                className="w-full px-5 py-4 border border-luxury-gold/20 rounded-xl bg-luxury-bg/50 text-luxury-text focus:ring-2 focus:ring-luxury-teal/50 focus:border-luxury-teal transition-all outline-none font-medium shadow-inner"
+                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner"
                                 placeholder="es. 20121"
                             />
                             {errors.address?.zip && (
-                                <p className="mt-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                                <p className="mt-1 text-[10px] font-bold text-danger-ink uppercase tracking-wider">
                                     {errors.address.zip.message}
                                 </p>
                             )}
@@ -219,10 +219,10 @@ export default function ConstructionDetailsForm({
                 </div>
 
                 {/* Budget Cap */}
-                <div className="space-y-2.5 pt-6 border-t border-luxury-gold/10">
+                <div className="space-y-2.5 pt-6 border-t border-line">
                     <label
                         htmlFor="budget_cap"
-                        className="block text-xs font-bold text-luxury-gold uppercase tracking-[0.2em]"
+                        className="block text-xs font-bold text-accent-ink uppercase tracking-[0.2em]"
                     >
                         Budget di Riferimento (€) *
                     </label>
@@ -232,13 +232,13 @@ export default function ConstructionDetailsForm({
                             type="number"
                             id="budget_cap"
                             step="100"
-                            className="w-full px-5 py-4 border border-luxury-gold/20 rounded-xl bg-luxury-bg/50 text-luxury-text focus:ring-2 focus:ring-luxury-teal/50 focus:border-luxury-teal transition-all outline-none font-bold text-xl shadow-inner text-luxury-teal"
+                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-bold text-xl shadow-inner text-primary-ink"
                             placeholder="es. 75.000"
                         />
                         <div className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-focus-within:opacity-10 transition-opacity">€</div>
                     </div>
                     {errors.budget_cap && (
-                        <p className="mt-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                        <p className="mt-1 text-[10px] font-bold text-danger-ink uppercase tracking-wider">
                             {errors.budget_cap.message}
                         </p>
                     )}
@@ -248,7 +248,7 @@ export default function ConstructionDetailsForm({
                 <div className="space-y-2.5">
                     <label
                         htmlFor="technical_notes"
-                        className="block text-xs font-bold text-luxury-gold uppercase tracking-[0.2em]"
+                        className="block text-xs font-bold text-accent-ink uppercase tracking-[0.2em]"
                     >
                         Vincoli e Note Architettoniche
                     </label>
@@ -256,11 +256,11 @@ export default function ConstructionDetailsForm({
                         {...register("technical_notes")}
                         id="technical_notes"
                         rows={5}
-                        className="w-full px-5 py-4 border border-luxury-gold/20 rounded-xl bg-luxury-bg/50 text-luxury-text focus:ring-2 focus:ring-luxury-teal/50 focus:border-luxury-teal transition-all outline-none font-medium shadow-inner resize-none"
+                        className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner resize-none"
                         placeholder="es. Parete portante abbattibile con trave HEB140, riscaldamento a pavimento esistente, vincoli paesaggistici..."
                     />
                     {errors.technical_notes && (
-                        <p className="mt-1 text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                        <p className="mt-1 text-[10px] font-bold text-danger-ink uppercase tracking-wider">
                             {errors.technical_notes.message}
                         </p>
                     )}
@@ -270,20 +270,20 @@ export default function ConstructionDetailsForm({
                 {submitMessage && (
                     <div
                         className={`p-6 rounded-2xl animate-in zoom-in-95 duration-300 border backdrop-blur-xl ${submitMessage.type === "success"
-                            ? "bg-luxury-teal/10 border-luxury-teal/30 shadow-[0_0_20px_rgba(42,157,143,0.1)]"
-                            : "bg-red-500/10 border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]"
+                            ? "bg-primary-subtle border-primary/30 shadow-[0_0_20px_color-mix(in_oklab,var(--color-primary)_10%,transparent)]"
+                            : "bg-danger-subtle border-danger/30 shadow-[0_0_20px_color-mix(in_oklab,var(--color-danger)_10%,transparent)]"
                             }`}
                     >
                         <div className="flex items-center gap-4">
                             {submitMessage.type === "success" ? (
-                                <CheckCircle2 className="w-6 h-6 text-luxury-teal" />
+                                <CheckCircle2 className="w-6 h-6 text-primary-ink" />
                             ) : (
-                                <XCircle className="w-6 h-6 text-red-500" />
+                                <XCircle className="w-6 h-6 text-danger-ink" />
                             )}
                             <p
                                 className={`text-sm font-bold uppercase tracking-widest ${submitMessage.type === "success"
-                                    ? "text-luxury-teal"
-                                    : "text-red-400"
+                                    ? "text-primary-ink"
+                                    : "text-danger-ink"
                                     }`}
                             >
                                 {submitMessage.text}
@@ -293,19 +293,19 @@ export default function ConstructionDetailsForm({
                 )}
 
                 {/* Submit Button */}
-                <div className="flex flex-col sm:flex-row justify-end gap-5 pt-6 border-t border-luxury-gold/10">
+                <div className="flex flex-col sm:flex-row justify-end gap-5 pt-6 border-t border-line">
                     <button
                         type="button"
                         onClick={() => reset()}
                         disabled={isPending}
-                        className="px-8 py-4 text-xs font-bold text-luxury-text/40 bg-white/5 border border-white/5 rounded-xl hover:bg-white/10 hover:text-luxury-text transition-all disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest"
+                        className="px-8 py-4 text-xs font-bold text-ink-subtle bg-surface border border-line rounded-xl hover:bg-surface-muted hover:text-ink transition-all disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest"
                     >
                         Ripristina Campi
                     </button>
                     <button
                         type="submit"
                         disabled={isPending}
-                        className="px-10 py-4 text-xs font-bold text-white bg-luxury-teal rounded-xl hover:bg-luxury-teal/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg shadow-luxury-teal/20 uppercase tracking-[0.2em] transform active:scale-95"
+                        className="px-10 py-4 text-xs font-bold text-on-primary bg-primary rounded-xl hover:bg-primary-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-lg uppercase tracking-[0.2em] transform active:scale-95"
                     >
                         {isPending ? (
                             <>

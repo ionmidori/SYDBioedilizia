@@ -246,7 +246,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                             className="object-cover"
                         />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-luxury-teal border-luxury-teal text-white shadow-sm">
+                        <div className="w-full h-full flex items-center justify-center bg-primary border-primary text-on-primary shadow-sm">
                             <User className="w-4 h-4" />
                         </div>
                     )}
@@ -272,7 +272,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                     return (
                         <div className="flex flex-wrap gap-2 justify-end">
                             {imageUrls.map((imageUrl, imgIdx) => (
-                                <div key={imgIdx} className="overflow-hidden rounded-2xl shadow-sm border border-luxury-text/10 max-w-[200px]">
+                                <div key={imgIdx} className="overflow-hidden rounded-2xl shadow-sm border border-line max-w-[200px]">
                                     <ImagePreview
                                         src={imageUrl}
                                         alt="Uploaded image"
@@ -292,10 +292,10 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                         // repainted on every height change while a reply streamed in.
                         "p-4 text-sm leading-relaxed shadow-lg transition-colors duration-300",
                         message.role === 'user'
-                            ? "bg-luxury-teal text-white rounded-[24px_24px_4px_24px] border border-transparent shadow-luxury-teal/20" // Organic shape USER
-                            : "bg-luxury-bg/95 border border-luxury-gold/10 text-luxury-text rounded-[24px_24px_24px_4px] shadow-lg shadow-black/5" // Organic shape AI
+                            ? "bg-primary text-on-primary rounded-[24px_24px_4px_24px] border border-transparent" // Organic shape USER
+                            : "bg-canvas border border-line text-ink rounded-[24px_24px_24px_4px] shadow-lg shadow-shade/5" // Organic shape AI
                     )}>
-                        <div className="prose prose-sm prose-invert prose-p:my-1 prose-pre:bg-slate-900 prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
+                        <div className="prose prose-sm prose-invert prose-p:my-1 prose-pre:bg-surface-muted prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
                             {/* The login card carries its own text: the reply is not repeated above it. */}
                             {formattedText && !showLoginCard && (
                                 <MemoizedMarkdown components={markdownComponents}>

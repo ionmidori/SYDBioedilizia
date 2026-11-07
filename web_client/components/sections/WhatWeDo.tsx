@@ -21,7 +21,7 @@ export function WhatWeDo() {
         <section
             id="cosa-facciamo"
             aria-labelledby="cosa-facciamo-title"
-            className="pt-12 md:pt-16 pb-12 md:pb-16 relative bg-luxury-bg overflow-x-clip border-t border-luxury-gold/5"
+            className="pt-12 md:pt-16 pb-12 md:pb-16 relative bg-canvas overflow-x-clip border-t border-line"
         >
             {/* Section Background Decoration */}
             <div className="absolute inset-0 pointer-events-none opacity-30" aria-hidden="true">
@@ -36,16 +36,16 @@ export function WhatWeDo() {
                         initial={reduceMotion ? false : HEADER_HIDDEN}
                         whileInView={HEADER_SHOWN}
                         viewport={{ once: true }}
-                        className="text-3xl md:text-5xl font-serif font-bold text-luxury-text mb-4 tracking-tight"
+                        className="text-3xl md:text-5xl font-serif font-bold text-ink mb-4 tracking-tight"
                     >
-                        Cosa <span className="text-luxury-gold italic">facciamo</span>
+                        Cosa <span className="text-accent-ink italic">facciamo</span>
                     </motion.h2>
                     <motion.p
                         initial={reduceMotion ? false : HEADER_HIDDEN}
                         whileInView={HEADER_SHOWN}
                         viewport={{ once: true }}
                         transition={{ delay: 0.2 }}
-                        className="text-luxury-text/70 text-lg font-light"
+                        className="text-ink-muted text-lg font-light"
                     >
                         Dalla singola lavorazione alla ristrutturazione integrale: squadre specializzate,
                         materiali certificati e impianti a norma, con un unico referente dal sopralluogo alla consegna.
@@ -109,13 +109,13 @@ function ActivityCard({ activity, index }: { activity: Activity; index: number }
                     <span className="activity-brass-tile" aria-hidden="true">
                         <Icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
                     </span>
-                    <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-luxury-bg">
+                    <h3 className="font-serif text-xl md:text-2xl font-semibold leading-tight text-on-accent">
                         {activity.title}
                     </h3>
                 </div>
 
                 {/* /85 on the white marble: AA (≥4.5:1) even over the darkest veins, see globals.css. */}
-                <p className="text-base leading-relaxed text-luxury-bg/85">
+                <p className="text-base leading-relaxed text-on-accent">
                     {activity.description}
                 </p>
             </div>
@@ -136,11 +136,11 @@ function Connector() {
         >
             <div
                 data-connector-line
-                className="h-10 md:h-14 w-px origin-top bg-gradient-to-b from-luxury-gold/70 via-luxury-gold/40 to-luxury-teal/70"
+                className="h-10 md:h-14 w-px origin-top bg-gradient-to-b from-accent/70 via-accent/40 to-primary/70"
             />
             <div
                 data-connector-dot
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-luxury-gold shadow-[0_0_10px_rgba(233,196,106,0.6)]"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-accent shadow-[0_0_10px_color-mix(in_oklab,var(--color-accent)_60%,transparent)]"
             />
         </div>
     );

@@ -90,11 +90,11 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                 disabled={submitting}
                 aria-label="Utile"
                 className={cn(
-                    "p-1.5 rounded-full transition-all duration-200 hover:bg-luxury-gold/10",
+                    "p-1.5 rounded-full transition-all duration-200 hover:bg-accent-subtle",
                     "min-h-[32px] min-w-[32px] flex items-center justify-center", // Enhanced tap target for mobile
                     rating === 1
-                        ? "text-emerald-500 scale-110"
-                        : "text-luxury-text/60 hover:text-luxury-text"
+                        ? "text-success-ink scale-110"
+                        : "text-ink-muted hover:text-ink"
                 )}
             >
                 <ThumbsUp className="w-3.5 h-3.5" />
@@ -104,11 +104,11 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                 disabled={submitting}
                 aria-label="Non utile"
                 className={cn(
-                    "p-1.5 rounded-full transition-all duration-200 hover:bg-luxury-gold/10",
+                    "p-1.5 rounded-full transition-all duration-200 hover:bg-accent-subtle",
                     "min-h-[32px] min-w-[32px] flex items-center justify-center", // Enhanced tap target for mobile
                     rating === -1
-                        ? "text-red-400 scale-110"
-                        : "text-luxury-text/60 hover:text-luxury-text"
+                        ? "text-danger-ink scale-110"
+                        : "text-ink-muted hover:text-ink"
                 )}
             >
                 <ThumbsDown className="w-3.5 h-3.5" />
@@ -119,7 +119,7 @@ export const MessageFeedback = React.memo<MessageFeedbackProps>(({ messageId, se
                         initial={{ opacity: 0, x: -4 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -4 }}
-                        className="text-[10px] text-luxury-text/40 ml-1"
+                        className="text-[10px] text-ink-subtle ml-1"
                     >
                         {rating === 1 ? 'Grazie!' : 'Ci miglioreremo'}
                     </motion.span>

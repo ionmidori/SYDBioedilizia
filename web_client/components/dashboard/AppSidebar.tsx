@@ -58,30 +58,30 @@ const NavItem = React.memo<NavItemProps>(function NavItem({
             "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group cursor-pointer relative overflow-hidden",
             collapsed ? "justify-center" : "",
             active
-                ? "bg-luxury-gold/15 border border-luxury-gold/40 shadow-lg shadow-luxury-gold/5"
-                : "text-luxury-text/60 hover:text-luxury-text hover:bg-white/5",
+                ? "bg-accent-subtle border border-accent shadow-lg"
+                : "text-ink-muted hover:text-ink hover:bg-surface",
             className
         )}
             title={collapsed ? label : undefined}
         >
             {/* Internal Glow Effect for Active State */}
             {active && (
-                <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/10 to-luxury-gold/0 transition-all duration-500 rounded-xl" />
+                <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 transition-all duration-500 rounded-xl" />
             )}
 
             <div className={cn(
                 "p-2 rounded-lg transition-colors duration-200 relative z-10",
                 active
-                    ? "bg-luxury-gold/20 text-luxury-gold"
-                    : "bg-white/5 text-luxury-gold/70 group-hover:bg-luxury-gold/10 group-hover:text-luxury-gold"
+                    ? "bg-accent-subtle text-accent-ink"
+                    : "bg-surface text-accent-ink group-hover:bg-accent-subtle group-hover:text-accent-ink"
             )}>
-                <Icon className={cn("w-5 h-5", active ? "text-luxury-gold" : "group-hover:text-luxury-gold")} />
+                <Icon className={cn("w-5 h-5", active ? "text-accent-ink" : "group-hover:text-accent-ink")} />
             </div>
 
             {!collapsed && (
                 <span className={cn(
                     "font-medium text-sm tracking-tight relative z-10 transition-colors duration-200",
-                    active ? "text-luxury-gold" : ""
+                    active ? "text-accent-ink" : ""
                 )}>
                     {label}
                 </span>
@@ -122,10 +122,10 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 
     return (
         <div className={cn(
-            "flex items-center gap-3 p-3 rounded-[1.25rem] glass-premium border-luxury-gold/10 mb-1 transition-all hover:border-luxury-gold/30 hover:bg-white/5 group select-none relative overflow-hidden shadow-xl",
+            "flex items-center gap-3 p-3 rounded-[1.25rem] glass-premium border-line mb-1 transition-all hover:border-line hover:bg-surface group select-none relative overflow-hidden shadow-xl",
             collapsed && "justify-center p-2 rounded-xl"
         )}>
-            <div className="absolute inset-0 bg-gradient-to-tr from-luxury-gold/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
             <div className="relative shrink-0 z-10">
                 <div className="relative">
@@ -135,10 +135,10 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
                             alt={user.displayName || 'User'}
                             width={40}
                             height={40}
-                            className="rounded-full border-2 border-luxury-gold/20 shadow-lg"
+                            className="rounded-full border-2 border-line shadow-lg"
                         />
                     ) : (
-                        <div className="w-10 h-10 rounded-full border-2 border-luxury-gold/30 bg-luxury-gold/10 flex items-center justify-center text-luxury-gold font-black text-sm shadow-lg">
+                        <div className="w-10 h-10 rounded-full border-2 border-line bg-accent-subtle flex items-center justify-center text-accent-ink font-black text-sm shadow-lg">
                             {initials}
                         </div>
                     )}
@@ -147,10 +147,10 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 
             {!collapsed && (
                 <div className="flex-1 min-w-0 relative z-10">
-                    <p className="text-sm font-bold font-trajan text-luxury-text truncate leading-tight">
+                    <p className="text-sm font-bold font-trajan text-ink truncate leading-tight">
                         {user.displayName || 'Anonymous User'}
                     </p>
-                    <p className="text-xs text-luxury-text/50 truncate leading-tight mt-0.5">
+                    <p className="text-xs text-ink-muted truncate leading-tight mt-0.5">
                         {user.email || 'No email'}
                     </p>
                 </div>
@@ -230,11 +230,11 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
     // ========================================================================
     const renderUserHub = (collapsed: boolean) => (
         <div className={cn(
-            "border-b border-luxury-gold/10 bg-luxury-bg/50 relative overflow-hidden shrink-0",
+            "border-b border-line bg-canvas/50 relative overflow-hidden shrink-0",
             collapsed ? "p-2 flex flex-col items-center gap-2" : "p-4"
         )}>
             {!collapsed && (
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-luxury-gold/5 to-transparent pointer-events-none" />
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-accent/5 to-transparent pointer-events-none" />
             )}
 
             <div className="relative z-10 w-full">
@@ -255,8 +255,8 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                         className={cn(
                             "rounded-lg transition-all font-bold border",
                             collapsed
-                                ? "p-2 bg-luxury-teal/10 hover:bg-luxury-teal/20 text-luxury-teal/70 hover:text-luxury-teal border-luxury-teal/20"
-                                : "flex items-center justify-center gap-2 px-3 py-1.5 bg-luxury-teal/5 hover:bg-luxury-teal/10 text-luxury-teal/70 hover:text-luxury-teal text-[10px] uppercase tracking-wider border-luxury-teal/10 flex-1"
+                                ? "p-2 bg-primary-subtle hover:bg-primary-subtle text-primary-ink hover:text-primary-ink border-primary/20"
+                                : "flex items-center justify-center gap-2 px-3 py-1.5 bg-primary-subtle hover:bg-primary-subtle text-primary-ink hover:text-primary-ink text-[10px] uppercase tracking-wider border-primary/10 flex-1"
                         )}
                         title="Torna al sito"
                     >
@@ -268,8 +268,8 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                         className={cn(
                             "rounded-lg transition-all font-bold border",
                             collapsed
-                                ? "p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 border-red-500/20"
-                                : "flex items-center justify-center gap-2 px-3 py-1.5 bg-red-500/5 hover:bg-red-500/10 text-red-400 hover:text-red-300 text-[10px] uppercase tracking-wider border-red-500/10 flex-1"
+                                ? "p-2 bg-danger-subtle hover:bg-danger-subtle text-danger-ink hover:text-danger-ink border-danger/20"
+                                : "flex items-center justify-center gap-2 px-3 py-1.5 bg-danger-subtle hover:bg-danger-subtle text-danger-ink hover:text-danger-ink text-[10px] uppercase tracking-wider border-danger/10 flex-1"
                         )}
                         title="Logout"
                     >
@@ -297,14 +297,14 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     dragConstraints={{ top: -500, bottom: 150 }}
                     onClick={() => setOpenMobile(true)}
                     data-no-swipe
-                    className="fixed right-0 top-1/2 z-[115] notch-draggable flex items-center justify-center w-6 h-12 bg-luxury-gold/25 backdrop-blur-xl text-luxury-gold shadow-2xl rounded-l-xl border-y border-l border-luxury-gold/40 cursor-grab active:cursor-grabbing overflow-hidden group pointer-events-auto will-change-transform"
+                    className="fixed right-0 top-1/2 z-[115] notch-draggable flex items-center justify-center w-6 h-12 bg-accent-subtle backdrop-blur-xl text-accent-ink shadow-2xl rounded-l-xl border-y border-l border-accent cursor-grab active:cursor-grabbing overflow-hidden group pointer-events-auto will-change-transform"
                     style={{ marginTop: '-1.5rem' }}
                     aria-label="Toggle sidebar"
                     tabIndex={0}
                     role="button"
                 >
                     {/* Persistent Internal Glow for Mobile (no hover) */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/20 to-luxury-gold/0 opacity-100 transition-opacity duration-500" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/20 to-accent/0 opacity-100 transition-opacity duration-500" />
 
                     <ChevronLeft className="w-4 h-4 relative z-10" />
                 </motion.button>
@@ -315,7 +315,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
             {/* ============================================================ */}
             {isMobile && openMobile && (
                 <div
-                    className="fixed inset-0 z-[99] bg-black/20"
+                    className="fixed inset-0 z-[99] bg-surface-muted"
                     onClick={() => setOpenMobile(false)}
                     aria-hidden="true"
                 />
@@ -328,14 +328,14 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                 onClick={(e) => e.stopPropagation()}
                 data-no-swipe
                 className={cn(
-                    "group/sidebar peer text-sidebar-foreground transition-all duration-300 ease-in-out",
+                    "group/sidebar peer text-ink transition-all duration-300 ease-in-out",
                     isMobile
                         ? cn(
-                            "fixed inset-y-0 right-0 !z-[120] w-52 bg-luxury-bg/10 backdrop-blur-2xl shadow-2xl border-l border-luxury-gold/10",
+                            "fixed inset-y-0 right-0 !z-[120] w-52 bg-canvas/10 backdrop-blur-2xl shadow-2xl border-l border-line",
                             openMobile ? "translate-x-0" : "translate-x-full"
                         )
                         : cn(
-                            "hidden md:flex flex-col shrink-0 h-full glass-sidebar text-luxury-text shadow-xl z-30 transition-all duration-300 relative",
+                            "hidden md:flex flex-col shrink-0 h-full glass-sidebar text-ink shadow-xl z-30 transition-all duration-300 relative",
                             open ? "w-72" : "w-20"
                         ),
                     className
@@ -352,12 +352,12 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                         tabIndex={0}
                     >
                         {/* Internal Glow Effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-luxury-gold/0 via-luxury-gold/10 to-luxury-gold/0 opacity-0 group-hover/notch:opacity-100 transition-opacity duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-accent/0 via-accent/10 to-accent/0 opacity-0 group-hover/notch:opacity-100 transition-opacity duration-500" />
 
                         {isDesktopCollapsed ? (
-                            <ChevronRight className="w-3 h-3 text-luxury-gold relative z-10" />
+                            <ChevronRight className="w-3 h-3 text-accent-ink relative z-10" />
                         ) : (
-                            <ChevronLeft className="w-3 h-3 text-luxury-gold relative z-10" />
+                            <ChevronLeft className="w-3 h-3 text-accent-ink relative z-10" />
                         )}
                     </button>
                 )}
@@ -377,7 +377,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                         <div className="absolute bottom-6 right-6 z-[110]">
                             <button
                                 onClick={() => setOpenMobile(false)}
-                                className="p-3 rounded-full bg-black/50 border border-luxury-gold/20 text-white hover:bg-black/70 active:scale-95 transition-all shadow-xl backdrop-blur-sm"
+                                className="p-3 rounded-full bg-shade/50 border border-line text-on-scrim hover:bg-shade/70 active:scale-95 transition-all shadow-xl backdrop-blur-sm"
                             >
                                 <X className="w-6 h-6" />
                             </button>

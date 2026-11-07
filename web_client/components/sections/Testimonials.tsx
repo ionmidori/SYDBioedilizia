@@ -40,9 +40,9 @@ type TestimonialItem = {
 };
 
 const _GRADIENTS = [
-    'from-luxury-gold to-yellow-600',
-    'from-luxury-teal to-emerald-600',
-    'from-luxury-bg to-luxury-teal',
+    'from-accent to-warning',
+    'from-primary to-success',
+    'from-canvas to-primary',
 ] as const;
 
 const defaultTestimonials: TestimonialItem[] = [
@@ -54,7 +54,7 @@ const defaultTestimonials: TestimonialItem[] = [
         text: "Ero scettico sull'uso dell'IA per una ristrutturazione, ma il livello di dettaglio dei render preliminari mi ha sbalordito. Abbiamo risparmiato settimane di indecisioni scelte sui materiali.",
         rating: 5,
         initials: 'MR',
-        gradient: 'from-luxury-gold to-yellow-600'
+        gradient: 'from-accent to-warning'
     },
     {
         id: 2,
@@ -64,7 +64,7 @@ const defaultTestimonials: TestimonialItem[] = [
         text: "Come professionista, apprezzo la precisione dei rilievi e la facilità di gestione del cantiere tramite la dashboard. Un partner tecnologico, non solo un'impresa.",
         rating: 5,
         initials: 'SB',
-        gradient: 'from-luxury-teal to-emerald-600'
+        gradient: 'from-primary to-success'
     },
     {
         id: 3,
@@ -74,7 +74,7 @@ const defaultTestimonials: TestimonialItem[] = [
         text: "Volevamo ristrutturare il nostro primo appartamento senza stress. Il preventivo è stato rispettato al centesimo e la consegna è avvenuta in anticipo. Incredibile.",
         rating: 5,
         initials: 'LG',
-        gradient: 'from-luxury-bg to-luxury-teal'
+        gradient: 'from-canvas to-primary'
     }
 ];
 
@@ -206,7 +206,7 @@ export function Testimonials() {
     return (
         // Trimmed top padding — paired with WhatWeDo's trimmed bottom so this section
         // follows on from the last activity card rather than reading as a distant block.
-        <section id="testimonials" className="pt-10 md:pt-12 pb-24 relative bg-luxury-bg overflow-hidden">
+        <section id="testimonials" className="pt-10 md:pt-12 pb-24 relative bg-canvas overflow-hidden">
 
             {/* Background Decor */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full pointer-events-none opacity-20">
@@ -221,21 +221,21 @@ export function Testimonials() {
                         initial={{ opacity: 0, scale: 0.9 }}
                         whileInView={{ opacity: 1, scale: 1 }}
                         viewport={{ once: true }}
-                        className="inline-flex items-center justify-center p-3 mb-6 bg-luxury-bg/50 rounded-full border border-luxury-gold/20"
+                        className="inline-flex items-center justify-center p-3 mb-6 bg-canvas/50 rounded-full border border-line"
                     >
-                        <div className="flex gap-1 text-luxury-gold">
+                        <div className="flex gap-1 text-accent-ink">
                             {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
                         </div>
-                        <span className="ml-3 text-sm text-luxury-text/80 font-medium">Trusted by 500+ Homeowners</span>
+                        <span className="ml-3 text-sm text-ink font-medium">Trusted by 500+ Homeowners</span>
                     </motion.div>
 
                     <motion.h2
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        className="text-3xl md:text-5xl font-serif font-bold text-luxury-text mb-6"
+                        className="text-3xl md:text-5xl font-serif font-bold text-ink mb-6"
                     >
-                        Dicono di <span className="text-luxury-gold italic">Noi</span>
+                        Dicono di <span className="text-accent-ink italic">Noi</span>
                     </motion.h2>
 
                     {/* Action Button for Registered Users */}
@@ -248,12 +248,12 @@ export function Testimonials() {
                             >
                                 <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
                                     <DialogTrigger asChild>
-                                        <Button variant="outline" className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 gap-2 px-6 h-12 transition-all duration-300 hover:scale-105">
+                                        <Button variant="secondary" className="rounded-full border-line bg-surface text-ink hover:bg-surface-muted gap-2 px-6 h-12 transition-all duration-300 hover:scale-105">
                                             <Plus className="w-4 h-4" /> Lascia una recensione
                                         </Button>
                                     </DialogTrigger>
-                                    <DialogContent className="sm:max-w-md rounded-[32px] bg-black/60 backdrop-blur-3xl border border-white/10 text-white p-8 shadow-2xl overflow-hidden">
-                                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+                                    <DialogContent className="sm:max-w-md rounded-[32px] bg-canvas/60 backdrop-blur-3xl border border-line text-ink p-8 shadow-2xl overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-surface to-transparent pointer-events-none" />
                                         
                                         <DialogHeader className="relative z-10 mb-2">
                                             <DialogTitle className="font-serif text-3xl font-light text-center">La tua esperienza</DialogTitle>
@@ -266,11 +266,11 @@ export function Testimonials() {
                                                     animate={{ opacity: 1, scale: 1 }}
                                                     className="py-12 text-center flex flex-col items-center gap-4"
                                                 >
-                                                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center backdrop-blur-md border border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                                                    <div className="w-16 h-16 rounded-full bg-success-subtle text-success-ink flex items-center justify-center backdrop-blur-md border border-success/20 shadow-[0_0_30px_color-mix(in_oklab,var(--color-success)_20%,transparent)]">
                                                         <Star className="w-8 h-8 fill-current" />
                                                     </div>
                                                     <p className="text-2xl font-serif mt-2">Grazie!</p>
-                                                    <p className="text-white/60 font-light">Il tuo feedback è prezioso per noi.</p>
+                                                    <p className="text-ink-muted font-light">Il tuo feedback è prezioso per noi.</p>
                                                 </motion.div>
                                             ) : (
                                                 <Form {...form}>
@@ -290,12 +290,12 @@ export function Testimonials() {
                                                                 name="name"
                                                                 render={({ field }) => (
                                                                     <FormItem className="space-y-2">
-                                                                        <FormLabel className="text-white/70 font-light">Nome</FormLabel>
+                                                                        <FormLabel className="text-ink-muted font-light">Nome</FormLabel>
                                                                         <FormControl>
                                                                             <Input
                                                                                 {...field}
                                                                                 placeholder="Il tuo nome"
-                                                                                className="bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/60 focus-visible:ring-white/20"
+                                                                                className="bg-surface border-line rounded-xl text-ink placeholder:text-ink-muted focus-visible:ring-ring"
                                                                             />
                                                                         </FormControl>
                                                                         <FormMessage />
@@ -308,12 +308,12 @@ export function Testimonials() {
                                                                 name="location"
                                                                 render={({ field }) => (
                                                                     <FormItem className="space-y-2">
-                                                                        <FormLabel className="text-white/70 font-light">Località</FormLabel>
+                                                                        <FormLabel className="text-ink-muted font-light">Località</FormLabel>
                                                                         <FormControl>
                                                                             <Input
                                                                                 {...field}
                                                                                 placeholder="Es. Roma"
-                                                                                className="bg-white/5 border-white/10 rounded-xl text-white placeholder:text-white/60 focus-visible:ring-white/20"
+                                                                                className="bg-surface border-line rounded-xl text-ink placeholder:text-ink-muted focus-visible:ring-ring"
                                                                             />
                                                                         </FormControl>
                                                                         <FormMessage />
@@ -327,7 +327,7 @@ export function Testimonials() {
                                                             name="rating"
                                                             render={({ field }) => (
                                                                 <FormItem className="space-y-4 flex flex-col items-center">
-                                                                    <FormLabel className="text-white/70 font-light">La tua valutazione</FormLabel>
+                                                                    <FormLabel className="text-ink-muted font-light">La tua valutazione</FormLabel>
                                                                     <FormControl>
                                                                         <div className="flex gap-2">
                                                                             {[1, 2, 3, 4, 5].map((star) => (
@@ -338,8 +338,8 @@ export function Testimonials() {
                                                                                     className={cn(
                                                                                         "p-2 transition-all duration-300 hover:scale-110",
                                                                                         star <= field.value 
-                                                                                            ? "text-luxury-gold drop-shadow-[0_0_12px_rgba(212,175,55,0.4)]" 
-                                                                                            : "text-white/50 hover:text-white/70"
+                                                                                            ? "text-accent-ink drop-shadow-[0_0_12px_color-mix(in_oklab,var(--color-accent)_40%,transparent)]" 
+                                                                                            : "text-ink-subtle hover:text-ink-muted"
                                                                                     )}
                                                                                 >
                                                                                     <Star className={cn("w-10 h-10", star <= field.value && "fill-current")} strokeWidth={1} />
@@ -357,12 +357,12 @@ export function Testimonials() {
                                                             name="text"
                                                             render={({ field }) => (
                                                                 <FormItem className="space-y-2">
-                                                                    <FormLabel className="text-white/70 font-light">La tua recensione</FormLabel>
+                                                                    <FormLabel className="text-ink-muted font-light">La tua recensione</FormLabel>
                                                                     <FormControl>
                                                                         <Textarea
                                                                             {...field}
                                                                             placeholder="Racconta la tua esperienza con noi..."
-                                                                            className="min-h-[140px] resize-none bg-white/5 border-white/10 rounded-2xl focus-visible:ring-white/20 text-base p-5 placeholder:text-white/60 font-light backdrop-blur-md transition-all"
+                                                                            className="min-h-[140px] resize-none bg-surface border-line rounded-2xl focus-visible:ring-ring text-base p-5 placeholder:text-ink-muted font-light backdrop-blur-md transition-all"
                                                                         />
                                                                     </FormControl>
                                                                     <FormMessage />
@@ -371,7 +371,7 @@ export function Testimonials() {
                                                         />
 
                                                         {submitError && (
-                                                            <p role="alert" className="text-center text-sm text-red-400">
+                                                            <p role="alert" className="text-center text-sm text-danger-ink">
                                                                 {submitError}
                                                             </p>
                                                         )}
@@ -380,7 +380,7 @@ export function Testimonials() {
                                                             <Button
                                                                 type="submit"
                                                                 disabled={form.formState.isSubmitting}
-                                                                className="w-full sm:w-auto min-w-[200px] h-14 bg-white hover:bg-white/90 text-black rounded-full font-medium text-base transition-all duration-300 hover:scale-[1.02] shadow-[0_0_20px_rgba(255,255,255,0.1)] disabled:opacity-50 disabled:hover:scale-100"
+                                                                className="w-full sm:w-auto min-w-[200px] h-14 bg-primary hover:bg-primary-hover text-on-primary rounded-full font-medium text-base transition-all duration-300 hover:scale-[1.02] shadow-[0_0_20px_color-mix(in_oklab,var(--color-primary)_10%,transparent)] disabled:opacity-50 disabled:hover:scale-100"
                                                             >
                                                                 {form.formState.isSubmitting ? (
                                                                     <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Invio in corso...</>
@@ -402,7 +402,7 @@ export function Testimonials() {
 
                 {/* ── Mobile: one testimonial at a time ── */}
                 <div className="md:hidden">
-                    <p className="text-center text-sm text-luxury-text/50 mb-4" aria-live="polite">
+                    <p className="text-center text-sm text-ink-muted mb-4" aria-live="polite">
                         {activeIndex + 1} di {testimonials.length}
                     </p>
                     <SnapRail
@@ -439,15 +439,15 @@ export function Testimonials() {
                             onMouseEnter={() => setHoveredTestimonial(t.id)}
                             onMouseLeave={() => setHoveredTestimonial(null)}
                             className={cn(
-                                "relative p-8 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl group hover:border-luxury-gold/30 transition-colors",
-                                hoveredTestimonial === t.id && "border-luxury-gold/30"
+                                "relative p-8 rounded-3xl bg-surface border border-line shadow-xl group hover:border-line transition-colors",
+                                hoveredTestimonial === t.id && "border-line"
                             )}
                         >
-                            <Quote className="absolute top-8 right-8 w-12 h-12 text-luxury-gold/10 group-hover:text-luxury-gold/20 transition-colors" />
+                            <Quote className="absolute top-8 right-8 w-12 h-12 text-accent-ink group-hover:text-accent-ink transition-colors" />
 
                             <div className="relative z-10">
                                 <TestimonialHeader testimonial={t} />
-                                <p className="text-luxury-text/80 leading-relaxed italic font-light">
+                                <p className="text-ink leading-relaxed italic font-light">
                                     &quot;{t.text}&quot;
                                 </p>
                             </div>
@@ -463,18 +463,18 @@ function TestimonialHeader({ testimonial: t }: { testimonial: TestimonialItem })
     return (
         <>
             <div className="flex items-center gap-4 mb-6">
-                <div className={`w-14 h-14 shrink-0 rounded-full bg-gradient-to-br ${t.gradient} flex items-center justify-center text-white font-serif font-bold text-xl shadow-lg border border-white/10`}>
+                <div className={`w-14 h-14 shrink-0 rounded-full bg-gradient-to-br ${t.gradient} flex items-center justify-center text-on-primary font-serif font-bold text-xl shadow-lg border border-line`}>
                     {t.initials}
                 </div>
                 <div className="min-w-0">
-                    <h4 className="text-luxury-text font-bold text-lg leading-tight truncate">{t.name}</h4>
-                    <p className="text-luxury-text/60 text-sm font-light truncate">
+                    <h4 className="text-ink font-bold text-lg leading-tight truncate">{t.name}</h4>
+                    <p className="text-ink-muted text-sm font-light truncate">
                         {t.location ? `${t.role} • ${t.location}` : t.role}
                     </p>
                 </div>
             </div>
 
-            <div className="flex gap-1 text-luxury-gold mb-4" aria-label={`Valutazione: ${t.rating} su 5`}>
+            <div className="flex gap-1 text-accent-ink mb-4" aria-label={`Valutazione: ${t.rating} su 5`}>
                 {[...Array(t.rating)].map((_, i) => (
                     <Star key={i} className="w-4 h-4 fill-current" aria-hidden="true" />
                 ))}
@@ -493,8 +493,8 @@ function TestimonialCard({
     const [isExpanded, setIsExpanded] = useState(false);
 
     return (
-        <div className="relative h-full p-6 rounded-3xl bg-white/5 border border-luxury-gold/10 shadow-xl">
-            <Quote className="absolute top-6 right-6 w-10 h-10 text-luxury-gold/10" aria-hidden="true" />
+        <div className="relative h-full p-6 rounded-3xl bg-surface border border-line shadow-xl">
+            <Quote className="absolute top-6 right-6 w-10 h-10 text-accent-ink" aria-hidden="true" />
 
             <div className="relative z-10">
                 <TestimonialHeader testimonial={t} />
@@ -506,7 +506,7 @@ function TestimonialCard({
                             readers announce the testimonial twice. */}
                         <p
                             className={cn(
-                                'text-luxury-text/80 leading-relaxed italic font-light',
+                                'text-ink leading-relaxed italic font-light',
                                 !isExpanded && 'line-clamp-4',
                             )}
                         >
@@ -517,13 +517,13 @@ function TestimonialCard({
                             type="button"
                             onClick={() => setIsExpanded((prev) => !prev)}
                             aria-expanded={isExpanded}
-                            className="mt-2 min-h-[44px] text-sm font-medium text-luxury-gold transition-colors hover:text-luxury-gold/80"
+                            className="mt-2 min-h-[44px] text-sm font-medium text-accent-ink transition-colors hover:text-accent-ink"
                         >
                             {isExpanded ? 'Riduci' : 'Leggi tutto'}
                         </button>
                     </>
                 ) : (
-                    <p className="text-luxury-text/80 leading-relaxed italic font-light">
+                    <p className="text-ink leading-relaxed italic font-light">
                         &quot;{t.text}&quot;
                     </p>
                 )}

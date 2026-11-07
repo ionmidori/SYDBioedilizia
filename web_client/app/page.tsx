@@ -77,7 +77,7 @@ export default async function Home() {
     // overflow-x-clip, not -hidden: `hidden` makes this element a scroll container,
     // which silently disables `position: sticky` in the Services stack. `clip`
     // contains the decorative blur blobs without that side effect.
-    <main className="min-h-screen bg-luxury-bg text-luxury-text overflow-x-clip selection:bg-luxury-teal/30">
+    <main className="min-h-screen bg-luxury-bg text-luxury-text overflow-x-clip selection:bg-primary/30">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

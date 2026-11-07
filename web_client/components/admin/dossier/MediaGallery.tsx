@@ -74,9 +74,9 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
 
   if (media.length === 0) {
     return (
-      <section className="glass-premium rounded-2xl p-4 border border-white/5" data-testid="gallery-empty">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-luxury-gold mb-2">Foto e render</h2>
-        <p className="text-sm text-luxury-text/60">Il cliente non ha allegato foto e non ci sono render.</p>
+      <section className="glass-premium rounded-2xl p-4 border border-line" data-testid="gallery-empty">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-2">Foto e render</h2>
+        <p className="text-sm text-ink-muted">Il cliente non ha allegato foto e non ci sono render.</p>
       </section>
     );
   }
@@ -90,15 +90,15 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
   };
 
   return (
-    <section className="glass-premium rounded-2xl p-4 border border-white/5 space-y-4" data-testid="media-gallery">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-luxury-gold">Foto e render</h2>
+    <section className="glass-premium rounded-2xl p-4 border border-line space-y-4" data-testid="media-gallery">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">Foto e render</h2>
       {GROUPS.map((group) => {
         const items = media.filter((m) => group.kinds.includes(m.kind));
         if (items.length === 0) return null;
         return (
           <div key={group.title} className="space-y-2">
             <h3 className="text-sm font-medium">
-              {group.title} <span className="text-luxury-text/40">({items.length})</span>
+              {group.title} <span className="text-ink-subtle">({items.length})</span>
             </h3>
             <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {items.map((m) => (
@@ -117,14 +117,14 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
         );
       })}
       {downloadError && (
-        <p role="alert" className="text-sm text-red-400">
+        <p role="alert" className="text-sm text-danger-ink">
           Download non riuscito. Riprova.
         </p>
       )}
 
       <Dialog open={!!current} onOpenChange={(open) => !open && setOpenId(null)}>
         <DialogContent
-          className="max-w-4xl bg-luxury-bg border-luxury-gold/20 text-luxury-text"
+          className="max-w-4xl bg-canvas border-line text-ink"
           onKeyDown={(event) => {
             if (event.key === 'ArrowRight') step(1);
             if (event.key === 'ArrowLeft') step(-1);
@@ -143,7 +143,7 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
               />
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <span className="font-medium">{current.label}</span>
-                <span className="text-luxury-text/50">
+                <span className="text-ink-muted">
                   {openIndex + 1} / {images.length}
                 </span>
                 <div className="ml-auto flex items-center gap-2">
@@ -151,7 +151,7 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
                     type="button"
                     onClick={() => step(-1)}
                     disabled={images.length < 2}
-                    className="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-40 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg border border-line hover:bg-surface disabled:opacity-40 cursor-pointer"
                   >
                     Precedente
                   </button>
@@ -159,14 +159,14 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
                     type="button"
                     onClick={() => step(1)}
                     disabled={images.length < 2}
-                    className="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-40 cursor-pointer"
+                    className="px-3 py-1.5 rounded-lg border border-line hover:bg-surface disabled:opacity-40 cursor-pointer"
                   >
                     Successiva
                   </button>
                   <button
                     type="button"
                     onClick={() => void download(current.media_id)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-luxury-gold/15 border border-luxury-gold/30 text-luxury-gold cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-subtle border border-line text-accent-ink cursor-pointer"
                   >
                     <Download className="w-4 h-4" aria-hidden /> Scarica
                   </button>
@@ -194,7 +194,7 @@ function MediaTile({
   onError: () => void;
 }) {
   const href = safeHref(media.external_url);
-  const caption = <span className="mt-1 block text-xs text-luxury-text/60 truncate">{media.label}</span>;
+  const caption = <span className="mt-1 block text-xs text-ink-muted truncate">{media.label}</span>;
 
   if (media.kind === 'link' || media.kind === 'video') {
     const target = safeHref(url) ?? href;
@@ -207,10 +207,10 @@ function MediaTile({
           rel="noopener noreferrer"
           aria-disabled={!target}
           data-testid="media-link"
-          className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 p-3 text-center text-sm hover:border-luxury-gold/40"
+          className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface p-3 text-center text-sm hover:border-accent"
         >
-          <Icon className="w-6 h-6 text-luxury-gold" aria-hidden />
-          <span className="inline-flex items-center gap-1 text-luxury-text/70">
+          <Icon className="w-6 h-6 text-accent-ink" aria-hidden />
+          <span className="inline-flex items-center gap-1 text-ink-muted">
             {target ? 'Apri' : 'Non disponibile'} {target && <ExternalLink className="w-3.5 h-3.5" aria-hidden />}
           </span>
         </a>
@@ -224,7 +224,7 @@ function MediaTile({
       <div>
         <div
           data-testid="media-unavailable"
-          className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/5 p-3 text-center text-xs text-luxury-text/60"
+          className="flex aspect-square flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line bg-surface p-3 text-center text-xs text-ink-muted"
         >
           <ImageOff className="w-6 h-6" aria-hidden />
           Anteprima non disponibile
@@ -241,7 +241,7 @@ function MediaTile({
         onClick={onOpen}
         aria-label={`Ingrandisci: ${media.label}`}
         data-testid="gallery-thumb"
-        className="block aspect-square w-full overflow-hidden rounded-xl border border-white/10 hover:border-luxury-gold/50 cursor-zoom-in"
+        className="block aspect-square w-full overflow-hidden rounded-xl border border-line hover:border-accent cursor-zoom-in"
       >
         <img src={url} alt={media.label} loading="lazy" onError={onError} className="h-full w-full object-cover" />
       </button>

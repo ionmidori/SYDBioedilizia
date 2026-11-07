@@ -59,7 +59,7 @@ export function OnboardingTour() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-scrim backdrop-blur-md p-6"
                 >
                     <motion.div
                         role="dialog"
@@ -68,25 +68,25 @@ export function OnboardingTour() {
                         initial={{ scale: 0.9, y: 20 }}
                         animate={{ scale: 1, y: 0 }}
                         exit={{ scale: 0.9, y: 20 }}
-                        className="w-full max-w-sm bg-luxury-bg border border-luxury-gold/30 rounded-3xl p-8 shadow-2xl relative overflow-hidden"
+                        className="w-full max-w-sm bg-canvas border border-line rounded-3xl p-8 shadow-2xl relative overflow-hidden"
                     >
                         {/* Background Decoration */}
-                        <div className="absolute -top-20 -right-20 w-40 h-40 bg-luxury-gold/10 rounded-full blur-3xl pointer-events-none" />
+                        <div className="absolute -top-20 -right-20 w-40 h-40 bg-accent-subtle rounded-full blur-3xl pointer-events-none" />
 
                         <div className="relative z-10 flex flex-col items-center text-center space-y-6">
-                            <div className="p-4 bg-luxury-gold/10 rounded-2xl border border-luxury-gold/20 mb-2">
-                                <Icon aria-hidden="true" className="w-12 h-12 text-luxury-gold" />
+                            <div className="p-4 bg-accent-subtle rounded-2xl border border-line mb-2">
+                                <Icon aria-hidden="true" className="w-12 h-12 text-accent-ink" />
                             </div>
-                            <h2 id="onboarding-title" className="text-2xl font-bold text-luxury-text font-serif">
+                            <h2 id="onboarding-title" className="text-2xl font-bold text-ink font-serif">
                                 {title}
                             </h2>
-                            <p className="text-luxury-text/70 text-sm leading-relaxed">{text}</p>
+                            <p className="text-ink-muted text-sm leading-relaxed">{text}</p>
 
                             <div className="pt-4 w-full space-y-2">
                                 <button
                                     type="button"
                                     onClick={() => (isLast ? handleComplete() : setStep(step + 1))}
-                                    className="w-full flex items-center justify-center gap-2 py-4 bg-luxury-gold text-luxury-bg font-bold rounded-xl shadow-lg shadow-luxury-gold/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                    className="w-full flex items-center justify-center gap-2 py-4 bg-accent text-on-accent font-bold rounded-xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all"
                                 >
                                     {isLast ? 'Inizia' : 'Avanti'}
                                     <ChevronRight aria-hidden="true" className="w-5 h-5" />
@@ -95,7 +95,7 @@ export function OnboardingTour() {
                                     <button
                                         type="button"
                                         onClick={handleComplete}
-                                        className="w-full min-h-11 text-xs font-bold uppercase tracking-widest text-luxury-text/50 hover:text-luxury-text"
+                                        className="w-full min-h-11 text-xs font-bold uppercase tracking-widest text-ink-muted hover:text-ink"
                                     >
                                         Salta
                                     </button>

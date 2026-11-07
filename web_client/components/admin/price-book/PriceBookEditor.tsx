@@ -81,13 +81,13 @@ export function PriceBookEditor() {
   if (book.isPending) {
     return (
       <div className="py-16 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
       </div>
     );
   }
   if (book.isError) {
     return (
-      <div role="alert" className="py-10 text-center text-sm text-red-400">
+      <div role="alert" className="py-10 text-center text-sm text-danger-ink">
         Impossibile caricare il listino. Riprova tra poco.
       </div>
     );
@@ -180,7 +180,7 @@ export function PriceBookEditor() {
           <h1 id="pb-title" className="text-2xl font-semibold">
             Listino prezzi
           </h1>
-          <p className="text-sm text-luxury-text/60">
+          <p className="text-sm text-ink-muted">
             {items.length} voci · versione {book.data.version}
             {book.data.source === 'seed' ? ' (listino di base, mai modificato)' : ''}. È il listino con cui
             l&apos;assistente prepara i preventivi.
@@ -191,7 +191,7 @@ export function PriceBookEditor() {
             type="button"
             onClick={() => setHistoryOpen((v) => !v)}
             aria-pressed={historyOpen}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer"
           >
             <History className="w-4 h-4" aria-hidden /> Storico
           </button>
@@ -199,7 +199,7 @@ export function PriceBookEditor() {
             type="button"
             onClick={exportCsv}
             data-testid="pb-export"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer"
           >
             <Download className="w-4 h-4" aria-hidden /> Esporta CSV{dirty ? ' (versione salvata)' : ''}
           </button>
@@ -207,19 +207,19 @@ export function PriceBookEditor() {
       </div>
 
       {ignored && (
-        <p role="status" data-testid="pb-ignored" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+        <p role="status" data-testid="pb-ignored" className="rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink">
           Nel database c&apos;era un listino salvato da un altro strumento, senza versione: non viene usato. Qui vedi il
           listino di base; salvando lo sostituisci.
         </p>
       )}
       {book.data.assembly_library_ok === false && (
-        <p role="status" data-testid="pb-assembly-library-broken" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+        <p role="status" data-testid="pb-assembly-library-broken" className="rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink">
           La libreria dei pacchetti di lavorazioni non è stata caricata: i preventivi AI vengono preparati senza
           pacchetti e il salvataggio non può proteggerne le voci. Avvisa lo sviluppo.
         </p>
       )}
       {assemblyProblems.length > 0 && (
-        <div role="status" data-testid="pb-assembly-problems" className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+        <div role="status" data-testid="pb-assembly-problems" className="rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink">
           <p>
             Alcune voci usate dai pacchetti di lavorazioni mancano o hanno un&apos;unità diversa: i preventivi AI le
             scartano. Ripristinale o avvisa lo sviluppo.
@@ -235,17 +235,17 @@ export function PriceBookEditor() {
         </div>
       )}
       {notice && (
-        <p role="status" data-testid="notice" className="flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300">
+        <p role="status" data-testid="notice" className="flex items-center gap-2 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm text-success-ink">
           <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden /> {notice}
         </p>
       )}
       {stale && (
-        <div role="alert" data-testid="stale-banner" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+        <div role="alert" data-testid="stale-banner" className="flex flex-wrap items-center gap-3 rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink">
           <span className="flex-1 min-w-[12rem]">
             Il listino è stato modificato da un altro admin: le tue modifiche non salvate partono da una versione
             precedente.
           </span>
-          <button type="button" onClick={reload} className="px-3 py-1.5 rounded-lg border border-amber-300/40 hover:bg-amber-300/10 cursor-pointer">
+          <button type="button" onClick={reload} className="px-3 py-1.5 rounded-lg border border-warning/40 hover:bg-warning-subtle cursor-pointer">
             Scarta le mie modifiche e ricarica
           </button>
         </div>
@@ -253,7 +253,7 @@ export function PriceBookEditor() {
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[14rem] sm:max-w-sm">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-luxury-text/40" aria-hidden />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" aria-hidden />
           <label htmlFor="pb-search" className="sr-only">
             Cerca nel listino
           </label>
@@ -266,7 +266,7 @@ export function PriceBookEditor() {
             }}
             placeholder="Cerca per SKU, descrizione, categoria…"
             data-testid="pb-search"
-            className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border border-white/10 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50"
+            className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-none focus:border-accent"
           />
         </div>
         <label className="sr-only" htmlFor="pb-category">
@@ -279,7 +279,7 @@ export function PriceBookEditor() {
             setCategory(e.target.value);
             setPage(0);
           }}
-          className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-base md:text-sm"
+          className="px-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm"
         >
           <option value="">Tutte le categorie</option>
           {categories.map((c) => (
@@ -301,7 +301,7 @@ export function PriceBookEditor() {
           }}
           disabled={busy}
           data-testid="pb-add"
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-sm hover:bg-surface disabled:opacity-50 cursor-pointer"
         >
           <Plus className="w-4 h-4" aria-hidden /> Aggiungi voce
         </button>
@@ -312,7 +312,7 @@ export function PriceBookEditor() {
               onClick={reload}
               disabled={busy}
               data-testid="pb-discard"
-              className="px-3 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 disabled:opacity-50 cursor-pointer"
+              className="px-3 py-2 rounded-xl border border-line text-sm hover:bg-surface disabled:opacity-50 cursor-pointer"
             >
               Annulla modifiche
             </button>
@@ -322,7 +322,7 @@ export function PriceBookEditor() {
             onClick={startSave}
             disabled={!dirty || stale || busy}
             data-testid="pb-save"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-luxury-gold text-black text-sm font-medium disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
           >
             <Save className="w-4 h-4" aria-hidden />
             Salva{dirty ? ` (${changes})` : ''}
@@ -331,7 +331,7 @@ export function PriceBookEditor() {
       </div>
 
       {showErrors && hasIssues(issues) && (
-        <div role="alert" data-testid="pb-issues" className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300">
+        <div role="alert" data-testid="pb-issues" className="rounded-xl border border-danger/30 bg-danger-subtle px-4 py-3 text-sm text-danger-ink">
           Correggi i campi evidenziati prima di salvare ({issues.rows.size} voci con problemi).{' '}
           {issues.rows.size > 0 && (
             <button type="button" onClick={jumpToProblem} className="underline cursor-pointer" data-testid="pb-jump">
@@ -351,7 +351,7 @@ export function PriceBookEditor() {
       </datalist>
 
       {rows.length === 0 ? (
-        <p className="py-12 text-center text-sm text-luxury-text/60" data-testid="pb-empty">
+        <p className="py-12 text-center text-sm text-ink-muted" data-testid="pb-empty">
           Nessuna voce corrisponde alla ricerca.
         </p>
       ) : (
@@ -385,18 +385,18 @@ export function PriceBookEditor() {
             type="button"
             onClick={() => setPage(currentPage - 1)}
             disabled={currentPage === 0}
-            className="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-40 cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-line hover:bg-surface disabled:opacity-40 cursor-pointer"
           >
             Precedente
           </button>
-          <span className="tabular-nums text-luxury-text/60">
+          <span className="tabular-nums text-ink-muted">
             {currentPage + 1} / {pageCount}
           </span>
           <button
             type="button"
             onClick={() => setPage(currentPage + 1)}
             disabled={currentPage >= pageCount - 1}
-            className="px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 disabled:opacity-40 cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-line hover:bg-surface disabled:opacity-40 cursor-pointer"
           >
             Successiva
           </button>

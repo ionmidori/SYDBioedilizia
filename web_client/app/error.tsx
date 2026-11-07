@@ -26,32 +26,32 @@ export default function Error({
     }, [error]);
 
     return (
-        <div className="min-h-screen bg-luxury-bg flex items-center justify-center p-6">
+        <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
             <div className="max-w-lg w-full space-y-6 text-center">
                 {/* Error Icon */}
-                <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 mb-6">
-                    <AlertTriangle className="w-8 h-8 text-red-500" />
+                <div className="w-16 h-16 mx-auto rounded-full bg-danger-subtle flex items-center justify-center border border-danger/20 mb-6">
+                    <AlertTriangle className="w-8 h-8 text-danger-ink" />
                 </div>
 
                 {/* Title */}
-                <h1 className="text-3xl md:text-4xl font-bold text-luxury-text font-serif">
-                    Qualcosa è andato <span className="text-red-500 italic">storto</span>
+                <h1 className="text-3xl md:text-4xl font-bold text-ink font-serif">
+                    Qualcosa è andato <span className="text-danger-ink italic">storto</span>
                 </h1>
 
                 {/* Description */}
-                <p className="text-luxury-text/60 leading-relaxed max-w-md mx-auto">
+                <p className="text-ink-muted leading-relaxed max-w-md mx-auto">
                     Si è verificato un errore imprevisto durante il caricamento della pagina.
                     Prova a ricaricare o torna alla homepage.
                 </p>
 
                 {/* Error Details (Development Only) */}
                 {process.env.NODE_ENV === 'development' && (
-                    <div className="glass-premium border-red-500/20 p-4 rounded-xl">
-                        <p className="text-xs text-red-400 mb-2 font-mono text-left">
+                    <div className="glass-premium border-danger/20 p-4 rounded-xl">
+                        <p className="text-xs text-danger-ink mb-2 font-mono text-left">
                             <strong>Error:</strong> {error.message}
                         </p>
                         {error.digest && (
-                            <p className="text-xs text-gray-500 font-mono text-left">
+                            <p className="text-xs text-ink-subtle font-mono text-left">
                                 <strong>Digest:</strong> {error.digest}
                             </p>
                         )}
@@ -62,15 +62,15 @@ export default function Error({
                 <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
                     <Button
                         onClick={reset}
-                        className="px-8 py-6 bg-luxury-teal hover:bg-luxury-teal/90 text-white font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
+                        className="px-8 py-6 font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
                         <RefreshCw className="w-5 h-5" />
                         Riprova
                     </Button>
                     <Button
                         asChild
-                        variant="outline"
-                        className="px-8 py-6 border-luxury-gold/30 hover:bg-luxury-gold/10 text-luxury-text font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
+                        variant="secondary"
+                        className="px-8 py-6 border-line hover:bg-accent-subtle text-ink font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
                         <Link href="/">
                             <Home className="w-5 h-5" />
