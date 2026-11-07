@@ -113,7 +113,7 @@ export function DossierView({ projectId }: { projectId: string }) {
   if (dossier.isPending) {
     return (
       <div className="py-16 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
       </div>
     );
   }
@@ -121,8 +121,8 @@ export function DossierView({ projectId }: { projectId: string }) {
     const notFound = dossier.error instanceof AdminApiError && dossier.error.status === 404;
     return (
       <div role="alert" className="py-10 text-center space-y-3">
-        <p className="text-sm text-red-400">{notFound ? 'Preventivo non trovato.' : 'Impossibile caricare il preventivo.'}</p>
-        <Link href="/admin/quotes" className="text-sm text-luxury-gold hover:underline">
+        <p className="text-sm text-danger-ink">{notFound ? 'Preventivo non trovato.' : 'Impossibile caricare il preventivo.'}</p>
+        <Link href="/admin/quotes" className="text-sm text-accent-ink hover:underline">
           Torna ai preventivi
         </Link>
       </div>
@@ -258,16 +258,16 @@ export function DossierView({ projectId }: { projectId: string }) {
         onClick={(event) => {
           if (!confirmLeave()) event.preventDefault();
         }}
-        className="inline-flex items-center gap-1.5 text-sm text-luxury-text/60 hover:text-luxury-text"
+        className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink"
       >
         <ArrowLeft className="w-4 h-4" aria-hidden /> Preventivi
       </Link>
 
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <h1 className="text-2xl font-semibold tabular-nums text-luxury-gold" data-testid="dossier-number">
+        <h1 className="text-2xl font-semibold tabular-nums text-accent-ink" data-testid="dossier-number">
           {quoteNumber}
         </h1>
-        <span className="text-lg text-luxury-text/80" data-testid="dossier-client">
+        <span className="text-lg text-ink" data-testid="dossier-client">
           {clientName}
         </span>
         <StatusChip label={statusChip.label} className={statusChip.className} testId="dossier-status" />
@@ -282,7 +282,7 @@ export function DossierView({ projectId }: { projectId: string }) {
         <p
           role="status"
           data-testid="notice"
-          className="flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-300"
+          className="flex items-center gap-2 rounded-xl border border-success/30 bg-success-subtle px-4 py-3 text-sm text-success-ink"
         >
           <CheckCircle2 className="w-4 h-4 shrink-0" aria-hidden /> {notice}
         </p>
@@ -291,29 +291,29 @@ export function DossierView({ projectId }: { projectId: string }) {
         <div
           role="alert"
           data-testid="stale-banner"
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300"
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink"
         >
           <span className="flex-1 min-w-[12rem]">
             Modificato da un altro admin: le tue modifiche non salvate partono da una versione precedente.
           </span>
-          <button type="button" onClick={reload} className="px-3 py-1.5 rounded-lg border border-amber-300/40 hover:bg-amber-300/10 cursor-pointer">
+          <button type="button" onClick={reload} className="px-3 py-1.5 rounded-lg border border-warning/40 hover:bg-warning-subtle cursor-pointer">
             Scarta le mie modifiche e ricarica
           </button>
         </div>
       )}
       {lockedByOther && (
-        <p role="status" data-testid="locked-banner" className="flex items-center gap-2 rounded-xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm text-sky-300">
+        <p role="status" data-testid="locked-banner" className="flex items-center gap-2 rounded-xl border border-info/30 bg-info-subtle px-4 py-3 text-sm text-info-ink">
           <Lock className="w-4 h-4 shrink-0" aria-hidden /> In revisione da un altro admin: puoi consultarlo ma non modificarlo.
         </p>
       )}
       {(status === 'approved' || status === 'sent') && !pdfReady && (
-        <div role="alert" data-testid="pdf-missing" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-300">
+        <div role="alert" data-testid="pdf-missing" className="flex flex-wrap items-center gap-3 rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink">
           <span className="flex-1 min-w-[12rem]">Il PDF della revisione approvata non è disponibile.</span>
           <button
             type="button"
             disabled={regenerate.isPending}
             onClick={() => regenerate.mutate(undefined, { onSuccess: (r) => setPdfPreviewUrl(r.pdf_preview_url ?? null) })}
-            className="px-3 py-1.5 rounded-lg border border-amber-300/40 hover:bg-amber-300/10 disabled:opacity-50 cursor-pointer"
+            className="px-3 py-1.5 rounded-lg border border-warning/40 hover:bg-warning-subtle disabled:opacity-50 cursor-pointer"
           >
             {regenerate.isPending ? 'Generazione…' : 'Rigenera il PDF'}
           </button>
@@ -321,19 +321,19 @@ export function DossierView({ projectId }: { projectId: string }) {
       )}
       {status === 'approved' && pdfReady && pdfPreviewUrl && (
         <p className="text-sm">
-          <a href={pdfPreviewUrl} target="_blank" rel="noopener noreferrer" data-testid="pdf-preview-link" className="text-luxury-gold hover:underline">
+          <a href={pdfPreviewUrl} target="_blank" rel="noopener noreferrer" data-testid="pdf-preview-link" className="text-accent-ink hover:underline">
             Apri l&apos;anteprima del PDF approvato
           </a>{' '}
-          <span className="text-luxury-text/50">(il link vale 15 minuti)</span>
+          <span className="text-ink-muted">(il link vale 15 minuti)</span>
         </p>
       )}
       {followup && (
         <p
           role="status"
           data-testid="client-followup-banner"
-          className="flex items-start gap-2 rounded-xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-sm text-sky-100"
+          className="flex items-start gap-2 rounded-xl border border-info/30 bg-info-subtle px-4 py-3 text-sm text-info-ink"
         >
-          <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 text-sky-300" aria-hidden />
+          <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 text-info-ink" aria-hidden />
           <span>
             Il cliente ha chiesto modifiche in chat il {formatDateTime(followup.requested_at)} (
             {followup.count === 1 ? '1 richiesta' : `${followup.count} richieste`}): leggi la chat prima di approvare
@@ -345,9 +345,9 @@ export function DossierView({ projectId }: { projectId: string }) {
         <p
           role="status"
           data-testid="sent-before-banner"
-          className="flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200"
+          className="flex items-start gap-2 rounded-xl border border-warning/30 bg-warning-subtle px-4 py-3 text-sm text-warning-ink"
         >
-          <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" aria-hidden />
+          <TriangleAlert className="w-4 h-4 mt-0.5 shrink-0 text-warning-ink" aria-hidden />
           <span>
             Questo preventivo era già stato inviato a {sentTo} il {formatDateTime(sentAt)}: il cliente ha ancora quella
             versione. Stai lavorando a una nuova revisione, che arriverà al cliente solo dopo l&apos;approvazione e un
@@ -356,7 +356,7 @@ export function DossierView({ projectId }: { projectId: string }) {
         </p>
       )}
       {review?.reason && (status === 'rejected' || status === 'in_review') && (
-        <p className="text-sm text-luxury-text/70" data-testid="review-reason">
+        <p className="text-sm text-ink-muted" data-testid="review-reason">
           Ultimo motivo registrato: {review.reason}
         </p>
       )}
@@ -417,13 +417,13 @@ export function DossierView({ projectId }: { projectId: string }) {
           </ActionButton>
         )}
         {canEdit && dirty && showErrors && hasLineErrors && (
-          <span role="alert" className="text-sm text-red-400">
+          <span role="alert" className="text-sm text-danger-ink">
             Correggi i campi evidenziati prima di salvare.
           </span>
         )}
       </div>
       {canEdit && dirty && !stale && (
-        <p className="text-xs text-luxury-text/50">Hai modifiche non salvate: salvale per poter approvare.</p>
+        <p className="text-xs text-ink-muted">Hai modifiche non salvate: salvale per poter approvare.</p>
       )}
 
       {/* ── Content ─────────────────────────────────────────────────────────── */}
@@ -440,10 +440,10 @@ export function DossierView({ projectId }: { projectId: string }) {
             onPickFromPriceBook={() => setPickerOpen(true)}
             rooms={quote.rooms}
           />
-          <section className="glass-premium rounded-2xl p-4 border border-white/5 space-y-4" data-testid="totals-panel">
+          <section className="glass-premium rounded-2xl p-4 border border-line space-y-4" data-testid="totals-panel">
             <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-luxury-gold">
-                Note per il cliente <span className="normal-case font-normal text-luxury-text/50">(compaiono nel PDF)</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-accent-ink">
+                Note per il cliente <span className="normal-case font-normal text-ink-muted">(compaiono nel PDF)</span>
               </span>
               <textarea
                 value={shownNotes}
@@ -452,16 +452,16 @@ export function DossierView({ projectId }: { projectId: string }) {
                 rows={3}
                 maxLength={4000}
                 data-testid="admin-notes"
-                className="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50 disabled:opacity-60"
+                className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent disabled:opacity-60"
               />
             </label>
             <dl className="ml-auto max-w-xs space-y-1.5 text-sm">
               <div className="flex justify-between gap-4">
-                <dt className="text-luxury-text/70">Imponibile</dt>
+                <dt className="text-ink-muted">Imponibile</dt>
                 <dd className="tabular-nums" data-testid="totals-subtotal">{formatEuro(shownTotals.subtotal)}</dd>
               </div>
               <div className="flex justify-between items-center gap-4">
-                <dt className="text-luxury-text/70">
+                <dt className="text-ink-muted">
                   <label htmlFor="vat-percent">IVA %</label>
                 </dt>
                 <dd className="flex items-center gap-2">
@@ -477,24 +477,24 @@ export function DossierView({ projectId }: { projectId: string }) {
                     onChange={(e) => touch({ vatPercent: e.target.value === '' ? Number.NaN : Number(e.target.value) })}
                     aria-invalid={draftShown && vatInvalid}
                     data-testid="vat-percent"
-                    className="w-20 rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-right text-base md:text-sm tabular-nums disabled:opacity-60"
+                    className="w-20 rounded-lg bg-surface border border-line px-2 py-1 text-right text-base md:text-sm tabular-nums disabled:opacity-60"
                   />
                   <span className="tabular-nums w-24 text-right" data-testid="totals-vat">{formatEuro(shownTotals.vatAmount)}</span>
                 </dd>
               </div>
-              <div className="flex justify-between gap-4 border-t border-white/10 pt-1.5 text-base font-semibold">
+              <div className="flex justify-between gap-4 border-t border-line pt-1.5 text-base font-semibold">
                 <dt>Totale</dt>
                 <dd className="tabular-nums" data-testid="totals-grand">{formatEuro(shownTotals.grandTotal)}</dd>
               </div>
               {dirty && (
-                <div className="flex justify-between gap-4 text-xs text-luxury-text/50">
+                <div className="flex justify-between gap-4 text-xs text-ink-muted">
                   <dt>Versione salvata</dt>
                   <dd className="tabular-nums">{formatEuro(quote.financials.grand_total)}</dd>
                 </div>
               )}
             </dl>
-            {vatInvalid && showErrors && <p role="alert" className="text-sm text-red-400">L&apos;IVA deve essere tra 0 e 50%.</p>}
-            <p className="text-xs text-luxury-text/40">Il server ricalcola i totali al salvataggio.</p>
+            {vatInvalid && showErrors && <p role="alert" className="text-sm text-danger-ink">L&apos;IVA deve essere tra 0 e 50%.</p>}
+            <p className="text-xs text-ink-subtle">Il server ricalcola i totali al salvataggio.</p>
           </section>
         </div>
 
@@ -673,10 +673,10 @@ function ActionButton({
   title?: string;
 }) {
   const tone = primary
-    ? 'bg-luxury-gold text-black font-medium border-transparent'
+    ? 'bg-accent text-on-accent font-medium border-transparent'
     : danger
-      ? 'border-red-400/40 text-red-300 hover:bg-red-400/10'
-      : 'border-white/10 hover:bg-white/5';
+      ? 'border-danger/40 text-danger-ink hover:bg-danger-subtle'
+      : 'border-line hover:bg-surface';
   return (
     <button
       type="button"

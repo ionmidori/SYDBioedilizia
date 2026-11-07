@@ -133,7 +133,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
         className={`
           relative overflow-hidden rounded-3xl border-2 border-dashed p-8 text-center cursor-pointer
           transition-colors duration-300 flex flex-col items-center justify-center min-h-[240px] shadow-sm
-          ${isDragActive ? '' : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low'}
+          ${isDragActive ? '' : 'border-line-strong bg-surface hover:bg-surface-muted'}
           ${uploading || success ? 'pointer-events-none' : ''}
         `}
       >
@@ -148,12 +148,12 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
               exit={{ opacity: 0, y: -10 }}
               className="flex flex-col items-center gap-4"
             >
-              <div className="p-4 rounded-full bg-secondary-container text-on-secondary-container">
+              <div className="p-4 rounded-full bg-primary-subtle text-primary-ink">
                 <Upload className="w-8 h-8" />
               </div>
               <div className="space-y-1">
-                <p className="text-title-medium text-on-surface font-medium">Click to upload or drag and drop</p>
-                <p className="text-body-medium text-on-surface-variant">SVG, PNG, JPG or GIF (max. 10MB)</p>
+                <p className="text-title-medium text-ink font-medium">Click to upload or drag and drop</p>
+                <p className="text-body-medium text-ink-muted">SVG, PNG, JPG or GIF (max. 10MB)</p>
               </div>
             </motion.div>
           )}
@@ -168,11 +168,11 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
             >
               <Loader2 className="w-10 h-10 animate-spin" />
               <div className="w-full max-w-xs space-y-3">
-                <div className="flex justify-between text-label-large text-on-surface-variant font-medium">
+                <div className="flex justify-between text-label-large text-ink-muted font-medium">
                   <span>{progress <= 30 ? 'Compressing Image...' : 'Uploading to Cloud...'}</span>
                   <span>{progress}%</span>
                 </div>
-                <div className="w-full bg-surface-variant rounded-full h-2 overflow-hidden shadow-inner">
+                <div className="w-full bg-surface-muted rounded-full h-2 overflow-hidden shadow-inner">
                   <motion.div 
                     className="h-full rounded-full"
                     initial={{ width: 0 }}
@@ -181,7 +181,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
                   />
                 </div>
                 {compressedSize > 0 && (
-                  <p className="text-body-small text-on-surface-variant text-center opacity-80 mt-2">
+                  <p className="text-body-small text-ink-muted text-center opacity-80 mt-2">
                     Optimized: {(previewSize / 1024 / 1024).toFixed(2)}MB → {(compressedSize / 1024 / 1024).toFixed(2)}MB
                   </p>
                 )}
@@ -201,8 +201,8 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <div className="space-y-1">
-                <p className="text-title-medium text-on-surface font-medium">Upload Complete!</p>
-                <p className="text-body-small text-on-surface-variant">Your image was successfully uploaded.</p>
+                <p className="text-title-medium text-ink font-medium">Upload Complete!</p>
+                <p className="text-body-small text-ink-muted">Your image was successfully uploaded.</p>
               </div>
               <button 
                 onClick={(e) => { e.stopPropagation(); setSuccess(false); }}
@@ -220,14 +220,14 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
               animate={{ opacity: 1 }}
               className="flex flex-col items-center gap-3 px-4"
             >
-              <div className="p-3 rounded-full bg-error-container text-on-error-container">
+              <div className="p-3 rounded-full bg-danger-subtle text-danger-ink">
                 <X className="w-6 h-6" />
               </div>
-              <p className="text-title-small text-error font-medium">Upload Failed</p>
-              <p className="text-body-medium text-on-surface-variant max-w-[250px]">{error}</p>
+              <p className="text-title-small text-danger-ink font-medium">Upload Failed</p>
+              <p className="text-body-medium text-ink-muted max-w-[250px]">{error}</p>
               <button 
                 onClick={(e) => { e.stopPropagation(); setError(null); }}
-                className="text-on-surface bg-surface-variant text-label-large mt-3 rounded-full px-5 py-2 hover:bg-surface-variant/80 transition-colors"
+                className="text-ink bg-surface-muted text-label-large mt-3 rounded-full px-5 py-2 hover:bg-surface-muted/80 transition-colors"
               >
                 Try again
               </button>

@@ -6,11 +6,11 @@ interface Chip {
   className: string;
 }
 
-const AMBER = 'text-amber-400 bg-amber-400/10 border-amber-400/25';
-const BLUE = 'text-sky-400 bg-sky-400/10 border-sky-400/25';
-const GREEN = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/25';
-const RED = 'text-red-400 bg-red-400/10 border-red-400/25';
-const GREY = 'text-luxury-text/60 bg-white/5 border-white/10';
+const AMBER = 'text-warning-ink bg-warning-subtle border-warning/25';
+const BLUE = 'text-info-ink bg-info-subtle border-info/25';
+const GREEN = 'text-success-ink bg-success-subtle border-success/25';
+const RED = 'text-danger-ink bg-danger-subtle border-danger/25';
+const GREY = 'text-ink-muted bg-surface border-line';
 
 export const QUOTE_STATUS_CHIP: Record<QuoteStatus, Chip> = {
   draft: { label: 'Bozza non inviata', className: GREY },

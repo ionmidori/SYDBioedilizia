@@ -39,7 +39,7 @@ export function ApproveDialog({
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md bg-luxury-bg border-luxury-gold/20 text-luxury-text">
+      <DialogContent className="max-w-md bg-canvas border-line text-ink">
         <DialogHeader>
           <DialogTitle>Approvare il preventivo?</DialogTitle>
           <DialogDescription>
@@ -48,13 +48,13 @@ export function ApproveDialog({
           </DialogDescription>
         </DialogHeader>
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm" data-testid="approve-summary">
-          <dt className="text-luxury-text/60">Preventivo</dt>
+          <dt className="text-ink-muted">Preventivo</dt>
           <dd className="font-medium tabular-nums">{quoteNumber}</dd>
-          <dt className="text-luxury-text/60">Cliente</dt>
+          <dt className="text-ink-muted">Cliente</dt>
           <dd className="font-medium">{clientName}</dd>
-          <dt className="text-luxury-text/60">Voci</dt>
+          <dt className="text-ink-muted">Voci</dt>
           <dd>{itemCount}</dd>
-          <dt className="text-luxury-text/60">Totale IVA inclusa</dt>
+          <dt className="text-ink-muted">Totale IVA inclusa</dt>
           <dd className="font-semibold tabular-nums">{formatEuro(grandTotal)}</dd>
         </dl>
         <ErrorBanner error={error} onReload={onReload} />
@@ -62,7 +62,7 @@ export function ApproveDialog({
           <button
             type="button"
             onClick={() => onOpenChange(false)}
-            className="px-4 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer"
+            className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer"
           >
             Annulla
           </button>
@@ -71,7 +71,7 @@ export function ApproveDialog({
             onClick={onConfirm}
             disabled={pending}
             data-testid="approve-confirm"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-luxury-gold text-black text-sm font-medium disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
           >
             {pending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
             Approva

@@ -17,7 +17,7 @@ const TABS: ReadonlyArray<{ id: TestimonialStatus; label: string }> = [
 
 function Stars({ rating }: { rating: number }) {
   return (
-    <span role="img" aria-label={`${rating} stelle su 5`} className="inline-flex gap-0.5 text-luxury-gold">
+    <span role="img" aria-label={`${rating} stelle su 5`} className="inline-flex gap-0.5 text-accent-ink">
       {[1, 2, 3, 4, 5].map((n) => (
         <Star key={n} className={cn('w-4 h-4', n > rating && 'opacity-25')} fill={n <= rating ? 'currentColor' : 'none'} aria-hidden />
       ))}
@@ -37,7 +37,7 @@ export function TestimonialModeration() {
         <h1 id="reviews-title" className="text-2xl font-semibold">
           Recensioni
         </h1>
-        <p className="text-sm text-luxury-text/60">Solo le recensioni pubblicate compaiono sul sito.</p>
+        <p className="text-sm text-ink-muted">Solo le recensioni pubblicate compaiono sul sito.</p>
       </div>
 
       <div role="tablist" aria-label="Stato delle recensioni" className="flex gap-1">
@@ -56,7 +56,7 @@ export function TestimonialModeration() {
               data-testid={`tab-${tab.id}`}
               className={cn(
                 'px-3 py-1.5 rounded-lg text-sm whitespace-nowrap cursor-pointer border',
-                tab.id === status ? 'bg-luxury-gold/15 border-luxury-gold/40 text-luxury-gold' : 'border-transparent text-luxury-text/70 hover:bg-white/5',
+                tab.id === status ? 'bg-accent-subtle border-accent text-accent-ink' : 'border-transparent text-ink-muted hover:bg-surface',
               )}
             >
               {tab.label}
@@ -70,14 +70,14 @@ export function TestimonialModeration() {
 
       {list.isPending ? (
         <div className="py-16 flex justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
+          <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
         </div>
       ) : list.isError ? (
-        <p role="alert" className="py-10 text-center text-sm text-red-400">
+        <p role="alert" className="py-10 text-center text-sm text-danger-ink">
           Impossibile caricare le recensioni. Riprova tra poco.
         </p>
       ) : list.data.items.length === 0 ? (
-        <p className="py-16 text-center text-sm text-luxury-text/60" data-testid="reviews-empty">
+        <p className="py-16 text-center text-sm text-ink-muted" data-testid="reviews-empty">
           {status === 'pending' ? 'Nessuna recensione in attesa di moderazione.' : 'Nessuna recensione in questa sezione.'}
         </p>
       ) : (
@@ -104,20 +104,20 @@ function ReviewCard({
   const send = (decision: 'approve' | 'reject') => onModerate(decision, notes.trim() || null);
 
   return (
-    <li className="glass-premium rounded-2xl p-4 border border-white/5 space-y-3" data-testid="review-card">
+    <li className="glass-premium rounded-2xl p-4 border border-line space-y-3" data-testid="review-card">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium" data-testid="review-name">
           {review.name}
         </span>
-        {review.location && <span className="text-sm text-luxury-text/60">{review.location}</span>}
+        {review.location && <span className="text-sm text-ink-muted">{review.location}</span>}
         <Stars rating={review.rating} />
-        <span className="ml-auto text-xs text-luxury-text/50">{formatDateTime(review.created_at)}</span>
+        <span className="ml-auto text-xs text-ink-muted">{formatDateTime(review.created_at)}</span>
       </div>
       {/* Visitor-written text: rendered as plain text, never as markup. */}
       <p className="text-sm whitespace-pre-line" data-testid="review-text">
         {review.text}
       </p>
-      {review.admin_notes && <p className="text-xs text-luxury-text/50">Nota interna: {review.admin_notes}</p>}
+      {review.admin_notes && <p className="text-xs text-ink-muted">Nota interna: {review.admin_notes}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <label className="sr-only" htmlFor={`notes-${review.id}`}>
           Nota interna (facoltativa)
@@ -128,7 +128,7 @@ function ReviewCard({
           onChange={(e) => setNotes(e.target.value)}
           maxLength={500}
           placeholder="Nota interna (facoltativa)"
-          className="flex-1 min-w-[12rem] rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50"
+          className="flex-1 min-w-[12rem] rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent"
         />
         {review.status !== 'approved' && (
           <button
@@ -136,7 +136,7 @@ function ReviewCard({
             disabled={pending}
             onClick={() => send('approve')}
             data-testid="review-approve"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-luxury-gold text-black text-sm font-medium disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
           >
             <Check className="w-4 h-4" aria-hidden /> Pubblica
           </button>
@@ -147,7 +147,7 @@ function ReviewCard({
             disabled={pending}
             onClick={() => send('reject')}
             data-testid="review-reject"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-red-400/40 text-red-300 text-sm hover:bg-red-400/10 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-danger/40 text-danger-ink text-sm hover:bg-danger-subtle disabled:opacity-50 cursor-pointer"
           >
             <X className="w-4 h-4" aria-hidden /> {review.status === 'approved' ? 'Togli dal sito' : 'Rifiuta'}
           </button>

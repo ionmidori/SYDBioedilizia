@@ -11,18 +11,18 @@ import type { AdminKpis } from '@/types/admin-content';
 function Kpi({ label, value, hint, testId, href }: { label: string; value: string; hint?: string; testId: string; href?: string }) {
   const body = (
     <>
-      <p className="text-xs text-luxury-text/60">{label}</p>
+      <p className="text-xs text-ink-muted">{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums" data-testid={testId}>
         {value}
       </p>
-      {hint && <p className="mt-0.5 text-[11px] text-luxury-text/50">{hint}</p>}
+      {hint && <p className="mt-0.5 text-[11px] text-ink-muted">{hint}</p>}
     </>
   );
-  const box = 'glass-premium rounded-2xl p-4 border border-white/5 block h-full';
+  const box = 'glass-premium rounded-2xl p-4 border border-line block h-full';
   return (
     <li>
       {href ? (
-        <Link href={href} className={`${box} hover:border-luxury-gold/30 transition-colors`}>
+        <Link href={href} className={`${box} hover:border-line transition-colors`}>
           {body}
         </Link>
       ) : (
@@ -51,13 +51,13 @@ export function KpiDashboard() {
   if (kpis.isPending) {
     return (
       <div className="py-16 flex justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
+        <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
       </div>
     );
   }
   if (kpis.isError) {
     return (
-      <p role="alert" className="py-10 text-center text-sm text-red-400">
+      <p role="alert" className="py-10 text-center text-sm text-danger-ink">
         Impossibile caricare i dati. Riprova tra poco.
       </p>
     );
@@ -72,13 +72,13 @@ export function KpiDashboard() {
           <h1 id="dash-title" className="text-2xl font-semibold">
             Dashboard
           </h1>
-          <p className="text-sm text-luxury-text/60">Aggiornata alle {formatDateTime(data.generated_at)}.</p>
+          <p className="text-sm text-ink-muted">Aggiornata alle {formatDateTime(data.generated_at)}.</p>
         </div>
         <button
           type="button"
           onClick={() => void kpis.refetch()}
           disabled={kpis.isFetching}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-sm hover:bg-surface disabled:opacity-50 cursor-pointer"
         >
           <RefreshCw className={`w-4 h-4 ${kpis.isFetching ? 'animate-spin' : ''}`} aria-hidden /> Aggiorna
         </button>
@@ -103,18 +103,18 @@ export function KpiDashboard() {
       </ul>
 
       {s.drafts > 0 && (
-        <p className="inline-flex items-center gap-2 text-sm text-luxury-text/60" data-testid="kpi-drafts">
+        <p className="inline-flex items-center gap-2 text-sm text-ink-muted" data-testid="kpi-drafts">
           <CircleAlert className="w-4 h-4" aria-hidden /> {s.drafts} bozze non ancora inviate dai clienti.
         </p>
       )}
 
       <div className="grid lg:grid-cols-3 gap-4 items-start">
-        <section className="lg:col-span-2 glass-premium rounded-2xl p-4 border border-white/5">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-luxury-gold mb-3">
+        <section className="lg:col-span-2 glass-premium rounded-2xl p-4 border border-line">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">
             Approvazioni settimanali (ultime 8 settimane)
           </h2>
           {data.weekly_approvals.every((w) => w.approvals === 0) ? (
-            <p className="py-8 text-center text-sm text-luxury-text/60">
+            <p className="py-8 text-center text-sm text-ink-muted">
               Nessun preventivo approvato in queste settimane: il grafico apparirà qui.
             </p>
           ) : (
@@ -122,21 +122,21 @@ export function KpiDashboard() {
           )}
         </section>
 
-        <section className="glass-premium rounded-2xl p-4 border border-white/5" data-testid="recent-approvals">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-luxury-gold mb-3">Ultimi approvati</h2>
+        <section className="glass-premium rounded-2xl p-4 border border-line" data-testid="recent-approvals">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Ultimi approvati</h2>
           {data.recent_approvals.length === 0 ? (
-            <p className="text-sm text-luxury-text/60">Nessun preventivo approvato.</p>
+            <p className="text-sm text-ink-muted">Nessun preventivo approvato.</p>
           ) : (
-            <ul className="divide-y divide-white/5">
+            <ul className="divide-y divide-line">
               {data.recent_approvals.map((r) => (
                 <li key={r.project_id}>
                   <Link
                     href={`/admin/quotes/${encodeURIComponent(r.project_id)}`}
-                    className="flex items-baseline justify-between gap-3 py-2 hover:text-luxury-gold"
+                    className="flex items-baseline justify-between gap-3 py-2 hover:text-accent-ink"
                   >
                     <span className="min-w-0">
                       <span className="block font-medium tabular-nums">{r.quote_number ?? 'Senza numero'}</span>
-                      <span className="block text-xs text-luxury-text/60 truncate">{r.client_display_name ?? 'Cliente'}</span>
+                      <span className="block text-xs text-ink-muted truncate">{r.client_display_name ?? 'Cliente'}</span>
                     </span>
                     <span className="tabular-nums text-sm">{formatEuro(r.grand_total)}</span>
                   </Link>
@@ -147,8 +147,8 @@ export function KpiDashboard() {
         </section>
       </div>
 
-      <section className="glass-premium rounded-2xl p-4 border border-white/5">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-luxury-gold mb-3">Stato delle recensioni</h2>
+      <section className="glass-premium rounded-2xl p-4 border border-line">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Stato delle recensioni</h2>
         <dl className="grid grid-cols-3 gap-3 text-center">
           {(
             [
@@ -158,7 +158,7 @@ export function KpiDashboard() {
             ] as const
           ).map(([label, value]) => (
             <div key={label} className="flex flex-col-reverse">
-              <dt className="text-xs text-luxury-text/60">{label}</dt>
+              <dt className="text-xs text-ink-muted">{label}</dt>
               <dd className="text-xl font-semibold tabular-nums">{value}</dd>
             </div>
           ))}

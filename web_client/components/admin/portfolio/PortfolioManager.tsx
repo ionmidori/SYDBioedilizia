@@ -27,7 +27,7 @@ export function PortfolioManager() {
           <h1 id="portfolio-title" className="text-2xl font-semibold">
             Portfolio
           </h1>
-          <p className="text-sm text-luxury-text/60">
+          <p className="text-sm text-ink-muted">
             {portfolio.data
               ? `${portfolio.data.items.length} progetti · ${portfolio.data.visible} visibili sul sito.`
               : 'La galleria dei lavori sul sito pubblico.'}
@@ -37,7 +37,7 @@ export function PortfolioManager() {
           type="button"
           onClick={() => setEditing(null)}
           data-testid="portfolio-add"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-luxury-gold text-black text-sm font-medium cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium cursor-pointer"
         >
           <Plus className="w-4 h-4" aria-hidden /> Aggiungi progetto
         </button>
@@ -47,21 +47,21 @@ export function PortfolioManager() {
 
       {portfolio.isPending ? (
         <div className="py-16 flex justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-luxury-gold" aria-label="Caricamento" />
+          <Loader2 className="w-6 h-6 animate-spin text-accent-ink" aria-label="Caricamento" />
         </div>
       ) : portfolio.isError ? (
-        <p role="alert" className="py-10 text-center text-sm text-red-400">
+        <p role="alert" className="py-10 text-center text-sm text-danger-ink">
           Impossibile caricare il portfolio. Riprova tra poco.
         </p>
       ) : portfolio.data.items.length === 0 ? (
-        <p className="py-16 text-center text-sm text-luxury-text/60" data-testid="portfolio-empty">
+        <p className="py-16 text-center text-sm text-ink-muted" data-testid="portfolio-empty">
           Nessun progetto ancora: il sito mostra quelli di esempio. Aggiungi il primo con «Aggiungi progetto».
         </p>
       ) : (
         <ul className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {portfolio.data.items.map((project) => (
-            <li key={project.id} className="glass-premium rounded-2xl border border-white/5 overflow-hidden flex flex-col" data-testid="portfolio-card">
-              <div className="aspect-[4/3] bg-white/5 flex items-center justify-center text-luxury-text/40">
+            <li key={project.id} className="glass-premium rounded-2xl border border-line overflow-hidden flex flex-col" data-testid="portfolio-card">
+              <div className="aspect-[4/3] bg-surface flex items-center justify-center text-ink-subtle">
                 {project.image_url ? (
                   <img src={project.image_url} alt={project.title} loading="lazy" className="w-full h-full object-cover" />
                 ) : (
@@ -73,13 +73,13 @@ export function PortfolioManager() {
                   <h2 className="font-medium flex-1" data-testid="portfolio-card-title">
                     {project.title}
                   </h2>
-                  <span className="text-xs tabular-nums text-luxury-text/50">#{project.order}</span>
+                  <span className="text-xs tabular-nums text-ink-muted">#{project.order}</span>
                 </div>
-                <p className="text-xs text-luxury-text/60">
+                <p className="text-xs text-ink-muted">
                   {project.category} · {project.location}
                 </p>
                 {!project.active && (
-                  <StatusChip label="Nascosto" className="text-luxury-text/60 bg-white/5 border-white/10" testId="portfolio-hidden" />
+                  <StatusChip label="Nascosto" className="text-ink-muted bg-surface border-line" testId="portfolio-hidden" />
                 )}
                 <div className="mt-auto pt-2 flex flex-wrap items-center gap-2">
                   <button
@@ -88,7 +88,7 @@ export function PortfolioManager() {
                     disabled={update.isPending}
                     aria-pressed={project.active}
                     data-testid="portfolio-toggle"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-sm hover:bg-white/5 disabled:opacity-50 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-sm hover:bg-surface disabled:opacity-50 cursor-pointer"
                   >
                     <EyeOff className="w-4 h-4" aria-hidden /> {project.active ? 'Nascondi' : 'Mostra sul sito'}
                   </button>
@@ -96,7 +96,7 @@ export function PortfolioManager() {
                     type="button"
                     onClick={() => setEditing(project)}
                     aria-label={`Modifica ${project.title}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-sm hover:bg-white/5 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-sm hover:bg-surface cursor-pointer"
                   >
                     <Pencil className="w-4 h-4" aria-hidden /> Modifica
                   </button>
@@ -107,7 +107,7 @@ export function PortfolioManager() {
                       setDeleting(project);
                     }}
                     aria-label={`Elimina ${project.title}`}
-                    className="ml-auto p-2 rounded-lg text-luxury-text/50 hover:text-red-400 hover:bg-red-400/10 cursor-pointer"
+                    className="ml-auto p-2 rounded-lg text-ink-muted hover:text-danger-ink hover:bg-danger-subtle cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" aria-hidden />
                   </button>
@@ -125,7 +125,7 @@ export function PortfolioManager() {
       />
 
       <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
-        <DialogContent className="max-w-md bg-luxury-bg border-luxury-gold/20 text-luxury-text">
+        <DialogContent className="max-w-md bg-canvas border-line text-ink">
           <DialogHeader>
             <DialogTitle>Eliminare il progetto?</DialogTitle>
             <DialogDescription>
@@ -135,7 +135,7 @@ export function PortfolioManager() {
           </DialogHeader>
           <ErrorBanner error={remove.error} />
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setDeleting(null)} className="px-4 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer">
+            <button type="button" onClick={() => setDeleting(null)} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
               Annulla
             </button>
             <button
@@ -143,7 +143,7 @@ export function PortfolioManager() {
               disabled={remove.isPending}
               onClick={() => deleting && remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
               data-testid="portfolio-delete-confirm"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/80 text-white text-sm disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-danger text-on-danger text-sm disabled:opacity-50 cursor-pointer"
             >
               {remove.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
               Elimina

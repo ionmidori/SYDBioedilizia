@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import type { PriceBookItem } from '@/types/admin-price-book';
 
 const FIELD =
-  'w-full rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50';
+  'w-full rounded-lg bg-surface border border-line px-2.5 py-1.5 text-base md:text-sm focus:outline-none focus:border-accent';
 
 type Mark = 'new' | 'changed' | null;
 
@@ -52,12 +52,12 @@ export function PriceBookRow({
       data-mark={mark ?? undefined}
       className={cn(
         'rounded-xl border p-3 space-y-2',
-        mark ? 'border-amber-400/40 bg-amber-400/5' : 'border-white/10',
+        mark ? 'border-warning/40 bg-warning-subtle' : 'border-line',
       )}
     >
       <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-start">
         <label className="space-y-1 md:col-span-2">
-          <span className="text-[11px] text-luxury-text/50">SKU</span>
+          <span className="text-[11px] text-ink-muted">SKU</span>
           <input
             value={item.sku}
             maxLength={40}
@@ -69,7 +69,7 @@ export function PriceBookRow({
           {errors?.sku && <Error text={errors.sku} />}
         </label>
         <label className="col-span-2 md:col-span-4 space-y-1">
-          <span className="text-[11px] text-luxury-text/50">Descrizione</span>
+          <span className="text-[11px] text-ink-muted">Descrizione</span>
           <input
             value={item.description}
             maxLength={LIMITS.description}
@@ -81,7 +81,7 @@ export function PriceBookRow({
           {errors?.description && <Error text={errors.description} />}
         </label>
         <label className="space-y-1 md:col-span-1">
-          <span className="text-[11px] text-luxury-text/50">Unità</span>
+          <span className="text-[11px] text-ink-muted">Unità</span>
           <select
             value={item.unit}
             onChange={(e) => onChange({ unit: e.target.value })}
@@ -96,7 +96,7 @@ export function PriceBookRow({
           </select>
         </label>
         <label className="space-y-1 md:col-span-2">
-          <span className="text-[11px] text-luxury-text/50">Prezzo (€)</span>
+          <span className="text-[11px] text-ink-muted">Prezzo (€)</span>
           <input
             type="number"
             inputMode="decimal"
@@ -112,7 +112,7 @@ export function PriceBookRow({
           {errors?.unit_price && <Error text={errors.unit_price} />}
         </label>
         <label className="col-span-2 md:col-span-2 space-y-1">
-          <span className="text-[11px] text-luxury-text/50">Categoria</span>
+          <span className="text-[11px] text-ink-muted">Categoria</span>
           <input
             value={item.category}
             maxLength={LIMITS.category}
@@ -130,7 +130,7 @@ export function PriceBookRow({
             onClick={onToggle}
             aria-expanded={open}
             aria-label={`Dettagli della voce ${item.sku}`}
-            className="p-2 rounded-lg text-luxury-text/50 hover:text-luxury-text hover:bg-white/5 cursor-pointer"
+            className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface cursor-pointer"
           >
             <ChevronDown className={cn('w-4 h-4 transition-transform', open && 'rotate-180')} aria-hidden />
           </button>
@@ -138,7 +138,7 @@ export function PriceBookRow({
             type="button"
             onClick={onRemove}
             aria-label={`Elimina la voce ${item.sku}`}
-            className="p-2 rounded-lg text-luxury-text/50 hover:text-red-400 hover:bg-red-400/10 cursor-pointer"
+            className="p-2 rounded-lg text-ink-muted hover:text-danger-ink hover:bg-danger-subtle cursor-pointer"
           >
             <Trash2 className="w-4 h-4" aria-hidden />
           </button>
@@ -146,21 +146,21 @@ export function PriceBookRow({
       </div>
 
       {!open && DETAIL_ERROR_KEYS.some((key) => errors?.[key]) && (
-        <p role="alert" className="text-[11px] text-red-400" data-testid="pb-details-error">
+        <p role="alert" className="text-[11px] text-danger-ink" data-testid="pb-details-error">
           Dettagli da correggere: apri la riga con la freccia.
         </p>
       )}
 
       {mark && (
-        <p className="text-[11px] text-amber-400" data-testid="pb-mark">
+        <p className="text-[11px] text-warning-ink" data-testid="pb-mark">
           {mark === 'new' ? 'nuova voce' : 'modificata'}
         </p>
       )}
 
       {open && (
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 border-t border-white/10 pt-2" data-testid="pb-details">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 border-t border-line pt-2" data-testid="pb-details">
           <label className="col-span-2 space-y-1">
-            <span className="text-[11px] text-luxury-text/50">Sottocategoria</span>
+            <span className="text-[11px] text-ink-muted">Sottocategoria</span>
             <input
               value={item.subcategory ?? ''}
               maxLength={LIMITS.subcategory}
@@ -169,7 +169,7 @@ export function PriceBookRow({
             />
           </label>
           <label className="space-y-1">
-            <span className="text-[11px] text-luxury-text/50">Quantità min</span>
+            <span className="text-[11px] text-ink-muted">Quantità min</span>
             <input
               type="number"
               step="any"
@@ -182,7 +182,7 @@ export function PriceBookRow({
             {errors?.min_qty && <Error text={errors.min_qty} />}
           </label>
           <label className="space-y-1">
-            <span className="text-[11px] text-luxury-text/50">Quantità max</span>
+            <span className="text-[11px] text-ink-muted">Quantità max</span>
             <input
               type="number"
               step="any"
@@ -195,7 +195,7 @@ export function PriceBookRow({
             {errors?.max_qty && <Error text={errors.max_qty} />}
           </label>
           <label className="space-y-1">
-            <span className="text-[11px] text-luxury-text/50">Range min (€)</span>
+            <span className="text-[11px] text-ink-muted">Range min (€)</span>
             <input
               type="number"
               step="any"
@@ -208,7 +208,7 @@ export function PriceBookRow({
             {errors?.range_min && <Error text={errors.range_min} />}
           </label>
           <label className="space-y-1">
-            <span className="text-[11px] text-luxury-text/50">Range max (€)</span>
+            <span className="text-[11px] text-ink-muted">Range max (€)</span>
             <input
               type="number"
               step="any"
@@ -221,7 +221,7 @@ export function PriceBookRow({
             {errors?.range_max && <Error text={errors.range_max} />}
           </label>
           <label className="col-span-2 md:col-span-5 space-y-1">
-            <span className="text-[11px] text-luxury-text/50">Parole chiave (separate da virgola)</span>
+            <span className="text-[11px] text-ink-muted">Parole chiave (separate da virgola)</span>
             <input
               // Uncontrolled (committed on blur); the key re-syncs it when tags change from outside.
               key={(item.tags ?? []).join('|')}
@@ -246,7 +246,7 @@ export function PriceBookRow({
 
 function Error({ text }: { text: string }) {
   return (
-    <span role="alert" className="block text-[11px] text-red-400">
+    <span role="alert" className="block text-[11px] text-danger-ink">
       {text}
     </span>
   );

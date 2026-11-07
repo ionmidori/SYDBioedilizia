@@ -29,7 +29,7 @@ interface Props {
 }
 
 const FIELD =
-  'w-full rounded-lg bg-white/5 border border-white/10 px-2.5 py-1.5 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50 disabled:opacity-60 disabled:cursor-not-allowed';
+  'w-full rounded-lg bg-surface border border-line px-2.5 py-1.5 text-base md:text-sm focus:outline-none focus:border-accent disabled:opacity-60 disabled:cursor-not-allowed';
 
 const NO_ROOMS: QuoteRoom[] = [];
 
@@ -70,10 +70,10 @@ export function QuoteItemsEditor({
   );
 
   return (
-    <section className="glass-premium rounded-2xl p-4 border border-white/5 space-y-3" data-testid="items-editor">
+    <section className="glass-premium rounded-2xl p-4 border border-line space-y-3" data-testid="items-editor">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-luxury-gold">
-          Voci del preventivo <span className="text-luxury-text/40">({items.length})</span>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">
+          Voci del preventivo <span className="text-ink-subtle">({items.length})</span>
         </h2>
         {!readOnly && (
           <div className="flex flex-wrap gap-2">
@@ -82,7 +82,7 @@ export function QuoteItemsEditor({
                 type="button"
                 onClick={onPickFromPriceBook}
                 data-testid="add-from-price-book"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-luxury-gold/15 border border-luxury-gold/30 text-luxury-gold text-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-subtle border border-line text-accent-ink text-sm cursor-pointer"
               >
                 <Search className="w-4 h-4" aria-hidden /> Dal listino
               </button>
@@ -92,7 +92,7 @@ export function QuoteItemsEditor({
                 type="button"
                 onClick={() => addManual()}
                 data-testid="add-item"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-sm hover:bg-white/5 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line text-sm hover:bg-surface cursor-pointer"
               >
                 <Plus className="w-4 h-4" aria-hidden /> Voce manuale
               </button>
@@ -110,7 +110,7 @@ export function QuoteItemsEditor({
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="py-6 text-center text-sm text-luxury-text/60" data-testid="items-empty">
+        <p className="py-6 text-center text-sm text-ink-muted" data-testid="items-empty">
           Nessuna voce. {readOnly ? '' : 'Aggiungine una per poter approvare.'}
         </p>
       ) : (
@@ -134,9 +134,9 @@ function RoomSection({
   const { room, indices, subtotal } = group;
   return (
     <section className="space-y-2" data-testid="room-section" aria-label={`Stanza ${room.room_label}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-1.5">
         <h3 className="text-sm font-semibold">
-          {room.room_label} <span className="text-luxury-text/40 font-normal">({indices.length})</span>
+          {room.room_label} <span className="text-ink-subtle font-normal">({indices.length})</span>
         </h3>
         <div className="flex items-center gap-3">
           <span className="text-sm tabular-nums" data-testid={`room-subtotal-${room.room_id}`}>
@@ -148,7 +148,7 @@ function RoomSection({
               onClick={onAdd}
               data-testid={`add-item-${room.room_id}`}
               aria-label={`Aggiungi una voce manuale a ${room.room_label}`}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-white/10 text-xs hover:bg-white/5 cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line text-xs hover:bg-surface cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" aria-hidden /> Voce
             </button>
@@ -156,7 +156,7 @@ function RoomSection({
         </div>
       </div>
       {indices.length === 0 ? (
-        <p className="py-2 text-xs text-luxury-text/50">Nessuna voce in questa stanza.</p>
+        <p className="py-2 text-xs text-ink-muted">Nessuna voce in questa stanza.</p>
       ) : (
         <ul className="space-y-2">{children}</ul>
       )}
@@ -188,11 +188,11 @@ function ItemRow({
     <li
       data-testid="items-row"
       data-changed={changed || undefined}
-      className={cn('rounded-xl border p-3 space-y-2', changed ? 'border-amber-400/40 bg-amber-400/5' : 'border-white/10')}
+      className={cn('rounded-xl border p-3 space-y-2', changed ? 'border-warning/40 bg-warning-subtle' : 'border-line')}
     >
       <div className="grid grid-cols-2 md:grid-cols-12 gap-2 items-start">
         <label className="col-span-2 md:col-span-5 space-y-1">
-          <span className="text-[11px] text-luxury-text/50">Descrizione</span>
+          <span className="text-[11px] text-ink-muted">Descrizione</span>
           <input
             value={item.description}
             disabled={readOnly}
@@ -204,7 +204,7 @@ function ItemRow({
           {lineErrors?.description && <FieldError text={lineErrors.description} />}
         </label>
         <label className="space-y-1 md:col-span-1">
-          <span className="text-[11px] text-luxury-text/50">Unità</span>
+          <span className="text-[11px] text-ink-muted">Unità</span>
           <input
             value={item.unit}
             disabled={readOnly}
@@ -214,7 +214,7 @@ function ItemRow({
           />
         </label>
         <label className="space-y-1 md:col-span-2">
-          <span className="text-[11px] text-luxury-text/50">Quantità</span>
+          <span className="text-[11px] text-ink-muted">Quantità</span>
           <input
             type="number"
             inputMode="decimal"
@@ -230,7 +230,7 @@ function ItemRow({
           {lineErrors?.qty && <FieldError text={lineErrors.qty} />}
         </label>
         <label className="space-y-1 md:col-span-2">
-          <span className="text-[11px] text-luxury-text/50">Prezzo unitario (€)</span>
+          <span className="text-[11px] text-ink-muted">Prezzo unitario (€)</span>
           <input
             type="number"
             inputMode="decimal"
@@ -247,7 +247,7 @@ function ItemRow({
         </label>
         <div className="col-span-2 md:col-span-2 flex items-end justify-between md:justify-end gap-2 md:h-full">
           <div className="text-right">
-            <span className="block text-[11px] text-luxury-text/50">Totale</span>
+            <span className="block text-[11px] text-ink-muted">Totale</span>
             <span className="font-semibold tabular-nums" data-testid={`item-total-${index}`}>
               {formatEuro(lineTotal(item))}
             </span>
@@ -257,16 +257,16 @@ function ItemRow({
               type="button"
               aria-label={`Rimuovi la voce ${item.description || item.sku}`}
               onClick={onRemove}
-              className="p-2 rounded-lg text-luxury-text/50 hover:text-red-400 hover:bg-red-400/10 cursor-pointer"
+              className="p-2 rounded-lg text-ink-muted hover:text-danger-ink hover:bg-danger-subtle cursor-pointer"
             >
               <Trash2 className="w-4 h-4" aria-hidden />
             </button>
           )}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-luxury-text/50">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-muted">
         <span className="tabular-nums">{item.sku}</span>
-        {changed && <span className="text-amber-400">modificata</span>}
+        {changed && <span className="text-warning-ink">modificata</span>}
         {!changed && item.manual_override && <span>voce manuale</span>}
         {sections.length > 1 && !readOnly && (
           <label className="ml-auto inline-flex items-center gap-1.5">
@@ -275,7 +275,7 @@ function ItemRow({
               value={item.room_id && sections.some((s) => s.room_id === item.room_id) ? item.room_id : GENERAL_ROOM_ID}
               onChange={(e) => onUpdate({ room_id: e.target.value })}
               data-testid={`item-room-${index}`}
-              className="rounded-md bg-white/5 border border-white/10 px-1.5 py-0.5 text-base md:text-xs text-luxury-text cursor-pointer"
+              className="rounded-md bg-surface border border-line px-1.5 py-0.5 text-base md:text-xs text-ink cursor-pointer"
             >
               {sections.map((s) => (
                 <option key={s.room_id} value={s.room_id}>
@@ -287,7 +287,7 @@ function ItemRow({
         )}
       </div>
       {item.ai_reasoning && (
-        <details className="text-xs text-luxury-text/60">
+        <details className="text-xs text-ink-muted">
           <summary className="cursor-pointer">Perché l&apos;AI l&apos;ha proposta</summary>
           <p className="mt-1">{item.ai_reasoning}</p>
         </details>
@@ -298,7 +298,7 @@ function ItemRow({
 
 function FieldError({ text }: { text: string }) {
   return (
-    <span role="alert" className="block text-[11px] text-red-400">
+    <span role="alert" className="block text-[11px] text-danger-ink">
       {text}
     </span>
   );

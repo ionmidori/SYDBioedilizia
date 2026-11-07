@@ -47,7 +47,7 @@ export function WeeklyBars({ weeks }: { weeks: WeeklyApprovals[] }) {
                 width={barW}
                 height={h}
                 rx={3}
-                fill="var(--color-luxury-gold, #C9A84C)"
+                fill="var(--color-accent)"
                 opacity={week.approvals > 0 ? 1 : 0.2}
               />
               {week.approvals > 0 && (

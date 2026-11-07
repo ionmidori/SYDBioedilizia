@@ -20,7 +20,7 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
 
 const FIELD =
-  'w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2 text-base md:text-sm focus:outline-none focus:border-luxury-gold/50';
+  'w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent';
 
 interface FormState {
   title: string;
@@ -88,7 +88,7 @@ interface Props {
 export function PortfolioForm({ project, open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-luxury-bg border-luxury-gold/20 text-luxury-text">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-canvas border-line text-ink">
         <DialogHeader>
           <DialogTitle>{project ? 'Modifica progetto' : 'Nuovo progetto'}</DialogTitle>
           <DialogDescription>Quello che salvi compare nella galleria del sito pubblico.</DialogDescription>
@@ -172,7 +172,7 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
       <fieldset className="space-y-2" disabled={saving}>
         <legend className="text-sm font-medium">Immagine</legend>
         <div className="flex flex-wrap items-center gap-4">
-          <div className="w-40 h-28 rounded-xl border border-dashed border-white/20 bg-white/5 overflow-hidden flex items-center justify-center text-luxury-text/40">
+          <div className="w-40 h-28 rounded-xl border border-dashed border-line-strong bg-surface overflow-hidden flex items-center justify-center text-ink-subtle">
             {form.imageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- Storage URL validated by the server
               <img src={form.imageUrl} alt="Anteprima" className="w-full h-full object-cover" data-testid="portfolio-preview" />
@@ -192,16 +192,16 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
               disabled={upload.isPending || preparing}
               aria-label="Scegli un'immagine"
               data-testid="portfolio-file"
-              className="block text-sm file:mr-3 file:rounded-lg file:border file:border-white/10 file:bg-white/5 file:px-3 file:py-1.5 file:text-sm"
+              className="block text-sm file:mr-3 file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm"
             />
-            <p className="text-xs text-luxury-text/50">JPG, PNG, WebP o GIF, max 10 MB. Viene ridimensionata e ripulita dai dati nascosti (posizione GPS inclusa).</p>
+            <p className="text-xs text-ink-muted">JPG, PNG, WebP o GIF, max 10 MB. Viene ridimensionata e ripulita dai dati nascosti (posizione GPS inclusa).</p>
             {(upload.isPending || preparing) && (
-              <p className="inline-flex items-center gap-1.5 text-xs text-luxury-gold" role="status">
+              <p className="inline-flex items-center gap-1.5 text-xs text-accent-ink" role="status">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden /> Caricamento in corso…
               </p>
             )}
             {fileError && (
-              <p role="alert" className="text-xs text-red-400" data-testid="portfolio-file-error">
+              <p role="alert" className="text-xs text-danger-ink" data-testid="portfolio-file-error">
                 {fileError}
               </p>
             )}
@@ -264,7 +264,7 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
       </label>
 
       {problems.length > 0 && (
-        <ul role="alert" data-testid="portfolio-problems" className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300">
+        <ul role="alert" data-testid="portfolio-problems" className="rounded-xl border border-danger/30 bg-danger-subtle px-4 py-3 text-sm text-danger-ink">
           {[...new Set(problems)].map((p) => (
             <li key={p}>{p}</li>
           ))}
@@ -273,14 +273,14 @@ function FormBody({ project, onDone }: { project: PortfolioProject | null; onDon
       <ErrorBanner error={create.error ?? update.error} />
 
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onDone} className="px-4 py-2 rounded-xl border border-white/10 text-sm hover:bg-white/5 cursor-pointer">
+        <button type="button" onClick={onDone} className="px-4 py-2 rounded-xl border border-line text-sm hover:bg-surface cursor-pointer">
           Annulla
         </button>
         <button
           type="submit"
           disabled={saving || upload.isPending || preparing}
           data-testid="portfolio-save"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-luxury-gold text-black text-sm font-medium disabled:opacity-50 cursor-pointer"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-accent text-on-accent text-sm font-medium disabled:opacity-50 cursor-pointer"
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" aria-hidden />}
           Salva progetto
