@@ -1,0 +1,125 @@
+/* Base layer: fonts, element defaults, design-system custom properties. Imported by ../globals.css. */
+
+@theme {
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-serif: var(--font-serif), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+.font-trajan {
+  font-family: var(--font-trajan), serif;
+}
+
+@layer base {
+  /* Mobile Native Hardening */
+  html,
+  body {
+    /* Prevent bounce scroll on iOS + pull-to-refresh on Android */
+    overscroll-behavior-y: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Re-enable text selection for content */
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  body {
+    @apply bg-canvas text-ink;
+  }
+
+  html {
+    /* Prevent sticky header occlusion */
+    scroll-padding-top: 80px;
+    /* The chat locks page scroll with `overflow: hidden` (useMobileViewport);
+       reserving the gutter keeps the page from shifting sideways when it does. */
+    scrollbar-gutter: stable;
+  }
+
+  /* Native scrolling only — no JS smooth-scroll library. The wheel stays on the
+     compositor thread; anchor jumps glide unless the user asked for less motion
+     (the global reduced-motion block below forces `auto` back). */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  /* Optical Sizing for Headers */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply tracking-tighter;
+    /* -0.05em or similar equivalent */
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+
+  /* Scroll-snap opt-in: apply .snap-section to sections that need snapping (e.g. landing page) */
+  .snap-section {
+    scroll-snap-align: start;
+  }
+
+  /* 4. VISUAL POLISH: Minimal Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+  }
+
+  /* 4. MOMENTUM SCROLLING */
+  * {
+    -webkit-overflow-scrolling: touch;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* 3. TOUCH FEEDBACK: Physical Tap Feel */
+  button:active {
+    transform: scale(0.98);
+    transition: transform 0.1s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+}
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* M3 Expressive Motion Tokens */
+    --m3-duration-short1: 50ms;
+    --m3-duration-short2: 100ms;
+    --m3-duration-medium1: 200ms;
+    --m3-duration-medium2: 300ms;
+    --m3-duration-long1: 450ms;
+    --m3-duration-long2: 700ms;
+    --m3-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+    --m3-easing-emphasized: cubic-bezier(0.05, 0.7, 0.1, 1);
+    --m3-easing-decelerate: cubic-bezier(0, 0, 0, 1);
+    --m3-easing-accelerate: cubic-bezier(0.3, 0, 1, 1);
+  }
+}

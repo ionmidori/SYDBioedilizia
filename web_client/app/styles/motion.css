@@ -1,0 +1,117 @@
+/* Keyframes, animation classes and the reduced-motion override. Imported by ../globals.css. */
+
+/* Shake animation for auth errors */
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* Shimmer Effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.05) 50%,
+      rgba(255, 255, 255, 0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Accessibility: Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 💎 LUXURY LOADER (M3 Morphing - Heavy "Mosaic" Edition) */
+@keyframes m3-morph-sequence {
+
+  /* SQUARE (Start) */
+  0%,
+  20% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+    transform: rotate(0deg) scale(1);
+    border-radius: 0%;
+  }
+
+  /* GEAR (Mechanical/Construction) */
+  25%,
+  45% {
+    clip-path: polygon(50% 0%, 60% 5%, 65% 20%, 80% 20%, 85% 35%, 100% 40%, 100% 60%, 85% 65%, 80% 80%, 65% 85%, 60% 95%, 40% 95%, 35% 85%, 20% 80%, 15% 65%, 0% 60%, 0% 40%, 15% 35%, 20% 20%, 35% 5%);
+    transform: rotate(90deg) scale(1.1);
+    /* Increased rotation for weight */
+    border-radius: 10%;
+  }
+
+  /* CIRCLE (Perfection) */
+  50%,
+  70% {
+    clip-path: circle(50% at 50% 50%);
+    /* Circle */
+    transform: rotate(180deg) scale(1);
+    border-radius: 50%;
+  }
+
+  /* DIAMOND (Architectural) */
+  75%,
+  95% {
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    transform: rotate(270deg) scale(1.1);
+    border-radius: 20%;
+  }
+
+  /* RETURN TO SQUARE */
+  100% {
+    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+    transform: rotate(360deg) scale(1);
+    border-radius: 0%;
+  }
+}
+
+.m3-morph-shape {
+  width: 20px;
+  /* Increased from 14px */
+  height: 20px;
+  background-color: var(--color-luxury-gold);
+  /* Slower duration (8s) and specific cubic-bezier for "heavy" movement */
+  animation: m3-morph-sequence 8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  box-shadow: 0 4px 12px rgba(233, 196, 106, 0.3);
+}

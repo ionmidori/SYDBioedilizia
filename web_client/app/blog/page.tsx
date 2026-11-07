@@ -53,7 +53,7 @@ export default function BlogIndexPage() {
         />
         <div className="max-w-7xl mx-auto">
           <header className="mb-16 text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-primary mb-6">
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6">
               Il Blog della Ristrutturazione
             </h1>
             <p className="text-xl text-muted-foreground">
@@ -67,7 +67,7 @@ export default function BlogIndexPage() {
               <Link
                 key={post.slug}
                 href={`/blog/${post.slug}`}
-                className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border hover:shadow-xl hover:border-primary/30 transition-all duration-300"
+                className="group flex flex-col bg-card rounded-2xl overflow-hidden border border-border hover:shadow-xl transition-all duration-300"
               >
                 <div className="relative h-56 w-full overflow-hidden bg-muted">
                   <Image
@@ -78,7 +78,7 @@ export default function BlogIndexPage() {
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   />
                   <div className="absolute top-4 left-4">
-                    <span className="bg-background/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold text-primary">
+                    <span className="bg-background/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold">
                       {post.category}
                     </span>
                   </div>
@@ -88,14 +88,14 @@ export default function BlogIndexPage() {
                   <div className="text-sm text-muted-foreground mb-2 font-medium">
                     {post.date}
                   </div>
-                  <h2 className="text-xl font-bold mb-3 text-card-foreground group-hover:text-primary transition-colors line-clamp-2">
+                  <h2 className="text-xl font-bold mb-3 text-card-foreground transition-colors line-clamp-2">
                     {post.indexTitle ?? post.title}
                   </h2>
                   <p className="text-muted-foreground mb-6 flex-grow line-clamp-3 leading-relaxed text-sm">
                     {post.excerpt}
                   </p>
 
-                  <div className="mt-auto flex items-center text-primary font-semibold text-sm">
+                  <div className="mt-auto flex items-center font-semibold text-sm">
                     Leggi l&apos;articolo
                     <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                   </div>

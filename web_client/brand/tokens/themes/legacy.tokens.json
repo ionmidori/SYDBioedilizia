@@ -1,0 +1,39 @@
+{
+  "$description": "TEMPORARY. The current dark 'luxury' look expressed as roles, so the migration of the components to roles (PR-2b) changes classes, not pixels. Removed when the light theme is switched on (PR-2c). Exempt from the contrast gate: it reproduces the colours shipped today, several of which already fail WCAG AA (that is what the light theme fixes). Opacity classes of today (text-luxury-text/70, bg-white/5, ...) become opaque colours flattened on the page background (syd.over).",
+  "$extensions": {
+    "syd.theme": {
+      "colorScheme": "normal",
+      "enforceContrast": false,
+      "familyRamps": { "status": { "danger": "red", "warning": "amber", "success": "green", "info": "blue" } }
+    }
+  },
+  "surface": {
+    "default": {
+      "canvas": { "$value": "{color.luxury.bg}" },
+      "surface": { "$value": "{color.brand.white}", "$extensions": { "syd.alpha": 0.05, "syd.over": "{color.luxury.bg}" } },
+      "surface-muted": { "$value": "{color.brand.white}", "$extensions": { "syd.alpha": 0.1, "syd.over": "{color.luxury.bg}" } },
+      "ink": { "$value": "{color.luxury.text}" },
+      "ink-muted": { "$value": "{color.luxury.text}", "$extensions": { "syd.alpha": 0.7, "syd.over": "{color.luxury.bg}" } },
+      "ink-subtle": { "$value": "{color.luxury.text}", "$extensions": { "syd.alpha": 0.4, "syd.over": "{color.luxury.bg}" } },
+      "line": { "$value": "{color.brand.white}", "$extensions": { "syd.alpha": 0.1, "syd.over": "{color.luxury.bg}" } },
+      "line-strong": { "$value": "{color.luxury.gold}", "$extensions": { "syd.alpha": 0.4, "syd.over": "{color.luxury.bg}" } },
+      "ring": { "$value": "{color.luxury.gold}" },
+      "primary": { "$value": "{color.luxury.teal}" },
+      "primary-hover": { "$value": "{color.luxury.teal}", "$extensions": { "syd.alpha": 0.9, "syd.over": "{color.luxury.bg}" } },
+      "primary-subtle": { "$value": "{color.luxury.teal}", "$extensions": { "syd.alpha": 0.2, "syd.over": "{color.luxury.bg}" } },
+      "on-primary": { "$value": "{color.brand.white}" },
+      "primary-ink": { "$value": "{color.luxury.teal}" },
+      "accent": { "$value": "{color.luxury.gold}" },
+      "accent-subtle": { "$value": "{color.luxury.gold}", "$extensions": { "syd.alpha": 0.1, "syd.over": "{color.luxury.bg}" } },
+      "accent-ink": { "$value": "{color.luxury.gold}" },
+      "scrim": { "$value": "{palette.neutral.950}", "$extensions": { "syd.alpha": 0.6 } },
+      "on-scrim": { "$value": "{color.brand.white}" },
+      "shade": { "$value": "{palette.neutral.950}" },
+      "<tone>": { "$value": "{palette.<ramp>.500}" },
+      "<tone>-subtle": { "$value": "{palette.<ramp>.500}", "$extensions": { "syd.alpha": 0.1, "syd.over": "{color.luxury.bg}" } },
+      "<tone>-ink": { "$value": "{palette.<ramp>.400}" },
+      "on-<tone>": { "$value": "{color.brand.white}" }
+    },
+    "inverse": {}
+  }
+}

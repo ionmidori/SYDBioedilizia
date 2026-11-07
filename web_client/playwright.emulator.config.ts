@@ -56,6 +56,8 @@ export default defineConfig({
 
   // Emulator round-trips are slower than the static smoke routes.
   timeout: 60_000,
+  snapshotPathTemplate: 'e2e/.visual-baseline/{projectName}/{arg}{ext}',
+  grepInvert: process.env.CI ? /@visual/ : undefined,
   expect: { timeout: 15_000 },
 
   use: {
@@ -76,6 +78,13 @@ export default defineConfig({
       testMatch: /.*\.spec\.ts/,
       dependencies: ['setup'],
       use: { ...devices['Desktop Chrome'], storageState: AUTH_STATE_FILE },
+    },
+    {
+      // Phone viewport for the theme harness only (the dashboard has its own mobile layout).
+      name: 'authed-mobile',
+      testMatch: /theme\.spec\.ts/,
+      dependencies: ['setup'],
+      use: { ...devices['Pixel 7'], storageState: AUTH_STATE_FILE },
     },
   ],
 

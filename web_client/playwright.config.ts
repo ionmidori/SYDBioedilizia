@@ -33,6 +33,10 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   timeout: 30_000,
   expect: { timeout: 10_000 },
+  // Theme harness screenshots (e2e/theme): local before/after baselines only,
+  // never committed (font rendering differs between OSes) and never run in CI.
+  snapshotPathTemplate: 'e2e/.visual-baseline/{projectName}/{arg}{ext}',
+  grepInvert: process.env.CI ? /@visual/ : undefined,
 
   use: {
     baseURL: BASE_URL,
@@ -42,7 +46,21 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      // The theme harness has its own projects below, at its own viewports.
+      testIgnore: ['**/authed/**', '**/theme/**'],
       use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Theme harness, desktop: >= xl so the desktop navigation renders.
+      name: 'desktop',
+      testMatch: /theme\/.*\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
+    },
+    {
+      // Theme harness, phone.
+      name: 'mobile',
+      testMatch: /theme\/.*\.spec\.ts/,
+      use: { ...devices['Pixel 7'] },
     },
   ],
 

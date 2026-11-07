@@ -1,0 +1,61 @@
+{
+  "$description": "Light theme: the logo colours on warm-white pages. Values are references to the generated ramps (palette.*) and to the measured brand colours (color.brand.*), never literals. `default` is the page; `inverse` is the night-blue band (footer, final CTA): any container with class surface-inverse redefines the roles for its subtree, and the logo takes the on-dark tone with it. Every role requirement of roles.tokens.json is checked on both surfaces by the build.",
+  "$extensions": {
+    "syd.theme": {
+      "colorScheme": "light",
+      "logoTone": { "inverse": "on-dark" },
+      "familyRamps": { "status": { "danger": "red", "warning": "amber", "success": "green", "info": "blue" } }
+    }
+  },
+  "surface": {
+    "default": {
+      "canvas": { "$value": "{palette.neutral.50}" },
+      "surface": { "$value": "{color.brand.white}" },
+      "surface-muted": { "$value": "{palette.neutral.100}" },
+      "ink": { "$value": "{palette.blue.950}" },
+      "ink-muted": { "$value": "{palette.neutral.700}" },
+      "ink-subtle": { "$value": "{palette.neutral.600}" },
+      "line": { "$value": "{palette.neutral.200}" },
+      "line-strong": { "$value": "{palette.neutral.600}" },
+      "ring": { "$value": "{palette.blue.600}" },
+      "primary": { "$value": "{color.brand.blue.700}" },
+      "primary-hover": { "$value": "{palette.blue.800}" },
+      "primary-subtle": { "$value": "{palette.blue.50}" },
+      "on-primary": { "$value": "{color.brand.white}" },
+      "primary-ink": { "$value": "{palette.blue.700}" },
+      "accent": { "$value": "{color.brand.sand.500}" },
+      "accent-subtle": { "$value": "{palette.sand.50}" },
+      "accent-ink": { "$value": "{palette.sand.800}" },
+      "scrim": { "$value": "{palette.neutral.950}", "$extensions": { "syd.alpha": 0.65 } },
+      "on-scrim": { "$value": "{color.brand.white}" },
+      "shade": { "$value": "{palette.neutral.950}" },
+      "<tone>": { "$value": "{palette.<ramp>.600}" },
+      "<tone>-subtle": { "$value": "{palette.<ramp>.50}" },
+      "<tone>-ink": { "$value": "{palette.<ramp>.800}" },
+      "on-<tone>": { "$value": "{color.brand.white}" },
+      "warning": { "$value": "{palette.amber.700}" }
+    },
+    "inverse": {
+      "canvas": { "$value": "{color.brand.navy.900}" },
+      "surface": { "$value": "{palette.blue.900}" },
+      "surface-muted": { "$value": "{palette.blue.950}" },
+      "ink": { "$value": "{palette.neutral.50}" },
+      "ink-muted": { "$value": "{palette.neutral.300}" },
+      "ink-subtle": { "$value": "{palette.neutral.400}" },
+      "line": { "$value": "{palette.blue.800}" },
+      "line-strong": { "$value": "{palette.blue.400}" },
+      "ring": { "$value": "{palette.sand.400}" },
+      "primary": { "$value": "{palette.sand.400}" },
+      "primary-hover": { "$value": "{palette.sand.300}" },
+      "primary-subtle": { "$value": "{palette.blue.800}" },
+      "on-primary": { "$value": "{color.brand.navy.900}" },
+      "primary-ink": { "$value": "{palette.blue.300}" },
+      "accent-subtle": { "$value": "{palette.blue.950}" },
+      "accent-ink": { "$value": "{color.brand.sand.500}" },
+      "<tone>": { "$value": "{palette.<ramp>.400}" },
+      "<tone>-subtle": { "$value": "{palette.<ramp>.950}" },
+      "<tone>-ink": { "$value": "{palette.<ramp>.300}" },
+      "on-<tone>": { "$value": "{palette.neutral.950}" }
+    }
+  }
+}
