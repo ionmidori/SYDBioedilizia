@@ -7,19 +7,33 @@
 import type { Metadata, MetadataRoute } from 'next';
 import identity from '../../brand/brand.json';
 import { BRAND_ASSETS } from './assets.generated';
-import { LOGO_TONE_CLASS, brandColors, type LogoTone } from './tokens.generated';
+import { LOGO_TONE_CLASS, themeRoles, type LogoTone } from './tokens.generated';
 
 export { BRAND_ASSETS } from './assets.generated';
 export { LOGO_ART, LOGO_PARTS, LOGO_VARIANTS, type LogoArt, type LogoPart, type LogoVariant } from './logo-art.generated';
-export { LOGO_ROLES, LOGO_TONES, brandColors, logoColors, type LogoRole, type LogoTone } from './tokens.generated';
+export {
+    LOGO_ROLES,
+    LOGO_TONES,
+    ROLE_NAMES,
+    SURFACES,
+    TEXT_ROLES,
+    brandColors,
+    logoColors,
+    themeRoles,
+    type LogoRole,
+    type LogoTone,
+    type Role,
+    type Surface,
+    type TextRole,
+} from './tokens.generated';
 
 /** Identity: web_client/brand/brand.json (also read by the asset build, e.g. the SVG <title>). */
 export const BRAND_NAME: string = identity.name;
 export const BRAND_SHORT_NAME: string = identity.shortName;
 export const BRAND_DESCRIPTION: string = identity.description;
 
-/** Browser chrome and PWA splash: the site surface (dark theme until the light theme lands). */
-export const THEME_COLOR = brandColors.luxury.bg;
+/** Browser chrome and PWA splash: the page background of the active theme. */
+export const THEME_COLOR: string = themeRoles.default.canvas;
 
 /** Class that applies a logo tone, or undefined for the default one. */
 export function logoToneClass(tone: LogoTone): string | undefined {

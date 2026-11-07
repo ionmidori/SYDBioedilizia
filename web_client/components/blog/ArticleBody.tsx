@@ -6,7 +6,7 @@ import type { BlogBlock, KeyPointIcon } from "@/lib/blog/types";
  * Renders an article body from typed blocks (Server Component).
  * Classes follow the former hand-written pages with a few deliberate
  * uniformations: one warning-callout style (the "costi" article had its own box
- * and "bonus" a bare <div>), one spacing for lists, h3 in text-primary, and the
+ * and "bonus" a bare <div>), one spacing for lists, one h3 style, and the
  * same FAQ card style in every article ("umidita" had richer cards).
  * Heading levels are unchanged, including the h1 -> h3 jump of key-point boxes.
  */
@@ -48,7 +48,7 @@ function Block({ block }: { block: BlogBlock }) {
       );
     case "h3":
       return (
-        <h3 className="text-xl font-semibold mt-6 mb-3 text-primary">
+        <h3 className="text-xl font-semibold mt-6 mb-3">
           <RichInline text={block.text} />
         </h3>
       );
@@ -81,7 +81,7 @@ function Block({ block }: { block: BlogBlock }) {
       ) : (
         <div
           role="note"
-          className="bg-muted/50 p-6 rounded-lg border-l-4 border-primary my-6"
+          className="bg-muted/50 p-6 rounded-lg border-l-4 my-6"
         >
           {block.title && (
             <h4 className="font-bold text-lg mb-2">
@@ -96,7 +96,7 @@ function Block({ block }: { block: BlogBlock }) {
     case "keyPoints":
       return (
         <div className="bg-card border border-border rounded-xl p-6 md:p-8 my-8 shadow-sm not-prose">
-          <h3 className="text-lg font-bold text-primary mb-4 flex items-center gap-2">
+          <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
             📌 {block.heading}
           </h3>
           <div className="grid gap-4 md:grid-cols-2">
@@ -118,8 +118,8 @@ function Block({ block }: { block: BlogBlock }) {
       );
     case "takeaways":
       return (
-        <div className="bg-primary/5 border-l-4 border-primary p-6 my-8 rounded-r-xl not-prose">
-          <h3 className="text-lg font-bold text-primary mb-2 flex items-center gap-2">
+        <div className="border-l-4 p-6 my-8 rounded-r-xl not-prose">
+          <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
             📌 {block.heading}
           </h3>
           <ul className="space-y-2 text-muted-foreground">

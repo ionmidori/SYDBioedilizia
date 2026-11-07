@@ -79,3 +79,166 @@ export const LOGO_TONE_CLASS: Record<Exclude<LogoTone, 'default'>, string> = {
     "on-dark": "brand-tone-on-dark",
     "tab-dark": "brand-tone-tab-dark"
 };
+
+/** Theme shipped by the site (web_client/brand/brand.json). */
+export const ACTIVE_THEME = "legacy";
+
+/** Semantic colour roles (web_client/brand/tokens/roles.tokens.json): the only colour vocabulary of the UI. */
+export const ROLE_NAMES = [
+    "canvas",
+    "surface",
+    "surface-muted",
+    "ink",
+    "ink-muted",
+    "ink-subtle",
+    "line",
+    "line-strong",
+    "ring",
+    "primary",
+    "primary-hover",
+    "primary-subtle",
+    "on-primary",
+    "primary-ink",
+    "accent",
+    "accent-subtle",
+    "accent-ink",
+    "scrim",
+    "on-scrim",
+    "danger",
+    "danger-subtle",
+    "danger-ink",
+    "on-danger",
+    "warning",
+    "warning-subtle",
+    "warning-ink",
+    "on-warning",
+    "success",
+    "success-subtle",
+    "success-ink",
+    "on-success",
+    "info",
+    "info-subtle",
+    "info-ink",
+    "on-info"
+] as const;
+export type Role = (typeof ROLE_NAMES)[number];
+
+/** Roles that colour text: no opacity modifier on these, so their contrast stays checkable. */
+export const TEXT_ROLES = [
+    "ink",
+    "ink-muted",
+    "ink-subtle",
+    "on-primary",
+    "primary-ink",
+    "accent-ink",
+    "on-scrim",
+    "danger-ink",
+    "on-danger",
+    "warning-ink",
+    "on-warning",
+    "success-ink",
+    "on-success",
+    "info-ink",
+    "on-info"
+] as const;
+export type TextRole = (typeof TEXT_ROLES)[number];
+
+/** Contextual surfaces; every one but `default` is applied with the class surface-<name>. */
+export const SURFACES = [
+    "default",
+    "inverse"
+] as const;
+export type Surface = (typeof SURFACES)[number];
+
+export const STATUS_TONES = [
+    "danger",
+    "warning",
+    "success",
+    "info"
+] as const;
+export type StatusTone = (typeof STATUS_TONES)[number];
+
+export const ELEVATION_LEVELS = [
+    1,
+    2,
+    3
+] as const;
+export type ElevationLevel = (typeof ELEVATION_LEVELS)[number];
+
+/** Resolved role colours of the active theme, per surface (#rrggbb, #rrggbbaa when translucent). */
+export const themeRoles = {
+    "default": {
+        "canvas": "#264653",
+        "surface": "#314f5c",
+        "surface-muted": "#3c5964",
+        "ink": "#f4f1de",
+        "ink-muted": "#b6beb4",
+        "ink-subtle": "#788a8b",
+        "line": "#3c5964",
+        "line-strong": "#74785c",
+        "ring": "#e9c46a",
+        "primary": "#2a9d8f",
+        "primary-hover": "#2a9489",
+        "primary-subtle": "#27575f",
+        "on-primary": "#ffffff",
+        "primary-ink": "#2a9d8f",
+        "accent": "#e9c46a",
+        "accent-subtle": "#3a5355",
+        "accent-ink": "#e9c46a",
+        "scrim": "#221f1999",
+        "on-scrim": "#ffffff",
+        "danger": "#e15955",
+        "danger-subtle": "#394853",
+        "danger-ink": "#ff7e77",
+        "on-danger": "#ffffff",
+        "warning": "#bb7e05",
+        "warning-subtle": "#354c4b",
+        "warning-ink": "#e19b1b",
+        "on-warning": "#ffffff",
+        "success": "#48a260",
+        "success-subtle": "#294f54",
+        "success-ink": "#69c27e",
+        "on-success": "#ffffff",
+        "info": "#1c95d8",
+        "info-subtle": "#254e60",
+        "info-ink": "#48b5fa",
+        "on-info": "#ffffff"
+    },
+    "inverse": {
+        "canvas": "#264653",
+        "surface": "#314f5c",
+        "surface-muted": "#3c5964",
+        "ink": "#f4f1de",
+        "ink-muted": "#b6beb4",
+        "ink-subtle": "#788a8b",
+        "line": "#3c5964",
+        "line-strong": "#74785c",
+        "ring": "#e9c46a",
+        "primary": "#2a9d8f",
+        "primary-hover": "#2a9489",
+        "primary-subtle": "#27575f",
+        "on-primary": "#ffffff",
+        "primary-ink": "#2a9d8f",
+        "accent": "#e9c46a",
+        "accent-subtle": "#3a5355",
+        "accent-ink": "#e9c46a",
+        "scrim": "#221f1999",
+        "on-scrim": "#ffffff",
+        "danger": "#e15955",
+        "danger-subtle": "#394853",
+        "danger-ink": "#ff7e77",
+        "on-danger": "#ffffff",
+        "warning": "#bb7e05",
+        "warning-subtle": "#354c4b",
+        "warning-ink": "#e19b1b",
+        "on-warning": "#ffffff",
+        "success": "#48a260",
+        "success-subtle": "#294f54",
+        "success-ink": "#69c27e",
+        "on-success": "#ffffff",
+        "info": "#1c95d8",
+        "info-subtle": "#254e60",
+        "info-ink": "#48b5fa",
+        "on-info": "#ffffff"
+    }
+} as const;

@@ -1,0 +1,132 @@
+{
+  "$description": "Semantic colour roles: the ONLY colour vocabulary of the UI (bg-canvas, text-ink, border-line, ...). This file declares each role once: what it is for, whether it is a text role (no opacity modifier allowed, so its contrast stays statically checkable) and the contrast it must reach against other roles (WCAG 2.2 AA: text 4.5:1, large text and UI components 3:1). Values live in themes/<name>.tokens.json; the build checks every requirement on every surface of every theme, so a future theme inherits the same gate. Generated from here: ROLE_NAMES, TEXT_ROLES, families (lib/brand/tokens.generated.ts, scripts/brand/generated/roles.json).",
+  "role": {
+    "canvas": {
+      "$description": "Page background.",
+      "$extensions": { "syd.role": {} }
+    },
+    "surface": {
+      "$description": "Raised containers: cards, dialogs, popovers, menus.",
+      "$extensions": { "syd.role": {} }
+    },
+    "surface-muted": {
+      "$description": "Recessed or alternate areas: alternate sections, inputs, hover backgrounds.",
+      "$extensions": { "syd.role": {} }
+    },
+    "ink": {
+      "$description": "Body text and headings (AAA on every surface).",
+      "$extensions": {
+        "syd.role": { "textRole": true, "contrast": [{ "against": ["canvas", "surface", "surface-muted"], "min": 7 }] }
+      }
+    },
+    "ink-muted": {
+      "$description": "Secondary text: captions, metadata, placeholders, helper text.",
+      "$extensions": {
+        "syd.role": { "textRole": true, "contrast": [{ "against": ["canvas", "surface", "surface-muted"], "min": 4.5 }] }
+      }
+    },
+    "ink-subtle": {
+      "$description": "Large text, icons and disabled content only: 3:1 is not enough for body text.",
+      "$extensions": {
+        "syd.role": { "textRole": true, "contrast": [{ "against": ["canvas", "surface", "surface-muted"], "min": 3 }] }
+      }
+    },
+    "line": {
+      "$description": "Decorative dividers and card outlines (not the only cue of anything).",
+      "$extensions": { "syd.role": {} }
+    },
+    "line-strong": {
+      "$description": "Borders that identify a control: inputs, checkboxes, outlined buttons (WCAG 1.4.11).",
+      "$extensions": {
+        "syd.role": { "contrast": [{ "against": ["canvas", "surface", "surface-muted"], "min": 3 }] }
+      }
+    },
+    "ring": {
+      "$description": "Focus indicator.",
+      "$extensions": {
+        "syd.role": { "contrast": [{ "against": ["canvas", "surface", "surface-muted"], "min": 3 }] }
+      }
+    },
+    "primary": {
+      "$description": "Main action fill: primary buttons, selected state, progress.",
+      "$extensions": {
+        "syd.role": { "contrast": [{ "against": ["canvas", "surface"], "min": 3 }] }
+      }
+    },
+    "primary-hover": {
+      "$description": "Primary fill on hover / press.",
+      "$extensions": { "syd.role": {} }
+    },
+    "primary-subtle": {
+      "$description": "Tinted background for selected or highlighted items.",
+      "$extensions": { "syd.role": {} }
+    },
+    "on-primary": {
+      "$description": "Text and icons on a primary fill.",
+      "$extensions": {
+        "syd.role": { "textRole": true, "contrast": [{ "against": ["primary", "primary-hover"], "min": 4.5 }] }
+      }
+    },
+    "primary-ink": {
+      "$description": "Text in the primary colour: links, emphasised labels.",
+      "$extensions": {
+        "syd.role": { "textRole": true, "contrast": [{ "against": ["canvas", "surface", "surface-muted", "primary-subtle"], "min": 4.5 }] }
+      }
+    },
+    "accent": {
+      "$description": "Brand sand, decorative only (hairlines, ornaments, illustrations): never text, never the only cue.",
+      "$extensions": { "syd.role": {} }
+    },
+    "accent-subtle": {
+      "$description": "Sand-tinted background.",
+      "$extensions": { "syd.role": {} }
+    },
+    "accent-ink": {
+      "$description": "Text in the accent colour (a darker sand on light surfaces).",
+      "$extensions": {
+        "syd.role": { "textRole": true, "contrast": [{ "against": ["canvas", "surface", "accent-subtle"], "min": 4.5 }] }
+      }
+    },
+    "scrim": {
+      "$description": "Translucent veil over photos and behind modals.",
+      "$extensions": { "syd.role": {} }
+    },
+    "on-scrim": {
+      "$description": "Text over a scrim. Checked with the scrim composited on both a black and a white photo (worst cases).",
+      "$extensions": {
+        "syd.role": {
+          "textRole": true,
+          "contrast": [{ "against": ["scrim"], "min": 4.5, "composite": ["{palette.neutral.950}", "{color.brand.white}"] }]
+        }
+      }
+    }
+  },
+  "roleFamily": {
+    "status": {
+      "$description": "Status roles, one set per tone. <tone> is replaced by each member: danger-ink, on-success, ... The generated StatusTone type lists the members.",
+      "$extensions": { "syd.roleFamily": { "members": ["danger", "warning", "success", "info"] } },
+      "<tone>": {
+        "$description": "Solid status fill: badges, icons, progress.",
+        "$extensions": {
+          "syd.role": { "contrast": [{ "against": ["canvas", "surface"], "min": 3 }] }
+        }
+      },
+      "<tone>-subtle": {
+        "$description": "Status background: alerts, banners, tinted rows.",
+        "$extensions": { "syd.role": {} }
+      },
+      "<tone>-ink": {
+        "$description": "Status text on page and on its own subtle background.",
+        "$extensions": {
+          "syd.role": { "textRole": true, "contrast": [{ "against": ["canvas", "surface", "<tone>-subtle"], "min": 4.5 }] }
+        }
+      },
+      "on-<tone>": {
+        "$description": "Text and icons on the solid status fill.",
+        "$extensions": {
+          "syd.role": { "textRole": true, "contrast": [{ "against": ["<tone>"], "min": 4.5 }] }
+        }
+      }
+    }
+  }
+}

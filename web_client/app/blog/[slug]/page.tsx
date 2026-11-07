@@ -51,11 +51,11 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
           <article className="prose prose-invert lg:prose-lg max-w-none">
             <header className="mb-10 not-prose">
               {post.badge && (
-                <div className="inline-block bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
+                <div className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
                   {post.badge}
                 </div>
               )}
-              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-primary mb-4 leading-tight">
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
                 {post.title}
               </h1>
               <p className="text-xl text-muted-foreground font-medium max-w-2xl">
@@ -75,7 +75,7 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
                     key={faq.question}
                     className="bg-card p-5 rounded-lg border border-border"
                   >
-                    <h3 className="font-bold text-primary mb-2">
+                    <h3 className="font-bold mb-2">
                       {faq.question}
                     </h3>
                     <p className="text-sm text-muted-foreground">

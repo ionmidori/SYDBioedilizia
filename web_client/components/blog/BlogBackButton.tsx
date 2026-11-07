@@ -20,7 +20,7 @@ export function BlogBackButton() {
             whileHover={{ x: -4 }}
             transition={M3Spring.standard}
           >
-            <ArrowLeft className="w-5 h-5 mr-3 text-primary" />
+            <ArrowLeft className="w-5 h-5 mr-3" />
           </motion.div>
           <span>Torna al Blog</span>
         </motion.div>

@@ -61,7 +61,7 @@ export function FAQAnswer({ blocks }: { blocks: FaqBlock[] }) {
               <div key={i} className="mt-3 space-y-3">
                 {block.items.map((def, j) => (
                   <div key={j}>
-                    <strong className="text-primary">{renderInline(def.term)}</strong>
+                    <strong>{renderInline(def.term)}</strong>
                     <p className="text-sm">{renderInline(def.description)}</p>
                   </div>
                 ))}

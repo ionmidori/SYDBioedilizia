@@ -11,7 +11,8 @@ import { decodeIco, encodeIco } from './lib/ico.mjs';
 import { MASTER_FILE, VARIANTS, composeSvg, readMaster, scalePath, variantBox, variantPaths } from './lib/logo.mjs';
 import { ROOT, deriveTones, loadTokenFiles, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
 import { ASSETS } from './build-assets.mjs';
-import { renderAll, sameText } from './build-tokens.mjs';
+import { CSS_FILE, ROLES_FILE, TS_FILE, renderAll, sameText } from './build-tokens.mjs';
+import { activeThemeName, loadRoles, loadTheme, resolveTheme, themeNames, validateTheme } from './lib/semantic.mjs';
 
 const tokens = loadTokens();
 const master = readMaster();
@@ -129,6 +130,142 @@ describe('tokens', () => {
     it('reject unknown and circular references', () => {
         assert.throws(() => resolveValue({ a: { $value: '{b}' } }, '{a}'), /Unknown token/);
         assert.throws(() => resolveValue({ a: { $value: '{a}' } }, '{a}'), /Circular/);
+    });
+});
+
+describe('semantic roles', () => {
+    const roles = loadRoles(tokens);
+    const themes = themeNames().map((name) => loadTheme(tokens, name, roles));
+    // Minimal in-memory schema for the engine tests (the only hex values here are fixtures).
+    const fixtureTree = {
+        color: { grey: { $value: '#777777' }, white: { $value: '#ffffff' }, black: { $value: '#000000' } },
+        role: {
+            canvas: { $extensions: { 'syd.role': {} } },
+            ink: { $extensions: { 'syd.role': { textRole: true, contrast: [{ against: ['canvas'], min: 4.5 }] } } },
+        },
+    };
+    const fixtureRoles = loadRoles(fixtureTree);
+    const fixtureTheme = (surfaces) => resolveTheme(fixtureTree, fixtureRoles, { surface: surfaces }, 'fixture');
+
+    it('declare roles, text roles and at least the default surface in every theme', () => {
+        assert.ok(roles.names.length > 0 && roles.textRoles.length > 0);
+        assert.ok(roles.textRoles.every((r) => roles.names.includes(r)));
+        for (const t of themes) assert.ok('default' in t.surfaces, t.name);
+    });
+
+    it('expand every role family into one role per member and template', () => {
+        for (const [family, { members, templates }] of Object.entries(roles.families)) {
+            assert.ok(members.length > 0 && templates.length > 0, family);
+            for (const m of members) for (const t of templates) assert.ok(roles.names.includes(t.replaceAll('<tone>', m)), `${family}: ${t} / ${m}`);
+        }
+    });
+
+    it('every theme surface resolves every role in roles.tokens.json', () => {
+        for (const t of themes) {
+            for (const [surface, values] of Object.entries(t.surfaces)) {
+                assert.deepEqual(Object.keys(values).sort(), [...roles.names].sort(), `${t.name}/${surface}`);
+                for (const [role, v] of Object.entries(values)) assert.match(v.hex, /^#[0-9a-f]{6}$/, `${t.name}/${surface}/${role}`);
+            }
+        }
+    });
+
+    it('every theme declares the same surfaces', () => {
+        const sets = themes.map((t) => Object.keys(t.surfaces).sort().join());
+        assert.equal(new Set(sets).size, 1, sets.join(' | '));
+    });
+
+    it('every non-exempt theme passes every role requirement on every surface', () => {
+        const enforced = themes.filter((t) => t.enforceContrast);
+        assert.ok(enforced.length > 0, 'at least one theme is gated');
+        for (const t of enforced) {
+            const fails = validateTheme(roles, t).map((f) => `${t.name}/${f.surface}: ${f.fg} on ${f.bg} ${f.actual.toFixed(2)} < ${f.min}`);
+            assert.deepEqual(fails, []);
+        }
+    });
+
+    it('the active theme is one of the declared themes', () => {
+        assert.ok(themeNames().includes(activeThemeName()));
+    });
+
+    it('validateTheme reports a failing pair', () => {
+        const t = fixtureTheme({ default: { canvas: { $value: '{color.white}' }, ink: { $value: '{color.grey}' } } });
+        const [fail, ...rest] = validateTheme(fixtureRoles, t);
+        assert.equal(rest.length, 0);
+        assert.deepEqual([fail.surface, fail.fg, fail.bg, fail.min, fail.actual.toFixed(2)], ['default', 'ink', 'canvas', 4.5, '4.48']);
+    });
+
+    it('a surface inherits roles it does not override', () => {
+        const t = fixtureTheme({
+            default: { canvas: { $value: '{color.white}' }, ink: { $value: '{color.black}' } },
+            inverse: { canvas: { $value: '{color.black}' } },
+        });
+        assert.equal(t.surfaces.inverse.ink.hex, '#000000');
+        assert.equal(validateTheme(fixtureRoles, t).map((f) => f.surface).join(), 'inverse');
+    });
+
+    it('flattens a translucent value onto its backdrop, keeps it translucent otherwise', () => {
+        const t = fixtureTheme({
+            default: {
+                canvas: { $value: '{color.black}', $extensions: { 'syd.alpha': 0.5 } },
+                ink: { $value: '{color.white}', $extensions: { 'syd.alpha': 0.5, 'syd.over': '{color.black}' } },
+            },
+        });
+        assert.deepEqual(t.surfaces.default.canvas, { hex: '#000000', alpha: 0.5 });
+        assert.deepEqual(t.surfaces.default.ink, { hex: '#808080', alpha: 1 });
+    });
+
+    it('rejects a theme role that roles.tokens.json does not declare', () => {
+        assert.throws(
+            () => fixtureTheme({ default: { canvas: { $value: '{color.white}' }, ink: { $value: '{color.black}' }, nope: { $value: '{color.black}' } } }),
+            /nope/,
+        );
+    });
+
+    it('rejects a requirement against an unknown role', () => {
+        const tree = { role: { ink: { $extensions: { 'syd.role': { contrast: [{ against: ['ghost'], min: 3 }] } } } } };
+        assert.throws(() => loadRoles(tree), /ghost/);
+    });
+
+    it('rejects a translucent background with no backdrop to composite it on', () => {
+        const t = fixtureTheme({
+            default: { canvas: { $value: '{color.white}', $extensions: { 'syd.alpha': 0.5 } }, ink: { $value: '{color.black}' } },
+        });
+        assert.throws(() => validateTheme(fixtureRoles, t), /canvas.*composite/);
+    });
+
+    const generated = Object.fromEntries(renderAll(tokens));
+    const css = generated[CSS_FILE];
+    const active = themes.find((t) => t.name === activeThemeName());
+
+    it('generated css exposes every role through @theme inline and every surface as .surface-<name>', () => {
+        const inline = css.match(/@theme inline \{([^}]*)\}/)?.[1] ?? '';
+        for (const r of roles.names) {
+            assert.ok(inline.includes(`--color-${r}: var(--role-${r});`), r);
+            assert.match(css, new RegExp(`:root \\{[^}]*--role-${r}: `), r);
+        }
+        for (const s of Object.keys(active.surfaces).filter((s) => s !== 'default')) assert.match(css, new RegExp(`\\.surface-${s} \\{`));
+    });
+
+    it('generated css exposes every elevation level as --shadow-<n> drawn in a role colour', () => {
+        const levels = Object.keys(tokens.elevation).filter((k) => !k.startsWith('$'));
+        assert.ok(levels.length > 0);
+        for (const l of levels) assert.match(css, new RegExp(`--shadow-${l}: [^;]*var\\(--role-`));
+    });
+
+    it('generated TS and JSON list the same roles as roles.tokens.json', () => {
+        const json = JSON.parse(generated[ROLES_FILE]);
+        assert.deepEqual(json.roles, roles.names);
+        assert.deepEqual(json.textRoles, roles.textRoles);
+        assert.deepEqual(json.surfaces, Object.keys(active.surfaces));
+        assert.ok(generated[TS_FILE].includes(`export const ROLE_NAMES = ${JSON.stringify(roles.names, null, 4)} as const;`));
+        assert.ok(generated[TS_FILE].includes(`export const TEXT_ROLES = ${JSON.stringify(roles.textRoles, null, 4)} as const;`));
+    });
+
+    it('globals.css and styles/* define no shadcn variables', () => {
+        const dir = path.join(ROOT, 'web_client', 'app');
+        const files = ['globals.css', ...fs.readdirSync(path.join(dir, 'styles')).map((f) => path.join('styles', f))];
+        const shadcn = /--(background|foreground|card|popover|primary|secondary|muted|accent|destructive|border|input|ring|sidebar)[\w-]*\s*:/;
+        for (const f of files) assert.doesNotMatch(fs.readFileSync(path.join(dir, f), 'utf8'), shadcn, f);
     });
 });
 

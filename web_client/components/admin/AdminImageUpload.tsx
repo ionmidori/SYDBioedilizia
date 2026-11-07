@@ -133,7 +133,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
         className={`
           relative overflow-hidden rounded-3xl border-2 border-dashed p-8 text-center cursor-pointer
           transition-colors duration-300 flex flex-col items-center justify-center min-h-[240px] shadow-sm
-          ${isDragActive ? 'border-primary bg-primary/5' : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low'}
+          ${isDragActive ? '' : 'border-outline-variant bg-surface-container-lowest hover:bg-surface-container-low'}
           ${uploading || success ? 'pointer-events-none' : ''}
         `}
       >
@@ -166,7 +166,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
               exit={{ opacity: 0, scale: 1.05 }}
               className="flex flex-col items-center gap-5 w-full"
             >
-              <Loader2 className="w-10 h-10 text-primary animate-spin" />
+              <Loader2 className="w-10 h-10 animate-spin" />
               <div className="w-full max-w-xs space-y-3">
                 <div className="flex justify-between text-label-large text-on-surface-variant font-medium">
                   <span>{progress <= 30 ? 'Compressing Image...' : 'Uploading to Cloud...'}</span>
@@ -174,7 +174,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
                 </div>
                 <div className="w-full bg-surface-variant rounded-full h-2 overflow-hidden shadow-inner">
                   <motion.div 
-                    className="bg-primary h-full rounded-full"
+                    className="h-full rounded-full"
                     initial={{ width: 0 }}
                     animate={{ width: `${progress}%` }}
                     transition={{ ease: "easeInOut", duration: 0.3 }}
@@ -197,7 +197,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
               className="flex flex-col items-center gap-4 py-2"
             >
-              <div className="p-4 rounded-full bg-primary/10 text-primary">
+              <div className="p-4 rounded-full">
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <div className="space-y-1">
@@ -206,7 +206,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
               </div>
               <button 
                 onClick={(e) => { e.stopPropagation(); setSuccess(false); }}
-                className="text-primary text-label-large hover:underline mt-2 p-2"
+                className="text-label-large hover:underline mt-2 p-2"
               >
                 Upload another file
               </button>
