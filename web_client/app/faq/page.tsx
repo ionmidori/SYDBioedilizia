@@ -76,7 +76,7 @@ export default function FAQPage() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen bg-luxury-bg text-luxury-text relative overflow-hidden">
+      <main className="min-h-screen bg-canvas text-ink relative overflow-hidden">
         {/* Background orbs */}
         <div className="absolute top-0 right-0 w-1/3 h-1/3 ambient-glow ambient-glow-teal [--glow-alpha:5%]" />
         <div className="absolute bottom-1/3 left-0 w-1/4 h-1/4 ambient-glow ambient-glow-gold" />
@@ -91,11 +91,11 @@ export default function FAQPage() {
 
           {/* Hero Header */}
           <header className="mb-16 text-center space-y-4">
-            <h1 className="text-4xl md:text-5xl font-serif font-bold text-luxury-gold">
+            <h1 className="text-4xl md:text-5xl font-serif font-bold text-accent-ink">
               Domande Frequenti
             </h1>
-            <div className="h-1 w-[100px] bg-luxury-teal mx-auto rounded-full" />
-            <p className="text-xl text-luxury-text/80 font-light max-w-2xl mx-auto">
+            <div className="h-1 w-[100px] bg-primary mx-auto rounded-full" />
+            <p className="text-xl text-ink font-light max-w-2xl mx-auto">
               Risposte chiare e trasparenti su come trasformiamo la tua casa con l&apos;AI e l&apos;edilizia sostenibile.
             </p>
           </header>
@@ -110,7 +110,7 @@ export default function FAQPage() {
                 <a
                   key={category}
                   href={`#${sectionId}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-luxury-teal/15 bg-luxury-teal/5 text-luxury-text/80 text-sm font-medium hover:border-luxury-teal/40 hover:bg-luxury-teal/10 hover:text-luxury-teal transition-all duration-200"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/15 bg-primary-subtle text-ink text-sm font-medium hover:border-primary/40 hover:bg-primary-subtle hover:text-primary-ink transition-all duration-200"
                 >
                   {Icon && <Icon className="w-4 h-4" />}
                   {category}
@@ -127,10 +127,10 @@ export default function FAQPage() {
               const sectionId = category.toLowerCase().replace(/[^a-z0-9]+/g, '-');
               return (
                 <section key={category} className="scroll-mt-32" id={sectionId}>
-                  <h2 className="text-2xl font-serif font-bold text-luxury-text mb-6 flex items-center gap-3">
+                  <h2 className="text-2xl font-serif font-bold text-ink mb-6 flex items-center gap-3">
                     {Icon && (
-                      <span className="w-10 h-10 rounded-full bg-luxury-teal/10 border border-luxury-teal/20 flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-luxury-teal" />
+                      <span className="w-10 h-10 rounded-full bg-primary-subtle border border-primary/20 flex items-center justify-center">
+                        <Icon className="w-5 h-5 text-primary-ink" />
                       </span>
                     )}
                     {category}
@@ -146,17 +146,17 @@ export default function FAQPage() {
           </div>
 
           {/* CTA Section */}
-          <div className="mt-20 bg-gradient-to-br from-luxury-gold/10 to-transparent p-8 md:p-10 rounded-2xl border border-luxury-gold/20 text-center">
-            <h3 className="text-2xl font-serif font-bold text-luxury-gold mb-3">
+          <div className="mt-20 bg-gradient-to-br from-accent/10 to-transparent p-8 md:p-10 rounded-2xl border border-line text-center">
+            <h3 className="text-2xl font-serif font-bold text-accent-ink mb-3">
               Non hai trovato la risposta?
             </h3>
-            <p className="text-luxury-text/80 font-light mb-8 max-w-lg mx-auto">
+            <p className="text-ink font-light mb-8 max-w-lg mx-auto">
               Il nostro team è disponibile per rispondere a ogni tua domanda. Richiedi un sopralluogo gratuito o parla con il nostro assistente AI.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="tel:+393755463599"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-luxury-gold hover:bg-luxury-gold/80 text-luxury-bg font-bold transition-all duration-200 shadow-lg shadow-luxury-gold/20"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-accent hover:bg-accent/80 text-on-accent font-bold transition-all duration-200 shadow-lg"
               >
                 <Phone className="w-4 h-4" />
                 Chiama Ora

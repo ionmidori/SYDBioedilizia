@@ -30,7 +30,7 @@ export function FAQAnswer({ blocks }: { blocks: FaqBlock[] }) {
             );
           case "note":
             return (
-              <p key={i} className="mt-2 text-sm text-muted-foreground">
+              <p key={i} className="mt-2 text-sm text-ink-muted">
                 {renderInline(block.text)}
               </p>
             );
