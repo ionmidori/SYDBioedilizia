@@ -70,7 +70,7 @@ export function ResponsiveDrawer({
                 </div>
                 <DrawerFooter className="pt-2">
                     <DrawerClose asChild>
-                        <button className="w-full py-3 bg-transparent text-luxury-text/40 hover:text-luxury-text/70 text-sm font-medium transition-colors">
+                        <button className="w-full py-3 bg-transparent text-ink-subtle hover:text-ink-muted text-sm font-medium transition-colors">
                             Chiudi
                         </button>
                     </DrawerClose>

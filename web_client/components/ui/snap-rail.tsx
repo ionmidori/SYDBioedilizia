@@ -318,8 +318,8 @@ export function SnapRail({
                                     className={cn(
                                         'block rounded-full transition-all duration-300',
                                         isActive
-                                            ? 'h-2 w-6 bg-luxury-gold'
-                                            : 'h-2 w-2 bg-luxury-text/25',
+                                            ? 'h-2 w-6 bg-accent'
+                                            : 'h-2 w-2 bg-ink-subtle',
                                     )}
                                 />
                             </button>

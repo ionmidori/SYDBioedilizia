@@ -63,8 +63,8 @@ export function SydLoader({ size = 'md', className }: SydLoaderProps) {
                     }
                 }}
                 className={cn(
-                    "absolute border-luxury-gold",
-                    "shadow-[0_0_10px_rgba(233,196,106,0.4)]",
+                    "absolute border-accent",
+                    "shadow-[0_0_10px_color-mix(in_oklab,var(--color-accent)_40%,transparent)]",
                     sizeMap[size]
                 )}
             />
@@ -98,7 +98,7 @@ export function SydLoader({ size = 'md', className }: SydLoaderProps) {
                     }
                 }}
                 className={cn(
-                    "absolute border-luxury-gold border-t-transparent border-l-transparent",
+                    "absolute border-accent border-t-transparent border-l-transparent",
                     sizeMap[size]
                 )}
                 style={{ opacity: 0.9 }}
