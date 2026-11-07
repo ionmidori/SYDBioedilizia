@@ -248,7 +248,7 @@ export function Testimonials() {
                             >
                                 <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
                                     <DialogTrigger asChild>
-                                        <Button variant="outline" className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 gap-2 px-6 h-12 transition-all duration-300 hover:scale-105">
+                                        <Button variant="secondary" className="rounded-full border-white/10 bg-white/5 text-white hover:bg-white/10 gap-2 px-6 h-12 transition-all duration-300 hover:scale-105">
                                             <Plus className="w-4 h-4" /> Lascia una recensione
                                         </Button>
                                     </DialogTrigger>

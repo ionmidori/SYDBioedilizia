@@ -25,6 +25,7 @@
       "primary-ink": { "$value": "{palette.blue.700}" },
       "accent": { "$value": "{color.brand.sand.500}" },
       "accent-subtle": { "$value": "{palette.sand.50}" },
+      "on-accent": { "$value": "{color.brand.navy.900}" },
       "accent-ink": { "$value": "{palette.sand.800}" },
       "scrim": { "$value": "{palette.neutral.950}", "$extensions": { "syd.alpha": 0.65 } },
       "on-scrim": { "$value": "{color.brand.white}" },

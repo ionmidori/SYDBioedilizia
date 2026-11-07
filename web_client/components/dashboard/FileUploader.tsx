@@ -318,7 +318,7 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                         <DialogTrigger asChild>
                             <div className="flex justify-center mb-6">
                                 <Button
-                                    variant="default"
+                                    variant="primary"
                                     className="bg-luxury-gold text-luxury-bg hover:bg-luxury-gold/90 w-full sm:w-auto font-bold shadow-lg shadow-luxury-gold/20"
                                 >
                                     <Upload className="w-4 h-4 mr-2" /> Carica File
@@ -334,7 +334,7 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <Button
-                                    variant="outline"
+                                    variant="secondary"
                                     className="h-16 justify-start px-6 bg-white/5 border-luxury-gold/20 hover:border-luxury-gold/60 hover:bg-white/10 text-luxury-text transition-all"
                                     onClick={async (e) => {
                                         e.stopPropagation();
@@ -363,7 +363,7 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                                     </div>
                                 </Button>
                                 <Button
-                                    variant="outline"
+                                    variant="secondary"
                                     className="h-16 justify-start px-6 bg-white/5 border-luxury-gold/20 hover:border-luxury-gold/60 hover:bg-white/10 text-luxury-text transition-all"
                                     onClick={(e) => {
                                         e.stopPropagation();

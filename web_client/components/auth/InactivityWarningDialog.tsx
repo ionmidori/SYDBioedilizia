@@ -66,7 +66,7 @@ export function InactivityWarningDialog({
 
                 <DialogFooter className="flex-col sm:flex-row gap-2">
                     <Button
-                        variant="outline"
+                        variant="secondary"
                         onClick={onLogout}
                         className="w-full sm:w-auto"
                     >

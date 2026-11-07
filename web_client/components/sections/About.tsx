@@ -136,7 +136,7 @@ export function About() {
                                 Non offriamo solo lavorazioni di alta qualità. Ti supportiamo anche nella burocrazia, guidandoti nell&apos;accesso alle <strong>detrazioni fiscali</strong> e agli <strong>Ecobonus</strong> per interventi come l&apos;insufflaggio termico e la riqualificazione energetica.
                             </p>
                             <Button
-                                variant="premium"
+                                variant="accent"
                                 className="w-full bg-luxury-gold hover:bg-luxury-gold/80 text-luxury-bg font-bold py-6 text-lg shadow-lg shadow-luxury-gold/20"
                                 onClick={() => {
                                     window.location.href = 'tel:+393755463599';

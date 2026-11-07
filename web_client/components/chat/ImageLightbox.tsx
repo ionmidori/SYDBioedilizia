@@ -75,7 +75,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 z-[130]">
                             <Button
                                 onClick={onClose}
-                                variant="outline"
+                                variant="secondary"
                                 aria-label="Chiudi anteprima"
                                 className="border-white/20 text-white hover:bg-white/10"
                             >
@@ -87,7 +87,7 @@ export function ImageLightbox({ imageUrl, onClose }: ImageLightboxProps) {
                             {canShare && (
                                 <Button
                                     onClick={handleShare}
-                                    variant="outline"
+                                    variant="secondary"
                                     aria-label="Condividi rendering"
                                     className="border-white/20 text-white hover:bg-white/10"
                                 >

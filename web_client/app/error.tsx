@@ -69,7 +69,7 @@ export default function Error({
                     </Button>
                     <Button
                         asChild
-                        variant="outline"
+                        variant="secondary"
                         className="px-8 py-6 border-luxury-gold/30 hover:bg-luxury-gold/10 text-luxury-text font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
                         <Link href="/">

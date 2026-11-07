@@ -166,7 +166,7 @@ export function Portfolio({
             <div className="mt-8 text-center">
                 <Button
                     asChild
-                    variant="outline"
+                    variant="secondary"
                     size="lg"
                     className="h-14 px-8 text-base min-w-[300px] border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold/10 hover:border-luxury-gold rounded-lg transition-all duration-200 active:scale-95 active:bg-luxury-gold/20"
                 >

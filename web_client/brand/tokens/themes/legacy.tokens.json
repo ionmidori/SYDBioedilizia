@@ -25,6 +25,7 @@
       "primary-ink": { "$value": "{color.luxury.teal}" },
       "accent": { "$value": "{color.luxury.gold}" },
       "accent-subtle": { "$value": "{color.luxury.gold}", "$extensions": { "syd.alpha": 0.1, "syd.over": "{color.luxury.bg}" } },
+      "on-accent": { "$value": "{color.luxury.bg}" },
       "accent-ink": { "$value": "{color.luxury.gold}" },
       "scrim": { "$value": "{palette.neutral.950}", "$extensions": { "syd.alpha": 0.6 } },
       "on-scrim": { "$value": "{color.brand.white}" },

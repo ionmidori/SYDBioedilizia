@@ -59,7 +59,7 @@ export class ChatErrorBoundary extends Component<Props, State> {
                     )}
                     <Button
                         onClick={this.handleReset}
-                        variant="outline"
+                        variant="secondary"
                         size="lg"
                         className="mt-6 border-luxury-gold/30 hover:bg-luxury-gold/10 text-luxury-text gap-3 px-8 h-12 text-base active:scale-95 transition-transform"
                     >

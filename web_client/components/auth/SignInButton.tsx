@@ -47,7 +47,7 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
             <>
                 <Button
                     onClick={handleLoginClick}
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     className={cn("gap-2 border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold hover:text-luxury-bg transition-colors", className)}
                 >
@@ -114,7 +114,7 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
         <>
             <Button
                 onClick={handleLoginClick}
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 className={cn("gap-2 border-luxury-gold/50 text-luxury-gold hover:bg-luxury-gold hover:text-luxury-bg transition-colors", className)}
             >
