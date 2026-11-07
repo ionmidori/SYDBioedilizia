@@ -12,6 +12,8 @@ import { jsonRoute, test } from './fixtures/authed-test';
 // Full-page screenshots of long pages take longer than a smoke check.
 // Retries absorb rare timing noise (motion, timers); a real visual change fails every attempt.
 test.describe.configure({ timeout: 60_000, retries: 2 });
+// Screenshots at rest: no transitions or Motion animations mid-flight (scoped to the harness, not the smoke suites).
+test.use({ contextOptions: { reducedMotion: 'reduce' } });
 
 test.beforeEach(async ({ page, context, baseURL }) => {
   await context.addCookies([consentCookie(baseURL!)]);

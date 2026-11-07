@@ -13,9 +13,9 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
+import { ROOT } from '../brand/lib/tokens.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const RULES_FILE = path.join(ROOT, 'scripts', 'theme', 'rules.json');
 export const VOCABULARY_FILE = path.join(ROOT, 'scripts', 'brand', 'generated', 'roles.json');
 const DEFAULT_GLOBS = ['web_client/{app,components,lib,hooks}/**/*.{ts,tsx,css}'];
@@ -53,8 +53,9 @@ export function compileRules(spec, vocab) {
 
         const t = rule.to ?? {};
         const targets = [...(t.role ? [['*', t.role]] : []), ...Object.entries(t.byUtility ?? {})];
-        const families = asList(m.family) ?? [...new Set([...familyOf.values()])];
+        const families = asList(m.family);
         for (const [utility, role] of targets) {
+            if (role.includes(FAMILY) && !families) throw new Error(`${where}: target "${role}" uses ${FAMILY} but the rule matches no family`);
             const resolved = role.includes(FAMILY) ? families.map((f) => role.replaceAll(FAMILY, f)) : [role];
             for (const r of resolved) {
                 if (!vocab.roles.includes(r)) throw new Error(`${where}: target role "${r}" is not in roles.json`);
@@ -78,7 +79,16 @@ export function compileRules(spec, vocab) {
     const exact = new RegExp(`^${classPattern(true)}$`);
     // The bare class with the spaces around it: a dropped class takes one of them along.
     const spaced = new RegExp(`( ?)(${classPattern(false)})( ?)`, 'g');
-    return { rules, groupOf, familyOf, token, exact, spaced, utilities };
+    // A text-like utility on a role that is not a text role (text-primary, placeholder-accent): its
+    // contrast is never checked as text. Only reported, never rewritten.
+    const nonText = vocab.roles.filter((r) => !vocab.textRoles.includes(r)).sort((a, b) => b.length - a.length);
+    const misuse = spec.textUtilities?.length
+        ? new RegExp(
+              `(?<![\\w/-])(?:[\\w-]+(?:\\[[^\\]\\s]*\\])?:)*!?(?:${spec.textUtilities.map(escape).join('|')})-(${nonText.map(escape).join('|')})(?:/\\d{1,3})?(?![\\w/-])`,
+              'g',
+          )
+        : null;
+    return { rules, groupOf, familyOf, token, exact, spaced, misuse, utilities };
 }
 
 export function loadRules(file = RULES_FILE, vocab = loadVocabulary()) {
@@ -115,7 +125,7 @@ export function migrateClass(cls, compiled) {
     const t = rule.to;
     if (t.ambiguous) return { status: 'ambiguous', reason: t.ambiguous, parsed: p };
     if (t.drop) return { status: 'dropped', to: '', parsed: p };
-    const role = (t.byUtility ? (t.byUtility[p.utility] ?? t.byUtility['*']) : t.role)?.replaceAll(FAMILY, compiled.familyOf.get(p.color));
+    const role = (t.byUtility?.[p.utility] ?? t.byUtility?.['*'] ?? t.role)?.replaceAll(FAMILY, compiled.familyOf.get(p.color));
     if (!role) return { status: 'unmapped', reason: `no role for utility "${p.utility}"`, parsed: p };
     const opacity = t.keepOpacity && p.opacity !== undefined ? `/${p.opacity}` : '';
     return { status: 'mapped', to: `${p.variants}${p.important}${p.utility}-${role}${opacity}`, parsed: p };
@@ -142,6 +152,14 @@ export function migrateSource(text, compiled) {
         if (r.status === 'dropped') return lead && trail ? ' ' : '';
         return `${lead}${r.status === 'mapped' ? r.to : cls}${trail}`;
     });
+    for (const m of compiled.misuse ? out.matchAll(compiled.misuse) : []) {
+        findings.push({
+            line: lineOf(m.index),
+            from: m[0],
+            status: 'misuse',
+            reason: `"${m[1]}" is not a text role: use a text role (${m[1]}-ink, on-${m[1]}, ink, ...)`,
+        });
+    }
     return { text: out, findings };
 }
 
@@ -187,7 +205,7 @@ function main(argv) {
         console.log(JSON.stringify(colorPatterns(sources, compiled), null, 2));
         return;
     }
-    const report = { files: files.length, mapped: 0, dropped: 0, ambiguous: [], unmapped: [] };
+    const report = { files: files.length, mapped: 0, dropped: 0, ambiguous: [], unmapped: [], misuse: [] };
     let changed = 0;
     for (const [file, text] of sources) {
         const { text: out, findings } = migrateSource(text, compiled);
@@ -206,7 +224,7 @@ function main(argv) {
     } else if (mode === '--write') {
         console.log(`rewrote ${changed} file(s); ${report.ambiguous.length} ambiguous and ${report.unmapped.length} unmapped class(es) left for review`);
     } else {
-        const left = report.mapped + report.dropped + report.ambiguous.length + report.unmapped.length;
+        const left = report.mapped + report.dropped + report.ambiguous.length + report.unmapped.length + report.misuse.length;
         if (left) {
             console.error(`${left} non-semantic colour class(es) left (run --report for the list)`);
             process.exit(1);

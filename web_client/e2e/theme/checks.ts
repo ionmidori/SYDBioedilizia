@@ -51,6 +51,8 @@ export const checkCases = (pages: ThemePage[]) =>
 
 /** Visit the page, open the state (if any) and run `check`. Skips states absent at this viewport. */
 export async function runThemeCheck(page: Page, c: ReturnType<typeof checkCases>[number], check: Check, testInfo: TestInfo) {
+  // In report mode the audit can only warn: not worth CI minutes until it is enforced.
+  testInfo.skip(check === 'a11y' && !!process.env.CI && !A11Y_ENFORCE, 'axe report mode runs locally; CI runs it once enforced');
   await visit(page, c.page.path);
   if (c.state && !(await c.state.open(page))) {
     testInfo.skip(true, `${c.state.id} does not exist at this viewport`);

@@ -219,14 +219,15 @@ export function contrastFailures(tree = loadTokens()) {
 
 function main() {
     const check = process.argv.includes('--check');
-    const fails = contrastFailures();
+    const tree = loadTokens();
+    const fails = contrastFailures(tree);
     if (fails.length) {
         console.error(`contrast gate: ${fails.length} role requirement(s) failed (web_client/brand/tokens/themes)`);
         for (const f of fails) console.error(`  ${f}`);
         process.exit(1);
     }
     let stale = 0;
-    for (const [file, content] of renderAll()) {
+    for (const [file, content] of renderAll(tree)) {
         const rel = path.relative(ROOT, file).replaceAll('\\', '/');
         const current = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
         if (check) {

@@ -41,16 +41,23 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
-    contextOptions: { reducedMotion: 'reduce' },
   },
 
   projects: [
     {
       name: 'chromium',
+      // The theme harness has its own projects below, at its own viewports.
+      testIgnore: ['**/authed/**', '**/theme/**'],
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      // Theme harness, desktop: >= xl so the desktop navigation renders.
+      name: 'desktop',
+      testMatch: /theme\/.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
     {
-      // Phone viewport for the theme harness only; the smoke suite stays desktop.
+      // Theme harness, phone.
       name: 'mobile',
       testMatch: /theme\/.*\.spec\.ts/,
       use: { ...devices['Pixel 7'] },

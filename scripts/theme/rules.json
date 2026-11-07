@@ -1,5 +1,5 @@
 {
-  "$comment": "Colour class -> semantic role, read by scripts/theme/migrate.mjs. The first rule that matches wins. match: utility | color | group | family (lists), shade [min,max], opacity [min,max] (no modifier counts as 100). to: role (+ keepOpacity), byUtility {utility: role} (<family> = the matched family), drop, or ambiguous: <reason> (never rewritten; reported for a human, see the plan Task 5 step 2). Target roles are checked against scripts/brand/generated/roles.json.",
+  "$comment": "Colour class -> semantic role, read by scripts/theme/migrate.mjs. The first rule that matches wins. match: utility | color | group | family (lists), shade [min,max], opacity [min,max] (no modifier counts as 100). to: role (+ keepOpacity), byUtility {utility: role} (<family> = the matched family), drop, or ambiguous: <reason> (never rewritten; reported for a human, see the plan Task 5 step 2). textUtilities: utilities whose colour is read as text; on a role that is not a text role they are reported as misuse. Target roles are checked against scripts/brand/generated/roles.json.",
   "utilities": [
     "bg",
     "text",
@@ -25,6 +25,7 @@
     "caret",
     "accent"
   ],
+  "textUtilities": ["text", "placeholder", "caret"],
   "colors": {
     "luxury": ["luxury-bg", "luxury-text", "luxury-gold", "luxury-gold-dark", "luxury-teal"],
     "neutral": ["white", "black", "slate", "gray", "zinc", "neutral", "stone"],

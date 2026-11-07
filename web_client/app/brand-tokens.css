@@ -20,6 +20,7 @@
   --role-accent-subtle: #3a5355;
   --role-accent-ink: #e9c46a;
   --role-scrim: #221f1999;
+  --role-shade: #221f19;
   --role-on-scrim: #ffffff;
   --role-danger: #e15955;
   --role-danger-subtle: #394853;
@@ -68,6 +69,7 @@
   --color-accent-subtle: var(--role-accent-subtle);
   --color-accent-ink: var(--role-accent-ink);
   --color-scrim: var(--role-scrim);
+  --color-shade: var(--role-shade);
   --color-on-scrim: var(--role-on-scrim);
   --color-danger: var(--role-danger);
   --color-danger-subtle: var(--role-danger-subtle);
@@ -85,9 +87,9 @@
   --color-info-subtle: var(--role-info-subtle);
   --color-info-ink: var(--role-info-ink);
   --color-on-info: var(--role-on-info);
-  --shadow-1: 0px 1px 2px 0px color-mix(in oklab, var(--role-ink) 6%, transparent), 0px 1px 3px 1px color-mix(in oklab, var(--role-ink) 4%, transparent);
-  --shadow-2: 0px 4px 12px -2px color-mix(in oklab, var(--role-ink) 8%, transparent), 0px 2px 4px -1px color-mix(in oklab, var(--role-ink) 5%, transparent);
-  --shadow-3: 0px 16px 40px -8px color-mix(in oklab, var(--role-ink) 12%, transparent), 0px 4px 12px -2px color-mix(in oklab, var(--role-ink) 6%, transparent);
+  --shadow-1: 0px 1px 2px 0px color-mix(in oklab, var(--role-shade) 6%, transparent), 0px 1px 3px 1px color-mix(in oklab, var(--role-shade) 4%, transparent);
+  --shadow-2: 0px 4px 12px -2px color-mix(in oklab, var(--role-shade) 8%, transparent), 0px 2px 4px -1px color-mix(in oklab, var(--role-shade) 5%, transparent);
+  --shadow-3: 0px 16px 40px -8px color-mix(in oklab, var(--role-shade) 12%, transparent), 0px 4px 12px -2px color-mix(in oklab, var(--role-shade) 6%, transparent);
 }
 
 /* Colour utilities (bg-brand-navy-900, text-luxury-gold, ...). */

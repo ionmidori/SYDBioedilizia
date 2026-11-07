@@ -252,6 +252,21 @@ describe('semantic roles', () => {
         for (const l of levels) assert.match(css, new RegExp(`--shadow-${l}: [^;]*var\\(--role-`));
     });
 
+    it('draws every elevation shadow in a role darker than the canvas, on every surface of every theme', () => {
+        const shadowRoles = new Set(
+            Object.entries(tokens.elevation)
+                .filter(([k]) => !k.startsWith('$'))
+                .flatMap(([, t]) => t.$value.map((l) => /^\{role\.([\w-]+)\}$/.exec(l.color)[1])),
+        );
+        for (const t of themes) {
+            for (const [surface, v] of Object.entries(t.surfaces)) {
+                for (const r of shadowRoles) {
+                    assert.ok(hexToOklch(v[r].hex).l < hexToOklch(v.canvas.hex).l, `${t.name}/${surface}: shadow role ${r} is lighter than canvas`);
+                }
+            }
+        }
+    });
+
     it('generated TS and JSON list the same roles as roles.tokens.json', () => {
         const json = JSON.parse(generated[ROLES_FILE]);
         assert.deepEqual(json.roles, roles.names);

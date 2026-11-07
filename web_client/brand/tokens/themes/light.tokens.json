@@ -28,6 +28,7 @@
       "accent-ink": { "$value": "{palette.sand.800}" },
       "scrim": { "$value": "{palette.neutral.950}", "$extensions": { "syd.alpha": 0.65 } },
       "on-scrim": { "$value": "{color.brand.white}" },
+      "shade": { "$value": "{palette.neutral.950}" },
       "<tone>": { "$value": "{palette.<ramp>.600}" },
       "<tone>-subtle": { "$value": "{palette.<ramp>.50}" },
       "<tone>-ink": { "$value": "{palette.<ramp>.800}" },

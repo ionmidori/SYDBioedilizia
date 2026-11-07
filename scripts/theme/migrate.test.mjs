@@ -7,11 +7,12 @@ import { describe, it } from 'node:test';
 import { RULES_FILE, compileRules, loadRules, loadVocabulary, migrateClass, migrateSource, colorPatterns } from './migrate.mjs';
 
 const vocab = {
-    roles: ['canvas', 'ink', 'ink-muted', 'primary', 'primary-hover', 'accent', 'danger', 'danger-ink', 'danger-subtle'],
-    textRoles: ['ink', 'ink-muted', 'danger-ink'],
+    roles: ['canvas', 'ink', 'ink-muted', 'primary', 'primary-hover', 'primary-ink', 'accent', 'danger', 'danger-ink', 'danger-subtle'],
+    textRoles: ['ink', 'ink-muted', 'primary-ink', 'danger-ink'],
 };
 const fixture = {
-    utilities: ['bg', 'text', 'border', 'ring-offset', 'ring'],
+    utilities: ['bg', 'text', 'border', 'ring-offset', 'ring', 'placeholder'],
+    textUtilities: ['text', 'placeholder'],
     colors: { site: ['site-text', 'site-bg', 'site-teal'], neutral: ['white'] },
     families: { danger: ['red'] },
     rules: [
@@ -23,6 +24,7 @@ const fixture = {
         { match: { utility: ['ring-offset', 'ring'], color: ['site-teal'] }, to: { drop: true } },
         { match: { family: ['danger'], shade: [50, 200] }, to: { byUtility: { bg: '<family>-subtle' } } },
         { match: { family: ['danger'] }, to: { byUtility: { text: '<family>-ink', bg: '<family>' } } },
+        { match: { utility: ['text', 'border'], color: ['site-teal'] }, to: { role: 'primary', byUtility: { text: 'primary-ink' } } },
         { match: { group: ['neutral'] }, to: { ambiguous: 'depends on the background' } },
     ],
 };
@@ -65,6 +67,19 @@ describe('engine', () => {
         assert.equal(to('text-red-400'), 'text-danger-ink');
         const border = migrateClass('border-red-500', rules);
         assert.equal(border.status, 'unmapped');
+    });
+
+    it('byUtility falls back to the rule role for the other utilities', () => {
+        assert.equal(to('text-site-teal'), 'text-primary-ink');
+        assert.equal(to('border-site-teal'), 'border-primary');
+    });
+
+    it('reports a text utility on a non-text role as misuse', () => {
+        const out = migrateSource('a("text-primary text-ink placeholder-accent hover:text-primary-ink text-primary/50")', rules);
+        assert.deepEqual(
+            out.findings.filter((f) => f.status === 'misuse').map((f) => f.from),
+            ['text-primary', 'placeholder-accent', 'text-primary/50'],
+        );
     });
 
     it('drops a class when the rule says so', () => {
@@ -123,6 +138,10 @@ describe('rule validation', () => {
             () => compileRules(withRule({ match: { utility: ['text'], color: ['site-text'] }, to: { role: 'ink', keepOpacity: true } }), vocab),
             /opacity.*ink/,
         );
+    });
+
+    it('rejects a <family> target on a rule that does not match a family', () => {
+        assert.throws(() => compileRules(withRule({ match: { utility: ['text'] }, to: { byUtility: { text: '<family>-ink' } } }), vocab), /<family>.*family/);
     });
 
     it('rejects a rule matching an unknown colour, group or family', () => {

@@ -66,7 +66,6 @@ export default defineConfig({
     video: 'retain-on-failure',
     // >= xl so the desktop navigation renders (SignInButton is `hidden xl:flex`).
     viewport: { width: 1440, height: 900 },
-    contextOptions: { reducedMotion: 'reduce' },
   },
 
   projects: [

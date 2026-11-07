@@ -91,6 +91,10 @@
       "$description": "Translucent veil over photos and behind modals.",
       "$extensions": { "syd.role": {} }
     },
+    "shade": {
+      "$description": "Colour of elevation shadows (shadow-1/2/3; not named shadow: text-shadow is a Tailwind utility): dark on every surface, so a raised element casts a shadow even on a dark band. Decorative, never text.",
+      "$extensions": { "syd.role": {} }
+    },
     "on-scrim": {
       "$description": "Text over a scrim. Checked with the scrim composited on both a black and a white photo (worst cases).",
       "$extensions": {

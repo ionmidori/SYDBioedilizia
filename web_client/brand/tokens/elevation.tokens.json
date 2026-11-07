@@ -1,26 +1,26 @@
 {
-  "$description": "Elevation: depth through shadow instead of glass. DTCG shadow layers; `color` is a role reference ({role.<name>}) and `alpha` (SYD extension of the layer) its opacity, so a shadow follows the theme and the surface it sits on. Emitted as --shadow-<level> (utilities shadow-1, shadow-2, ...); levels feed the generated ElevationLevel type.",
+  "$description": "Elevation: depth through shadow instead of glass. DTCG shadow layers; `color` is a role reference ({role.<name>}) and `alpha` (SYD extension of the layer) its opacity, so a shadow follows the theme and the surface it sits on (the shade role stays dark on every surface). Emitted as --shadow-<level> (utilities shadow-1, shadow-2, ...); levels feed the generated ElevationLevel type.",
   "elevation": {
     "$type": "shadow",
     "1": {
       "$description": "Resting cards and inputs.",
       "$value": [
-        { "color": "{role.ink}", "alpha": 0.06, "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px" },
-        { "color": "{role.ink}", "alpha": 0.04, "offsetX": "0px", "offsetY": "1px", "blur": "3px", "spread": "1px" }
+        { "color": "{role.shade}", "alpha": 0.06, "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px" },
+        { "color": "{role.shade}", "alpha": 0.04, "offsetX": "0px", "offsetY": "1px", "blur": "3px", "spread": "1px" }
       ]
     },
     "2": {
       "$description": "Hovered cards, sticky bars, popovers.",
       "$value": [
-        { "color": "{role.ink}", "alpha": 0.08, "offsetX": "0px", "offsetY": "4px", "blur": "12px", "spread": "-2px" },
-        { "color": "{role.ink}", "alpha": 0.05, "offsetX": "0px", "offsetY": "2px", "blur": "4px", "spread": "-1px" }
+        { "color": "{role.shade}", "alpha": 0.08, "offsetX": "0px", "offsetY": "4px", "blur": "12px", "spread": "-2px" },
+        { "color": "{role.shade}", "alpha": 0.05, "offsetX": "0px", "offsetY": "2px", "blur": "4px", "spread": "-1px" }
       ]
     },
     "3": {
       "$description": "Dialogs, drawers, menus over content.",
       "$value": [
-        { "color": "{role.ink}", "alpha": 0.12, "offsetX": "0px", "offsetY": "16px", "blur": "40px", "spread": "-8px" },
-        { "color": "{role.ink}", "alpha": 0.06, "offsetX": "0px", "offsetY": "4px", "blur": "12px", "spread": "-2px" }
+        { "color": "{role.shade}", "alpha": 0.12, "offsetX": "0px", "offsetY": "16px", "blur": "40px", "spread": "-8px" },
+        { "color": "{role.shade}", "alpha": 0.06, "offsetX": "0px", "offsetY": "4px", "blur": "12px", "spread": "-2px" }
       ]
     }
   }
