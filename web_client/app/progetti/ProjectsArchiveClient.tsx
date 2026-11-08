@@ -47,7 +47,7 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
 
                 <header className="mb-8 md:mb-12">
                     <h1 className="text-3xl md:text-5xl font-serif font-bold text-ink mb-4">
-                        Tutti i <span className="text-primary italic">Progetti</span>
+                        Tutti i <span className="text-primary-ink italic">Progetti</span>
                     </h1>
                     <p className="text-ink-muted max-w-xl text-lg font-light">
                         L&apos;archivio completo delle nostre ristrutturazioni. Filtra per ambiente

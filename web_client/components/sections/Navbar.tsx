@@ -157,7 +157,7 @@ export function Navbar() {
                                         "relative flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 group whitespace-nowrap border shadow-xs",
                                         contactMenuOpenDesktop
                                             ? "bg-primary-subtle border-primary/40 text-primary-ink font-bold"
-                                            : "bg-surface/90 hover:bg-surface border-line hover:border-primary/40 text-ink hover:text-primary"
+                                            : "bg-surface/90 hover:bg-surface border-line hover:border-primary/40 text-ink hover:text-primary-ink"
                                     )}
                                     onClick={() => {
                                         triggerHaptic();
@@ -199,7 +199,7 @@ export function Navbar() {
                                                 whileTap={{ scale: 0.98 }}
                                                 transition={M3Spring.gentle}
                                             >
-                                                <span className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-primary border border-line group-hover:bg-primary group-hover:text-on-primary transition-all shadow-xs">
+                                                <span className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-primary-ink border border-line group-hover:bg-primary group-hover:text-on-primary transition-all shadow-xs">
                                                     <Icon className="w-4 h-4" />
                                                 </span>
                                                 <span className="font-medium text-sm tracking-wide">{label}</span>
@@ -227,7 +227,7 @@ export function Navbar() {
                                         "relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-300 group whitespace-nowrap border shadow-xs",
                                         pathname === link.href
                                             ? "bg-primary-subtle border-primary/40 text-primary-ink font-bold"
-                                            : "bg-surface/90 hover:bg-surface border-line hover:border-primary/40 text-ink hover:text-primary"
+                                            : "bg-surface/90 hover:bg-surface border-line hover:border-primary/40 text-ink hover:text-primary-ink"
                                     )}
                                 >
                                     <span className="font-bold tracking-[0.05em] text-[11px] xl:text-[12px] uppercase">{link.name}</span>
@@ -250,8 +250,8 @@ export function Navbar() {
                         <div className="relative" ref={contactMenuRef}>
                             <button
                                 className={cn(
-                                    "p-2 rounded-full text-ink hover:text-primary transition-colors",
-                                    contactMenuOpen && "text-primary bg-primary-subtle"
+                                    "p-2 rounded-full text-ink hover:text-primary-ink transition-colors",
+                                    contactMenuOpen && "text-primary-ink bg-primary-subtle"
                                 )}
                                 onClick={() => {
                                     triggerHaptic();
@@ -291,7 +291,7 @@ export function Navbar() {
                                                 whileTap={{ scale: 0.98 }}
                                                 transition={M3Spring.gentle}
                                             >
-                                                <span className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-primary border border-line group-hover:bg-primary group-hover:text-on-primary transition-all shadow-xs">
+                                                <span className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-primary-ink border border-line group-hover:bg-primary group-hover:text-on-primary transition-all shadow-xs">
                                                     <Icon className="w-4 h-4" />
                                                 </span>
                                                 <span className="font-medium text-sm tracking-wide">{label}</span>
@@ -306,7 +306,7 @@ export function Navbar() {
                         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} modal={false}>
                             <SheetTrigger asChild>
                                 <button
-                                    className="p-2 rounded-full text-ink hover:text-primary transition-colors"
+                                    className="p-2 rounded-full text-ink hover:text-primary-ink transition-colors"
                                     onClick={() => {
                                         triggerHaptic();
                                         setContactMenuOpen(false);
@@ -344,7 +344,7 @@ export function Navbar() {
                                             onClick={handlePersonalAreaClick}
                                             className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass border-line transition-all duration-300 active:scale-95 group shadow-xl"
                                         >
-                                            <span className="font-bold uppercase tracking-[0.15em] text-[10px] text-ink group-hover:text-primary transition-colors">Area Personale</span>
+                                            <span className="font-bold uppercase tracking-[0.15em] text-[10px] text-ink group-hover:text-primary-ink transition-colors">Area Personale</span>
                                         </button>
                                     </motion.div>
 
@@ -362,7 +362,7 @@ export function Navbar() {
                                                     setMobileMenuOpen(false);
                                                 }}
                                             >
-                                                <span className="font-bold uppercase tracking-[0.1em] text-[10px] text-ink hover:text-primary transition-colors">{link.name}</span>
+                                                <span className="font-bold uppercase tracking-[0.1em] text-[10px] text-ink hover:text-primary-ink transition-colors">{link.name}</span>
                                             </Link>
                                         </motion.div>
                                     ))}

@@ -38,7 +38,7 @@ export default function TermsPage() {
                     {/* Header */}
                     <header className="border-b border-line pb-12">
                         <h1 className="text-5xl md:text-7xl font-bold font-serif tracking-tight leading-tight">
-                            Termini di <span className="text-primary italic">Servizio</span>
+                            Termini di <span className="text-primary-ink italic">Servizio</span>
                         </h1>
                         <p className="mt-6 text-ink-subtle font-medium tracking-[0.2em] uppercase text-xs">
                             Ultimo aggiornamento: Gennaio 2026

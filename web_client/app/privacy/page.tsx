@@ -41,7 +41,7 @@ export default function PrivacyPage() {
                     {/* Header */}
                     <header className="border-b border-line pb-12">
                         <h1 className="text-5xl md:text-7xl font-bold font-serif tracking-tight leading-tight">
-                            Privacy <span className="text-primary italic">Policy</span>
+                            Privacy <span className="text-primary-ink italic">Policy</span>
                         </h1>
                         <p className="mt-6 text-ink-subtle font-medium tracking-[0.2em] uppercase text-xs">
                             Ultimo aggiornamento: 6 Ottobre 2026

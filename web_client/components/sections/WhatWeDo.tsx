@@ -38,7 +38,7 @@ export function WhatWeDo() {
                         viewport={{ once: true }}
                         className="text-3xl md:text-5xl font-serif font-bold text-ink mb-4 tracking-tight"
                     >
-                        Cosa <span className="text-primary italic">facciamo</span>
+                        Cosa <span className="text-primary-ink italic">facciamo</span>
                     </motion.h2>
                     <motion.p
                         initial={reduceMotion ? false : HEADER_HIDDEN}

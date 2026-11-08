@@ -81,7 +81,7 @@ export function Services() {
                         viewport={{ once: true }}
                         className="text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-ink mb-4 tracking-tight"
                     >
-                        Tecnologia al servizio del <span className="text-primary italic">Design</span>
+                        Tecnologia al servizio del <span className="text-primary-ink italic">Design</span>
                     </motion.h2>
                     <motion.p
                         initial={reduceMotion ? false : HEADER_HIDDEN}

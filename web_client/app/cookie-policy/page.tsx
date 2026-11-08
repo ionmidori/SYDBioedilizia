@@ -38,7 +38,7 @@ export default function CookiePolicyPage() {
                     {/* Header */}
                     <header className="border-b border-line pb-12">
                         <h1 className="text-5xl md:text-7xl font-bold font-serif tracking-tight leading-tight">
-                            Cookie <span className="text-primary italic">Policy</span>
+                            Cookie <span className="text-primary-ink italic">Policy</span>
                         </h1>
                         <p className="mt-6 text-ink-subtle font-medium tracking-[0.2em] uppercase text-xs">
                             Syd Bioedilizia - Gestione Consenso Trasparente
