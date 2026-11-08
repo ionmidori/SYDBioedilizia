@@ -180,7 +180,7 @@ export default function ProfilePage() {
     };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-10 pb-20 duration-700">
+        <div className="max-w-4xl mx-auto space-y-10 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
             <div className="flex flex-col gap-2">
                 <h1 className="text-3xl md:text-4xl font-bold text-ink font-serif">Il Tuo <span className="text-accent-ink italic">Profilo</span></h1>
