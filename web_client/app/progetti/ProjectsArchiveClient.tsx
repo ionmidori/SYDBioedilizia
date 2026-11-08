@@ -47,7 +47,7 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
 
                 <header className="mb-8 md:mb-12">
                     <h1 className="text-3xl md:text-5xl font-serif font-bold text-ink mb-4">
-                        Tutti i <span className="text-accent-ink italic">Progetti</span>
+                        Tutti i <span className="text-primary-ink italic">Progetti</span>
                     </h1>
                     <p className="text-ink-muted max-w-xl text-lg font-light">
                         L&apos;archivio completo delle nostre ristrutturazioni. Filtra per ambiente
@@ -73,10 +73,10 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
                             onClick={() => setActiveCategory(cat)}
                             aria-pressed={activeCategory === cat}
                             className={cn(
-                                'shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border',
+                                'shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border shadow-xs',
                                 activeCategory === cat
-                                    ? 'bg-accent text-on-accent border-accent'
-                                    : 'bg-transparent text-ink-muted border-line hover:border-accent hover:text-ink',
+                                    ? 'bg-primary text-on-primary border-primary font-semibold'
+                                    : 'bg-surface text-ink-muted border-line hover:border-primary/50 hover:text-ink',
                             )}
                         >
                             {cat}
@@ -95,7 +95,7 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
                         </p>
                         <button
                             onClick={() => setActiveCategory(ALL_CATEGORIES)}
-                            className="min-h-[44px] px-5 rounded-full border border-transparent bg-accent text-on-accent text-sm font-bold transition-colors hover:bg-accent/90"
+                            className="min-h-[44px] px-5 rounded-full border border-transparent bg-primary text-on-primary text-sm font-bold transition-colors hover:bg-primary-hover shadow-xs"
                         >
                             Mostra tutti
                         </button>

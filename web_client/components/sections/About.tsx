@@ -20,7 +20,7 @@ export function About() {
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
-                        className="text-3xl md:text-5xl font-serif font-bold text-accent-ink"
+                        className="text-3xl md:text-5xl font-serif font-bold text-ink"
                     >
                         Chi Siamo
                     </motion.h1>
@@ -130,14 +130,13 @@ export function About() {
                         </div>
 
                         {/* Why Choose Us */}
-                        <div className="bg-gradient-to-br from-accent/10 to-transparent p-8 rounded-2xl border border-line">
-                            <h3 className="text-2xl font-serif font-bold text-accent-ink mb-4">Perché Scegliere <span className="wordmark">SYD BIOEDILIZIA</span></h3>
+                        <div className="bg-surface p-8 rounded-2xl border border-line shadow-xs">
+                            <h3 className="text-2xl font-serif font-bold text-ink mb-4">Perché Scegliere <span className="wordmark">SYD BIOEDILIZIA</span></h3>
                             <p className="text-ink mb-6 leading-relaxed">
                                 Non offriamo solo lavorazioni di alta qualità. Ti supportiamo anche nella burocrazia, guidandoti nell&apos;accesso alle <strong>detrazioni fiscali</strong> e agli <strong>Ecobonus</strong> per interventi come l&apos;insufflaggio termico e la riqualificazione energetica.
                             </p>
                             <Button
-                                variant="accent"
-                                className="w-full bg-accent hover:bg-accent/80 text-on-accent font-bold py-6 text-lg shadow-lg"
+                                className="w-full bg-primary hover:bg-primary-hover text-on-primary font-bold py-6 text-lg shadow-lg"
                                 onClick={() => {
                                     window.location.href = 'tel:+393755463599';
                                 }}

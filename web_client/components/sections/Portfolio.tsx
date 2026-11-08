@@ -173,7 +173,7 @@ export function Portfolio({
                     asChild
                     variant="secondary"
                     size="lg"
-                    className="h-14 px-8 text-base min-w-[300px] border-accent text-accent-ink hover:bg-accent-subtle hover:border-accent rounded-lg transition-all duration-200 active:scale-95 active:bg-accent-subtle"
+                    className="h-14 px-8 text-base min-w-[300px] border-line-strong/40 bg-surface text-ink hover:bg-surface-muted hover:border-primary/50 hover:text-primary-ink rounded-lg transition-all duration-200 active:scale-95 shadow-xs font-semibold"
                 >
                     <Link href="/progetti">
                         <LayoutGrid className="mr-2 w-5 h-5" />
