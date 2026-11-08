@@ -226,7 +226,7 @@ export function AdvancedLightbox({
             className={cn(
                 'fixed inset-0 z-[9999] bg-shade/95 backdrop-blur-2xl',
                 'flex flex-col items-center justify-center overflow-hidden',
-                'cursor-grab active:cursor-grabbing touch-action-none'
+                'cursor-grab active:cursor-grabbing'
             )}
             style={{ touchAction: 'none' }}
             role="dialog"

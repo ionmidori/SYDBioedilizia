@@ -170,7 +170,7 @@ function CategoryToggle({ title, desc, active, onClick, locked = false }: { titl
                 <span className={`text-sm font-bold uppercase tracking-wider ${active ? 'text-accent-ink' : 'text-ink-subtle'}`}>
                     {title}
                 </span>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${active ? 'bg-accent border-accent text-on-accent shadow-glow-gold' : 'border-line-strong text-transparent'
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${active ? 'bg-accent border-accent text-on-accent' : 'border-line-strong text-transparent'
                     }`}>
                     <Check className="w-3 h-3 stroke-[4]" />
                 </div>

@@ -5,7 +5,7 @@
   --font-serif: var(--font-serif), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
-.font-trajan {
+@utility font-trajan {
   font-family: var(--font-trajan), serif;
 }
 
@@ -80,12 +80,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.3);
+    background: color-mix(in oklab, var(--color-ink-subtle) 30%, transparent);
     border-radius: 10px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(148, 163, 184, 0.5);
+    background: color-mix(in oklab, var(--color-ink-subtle) 50%, transparent);
   }
 
   /* 4. MOMENTUM SCROLLING */

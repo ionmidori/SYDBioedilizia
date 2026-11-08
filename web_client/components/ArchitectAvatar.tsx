@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 
 export default function ArchitectAvatar({ className }: { className?: string }) {
     return (
-        <div className={cn("relative w-12 h-12 shadow-sm group flex items-center justify-center bg-luxury-bg rounded-full overflow-hidden border border-luxury-gold/30", className)}>
+        <div className={cn("relative w-12 h-12 shadow-sm group flex items-center justify-center bg-canvas rounded-full overflow-hidden border border-line", className)}>
             <Image
                 src="/assets/syd_luxury_avatar_light.webp"
                 alt="SYD Avatar"

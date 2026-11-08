@@ -1,93 +1,88 @@
-/* Custom utilities and component classes. Imported by ../globals.css. */
+/* Custom utilities. Imported by ../globals.css.
+   Every class used in components is a Tailwind `@utility`, so the design system knows it
+   (variants work, and better-tailwindcss/no-unknown-classes accepts it). Colours come only
+   from the roles (var(--color-<role>), color-mix); the marble card uses brand primitives
+   because it is a physical material that stays light in every theme. */
 
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* 1. CINEMATIC FOCUS: Spotlight Effect */
-.cinematic-focus {
+@utility cinematic-focus {
   transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
 
-.cinematic-focus:focus-within {
-  transform: scale(1.02);
-  box-shadow: 0 10px 40px -10px rgba(42, 157, 143, 0.2),
-    0 0 20px rgba(233, 196, 106, 0.1);
-  border-color: rgba(233, 196, 106, 0.6);
-  /* Derived from the theme token: `--luxury-bg-rgb`, used here before, was never
-     defined, so browsers dropped the whole declaration. */
-  background-color: color-mix(in srgb, var(--color-luxury-bg) 95%, transparent);
-}
+  &:focus-within {
+    transform: scale(1.02);
+    box-shadow: 0 10px 40px -10px color-mix(in oklab, var(--color-primary) 20%, transparent),
+      0 0 20px color-mix(in oklab, var(--color-accent) 10%, transparent);
+    border-color: color-mix(in oklab, var(--color-accent) 60%, transparent);
+    background-color: color-mix(in oklab, var(--color-canvas) 95%, transparent);
+  }
 
-/* A horizontal scroll-snap rail (SnapRail) is forced by the CSS spec to also clip
-   vertically the moment it scrolls horizontally (overflow-x other than visible always
-   coerces overflow-y to auto too — there is no way to opt out of that). Any card inside
-   one that grows on focus therefore gets its top/bottom silently cut off. Strip just the
-   transform here — the border/shadow/background feedback above is unaffected and still
-   plays, since none of those change the box's own geometry. */
-[data-rail-item] .cinematic-focus:focus-within {
-  transform: none;
+  /* A horizontal scroll-snap rail (SnapRail) is forced by the CSS spec to also clip
+     vertically the moment it scrolls horizontally (overflow-x other than visible always
+     coerces overflow-y to auto too — there is no way to opt out of that). Any card inside
+     one that grows on focus therefore gets its top/bottom silently cut off. Strip just the
+     transform here — the border/shadow/background feedback above is unaffected and still
+     plays, since none of those change the box's own geometry. */
+  [data-rail-item] &:focus-within {
+    transform: none;
+  }
 }
 
 /* Utilities for hiding scrollbars if needed */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-.scrollbar-hide {
+@utility scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Custom scrollbar — used in AppSidebar nav and ProjectFilesView */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(233, 196, 106, 0.2);
-  border-radius: 10px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(233, 196, 106, 0.4);
-}
-
-.custom-scrollbar {
+@utility custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(233, 196, 106, 0.2) transparent;
-}
+  scrollbar-color: color-mix(in oklab, var(--color-accent) 20%, transparent) transparent;
 
-/* 💎 LUXURY TECH UTILITIES */
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-accent) 20%, transparent);
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-accent) 40%, transparent);
+  }
+}
 
 /* Soft Expressive Shadows */
-.shadow-elevation-low {
+@utility shadow-elevation-low {
   box-shadow:
-    0 2px 8px -2px rgba(0, 0, 0, 0.1),
-    0 0 4px rgba(42, 157, 143, 0.05);
-  /* Subtle Teal Tint */
+    0 2px 8px -2px color-mix(in oklab, var(--color-shade) 10%, transparent),
+    0 0 4px color-mix(in oklab, var(--color-primary) 5%, transparent);
 }
 
-.shadow-elevation-high {
+@utility shadow-elevation-high {
   box-shadow:
-    0 12px 32px -8px rgba(0, 0, 0, 0.2),
-    0 4px 12px rgba(233, 196, 106, 0.15);
-  /* Warm Gold Tint */
+    0 12px 32px -8px color-mix(in oklab, var(--color-shade) 20%, transparent),
+    0 4px 12px color-mix(in oklab, var(--color-accent) 15%, transparent);
 }
 
 /* Premium Glow Shadow */
-.shadow-premium {
+@utility shadow-premium {
   box-shadow:
-    0 0 0 1px rgba(233, 196, 106, 0.1),
-    /* Subtle Gold Rim */
-    0 4px 20px -5px rgba(0, 0, 0, 0.5),
-    /* Deep Shadow */
-    0 0 15px rgba(42, 157, 143, 0.1);
-  /* Ambient Teal Glow */
+    0 0 0 1px color-mix(in oklab, var(--color-accent) 10%, transparent),
+    0 4px 20px -5px color-mix(in oklab, var(--color-shade) 50%, transparent),
+    0 0 15px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 /* Premium Glass */
@@ -96,57 +91,52 @@
    picking the prefixed one silently kills the blur: current Chrome, Edge and
    Firefox all dropped (or never had) `-webkit-backdrop-filter`. Leave the
    standard property alone and let Lightning add prefixes per browserslist. */
-.glass-premium {
-  background: rgba(15, 23, 42, 0.6);
+@utility glass-premium {
+  background: color-mix(in oklab, var(--color-canvas) 60%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(233, 196, 106, 0.25);
+  border: 1px solid color-mix(in oklab, var(--color-accent) 25%, transparent);
   box-shadow:
-    0 4px 30px rgba(0, 0, 0, 0.1),
-    inset 0 0 20px rgba(255, 255, 255, 0.05);
+    0 4px 30px color-mix(in oklab, var(--color-shade) 10%, transparent),
+    inset 0 0 20px color-mix(in oklab, var(--color-on-scrim) 5%, transparent);
 }
 
 /* Sidebar Glassmorphism */
-.glass-sidebar {
-  background: rgba(15, 23, 42, 0.1);
-  /* Dark Luxury Base - Reduced Opacity */
+@utility glass-sidebar {
+  background: color-mix(in oklab, var(--color-canvas) 10%, transparent);
   backdrop-filter: blur(24px) saturate(180%);
-  border-right: 1px solid rgba(233, 196, 106, 0.1);
-  /* Subtle Gold Border */
+  border-right: 1px solid color-mix(in oklab, var(--color-accent) 10%, transparent);
 }
 
 /* Sidebar Notch Trigger */
-.notch-trigger {
+@utility notch-trigger {
   position: absolute;
   top: 50%;
   right: -12px;
-  /* Protrudes slightly */
   transform: translateY(-50%);
   width: 24px;
   height: 48px;
-  background: rgba(233, 196, 106, 0.15);
-  /* Luxury Gold Low Opacity */
+  background: color-mix(in oklab, var(--color-accent) 15%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(233, 196, 106, 0.4);
-  /* Gold Border */
+  border: 1px solid color-mix(in oklab, var(--color-accent) 40%, transparent);
   border-radius: 0 12px 12px 0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 4px 0 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 4px 0 12px color-mix(in oklab, var(--color-shade) 20%, transparent);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 50;
   overflow: hidden;
-}
 
-.notch-trigger:hover {
-  width: 28px;
-  background: rgba(233, 196, 106, 0.25);
-  border-color: rgba(233, 196, 106, 0.6);
+  &:hover {
+    width: 28px;
+    background: color-mix(in oklab, var(--color-accent) 25%, transparent);
+    border-color: color-mix(in oklab, var(--color-accent) 60%, transparent);
+  }
 }
 
 /* Notch Draggable Variant */
-.notch-draggable {
+@utility notch-draggable {
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -156,95 +146,96 @@
 
 /* M3 Surface Container Levels */
 .surface-container-high {
-  background: rgba(38, 70, 83, 0.85);
-  border: 1px solid rgba(233, 196, 106, 0.25);
+  background: color-mix(in oklab, var(--color-canvas) 85%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-accent) 25%, transparent);
 }
 
 /* M3 Extra Large Shape */
-.m3-shape-xl {
+@utility m3-shape-xl {
   border-radius: 24px;
 }
 
 /* Services section (desktop grid) — evoluzione curata di .glass-premium,
    identità propria: bordo a gradiente oro + specular highlight in hover. */
-.glass-services-card {
+@utility glass-services-card {
   position: relative;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(160deg, color-mix(in oklab, var(--color-on-scrim) 7%, transparent), color-mix(in oklab, var(--color-on-scrim) 2%, transparent));
   /* No backdrop-filter: behind the cards there is only the flat page colour and
      the ambient glows, which are already soft gradients — blurring them again
      changed nothing visible and cost a backdrop pass per card per scroll frame. */
   isolation: isolate;
-}
 
-/* Gold gradient hairline. Tailwind can only do a single-colour border, so the
-   gradient lives on a pseudo-element masked to just the 1px ring. */
-.glass-services-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(233, 196, 106, 0.55),
-    rgba(233, 196, 106, 0.08) 45%,
-    rgba(233, 196, 106, 0.35) 100%
-  );
-  /* Standard `mask`/`mask-composite` only — same rule as the backdrop-filter
-     fix above: hand-write the unprefixed property and let Lightning CSS add
-     `-webkit-mask-*` itself. A hand-written `-webkit-mask` here previously
-     had no unprefixed counterpart, so Lightning CSS only ever emitted the
-     prefixed form — invisible to any engine without -webkit-mask aliases. */
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-  opacity: 0.55;
-  transition: opacity 0.4s ease;
-}
+  /* Gold gradient hairline. Tailwind can only do a single-colour border, so the
+     gradient lives on a pseudo-element masked to just the 1px ring. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--color-accent) 55%, transparent),
+      color-mix(in oklab, var(--color-accent) 8%, transparent) 45%,
+      color-mix(in oklab, var(--color-accent) 35%, transparent) 100%
+    );
+    /* Standard `mask`/`mask-composite` only — same rule as the backdrop-filter
+       fix above: hand-write the unprefixed property and let Lightning CSS add
+       `-webkit-mask-*` itself. A hand-written `-webkit-mask` here previously
+       had no unprefixed counterpart, so Lightning CSS only ever emitted the
+       prefixed form — invisible to any engine without -webkit-mask aliases.
+       The mask only reads alpha: any opaque colour works. */
+    mask:
+      linear-gradient(var(--color-shade) 0 0) content-box,
+      linear-gradient(var(--color-shade) 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0.55;
+    transition: opacity 0.4s ease;
+  }
 
-.glass-services-card:hover::before {
-  opacity: 1;
-}
+  &:hover::before {
+    opacity: 1;
+  }
 
-/* Specular highlight — the glass catching light from the top left. Negative
-   z-index (contained by `isolation: isolate` above) puts it behind the card's
-   in-flow content, same as any background layer — z-index alone does NOT
-   protect text contrast, it only controls paint order. What actually keeps
-   the paragraph text at WCAG AA through hover is that the gradient's falloff
-   (`60%` of a `120% 60%` ellipse anchored at the top) goes fully transparent
-   well above where the paragraph starts (measured: ~89px into a ~248px-tall
-   card vs. the paragraph beginning at ~104px). If the card's padding/icon
-   size shrinks, or this gradient grows, re-check contrast on hover — it is
-   not guaranteed by the CSS structure, only by today's proportions. */
-.glass-services-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: radial-gradient(120% 60% at 18% 0%, rgba(255, 255, 255, 0.16), transparent 60%);
-  opacity: 0;
-  transition: opacity 0.5s ease;
-  pointer-events: none;
-}
+  /* Specular highlight — the glass catching light from the top left. Negative
+     z-index (contained by `isolation: isolate` above) puts it behind the card's
+     in-flow content, same as any background layer — z-index alone does NOT
+     protect text contrast, it only controls paint order. What actually keeps
+     the paragraph text at WCAG AA through hover is that the gradient's falloff
+     (`60%` of a `120% 60%` ellipse anchored at the top) goes fully transparent
+     well above where the paragraph starts (measured: ~89px into a ~248px-tall
+     card vs. the paragraph beginning at ~104px). If the card's padding/icon
+     size shrinks, or this gradient grows, re-check contrast on hover — it is
+     not guaranteed by the CSS structure, only by today's proportions. */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(120% 60% at 18% 0%, color-mix(in oklab, var(--color-on-scrim) 16%, transparent), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+  }
 
-.glass-services-card:hover::after {
-  opacity: 1;
+  &:hover::after {
+    opacity: 1;
+  }
 }
 
 /* Services section (mobile sticky stack) — dimensional layering, fully opaque.
-   Gradient stops are alpha-free hex on purpose: the stack overlaps, so any
+   Gradient stops are opaque on purpose: the stack overlaps, so any
    transparency shows the text of three cards at once (see ServiceCard). */
-.elevated-service-card {
-  background: linear-gradient(165deg, #345f70 0%, #2e5464 55%, #254852 100%);
-  border: 1px solid rgba(233, 196, 106, 0.28);
+@utility elevated-service-card {
+  background: linear-gradient(165deg, color-mix(in oklab, var(--color-surface-muted) 88%, var(--color-on-scrim)) 0%, var(--color-surface-muted) 55%, var(--color-surface) 100%);
+  border: 1px solid color-mix(in oklab, var(--color-accent) 28%, transparent);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 6px 16px -6px rgba(0, 0, 0, 0.38),
-    0 18px 40px -14px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(0, 0, 0, 0.12);
+    inset 0 1px 0 color-mix(in oklab, var(--color-on-scrim) 6%, transparent),
+    0 6px 16px -6px color-mix(in oklab, var(--color-shade) 38%, transparent),
+    0 18px 40px -14px color-mix(in oklab, var(--color-shade) 50%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--color-shade) 12%, transparent);
 }
 
 /* "Cosa facciamo" cards (WhatWeDo.tsx) — white Statuario marble and gold. The
@@ -261,61 +252,61 @@
    Fully opaque (the cards fly in over the decoration glows) and entirely static:
    the entry motion lives on this element's translate/rotate in
    scroll-animations.css, so nothing here may touch transform or filter. */
-.activity-marble-card {
-  --marble-white: 250 250 247;
+@utility activity-marble-card {
+  --marble-white: color-mix(in oklab, var(--color-brand-white) 96%, var(--color-brand-sand-500));
   isolation: isolate;
-  background-color: rgb(var(--marble-white));
+  background-color: var(--marble-white);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.55),
-    0 10px 24px -10px rgb(0 0 0 / 0.45),
-    0 30px 60px -24px rgb(0 0 0 / 0.5);
-}
+    inset 0 1px 0 color-mix(in oklab, var(--color-brand-white) 55%, transparent),
+    0 10px 24px -10px color-mix(in oklab, var(--color-shade) 45%, transparent),
+    0 30px 60px -24px color-mix(in oklab, var(--color-shade) 50%, transparent);
 
-.activity-marble-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  pointer-events: none;
-  background-image:
-    linear-gradient(100deg, rgb(var(--marble-white) / 0.55) 0%, rgb(var(--marble-white) / 0.2) 55%, transparent 80%),
-    image-set(url("/textures/marble-statuario.avif") type("image/avif"), url("/textures/marble-statuario.webp") type("image/webp"));
-  background-size: 100% 100%, 900px auto;
-  background-position: 0 0, var(--marble-x, 0%) var(--marble-y, 50%);
-  background-repeat: no-repeat;
-}
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image:
+      linear-gradient(100deg, color-mix(in oklab, var(--marble-white) 55%, transparent) 0%, color-mix(in oklab, var(--marble-white) 20%, transparent) 55%, transparent 80%),
+      image-set(url("/textures/marble-statuario.avif") type("image/avif"), url("/textures/marble-statuario.webp") type("image/webp"));
+    background-size: 100% 100%, 900px auto;
+    background-position: 0 0, var(--marble-x, 0%) var(--marble-y, 50%);
+    background-repeat: no-repeat;
+  }
 
-.activity-marble-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1.5px;
-  pointer-events: none;
-  background: linear-gradient(170deg, var(--color-luxury-gold) 0%, #f7e7b0 18%, var(--color-luxury-gold-dark) 45%, rgb(179 139 54 / 0.25) 75%, rgb(179 139 54 / 0.1) 100%);
-  mask:
-    linear-gradient(#000 0 0) content-box exclude,
-    linear-gradient(#000 0 0);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    pointer-events: none;
+    background: linear-gradient(170deg, var(--color-brand-sand-500) 0%, color-mix(in oklab, var(--color-brand-sand-500) 45%, var(--color-brand-white)) 18%, color-mix(in oklab, var(--color-brand-sand-500) 78%, var(--color-brand-navy-900)) 45%, color-mix(in oklab, var(--color-brand-sand-500) 25%, transparent) 75%, color-mix(in oklab, var(--color-brand-sand-500) 10%, transparent) 100%);
+    mask:
+      linear-gradient(var(--color-shade) 0 0) content-box exclude,
+      linear-gradient(var(--color-shade) 0 0);
+  }
 }
 
 /* Brass inlay tile holding the activity icon: a small panel set into the
    marble, framed by two hairline gold rings (drawn with inset shadows, so the
    tile keeps its size). Light enough not to compete with the title or with the
    card's own gold edge. Static. */
-.activity-brass-tile {
+@utility activity-brass-tile {
   display: grid;
   place-items: center;
   width: 2.5rem;
   height: 2.5rem;
   flex-shrink: 0;
   border-radius: 10px;
-  color: var(--color-luxury-teal);
-  background: rgb(244 241 222 / 0.55);
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-brand-white) 55%, transparent);
   box-shadow:
-    inset 0 0 0 1px rgb(179 139 54 / 0.7),
-    inset 0 0 0 3px rgb(244 241 222 / 0.6),
-    inset 0 0 0 4px rgb(179 139 54 / 0.35);
+    inset 0 0 0 1px color-mix(in oklab, var(--color-brand-sand-500) 70%, transparent),
+    inset 0 0 0 3px color-mix(in oklab, var(--color-brand-white) 60%, transparent),
+    inset 0 0 0 4px color-mix(in oklab, var(--color-brand-sand-500) 35%, transparent);
 }
 
 /* Ambient glow — the soft coloured halo behind a section.
@@ -327,28 +318,28 @@
 
    Usage: `absolute w-96 h-96 ambient-glow ambient-glow-teal [--glow-alpha:10%]`
    (`--glow-blur` defaults to the old 100px). */
-.ambient-glow {
+@utility ambient-glow {
   pointer-events: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: calc(-2 * var(--glow-blur, 100px));
+    border-radius: 9999px;
+    /* Full strength at the centre, half at the old circle's edge, gone 2σ out. */
+    background: radial-gradient(closest-side,
+        var(--glow) 0%,
+        color-mix(in oklab, var(--glow) 50%, transparent) 50%,
+        transparent 100%);
+  }
 }
 
-.ambient-glow::before {
-  content: "";
-  position: absolute;
-  inset: calc(-2 * var(--glow-blur, 100px));
-  border-radius: 9999px;
-  /* Full strength at the centre, half at the old circle's edge, gone 2σ out. */
-  background: radial-gradient(closest-side,
-      var(--glow) 0%,
-      color-mix(in oklab, var(--glow) 50%, transparent) 50%,
-      transparent 100%);
+@utility ambient-glow-teal {
+  --glow: color-mix(in oklab, var(--color-primary) var(--glow-alpha, 10%), transparent);
 }
 
-.ambient-glow-teal {
-  --glow: color-mix(in oklab, var(--color-luxury-teal) var(--glow-alpha, 10%), transparent);
-}
-
-.ambient-glow-gold {
-  --glow: color-mix(in oklab, var(--color-luxury-gold) var(--glow-alpha, 5%), transparent);
+@utility ambient-glow-gold {
+  --glow: color-mix(in oklab, var(--color-accent) var(--glow-alpha, 5%), transparent);
 }
 
 /* Swipe containers: allow vertical scroll, capture horizontal */

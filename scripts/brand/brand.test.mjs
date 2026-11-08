@@ -246,6 +246,14 @@ describe('semantic roles', () => {
         for (const s of Object.keys(active.surfaces).filter((s) => s !== 'default')) assert.match(css, new RegExp(`\\.surface-${s} \\{`));
     });
 
+    it('generated css switches off the default Tailwind palette before any colour is declared', () => {
+        const reset = css.indexOf('--color-*: initial;');
+        assert.ok(reset >= 0, 'missing --color-*: initial');
+        const firstColour = css.search(/--color-(?!\*)[\w-]+:/);
+        assert.ok(reset < firstColour, 'the reset must precede every --color-* declaration');
+        assert.match(css.slice(0, reset), /@theme[^{]*\{[^}]*$/, 'the reset must sit inside a @theme block');
+    });
+
     it('generated css exposes every elevation level as --shadow-<n> drawn in a role colour', () => {
         const levels = Object.keys(tokens.elevation).filter((k) => !k.startsWith('$'));
         assert.ok(levels.length > 0);

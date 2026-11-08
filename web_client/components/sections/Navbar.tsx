@@ -133,7 +133,7 @@ export function Navbar() {
                     // mostly opaque fill. Nothing inside the bar blurs again on top of it.
                     'fixed top-0 left-0 right-0 z-50 transition-[background-color,border-color,padding,box-shadow] duration-500 border-b border-transparent',
                     isScrolled
-                        ? 'bg-canvas/80 backdrop-blur-md border-line py-3 shadow-elevation-mid'
+                        ? 'bg-canvas/80 backdrop-blur-md border-line py-3'
                         : 'bg-transparent py-5'
                 )}
                 initial={{ y: -100 }}

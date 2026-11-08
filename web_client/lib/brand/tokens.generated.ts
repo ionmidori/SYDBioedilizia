@@ -30,7 +30,11 @@ export const brandColors = {
             "surface": "#ffffff",
             "surface-hover": "#f8fafc",
             "ink": "#1f1f1f",
-            "line": "#747775"
+            "line": "#747775",
+            "logo-blue": "#4285f4",
+            "logo-green": "#34a853",
+            "logo-yellow": "#fbbc05",
+            "logo-red": "#ea4335"
         }
     },
     "luxury": {
