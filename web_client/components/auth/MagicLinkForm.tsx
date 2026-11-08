@@ -106,7 +106,7 @@ export function MagicLinkForm({ onSuccess }: MagicLinkFormProps) {
             <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 px-4 border border-transparent bg-info hover:bg-info/90 disabled:bg-line-strong text-on-info font-medium rounded-lg transition-all flex items-center justify-center space-x-2"
+                className="w-full py-3 px-4 border border-transparent bg-info hover:bg-info/90 disabled:bg-line-strong text-on-info font-medium rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface transition-all flex items-center justify-center space-x-2"
             >
                 {isLoading ? (
                     <>

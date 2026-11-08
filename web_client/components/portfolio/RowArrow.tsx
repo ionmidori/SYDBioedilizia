@@ -18,7 +18,7 @@ export function RowArrow({
             onClick={onClick}
             disabled={disabled}
             aria-label={direction === 'prev' ? 'Progetti precedenti' : 'Progetti successivi'}
-            className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-accent-ink transition-colors hover:bg-accent-subtle hover:border-accent disabled:opacity-30 disabled:pointer-events-none"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-line text-accent-ink transition-colors hover:bg-accent-subtle hover:border-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:opacity-30 disabled:pointer-events-none"
         >
             <Icon className="w-5 h-5" aria-hidden="true" />
         </button>

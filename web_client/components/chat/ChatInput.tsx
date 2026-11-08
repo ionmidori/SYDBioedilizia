@@ -13,7 +13,7 @@
  */
 import React, { RefObject, useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Send, Paperclip, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -221,11 +221,12 @@ export function ChatInput({
                 {/* Attachment Menu Trigger & Dropdown */}
                 <div className="relative" ref={containerRef}>
                     <Button
+                        type="button"
                         variant="ghost"
                         size="icon"
                         className={cn(
                             'text-ink-muted hover:text-accent-ink shrink-0 relative',
-                            'hover:bg-accent-subtle transition-all w-10 h-10 sm:w-9 sm:h-9',
+                            'hover:bg-accent-subtle transition-all w-11 h-11 sm:w-10 sm:h-10',
                             'focus-visible:ring-2 focus-visible:ring-ring rounded-full',
                             'mb-1' // Align with Send button
                         )}
@@ -234,15 +235,12 @@ export function ChatInput({
                         aria-label="Apri menu allegati"
                         aria-expanded={isAttachMenuOpen}
                         aria-haspopup="true"
-                        asChild
                     >
-                        <motion.button whileTap={{ scale: 0.9 }}>
-                            {isGlobalUploading ? (
-                                <Loader2 className="w-5 h-5 animate-spin text-primary-ink" />
-                            ) : (
-                                <Paperclip className="w-5 h-5" />
-                            )}
-                        </motion.button>
+                        {isGlobalUploading ? (
+                            <Loader2 className="w-5 h-5 animate-spin text-primary-ink" />
+                        ) : (
+                            <Paperclip className="w-5 h-5" />
+                        )}
                     </Button>
 
                     <AttachmentMenu
@@ -417,6 +415,7 @@ export function ChatInput({
 
                 {/* Send Button */}
                 <Button
+                    type="button"
                     onClick={() => {
                         triggerHaptic();
                         onSubmit();
@@ -424,7 +423,7 @@ export function ChatInput({
                     disabled={isSendDisabled}
                     className={cn(
                         'rounded-xl transition-all duration-300 shrink-0 mb-1',
-                        'w-10 h-10 sm:w-9 sm:h-9',
+                        'w-11 h-11 sm:w-10 sm:h-10',
                         'focus-visible:ring-2 focus-visible:ring-ring',
                         !isSendDisabled
                             ? 'bg-primary hover:bg-primary-hover text-on-primary shadow-lg'
@@ -432,23 +431,20 @@ export function ChatInput({
                     )}
                     size="icon"
                     aria-label="Invia messaggio"
-                    asChild
                 >
-                    <motion.button whileTap={{ scale: isSendDisabled ? 1 : 0.9 }}>
-                        <Send className="w-5 h-5" />
-                    </motion.button>
+                    <Send className="w-5 h-5" />
                 </Button>
             </div>
 
             {/* Disclaimer GDPR / AI Act — trasparenza sull'uso di IA e rinvio all'informativa privacy */}
-            <p className="mt-2 text-center text-[10px] leading-tight text-ink-subtle">
+            <p className="mt-2 text-center text-[11px] leading-snug text-ink-subtle">
                 SYD è un&apos;intelligenza artificiale e può commettere errori. I tuoi dati sono
                 trattati secondo la nostra{' '}
                 <Link
                     href="/privacy"
                     className="underline hover:text-accent-ink transition-colors"
                 >
-                    Informativa Privacy
+                    Informativa sulla Privacy
                 </Link>
                 .
             </p>

@@ -110,7 +110,7 @@ export default function FAQPage() {
                 <a
                   key={category}
                   href={`#${sectionId}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/15 bg-primary-subtle text-ink text-sm font-medium hover:border-primary/40 hover:bg-primary-subtle hover:text-primary-ink transition-all duration-200"
+                  className="inline-flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-full border border-primary/15 bg-primary-subtle text-ink text-sm font-medium hover:border-primary/40 hover:bg-primary-subtle hover:text-primary-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas transition-all duration-200"
                 >
                   {Icon && <Icon className="w-4 h-4" />}
                   {category}
@@ -150,13 +150,13 @@ export default function FAQPage() {
             <h3 className="text-2xl font-serif font-bold text-accent-ink mb-3">
               Non hai trovato la risposta?
             </h3>
-            <p className="text-ink font-light mb-8 max-w-lg mx-auto">
+            <p className="text-ink leading-relaxed tracking-[0.01em] mb-8 max-w-lg mx-auto">
               Il nostro team è disponibile per rispondere a ogni tua domanda. Richiedi un sopralluogo gratuito o parla con il nostro assistente AI.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="tel:+393755463599"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-transparent bg-accent hover:bg-accent/80 text-on-accent font-bold transition-all duration-200 shadow-lg"
+                className="inline-flex items-center justify-center gap-2 min-h-[44px] px-6 py-3 rounded-full border border-transparent bg-accent hover:bg-accent/80 text-on-accent font-bold transition-all duration-200 shadow-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >
                 <Phone className="w-4 h-4" />
                 Chiama Ora

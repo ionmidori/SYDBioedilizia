@@ -142,8 +142,8 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
                     <h2 className="text-lg font-semibold text-accent-ink flex items-center gap-2">
                         <Scissors className="w-5 h-5" /> Ritaglia Video
                     </h2>
-                    <Button variant="ghost" size="icon" onClick={onCancel} className="text-ink-muted hover:text-on-scrim rounded-full">
-                        <X className="w-5 h-5" />
+                    <Button variant="ghost" size="icon" onClick={onCancel} aria-label="Chiudi ritaglio video" className="text-ink-muted hover:text-on-scrim rounded-full">
+                        <X className="w-5 h-5" aria-hidden="true" />
                     </Button>
                 </div>
 
@@ -184,7 +184,7 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
                 <div className="p-5 flex flex-col gap-6 bg-gradient-to-t from-canvas to-canvas/80">
                     
                     {/* Time display */}
-                    <div className="flex justify-between text-xs text-ink-muted font-mono">
+                    <div className="flex justify-between text-xs text-ink-muted font-mono tabular-nums">
                         <span>{formatTime(videoState.range[0])}</span>
                         <span>{formatTime(videoState.range[1])}</span>
                     </div>
@@ -206,7 +206,7 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
 
                     {/* Action Buttons */}
                     <div className="flex justify-between items-center mt-2">
-                         <div className="text-sm text-ink-muted">
+                         <div className="text-sm text-ink-muted tabular-nums">
                             Durata: {formatTime(videoState.range[1] - videoState.range[0])}
                          </div>
                         <div className="flex gap-3">
@@ -214,7 +214,7 @@ export function VideoTrimmer({ file, isOpen, onConfirm, onCancel }: VideoTrimmer
                                 Annulla
                             </Button>
                             <Button onClick={handleConfirm} className="bg-primary hover:bg-primary-hover text-on-primary rounded-xl shadow-lg">
-                                Conferma
+                                Allega video
                             </Button>
                         </div>
                     </div>

@@ -42,13 +42,13 @@ function Block({ block }: { block: BlogBlock }) {
       );
     case "h2":
       return (
-        <h2 className="text-2xl font-bold mt-8 mb-4 text-ink">
+        <h2 className="text-2xl font-serif font-bold mt-10 mb-4 text-ink">
           <RichInline text={block.text} />
         </h2>
       );
     case "h3":
       return (
-        <h3 className="text-xl font-semibold mt-6 mb-3">
+        <h3 className="text-xl font-serif font-semibold mt-7 mb-3 text-ink">
           <RichInline text={block.text} />
         </h3>
       );
@@ -72,7 +72,7 @@ function Block({ block }: { block: BlogBlock }) {
       return block.tone === "warning" ? (
         <div
           role="note"
-          className="bg-warning-subtle border-l-4 border-warning p-4 my-6 text-sm text-warning-ink not-prose"
+          className="bg-warning-subtle border border-warning/30 rounded-xl p-4 my-6 text-sm text-warning-ink not-prose"
         >
           <p>
             <RichInline text={block.text} />
@@ -81,7 +81,7 @@ function Block({ block }: { block: BlogBlock }) {
       ) : (
         <div
           role="note"
-          className="bg-surface-muted/50 p-6 rounded-lg border-l-4 my-6"
+          className="bg-surface-muted/50 border border-line p-6 rounded-xl my-6"
         >
           {block.title && (
             <h4 className="font-bold text-lg mb-2">
@@ -118,7 +118,7 @@ function Block({ block }: { block: BlogBlock }) {
       );
     case "takeaways":
       return (
-        <div className="border-l-4 p-6 my-8 rounded-r-xl not-prose">
+        <div className="bg-surface border border-line p-6 my-8 rounded-xl shadow-xs not-prose">
           <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
             📌 {block.heading}
           </h3>

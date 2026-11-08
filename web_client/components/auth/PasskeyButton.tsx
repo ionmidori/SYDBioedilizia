@@ -27,16 +27,19 @@ function toReadableMessage(err: unknown): string {
     if (!(err instanceof Error)) {
         return 'Errore sconosciuto durante l\'operazione.';
     }
-    const knownMessages = [
-        'Registrazione annullata',
-        'Autenticazione annullata',
-        'Devi essere autenticato per registrare una passkey',
-        'User must be authenticated to register passkey',
-        'No credential created',
-        'No assertion returned',
-    ];
-    if (knownMessages.includes(err.message) || err.name === 'NotAllowedError') {
-        return err.message;
+    const knownMessages: Record<string, string> = {
+        'Registrazione annullata': 'Registrazione annullata.',
+        'Autenticazione annullata': 'Autenticazione annullata.',
+        'Devi essere autenticato per registrare una passkey': 'Accedi prima al tuo account per attivare la biometria.',
+        'User must be authenticated to register passkey': 'Accedi prima al tuo account per attivare la biometria.',
+        'No credential created': 'Nessuna credenziale biometrica creata. Riprova.',
+        'No assertion returned': 'Verifica biometrica non completata. Riprova.',
+    };
+    if (err.message in knownMessages) {
+        return knownMessages[err.message];
+    }
+    if (err.name === 'NotAllowedError') {
+        return 'Operazione biometrica annullata o non consentita dal dispositivo.';
     }
     // Backend-provided `detail` messages also pass through unchanged.
     if (err.message && !(err instanceof TypeError)) {
@@ -114,10 +117,11 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
         <>
             <div className="space-y-3 w-full">
                 <button
+                    type="button"
                     onClick={handleClick}
                     disabled={isLoading}
                     className={cn(
-                        "relative w-full h-14 flex items-center justify-center gap-3 font-bold rounded-[16px] overflow-hidden group",
+                        "relative w-full h-14 flex items-center justify-center gap-3 font-bold rounded-[16px] overflow-hidden group focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                         "bg-gradient-to-r from-accent via-accent-subtle to-accent bg-[length:200%_auto] text-on-accent",
                         "border border-line-strong shadow-[0_4px_15px_-6px_color-mix(in_oklab,var(--color-accent)_40%,transparent),inset_0_1px_1px_color-mix(in_oklab,var(--color-on-primary)_40%,transparent)]",
                         "hover:bg-[100%_center] hover:shadow-[0_4px_20px_-6px_color-mix(in_oklab,var(--color-accent)_50%,transparent)] hover:scale-[1.02]",

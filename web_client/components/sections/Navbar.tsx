@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { M3Spring, M3Transition, createStaggerVariants } from '@/lib/m3-motion';
 import { Menu, Mail } from 'lucide-react';
 import { SignInButton } from '@/components/auth/SignInButton';
@@ -30,6 +30,7 @@ const triggerHaptic = () => {
 
 export function Navbar() {
     const { container: mobileMenuContainer, item: mobileMenuItem } = createStaggerVariants({ x: 20 }, 0.05);
+    const reduceMotion = useReducedMotion();
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [contactMenuOpen, setContactMenuOpen] = useState(false);
@@ -136,7 +137,7 @@ export function Navbar() {
                         ? 'bg-canvas/80 backdrop-blur-md border-line py-3'
                         : 'bg-transparent py-5'
                 )}
-                initial={{ y: -100 }}
+                initial={reduceMotion ? false : { y: -100 }}
                 animate={{ y: 0 }}
                 transition={M3Spring.gentle}
             >
@@ -154,7 +155,7 @@ export function Navbar() {
                             >
                                 <button
                                     className={cn(
-                                        "relative flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 group whitespace-nowrap border shadow-xs",
+                                        "relative flex items-center gap-2 px-4 py-2 rounded-xl transition-colors duration-200 group whitespace-nowrap border shadow-xs",
                                         contactMenuOpenDesktop
                                             ? "bg-primary-subtle border-primary/40 text-primary-ink font-bold"
                                             : "bg-surface/90 hover:bg-surface border-line hover:border-primary/40 text-ink hover:text-primary-ink"
@@ -182,7 +183,7 @@ export function Navbar() {
                                         transition={M3Spring.bouncy}
                                         className="absolute top-14 left-0 bg-canvas border border-line shadow-3 p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
                                     >
-                                        <div className="absolute -top-2 left-6 w-4 h-4 bg-canvas border-t border-l border-line rotate-45 transform" />
+                                        <div className="absolute -top-2 left-6 w-4 h-4 bg-canvas border-t border-l border-line rotate-45" />
 
                                         {contactLinks.map(({ Icon, label, href }, i) => (
                                             <motion.a
@@ -199,7 +200,7 @@ export function Navbar() {
                                                 whileTap={{ scale: 0.98 }}
                                                 transition={M3Spring.gentle}
                                             >
-                                                <span className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-primary-ink border border-line group-hover:bg-primary group-hover:text-on-primary transition-all shadow-xs">
+                                                <span className="w-8 h-8 rounded-full bg-surface-muted flex items-center justify-center text-primary-ink border border-line group-hover:bg-primary group-hover:text-on-primary transition-colors shadow-xs">
                                                     <Icon className="w-4 h-4" />
                                                 </span>
                                                 <span className="font-medium text-sm tracking-wide">{label}</span>
@@ -224,7 +225,7 @@ export function Navbar() {
                                     href={link.href}
                                     onClick={() => triggerHaptic()}
                                     className={cn(
-                                        "relative flex items-center justify-center px-4 py-2 rounded-xl transition-all duration-300 group whitespace-nowrap border shadow-xs",
+                                        "relative flex items-center justify-center px-4 py-2 rounded-xl transition-colors duration-200 group whitespace-nowrap border shadow-xs",
                                         pathname === link.href
                                             ? "bg-primary-subtle border-primary/40 text-primary-ink font-bold"
                                             : "bg-surface/90 hover:bg-surface border-line hover:border-primary/40 text-ink hover:text-primary-ink"
@@ -250,7 +251,7 @@ export function Navbar() {
                         <div className="relative" ref={contactMenuRef}>
                             <button
                                 className={cn(
-                                    "p-2 rounded-full text-ink hover:text-primary-ink transition-colors",
+                                    "min-w-11 min-h-11 p-2.5 flex items-center justify-center rounded-full text-ink hover:text-primary-ink transition-colors",
                                     contactMenuOpen && "text-primary-ink bg-primary-subtle"
                                 )}
                                 onClick={() => {
@@ -258,6 +259,8 @@ export function Navbar() {
                                     setContactMenuOpen(!contactMenuOpen);
                                 }}
                                 aria-label="Contatti"
+                                aria-expanded={contactMenuOpen}
+                                aria-haspopup="true"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 md:w-6 md:h-6">
                                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -306,7 +309,7 @@ export function Navbar() {
                         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} modal={false}>
                             <SheetTrigger asChild>
                                 <button
-                                    className="p-2 rounded-full text-ink hover:text-primary-ink transition-colors"
+                                    className="min-w-11 min-h-11 p-2.5 flex items-center justify-center rounded-full text-ink hover:text-primary-ink transition-colors"
                                     onClick={() => {
                                         triggerHaptic();
                                         setContactMenuOpen(false);
@@ -320,7 +323,7 @@ export function Navbar() {
                             <SheetContent
                                 side="right"
                                 hideOverlay={true}
-                                className="w-[45vw] sm:w-[33vw] min-w-[180px] max-w-[260px] bg-canvas/10 backdrop-blur-xl border-l border-line p-4 flex flex-col"
+                                className="w-[75vw] sm:w-[38vw] min-w-[220px] max-w-[280px] bg-canvas/85 backdrop-blur-xl border-l border-line p-4 flex flex-col"
                             >
                                 <SheetHeader className="mt-6 mb-6 text-center space-y-0">
                                     <SheetTitle className="text-[16px] font-bold uppercase tracking-[0.3em] text-ink">
@@ -342,9 +345,9 @@ export function Navbar() {
                                     <motion.div variants={mobileMenuItem} className="w-full">
                                         <button
                                             onClick={handlePersonalAreaClick}
-                                            className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass border-line transition-all duration-300 active:scale-95 group shadow-xl"
+                                            className="flex items-center justify-center w-full min-h-11 p-3 rounded-[1.25rem] glass border-line transition-all duration-300 active:scale-95 group shadow-xl"
                                         >
-                                            <span className="font-bold uppercase tracking-[0.15em] text-[10px] text-ink group-hover:text-primary-ink transition-colors">Area Personale</span>
+                                            <span className="font-bold uppercase tracking-[0.12em] text-xs text-ink group-hover:text-primary-ink transition-colors">Area Personale</span>
                                         </button>
                                     </motion.div>
 
@@ -356,13 +359,13 @@ export function Navbar() {
                                         >
                                             <Link
                                                 href={link.href}
-                                                className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass border-line transition-all duration-300 active:scale-95 group shadow-xl"
+                                                className="flex items-center justify-center w-full min-h-11 p-3 rounded-[1.25rem] glass border-line transition-all duration-300 active:scale-95 group shadow-xl"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
                                                 }}
                                             >
-                                                <span className="font-bold uppercase tracking-[0.1em] text-[10px] text-ink hover:text-primary-ink transition-colors">{link.name}</span>
+                                                <span className="font-bold uppercase tracking-[0.1em] text-xs text-ink hover:text-primary-ink transition-colors">{link.name}</span>
                                             </Link>
                                         </motion.div>
                                     ))}

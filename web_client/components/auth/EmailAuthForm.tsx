@@ -202,7 +202,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                         <button
                             type="button"
                             onClick={() => setMode('reset')}
-                            className="text-info-ink hover:text-info-ink transition-colors"
+                            className="inline-flex items-center justify-center min-h-[36px] px-2 rounded-md text-info-ink hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                         >
                             Password dimenticata?
                         </button>
@@ -211,7 +211,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                             <button
                                 type="button"
                                 onClick={() => setMode('signup')}
-                                className="text-info-ink hover:text-info-ink transition-colors"
+                                className="inline-flex items-center justify-center min-h-[36px] px-1.5 rounded-md text-info-ink hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                             >
                                 Registrati
                             </button>
@@ -222,7 +222,7 @@ export function EmailAuthForm({ onSuccess }: EmailAuthFormProps) {
                     <button
                         type="button"
                         onClick={() => setMode('signin')}
-                        className="text-info-ink hover:text-info-ink transition-colors"
+                        className="inline-flex items-center justify-center min-h-[36px] px-2 rounded-md text-info-ink hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                     >
                         &larr; Torna all&apos;accesso
                     </button>

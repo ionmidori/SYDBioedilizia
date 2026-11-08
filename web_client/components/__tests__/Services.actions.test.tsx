@@ -26,11 +26,11 @@ jest.mock('@/lib/services-data', () => {
     };
 });
 
-/** The mobile stack renders each card as a button; the desktop grid as an article. */
+/** Both the mobile stack and the desktop grid render each card as a button. */
 const mobileCard = (id: string) => {
     const service = services.find((s) => s.id === id);
     if (!service) throw new Error(`no service ${id}`);
-    return screen.getByRole('button', { name: new RegExp(service.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
+    return screen.getAllByRole('button', { name: new RegExp(service.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) })[0];
 };
 
 describe('Services — click actions', () => {
@@ -73,6 +73,23 @@ describe('Services — click actions', () => {
 
         expect(onOpen).toHaveBeenCalledTimes(chatCards.length);
         expect(push).not.toHaveBeenCalled();
+        window.removeEventListener(CHAT_EVENTS.open, onOpen);
+    });
+
+    it('activates desktop service cards via Enter or Space keyboard events', () => {
+        const onOpen = jest.fn();
+        window.addEventListener(CHAT_EVENTS.open, onOpen);
+        render(<Services />);
+
+        const chatService = services.find((s) => s.action === 'chat')!;
+        const desktopCard = screen.getAllByRole('button', {
+            name: new RegExp(chatService.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+        })[1];
+
+        fireEvent.keyDown(desktopCard, { key: 'Enter' });
+        fireEvent.keyDown(desktopCard, { key: ' ' });
+
+        expect(onOpen).toHaveBeenCalledTimes(2);
         window.removeEventListener(CHAT_EVENTS.open, onOpen);
     });
 });

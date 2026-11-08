@@ -53,10 +53,10 @@ export default function BlogIndexPage() {
         />
         <div className="max-w-7xl mx-auto">
           <header className="mb-16 text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6">
-              Il Blog della Ristrutturazione
+            <h1 className="text-4xl md:text-6xl font-serif font-bold tracking-tight mb-6">
+              Il Blog della <span className="text-primary-ink italic">Ristrutturazione</span>
             </h1>
-            <p className="text-xl text-ink-muted">
+            <p className="text-xl text-ink-muted font-light">
               Idee, approfondimenti tecnici e soluzioni pratiche per trasformare
               la tua casa con consapevolezza e stile.
             </p>
@@ -88,7 +88,7 @@ export default function BlogIndexPage() {
                   <div className="text-sm text-ink-muted mb-2 font-medium">
                     {post.date}
                   </div>
-                  <h2 className="text-xl font-bold mb-3 text-ink transition-colors line-clamp-2">
+                  <h2 className="text-xl font-serif font-bold mb-3 text-ink group-hover:text-primary-ink transition-colors line-clamp-2">
                     {post.indexTitle ?? post.title}
                   </h2>
                   <p className="text-ink-muted mb-6 flex-grow line-clamp-3 leading-relaxed text-sm">

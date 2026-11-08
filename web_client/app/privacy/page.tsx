@@ -2,14 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import { COMPANY, COMPANY_FULL_ADDRESS, COMPANY_LEGAL_LINE } from '@/lib/company';
+import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 
-const H3 = "text-lg font-bold text-ink uppercase tracking-widest text-sm border-l-2 border-accent pl-4";
+const H3 = "font-bold text-ink uppercase tracking-widest text-sm border-l-2 border-accent pl-4";
 const MAIL_LINK = "text-accent-ink hover:underline decoration-accent-ink";
 
 export default function PrivacyPage() {
+    const reduceMotion = useReducedMotion();
     return (
         <div className="min-h-screen bg-canvas text-ink selection:bg-accent/30 selection:text-accent-ink">
             {/* Background Atmosphere */}
@@ -34,8 +36,9 @@ export default function PrivacyPage() {
 
             <main className="max-w-4xl mx-auto px-6 py-20 relative z-10">
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: M3Duration.medium1, ease: M3EasingFM.decelerate }}
                     className="space-y-12"
                 >
                     {/* Header */}
@@ -49,7 +52,7 @@ export default function PrivacyPage() {
                     </header>
 
                     {/* Content */}
-                    <div className="prose max-w-none space-y-10 text-ink leading-relaxed font-medium">
+                    <div className="prose max-w-3xl space-y-10 text-ink leading-relaxed font-normal">
                         <p className="text-lg leading-relaxed first-letter:text-5xl first-letter:font-serif first-letter:text-accent-ink first-letter:mr-3 first-letter:float-left">
                             La presente informativa privacy, resa ai sensi dell&apos;art. 13 del Regolamento generale sulla protezione dei dati UE 2016/679 (&quot;GDPR&quot;), contiene informazioni sul trattamento dei dati personali dell&apos;utente forniti durante la navigazione oppure in fase di compilazione di form presenti all&apos;interno del sito web (di seguito &quot;Sito web&quot;) come meglio specificato di seguito.
                         </p>

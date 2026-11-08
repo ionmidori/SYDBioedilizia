@@ -30,7 +30,7 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioCard;
                 className="object-cover transition-transform duration-700 group-hover:scale-110"
             />
 
-            <div className="absolute inset-0 bg-gradient-to-t from-canvas via-canvas/20 to-transparent opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
+            <div className="absolute inset-0 bg-gradient-to-t from-canvas via-canvas/20 to-transparent opacity-75 lg:opacity-60 lg:group-hover:opacity-80 lg:group-focus-within:opacity-80 transition-opacity duration-500" />
 
             {/* Always visible, not only on hover: an example must never pass for our work. */}
             {project.isExample && (
@@ -39,16 +39,17 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioCard;
                 </span>
             )}
 
-            <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+            <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-0 lg:translate-y-4 lg:group-hover:translate-y-0 lg:group-focus-within:translate-y-0 transition-transform duration-300">
                 <div className="relative z-20">
-                    <p className="text-accent-ink text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
+                    <p className="text-accent-ink text-sm font-medium mb-2 translate-y-0 opacity-100 lg:-translate-y-4 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100 lg:group-focus-within:translate-y-0 lg:group-focus-within:opacity-100 transition-all duration-300 delay-75">
                         {project.category}
                     </p>
 
                     <h2 className="text-2xl font-bold text-ink mb-2">{project.title}</h2>
 
-                    {/* grid-rows trick: animates height without touching layout-triggering properties */}
-                    <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">
+                    {/* grid-rows trick: animates height without touching layout-triggering properties.
+                        Visible at rest on tablet (md, coarse pointer), revealed on hover/focus on lg+. */}
+                    <div className="grid grid-rows-[1fr] lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr] lg:group-focus-within:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">
                         <div className="overflow-hidden">
                             <p className="text-ink text-sm mb-4 font-light">
                                 {project.description}
@@ -59,7 +60,7 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioCard;
                 </div>
             </div>
 
-            <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-200">
+            <div className="absolute top-4 right-4 z-20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 transition-opacity duration-300 delay-200">
                 <div className="w-10 h-10 rounded-full bg-primary-subtle backdrop-blur-md flex items-center justify-center border border-primary text-ink hover:bg-primary hover:text-on-primary transition-colors">
                     <ArrowUpRight className="w-5 h-5" aria-hidden="true" />
                 </div>

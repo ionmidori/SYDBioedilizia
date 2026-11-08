@@ -41,6 +41,20 @@ describe('Testimonials review form', () => {
         expect(screen.getByLabelText('La tua recensione')).toBeInTheDocument();
     });
 
+    it('provides accessible star rating buttons that report their selected state', async () => {
+        render(<Testimonials />);
+        const user = await openReviewDialog();
+
+        const fiveStars = screen.getByRole('button', { name: '5 stelle' });
+        const fourStars = screen.getByRole('button', { name: '4 stelle' });
+        expect(fiveStars).toHaveAttribute('aria-pressed', 'true');
+        expect(fourStars).toHaveAttribute('aria-pressed', 'false');
+
+        await user.click(fourStars);
+        expect(fourStars).toHaveAttribute('aria-pressed', 'true');
+        expect(fiveStars).toHaveAttribute('aria-pressed', 'false');
+    });
+
     it('prefills the name field from the account on open', async () => {
         render(<Testimonials />);
         await openReviewDialog();

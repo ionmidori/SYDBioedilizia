@@ -105,7 +105,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                     Benvenuto in SYD
                 </p>
                 <p className="text-ink-muted font-sans text-sm tracking-wide">
-                    Accedi all&apos;ecosistema premium
+                    Accedi per salvare preventivi, render e progetti
                 </p>
             </div>
 
@@ -165,7 +165,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                             <div className="absolute inset-0 flex items-center">
                                                 <div className="w-full border-t border-line" />
                                             </div>
-                                            <div className="relative flex justify-center text-[10px] tracking-[0.2em] font-medium text-ink-subtle uppercase">
+                                            <div className="relative flex justify-center text-xs tracking-[0.2em] font-normal text-ink-subtle uppercase">
                                                 <span className="bg-surface backdrop-blur-md px-2">Oppure</span>
                                             </div>
                                         </div>
@@ -187,8 +187,9 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                         </div>
 
                                         <button
+                                            type="button"
                                             onClick={() => setActiveTab('email')}
-                                            className="w-full group relative inline-flex items-center justify-center text-sm text-accent-ink hover:text-ink transition-colors"
+                                            className="w-full min-h-[44px] group relative inline-flex items-center justify-center rounded-lg text-sm text-accent-ink hover:text-ink focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-colors"
                                         >
                                             <span>Usa Email e Password</span>
                                             <span className="absolute -bottom-1 left-0 w-0 h-px bg-accent transition-all group-hover:w-full" />
@@ -213,11 +214,11 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                 </div>
 
             <div className="mt-6 pt-6 border-t border-line text-center">
-                <p className="text-[10px] text-ink-subtle leading-relaxed font-medium">
-                    Proseguendo, accetti i nostri{" "}
-                    <Link href="/terms" className="text-ink-muted hover:text-accent-ink transition-colors underline decoration-line underline-offset-2">Termini</Link>
-                    {" "}e la{" "}
-                    <Link href="/privacy" className="text-ink-muted hover:text-accent-ink transition-colors underline decoration-line underline-offset-2">Privacy Policy</Link>.
+                <p className="text-xs text-ink-subtle leading-relaxed">
+                    Proseguendo, accetti i{" "}
+                    <Link href="/terms" className="text-ink-muted hover:text-accent-ink transition-colors underline decoration-line underline-offset-2">Termini di Servizio</Link>
+                    {" "}e l&apos;{" "}
+                    <Link href="/privacy" className="text-ink-muted hover:text-accent-ink transition-colors underline decoration-line underline-offset-2">Informativa sulla Privacy</Link>.
                 </p>
             </div>
         </div>
@@ -227,12 +228,15 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
     const shellDecorations = (
         <>
             <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-primary/5 pointer-events-none" />
-            <div className="absolute top-0 left-0 w-full flex justify-center pt-3 pb-1 z-50">
+            <div className="absolute top-0 left-0 w-full flex justify-center pt-1 z-50">
                 <button
+                    type="button"
                     onClick={() => onOpenChange(false)}
-                    className="w-12 h-1.5 bg-line-strong rounded-full hover:bg-ink-subtle transition-colors cursor-pointer active:scale-95"
+                    className="min-w-11 min-h-7 px-3 flex items-center justify-center rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring cursor-pointer active:scale-95 group"
                     aria-label="Chiudi"
-                />
+                >
+                    <span className="w-12 h-1.5 bg-line-strong rounded-full group-hover:bg-ink-subtle transition-colors" />
+                </button>
             </div>
         </>
     );

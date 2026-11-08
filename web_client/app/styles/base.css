@@ -49,17 +49,20 @@
     }
   }
 
-  /* Optical Sizing for Headers */
+  /* Optical Sizing & Line-Wrapping for Headers and Prose */
   h1,
   h2,
   h3,
   h4,
   h5,
   h6 {
-    @apply tracking-tighter;
-    /* -0.05em or similar equivalent */
     letter-spacing: -0.02em;
     font-weight: 600;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   /* 4. VISUAL POLISH: Minimal Scrollbars */

@@ -70,10 +70,11 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
                     {categories.map((cat) => (
                         <button
                             key={cat}
+                            type="button"
                             onClick={() => setActiveCategory(cat)}
                             aria-pressed={activeCategory === cat}
                             className={cn(
-                                'shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border shadow-xs',
+                                'shrink-0 px-4 min-h-[44px] rounded-full text-sm font-medium transition-all duration-300 border shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas',
                                 activeCategory === cat
                                     ? 'bg-primary text-on-primary border-primary font-semibold'
                                     : 'bg-surface text-ink-muted border-line hover:border-primary/50 hover:text-ink',
@@ -94,8 +95,9 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
                             Nessun progetto nella categoria &laquo;{activeCategory}&raquo;.
                         </p>
                         <button
+                            type="button"
                             onClick={() => setActiveCategory(ALL_CATEGORIES)}
-                            className="min-h-[44px] px-5 rounded-full border border-transparent bg-primary text-on-primary text-sm font-bold transition-colors hover:bg-primary-hover shadow-xs"
+                            className="min-h-[44px] px-5 rounded-full border border-transparent bg-primary text-on-primary text-sm font-bold transition-colors hover:bg-primary-hover shadow-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                         >
                             Mostra tutti
                         </button>

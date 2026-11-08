@@ -26,8 +26,8 @@ export function ProjectStats({
         <Root className="flex gap-4 border-t border-line pt-3">
             {items.map(({ key, label, value }) => (
                 <Item key={key} className="block">
-                    <Term className="block text-[10px] text-accent-ink uppercase tracking-wider">{label}</Term>
-                    <Value className="block text-xs text-ink font-medium">{value || '—'}</Value>
+                    <Term className="block text-xs text-accent-ink uppercase tracking-wider">{label}</Term>
+                    <Value className="block text-sm text-ink font-medium tabular-nums">{value || '—'}</Value>
                 </Item>
             ))}
         </Root>

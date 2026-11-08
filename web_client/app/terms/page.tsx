@@ -2,11 +2,13 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { COMPANY_LEGAL_LINE } from '@/lib/company';
+import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 
 export default function TermsPage() {
+    const reduceMotion = useReducedMotion();
     return (
         <div className="min-h-screen bg-canvas text-ink selection:bg-accent/30 selection:text-accent-ink">
             {/* Background Atmosphere */}
@@ -31,8 +33,9 @@ export default function TermsPage() {
 
             <main className="max-w-4xl mx-auto px-6 py-20 relative z-10">
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: M3Duration.medium1, ease: M3EasingFM.decelerate }}
                     className="space-y-12"
                 >
                     {/* Header */}
@@ -45,7 +48,7 @@ export default function TermsPage() {
                         </p>
                     </header>
 
-                    <div className="prose max-w-none space-y-10 text-ink leading-relaxed font-medium">
+                    <div className="prose max-w-3xl space-y-10 text-ink leading-relaxed font-normal">
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-accent-ink italic">1. Accettazione dei Termini</h2>
                             <p>
