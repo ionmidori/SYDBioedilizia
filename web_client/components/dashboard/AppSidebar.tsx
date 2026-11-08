@@ -376,10 +376,12 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     {isMobile && (
                         <div className="absolute bottom-6 right-6 z-[110]">
                             <button
+                                type="button"
                                 onClick={() => setOpenMobile(false)}
+                                aria-label="Chiudi menu laterale"
                                 className="p-3 rounded-full bg-shade/50 border border-line text-on-scrim hover:bg-shade/70 active:scale-95 transition-all shadow-xl backdrop-blur-sm"
                             >
-                                <X className="w-6 h-6" />
+                                <X className="w-6 h-6" aria-hidden="true" />
                             </button>
                         </div>
                     )}

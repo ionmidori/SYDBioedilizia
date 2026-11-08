@@ -20,9 +20,12 @@ export async function settle(page: Page) {
     window.scrollTo({ top: 0, behavior: 'instant' });
     await frame();
   });
-  for (const { text, timeoutMs } of SETTLE_TEXTS) {
-    await page.getByText(text, { exact: true }).waitFor({ timeout: timeoutMs }).catch(() => undefined);
+  // Only wait for the WelcomeBadge typewriter text on pages that actually mount the closed floating chat trigger.
+  if ((await page.getByRole('button', { name: 'Apri chat' }).count()) > 0) {
+    for (const { text, timeoutMs } of SETTLE_TEXTS) {
+      await page.getByText(text, { exact: true }).waitFor({ timeout: timeoutMs }).catch(() => undefined);
+    }
   }
-  // Bounded: some pages keep a connection open (analytics, chat), so networkidle may never come.
-  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => undefined);
+  // Bounded: some pages keep a connection open (analytics, chat, Firestore emulator WebChannel), so networkidle may never come.
+  await page.waitForLoadState('networkidle', { timeout: 1_000 }).catch(() => undefined);
 }

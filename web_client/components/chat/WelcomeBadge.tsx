@@ -17,9 +17,14 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
     const [typewriterText, setTypewriterText] = useState('');
     const fullMessage = "Ciao, sono qui per aiutarti a ristrutturare la tua casa!";
 
-    // Show badge after delay
+    // Show badge after delay (or immediately under prefers-reduced-motion)
     useEffect(() => {
-        const t = setTimeout(() => !isOpen && !isDismissed && setShowWelcomeBadge(true), 2500);
+        const reducedMotion =
+            typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const delayMs = reducedMotion ? 0 : 2500;
+        const t = setTimeout(() => !isOpen && !isDismissed && setShowWelcomeBadge(true), delayMs);
         return () => clearTimeout(t);
     }, [isOpen, isDismissed]);
 
@@ -29,12 +34,23 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
         if (isOpen) setShowWelcomeBadge(false);
     }, [isOpen]);
 
-    // Typewriter effect
+    // Typewriter effect (instant when prefers-reduced-motion is enabled)
     useEffect(() => {
         if (!showWelcomeBadge || isOpen) {
             // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset the typewriter when the badge is hidden or the chat opens
             setTypewriterText('');
             return;
+        }
+
+        const reducedMotion =
+            typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        if (reducedMotion) {
+            setTypewriterText(fullMessage);
+            const dismissTimer = setTimeout(() => setShowWelcomeBadge(false), 9000);
+            return () => clearTimeout(dismissTimer);
         }
 
         let i = 0;
