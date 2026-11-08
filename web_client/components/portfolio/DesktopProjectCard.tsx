@@ -41,7 +41,7 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioCard;
 
             <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                 <div className="relative z-20">
-                    <p className="text-on-scrim text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
+                    <p className="text-accent-ink text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
                         {project.category}
                     </p>
 

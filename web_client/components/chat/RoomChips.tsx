@@ -174,7 +174,7 @@ function NewRoomForm({ projectId, onCreated }: { projectId: string; onCreated: (
                     placeholder={`es. ${ROOM_TYPE_LABELS[roomType]} principale`}
                     className={cn(
                         'h-11 rounded-xl border border-line bg-canvas/30 px-3',
-                        'text-base text-ink placeholder:text-ink-subtle',
+                        'text-base text-ink placeholder:text-ink-muted',
                         'focus:outline-hidden focus:ring-1 focus:ring-ring',
                     )}
                 />

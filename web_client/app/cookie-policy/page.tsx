@@ -124,7 +124,7 @@ export default function CookiePolicyPage() {
 
 function CookieCategoryItem({ title, desc, required = false }: { title: string, desc: string, required?: boolean }) {
     return (
-        <div className="p-6 bg-surface border border-line rounded-[2rem] hover:border-line transition-all group">
+        <div className="p-6 bg-surface border border-line rounded-[2rem] hover:border-line-strong transition-all group">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-serif italic text-accent-ink">{title}</h3>
                 {required && <span className="text-[10px] uppercase tracking-widest font-bold text-accent-ink border border-line px-3 py-1 rounded-full">Sempre Attivo</span>}
@@ -141,10 +141,10 @@ function BrowserLink({ name, url }: { name: string, url: string }) {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between p-4 bg-primary-subtle border border-primary/10 rounded-2xl hover:bg-primary-subtle hover:border-line transition-all group"
+                className="flex items-center justify-between p-4 bg-primary-subtle border border-primary/10 rounded-2xl hover:bg-surface-muted hover:border-line-strong transition-all group"
             >
                 <span className="text-sm font-bold text-ink">{name}</span>
-                <ArrowLeft className="w-4 h-4 rotate-180 text-accent-ink group-hover:text-accent-ink transition-colors" />
+                <ArrowLeft className="w-4 h-4 rotate-180 text-accent-ink group-hover:translate-x-0.5 transition-transform" />
             </a>
         </li>
     );

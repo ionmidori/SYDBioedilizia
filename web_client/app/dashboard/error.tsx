@@ -56,7 +56,7 @@ export default function DashboardError({
                             </p>
                         )}
                         {error.stack && (
-                            <pre className="text-[10px] text-left text-ink-subtle mt-2 overflow-auto max-h-32 bg-surface-muted p-2 rounded">
+                            <pre className="text-[10px] text-left text-ink-muted mt-2 overflow-auto max-h-32 bg-surface-muted p-2 rounded">
                                 {error.stack.slice(0, 500)}
                             </pre>
                         )}

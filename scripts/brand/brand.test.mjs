@@ -9,7 +9,7 @@ import { contrastRatio, adjustToContrast, deltaE, hexToOklch, hexToRgb, oklchToH
 import { ramp } from './lib/ramp.mjs';
 import { decodeIco, encodeIco } from './lib/ico.mjs';
 import { MASTER_FILE, VARIANTS, composeSvg, readMaster, scalePath, variantBox, variantPaths } from './lib/logo.mjs';
-import { ROOT, loadTokenFiles, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
+import { ROOT, loadTokenFiles, loadTokens, logoPalette, resolveValue, themeSurfaceTokens } from './lib/tokens.mjs';
 import { ASSETS } from './build-assets.mjs';
 import { CSS_FILE, ROLES_FILE, TS_FILE, renderAll, sameText } from './build-tokens.mjs';
 import { activeThemeName, loadRoles, loadTheme, resolveTheme, themeNames, validateTheme } from './lib/semantic.mjs';
@@ -133,6 +133,18 @@ describe('tokens', () => {
     it('reject unknown and circular references', () => {
         assert.throws(() => resolveValue({ a: { $value: '{b}' } }, '{a}'), /Unknown token/);
         assert.throws(() => resolveValue({ a: { $value: '{a}' } }, '{a}'), /Circular/);
+    });
+
+    it('themeSurfaceTokens ignores $-prefixed metadata on surface and role groups', () => {
+        const out = themeSurfaceTokens({
+            surface: {
+                $description: 'theme surfaces',
+                default: { $description: 'default surface', canvas: { $value: '#ffffff' }, '<tone>': { $value: '{color.<ramp>.500}' } },
+                inverse: { canvas: { $value: '#000000' } },
+            },
+        });
+        assert.deepEqual(Object.keys(out.surface).sort(), ['default', 'inverse']);
+        assert.deepEqual(Object.keys(out.surface.default), ['canvas']);
     });
 });
 

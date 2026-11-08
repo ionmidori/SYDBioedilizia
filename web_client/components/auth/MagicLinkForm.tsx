@@ -89,7 +89,7 @@ export function MagicLinkForm({ onSuccess }: MagicLinkFormProps) {
                         id="magic-email"
                         type="email"
                         placeholder="tua@email.com"
-                        className={`w-full pl-11 pr-4 py-3 bg-surface-muted border rounded-lg text-ink placeholder-ink-subtle focus:outline-hidden focus:ring-2 focus:ring-info transition-all ${
+                        className={`w-full pl-11 pr-4 py-3 bg-surface-muted border rounded-lg text-ink placeholder:text-ink-muted focus:outline-hidden focus:ring-2 focus:ring-info transition-all ${
                             errors.email ? 'border-danger ring-1 ring-danger/50' : 'border-line-strong'
                         }`}
                     />
@@ -106,7 +106,7 @@ export function MagicLinkForm({ onSuccess }: MagicLinkFormProps) {
             <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 px-4 bg-info hover:bg-info disabled:bg-line-strong text-on-info font-medium rounded-lg transition-all flex items-center justify-center space-x-2"
+                className="w-full py-3 px-4 border border-transparent bg-info hover:bg-info/90 disabled:bg-line-strong text-on-info font-medium rounded-lg transition-all flex items-center justify-center space-x-2"
             >
                 {isLoading ? (
                     <>
@@ -121,7 +121,7 @@ export function MagicLinkForm({ onSuccess }: MagicLinkFormProps) {
                 )}
             </button>
 
-            <p className="text-xs text-ink-subtle text-center mt-4">
+            <p className="text-xs text-ink-muted text-center mt-4">
                 Riceverai un&apos;email con un link sicuro per accedere senza password
             </p>
         </form>

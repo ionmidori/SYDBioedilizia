@@ -196,12 +196,9 @@ export function Services() {
                             onMouseLeave={() => setHoveredService(null)}
                             className={cn(
                                 "group relative p-6 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer",
-                                // Gold gradient border and specular highlight ride on the
-                                // class's own pseudo-elements, so no Tailwind `border` here.
+                                // Gold gradient border, specular highlight and resting/hover elevation
+                                // ride on the utility's own rules, so no Tailwind `border` or `shadow-*` here.
                                 "glass-services-card",
-                                hoveredService === index
-                                    ? "shadow-3"
-                                    : "shadow-1"
                             )}
                         >
                             {/* Icon and title share a row. The icon keeps shrink-0 so a

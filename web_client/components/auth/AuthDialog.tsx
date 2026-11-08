@@ -126,7 +126,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                 onKeyDown={(e) => onTabKeyDown(e, index)}
                                 className={cn(
                                     "flex-1 relative py-2.5 text-xs font-medium tracking-wide z-10 transition-colors duration-200",
-                                    activeTab === tab.id ? "text-ink" : "text-ink-muted hover:text-ink-muted"
+                                    activeTab === tab.id ? "text-ink" : "text-ink-muted hover:text-ink"
                                 )}
                             >
                                 {activeTab === tab.id && (
@@ -188,7 +188,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
                                         <button
                                             onClick={() => setActiveTab('email')}
-                                            className="w-full group relative inline-flex items-center justify-center text-sm text-accent-ink hover:text-accent-ink transition-colors"
+                                            className="w-full group relative inline-flex items-center justify-center text-sm text-accent-ink hover:text-ink transition-colors"
                                         >
                                             <span>Usa Email e Password</span>
                                             <span className="absolute -bottom-1 left-0 w-0 h-px bg-accent transition-all group-hover:w-full" />

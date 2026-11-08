@@ -143,7 +143,7 @@ export function CookieConsent() {
                                     </Button>
                                     <Button
                                         onClick={handleSaveSettings}
-                                        className="bg-accent hover:bg-accent text-on-accent font-bold uppercase tracking-widest text-[10px] h-12 px-10 rounded-xl shadow-lg transition-all border border-line"
+                                        className="bg-accent hover:bg-accent/90 text-on-accent font-bold uppercase tracking-widest text-[10px] h-12 px-10 rounded-xl shadow-lg transition-all border border-line"
                                     >
                                         Salva Preferenze
                                     </Button>

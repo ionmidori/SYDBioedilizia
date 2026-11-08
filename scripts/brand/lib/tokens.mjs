@@ -94,14 +94,14 @@ export function readThemeDoc(name, dir = THEMES_DIR) {
 export function themeSurfaceTokens(doc) {
     const own = (node) => Object.fromEntries(Object.entries(node ?? {}).filter(([k]) => !k.startsWith('$') && !k.includes('<')));
     const base = own(doc.surface?.default);
-    const surface = Object.fromEntries(Object.entries(doc.surface ?? {}).map(([s, node]) => [s, { ...base, ...own(node) }]));
+    const surface = Object.fromEntries(Object.entries(own(doc.surface)).map(([s, node]) => [s, { ...base, ...own(node) }]));
     return { surface };
 }
 
 /** Token tree with ramps expanded, the active theme's surfaces under `theme`, and the logo tones derived. */
 export function loadTokens(dir = TOKENS_DIR) {
     const tree = expandRamps(loadTokenFiles(dir), resolveValue);
-    tree.theme = themeSurfaceTokens(readThemeDoc(activeThemeName()));
+    tree.theme = themeSurfaceTokens(readThemeDoc(activeThemeName(path.dirname(dir)), path.join(dir, 'themes')));
     return deriveTones(tree);
 }
 

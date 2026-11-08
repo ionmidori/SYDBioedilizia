@@ -83,7 +83,7 @@ function SendToTeamButton({ onClick }: { onClick: () => void }) {
             type="button"
             onClick={onClick}
             data-testid="submit-quote-button"
-            className="flex items-center justify-center gap-2 min-h-11 w-full touch-manipulation rounded-xl bg-accent-subtle hover:bg-accent-subtle border border-line hover:border-accent text-accent-ink text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center justify-center gap-2 min-h-11 w-full touch-manipulation rounded-xl bg-surface hover:bg-surface-muted border border-line-strong hover:border-accent text-accent-ink text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
             <Send aria-hidden="true" className="w-4 h-4" />
             Invia al team
@@ -115,7 +115,7 @@ function RevisionBox({ revision, onSubmit }: { revision: RevisionInProgress; onS
             )}
             {/* Lines only in the draft: once the team has it, it may be editing them. */}
             {revision.items.length > 0 && <DraftSections lines={revision} />}
-            <p className="text-xs text-ink-subtle">
+            <p className="text-xs text-ink-muted">
                 Il preventivo che hai ricevuto resta valido finché il team non ti invia quello aggiornato.
             </p>
             {revision.state === 'draft' && <SendToTeamButton onClick={onSubmit} />}
@@ -207,7 +207,7 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
                 <button
                     type="button"
                     onClick={() => router.replace(houseTabHref('chat'), { scroll: false })}
-                    className="md:hidden flex items-center gap-2 min-h-11 px-5 rounded-xl bg-accent text-on-accent text-sm font-bold hover:bg-accent touch-manipulation"
+                    className="md:hidden flex items-center gap-2 min-h-11 px-5 rounded-xl border border-transparent bg-accent text-on-accent text-sm font-bold hover:bg-accent/90 touch-manipulation"
                 >
                     <MessageSquare aria-hidden="true" className="w-4 h-4" />
                     Chiedilo in chat
@@ -239,7 +239,7 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
             {isDraft && quote.items.length > 0 && (
                 <>
                     <DraftSections lines={quote} />
-                    <p className="text-xs text-ink-subtle">I prezzi arrivano con il preventivo approvato dal nostro team.</p>
+                    <p className="text-xs text-ink-muted">I prezzi arrivano con il preventivo approvato dal nostro team.</p>
                     <SendToTeamButton onClick={() => setSubmitOpen(true)} />
                 </>
             )}
@@ -266,7 +266,7 @@ export function HouseQuotePanel({ chatId }: { chatId: string }) {
                 </section>
             )}
 
-            <p className="text-xs text-ink-subtle">Per modificarlo scrivi in chat.</p>
+            <p className="text-xs text-ink-muted">Per modificarlo scrivi in chat.</p>
 
             {/* Outside the draft: once sent, the quote read again is with the team,
                 and the dialog must stay to confirm it. */}
