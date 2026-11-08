@@ -152,8 +152,8 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
                 <Upload className="w-8 h-8" />
               </div>
               <div className="space-y-1">
-                <p className="text-title-medium text-ink font-medium">Click to upload or drag and drop</p>
-                <p className="text-body-medium text-ink-muted">SVG, PNG, JPG or GIF (max. 10MB)</p>
+                <p className="text-ink font-medium">Click to upload or drag and drop</p>
+                <p className="text-ink-muted">SVG, PNG, JPG or GIF (max. 10MB)</p>
               </div>
             </motion.div>
           )}
@@ -168,7 +168,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
             >
               <Loader2 className="w-10 h-10 animate-spin" />
               <div className="w-full max-w-xs space-y-3">
-                <div className="flex justify-between text-label-large text-ink-muted font-medium">
+                <div className="flex justify-between text-ink-muted font-medium">
                   <span>{progress <= 30 ? 'Compressing Image...' : 'Uploading to Cloud...'}</span>
                   <span>{progress}%</span>
                 </div>
@@ -181,7 +181,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
                   />
                 </div>
                 {compressedSize > 0 && (
-                  <p className="text-body-small text-ink-muted text-center opacity-80 mt-2">
+                  <p className="text-ink-muted text-center opacity-80 mt-2">
                     Optimized: {(previewSize / 1024 / 1024).toFixed(2)}MB → {(compressedSize / 1024 / 1024).toFixed(2)}MB
                   </p>
                 )}
@@ -201,12 +201,12 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <div className="space-y-1">
-                <p className="text-title-medium text-ink font-medium">Upload Complete!</p>
-                <p className="text-body-small text-ink-muted">Your image was successfully uploaded.</p>
+                <p className="text-ink font-medium">Upload Complete!</p>
+                <p className="text-ink-muted">Your image was successfully uploaded.</p>
               </div>
               <button 
                 onClick={(e) => { e.stopPropagation(); setSuccess(false); }}
-                className="text-label-large hover:underline mt-2 p-2"
+                className="hover:underline mt-2 p-2"
               >
                 Upload another file
               </button>
@@ -223,11 +223,11 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
               <div className="p-3 rounded-full bg-danger-subtle text-danger-ink">
                 <X className="w-6 h-6" />
               </div>
-              <p className="text-title-small text-danger-ink font-medium">Upload Failed</p>
-              <p className="text-body-medium text-ink-muted max-w-[250px]">{error}</p>
+              <p className="text-danger-ink font-medium">Upload Failed</p>
+              <p className="text-ink-muted max-w-[250px]">{error}</p>
               <button 
                 onClick={(e) => { e.stopPropagation(); setError(null); }}
-                className="text-ink bg-surface-muted text-label-large mt-3 rounded-full px-5 py-2 hover:bg-surface-muted/80 transition-colors"
+                className="text-ink bg-surface-muted mt-3 rounded-full px-5 py-2 hover:bg-surface-muted/80 transition-colors"
               >
                 Try again
               </button>

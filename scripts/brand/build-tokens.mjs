@@ -75,6 +75,9 @@ function renderRolesCss(tree, { roles, theme }) {
             ].join('\n');
         });
     const inline = [
+        // No default palette (bg-white, text-slate-400, ...): the roles and the brand
+        // primitives below are the only colour utilities. First, so it precedes them all.
+        '  --color-*: initial;',
         ...roles.names.map((r) => `  --color-${r}: var(--role-${r});`),
         ...elevationLevels(tree).map((l) => `  --shadow-${l}: ${shadowCss(tree.elevation[l], roles, `elevation.${l}`)};`),
     ];

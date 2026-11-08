@@ -41,6 +41,12 @@ describe('engine', () => {
             shade: 500,
             opacity: 40,
         });
+        // Arbitrary opacity (/[0.03], /[3%]) is the same class family: it must not slip past --check.
+        assert.equal(migrateClass('bg-red-500/[0.03]', rules).parsed.opacity, 3);
+        assert.equal(migrateClass('hover:bg-red-500/[40%]', rules).parsed.opacity, 40);
+        // A bare number above 1 is already a percentage; a value with no digit is no opacity at all.
+        assert.equal(migrateClass('bg-red-500/[40]', rules).parsed.opacity, 40);
+        assert.equal(migrateClass('bg-red-500/[.]', rules).status, 'none');
         assert.equal(migrateClass('text-sm', rules).status, 'none');
         assert.equal(migrateClass('text-ink', rules).status, 'none');
     });
@@ -170,6 +176,8 @@ describe('rules.json', () => {
         ['text-red-400 bg-red-500/10 border-red-500/30', 'text-danger-ink bg-danger-subtle border-danger/30'],
         ['text-amber-400 text-emerald-400 text-sky-400', 'text-warning-ink text-success-ink text-info-ink'],
         ['bg-background text-muted-foreground border-input', 'bg-canvas text-ink-muted border-line-strong'],
+        // Tailwind 4.3 native scrollbar colours are colour utilities too.
+        ['scrollbar-thumb-luxury-gold/20 scrollbar-track-luxury-bg', 'scrollbar-thumb-accent/20 scrollbar-track-canvas'],
     ]) {
         it(`maps "${from}"`, () => assert.equal(migrateSource(`"${from}"`, real).text, `"${expected}"`));
     }

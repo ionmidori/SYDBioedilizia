@@ -17,6 +17,8 @@
     "via",
     "to",
     "fill",
+    "scrollbar-thumb",
+    "scrollbar-track",
     "stroke",
     "divide",
     "placeholder",
@@ -78,7 +80,7 @@
     { "match": { "utility": "text", "color": "luxury-text", "opacity": [50, 79] }, "to": { "role": "ink-muted" } },
     { "match": { "utility": "text", "color": "luxury-text", "opacity": [0, 49] }, "to": { "role": "ink-subtle" } },
     { "match": { "utility": ["placeholder", "caret", "decoration"], "color": "luxury-text" }, "to": { "role": "ink-muted" } },
-    { "match": { "utility": ["fill", "stroke"], "color": "luxury-text" }, "to": { "role": "ink", "keepOpacity": true } },
+    { "match": { "utility": ["fill", "stroke", "scrollbar-thumb", "scrollbar-track"], "color": "luxury-text" }, "to": { "role": "ink", "keepOpacity": true } },
     {
       "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": "luxury-text", "opacity": [0, 30] },
       "to": { "role": "line" }
@@ -106,7 +108,7 @@
     { "match": { "utility": ["ring", "outline"], "color": ["luxury-gold", "luxury-gold-dark", "luxury-teal", "luxury-text"] }, "to": { "role": "ring" } },
     { "match": { "utility": "ring-offset", "color": ["luxury-gold", "luxury-gold-dark", "luxury-teal", "luxury-text"] }, "to": { "role": "canvas" } },
     { "match": { "utility": "shadow", "group": "luxury" }, "to": { "drop": true } },
-    { "match": { "utility": ["from", "via", "to", "fill", "stroke", "accent"], "color": ["luxury-gold", "luxury-gold-dark"] }, "to": { "role": "accent", "keepOpacity": true } },
+    { "match": { "utility": ["from", "via", "to", "fill", "stroke", "accent", "scrollbar-thumb", "scrollbar-track"], "color": ["luxury-gold", "luxury-gold-dark"] }, "to": { "role": "accent", "keepOpacity": true } },
 
     { "match": { "utility": "bg", "color": "luxury-teal", "opacity": [95, 100] }, "to": { "role": "primary" } },
     { "match": { "utility": "bg", "color": "luxury-teal", "opacity": [85, 94] }, "to": { "role": "primary-hover" } },
@@ -115,7 +117,7 @@
     { "match": { "utility": ["text", "placeholder", "decoration", "caret"], "color": "luxury-teal" }, "to": { "role": "primary-ink" } },
     { "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": "luxury-teal", "opacity": [50, 100] }, "to": { "role": "primary" } },
     { "match": { "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide"], "color": "luxury-teal" }, "to": { "role": "primary", "keepOpacity": true } },
-    { "match": { "utility": ["from", "via", "to", "fill", "stroke", "accent"], "color": "luxury-teal" }, "to": { "role": "primary", "keepOpacity": true } },
+    { "match": { "utility": ["from", "via", "to", "fill", "stroke", "accent", "scrollbar-thumb", "scrollbar-track"], "color": "luxury-teal" }, "to": { "role": "primary", "keepOpacity": true } },
 
     { "match": { "color": "background", "utility": ["bg", "ring-offset", "from", "via", "to"] }, "to": { "role": "canvas", "keepOpacity": true } },
     { "match": { "color": ["foreground", "card-foreground", "popover-foreground", "secondary-foreground", "accent-foreground", "sidebar-foreground"], "utility": "text", "opacity": [80, 100] }, "to": { "role": "ink" } },
@@ -135,7 +137,7 @@
     { "match": { "family": ["danger", "warning", "success", "info"], "utility": "bg", "shade": [50, 200] }, "to": { "byUtility": { "bg": "<family>-subtle" } } },
     { "match": { "family": ["danger", "warning", "success", "info"], "utility": "bg", "shade": [400, 800], "opacity": [80, 100] }, "to": { "byUtility": { "bg": "<family>" } } },
     {
-      "match": { "family": ["danger", "warning", "success", "info"], "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide", "ring", "outline", "fill", "stroke", "accent"] },
+      "match": { "family": ["danger", "warning", "success", "info"], "utility": ["border", "border-t", "border-b", "border-l", "border-r", "border-x", "border-y", "divide", "ring", "outline", "fill", "stroke", "accent", "scrollbar-thumb", "scrollbar-track"] },
       "to": { "byUtility": { "*": "<family>" }, "keepOpacity": true }
     },
     { "match": { "family": ["danger", "warning", "success", "info"] }, "to": { "ambiguous": "status colour in an unusual shade/opacity or a gradient: pick <status>, -subtle or -ink" } },

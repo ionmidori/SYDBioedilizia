@@ -99,39 +99,39 @@ function VerifyContent() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-canvas via-surface-muted to-canvas flex items-center justify-center p-4">
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 max-w-md w-full"
+                className="bg-surface backdrop-blur-xl border border-line rounded-2xl p-8 max-w-md w-full"
             >
                 {/* Loading State */}
                 {status === "loading" && (
                     <div className="text-center">
-                        <Loader2 className="w-16 h-16 mx-auto text-blue-500 animate-spin mb-4" />
-                        <h2 className="text-2xl font-bold text-white mb-2">Verifica in corso...</h2>
-                        <p className="text-gray-400">Stiamo verificando il tuo accesso</p>
+                        <Loader2 className="w-16 h-16 mx-auto text-info-ink animate-spin mb-4" />
+                        <h2 className="text-2xl font-bold text-ink mb-2">Verifica in corso...</h2>
+                        <p className="text-ink-muted">Stiamo verificando il tuo accesso</p>
                     </div>
                 )}
 
                 {/* Success State */}
                 {status === "success" && (
                     <div className="text-center">
-                        <CheckCircle className="w-16 h-16 mx-auto text-green-500 mb-4" />
-                        <h2 className="text-2xl font-bold text-white mb-2">Accesso effettuato!</h2>
-                        <p className="text-gray-400">Reindirizzamento in corso...</p>
+                        <CheckCircle className="w-16 h-16 mx-auto text-success-ink mb-4" />
+                        <h2 className="text-2xl font-bold text-ink mb-2">Accesso effettuato!</h2>
+                        <p className="text-ink-muted">Reindirizzamento in corso...</p>
                     </div>
                 )}
 
                 {/* Error State */}
                 {status === "error" && (
                     <div className="text-center">
-                        <XCircle className="w-16 h-16 mx-auto text-red-500 mb-4" />
-                        <h2 className="text-2xl font-bold text-white mb-2">Errore</h2>
-                        <p className="text-gray-400 mb-6">{errorMessage}</p>
+                        <XCircle className="w-16 h-16 mx-auto text-danger-ink mb-4" />
+                        <h2 className="text-2xl font-bold text-ink mb-2">Errore</h2>
+                        <p className="text-ink-muted mb-6">{errorMessage}</p>
                         <button
                             onClick={() => router.push("/")}
-                            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                            className="px-6 py-3 bg-info hover:bg-info/90 text-on-info rounded-lg transition-colors"
                         >
                             Torna alla Home
                         </button>
@@ -141,9 +141,9 @@ function VerifyContent() {
                 {/* Email Confirmation State (Cross-Device) */}
                 {status === "confirm_email" && (
                     <div className="text-center">
-                        <Mail className="w-16 h-16 mx-auto text-blue-500 mb-4" />
-                        <h2 className="text-2xl font-bold text-white mb-2">Conferma la tua email</h2>
-                        <p className="text-gray-400 mb-6">
+                        <Mail className="w-16 h-16 mx-auto text-info-ink mb-4" />
+                        <h2 className="text-2xl font-bold text-ink mb-2">Conferma la tua email</h2>
+                        <p className="text-ink-muted mb-6">
                             Per motivi di sicurezza, conferma l&apos;indirizzo email che hai utilizzato
                         </p>
 
@@ -153,18 +153,18 @@ function VerifyContent() {
                                     {...register("email")}
                                     type="email"
                                     placeholder="tua@email.com"
-                                    className={`w-full px-4 py-3 bg-white/10 border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                                        errors.email ? 'border-red-500 ring-1 ring-red-500/50' : 'border-white/20'
+                                    className={`w-full px-4 py-3 bg-surface-muted border rounded-lg text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-info transition-all ${
+                                        errors.email ? 'border-danger ring-1 ring-danger/50' : 'border-line-strong'
                                     }`}
                                 />
                                 {errors.email && (
-                                    <p className="text-xs text-red-400 text-left mt-1">{errors.email.message}</p>
+                                    <p className="text-xs text-danger-ink text-left mt-1">{errors.email.message}</p>
                                 )}
                             </div>
                             <button
                                 type="submit"
                                 disabled={isSubmitting}
-                                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center"
+                                className="w-full px-6 py-3 bg-info hover:bg-info/90 disabled:bg-line-strong text-on-info rounded-lg transition-colors flex items-center justify-center"
                             >
                                 {isSubmitting ? (
                                     <>
@@ -190,8 +190,8 @@ function VerifyContent() {
 export default function VerifyPage() {
     return (
         <Suspense fallback={
-            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+            <div className="min-h-screen bg-canvas flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-info-ink animate-spin" />
             </div>
         }>
             <VerifyContent />

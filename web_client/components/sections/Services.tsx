@@ -195,7 +195,7 @@ export function Services() {
                             onMouseEnter={() => setHoveredService(index)}
                             onMouseLeave={() => setHoveredService(null)}
                             className={cn(
-                                "group relative p-6 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer transition-shadow duration-500",
+                                "group relative p-6 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer",
                                 // Gold gradient border and specular highlight ride on the
                                 // class's own pseudo-elements, so no Tailwind `border` here.
                                 "glass-services-card",

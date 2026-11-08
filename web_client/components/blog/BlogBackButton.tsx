@@ -10,7 +10,7 @@ export function BlogBackButton() {
     <div className="mb-12 mt-12">
       <Link href="/blog">
         <motion.div
-          className="inline-flex items-center px-6 py-2.5 rounded-full bg-secondary/50 backdrop-blur-sm border border-border/50 text-foreground font-semibold text-sm hover:bg-secondary/80 transition-colors shadow-sm"
+          className="inline-flex items-center px-6 py-2.5 rounded-full bg-surface-muted/50 backdrop-blur-sm border border-line text-ink font-semibold text-sm hover:bg-surface-muted/80 transition-colors shadow-sm"
           whileHover={{ x: -4 }}
           whileTap={{ scale: 0.96 }}
           transition={M3Spring.standard}

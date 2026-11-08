@@ -108,9 +108,9 @@ export default async function RootLayout({
   // data-scroll-behavior: globals.css makes scrolling smooth for in-page anchors;
   // this tells Next.js to switch it off while it jumps to the top of a new route.
   return (
-    <html lang="it" className="dark" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html lang="it" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
-        className={`${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-luxury-bg text-luxury-text`}
+        className={`${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-canvas text-ink`}
         suppressHydrationWarning
       >
         <AppCheckProvider>

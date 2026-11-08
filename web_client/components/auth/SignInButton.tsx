@@ -61,7 +61,7 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
 
     if (user) {
         return (
-            <div className={cn("flex items-center p-2 rounded-[1.25rem] glass-premium border border-line transition-all duration-300 hover:border-line hover:bg-surface shadow-xl group", className)}>
+            <div className={cn("flex items-center p-2 rounded-[1.25rem] glass-premium border border-line transition-all duration-300 shadow-xl group", className)}>
                 <Link
                     href="/dashboard/profile"
                     className="flex items-center gap-3 flex-1 px-1 active:scale-95 transition-transform"

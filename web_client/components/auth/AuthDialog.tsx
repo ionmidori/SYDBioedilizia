@@ -129,7 +129,7 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                     <div className="space-y-4">
                                         {/* Luxury Biometric Button */}
                                         <div className="relative group">
-                                            <div className="absolute -inset-0.5 bg-gradient-to-r from-accent via-accent-subtle to-accent rounded-xl opacity-40 blur-md group-hover:opacity-60 transition duration-1000 group-hover:duration-200 animate-tilt" />
+                                            <div className="absolute -inset-0.5 bg-gradient-to-r from-accent via-accent-subtle to-accent rounded-xl opacity-40 blur-md group-hover:opacity-60 transition duration-1000 group-hover:duration-200" />
                                             <div className="relative">
                                                 <PasskeyButton mode="login" onSuccess={handleLoginSuccess} />
                                             </div>

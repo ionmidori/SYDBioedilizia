@@ -45,7 +45,7 @@ export default function TermsPage() {
                         </p>
                     </header>
 
-                    <div className="prose prose-invert prose-luxury max-w-none space-y-10 text-ink leading-relaxed font-medium">
+                    <div className="prose prose-invert max-w-none space-y-10 text-ink leading-relaxed font-medium">
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-accent-ink italic">1. Accettazione dei Termini</h2>
                             <p>

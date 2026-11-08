@@ -80,6 +80,22 @@
         "line": {
           "$value": "#747775",
           "$description": "Google sign-in outline"
+        },
+        "logo-blue": {
+          "$value": "#4285f4",
+          "$description": "Google G mark, blue segment (brand guidelines)"
+        },
+        "logo-green": {
+          "$value": "#34a853",
+          "$description": "Google G mark, green segment"
+        },
+        "logo-yellow": {
+          "$value": "#fbbc05",
+          "$description": "Google G mark, yellow segment"
+        },
+        "logo-red": {
+          "$value": "#ea4335",
+          "$description": "Google G mark, red segment"
         }
       }
     },

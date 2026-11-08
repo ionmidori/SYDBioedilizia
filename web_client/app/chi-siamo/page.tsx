@@ -6,7 +6,7 @@ import ChatWidget from '@/components/chat/ChatWidget';
 
 export default function ChiSiamoPage() {
     return (
-        <main className="min-h-screen bg-luxury-bg text-luxury-text overflow-x-hidden selection:bg-luxury-teal/30">
+        <main className="min-h-screen bg-canvas text-ink overflow-x-hidden selection:bg-primary/30">
             <Navbar />
             {/* Spacer for fixed navbar */}
             <div className="pt-20">

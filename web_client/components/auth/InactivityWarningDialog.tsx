@@ -41,8 +41,8 @@ export function InactivityWarningDialog({
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-warning-subtle dark:bg-warning-subtle">
-                            <AlertCircle className="h-6 w-6 text-warning-ink dark:text-warning-ink" />
+                        <div className="p-2 rounded-full bg-warning-subtle">
+                            <AlertCircle className="h-6 w-6 text-warning-ink" />
                         </div>
                         <DialogTitle>Sessione in scadenza</DialogTitle>
                     </div>
@@ -52,9 +52,9 @@ export function InactivityWarningDialog({
                 </DialogHeader>
 
                 <div className="flex items-center justify-center py-6">
-                    <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-warning-subtle dark:bg-warning-subtle border border-warning dark:border-warning">
-                        <Timer className="h-5 w-5 text-warning-ink dark:text-warning-ink" />
-                        <span className="text-2xl font-mono font-semibold text-warning-ink dark:text-warning-ink">
+                    <div className="flex items-center gap-2 px-6 py-3 rounded-lg bg-warning-subtle border border-warning">
+                        <Timer className="h-5 w-5 text-warning-ink" />
+                        <span className="text-2xl font-mono font-semibold text-warning-ink">
                             {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                         </span>
                     </div>

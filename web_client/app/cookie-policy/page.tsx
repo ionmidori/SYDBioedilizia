@@ -46,7 +46,7 @@ export default function CookiePolicyPage() {
                     </header>
 
                     {/* Content */}
-                    <div className="prose prose-invert prose-luxury max-w-none space-y-10 text-ink leading-relaxed font-medium">
+                    <div className="prose prose-invert max-w-none space-y-10 text-ink leading-relaxed font-medium">
                         <p className="text-lg leading-relaxed">
                             Questo Sito utilizza cookie tecnici (necessari), e con il tuo consenso anche cookie analitici e di profilazione, utili rispettivamente per consentire funzionalità fondamentali, misurare le performance o fornirti indicazioni promozionali in linea con i tuoi interessi.
                         </p>

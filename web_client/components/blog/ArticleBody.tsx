@@ -14,19 +14,19 @@ import type { BlogBlock, KeyPointIcon } from "@/lib/blog/types";
 const ICONS: Record<KeyPointIcon, React.ReactNode> = {
   check: (
     <CheckCircle2
-      className="w-5 h-5 text-green-500 shrink-0 mt-0.5"
+      className="w-5 h-5 text-success-ink shrink-0 mt-0.5"
       aria-hidden="true"
     />
   ),
   file: (
     <FileText
-      className="w-5 h-5 text-blue-500 shrink-0 mt-0.5"
+      className="w-5 h-5 text-info-ink shrink-0 mt-0.5"
       aria-hidden="true"
     />
   ),
   alert: (
     <AlertTriangle
-      className="w-5 h-5 text-amber-500 shrink-0 mt-0.5"
+      className="w-5 h-5 text-warning-ink shrink-0 mt-0.5"
       aria-hidden="true"
     />
   ),
@@ -36,13 +36,13 @@ function Block({ block }: { block: BlogBlock }) {
   switch (block.type) {
     case "lead":
       return (
-        <p className="lead text-xl text-foreground/80 mb-8">
+        <p className="lead text-xl text-ink mb-8">
           <RichInline text={block.text} />
         </p>
       );
     case "h2":
       return (
-        <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">
+        <h2 className="text-2xl font-bold mt-8 mb-4 text-ink">
           <RichInline text={block.text} />
         </h2>
       );
@@ -72,7 +72,7 @@ function Block({ block }: { block: BlogBlock }) {
       return block.tone === "warning" ? (
         <div
           role="note"
-          className="bg-amber-500/10 border-l-4 border-amber-500 p-4 my-6 text-sm text-amber-700 dark:text-amber-400 not-prose"
+          className="bg-warning-subtle border-l-4 border-warning p-4 my-6 text-sm text-warning-ink not-prose"
         >
           <p>
             <RichInline text={block.text} />
@@ -81,7 +81,7 @@ function Block({ block }: { block: BlogBlock }) {
       ) : (
         <div
           role="note"
-          className="bg-muted/50 p-6 rounded-lg border-l-4 my-6"
+          className="bg-surface-muted/50 p-6 rounded-lg border-l-4 my-6"
         >
           {block.title && (
             <h4 className="font-bold text-lg mb-2">
@@ -95,7 +95,7 @@ function Block({ block }: { block: BlogBlock }) {
       );
     case "keyPoints":
       return (
-        <div className="bg-card border border-border rounded-xl p-6 md:p-8 my-8 shadow-sm not-prose">
+        <div className="bg-surface border border-line rounded-xl p-6 md:p-8 my-8 shadow-sm not-prose">
           <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
             📌 {block.heading}
           </h3>
@@ -104,10 +104,10 @@ function Block({ block }: { block: BlogBlock }) {
               <div key={i} className="flex gap-3">
                 {ICONS[item.icon]}
                 <div>
-                  <strong className="block text-foreground text-sm">
+                  <strong className="block text-ink text-sm">
                     {item.title}
                   </strong>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-ink-muted">
                     <RichInline text={item.text} />
                   </span>
                 </div>
@@ -122,10 +122,10 @@ function Block({ block }: { block: BlogBlock }) {
           <h3 className="text-lg font-bold mb-2 flex items-center gap-2">
             📌 {block.heading}
           </h3>
-          <ul className="space-y-2 text-muted-foreground">
+          <ul className="space-y-2 text-ink-muted">
             {block.items.map((item, i) => (
               <li key={i}>
-                <RichInline text={item} strongClassName="text-foreground" />
+                <RichInline text={item} strongClassName="text-ink" />
               </li>
             ))}
           </ul>

@@ -1,6 +1,8 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import path from "node:path";
+import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -33,6 +35,27 @@ const eslintConfig = defineConfig([
       // out of the production bundle. warn/error stay allowed: they are
       // legitimate diagnostics in production too.
       "no-console": ["error", { allow: ["warn", "error"] }],
+    },
+  },
+  {
+    // With the default palette switched off (--color-*: initial in the generated
+    // tokens), a class like bg-white produces no CSS and no error. This rule reads
+    // the real design system from the CSS entry point, so the valid utilities are
+    // exactly those it generates: no allow-list kept by hand.
+    // Custom classes are declared as @utility in app/styles, so they count as known too.
+    files: ["**/*.{ts,tsx}"],
+    ignores: ["**/__tests__/**"], // fixtures pass arbitrary strings through cn()
+    plugins: { "better-tailwindcss": betterTailwindcss },
+    settings: {
+      // Absolute: the rule must find the design system whatever directory ESLint runs from.
+      "better-tailwindcss": { entryPoint: path.join(import.meta.dirname, "app/globals.css") },
+    },
+    rules: {
+      "better-tailwindcss/no-unknown-classes": [
+        "error",
+        // Markers read by @tailwindcss/typography through selectors, not utilities.
+        { ignore: ["^not-prose$", "^lead$"] },
+      ],
     },
   },
   {

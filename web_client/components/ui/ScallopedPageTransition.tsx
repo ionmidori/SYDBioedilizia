@@ -73,7 +73,7 @@ export function ScallopedPageTransition({ isNavigating }: ScallopedPageTransitio
 
                     {/* Bottom sheet hint — slides up from bottom */}
                     <motion.div
-                        className="absolute bottom-0 left-0 right-0 h-20 bg-white/[0.03] rounded-t-[32px] border-t border-line"
+                        className="absolute bottom-0 left-0 right-0 h-20 bg-surface/60 rounded-t-[32px] border-t border-line"
                         initial={{ y: '100%' }}
                         animate={{ y: '0%' }}
                         exit={{ y: '100%' }}

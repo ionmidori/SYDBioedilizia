@@ -52,6 +52,7 @@
 
 /* Utilities read the role variables at use time (inline), so a surface can override them. */
 @theme inline {
+  --color-*: initial;
   --color-canvas: var(--role-canvas);
   --color-surface: var(--role-surface);
   --color-surface-muted: var(--role-surface-muted);
@@ -112,6 +113,10 @@
   --color-third-party-google-surface-hover: #f8fafc;
   --color-third-party-google-ink: #1f1f1f;
   --color-third-party-google-line: #747775;
+  --color-third-party-google-logo-blue: #4285f4;
+  --color-third-party-google-logo-green: #34a853;
+  --color-third-party-google-logo-yellow: #fbbc05;
+  --color-third-party-google-logo-red: #ea4335;
   --color-luxury-bg: #264653;
   --color-luxury-gold: #e9c46a;
   --color-luxury-gold-dark: #b38b36;
