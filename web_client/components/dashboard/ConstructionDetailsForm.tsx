@@ -269,7 +269,7 @@ export default function ConstructionDetailsForm({
                 {/* Submit Message */}
                 {submitMessage && (
                     <div
-                        className={`p-6 rounded-2xl duration-300 border backdrop-blur-xl ${submitMessage.type === "success"
+                        className={`p-6 rounded-2xl animate-in zoom-in-95 duration-300 border backdrop-blur-xl ${submitMessage.type === "success"
                             ? "bg-primary-subtle border-primary/30 shadow-[0_0_20px_color-mix(in_oklab,var(--color-primary)_10%,transparent)]"
                             : "bg-danger-subtle border-danger/30 shadow-[0_0_20px_color-mix(in_oklab,var(--color-danger)_10%,transparent)]"
                             }`}

@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Enter/exit animations (animate-in, fade-*, zoom-*, slide-*) used by dialog, sheet and a few panels. */
+@import "tw-animate-css";
 @import "./brand-tokens.css";
 @import "./scroll-animations.css";
 @import "./styles/base.css";
