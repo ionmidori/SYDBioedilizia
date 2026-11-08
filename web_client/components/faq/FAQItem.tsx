@@ -71,7 +71,7 @@ export function FAQItemCard({ item }: FAQItemProps) {
             }}
             transition={M3Transition.containerTransform}
           >
-            <div className="px-6 prose prose-invert max-w-none text-ink leading-relaxed prose-strong:text-ink prose-li:text-ink">
+            <div className="px-6 prose max-w-none text-ink leading-relaxed prose-strong:text-ink prose-li:text-ink">
               {/* SECURITY: rendered as structured React elements, no HTML injection */}
               <FAQAnswer blocks={item.answer} />
             </div>

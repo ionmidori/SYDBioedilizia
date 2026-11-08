@@ -9,7 +9,7 @@ import { contrastRatio, adjustToContrast, deltaE, hexToOklch, hexToRgb, oklchToH
 import { ramp } from './lib/ramp.mjs';
 import { decodeIco, encodeIco } from './lib/ico.mjs';
 import { MASTER_FILE, VARIANTS, composeSvg, readMaster, scalePath, variantBox, variantPaths } from './lib/logo.mjs';
-import { ROOT, deriveTones, loadTokenFiles, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
+import { ROOT, loadTokenFiles, loadTokens, logoPalette, resolveValue } from './lib/tokens.mjs';
 import { ASSETS } from './build-assets.mjs';
 import { CSS_FILE, ROLES_FILE, TS_FILE, renderAll, sameText } from './build-tokens.mjs';
 import { activeThemeName, loadRoles, loadTheme, resolveTheme, themeNames, validateTheme } from './lib/semantic.mjs';
@@ -123,8 +123,11 @@ describe('tokens', () => {
     }
 
     it('never overwrite an explicit tone value', () => {
-        const tree = deriveTones(loadTokenFiles());
-        assert.equal(tree.tone['on-dark']['wordmark-primary'].$value, '{color.luxury.text}');
+        assert.equal(loadTokens().tone['on-dark']['wordmark-primary'].$value, '{theme.surface.inverse.ink}');
+    });
+
+    it('keep no palette of the retired dark theme', () => {
+        assert.equal(tokens.color.luxury, undefined);
     });
 
     it('reject unknown and circular references', () => {
@@ -174,12 +177,26 @@ describe('semantic roles', () => {
         assert.equal(new Set(sets).size, 1, sets.join(' | '));
     });
 
-    it('every non-exempt theme passes every role requirement on every surface', () => {
-        const enforced = themes.filter((t) => t.enforceContrast);
-        assert.ok(enforced.length > 0, 'at least one theme is gated');
-        for (const t of enforced) {
+    it('every theme passes every role requirement on every surface', () => {
+        assert.ok(themes.length > 0);
+        for (const t of themes) {
             const fails = validateTheme(roles, t).map((f) => `${t.name}/${f.surface}: ${f.fg} on ${f.bg} ${f.actual.toFixed(2)} < ${f.min}`);
             assert.deepEqual(fails, []);
+        }
+    });
+
+    it('rejects a theme that asks to skip the contrast gate', () => {
+        const doc = { $extensions: { 'syd.theme': { enforceContrast: false } }, surface: { default: { canvas: { $value: '{color.white}' }, ink: { $value: '{color.black}' } } } };
+        assert.throws(() => resolveTheme(fixtureTree, fixtureRoles, doc, 'fixture'), /contrast gate/);
+    });
+
+    it('derive every logo tone linked to a surface on that surface canvas, in the active theme', () => {
+        const theme = themes.find((t) => t.name === activeThemeName());
+        const linked = Object.entries(theme.logoTone);
+        assert.ok(linked.length > 0, 'the active theme links a logo tone to a surface');
+        for (const [surface, tone] of linked) {
+            const rule = tokens.tone[tone].$extensions['syd.tone'];
+            assert.equal(String(resolveValue(tokens, rule.surface)).toLowerCase(), theme.surfaces[surface].canvas.hex, `${tone} on ${surface}`);
         }
     });
 
@@ -237,13 +254,18 @@ describe('semantic roles', () => {
     const css = generated[CSS_FILE];
     const active = themes.find((t) => t.name === activeThemeName());
 
-    it('generated css exposes every role through @theme inline and every surface as .surface-<name>', () => {
+    it('generated css exposes every role through @theme inline and every surface as a surface-<name> utility', () => {
         const inline = css.match(/@theme inline \{([^}]*)\}/)?.[1] ?? '';
         for (const r of roles.names) {
             assert.ok(inline.includes(`--color-${r}: var(--role-${r});`), r);
             assert.match(css, new RegExp(`:root \\{[^}]*--role-${r}: `), r);
         }
-        for (const s of Object.keys(active.surfaces).filter((s) => s !== 'default')) assert.match(css, new RegExp(`\\.surface-${s} \\{`));
+        for (const s of Object.keys(active.surfaces).filter((s) => s !== 'default')) {
+            // A Tailwind utility (known to the design system and its linter) that redefines the roles...
+            assert.match(css, new RegExp(`@utility surface-${s} \\{[^}]*--role-canvas: `), s);
+            // ...and paints itself in the base layer, so bg-* / text-* on the same element still win.
+            assert.match(css, new RegExp(`@layer base \\{[^@]*\\.surface-${s} \\{\\s*background-color: var\\(--role-canvas\\);\\s*color: var\\(--role-ink\\);`), s);
+        }
     });
 
     it('generated css switches off the default Tailwind palette before any colour is declared', () => {

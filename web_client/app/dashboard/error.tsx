@@ -29,7 +29,7 @@ export default function DashboardError({
         <div className="min-h-screen bg-canvas flex items-center justify-center p-6">
             <div className="max-w-lg w-full space-y-6 text-center">
                 {/* Error Icon */}
-                <div className="w-20 h-20 mx-auto rounded-full glass-premium border-danger/20 flex items-center justify-center mb-6 shadow-xl">
+                <div className="w-20 h-20 mx-auto rounded-full glass border-danger/20 flex items-center justify-center mb-6 shadow-xl">
                     <AlertTriangle className="w-10 h-10 text-danger-ink" />
                 </div>
 
@@ -46,7 +46,7 @@ export default function DashboardError({
 
                 {/* Error Details (Development Only) */}
                 {process.env.NODE_ENV === 'development' && (
-                    <div className="glass-premium border-danger/20 p-4 rounded-xl">
+                    <div className="glass border-danger/20 p-4 rounded-xl">
                         <p className="text-xs text-danger-ink mb-2 font-mono text-left break-all">
                             <strong>Error:</strong> {error.message}
                         </p>

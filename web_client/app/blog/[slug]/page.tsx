@@ -48,7 +48,7 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
         <div className="max-w-4xl mx-auto">
           <BlogBackButton />
 
-          <article className="prose prose-invert lg:prose-lg max-w-none">
+          <article className="prose lg:prose-lg max-w-none">
             <header className="mb-10 not-prose">
               {post.badge && (
                 <div className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4">

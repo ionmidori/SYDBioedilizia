@@ -16,7 +16,7 @@ export default function TermsPage() {
             </div>
 
             {/* Navigation */}
-            <nav className="sticky top-0 z-50 glass-premium border-b border-line px-6 py-4">
+            <nav className="sticky top-0 z-50 glass border-b border-line px-6 py-4">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2 text-accent-ink hover:text-ink transition-colors group">
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -45,7 +45,7 @@ export default function TermsPage() {
                         </p>
                     </header>
 
-                    <div className="prose prose-invert max-w-none space-y-10 text-ink leading-relaxed font-medium">
+                    <div className="prose max-w-none space-y-10 text-ink leading-relaxed font-medium">
                         <section className="space-y-6">
                             <h2 className="text-2xl font-serif text-accent-ink italic">1. Accettazione dei Termini</h2>
                             <p>

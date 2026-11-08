@@ -79,7 +79,7 @@ export default function ConstructionDetailsForm({
     };
 
     return (
-        <div className="w-full max-w-4xl mx-auto p-10 glass-premium border-line rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+        <div className="w-full max-w-4xl mx-auto p-10 glass border-line rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
             {/* Design Element - Radial Glow */}
             <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary-subtle rounded-full blur-[100px] pointer-events-none transition-all duration-1000 group-hover:bg-primary-subtle" />
 

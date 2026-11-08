@@ -54,7 +54,7 @@ export function AdminClientLayout({ children }: { children: React.ReactNode }) {
         data-testid="admin-access-denied"
         className="min-h-screen flex items-center justify-center p-6 bg-canvas text-ink"
       >
-        <div className="max-w-md text-center space-y-4 glass-premium rounded-2xl p-8 border border-line">
+        <div className="max-w-md text-center space-y-4 glass rounded-2xl p-8 border border-line">
           <ShieldAlert className="w-10 h-10 mx-auto text-accent-ink" aria-hidden />
           <h1 className="text-xl font-semibold">{denied ? 'Accesso riservato' : 'Console non raggiungibile'}</h1>
           <p className="text-sm text-ink-muted">

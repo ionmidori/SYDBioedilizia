@@ -59,21 +59,18 @@ function renderRolesCss(tree, { roles, theme }) {
         ...(theme.colorScheme !== 'normal' ? [`  color-scheme: ${theme.colorScheme};`] : []),
         ...roles.names.map((r) => `  --role-${r}: ${cssColor(base[r])};`),
     ];
-    const surfaces = Object.entries(theme.surfaces)
-        .filter(([s]) => s !== 'default')
-        .map(([s, values]) => {
-            const changed = roles.names.filter((r) => cssColor(values[r]) !== cssColor(base[r]));
-            const tone = theme.logoTone[s];
-            const logo = tone ? leaves(tree.tone[tone]).map(([p, t]) => `  --logo-${kebab(p)}: ${hex(tree, t)};`) : [];
-            return [
-                `  .${surfaceClass(s)} {`,
-                ...changed.map((r) => `    --role-${r}: ${cssColor(values[r])};`),
-                ...logo.map((l) => `  ${l}`),
-                '    background-color: var(--role-canvas);',
-                '    color: var(--role-ink);',
-                '  }',
-            ].join('\n');
-        });
+    const contextual = Object.entries(theme.surfaces).filter(([s]) => s !== 'default');
+    // The variables live in a Tailwind utility, so the design system (and no-unknown-classes) knows the class.
+    const surfaceUtilities = contextual.map(([s, values]) => {
+        const changed = roles.names.filter((r) => cssColor(values[r]) !== cssColor(base[r]));
+        const tone = theme.logoTone[s];
+        const logo = tone ? leaves(tree.tone[tone]).map(([p, t]) => `  --logo-${kebab(p)}: ${hex(tree, t)};`) : [];
+        return [`@utility ${surfaceClass(s)} {`, ...changed.map((r) => `  --role-${r}: ${cssColor(values[r])};`), ...logo, '}'].join('\n');
+    });
+    // Its own paint stays in the base layer, so bg-* / text-* utilities on the same element still win.
+    const surfacePaint = contextual.map(([s]) =>
+        [`  .${surfaceClass(s)} {`, '    background-color: var(--role-canvas);', '    color: var(--role-ink);', '  }'].join('\n'),
+    );
     const inline = [
         // No default palette (bg-white, text-slate-400, ...): the roles and the brand
         // primitives below are the only colour utilities. First, so it precedes them all.
@@ -85,9 +82,10 @@ function renderRolesCss(tree, { roles, theme }) {
         `/* Semantic roles, theme "${theme.name}": the colour vocabulary of the UI (bg-canvas, text-ink, border-line, ...). */`,
         `:root {\n${rootVars.join('\n')}\n}`,
         '',
-        '/* Contextual surfaces: a container with this class redefines the roles (and the logo tone) for its subtree.',
-        '   In the base layer, so utilities on the same element (bg-surface, ...) still win. */',
-        `@layer base {\n${surfaces.join('\n')}\n}`,
+        '/* Contextual surfaces: a container with the class surface-<name> redefines the roles (and the logo tone)',
+        '   for its subtree, and paints itself with its canvas and ink. */',
+        ...surfaceUtilities,
+        `@layer base {\n${surfacePaint.join('\n')}\n}`,
         '',
         '/* Utilities read the role variables at use time (inline), so a surface can override them. */',
         `@theme inline {\n${inline.join('\n')}\n}`,
@@ -108,7 +106,7 @@ export function renderCss(tree, ctx = semanticContext(tree)) {
         '',
         ...renderRolesCss(tree, ctx),
         '',
-        '/* Colour utilities (bg-brand-navy-900, text-luxury-gold, ...). */',
+        '/* Colour utilities (bg-brand-navy-900, bg-third-party-google-blue, ...). */',
         `@theme {\n${theme.join('\n')}\n}`,
         '',
         '/* Logo roles: the logo artwork fills its shapes with these, never with a colour. */',
@@ -207,12 +205,11 @@ export function renderAll(tree = loadTokens()) {
     ];
 }
 
-/** Contrast gate: one line per failed role requirement, in every theme that is not exempt. */
+/** Contrast gate: one line per failed role requirement, in every theme. */
 export function contrastFailures(tree = loadTokens()) {
     const roles = loadRoles(tree);
     return themeNames()
         .map((name) => loadTheme(tree, name, roles))
-        .filter((t) => t.enforceContrast)
         .flatMap((t) =>
             validateTheme(roles, t).map(
                 (f) => `${t.name}/${f.surface}: ${f.fg} on ${f.bg}${f.backdrop ? ` over ${f.backdrop}` : ''} = ${f.actual.toFixed(2)}:1, needs ${f.min}:1`,

@@ -16,7 +16,7 @@ export default function CookiePolicyPage() {
             </div>
 
             {/* Navigation */}
-            <nav className="sticky top-0 z-50 glass-premium border-b border-line px-6 py-4">
+            <nav className="sticky top-0 z-50 glass border-b border-line px-6 py-4">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2 text-accent-ink hover:text-ink transition-colors group">
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -46,7 +46,7 @@ export default function CookiePolicyPage() {
                     </header>
 
                     {/* Content */}
-                    <div className="prose prose-invert max-w-none space-y-10 text-ink leading-relaxed font-medium">
+                    <div className="prose max-w-none space-y-10 text-ink leading-relaxed font-medium">
                         <p className="text-lg leading-relaxed">
                             Questo Sito utilizza cookie tecnici (necessari), e con il tuo consenso anche cookie analitici e di profilazione, utili rispettivamente per consentire funzionalità fondamentali, misurare le performance o fornirti indicazioni promozionali in linea con i tuoi interessi.
                         </p>

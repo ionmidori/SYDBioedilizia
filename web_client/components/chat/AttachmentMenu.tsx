@@ -111,7 +111,7 @@ export function AttachmentMenu({
                     className={cn(
                         'absolute bottom-full left-0 mb-3 z-50 min-w-[260px]',
                         'bg-canvas backdrop-blur-2xl',
-                        'border border-line shadow-premium',
+                        'border border-line shadow-2',
                         'rounded-2xl overflow-hidden flex flex-col py-1'
                     )}
                     role="menu"

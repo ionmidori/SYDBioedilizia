@@ -39,7 +39,7 @@ export function RevisionTimeline({
   const ordered = [...revisions].sort((a, b) => b.version - a.version);
 
   return (
-    <section className="glass-premium rounded-2xl p-4 border border-line" data-testid="revision-timeline">
+    <section className="glass rounded-2xl p-4 border border-line" data-testid="revision-timeline">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Revisioni</h2>
       {ordered.length === 0 ? (
         <p className="text-sm text-ink-muted">Nessuna revisione registrata.</p>

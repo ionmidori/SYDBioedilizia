@@ -52,7 +52,7 @@ export function About() {
                         className="space-y-10"
                     >
                         {/* Company Intro */}
-                        <div className="prose prose-invert prose-lg text-ink leading-relaxed font-light">
+                        <div className="prose prose-lg text-ink leading-relaxed font-light">
                             <p>
                                 <span className="text-accent-ink font-medium font-trajan tracking-tight">SYD BIOEDILIZIA</span>
                                 &nbsp;è una realtà operativa in tutta la Provincia di Roma, nata per offrire a privati e aziende soluzioni edili complete e personalizzate.

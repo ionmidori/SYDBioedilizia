@@ -60,7 +60,7 @@ export function PortfolioManager() {
       ) : (
         <ul className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {portfolio.data.items.map((project) => (
-            <li key={project.id} className="glass-premium rounded-2xl border border-line overflow-hidden flex flex-col" data-testid="portfolio-card">
+            <li key={project.id} className="glass rounded-2xl border border-line overflow-hidden flex flex-col" data-testid="portfolio-card">
               <div className="aspect-[4/3] bg-surface flex items-center justify-center text-ink-subtle">
                 {project.image_url ? (
                   <img src={project.image_url} alt={project.title} loading="lazy" className="w-full h-full object-cover" />

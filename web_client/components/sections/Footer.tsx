@@ -22,7 +22,7 @@ export function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '0px 0px -10% 0px' }}
             transition={{ duration: 0.6, ease: M3EasingFM.decelerate }}
-            className="bg-canvas border-t border-line pt-20 pb-10 relative overflow-hidden"
+            className="surface-inverse border-t border-line pt-20 pb-10 relative overflow-hidden"
         >
 
             {/* Decorative Glow */}
@@ -36,7 +36,7 @@ export function Footer() {
                     {/* Brand Column */}
                     <div className="col-span-2 lg:col-span-1 space-y-6">
                         <Link href="/" className="group block w-fit">
-                            <BrandLogo variant="full" tone="on-dark" className="h-20 md:h-24 group-hover:opacity-90 transition-opacity" />
+                            <BrandLogo variant="full" className="h-20 md:h-24 group-hover:opacity-90 transition-opacity" />
                         </Link>
                         <p className="text-ink-muted text-sm leading-relaxed max-w-xs font-light">
                             Rivoluzioniamo il modo di progettare e ristrutturare casa. Tecnologia AI all&apos;avanguardia per risultati garantiti e senza sorprese.

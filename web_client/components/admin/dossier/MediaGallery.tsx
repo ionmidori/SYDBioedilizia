@@ -74,7 +74,7 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
 
   if (media.length === 0) {
     return (
-      <section className="glass-premium rounded-2xl p-4 border border-line" data-testid="gallery-empty">
+      <section className="glass rounded-2xl p-4 border border-line" data-testid="gallery-empty">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-2">Foto e render</h2>
         <p className="text-sm text-ink-muted">Il cliente non ha allegato foto e non ci sono render.</p>
       </section>
@@ -90,7 +90,7 @@ export function MediaGallery({ projectId, media }: { projectId: string; media: D
   };
 
   return (
-    <section className="glass-premium rounded-2xl p-4 border border-line space-y-4" data-testid="media-gallery">
+    <section className="glass rounded-2xl p-4 border border-line space-y-4" data-testid="media-gallery">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">Foto e render</h2>
       {GROUPS.map((group) => {
         const items = media.filter((m) => group.kinds.includes(m.kind));

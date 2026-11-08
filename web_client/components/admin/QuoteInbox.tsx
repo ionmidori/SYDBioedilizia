@@ -151,7 +151,7 @@ function InboxRow({ row }: { row: AdminQuoteListItem }) {
     <li data-testid="inbox-row">
       <Link
         href={`/admin/quotes/${encodeURIComponent(row.project_id)}`}
-        className="block rounded-2xl glass-premium border border-line transition-colors p-4"
+        className="block rounded-2xl glass border border-line transition-colors p-4"
       >
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
           <div className="min-w-0 flex-1">

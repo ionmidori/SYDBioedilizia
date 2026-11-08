@@ -9,7 +9,7 @@ const CHANNEL_LABEL: Record<string, string> = {
   dashboard: 'Dashboard del cliente',
 };
 
-const CARD = 'glass-premium rounded-2xl p-4 border border-line';
+const CARD = 'glass rounded-2xl p-4 border border-line';
 const TITLE = 'text-xs font-semibold uppercase tracking-wide text-accent-ink mb-2';
 
 export function clientDisplayName(client: ClientSnapshot | null | undefined): string {

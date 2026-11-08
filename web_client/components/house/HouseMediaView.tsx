@@ -35,7 +35,7 @@ function FilterButton({ active, label, count, onClick }: { active: boolean; labe
                 "px-4 py-2 min-h-11 rounded-xl font-bold text-xs whitespace-nowrap transition-colors border touch-manipulation",
                 active
                     ? "bg-accent text-on-accent border-accent"
-                    : "glass-premium border-line text-ink-muted hover:text-ink"
+                    : "glass border-line text-ink-muted hover:text-ink"
             )}
         >
             {label}
@@ -142,7 +142,7 @@ export function HouseMediaView({ chatId }: HouseMediaViewProps) {
 
             {uploading && (
                 <div className="fixed inset-0 bg-scrim backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                    <div className="glass-premium border-line rounded-2xl max-w-lg w-full p-6 relative">
+                    <div className="glass border-line rounded-2xl max-w-lg w-full p-6 relative">
                         <button
                             type="button"
                             onClick={() => setUploading(false)}

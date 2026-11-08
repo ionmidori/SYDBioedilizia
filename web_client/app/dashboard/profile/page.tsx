@@ -208,7 +208,7 @@ export default function ProfilePage() {
             )}
 
             {/* Profile Section */}
-            <div className="flex flex-col md:flex-row items-center gap-8 p-8 glass-premium border border-line rounded-3xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-center gap-8 p-8 glass border border-line rounded-3xl relative overflow-hidden">
                 <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent-subtle rounded-full blur-3xl pointer-events-none" />
 
                 <div className="relative">
@@ -261,7 +261,7 @@ export default function ProfilePage() {
 
             {/* Info Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-6 glass-premium border border-line rounded-2xl space-y-4">
+                <div className="p-6 glass border border-line rounded-2xl space-y-4">
                     <div className="flex items-center gap-3 text-accent-ink">
                         <User className="w-5 h-5" />
                         <h3 className="font-bold uppercase tracking-widest text-xs">Informazioni Personali</h3>
@@ -286,7 +286,7 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                <div className="p-6 glass-premium border border-line rounded-2xl space-y-4">
+                <div className="p-6 glass border border-line rounded-2xl space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 text-accent-ink">
                             <Lock className="w-5 h-5" />
@@ -315,7 +315,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Notifications */}
-            <div className="p-8 glass-premium border border-line rounded-3xl space-y-6">
+            <div className="p-8 glass border border-line rounded-3xl space-y-6">
                 <div className="flex items-center gap-3 text-accent-ink">
                     <Bell className="w-5 h-5" />
                     <h3 className="font-bold uppercase tracking-widest text-xs">Preferenze Notifiche</h3>

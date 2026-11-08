@@ -107,7 +107,7 @@ const png = (svg, w, h) => sharp(Buffer.from(svg)).resize(w, h).png().toBuffer()
 
 async function sheet(out, f) {
     const onDark = logoPalette(tokens, 'on-dark');
-    const siteBg = resolveValue(tokens, '{color.luxury.bg}');
+    const siteBg = resolveValue(tokens, '{theme.surface.inverse.canvas}');
     const tiles = [];
     const W = 1600;
     let y = 20;

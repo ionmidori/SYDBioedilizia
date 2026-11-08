@@ -146,7 +146,7 @@ export default function FAQPage() {
           </div>
 
           {/* CTA Section */}
-          <div className="mt-20 bg-gradient-to-br from-accent/10 to-transparent p-8 md:p-10 rounded-2xl border border-line text-center">
+          <div className="mt-20 surface-inverse p-8 md:p-10 rounded-2xl border border-line text-center">
             <h3 className="text-2xl font-serif font-bold text-accent-ink mb-3">
               Non hai trovato la risposta?
             </h3>

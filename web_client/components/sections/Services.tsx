@@ -200,8 +200,8 @@ export function Services() {
                                 // class's own pseudo-elements, so no Tailwind `border` here.
                                 "glass-services-card",
                                 hoveredService === index
-                                    ? "shadow-elevation-high"
-                                    : "shadow-elevation-low"
+                                    ? "shadow-3"
+                                    : "shadow-1"
                             )}
                         >
                             {/* Icon and title share a row. The icon keeps shrink-0 so a
@@ -211,7 +211,7 @@ export function Services() {
                                 <div className={cn(
                                     "w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center border border-line transition-transform duration-500",
                                     "bg-[radial-gradient(circle_at_30%_20%,color-mix(in_oklab,var(--color-accent)_14%,transparent),color-mix(in_oklab,var(--color-canvas)_55%,transparent)_70%)] text-primary-ink",
-                                    hoveredService === index && "scale-110 shadow-premium"
+                                    hoveredService === index && "scale-110 shadow-2"
                                 )}>
                                     <service.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
                                 </div>

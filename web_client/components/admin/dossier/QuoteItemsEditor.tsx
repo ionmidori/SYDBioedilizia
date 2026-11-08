@@ -70,7 +70,7 @@ export function QuoteItemsEditor({
   );
 
   return (
-    <section className="glass-premium rounded-2xl p-4 border border-line space-y-3" data-testid="items-editor">
+    <section className="glass rounded-2xl p-4 border border-line space-y-3" data-testid="items-editor">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">
           Voci del preventivo <span className="text-ink-subtle">({items.length})</span>

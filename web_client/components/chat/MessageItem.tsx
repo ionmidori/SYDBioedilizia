@@ -295,7 +295,7 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                             ? "bg-primary text-on-primary rounded-[24px_24px_4px_24px] border border-transparent" // Organic shape USER
                             : "bg-canvas border border-line text-ink rounded-[24px_24px_24px_4px] shadow-lg shadow-shade/5" // Organic shape AI
                     )}>
-                        <div className="prose prose-sm prose-invert prose-p:my-1 prose-pre:bg-surface-muted prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
+                        <div className="prose prose-sm prose-p:my-1 prose-pre:bg-surface-muted prose-pre:p-2 prose-pre:rounded-lg prose-pre:overflow-x-auto max-w-none break-words [word-break:break-word] overflow-hidden w-full">
                             {/* The login card carries its own text: the reply is not repeated above it. */}
                             {formattedText && !showLoginCard && (
                                 <MemoizedMarkdown components={markdownComponents}>

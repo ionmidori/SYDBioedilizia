@@ -104,7 +104,7 @@ function ReviewCard({
   const send = (decision: 'approve' | 'reject') => onModerate(decision, notes.trim() || null);
 
   return (
-    <li className="glass-premium rounded-2xl p-4 border border-line space-y-3" data-testid="review-card">
+    <li className="glass rounded-2xl p-4 border border-line space-y-3" data-testid="review-card">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="font-medium" data-testid="review-name">
           {review.name}
