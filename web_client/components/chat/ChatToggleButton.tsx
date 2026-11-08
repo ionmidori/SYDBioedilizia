@@ -211,7 +211,7 @@ export function ChatToggleButton({ isOpen, onClick }: ChatToggleButtonProps) {
                             {/* Visual Image */}
                             <div className="relative w-full h-full flex items-center justify-center overflow-visible pointer-events-none">
                                 <Image
-                                    src="/assets/syd_final_v9.png"
+                                    src="/assets/syd_final_v10.png"
                                     alt="Chat"
                                     fill
                                     sizes="(max-width: 768px) 158px, 208px"

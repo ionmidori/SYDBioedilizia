@@ -83,8 +83,13 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Navbar />
-      <Hero portfolio={portfolio} />
-      <Services />
+      {/* Narrative header block: subtle Statuario marble texture runs across Hero & Services,
+          fading out into pure canvas right before "Cosa facciamo" (WhatWeDo). */}
+      <div className="relative">
+        <div className="hero-services-marble" aria-hidden="true" />
+        <Hero portfolio={portfolio} />
+        <Services />
+      </div>
       <WhatWeDo />
       <Testimonials />
       <Footer />

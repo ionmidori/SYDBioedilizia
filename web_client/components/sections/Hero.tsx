@@ -19,9 +19,8 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
         // scrollable, so the "Progetti" anchor (#portfolio lives in here) scrolled the
         // hero itself and hid the h1 for good. clip crops the glows the same way but
         // only lets the page scroll.
-        <section className="relative min-h-[100dvh] flex items-center pt-20 pb-12 md:pb-16 overflow-clip bg-canvas">
+        <section className="relative min-h-[100dvh] flex items-center pt-20 pb-12 md:pb-16 overflow-clip">
             {/* Background Elements - Luxury Tech */}
-            <div className="absolute inset-0 bg-canvas z-0" />
             <div className="absolute top-0 right-0 w-[600px] h-[600px] ambient-glow ambient-glow-teal [--glow-blur:60px] md:[--glow-blur:120px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <div className="absolute bottom-0 left-0 w-[600px] h-[600px] ambient-glow ambient-glow-gold translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 

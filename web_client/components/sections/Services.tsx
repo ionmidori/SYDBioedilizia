@@ -65,7 +65,7 @@ export function Services() {
         // scroll container and silently kill the sticky stack below.
         // Bottom trimmed (paired with WhatWeDo's trimmed top) so "Cosa facciamo"
         // follows on from the last service card instead of a full section gap away.
-        <section id="services" className="pt-20 pb-8 md:pb-10 relative bg-canvas overflow-clip">
+        <section id="services" className="pt-20 pb-8 md:pb-10 relative overflow-clip">
             {/* Section Background Decoration */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full max-w-7xl opacity-30 pointer-events-none">
                 <div className="absolute top-0 right-0 w-96 h-96 ambient-glow ambient-glow-teal" />
