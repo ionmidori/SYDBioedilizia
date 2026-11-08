@@ -30,7 +30,10 @@ describe('Hero', () => {
 
         expect(screen.queryByRole('heading', { name: /capolavori/i })).not.toBeInTheDocument();
         expect(screen.queryByText(/Esplora una selezione/)).not.toBeInTheDocument();
-        expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Casa dei Sogni/);
+        const heading = screen.getByRole('heading', { level: 1 });
+        expect(heading).toHaveTextContent(/Casa dei Sogni/);
+        expect(heading).toHaveTextContent(/SYD Bioedilizia/);
+        expect(heading.querySelector('svg[data-variant="horizontal"]')).toBeInTheDocument();
     });
 
     it('is not a scroll container, so the #portfolio anchor cannot hide the title', () => {

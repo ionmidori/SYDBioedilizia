@@ -81,8 +81,8 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                         damping: 18,
                         mass: 0.8
                     }}
-                    // M3 Expressive Shapes: asymmetric night-blue bubble (inverse surface: the roles inside follow it)
-                    className="surface-inverse px-5 py-4 shadow-3 border border-line flex flex-col gap-2 relative cursor-pointer hover:scale-105 transition-transform duration-300 w-52 rounded-[24px_24px_4px_24px]"
+                    // M3 Expressive Shapes: asymmetric azzurro (primary) bubble
+                    className="group bg-primary text-on-primary px-5 py-4 shadow-3 border border-primary-hover flex flex-col gap-2 relative cursor-pointer hover:scale-105 hover:bg-primary-hover transition-all duration-300 w-52 rounded-[24px_24px_4px_24px]"
                     onClick={onOpenChat}
                 >
                     <button
@@ -91,20 +91,20 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                             setIsDismissed(true);
                             setShowWelcomeBadge(false);
                         }}
-                        className="absolute top-2 right-2 p-1 text-ink-muted hover:text-ink transition-colors rounded-full hover:bg-surface-muted z-10"
+                        className="absolute top-2 right-2 p-1 text-on-primary hover:text-on-primary transition-colors rounded-full hover:bg-primary-hover z-10"
                         aria-label="Chiudi messaggio di benvenuto"
                     >
                         <X className="w-3.5 h-3.5" />
                     </button>
 
                     <div className="flex items-center gap-2 mb-1 pr-4">
-                        <Sparkles className="w-4 h-4 text-accent-ink animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-accent-ink">
+                        <Sparkles className="w-4 h-4 text-on-primary animate-pulse" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-on-primary">
                             Architetto SYD
                         </span>
                     </div>
 
-                    <p className="text-sm font-medium leading-relaxed drop-shadow-sm min-h-[42px]">
+                    <p className="text-sm font-medium leading-relaxed drop-shadow-sm min-h-[42px] text-on-primary">
                         {typewriterText}
                         {typewriterText.length < fullMessage.length && (
                             <span className="inline-block w-1 h-4 bg-accent ml-1 animate-pulse align-middle rounded-full"></span>
@@ -119,9 +119,9 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                         xmlns="http://www.w3.org/2000/svg"
                     >
                         {/* Solid fill to hide the parent border underneath and prevent translucent double-overlap */}
-                        <path d="M0 0 L11 15 H0 V0Z" className="fill-canvas" />
+                        <path d="M0 0 L11 15 H0 V0Z" className="fill-primary group-hover:fill-primary-hover transition-colors duration-300" />
                         {/* Stroke to match the parent's border on the outer edge */}
-                        <path d="M0 0 L11 15" className="stroke-line" strokeWidth="1" />
+                        <path d="M0 0 L11 15" className="stroke-primary-hover" strokeWidth="1" />
                     </svg>
                 </motion.div>
             )}

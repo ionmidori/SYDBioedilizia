@@ -5,6 +5,7 @@ import { M3Spring } from '@/lib/m3-motion';
 import { Button } from '@/components/ui/button';
 import { StatCounter } from '@/components/ui/stat-counter';
 import { Palette, FileText } from 'lucide-react';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { Portfolio } from './Portfolio';
 import { openChat } from '@/lib/chat-events';
 import type { PortfolioItem } from '@/lib/portfolio';
@@ -35,10 +36,10 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                     transition={M3Spring.gentle}
                 >
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-canvas border border-line text-ink text-xs font-semibold uppercase tracking-wider mb-8 shadow-sm">
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full badge-powder text-xs font-semibold uppercase tracking-wider mb-8 shadow-xs">
                         <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
                         </span>
                         La Nuova Era della Ristrutturazione
                     </div>
@@ -50,7 +51,16 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                             Casa dei Sogni
                             <span className="absolute -bottom-2 left-0 w-full h-1 bg-primary/30 rounded-full blur-sm"></span>
                         </span>
-                        <br /> con <span className="wordmark">SYD BIOEDILIZIA</span>
+                        <br />
+                        <span className="inline-flex items-center gap-3 align-middle">
+                            <span>con</span>
+                            <BrandLogo
+                                variant="horizontal"
+                                className="h-[0.75em] w-auto inline-block align-middle"
+                                decorative
+                            />
+                        </span>
+                        <span className="sr-only">SYD Bioedilizia</span>
                     </h1>
 
                     <p className="text-lg md:text-xl text-ink max-w-xl leading-relaxed font-light">

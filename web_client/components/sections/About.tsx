@@ -68,7 +68,7 @@ export function About() {
                         </div>
 
                         {/* Philosophy Box */}
-                        <div className="bg-surface border border-line rounded-2xl p-8 backdrop-blur-sm relative overflow-hidden group">
+                        <div className="card-powder rounded-2xl p-8 relative overflow-hidden group shadow-xs">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                                 <Leaf className="w-24 h-24 text-primary-ink" />
                             </div>
@@ -77,10 +77,10 @@ export function About() {
                                 La Nostra Filosofia
                             </h3>
                             <p className="text-ink mb-6 font-light">
-                                Il nostro nome è una garanzia: siamo specialisti dell&apos;isolamento termico e del benessere abitativo. Utilizziamo esclusivamente materiali certificati che rispettano i <span className="text-accent-ink">Criteri Minimi Ambientali (CAM)</span>, privilegiando prodotti naturali e traspiranti.
+                                Il nostro nome è una garanzia: siamo specialisti dell&apos;isolamento termico e del benessere abitativo. Utilizziamo esclusivamente materiali certificati che rispettano i <span className="text-primary-ink font-medium">Criteri Minimi Ambientali (CAM)</span>, privilegiando prodotti naturali e traspiranti.
                             </p>
 
-                            <h4 className="font-serif font-bold text-accent-ink text-lg mb-4">Le nostre eccellenze tecniche:</h4>
+                            <h4 className="font-serif font-bold text-primary-ink text-lg mb-4">Le nostre eccellenze tecniche:</h4>
                             <ul className="space-y-3">
                                 <li className="flex items-start gap-3">
                                     <Award className="w-5 h-5 text-primary-ink mt-1 shrink-0" />

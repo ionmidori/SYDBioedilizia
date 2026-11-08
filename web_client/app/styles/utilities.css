@@ -129,16 +129,25 @@
   border-radius: 24px;
 }
 
-/* Services section (desktop grid): an opaque card on the page, raised by elevation,
-   with a sand gradient hairline that brightens on hover. */
+/* Services section (desktop grid): an opaque card on the page with a subtle azure tint,
+   raised by elevation, with a sand gradient hairline that brightens on hover. */
 @utility glass-services-card {
   position: relative;
-  background: var(--color-surface);
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--color-surface) 96%, var(--color-primary)) 0%,
+    color-mix(in oklab, var(--color-primary-subtle) 88%, var(--color-surface)) 100%
+  );
   box-shadow: var(--shadow-1);
   isolation: isolate;
-  transition: box-shadow 0.4s ease;
+  transition: box-shadow 0.4s ease, background 0.4s ease;
 
   &:hover {
+    background: linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--color-surface) 92%, var(--color-primary)) 0%,
+      color-mix(in oklab, var(--color-primary-subtle) 95%, var(--color-primary)) 100%
+    );
     box-shadow: var(--shadow-2);
   }
 
@@ -177,11 +186,66 @@
 }
 
 /* Services section (mobile sticky stack) — fully opaque on purpose: the stack
-   overlaps, so any transparency shows the text of three cards at once (see ServiceCard). */
+   overlaps, so any transparency shows the text of three cards at once (see ServiceCard).
+   Subtle azure tint matches desktop while staying 100% opaque. */
 @utility elevated-service-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-line);
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--color-surface) 96%, var(--color-primary)) 0%,
+    color-mix(in oklab, var(--color-primary-subtle) 88%, var(--color-surface)) 100%
+  );
+  border: 1px solid color-mix(in oklab, var(--color-line) 85%, var(--color-primary));
   box-shadow: var(--shadow-2);
+}
+
+/* Mineral Pastel Category Badges & Cards (Bioedilizia & Architecture)
+   Derived strictly from semantic roles via oklab mixing so contrast and tokens stay aligned. */
+@utility badge-sage {
+  background-color: color-mix(in oklab, var(--color-success-subtle) 65%, var(--color-surface));
+  color: var(--color-success-ink);
+  border: 1px solid color-mix(in oklab, var(--color-success) 22%, transparent);
+}
+
+@utility card-sage {
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--color-surface) 95%, var(--color-success-subtle)) 0%,
+    color-mix(in oklab, var(--color-success-subtle) 40%, var(--color-surface)) 100%
+  );
+  border: 1px solid color-mix(in oklab, var(--color-line) 75%, var(--color-success));
+}
+
+@utility badge-terracotta {
+  background-color: color-mix(in oklab, var(--color-danger-subtle) 60%, var(--color-accent-subtle) 40%);
+  color: color-mix(in oklab, var(--color-danger-ink) 70%, var(--color-accent-ink));
+  border: 1px solid color-mix(in oklab, var(--color-danger) 22%, transparent);
+}
+
+@utility badge-powder {
+  background-color: color-mix(in oklab, var(--color-primary-subtle) 75%, var(--color-surface));
+  color: var(--color-primary-ink);
+  border: 1px solid color-mix(in oklab, var(--color-primary) 22%, transparent);
+}
+
+@utility card-powder {
+  background: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--color-surface) 96%, var(--color-primary)) 0%,
+    color-mix(in oklab, var(--color-primary-subtle) 88%, var(--color-surface)) 100%
+  );
+  border: 1px solid color-mix(in oklab, var(--color-line) 85%, var(--color-primary));
+}
+
+@utility badge-sand {
+  background-color: color-mix(in oklab, var(--color-accent-subtle) 75%, var(--color-surface));
+  color: var(--color-accent-ink);
+  border: 1px solid color-mix(in oklab, var(--color-accent) 22%, transparent);
+}
+
+@utility badge-mauve {
+  background-color: color-mix(in oklab, var(--color-surface) 90%, var(--color-ink) 10%);
+  color: var(--color-ink);
+  border: 1px solid color-mix(in oklab, var(--color-ink-muted) 22%, transparent);
 }
 
 /* "Cosa facciamo" cards (WhatWeDo.tsx) — white Statuario marble and gold, raised
