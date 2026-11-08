@@ -196,12 +196,9 @@ export function Services() {
                             onMouseLeave={() => setHoveredService(null)}
                             className={cn(
                                 "group relative p-6 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer",
-                                // Gold gradient border and specular highlight ride on the
-                                // class's own pseudo-elements, so no Tailwind `border` here.
+                                // Gold gradient border, specular highlight and resting/hover elevation
+                                // ride on the utility's own rules, so no Tailwind `border` or `shadow-*` here.
                                 "glass-services-card",
-                                hoveredService === index
-                                    ? "shadow-elevation-high"
-                                    : "shadow-elevation-low"
                             )}
                         >
                             {/* Icon and title share a row. The icon keeps shrink-0 so a
@@ -211,7 +208,7 @@ export function Services() {
                                 <div className={cn(
                                     "w-10 h-10 shrink-0 rounded-[10px] flex items-center justify-center border border-line transition-transform duration-500",
                                     "bg-[radial-gradient(circle_at_30%_20%,color-mix(in_oklab,var(--color-accent)_14%,transparent),color-mix(in_oklab,var(--color-canvas)_55%,transparent)_70%)] text-primary-ink",
-                                    hoveredService === index && "scale-110 shadow-premium"
+                                    hoveredService === index && "scale-110 shadow-2"
                                 )}>
                                     <service.icon className="w-[18px] h-[18px]" strokeWidth={1.5} />
                                 </div>

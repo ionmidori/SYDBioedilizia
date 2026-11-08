@@ -440,7 +440,7 @@ export function DossierView({ projectId }: { projectId: string }) {
             onPickFromPriceBook={() => setPickerOpen(true)}
             rooms={quote.rooms}
           />
-          <section className="glass-premium rounded-2xl p-4 border border-line space-y-4" data-testid="totals-panel">
+          <section className="glass rounded-2xl p-4 border border-line space-y-4" data-testid="totals-panel">
             <label className="block space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-accent-ink">
                 Note per il cliente <span className="normal-case font-normal text-ink-muted">(compaiono nel PDF)</span>
@@ -452,7 +452,7 @@ export function DossierView({ projectId }: { projectId: string }) {
                 rows={3}
                 maxLength={4000}
                 data-testid="admin-notes"
-                className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent disabled:opacity-60"
+                className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent disabled:opacity-60"
               />
             </label>
             <dl className="ml-auto max-w-xs space-y-1.5 text-sm">

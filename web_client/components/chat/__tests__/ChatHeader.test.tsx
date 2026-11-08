@@ -27,9 +27,8 @@ describe('ChatHeader', () => {
     it('should call onMinimize when minimize button clicked', () => {
         render(<ChatHeader {...defaultProps} />);
 
-        // Get the button (there's only one button in ChatHeader)
-        const button = screen.getByRole('button');
-        fireEvent.click(button);
+        // The icon-only button is found by its accessible name, as assistive tech announces it.
+        fireEvent.click(screen.getByRole('button', { name: 'Riduci la chat' }));
 
         expect(defaultProps.onMinimize).toHaveBeenCalledTimes(1);
     });

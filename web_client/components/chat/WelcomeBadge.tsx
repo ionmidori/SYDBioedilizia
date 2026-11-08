@@ -17,9 +17,14 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
     const [typewriterText, setTypewriterText] = useState('');
     const fullMessage = "Ciao, sono qui per aiutarti a ristrutturare la tua casa!";
 
-    // Show badge after delay
+    // Show badge after delay (or immediately under prefers-reduced-motion)
     useEffect(() => {
-        const t = setTimeout(() => !isOpen && !isDismissed && setShowWelcomeBadge(true), 2500);
+        const reducedMotion =
+            typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const delayMs = reducedMotion ? 0 : 2500;
+        const t = setTimeout(() => !isOpen && !isDismissed && setShowWelcomeBadge(true), delayMs);
         return () => clearTimeout(t);
     }, [isOpen, isDismissed]);
 
@@ -29,12 +34,23 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
         if (isOpen) setShowWelcomeBadge(false);
     }, [isOpen]);
 
-    // Typewriter effect
+    // Typewriter effect (instant when prefers-reduced-motion is enabled)
     useEffect(() => {
         if (!showWelcomeBadge || isOpen) {
             // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: reset the typewriter when the badge is hidden or the chat opens
             setTypewriterText('');
             return;
+        }
+
+        const reducedMotion =
+            typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        if (reducedMotion) {
+            setTypewriterText(fullMessage);
+            const dismissTimer = setTimeout(() => setShowWelcomeBadge(false), 9000);
+            return () => clearTimeout(dismissTimer);
         }
 
         let i = 0;
@@ -65,12 +81,9 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                         damping: 18,
                         mass: 0.8
                     }}
-                    // M3 Expressive Shapes: Asymmetric bubble (rounded-[24px_24px_4px_24px]) + Glassmorphism
-                    className="backdrop-blur-xl bg-primary-hover text-on-primary px-5 py-4 shadow-2xl border border-line flex flex-col gap-2 relative cursor-pointer hover:scale-105 hover:bg-primary transition-colors duration-300 w-52 rounded-[24px_24px_4px_24px]"
+                    // M3 Expressive Shapes: asymmetric night-blue bubble (inverse surface: the roles inside follow it)
+                    className="surface-inverse px-5 py-4 shadow-3 border border-line flex flex-col gap-2 relative cursor-pointer hover:scale-105 transition-transform duration-300 w-52 rounded-[24px_24px_4px_24px]"
                     onClick={onOpenChat}
-                    style={{
-                        boxShadow: '0 8px 32px -8px color-mix(in oklab, var(--color-shade) 40%, transparent), inset 0 1px 1px color-mix(in oklab, var(--color-on-primary) 10%, transparent)'
-                    }}
                 >
                     <button
                         onClick={(e) => {
@@ -78,7 +91,7 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                             setIsDismissed(true);
                             setShowWelcomeBadge(false);
                         }}
-                        className="absolute top-2 right-2 p-1 text-on-primary hover:text-on-primary transition-colors rounded-full hover:bg-on-primary/10 z-10"
+                        className="absolute top-2 right-2 p-1 text-ink-muted hover:text-ink transition-colors rounded-full hover:bg-surface-muted z-10"
                         aria-label="Chiudi messaggio di benvenuto"
                     >
                         <X className="w-3.5 h-3.5" />
@@ -106,9 +119,9 @@ export function WelcomeBadge({ isOpen, onOpenChat }: WelcomeBadgeProps) {
                         xmlns="http://www.w3.org/2000/svg"
                     >
                         {/* Solid fill to hide the parent border underneath and prevent translucent double-overlap */}
-                        <path d="M0 0 L11 15 H0 V0Z" className="fill-primary" />
+                        <path d="M0 0 L11 15 H0 V0Z" className="fill-canvas" />
                         {/* Stroke to match the parent's border on the outer edge */}
-                        <path d="M0 0 L11 15" className="stroke-accent/20" strokeWidth="1" />
+                        <path d="M0 0 L11 15" className="stroke-line" strokeWidth="1" />
                     </svg>
                 </motion.div>
             )}

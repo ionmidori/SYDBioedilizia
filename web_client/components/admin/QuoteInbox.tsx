@@ -61,7 +61,7 @@ export function QuoteInbox() {
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder="PRV-2026-0042, Rossi o email"
-              className="w-full pl-9 pr-8 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-none focus:border-accent"
+              className="w-full pl-9 pr-8 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-accent"
             />
             {query && (
               <button
@@ -151,7 +151,7 @@ function InboxRow({ row }: { row: AdminQuoteListItem }) {
     <li data-testid="inbox-row">
       <Link
         href={`/admin/quotes/${encodeURIComponent(row.project_id)}`}
-        className="block rounded-2xl glass-premium border border-line transition-colors p-4"
+        className="block rounded-2xl glass border border-line transition-colors p-4"
       >
         <div className="flex flex-wrap items-start gap-x-4 gap-y-2">
           <div className="min-w-0 flex-1">

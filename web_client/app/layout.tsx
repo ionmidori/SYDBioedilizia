@@ -1,29 +1,34 @@
 import type { Metadata } from "next";
 import { shareMetadata } from "@/lib/site-share";
 import { BRAND_ICONS, THEME_COLOR } from "@/lib/brand";
-import { Playfair_Display, Lato, Cinzel } from "next/font/google";
+import { Playfair_Display, Lato, Red_Hat_Display } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { AppCheckProvider } from "@/components/providers/AppCheckProvider";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import "./globals.css";
 
+// Font roles: web_client/brand/tokens/typography.tokens.json. next/font takes literal
+// arguments only, so faces and variables are written here; __tests__/fonts.test.ts holds
+// them to the tokens (FONT_VARIABLES), and the build emits --font-<role> from the same file.
 const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: "--font-serif",
-  display: "swap",
-});
-
-const cinzel = Cinzel({
-  subsets: ["latin"],
-  variable: "--font-trajan", // Mapping effectively to Trajan style
+  variable: "--font-face-serif",
   display: "swap",
 });
 
 const lato = Lato({
   subsets: ["latin"],
   weight: ["300", "400", "700", "900"],
-  variable: "--font-sans",
+  variable: "--font-face-sans",
+  display: "swap",
+});
+
+// The logo's typeface, for the brand name only (the `wordmark` utility): one weight.
+const redHat = Red_Hat_Display({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-face-brand",
   display: "swap",
 });
 
@@ -110,7 +115,7 @@ export default async function RootLayout({
   return (
     <html lang="it" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body
-        className={`${playfair.variable} ${lato.variable} ${cinzel.variable} antialiased font-sans bg-canvas text-ink`}
+        className={`${playfair.variable} ${lato.variable} ${redHat.variable} antialiased font-sans bg-canvas text-ink`}
         suppressHydrationWarning
       >
         <AppCheckProvider>

@@ -43,6 +43,18 @@ export const STATES: ThemeState[] = [
     },
   },
   {
+    id: 'cookie-settings',
+    appliesTo: onHome,
+    open: async (page) => {
+      await page.context().clearCookies({ name: 'syd_cookie_consent' });
+      await page.reload({ waitUntil: 'load' });
+      await settle(page);
+      await page.getByRole('button', { name: 'Personalizza' }).click();
+      await waitUntilStill(page.getByRole('button', { name: 'Chiudi le impostazioni' }));
+      return true;
+    },
+  },
+  {
     id: 'auth-dialog',
     appliesTo: onHome,
     open: async (page) => {

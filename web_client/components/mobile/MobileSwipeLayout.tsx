@@ -66,7 +66,7 @@ export function PaneIndicator({ activeIndex, labels, size = 'normal', onIndexCli
                     key={i}
                     type="button"
                     onClick={() => onIndexClick?.(i)}
-                    className="group/dot relative flex items-center justify-center min-w-6 h-6 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-transform active:scale-75 touch-manipulation"
+                    className="group/dot relative flex items-center justify-center min-w-6 h-6 rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-transform active:scale-75 touch-manipulation"
                     aria-label={`Vai a ${label}`}
                     aria-current={i === activeIndex ? 'page' : undefined}
                 >

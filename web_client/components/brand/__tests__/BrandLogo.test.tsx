@@ -55,6 +55,17 @@ describe('BrandLogo', () => {
         expect(container.querySelector('svg')).toHaveClass('brand-tone-on-dark');
     });
 
+    it('inherits the surface tone without a tone prop: the surface redefines the logo variables', () => {
+        const { container } = render(
+            <div className="surface-inverse">
+                <BrandLogo />
+            </div>,
+        );
+        const svg = container.querySelector('svg')!;
+        expect(svg.getAttribute('class')).not.toMatch(/brand-tone-/);
+        expect(svg.querySelector('path')!.style.fill).toMatch(/^var\(--logo-/);
+    });
+
     it('lets the caller size it, overriding the default height', () => {
         const { container } = render(<BrandLogo className="h-8" />);
         const svg = container.querySelector('svg')!;

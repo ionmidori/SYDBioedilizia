@@ -103,7 +103,7 @@ test('a magic link, opened in another tab, comes back to the same page with the 
   await fakeGuestClaim(context, uid, guestSessionId);
 
   const dialog = await openLoginDialog(page);
-  await dialog.getByRole('button', { name: 'Magic Link' }).click();
+  await dialog.getByRole('tab', { name: 'Magic Link' }).click();
   await page.locator('#magic-email').fill(TEST_USER.email);
   await page.getByRole('button', { name: /Invia Link Magico/ }).click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('emailForSignIn'))).toBe(TEST_USER.email);

@@ -88,7 +88,7 @@ export function GdprMonitor() {
         </p>
       ) : (
         <>
-          <section className="glass-premium rounded-2xl p-4 border border-line" data-testid="gdpr-phases">
+          <section className="glass rounded-2xl p-4 border border-line" data-testid="gdpr-phases">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Fasi del ciclo di vita</h2>
             <ol className="space-y-2 text-sm">
               {status.data.phases.map((phase) => (
@@ -126,7 +126,7 @@ export function GdprMonitor() {
           </div>
 
           {run.data && (
-            <section className="glass-premium rounded-2xl p-4 border border-line space-y-3" data-testid="gdpr-result">
+            <section className="glass rounded-2xl p-4 border border-line space-y-3" data-testid="gdpr-result">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink">Risultato</h2>
               <p className={run.data.status === 'ok' ? 'text-sm text-success-ink' : 'text-sm text-warning-ink'}>
                 {run.data.status === 'ok' ? 'Completato senza errori.' : 'Completato con errori parziali.'}

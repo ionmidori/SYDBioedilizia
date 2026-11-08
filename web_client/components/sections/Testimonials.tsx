@@ -40,9 +40,9 @@ type TestimonialItem = {
 };
 
 const _GRADIENTS = [
-    'from-accent to-warning',
+    'from-warning to-primary',
     'from-primary to-success',
-    'from-canvas to-primary',
+    'from-primary-hover to-primary',
 ] as const;
 
 const defaultTestimonials: TestimonialItem[] = [
@@ -54,7 +54,7 @@ const defaultTestimonials: TestimonialItem[] = [
         text: "Ero scettico sull'uso dell'IA per una ristrutturazione, ma il livello di dettaglio dei render preliminari mi ha sbalordito. Abbiamo risparmiato settimane di indecisioni scelte sui materiali.",
         rating: 5,
         initials: 'MR',
-        gradient: 'from-accent to-warning'
+        gradient: 'from-warning to-primary'
     },
     {
         id: 2,
@@ -74,7 +74,7 @@ const defaultTestimonials: TestimonialItem[] = [
         text: "Volevamo ristrutturare il nostro primo appartamento senza stress. Il preventivo è stato rispettato al centesimo e la consegna è avvenuta in anticipo. Incredibile.",
         rating: 5,
         initials: 'LG',
-        gradient: 'from-canvas to-primary'
+        gradient: 'from-primary-hover to-primary'
     }
 ];
 
@@ -439,11 +439,11 @@ export function Testimonials() {
                             onMouseEnter={() => setHoveredTestimonial(t.id)}
                             onMouseLeave={() => setHoveredTestimonial(null)}
                             className={cn(
-                                "relative p-8 rounded-3xl bg-surface border border-line shadow-xl group hover:border-line transition-colors",
-                                hoveredTestimonial === t.id && "border-line"
+                                "relative p-8 rounded-3xl bg-surface border border-line shadow-xl group hover:border-line-strong transition-colors",
+                                hoveredTestimonial === t.id && "border-line-strong"
                             )}
                         >
-                            <Quote className="absolute top-8 right-8 w-12 h-12 text-accent-ink group-hover:text-accent-ink transition-colors" />
+                            <Quote className="absolute top-8 right-8 w-12 h-12 text-accent-ink group-hover:text-primary-ink transition-colors" />
 
                             <div className="relative z-10">
                                 <TestimonialHeader testimonial={t} />
@@ -467,14 +467,14 @@ function TestimonialHeader({ testimonial: t }: { testimonial: TestimonialItem })
                     {t.initials}
                 </div>
                 <div className="min-w-0">
-                    <h4 className="text-ink font-bold text-lg leading-tight truncate">{t.name}</h4>
+                    <h3 className="text-ink font-bold text-lg leading-tight truncate">{t.name}</h3>
                     <p className="text-ink-muted text-sm font-light truncate">
                         {t.location ? `${t.role} • ${t.location}` : t.role}
                     </p>
                 </div>
             </div>
 
-            <div className="flex gap-1 text-accent-ink mb-4" aria-label={`Valutazione: ${t.rating} su 5`}>
+            <div className="flex gap-1 text-accent-ink mb-4" role="img" aria-label={`Valutazione: ${t.rating} su 5`}>
                 {[...Array(t.rating)].map((_, i) => (
                     <Star key={i} className="w-4 h-4 fill-current" aria-hidden="true" />
                 ))}
@@ -517,7 +517,7 @@ function TestimonialCard({
                             type="button"
                             onClick={() => setIsExpanded((prev) => !prev)}
                             aria-expanded={isExpanded}
-                            className="mt-2 min-h-[44px] text-sm font-medium text-accent-ink transition-colors hover:text-accent-ink"
+                            className="mt-2 min-h-[44px] text-sm font-medium text-accent-ink transition-colors hover:text-ink"
                         >
                             {isExpanded ? 'Riduci' : 'Leggi tutto'}
                         </button>

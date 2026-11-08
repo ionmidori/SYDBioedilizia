@@ -95,7 +95,7 @@ export function ProjectsArchiveClient({ initial }: { initial?: PortfolioItem[] }
                         </p>
                         <button
                             onClick={() => setActiveCategory(ALL_CATEGORIES)}
-                            className="min-h-[44px] px-5 rounded-full bg-accent text-on-accent text-sm font-bold transition-colors hover:bg-accent"
+                            className="min-h-[44px] px-5 rounded-full border border-transparent bg-accent text-on-accent text-sm font-bold transition-colors hover:bg-accent/90"
                         >
                             Mostra tutti
                         </button>

@@ -44,4 +44,22 @@ describe('Hero', () => {
         expect(hero).toHaveClass('overflow-clip');
         expect(hero).not.toHaveClass('overflow-hidden');
     });
+
+    it('gives the key figures as a description list, not as headings that break the outline', () => {
+        render(<Hero />);
+
+        expect(screen.queryAllByRole('heading', { level: 4 })).toHaveLength(0);
+        const terms = screen.getAllByRole('term').map((t) => t.textContent);
+        expect(terms).toEqual(['Progetti Completati', 'Tempo Preventivo', 'Soddisfazione Clienti']);
+        for (const term of screen.getAllByRole('term')) {
+            expect(term.nextElementSibling?.tagName).toBe('DD');
+        }
+    });
+
+    it('titles the project cards one level under the h1, so the outline skips no level', async () => {
+        render(<Hero />);
+
+        expect(await screen.findAllByRole('heading', { level: 2 })).not.toHaveLength(0);
+        expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0);
+    });
 });

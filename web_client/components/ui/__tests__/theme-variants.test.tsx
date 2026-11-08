@@ -7,7 +7,7 @@ import { ELEVATION_LEVELS, ROLE_NAMES, STATUS_TONES } from '@/lib/brand/tokens.g
 
 /** Colour utilities whose value must be a semantic role (sizes, widths and the like are not colours). */
 const COLOUR_UTILITY = /^(?:[\w-]+(?:\[[^\]]*\])?:)*!?(bg|text|border|ring-offset|ring|outline|divide|placeholder|fill|stroke|from|via|to)-(.+?)(?:\/\d+)?$/;
-const NOT_A_COLOUR = /^(?:\d.*|\[.*|x|y|t|b|l|r|xs|sm|base|lg|xl|\dxl|left|center|right|justify|start|end|none|solid|dashed|dotted|transparent|current|inherit|offset-\d+)$/;
+const NOT_A_COLOUR = /^(?:\d.*|\[.*|x|y|t|b|l|r|xs|sm|base|lg|xl|\dxl|left|center|right|justify|start|end|none|hidden|solid|dashed|dotted|transparent|current|inherit|offset-\d+)$/;
 
 function colourValues(className: string): string[] {
   return className
@@ -25,6 +25,13 @@ describe('Button', () => {
     const values = colourValues(screen.getByRole('button').className);
     expect(values.length).toBeGreaterThan(0);
     for (const v of values) expect(roles).toContain(v);
+  });
+
+  it.each(BUTTON_VARIANTS)('variant %s keeps a real edge in forced-colors mode when it is a filled shape', (variant) => {
+    // Forced colours drop backgrounds: a filled button without a border would read as plain text.
+    render(<Button variant={variant}>Azione</Button>);
+    const classes = screen.getByRole('button').className.split(/\s+/);
+    if (classes.some((c) => /^bg-/.test(c))) expect(classes).toEqual(expect.arrayContaining(['border', 'border-transparent']));
   });
 
   it('is primary by default', () => {

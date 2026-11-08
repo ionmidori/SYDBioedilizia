@@ -27,7 +27,7 @@ export function FAQItemCard({ item }: FAQItemProps) {
     >
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-6 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
+        className="w-full flex items-center justify-between p-6 text-left focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
         aria-expanded={isOpen}
         aria-controls={`faq-content-${item.slug}`}
       >
@@ -71,7 +71,7 @@ export function FAQItemCard({ item }: FAQItemProps) {
             }}
             transition={M3Transition.containerTransform}
           >
-            <div className="px-6 prose prose-invert max-w-none text-ink leading-relaxed prose-strong:text-ink prose-li:text-ink">
+            <div className="px-6 prose max-w-none text-ink leading-relaxed prose-strong:text-ink prose-li:text-ink">
               {/* SECURITY: rendered as structured React elements, no HTML injection */}
               <FAQAnswer blocks={item.answer} />
             </div>

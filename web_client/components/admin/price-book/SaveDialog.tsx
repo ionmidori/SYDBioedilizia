@@ -66,7 +66,7 @@ function SaveForm({
           maxLength={500}
           placeholder="Es. Aggiornamento prezzi 2026"
           data-testid="save-reason"
-          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent"
+          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent"
         />
       </label>
       <ErrorBanner error={error} onReload={onReload} />

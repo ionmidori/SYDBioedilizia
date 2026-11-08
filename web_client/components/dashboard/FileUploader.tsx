@@ -401,7 +401,7 @@ export function FileUploader({ projectId, roomId = null, onUploadComplete, maxFi
                             key={fileData.id}
                             data-testid="file-row"
                             data-file-status={fileData.status}
-                            className="glass-premium border-line p-4 rounded-xl flex items-center gap-4"
+                            className="glass border-line p-4 rounded-xl flex items-center gap-4"
                         >
                             {/* File Icon/Preview */}
                             <div className="flex-shrink-0">

@@ -44,7 +44,7 @@ export function DashboardHeader() {
                 {/* Left: SYD mark (the full wordmark is too small at header height) */}
                 <div className="flex-shrink-0">
                     <Link href="/" className="block active:opacity-80 transition-opacity">
-                        <BrandLogo variant="mark" tone="on-dark" className="h-8" />
+                        <BrandLogo variant="mark" className="h-8" />
                     </Link>
                 </div>
 

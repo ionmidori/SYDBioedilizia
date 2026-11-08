@@ -21,7 +21,7 @@ const DialogOverlay = React.forwardRef<
     <DialogPrimitive.Overlay
         ref={ref}
         className={cn(
-            "fixed inset-0 z-50 bg-scrim duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+            "fixed inset-0 z-[200] bg-scrim duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
             className
         )}
         {...props}
@@ -39,13 +39,13 @@ const DialogContent = React.forwardRef<
         <DialogPrimitive.Content
             ref={ref}
             className={cn(
-                "fixed left-[50%] top-[50%] z-[100] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-canvas p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
+                "fixed left-[50%] top-[50%] z-[210] grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-canvas p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 sm:rounded-lg",
                 className
             )}
             {...props}
         >
             {children}
-            <DialogPrimitive.Close className="absolute right-4 top-4 z-50 rounded-full bg-surface p-1.5 md:p-2 text-ink-muted opacity-80 backdrop-blur-md transition-all hover:bg-surface-muted hover:opacity-100 hover:text-accent-ink hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
+            <DialogPrimitive.Close className="absolute right-4 top-4 z-50 rounded-full bg-surface p-1.5 md:p-2 text-ink-muted opacity-80 backdrop-blur-md transition-all hover:bg-surface-muted hover:opacity-100 hover:text-accent-ink hover:scale-110 active:scale-95 focus:outline-hidden focus:ring-2 focus:ring-ring disabled:pointer-events-none">
                 <X className="h-4 w-4 md:h-5 md:w-5 drop-shadow-md" />
                 <span className="sr-only">Close</span>
             </DialogPrimitive.Close>

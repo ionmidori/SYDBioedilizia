@@ -146,7 +146,7 @@ export default function FAQPage() {
           </div>
 
           {/* CTA Section */}
-          <div className="mt-20 bg-gradient-to-br from-accent/10 to-transparent p-8 md:p-10 rounded-2xl border border-line text-center">
+          <div className="mt-20 surface-inverse p-8 md:p-10 rounded-2xl border border-line text-center">
             <h3 className="text-2xl font-serif font-bold text-accent-ink mb-3">
               Non hai trovato la risposta?
             </h3>
@@ -156,7 +156,7 @@ export default function FAQPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
                 href="tel:+393755463599"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-accent hover:bg-accent/80 text-on-accent font-bold transition-all duration-200 shadow-lg"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full border border-transparent bg-accent hover:bg-accent/80 text-on-accent font-bold transition-all duration-200 shadow-lg"
               >
                 <Phone className="w-4 h-4" />
                 Chiama Ora

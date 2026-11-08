@@ -82,7 +82,7 @@ function ReasonForm({
           rows={3}
           maxLength={1000}
           data-testid="reason-input"
-          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent"
+          className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent"
         />
         <span className="block text-xs text-ink-muted">Almeno 3 caratteri. Resta nello storico del preventivo.</span>
       </label>

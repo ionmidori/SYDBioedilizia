@@ -3,12 +3,10 @@
 // surface (themes/<name>.tokens.json) are data; nothing about them is written here.
 
 import fs from 'node:fs';
-import path from 'node:path';
 import { contrastRatio, hexToRgb, rgbToHex } from './color.mjs';
-import { BRAND_DIR, TOKENS_DIR, resolveValue } from './tokens.mjs';
+import { THEMES_DIR, THEME_SUFFIX, activeThemeName, readThemeDoc, resolveValue } from './tokens.mjs';
 
-export const THEMES_DIR = path.join(TOKENS_DIR, 'themes');
-const THEME_SUFFIX = '.tokens.json';
+export { THEMES_DIR, activeThemeName };
 const ROLE_EXT = 'syd.role';
 const FAMILY_EXT = 'syd.roleFamily';
 const THEME_EXT = 'syd.theme';
@@ -109,6 +107,8 @@ function expandSurface(node, roles, ramps, where) {
  */
 export function resolveTheme(tree, roles, doc, name) {
     const meta = doc.$extensions?.[THEME_EXT] ?? {};
+    // The contrast gate has no opt-out: a theme that cannot pass it does not ship.
+    if ('enforceContrast' in meta) throw new Error(`theme ${name}: enforceContrast is not supported, every theme passes the contrast gate`);
     const raw = Object.fromEntries(
         entries(doc.surface).map(([s, node]) => [s, expandSurface(node, roles, meta.familyRamps ?? {}, `theme ${name}/${s}`)]),
     );
@@ -126,7 +126,6 @@ export function resolveTheme(tree, roles, doc, name) {
         name,
         description: doc.$description,
         colorScheme: meta.colorScheme ?? 'normal',
-        enforceContrast: meta.enforceContrast !== false,
         logoTone: meta.logoTone ?? {},
         surfaces,
     };
@@ -141,15 +140,7 @@ export function themeNames(dir = THEMES_DIR) {
 }
 
 export function loadTheme(tree, name, roles = loadRoles(tree), dir = THEMES_DIR) {
-    const doc = JSON.parse(fs.readFileSync(path.join(dir, `${name}${THEME_SUFFIX}`), 'utf8'));
-    return resolveTheme(tree, roles, doc, name);
-}
-
-/** The theme the site ships: `theme` in web_client/brand/brand.json. */
-export function activeThemeName() {
-    const { theme } = JSON.parse(fs.readFileSync(path.join(BRAND_DIR, 'brand.json'), 'utf8'));
-    if (!theme) throw new Error('web_client/brand/brand.json has no "theme"');
-    return theme;
+    return resolveTheme(tree, roles, readThemeDoc(name, dir), name);
 }
 
 /**

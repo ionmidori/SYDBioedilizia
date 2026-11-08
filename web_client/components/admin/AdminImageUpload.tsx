@@ -181,7 +181,7 @@ export function AdminImageUpload({ onUploadSuccess, folder = 'admin_assets' }: A
                   />
                 </div>
                 {compressedSize > 0 && (
-                  <p className="text-ink-muted text-center opacity-80 mt-2">
+                  <p className="text-ink-muted text-center mt-2">
                     Optimized: {(previewSize / 1024 / 1024).toFixed(2)}MB → {(compressedSize / 1024 / 1024).toFixed(2)}MB
                   </p>
                 )}

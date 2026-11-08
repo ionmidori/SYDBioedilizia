@@ -54,12 +54,8 @@ describe('WelcomeBadge', () => {
         act(() => { jest.advanceTimersByTime(2600); }); // badge appears
         act(() => { jest.advanceTimersByTime(100); });  // partial typewriter
 
-        await waitFor(() => {
-            const badge = screen.getByText(/^C/).closest('div[class*="backdrop-blur"]');
-            if (badge) {
-                fireEvent.click(badge);
-            }
-        });
+        // Click the message, as a user would: the whole bubble opens the chat.
+        fireEvent.click(await screen.findByText(/^C/));
 
         expect(defaultProps.onOpenChat).toHaveBeenCalled();
     });

@@ -98,24 +98,6 @@
           "$description": "Google G mark, red segment"
         }
       }
-    },
-    "luxury": {
-      "$description": "Current site palette (dark luxury theme). Kept as-is until the light theme (PR-2) replaces it.",
-      "bg": {
-        "$value": "#264653"
-      },
-      "gold": {
-        "$value": "#E9C46A"
-      },
-      "gold-dark": {
-        "$value": "#B38B36"
-      },
-      "teal": {
-        "$value": "#2A9D8F"
-      },
-      "text": {
-        "$value": "#F4F1DE"
-      }
     }
   },
   "palette": {

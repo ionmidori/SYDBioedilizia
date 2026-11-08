@@ -53,7 +53,7 @@ export function AssetGallery({ assets, onDelete }: AssetGalleryProps) {
 
     if (assets.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-32 text-center border border-line rounded-[2.5rem] glass-premium relative overflow-hidden group">
+            <div className="flex flex-col items-center justify-center py-32 text-center border border-line rounded-[2.5rem] glass relative overflow-hidden group">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-primary-subtle rounded-full blur-[80px] pointer-events-none group-hover:bg-primary-subtle transition-all duration-700" />
 
                 <div className="p-8 bg-canvas/80 border border-line rounded-3xl mb-8 ring-1 ring-line shadow-[0_20px_50px_color-mix(in_oklab,var(--color-shade)_50%,transparent)] relative z-10 transition-all duration-700 group-hover:scale-105 group-hover:border-line">

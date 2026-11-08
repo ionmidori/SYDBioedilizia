@@ -11,6 +11,8 @@ import { expandRamps } from './ramp.mjs';
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 export const BRAND_DIR = path.join(ROOT, 'web_client', 'brand');
 export const TOKENS_DIR = path.join(BRAND_DIR, 'tokens');
+export const THEMES_DIR = path.join(TOKENS_DIR, 'themes');
+export const THEME_SUFFIX = '.tokens.json';
 
 const REF = /^\{([^}]+)\}$/;
 const TONE_EXT = 'syd.tone';
@@ -72,8 +74,35 @@ export function deriveTones(tree) {
     return tree;
 }
 
+/** The theme the site ships: `theme` in web_client/brand/brand.json. */
+export function activeThemeName(brandDir = BRAND_DIR) {
+    const { theme } = JSON.parse(fs.readFileSync(path.join(brandDir, 'brand.json'), 'utf8'));
+    if (!theme) throw new Error('web_client/brand/brand.json has no "theme"');
+    return theme;
+}
+
+export function readThemeDoc(name, dir = THEMES_DIR) {
+    return JSON.parse(fs.readFileSync(path.join(dir, `${name}${THEME_SUFFIX}`), 'utf8'));
+}
+
+/**
+ * The active theme's surfaces as tokens, `theme.surface.<surface>.<role>`, so other
+ * token files can point at them (a logo tone at the surface it sits on) instead of
+ * copying a colour. A surface lists its own roles over the default ones; family
+ * templates (`<tone>`) are expanded by the semantic engine only, not here.
+ */
+export function themeSurfaceTokens(doc) {
+    const own = (node) => Object.fromEntries(Object.entries(node ?? {}).filter(([k]) => !k.startsWith('$') && !k.includes('<')));
+    const base = own(doc.surface?.default);
+    const surface = Object.fromEntries(Object.entries(own(doc.surface)).map(([s, node]) => [s, { ...base, ...own(node) }]));
+    return { surface };
+}
+
+/** Token tree with ramps expanded, the active theme's surfaces under `theme`, and the logo tones derived. */
 export function loadTokens(dir = TOKENS_DIR) {
-    return deriveTones(expandRamps(loadTokenFiles(dir), resolveValue));
+    const tree = expandRamps(loadTokenFiles(dir), resolveValue);
+    tree.theme = themeSurfaceTokens(readThemeDoc(activeThemeName(path.dirname(dir)), path.join(dir, 'themes')));
+    return deriveTones(tree);
 }
 
 /** Logo role -> hex for a tone ('default' = the plain logo roles). */

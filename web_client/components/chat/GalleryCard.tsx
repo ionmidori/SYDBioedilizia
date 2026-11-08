@@ -133,7 +133,7 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                                 <select
                                     value={editRoom}
                                     onChange={(e) => setEditRoom(e.target.value)}
-                                    className="w-full bg-canvas/50 border border-line rounded-lg px-3 py-2 text-ink focus:border-accent focus:outline-none"
+                                    className="w-full bg-canvas/50 border border-line rounded-lg px-3 py-2 text-ink focus:border-accent focus:outline-hidden"
                                 >
                                     <option value="">-- Seleziona --</option>
                                     {ROOM_TYPES.map(room => (
@@ -148,7 +148,7 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                                 <select
                                     value={editStatus}
                                     onChange={(e) => setEditStatus(e.target.value)}
-                                    className="w-full bg-canvas/50 border border-line rounded-lg px-3 py-2 text-ink focus:border-accent focus:outline-none"
+                                    className="w-full bg-canvas/50 border border-line rounded-lg px-3 py-2 text-ink focus:border-accent focus:outline-hidden"
                                 >
                                     <option value="">-- Seleziona --</option>
                                     {STATUS_OPTIONS.map(status => (
@@ -185,7 +185,7 @@ export function GalleryCard({ items, projectId }: GalleryCardProps) {
                                     }}
                                     // The backend needs at least one field to update.
                                     disabled={isUpdating || (!editRoom && !editStatus)}
-                                    className="flex-1 bg-accent hover:bg-accent/80 text-on-accent font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                    className="flex-1 border border-transparent bg-accent hover:bg-accent/80 text-on-accent font-medium py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                                 >
                                     <Check className="w-4 h-4" />
                                     {isUpdating ? 'Salvataggio...' : 'Salva'}

@@ -9,7 +9,7 @@ import { usePriceBookHistory } from '@/hooks/admin/use-admin';
 export function HistoryPanel() {
   const history = usePriceBookHistory(true);
   return (
-    <section className="glass-premium rounded-2xl p-4 border border-line" data-testid="pb-history">
+    <section className="glass rounded-2xl p-4 border border-line" data-testid="pb-history">
       <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Storico delle versioni</h2>
       {history.isPending ? (
         <Loader2 className="w-4 h-4 animate-spin text-accent-ink" aria-label="Caricamento" />

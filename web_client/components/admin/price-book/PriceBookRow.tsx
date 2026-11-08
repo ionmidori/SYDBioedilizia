@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import type { PriceBookItem } from '@/types/admin-price-book';
 
 const FIELD =
-  'w-full rounded-lg bg-surface border border-line px-2.5 py-1.5 text-base md:text-sm focus:outline-none focus:border-accent';
+  'w-full rounded-lg bg-surface border border-line px-2.5 py-1.5 text-base md:text-sm focus:outline-hidden focus:border-accent';
 
 type Mark = 'new' | 'changed' | null;
 

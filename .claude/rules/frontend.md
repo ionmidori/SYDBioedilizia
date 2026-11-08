@@ -37,9 +37,16 @@ sendMessage({ role: 'user', content: "input" } as any)
 - Auth: Firebase Client SDK with `AuthProvider` context
 - Chat: Vercel AI SDK (`@ai-sdk/react`) → Next.js proxy `/api/chat` (`app/api/chat/route.ts`, pass-through SSE) → backend `/chat/stream`. Token streaming end-to-end: never buffer, re-frame or `Connection: close` in the proxy; `MessageItem` must not subscribe to the chat context (re-renders every message per token)
 
-## Styling (Tailwind 4 + M3 Expressive)
-- Material Design 3 Expressive + Glassmorphism
-- Surface classes: `.surface-container-low`, `.surface-container-high` (in `globals.css`)
+## Styling (Tailwind 4 + M3 Expressive, light theme)
+- **Tokens are the source**: `web_client/brand/tokens/*.tokens.json` → `npm run brand:build` → `app/brand-tokens.css` + `lib/brand/tokens.generated.ts`. Never edit generated files; see `web_client/brand/README.md`
+- **Colour = semantic roles only**: surfaces `bg-canvas` / `bg-surface` / `bg-surface-muted`; text `text-ink` / `text-ink-muted` / `text-ink-subtle` (large text and icons only); lines `border-line` / `border-line-strong` (control edges) / `ring-ring`; actions `bg-primary` + `text-on-primary`, links `text-primary-ink`; sand `bg-accent` (decorative) + `text-accent-ink` (text); status `bg-<s>` + `text-on-<s>`, `bg-<s>-subtle` + `text-<s>-ink` (`danger|warning|success|info`); photos `bg-scrim` / `text-on-scrim`
+- **Forbidden** (guard test + `better-tailwindcss/no-unknown-classes` lint): colour literals in TS/TSX/CSS, the default Tailwind palette (`bg-white`, `text-slate-400`, ... generate nothing), opacity on text roles (`text-ink/60`), `outline-none` (use `outline-hidden` + `ring-*`: the ring vanishes in forced-colors mode)
+- **Contrast** is checked in build for every role on every surface; axe (WCAG 2.2 AA) blocks the e2e suites. Fix a failure by choosing the right role, never with an axe exclusion
+- **Depth**: elevation (`shadow-1/2/3`, `<Card elevation>`); glassmorphism is not the default, `glass` only for sticky bars and panels over scrolling content
+- **Dark bands** (footer, CTA): `surface-inverse` on the container; children keep `text-ink`, `border-line`, ...; `<BrandLogo>` takes the tone by itself
+- **Variants, not repeated class strings**: `Button variant`, `StatusBadge`/`Alert tone`, `Card elevation` (`components/ui`)
+- **Typography**: `font-sans` (Lato), `font-serif` (Playfair, headings), `wordmark` for the brand name inside text, `<BrandLogo>` as identity
+- **New shadcn component**: `npm run theme:migrate -- --write "<glob>"`, then `--check`
 - Motion: Use `lib/m3-motion.ts` variants for consistent animations
 - Responsive: Mobile-first (`md:`, `lg:` breakpoints)
 

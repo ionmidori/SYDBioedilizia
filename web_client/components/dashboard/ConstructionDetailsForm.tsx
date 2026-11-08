@@ -79,7 +79,7 @@ export default function ConstructionDetailsForm({
     };
 
     return (
-        <div className="w-full max-w-4xl mx-auto p-10 glass-premium border-line rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
+        <div className="w-full max-w-4xl mx-auto p-10 glass border-line rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
             {/* Design Element - Radial Glow */}
             <div className="absolute -top-20 -right-20 w-80 h-80 bg-primary-subtle rounded-full blur-[100px] pointer-events-none transition-all duration-1000 group-hover:bg-primary-subtle" />
 
@@ -105,7 +105,7 @@ export default function ConstructionDetailsForm({
                         <select
                             {...register("property_type")}
                             id="property_type"
-                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none appearance-none font-medium shadow-inner"
+                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-hidden appearance-none font-medium shadow-inner"
                         >
                             <option value="apartment">Appartamento</option>
                             <option value="villa">Villa</option>
@@ -132,7 +132,7 @@ export default function ConstructionDetailsForm({
                                 type="number"
                                 id="footage_sqm"
                                 step="0.01"
-                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner"
+                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-hidden font-medium shadow-inner"
                                 placeholder="es. 120"
                             />
                             <div className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-muted font-bold text-xs">SQM</div>
@@ -163,7 +163,7 @@ export default function ConstructionDetailsForm({
                             {...register("address.street")}
                             type="text"
                             id="address_street"
-                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner"
+                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-hidden font-medium shadow-inner"
                             placeholder="es. Via Alessandro Manzoni 15"
                         />
                         {errors.address?.street && (
@@ -185,7 +185,7 @@ export default function ConstructionDetailsForm({
                                 {...register("address.city")}
                                 type="text"
                                 id="address_city"
-                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner"
+                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-hidden font-medium shadow-inner"
                                 placeholder="es. Milano"
                             />
                             {errors.address?.city && (
@@ -206,7 +206,7 @@ export default function ConstructionDetailsForm({
                                 {...register("address.zip")}
                                 type="text"
                                 id="address_zip"
-                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner"
+                                className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-hidden font-medium shadow-inner"
                                 placeholder="es. 20121"
                             />
                             {errors.address?.zip && (
@@ -232,7 +232,7 @@ export default function ConstructionDetailsForm({
                             type="number"
                             id="budget_cap"
                             step="100"
-                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-bold text-xl shadow-inner text-primary-ink"
+                            className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-hidden font-bold text-xl shadow-inner text-primary-ink"
                             placeholder="es. 75.000"
                         />
                         <div className="absolute left-5 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-focus-within:opacity-10 transition-opacity">€</div>
@@ -256,7 +256,7 @@ export default function ConstructionDetailsForm({
                         {...register("technical_notes")}
                         id="technical_notes"
                         rows={5}
-                        className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-none font-medium shadow-inner resize-none"
+                        className="w-full px-5 py-4 border border-line rounded-xl bg-canvas/50 text-ink focus:ring-2 focus:ring-ring focus:border-primary transition-all outline-hidden font-medium shadow-inner resize-none"
                         placeholder="es. Parete portante abbattibile con trave HEB140, riscaldamento a pavimento esistente, vincoli paesaggistici..."
                     />
                     {errors.technical_notes && (

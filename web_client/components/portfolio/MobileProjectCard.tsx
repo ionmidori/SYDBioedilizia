@@ -65,7 +65,7 @@ export function MobileProjectCard({
                 <motion.span
                     animate={{ opacity: isActive ? 1 : 0, y: isActive ? 0 : 12 }}
                     transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
-                    className="block [text-shadow:0_1px_2px_color-mix(in_oklab,var(--color-shade)_90%,transparent),0_2px_10px_color-mix(in_oklab,var(--color-shade)_60%,transparent)]"
+                    className="block [text-shadow:0_1px_2px_color-mix(in_oklab,var(--color-canvas)_90%,transparent),0_2px_10px_color-mix(in_oklab,var(--color-canvas)_60%,transparent)]"
                 >
                     {/* grid-rows 1fr↔0fr animates height without layout-triggering
                         properties (CLS-safe). line-clamp-4 bounds a long real description. */}

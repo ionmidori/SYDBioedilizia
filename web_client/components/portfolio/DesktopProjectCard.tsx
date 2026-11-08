@@ -41,11 +41,11 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioCard;
 
             <div className="absolute inset-0 p-6 flex flex-col justify-end translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                 <div className="relative z-20">
-                    <p className="text-on-scrim text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
+                    <p className="text-accent-ink text-sm font-medium mb-2 -translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
                         {project.category}
                     </p>
 
-                    <h3 className="text-2xl font-bold text-ink mb-2">{project.title}</h3>
+                    <h2 className="text-2xl font-bold text-ink mb-2">{project.title}</h2>
 
                     {/* grid-rows trick: animates height without touching layout-triggering properties */}
                     <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">

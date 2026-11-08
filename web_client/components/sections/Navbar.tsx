@@ -144,7 +144,7 @@ export function Navbar() {
                     {/* Left: Logo & Contacts */}
                     <div className="flex items-center gap-4 xl:gap-8 z-10 shrink-0">
                         <Link href="/" onClick={() => triggerHaptic()} className="group shrink-0">
-                            <BrandLogo variant="horizontal" tone="on-dark" className="h-8 md:h-10 group-hover:opacity-90 transition-opacity" />
+                            <BrandLogo variant="horizontal" className="h-8 md:h-10 group-hover:opacity-90 transition-opacity" />
                         </Link>
                         {/* Desktop Contact Dropdown - M3 Expressive */}
                         <div className="hidden xl:flex items-center gap-2 relative" ref={contactMenuRefDesktop}>
@@ -180,7 +180,7 @@ export function Navbar() {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                         transition={M3Spring.bouncy}
-                                        className="absolute top-14 left-0 bg-canvas border border-line shadow-elevation-high p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
+                                        className="absolute top-14 left-0 bg-canvas border border-line shadow-3 p-2 flex flex-col gap-1 min-w-[220px] rounded-[4px_24px_24px_24px] origin-top-left z-50"
                                     >
                                         <div className="absolute -top-2 left-6 w-4 h-4 bg-canvas border-t border-l border-line rotate-45 transform" />
 
@@ -272,7 +272,7 @@ export function Navbar() {
                                         animate={{ opacity: 1, y: 0, scale: 1 }}
                                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                         transition={M3Spring.bouncy}
-                                        className="absolute top-12 right-0 bg-canvas border border-line shadow-elevation-high p-2 flex flex-col gap-1 min-w-[200px] rounded-[24px_4px_24px_24px] origin-top-right z-50"
+                                        className="absolute top-12 right-0 bg-canvas border border-line shadow-3 p-2 flex flex-col gap-1 min-w-[200px] rounded-[24px_4px_24px_24px] origin-top-right z-50"
                                     >
                                         <div className="absolute -top-2 right-3 w-4 h-4 bg-canvas border-t border-l border-line rotate-45 transform" />
 
@@ -342,7 +342,7 @@ export function Navbar() {
                                     <motion.div variants={mobileMenuItem} className="w-full">
                                         <button
                                             onClick={handlePersonalAreaClick}
-                                            className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-line transition-all duration-300 active:scale-95 group shadow-xl"
+                                            className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass border-line transition-all duration-300 active:scale-95 group shadow-xl"
                                         >
                                             <span className="font-bold uppercase tracking-[0.15em] text-[10px] text-ink group-hover:text-accent-ink transition-colors">Area Personale</span>
                                         </button>
@@ -356,7 +356,7 @@ export function Navbar() {
                                         >
                                             <Link
                                                 href={link.href}
-                                                className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-line transition-all duration-300 active:scale-95 group shadow-xl"
+                                                className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass border-line transition-all duration-300 active:scale-95 group shadow-xl"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);

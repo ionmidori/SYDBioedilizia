@@ -13,9 +13,6 @@ const AXE_SOURCE = createRequire(__filename).resolve('axe-core/axe.min.js');
 
 export const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'];
 
-/** Axe fails the test only when enforcing; otherwise it reports (PR-2a: the dark theme has known violations). */
-export const A11Y_ENFORCE = process.env.THEME_A11Y_ENFORCE === '1';
-
 async function screenshot(page: Page, name: string, mask: readonly string[]) {
   await expect(page).toHaveScreenshot(`${name}.png`, {
     fullPage: true,
@@ -34,10 +31,10 @@ async function audit(page: Page, name: string, testInfo: TestInfo) {
     (tags) => (window as unknown as { axe: { run: (ctx: Document, o: object) => Promise<AxeResults> } }).axe.run(document, { runOnly: { type: 'tag', values: tags } }),
     WCAG_TAGS,
   );
-  const summary = results.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length }));
   await testInfo.attach(`axe-${name}.json`, { body: JSON.stringify(results.violations, null, 2), contentType: 'application/json' });
-  if (A11Y_ENFORCE) expect(summary, `axe violations on ${name}`).toEqual([]);
-  else if (summary.length) console.warn(`[axe report] ${name}: ${JSON.stringify(summary)}`);
+  // Blocking: every WCAG A/AA violation fails the page, on every viewport and state.
+  const summary = results.violations.map((v) => ({ id: v.id, impact: v.impact, targets: v.nodes.map((n) => n.target.join(' ')) }));
+  expect(summary, `axe violations on ${name}`).toEqual([]);
 }
 
 type Check = 'visual' | 'a11y';
@@ -51,8 +48,6 @@ export const checkCases = (pages: ThemePage[]) =>
 
 /** Visit the page, open the state (if any) and run `check`. Skips states absent at this viewport. */
 export async function runThemeCheck(page: Page, c: ReturnType<typeof checkCases>[number], check: Check, testInfo: TestInfo) {
-  // In report mode the audit can only warn: not worth CI minutes until it is enforced.
-  testInfo.skip(check === 'a11y' && !!process.env.CI && !A11Y_ENFORCE, 'axe report mode runs locally; CI runs it once enforced');
   await visit(page, c.page.path);
   if (c.state && !(await c.state.open(page))) {
     testInfo.skip(true, `${c.state.id} does not exist at this viewport`);

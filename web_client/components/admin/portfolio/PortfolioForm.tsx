@@ -20,7 +20,7 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
 
 const FIELD =
-  'w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent';
+  'w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent';
 
 interface FormState {
   title: string;

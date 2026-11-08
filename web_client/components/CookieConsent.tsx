@@ -59,7 +59,7 @@ export function CookieConsent() {
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     className="fixed bottom-6 inset-x-6 z-[200] flex justify-center pointer-events-none"
                 >
-                    <div className="w-full max-w-4xl glass-premium !bg-canvas/95 p-6 md:p-8 rounded-[2rem] border-line shadow-2xl pointer-events-auto relative overflow-hidden group">
+                    <div className="w-full max-w-4xl glass !bg-canvas/95 p-6 md:p-8 rounded-[2rem] border-line shadow-2xl pointer-events-auto relative overflow-hidden group">
                         {/* Atmospheric Background Element */}
                         <div className="absolute -top-10 -right-10 w-40 h-40 bg-accent-subtle rounded-full blur-3xl pointer-events-none group-hover:bg-accent-subtle transition-all duration-700" />
 
@@ -75,7 +75,7 @@ export function CookieConsent() {
                                     </h3>
                                     <p className="text-sm text-ink-muted leading-relaxed max-w-2xl">
                                         Utilizziamo i cookie per migliorare la tua esperienza e analizzare il traffico.
-                                        Puoi accettare tutti i cookie o personalizzare le tue preferenze. Leggi i nostri <Link href="/terms" target="_blank" className="text-accent-ink hover:underline">Termini di Servizio</Link>, l&apos;<Link href="/privacy" target="_blank" className="text-accent-ink hover:underline">Informativa sulla Privacy</Link> e la <Link href="/cookie-policy" target="_blank" className="text-accent-ink hover:underline">Cookie Policy</Link>.
+                                        Puoi accettare tutti i cookie o personalizzare le tue preferenze. Leggi i nostri <Link href="/terms" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Termini di Servizio</Link>, l&apos;<Link href="/privacy" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Informativa sulla Privacy</Link> e la <Link href="/cookie-policy" target="_blank" className="text-accent-ink underline underline-offset-2 hover:decoration-2">Cookie Policy</Link>.
                                     </p>
                                 </div>
 
@@ -106,8 +106,8 @@ export function CookieConsent() {
                                     <h3 className="text-xl font-bold text-ink font-serif">
                                         Impostazioni <span className="text-accent-ink italic">Avanzate</span>
                                     </h3>
-                                    <button onClick={() => setShowSettings(false)} className="text-ink-subtle hover:text-accent-ink transition-colors">
-                                        <X className="w-6 h-6" />
+                                    <button type="button" onClick={() => setShowSettings(false)} aria-label="Chiudi le impostazioni" className="text-ink-muted hover:text-accent-ink transition-colors rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+                                        <X className="w-6 h-6" aria-hidden="true" />
                                     </button>
                                 </div>
 
@@ -143,7 +143,7 @@ export function CookieConsent() {
                                     </Button>
                                     <Button
                                         onClick={handleSaveSettings}
-                                        className="bg-accent hover:bg-accent text-on-accent font-bold uppercase tracking-widest text-[10px] h-12 px-10 rounded-xl shadow-lg transition-all border border-line"
+                                        className="bg-accent hover:bg-accent/90 text-on-accent font-bold uppercase tracking-widest text-[10px] h-12 px-10 rounded-xl shadow-lg transition-all border border-line"
                                     >
                                         Salva Preferenze
                                     </Button>
@@ -158,25 +158,31 @@ export function CookieConsent() {
 }
 
 function CategoryToggle({ title, desc, active, onClick, locked = false }: { title: string, desc: string, active: boolean, onClick: () => void, locked?: boolean }) {
+    // A native toggle button: focusable, operable with Enter/Space, and its state
+    // (aria-pressed) is announced. A locked category is on and cannot change.
     return (
-        <div
+        <button
+            type="button"
             onClick={onClick}
-            className={`p-4 rounded-2xl border transition-all duration-300 cursor-pointer ${active
+            aria-pressed={active}
+            disabled={locked}
+            className={`w-full text-left p-4 rounded-2xl border transition-all duration-300 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${active
                 ? 'bg-accent-subtle border-line shadow-inner'
-                : 'bg-surface border-line hover:border-line'
-                } ${locked ? 'cursor-default opacity-80' : 'hover:scale-[1.02]'}`}
+                : 'bg-surface border-line-strong'
+                } ${locked ? 'cursor-default' : 'cursor-pointer hover:scale-[1.02]'}`}
         >
-            <div className="flex items-center justify-between mb-2">
-                <span className={`text-sm font-bold uppercase tracking-wider ${active ? 'text-accent-ink' : 'text-ink-subtle'}`}>
+            <span className="flex items-center justify-between mb-2">
+                <span className={`text-sm font-bold uppercase tracking-wider ${active ? 'text-accent-ink' : 'text-ink-muted'}`}>
                     {title}
                 </span>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${active ? 'bg-accent border-accent text-on-accent' : 'border-line-strong text-transparent'
+                {/* The mark is drawn only when on: forced-colors mode would reveal a transparent one. */}
+                <span aria-hidden="true" className={`w-6 h-6 rounded-full flex items-center justify-center border transition-all ${active ? 'bg-accent border-accent text-on-accent' : 'border-line-strong'
                     }`}>
-                    <Check className="w-3 h-3 stroke-[4]" />
-                </div>
-            </div>
-            <p className="text-[10px] text-ink-muted leading-snug">{desc}</p>
-        </div>
+                    {active && <Check className="w-3 h-3 stroke-[4]" />}
+                </span>
+            </span>
+            <span className="block text-[10px] text-ink-muted leading-snug">{desc}</span>
+        </button>
     );
 }
 

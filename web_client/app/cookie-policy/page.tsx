@@ -16,7 +16,7 @@ export default function CookiePolicyPage() {
             </div>
 
             {/* Navigation */}
-            <nav className="sticky top-0 z-50 glass-premium border-b border-line px-6 py-4">
+            <nav className="sticky top-0 z-50 glass border-b border-line px-6 py-4">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2 text-accent-ink hover:text-ink transition-colors group">
                         <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -46,7 +46,7 @@ export default function CookiePolicyPage() {
                     </header>
 
                     {/* Content */}
-                    <div className="prose prose-invert max-w-none space-y-10 text-ink leading-relaxed font-medium">
+                    <div className="prose max-w-none space-y-10 text-ink leading-relaxed font-medium">
                         <p className="text-lg leading-relaxed">
                             Questo Sito utilizza cookie tecnici (necessari), e con il tuo consenso anche cookie analitici e di profilazione, utili rispettivamente per consentire funzionalità fondamentali, misurare le performance o fornirti indicazioni promozionali in linea con i tuoi interessi.
                         </p>
@@ -95,7 +95,7 @@ export default function CookiePolicyPage() {
                             </ul>
                             <div className="mt-8 p-6 bg-primary-subtle border border-primary/10 rounded-3xl space-y-4">
                                 <h3 className="text-sm font-bold uppercase tracking-widest text-accent-ink">Dettagli per Browser</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[11px] leading-relaxed opacity-60">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs leading-relaxed text-ink-muted">
                                     <div className="space-y-2">
                                         <p className="font-bold">Firefox:</p>
                                         <p>Gestione: Pannello Privacy in Impostazioni. &Egrave; possibile inibire il tracciamento e gestire singolarmente i cookie di terze parti.</p>
@@ -124,7 +124,7 @@ export default function CookiePolicyPage() {
 
 function CookieCategoryItem({ title, desc, required = false }: { title: string, desc: string, required?: boolean }) {
     return (
-        <div className="p-6 bg-surface border border-line rounded-[2rem] hover:border-line transition-all group">
+        <div className="p-6 bg-surface border border-line rounded-[2rem] hover:border-line-strong transition-all group">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-serif italic text-accent-ink">{title}</h3>
                 {required && <span className="text-[10px] uppercase tracking-widest font-bold text-accent-ink border border-line px-3 py-1 rounded-full">Sempre Attivo</span>}
@@ -141,10 +141,10 @@ function BrowserLink({ name, url }: { name: string, url: string }) {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between p-4 bg-primary-subtle border border-primary/10 rounded-2xl hover:bg-primary-subtle hover:border-line transition-all group"
+                className="flex items-center justify-between p-4 bg-primary-subtle border border-primary/10 rounded-2xl hover:bg-surface-muted hover:border-line-strong transition-all group"
             >
-                <span className="text-sm font-bold opacity-70 group-hover:opacity-100">{name}</span>
-                <ArrowLeft className="w-4 h-4 rotate-180 text-accent-ink group-hover:text-accent-ink transition-colors" />
+                <span className="text-sm font-bold text-ink">{name}</span>
+                <ArrowLeft className="w-4 h-4 rotate-180 text-accent-ink group-hover:translate-x-0.5 transition-transform" />
             </a>
         </li>
     );

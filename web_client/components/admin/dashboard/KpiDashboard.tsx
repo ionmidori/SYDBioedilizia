@@ -18,7 +18,7 @@ function Kpi({ label, value, hint, testId, href }: { label: string; value: strin
       {hint && <p className="mt-0.5 text-[11px] text-ink-muted">{hint}</p>}
     </>
   );
-  const box = 'glass-premium rounded-2xl p-4 border border-line block h-full';
+  const box = 'glass rounded-2xl p-4 border border-line block h-full';
   return (
     <li>
       {href ? (
@@ -109,7 +109,7 @@ export function KpiDashboard() {
       )}
 
       <div className="grid lg:grid-cols-3 gap-4 items-start">
-        <section className="lg:col-span-2 glass-premium rounded-2xl p-4 border border-line">
+        <section className="lg:col-span-2 glass rounded-2xl p-4 border border-line">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">
             Approvazioni settimanali (ultime 8 settimane)
           </h2>
@@ -122,7 +122,7 @@ export function KpiDashboard() {
           )}
         </section>
 
-        <section className="glass-premium rounded-2xl p-4 border border-line" data-testid="recent-approvals">
+        <section className="glass rounded-2xl p-4 border border-line" data-testid="recent-approvals">
           <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Ultimi approvati</h2>
           {data.recent_approvals.length === 0 ? (
             <p className="text-sm text-ink-muted">Nessun preventivo approvato.</p>
@@ -147,7 +147,7 @@ export function KpiDashboard() {
         </section>
       </div>
 
-      <section className="glass-premium rounded-2xl p-4 border border-line">
+      <section className="glass rounded-2xl p-4 border border-line">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-accent-ink mb-3">Stato delle recensioni</h2>
         <dl className="grid grid-cols-3 gap-3 text-center">
           {(

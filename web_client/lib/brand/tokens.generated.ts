@@ -36,13 +36,6 @@ export const brandColors = {
             "logo-yellow": "#fbbc05",
             "logo-red": "#ea4335"
         }
-    },
-    "luxury": {
-        "bg": "#264653",
-        "gold": "#e9c46a",
-        "gold-dark": "#b38b36",
-        "teal": "#2a9d8f",
-        "text": "#f4f1de"
     }
 } as const;
 
@@ -93,7 +86,7 @@ export const LOGO_TONE_CLASS: Record<Exclude<LogoTone, 'default'>, string> = {
 };
 
 /** Theme shipped by the site (web_client/brand/brand.json). */
-export const ACTIVE_THEME = "legacy";
+export const ACTIVE_THEME = "light";
 
 /** Semantic colour roles (web_client/brand/tokens/roles.tokens.json): the only colour vocabulary of the UI. */
 export const ROLE_NAMES = [
@@ -173,6 +166,23 @@ export const STATUS_TONES = [
 ] as const;
 export type StatusTone = (typeof STATUS_TONES)[number];
 
+/** next/font face and CSS variable of each font role (typography.tokens.json); app/layout.tsx is held to these. */
+export const FONT_VARIABLES = {
+    "sans": {
+        "face": "Lato",
+        "variable": "--font-face-sans"
+    },
+    "serif": {
+        "face": "Playfair Display",
+        "variable": "--font-face-serif"
+    },
+    "brand": {
+        "face": "Red Hat Display",
+        "variable": "--font-face-brand"
+    }
+} as const;
+export type FontRole = keyof typeof FONT_VARIABLES;
+
 export const ELEVATION_LEVELS = [
     1,
     2,
@@ -183,81 +193,81 @@ export type ElevationLevel = (typeof ELEVATION_LEVELS)[number];
 /** Resolved role colours of the active theme, per surface (#rrggbb, #rrggbbaa when translucent). */
 export const themeRoles = {
     "default": {
-        "canvas": "#264653",
-        "surface": "#314f5c",
-        "surface-muted": "#3c5964",
-        "ink": "#f4f1de",
-        "ink-muted": "#b6beb4",
-        "ink-subtle": "#788a8b",
-        "line": "#3c5964",
-        "line-strong": "#74785c",
-        "ring": "#e9c46a",
-        "primary": "#2a9d8f",
-        "primary-hover": "#2a9489",
-        "primary-subtle": "#27575f",
+        "canvas": "#fbf6ee",
+        "surface": "#ffffff",
+        "surface-muted": "#f3eee6",
+        "ink": "#012236",
+        "ink-muted": "#5e5a53",
+        "ink-subtle": "#75716a",
+        "line": "#e2ddd5",
+        "line-strong": "#75716a",
+        "ring": "#0379b3",
+        "primary": "#0c6c9f",
+        "primary-hover": "#004a70",
+        "primary-subtle": "#f0f8fe",
         "on-primary": "#ffffff",
-        "primary-ink": "#2a9d8f",
-        "accent": "#e9c46a",
-        "accent-subtle": "#3a5355",
-        "on-accent": "#264653",
-        "accent-ink": "#e9c46a",
-        "scrim": "#221f1999",
+        "primary-ink": "#0c6c9f",
+        "accent": "#cda865",
+        "accent-subtle": "#fef6e7",
+        "on-accent": "#07385f",
+        "accent-ink": "#5b4001",
+        "scrim": "#221f19a6",
         "shade": "#221f19",
         "on-scrim": "#ffffff",
-        "danger": "#e15955",
-        "danger-subtle": "#394853",
-        "danger-ink": "#ff7e77",
+        "danger": "#c13c3b",
+        "danger-subtle": "#fff4f3",
+        "danger-ink": "#860012",
         "on-danger": "#ffffff",
-        "warning": "#bb7e05",
-        "warning-subtle": "#354c4b",
-        "warning-ink": "#e19b1b",
+        "warning": "#7a5103",
+        "warning-subtle": "#fff5e8",
+        "warning-ink": "#5e3d00",
         "on-warning": "#ffffff",
-        "success": "#48a260",
-        "success-subtle": "#294f54",
-        "success-ink": "#69c27e",
+        "success": "#298646",
+        "success-subtle": "#e5ffe9",
+        "success-ink": "#025424",
         "on-success": "#ffffff",
-        "info": "#1c95d8",
-        "info-subtle": "#254e60",
-        "info-ink": "#48b5fa",
+        "info": "#0379b3",
+        "info-subtle": "#f0f8fe",
+        "info-ink": "#004a70",
         "on-info": "#ffffff"
     },
     "inverse": {
-        "canvas": "#264653",
-        "surface": "#314f5c",
-        "surface-muted": "#3c5964",
-        "ink": "#f4f1de",
-        "ink-muted": "#b6beb4",
-        "ink-subtle": "#788a8b",
-        "line": "#3c5964",
-        "line-strong": "#74785c",
-        "ring": "#e9c46a",
-        "primary": "#2a9d8f",
-        "primary-hover": "#2a9489",
-        "primary-subtle": "#27575f",
-        "on-primary": "#ffffff",
-        "primary-ink": "#2a9d8f",
-        "accent": "#e9c46a",
-        "accent-subtle": "#3a5355",
-        "on-accent": "#264653",
-        "accent-ink": "#e9c46a",
-        "scrim": "#221f1999",
+        "canvas": "#07385f",
+        "surface": "#023450",
+        "surface-muted": "#012236",
+        "ink": "#fbf6ee",
+        "ink-muted": "#cbc7bf",
+        "ink-subtle": "#afaaa2",
+        "line": "#004a70",
+        "line-strong": "#48b5fa",
+        "ring": "#cda865",
+        "primary": "#cda865",
+        "primary-hover": "#efbf67",
+        "primary-subtle": "#004a70",
+        "on-primary": "#07385f",
+        "primary-ink": "#8ed0ff",
+        "accent": "#cda865",
+        "accent-subtle": "#012236",
+        "on-accent": "#07385f",
+        "accent-ink": "#cda865",
+        "scrim": "#221f19a6",
         "shade": "#221f19",
         "on-scrim": "#ffffff",
-        "danger": "#e15955",
-        "danger-subtle": "#394853",
-        "danger-ink": "#ff7e77",
-        "on-danger": "#ffffff",
-        "warning": "#bb7e05",
-        "warning-subtle": "#354c4b",
-        "warning-ink": "#e19b1b",
-        "on-warning": "#ffffff",
-        "success": "#48a260",
-        "success-subtle": "#294f54",
-        "success-ink": "#69c27e",
-        "on-success": "#ffffff",
-        "info": "#1c95d8",
-        "info-subtle": "#254e60",
-        "info-ink": "#48b5fa",
-        "on-info": "#ffffff"
+        "danger": "#ff7e77",
+        "danger-subtle": "#420105",
+        "danger-ink": "#ffb0a9",
+        "on-danger": "#221f19",
+        "warning": "#e19b1b",
+        "warning-subtle": "#2d1b00",
+        "warning-ink": "#ffb848",
+        "on-warning": "#221f19",
+        "success": "#69c27e",
+        "success-subtle": "#00270d",
+        "success-ink": "#86df9a",
+        "on-success": "#221f19",
+        "info": "#48b5fa",
+        "info-subtle": "#012236",
+        "info-ink": "#8ed0ff",
+        "on-info": "#221f19"
     }
 } as const;

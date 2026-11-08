@@ -208,7 +208,7 @@ export default function ProfilePage() {
             )}
 
             {/* Profile Section */}
-            <div className="flex flex-col md:flex-row items-center gap-8 p-8 glass-premium border border-line rounded-3xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row items-center gap-8 p-8 glass border border-line rounded-3xl relative overflow-hidden">
                 <div className="absolute -top-24 -right-24 w-64 h-64 bg-accent-subtle rounded-full blur-3xl pointer-events-none" />
 
                 <div className="relative">
@@ -235,9 +235,11 @@ export default function ProfilePage() {
                         </div>
                     )}
                     <button
+                        type="button"
+                        aria-label="Cambia la tua foto profilo"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploadingAvatar}
-                        className="absolute bottom-0 right-0 p-2 bg-accent text-on-accent rounded-full shadow-lg hover:bg-accent transition-colors disabled:opacity-50"
+                        className="absolute bottom-0 right-0 p-2 bg-accent text-on-accent border border-transparent rounded-full shadow-lg hover:bg-accent/90 transition-colors disabled:opacity-50"
                     >
                         {isUploadingAvatar ? (
                             <SydLoader size="sm" />
@@ -261,7 +263,7 @@ export default function ProfilePage() {
 
             {/* Info Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-6 glass-premium border border-line rounded-2xl space-y-4">
+                <div className="p-6 glass border border-line rounded-2xl space-y-4">
                     <div className="flex items-center gap-3 text-accent-ink">
                         <User className="w-5 h-5" />
                         <h3 className="font-bold uppercase tracking-widest text-xs">Informazioni Personali</h3>
@@ -275,7 +277,7 @@ export default function ProfilePage() {
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
                                 placeholder="Il tuo nome"
-                                className="w-full bg-transparent border-b border-line focus:border-accent outline-none text-ink font-medium py-1 transition-colors"
+                                className="w-full bg-transparent border-b border-line focus:border-accent outline-hidden text-ink font-medium py-1 transition-colors"
                             />
                             {nameError && <p className="text-xs text-danger-ink">{nameError}</p>}
                         </div>
@@ -286,7 +288,7 @@ export default function ProfilePage() {
                     </div>
                 </div>
 
-                <div className="p-6 glass-premium border border-line rounded-2xl space-y-4">
+                <div className="p-6 glass border border-line rounded-2xl space-y-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 text-accent-ink">
                             <Lock className="w-5 h-5" />
@@ -315,43 +317,55 @@ export default function ProfilePage() {
             </div>
 
             {/* Notifications */}
-            <div className="p-8 glass-premium border border-line rounded-3xl space-y-6">
+            <div className="p-8 glass border border-line rounded-3xl space-y-6">
                 <div className="flex items-center gap-3 text-accent-ink">
                     <Bell className="w-5 h-5" />
                     <h3 className="font-bold uppercase tracking-widest text-xs">Preferenze Notifiche</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <label className="flex items-center justify-between p-4 rounded-xl bg-surface hover:bg-surface-muted transition-colors cursor-pointer group">
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-surface hover:bg-surface-muted transition-colors group">
                         <div className="space-y-0.5">
-                            <p className="text-ink font-medium group-hover:text-accent-ink transition-colors">Aggiornamenti Preventivi</p>
-                            <p className="text-sm text-ink-muted">Ricevi notifiche quando i preventivi sono pronti</p>
+                            <label
+                                id="quote-ready-label"
+                                htmlFor="quote-ready-switch"
+                                className="text-ink font-medium group-hover:text-accent-ink transition-colors cursor-pointer"
+                            >
+                                Aggiornamenti Preventivi
+                            </label>
+                            <p id="quote-ready-desc" className="text-sm text-ink-muted">
+                                Ricevi notifiche quando i preventivi sono pronti
+                            </p>
                         </div>
-                        <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-canvas ${
+                        <button
+                            id="quote-ready-switch"
+                            type="button"
+                            role="switch"
+                            aria-checked={Boolean(preferences?.notifications?.quoteReady)}
+                            aria-labelledby="quote-ready-label"
+                            aria-describedby="quote-ready-desc"
+                            onClick={toggleQuoteNotifications}
+                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-transparent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
                                 preferences?.notifications?.quoteReady ? 'bg-primary' : 'bg-line-strong'
                             }`}
-                            onClick={(e) => {
-                                e.preventDefault();
-                                toggleQuoteNotifications();
-                            }}
-                            role="switch"
-                            aria-checked={preferences?.notifications?.quoteReady}
                         >
                             <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${
+                                aria-hidden="true"
+                                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-surface border border-transparent transition-transform ${
                                     preferences?.notifications?.quoteReady ? 'translate-x-6' : 'translate-x-1'
                                 }`}
                             />
-                        </div>
-                    </label>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Save Button */}
             <div className="flex justify-end">
                 <button
+                    type="button"
                     onClick={handleSaveProfile}
                     disabled={isSavingProfile}
-                    className="px-8 py-4 bg-accent text-on-accent font-bold rounded-xl hover:bg-accent transition-all shadow-lg flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-4 bg-accent text-on-accent border border-transparent font-bold rounded-xl hover:bg-accent/90 transition-all shadow-lg flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {isSavingProfile ? (
                         <SydLoader size="sm" />

@@ -122,7 +122,7 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 
     return (
         <div className={cn(
-            "flex items-center gap-3 p-3 rounded-[1.25rem] glass-premium border-line mb-1 transition-all group select-none relative overflow-hidden shadow-xl",
+            "flex items-center gap-3 p-3 rounded-[1.25rem] glass border-line mb-1 transition-all group select-none relative overflow-hidden shadow-xl",
             collapsed && "justify-center p-2 rounded-xl"
         )}>
             <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
@@ -147,7 +147,7 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 
             {!collapsed && (
                 <div className="flex-1 min-w-0 relative z-10">
-                    <p className="text-sm font-bold font-trajan text-ink truncate leading-tight">
+                    <p className="text-sm font-bold font-sans text-ink truncate leading-tight">
                         {user.displayName || 'Anonymous User'}
                     </p>
                     <p className="text-xs text-ink-muted truncate leading-tight mt-0.5">
@@ -240,7 +240,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
             <div className="relative z-10 w-full">
                 <Link
                     href="/dashboard/profile"
-                    className="block group/profile focus-visible:outline-none"
+                    className="block group/profile focus-visible:outline-hidden"
                     onClick={isMobile ? () => setOpenMobile(false) : undefined}
                 >
                     <UserBadge user={user} collapsed={collapsed} />
@@ -376,10 +376,12 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
                     {isMobile && (
                         <div className="absolute bottom-6 right-6 z-[110]">
                             <button
+                                type="button"
                                 onClick={() => setOpenMobile(false)}
+                                aria-label="Chiudi menu laterale"
                                 className="p-3 rounded-full bg-shade/50 border border-line text-on-scrim hover:bg-shade/70 active:scale-95 transition-all shadow-xl backdrop-blur-sm"
                             >
-                                <X className="w-6 h-6" />
+                                <X className="w-6 h-6" aria-hidden="true" />
                             </button>
                         </div>
                     )}

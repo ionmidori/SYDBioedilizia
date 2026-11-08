@@ -64,47 +64,27 @@
   }
 }
 
-/* Soft Expressive Shadows */
-@utility shadow-elevation-low {
-  box-shadow:
-    0 2px 8px -2px color-mix(in oklab, var(--color-shade) 10%, transparent),
-    0 0 4px color-mix(in oklab, var(--color-primary) 5%, transparent);
-}
-
-@utility shadow-elevation-high {
-  box-shadow:
-    0 12px 32px -8px color-mix(in oklab, var(--color-shade) 20%, transparent),
-    0 4px 12px color-mix(in oklab, var(--color-accent) 15%, transparent);
-}
-
-/* Premium Glow Shadow */
-@utility shadow-premium {
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--color-accent) 10%, transparent),
-    0 4px 20px -5px color-mix(in oklab, var(--color-shade) 50%, transparent),
-    0 0 15px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-/* Premium Glass */
+/* Glass */
 /* Do NOT pair `backdrop-filter` with a hand-written `-webkit-` twin anywhere in
    this file. Lightning CSS folds the two into whichever is declared last, and
    picking the prefixed one silently kills the blur: current Chrome, Edge and
    Firefox all dropped (or never had) `-webkit-backdrop-filter`. Leave the
    standard property alone and let Lightning add prefixes per browserslist. */
-@utility glass-premium {
-  background: color-mix(in oklab, var(--color-canvas) 60%, transparent);
+@utility glass {
+  /* Light theme: the exception, not the default (sticky bars, floating panels over
+     content). Depth comes from the surface tone and the elevation shadow; the blur
+     only keeps scrolled content behind it legible. */
+  background: color-mix(in oklab, var(--color-surface) 80%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in oklab, var(--color-accent) 25%, transparent);
-  box-shadow:
-    0 4px 30px color-mix(in oklab, var(--color-shade) 10%, transparent),
-    inset 0 0 20px color-mix(in oklab, var(--color-on-scrim) 5%, transparent);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-2);
 }
 
 /* Sidebar Glassmorphism */
 @utility glass-sidebar {
-  background: color-mix(in oklab, var(--color-canvas) 10%, transparent);
+  background: color-mix(in oklab, var(--color-surface) 85%, transparent);
   backdrop-filter: blur(24px) saturate(180%);
-  border-right: 1px solid color-mix(in oklab, var(--color-accent) 10%, transparent);
+  border-right: 1px solid var(--color-line);
 }
 
 /* Sidebar Notch Trigger */
@@ -149,15 +129,18 @@
   border-radius: 24px;
 }
 
-/* Services section (desktop grid) — evoluzione curata di .glass-premium,
-   identità propria: bordo a gradiente oro + specular highlight in hover. */
+/* Services section (desktop grid): an opaque card on the page, raised by elevation,
+   with a sand gradient hairline that brightens on hover. */
 @utility glass-services-card {
   position: relative;
-  background: linear-gradient(160deg, color-mix(in oklab, var(--color-on-scrim) 7%, transparent), color-mix(in oklab, var(--color-on-scrim) 2%, transparent));
-  /* No backdrop-filter: behind the cards there is only the flat page colour and
-     the ambient glows, which are already soft gradients — blurring them again
-     changed nothing visible and cost a backdrop pass per card per scroll frame. */
+  background: var(--color-surface);
+  box-shadow: var(--shadow-1);
   isolation: isolate;
+  transition: box-shadow 0.4s ease;
+
+  &:hover {
+    box-shadow: var(--shadow-2);
+  }
 
   /* Gold gradient hairline. Tailwind can only do a single-colour border, so the
      gradient lives on a pseudo-element masked to just the 1px ring. */
@@ -191,49 +174,18 @@
   &:hover::before {
     opacity: 1;
   }
-
-  /* Specular highlight — the glass catching light from the top left. Negative
-     z-index (contained by `isolation: isolate` above) puts it behind the card's
-     in-flow content, same as any background layer — z-index alone does NOT
-     protect text contrast, it only controls paint order. What actually keeps
-     the paragraph text at WCAG AA through hover is that the gradient's falloff
-     (`60%` of a `120% 60%` ellipse anchored at the top) goes fully transparent
-     well above where the paragraph starts (measured: ~89px into a ~248px-tall
-     card vs. the paragraph beginning at ~104px). If the card's padding/icon
-     size shrinks, or this gradient grows, re-check contrast on hover — it is
-     not guaranteed by the CSS structure, only by today's proportions. */
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    border-radius: inherit;
-    background: radial-gradient(120% 60% at 18% 0%, color-mix(in oklab, var(--color-on-scrim) 16%, transparent), transparent 60%);
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    pointer-events: none;
-  }
-
-  &:hover::after {
-    opacity: 1;
-  }
 }
 
-/* Services section (mobile sticky stack) — dimensional layering, fully opaque.
-   Gradient stops are opaque on purpose: the stack overlaps, so any
-   transparency shows the text of three cards at once (see ServiceCard). */
+/* Services section (mobile sticky stack) — fully opaque on purpose: the stack
+   overlaps, so any transparency shows the text of three cards at once (see ServiceCard). */
 @utility elevated-service-card {
-  background: linear-gradient(165deg, color-mix(in oklab, var(--color-surface-muted) 88%, var(--color-on-scrim)) 0%, var(--color-surface-muted) 55%, var(--color-surface) 100%);
-  border: 1px solid color-mix(in oklab, var(--color-accent) 28%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in oklab, var(--color-on-scrim) 6%, transparent),
-    0 6px 16px -6px color-mix(in oklab, var(--color-shade) 38%, transparent),
-    0 18px 40px -14px color-mix(in oklab, var(--color-shade) 50%, transparent),
-    0 0 0 1px color-mix(in oklab, var(--color-shade) 12%, transparent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-2);
 }
 
-/* "Cosa facciamo" cards (WhatWeDo.tsx) — white Statuario marble and gold. The
-   only light surface on the dark page, so the section reads as its own thing.
+/* "Cosa facciamo" cards (WhatWeDo.tsx) — white Statuario marble and gold, raised
+   off the warm-white page by the deepest elevation.
    - Stone: one photo (public/textures/marble-statuario.avif, WebP fallback;
      ~18 KB each), veins contrast-lifted at export, cool white kept as shot.
      Each card shows a different part of it via --marble-x/--marble-y
@@ -252,8 +204,7 @@
   background-color: var(--marble-white);
   box-shadow:
     inset 0 1px 0 color-mix(in oklab, var(--color-brand-white) 55%, transparent),
-    0 10px 24px -10px color-mix(in oklab, var(--color-shade) 45%, transparent),
-    0 30px 60px -24px color-mix(in oklab, var(--color-shade) 50%, transparent);
+    var(--shadow-3);
 
   &::before {
     content: "";
@@ -339,4 +290,29 @@
 /* Swipe containers: allow vertical scroll, capture horizontal */
 .touch-pan-y {
   touch-action: pan-y;
+}
+
+/* Typography plugin (prose) colours -> roles. The plugin ships its own grey palette;
+   these variables point it at the roles instead, so prose follows the theme and any
+   surface it sits in. Unlayered on purpose: it must win over the plugin's .prose
+   rule, which lives in the utilities layer. */
+.prose {
+  --tw-prose-body: var(--color-ink);
+  --tw-prose-headings: var(--color-ink);
+  --tw-prose-lead: var(--color-ink-muted);
+  --tw-prose-links: var(--color-primary-ink);
+  --tw-prose-bold: var(--color-ink);
+  --tw-prose-counters: var(--color-ink-muted);
+  --tw-prose-bullets: var(--color-line-strong);
+  --tw-prose-hr: var(--color-line);
+  --tw-prose-quotes: var(--color-ink);
+  --tw-prose-quote-borders: var(--color-line);
+  --tw-prose-captions: var(--color-ink-muted);
+  --tw-prose-kbd: var(--color-ink);
+  --tw-prose-kbd-shadows: color-mix(in oklab, var(--color-shade) 10%, transparent);
+  --tw-prose-code: var(--color-ink);
+  --tw-prose-pre-code: var(--color-ink);
+  --tw-prose-pre-bg: var(--color-surface-muted);
+  --tw-prose-th-borders: var(--color-line-strong);
+  --tw-prose-td-borders: var(--color-line);
 }
