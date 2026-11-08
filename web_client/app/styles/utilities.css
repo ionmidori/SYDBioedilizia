@@ -248,6 +248,35 @@
   border: 1px solid color-mix(in oklab, var(--color-ink-muted) 22%, transparent);
 }
 
+/* Hero + Services marble background underlay:
+   Subtle Statuario marble texture running across Hero and Services, fading out
+   smoothly into pure canvas right before "Cosa facciamo".
+   - Zero-jank: positioned statically in the DOM flow with an absolute layer,
+     compositor-only, zero scroll repaint, NO background-attachment: fixed.
+   - Zero-payload: reuses the cached marble-statuario asset from WhatWeDo.
+   - Legibility: subtle opacity (16%) with multiply mix-blend preserves WCAG 2.2 AAA text contrast (>7:1).
+   - Strict tokens: mask uses black/transparent without hardcoded color literals. */
+@utility hero-services-marble {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    image-set(
+      url("/textures/marble-statuario.avif") type("image/avif"),
+      url("/textures/marble-statuario.webp") type("image/webp")
+    );
+  background-size: 1400px auto;
+  background-repeat: repeat-y;
+  background-position: center top;
+  opacity: 0.16;
+  mix-blend-mode: multiply;
+  mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
+}
+
 /* "Cosa facciamo" cards (WhatWeDo.tsx) — white Statuario marble and gold, raised
    off the warm-white page by the deepest elevation.
    - Stone: one photo (public/textures/marble-statuario.avif, WebP fallback;
