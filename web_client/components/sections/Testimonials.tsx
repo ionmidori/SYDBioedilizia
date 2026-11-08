@@ -235,7 +235,7 @@ export function Testimonials() {
                         viewport={{ once: true }}
                         className="text-3xl md:text-5xl font-serif font-bold text-ink mb-6"
                     >
-                        Dicono di <span className="text-accent-ink italic">Noi</span>
+                        Dicono di <span className="text-primary italic">Noi</span>
                     </motion.h2>
 
                     {/* Action Button for Registered Users */}

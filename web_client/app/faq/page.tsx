@@ -91,7 +91,7 @@ export default function FAQPage() {
 
           {/* Hero Header */}
           <header className="mb-16 text-center space-y-4">
-            <h1 className="text-4xl md:text-5xl font-serif font-bold text-accent-ink">
+            <h1 className="text-4xl md:text-5xl font-serif font-bold text-ink">
               Domande Frequenti
             </h1>
             <div className="h-1 w-[100px] bg-primary mx-auto rounded-full" />

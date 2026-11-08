@@ -119,11 +119,11 @@
       }
     },
     "neutral": {
-      "$description": "Warm neutral, tinted with the brand sand",
+      "$description": "Calm limestone neutral (desaturated for architectural clarity)",
       "$extensions": {
         "syd.ramp": {
           "hueFrom": "{color.brand.sand.500}",
-          "chroma": 0.012
+          "chroma": 0.003
         }
       }
     },

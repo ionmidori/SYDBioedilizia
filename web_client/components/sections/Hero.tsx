@@ -44,7 +44,7 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                     {/* Headline */}
                     <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold tracking-tight text-ink leading-[1.2] mb-6">
                         Realizza la <br />
-                        <span className="text-accent-ink italic relative">
+                        <span className="text-primary italic relative">
                             Casa dei Sogni
                             <span className="absolute -bottom-2 left-0 w-full h-1 bg-primary/30 rounded-full blur-sm"></span>
                         </span>
@@ -79,7 +79,7 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                             <Button
                                 size="lg"
                                 className="h-14 px-8 text-base min-w-[300px] bg-primary hover:bg-primary-hover text-on-primary rounded-lg shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
-                                onClick={() => openChat()}
+                                onClick={() => openChat('Vorrei richiedere un preventivo gratuito per la ristrutturazione.')}
                             >
                                 Richiedi Preventivo Gratuito
                                 <FileText className="ml-2 w-5 h-5" />
@@ -90,8 +90,9 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Button
                                 size="lg"
-                                className="h-14 px-8 text-base min-w-[300px] bg-primary hover:bg-primary-hover text-on-primary rounded-lg shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
-                                onClick={() => openChat()}
+                                variant="secondary"
+                                className="h-14 px-8 text-base min-w-[300px] bg-surface hover:bg-primary-subtle text-primary border-2 border-primary/30 hover:border-primary rounded-lg shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none font-semibold"
+                                onClick={() => openChat('Vorrei creare un rendering 3D fotorealistico del mio appartamento.')}
                             >
                                 Crea Rendering Gratuito
                                 <Palette className="ml-2 w-5 h-5" />
