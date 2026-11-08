@@ -55,7 +55,7 @@ export default function TermsPage() {
 
                         <section className="space-y-6 text-center py-20 border border-line rounded-[3rem] bg-surface">
                             <p className="text-xl font-serif italic text-accent-ink">Sezione in fase di aggiornamento legale.</p>
-                            <p className="text-sm opacity-40">I contenuti completi dei Termini di Servizio saranno disponibili a breve.</p>
+                            <p className="text-sm text-ink-muted">I contenuti completi dei Termini di Servizio saranno disponibili a breve.</p>
                         </section>
                     </div>
 

@@ -153,7 +153,7 @@ function VerifyContent() {
                                     {...register("email")}
                                     type="email"
                                     placeholder="tua@email.com"
-                                    className={`w-full px-4 py-3 bg-surface-muted border rounded-lg text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-info transition-all ${
+                                    className={`w-full px-4 py-3 bg-surface-muted border rounded-lg text-ink placeholder:text-ink-muted focus:outline-hidden focus:ring-2 focus:ring-info transition-all ${
                                         errors.email ? 'border-danger ring-1 ring-danger/50' : 'border-line-strong'
                                     }`}
                                 />

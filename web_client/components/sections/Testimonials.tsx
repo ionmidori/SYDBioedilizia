@@ -467,14 +467,14 @@ function TestimonialHeader({ testimonial: t }: { testimonial: TestimonialItem })
                     {t.initials}
                 </div>
                 <div className="min-w-0">
-                    <h4 className="text-ink font-bold text-lg leading-tight truncate">{t.name}</h4>
+                    <h3 className="text-ink font-bold text-lg leading-tight truncate">{t.name}</h3>
                     <p className="text-ink-muted text-sm font-light truncate">
                         {t.location ? `${t.role} • ${t.location}` : t.role}
                     </p>
                 </div>
             </div>
 
-            <div className="flex gap-1 text-accent-ink mb-4" aria-label={`Valutazione: ${t.rating} su 5`}>
+            <div className="flex gap-1 text-accent-ink mb-4" role="img" aria-label={`Valutazione: ${t.rating} su 5`}>
                 {[...Array(t.rating)].map((_, i) => (
                     <Star key={i} className="w-4 h-4 fill-current" aria-hidden="true" />
                 ))}

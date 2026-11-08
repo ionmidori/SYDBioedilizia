@@ -51,11 +51,12 @@ export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
                             variant="ghost"
                             size="icon"
                             onClick={onMinimize}
+                            aria-label="Riduci la chat"
                             className="text-ink-muted hover:text-accent-ink hover:bg-accent-subtle"
                             // Prevent drag when clicking the button
                             onPointerDown={(e) => e.stopPropagation()}
                         >
-                            <Minimize2 className="w-5 h-5" />
+                            <Minimize2 className="w-5 h-5" aria-hidden="true" />
                         </Button>
                     )}
                 </div>

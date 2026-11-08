@@ -266,7 +266,7 @@ export function PriceBookEditor() {
             }}
             placeholder="Cerca per SKU, descrizione, categoria…"
             data-testid="pb-search"
-            className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-none focus:border-accent"
+            className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-accent"
           />
         </div>
         <label className="sr-only" htmlFor="pb-category">

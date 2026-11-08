@@ -45,7 +45,7 @@ export function DesktopProjectCard({ project, index }: { project: PortfolioCard;
                         {project.category}
                     </p>
 
-                    <h3 className="text-2xl font-bold text-ink mb-2">{project.title}</h3>
+                    <h2 className="text-2xl font-bold text-ink mb-2">{project.title}</h2>
 
                     {/* grid-rows trick: animates height without touching layout-triggering properties */}
                     <div className="grid grid-rows-[0fr] group-hover:grid-rows-[1fr] transition-[grid-template-rows] duration-300 delay-100">

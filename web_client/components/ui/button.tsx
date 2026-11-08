@@ -8,21 +8,22 @@ import { motion } from "framer-motion"
 
 const Slot = SlotPrimitive;
 
-/** Variants, all coloured with semantic roles (web_client/brand/tokens/roles.tokens.json). */
+/** Variants, all coloured with semantic roles (web_client/brand/tokens/roles.tokens.json).
+ *  Filled ones carry a transparent border: forced-colors mode drops the fill and paints the border. */
 export const BUTTON_VARIANTS = ["primary", "accent", "secondary", "ghost", "danger", "link"] as const;
 export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
-    primary: "bg-primary text-on-primary hover:bg-primary-hover",
-    accent: "bg-accent text-on-accent hover:bg-accent/90",
+    primary: "border border-transparent bg-primary text-on-primary hover:bg-primary-hover",
+    accent: "border border-transparent bg-accent text-on-accent hover:bg-accent/90",
     secondary: "border border-line text-ink hover:bg-surface-muted",
     ghost: "text-ink-muted hover:bg-surface-muted hover:text-ink",
-    danger: "bg-danger text-on-danger hover:bg-danger/90",
+    danger: "border border-transparent bg-danger text-on-danger hover:bg-danger/90",
     link: "text-primary-ink underline-offset-4 hover:underline",
 };
 
 const buttonVariants = cva(
-    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-canvas transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
+    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-canvas transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer",
     {
         variants: {
             variant: VARIANT_CLASSES,

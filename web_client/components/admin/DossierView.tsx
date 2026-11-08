@@ -452,7 +452,7 @@ export function DossierView({ projectId }: { projectId: string }) {
                 rows={3}
                 maxLength={4000}
                 data-testid="admin-notes"
-                className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent disabled:opacity-60"
+                className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent disabled:opacity-60"
               />
             </label>
             <dl className="ml-auto max-w-xs space-y-1.5 text-sm">

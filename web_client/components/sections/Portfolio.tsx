@@ -156,7 +156,12 @@ export function Portfolio({
                 ref={rowRef}
                 data-portfolio-row
                 onScroll={updateRowEdges}
-                className="hidden md:grid md:grid-cols-2 gap-6 lg:flex lg:overflow-x-auto lg:snap-x lg:snap-mandatory lg:overscroll-x-contain scrollbar-hide"
+                // On desktop the row scrolls sideways and its cards hold no link: focusable,
+                // so keyboard users can scroll it with the arrow keys (WCAG 2.1.1).
+                role="region"
+                aria-label="Progetti"
+                tabIndex={0}
+                className="hidden md:grid md:grid-cols-2 gap-6 lg:flex lg:overflow-x-auto lg:snap-x lg:snap-mandatory lg:overscroll-x-contain scrollbar-hide rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
             >
                 {projects.map((project, idx) => (
                     <DesktopProjectCard key={project.id} project={project} index={idx} />

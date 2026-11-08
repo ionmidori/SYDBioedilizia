@@ -60,7 +60,7 @@ export function Footer() {
 
                     {/* Quick Links */}
                     <div className="min-w-0">
-                        <h4 className="text-ink font-serif font-bold mb-6 text-lg">Esplora</h4>
+                        <h2 className="text-ink font-serif font-bold mb-6 text-lg">Esplora</h2>
                         <ul className="space-y-3 text-sm leading-6">
                             {[
                                 { label: 'Home', href: '/' },
@@ -81,7 +81,7 @@ export function Footer() {
 
                     {/* Contact Info — icons sit on the first text line (mt-1 on a 24px line) */}
                     <div className="min-w-0">
-                        <h4 className="text-ink font-serif font-bold mb-6 text-lg">Contatti</h4>
+                        <h2 className="text-ink font-serif font-bold mb-6 text-lg">Contatti</h2>
                         <ul className="space-y-3 text-sm leading-6 text-ink-muted font-light">
                             <li className="flex items-start gap-2 md:gap-3">
                                 <MapPin className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />

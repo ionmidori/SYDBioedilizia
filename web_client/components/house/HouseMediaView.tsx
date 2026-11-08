@@ -39,7 +39,7 @@ function FilterButton({ active, label, count, onClick }: { active: boolean; labe
             )}
         >
             {label}
-            {count > 0 && <span className="ml-2 opacity-70">({count})</span>}
+            {count > 0 && <span className="ml-2">({count})</span>}
         </button>
     );
 }

@@ -68,7 +68,7 @@ const SheetContent = React.forwardRef<
       {...props}
     >
       {children}
-      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-full bg-surface p-2 text-ink-muted opacity-70 ring-offset-canvas transition-opacity hover:opacity-100 hover:bg-surface-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-surface-muted">
+      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-full bg-surface p-2 text-ink-muted opacity-70 ring-offset-canvas transition-opacity hover:opacity-100 hover:bg-surface-muted focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-surface-muted">
         <X className="h-4 w-4" />
         <span className="sr-only">Chiudi</span>
       </SheetPrimitive.Close>

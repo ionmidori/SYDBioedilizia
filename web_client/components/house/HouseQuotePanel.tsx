@@ -83,7 +83,7 @@ function SendToTeamButton({ onClick }: { onClick: () => void }) {
             type="button"
             onClick={onClick}
             data-testid="submit-quote-button"
-            className="flex items-center justify-center gap-2 min-h-11 w-full touch-manipulation rounded-xl bg-accent-subtle hover:bg-accent-subtle border border-line hover:border-accent text-accent-ink text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center justify-center gap-2 min-h-11 w-full touch-manipulation rounded-xl bg-accent-subtle hover:bg-accent-subtle border border-line hover:border-accent text-accent-ink text-xs font-bold uppercase tracking-widest transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
             <Send aria-hidden="true" className="w-4 h-4" />
             Invia al team

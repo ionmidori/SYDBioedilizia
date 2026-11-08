@@ -99,27 +99,19 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                         </div>
                     </div>
 
-                    {/* Stats - Luxury Style */}
-                    <div className="grid grid-cols-3 gap-6 border-t border-line pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
-                        <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-ink">
-                                <StatCounter value={100} suffix="+" />
-                            </h4>
-                            <p className="text-sm text-ink-muted">Progetti Completati</p>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-ink">
-                                <StatCounter value={24} suffix="h" />
-                            </h4>
-                            <p className="text-sm text-ink-muted">Tempo Preventivo</p>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <h4 className="text-2xl font-bold text-ink">
-                                <StatCounter value={4.9} decimals={1} suffix="/5" />
-                            </h4>
-                            <p className="text-sm text-ink-muted">Soddisfazione Clienti</p>
-                        </div>
-                    </div>
+                    {/* Key figures: label (dt) then value (dd) in reading order, value shown on top */}
+                    <dl className="grid grid-cols-3 gap-6 border-t border-line pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
+                        {[
+                            { label: 'Progetti Completati', value: <StatCounter value={100} suffix="+" /> },
+                            { label: 'Tempo Preventivo', value: <StatCounter value={24} suffix="h" /> },
+                            { label: 'Soddisfazione Clienti', value: <StatCounter value={4.9} decimals={1} suffix="/5" /> },
+                        ].map(({ label, value }) => (
+                            <div key={label} className="flex flex-col-reverse gap-1">
+                                <dt className="text-sm text-ink-muted">{label}</dt>
+                                <dd className="text-2xl font-bold text-ink">{value}</dd>
+                            </div>
+                        ))}
+                    </dl>
                 </motion.div>
 
             </div>

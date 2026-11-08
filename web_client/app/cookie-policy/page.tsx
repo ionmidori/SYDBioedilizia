@@ -95,7 +95,7 @@ export default function CookiePolicyPage() {
                             </ul>
                             <div className="mt-8 p-6 bg-primary-subtle border border-primary/10 rounded-3xl space-y-4">
                                 <h3 className="text-sm font-bold uppercase tracking-widest text-accent-ink">Dettagli per Browser</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-[11px] leading-relaxed opacity-60">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-xs leading-relaxed text-ink-muted">
                                     <div className="space-y-2">
                                         <p className="font-bold">Firefox:</p>
                                         <p>Gestione: Pannello Privacy in Impostazioni. &Egrave; possibile inibire il tracciamento e gestire singolarmente i cookie di terze parti.</p>
@@ -143,7 +143,7 @@ function BrowserLink({ name, url }: { name: string, url: string }) {
                 rel="noopener noreferrer"
                 className="flex items-center justify-between p-4 bg-primary-subtle border border-primary/10 rounded-2xl hover:bg-primary-subtle hover:border-line transition-all group"
             >
-                <span className="text-sm font-bold opacity-70 group-hover:opacity-100">{name}</span>
+                <span className="text-sm font-bold text-ink">{name}</span>
                 <ArrowLeft className="w-4 h-4 rotate-180 text-accent-ink group-hover:text-accent-ink transition-colors" />
             </a>
         </li>

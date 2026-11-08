@@ -406,7 +406,7 @@ export function ChatInput({
                                 'w-full bg-transparent text-ink caret-accent-ink',
                                 'placeholder:text-ink-muted px-3 py-2',
                                 'text-base md:text-sm', // Mobile: 16px (no zoom), Desktop: 14px
-                                'max-h-24 min-h-[24px] focus:outline-none resize-none', // Reduced min-h to let wrapper control height
+                                'max-h-24 min-h-[24px] focus:outline-hidden resize-none', // Reduced min-h to let wrapper control height
                                 'scrollbar-hide block opacity-100'
                             )}
                             rows={1}

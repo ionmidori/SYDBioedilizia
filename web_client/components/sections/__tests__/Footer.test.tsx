@@ -14,4 +14,9 @@ describe('Footer', () => {
         const logo = screen.getByRole('img', { name: 'SYD Bioedilizia' });
         expect(logo.getAttribute('class')).not.toMatch(/brand-tone-/);
     });
+
+    it('heads its link groups with h2, a level any page outline can reach without skipping', () => {
+        render(<Footer />);
+        expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Esplora', 'Contatti']);
+    });
 });

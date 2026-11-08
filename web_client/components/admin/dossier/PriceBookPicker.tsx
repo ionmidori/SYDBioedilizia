@@ -85,7 +85,7 @@ function PickerBody({ onPick }: { onPick: (item: QuoteItem) => void }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Es. piastrelle bagno, DEM-001…"
           data-testid="picker-search"
-          className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-none focus:border-accent"
+          className="w-full pl-9 pr-3 py-2 rounded-xl bg-surface border border-line text-base md:text-sm focus:outline-hidden focus:border-accent"
         />
       </div>
       {results.length === 0 ? (

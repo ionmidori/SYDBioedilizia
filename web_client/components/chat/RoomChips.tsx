@@ -32,7 +32,7 @@ const ROOM_TYPE_ICONS: Record<RoomType, LucideIcon> = {
 const CHIP_CLASS = cn(
     'inline-flex items-center gap-1.5 shrink-0 snap-start rounded-full border px-3',
     'h-11 md:h-9 text-sm font-medium whitespace-nowrap transition-colors',
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
 );
 
 interface RoomChipsProps {
@@ -175,7 +175,7 @@ function NewRoomForm({ projectId, onCreated }: { projectId: string; onCreated: (
                     className={cn(
                         'h-11 rounded-xl border border-line bg-canvas/30 px-3',
                         'text-base text-ink placeholder:text-ink-subtle',
-                        'focus:outline-none focus:ring-1 focus:ring-ring',
+                        'focus:outline-hidden focus:ring-1 focus:ring-ring',
                     )}
                 />
             </label>

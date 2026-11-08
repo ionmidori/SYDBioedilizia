@@ -52,7 +52,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -10 }}
                                 transition={{ duration: 0.3 }}
-                                className="font-medium text-xs tracking-wide opacity-80 absolute top-0 left-0 truncate w-full"
+                                className="font-medium text-xs tracking-wide absolute top-0 left-0 truncate w-full"
                             >
                                 {displayMessage}
                             </motion.span>
@@ -109,7 +109,7 @@ export const ThinkingIndicator = ({ message, statusMessage, reasoningData }: Thi
 
                                 {/* Risk */}
                                 <div className={cn("p-2 rounded border flex flex-col gap-1", getRiskColor(reasoningData.risk_score))}>
-                                    <div className="text-[10px] uppercase flex items-center gap-1 font-bold opacity-80">
+                                    <div className="text-[10px] uppercase flex items-center gap-1 font-bold">
                                         <ShieldCheck size={10} /> Risk Score
                                     </div>
                                     <div className="text-right text-[10px] font-mono">

@@ -275,7 +275,7 @@ export default function ProfilePage() {
                                 value={displayName}
                                 onChange={(e) => setDisplayName(e.target.value)}
                                 placeholder="Il tuo nome"
-                                className="w-full bg-transparent border-b border-line focus:border-accent outline-none text-ink font-medium py-1 transition-colors"
+                                className="w-full bg-transparent border-b border-line focus:border-accent outline-hidden text-ink font-medium py-1 transition-colors"
                             />
                             {nameError && <p className="text-xs text-danger-ink">{nameError}</p>}
                         </div>
@@ -326,7 +326,7 @@ export default function ProfilePage() {
                             <p className="text-ink font-medium group-hover:text-accent-ink transition-colors">Aggiornamenti Preventivi</p>
                             <p className="text-sm text-ink-muted">Ricevi notifiche quando i preventivi sono pronti</p>
                         </div>
-                        <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-canvas ${
+                        <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-canvas ${
                                 preferences?.notifications?.quoteReady ? 'bg-primary' : 'bg-line-strong'
                             }`}
                             onClick={(e) => {

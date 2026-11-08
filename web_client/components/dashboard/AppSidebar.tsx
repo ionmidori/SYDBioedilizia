@@ -240,7 +240,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<'div'>)
             <div className="relative z-10 w-full">
                 <Link
                     href="/dashboard/profile"
-                    className="block group/profile focus-visible:outline-none"
+                    className="block group/profile focus-visible:outline-hidden"
                     onClick={isMobile ? () => setOpenMobile(false) : undefined}
                 >
                     <UserBadge user={user} collapsed={collapsed} />

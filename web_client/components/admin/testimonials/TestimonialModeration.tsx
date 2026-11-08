@@ -60,7 +60,7 @@ export function TestimonialModeration() {
               )}
             >
               {tab.label}
-              {count !== undefined && <span className="ml-1.5 tabular-nums text-xs opacity-70">{count}</span>}
+              {count !== undefined && <span className="ml-1.5 tabular-nums text-xs">{count}</span>}
             </button>
           );
         })}
@@ -128,7 +128,7 @@ function ReviewCard({
           onChange={(e) => setNotes(e.target.value)}
           maxLength={500}
           placeholder="Nota interna (facoltativa)"
-          className="flex-1 min-w-[12rem] rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-none focus:border-accent"
+          className="flex-1 min-w-[12rem] rounded-xl bg-surface border border-line px-3 py-2 text-base md:text-sm focus:outline-hidden focus:border-accent"
         />
         {review.status !== 'approved' && (
           <button

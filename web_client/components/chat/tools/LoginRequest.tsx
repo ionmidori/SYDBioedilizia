@@ -77,7 +77,7 @@ export const LoginRequest = () => {
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.96 }}
                     onClick={triggerLogin}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-accent py-2.5 text-sm font-bold text-on-accent shadow-md transition-colors hover:bg-accent active:bg-accent/80"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl border border-transparent bg-accent py-2.5 text-sm font-bold text-on-accent shadow-md transition-colors hover:bg-accent active:bg-accent/80"
                 >
                     <LogIn className="h-4 w-4" />
                     Accedi o Registrati

@@ -29,7 +29,7 @@ interface Props {
 }
 
 const FIELD =
-  'w-full rounded-lg bg-surface border border-line px-2.5 py-1.5 text-base md:text-sm focus:outline-none focus:border-accent disabled:opacity-60 disabled:cursor-not-allowed';
+  'w-full rounded-lg bg-surface border border-line px-2.5 py-1.5 text-base md:text-sm focus:outline-hidden focus:border-accent disabled:opacity-60 disabled:cursor-not-allowed';
 
 const NO_ROOMS: QuoteRoom[] = [];
 
