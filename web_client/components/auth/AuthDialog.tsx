@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId, useRef, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -19,6 +19,7 @@ import { ProviderButton } from './ProviderButton';
 import { EmailAuthForm } from './EmailAuthForm';
 import { MagicLinkForm } from './MagicLinkForm';
 import { PasskeyButton } from './PasskeyButton';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
@@ -44,6 +45,8 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
     const [loading, setLoading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'social' | 'magic' | 'email'>('social');
+    const tabsId = useId();
+    const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
     // The user stays on the page it signed in from. Every login path already
     // brought the guest's chats along (lib/auth/guest-claim.ts); a failure
@@ -80,11 +83,25 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
         { id: 'email', label: 'Email' },
     ] as const;
 
+    // WAI-ARIA Tabs: one tab stop for the list; arrows, Home and End move and select.
+    const onTabKeyDown = (e: KeyboardEvent<HTMLButtonElement>, index: number) => {
+        const last = tabs.length - 1;
+        const next = { ArrowRight: index === last ? 0 : index + 1, ArrowLeft: index === 0 ? last : index - 1, Home: 0, End: last }[e.key];
+        if (next === undefined) return;
+        e.preventDefault();
+        setActiveTab(tabs[next].id);
+        tabRefs.current[next]?.focus();
+    };
+    const tabId = (id: string) => `${tabsId}-tab-${id}`;
+    const panelId = `${tabsId}-panel`;
+
     // Shared inner content — identical on both mobile and desktop
     const content = (
         <div className="relative z-10 p-6 pt-10">
             <div className="text-center mb-8">
-                <p className="text-3xl md:text-4xl font-trajan text-ink mb-2 drop-shadow-md">
+                {/* The mark is decorative: the dialog title (sr-only, below) already names the brand. */}
+                <BrandLogo variant="mark" decorative className="h-10 mx-auto mb-4" />
+                <p className="text-3xl md:text-4xl font-serif font-bold text-ink mb-2">
                     Benvenuto in SYD
                 </p>
                 <p className="text-ink-muted font-sans text-sm tracking-wide">
@@ -94,11 +111,19 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
 
                 <div className="space-y-6">
                     {/* M3 Segmented Control */}
-                    <div className="bg-surface-muted p-1 rounded-xl flex relative">
-                        {tabs.map((tab) => (
+                    <div role="tablist" aria-label="Metodo di accesso" className="bg-surface-muted p-1 rounded-xl flex relative">
+                        {tabs.map((tab, index) => (
                             <button
                                 key={tab.id}
+                                ref={(el) => { tabRefs.current[index] = el; }}
+                                type="button"
+                                role="tab"
+                                id={tabId(tab.id)}
+                                aria-selected={activeTab === tab.id}
+                                aria-controls={panelId}
+                                tabIndex={activeTab === tab.id ? 0 : -1}
                                 onClick={() => setActiveTab(tab.id)}
+                                onKeyDown={(e) => onTabKeyDown(e, index)}
                                 className={cn(
                                     "flex-1 relative py-2.5 text-xs font-medium tracking-wide z-10 transition-colors duration-200",
                                     activeTab === tab.id ? "text-ink" : "text-ink-muted hover:text-ink-muted"
@@ -111,12 +136,13 @@ export function AuthDialog({ open, onOpenChange }: AuthDialogProps) {
                                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                     />
                                 )}
-                                {tab.label}
+                                {/* Positioned, so it paints above the (absolutely positioned) highlight. */}
+                                <span className="relative">{tab.label}</span>
                             </button>
                         ))}
                     </div>
 
-                    <div className="min-h-[300px]">
+                    <div className="min-h-[300px]" role="tabpanel" id={panelId} aria-labelledby={tabId(activeTab)}>
                         <AnimatePresence mode="wait">
                             <motion.div
                                 key={activeTab}

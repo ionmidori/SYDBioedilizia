@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ROOT, loadTokens, resolveValue, toneNames } from './lib/tokens.mjs';
+import { fontThemeLines, fontVariables, wordmarkUtility } from './lib/typography.mjs';
 import { activeThemeName, cssColor, elevationLevels, loadRoles, loadTheme, shadowCss, themeNames, validateTheme } from './lib/semantic.mjs';
 
 export const CSS_FILE = path.join(ROOT, 'web_client', 'app', 'brand-tokens.css');
@@ -77,7 +78,10 @@ function renderRolesCss(tree, { roles, theme }) {
         '  --color-*: initial;',
         ...roles.names.map((r) => `  --color-${r}: var(--role-${r});`),
         ...elevationLevels(tree).map((l) => `  --shadow-${l}: ${shadowCss(tree.elevation[l], roles, `elevation.${l}`)};`),
+        // Font roles read the next/font variable at use time (it is set on <body>, not :root).
+        ...fontThemeLines(tree),
     ];
+    const wordmark = wordmarkUtility(tree);
     return [
         `/* Semantic roles, theme "${theme.name}": the colour vocabulary of the UI (bg-canvas, text-ink, border-line, ...). */`,
         `:root {\n${rootVars.join('\n')}\n}`,
@@ -89,6 +93,7 @@ function renderRolesCss(tree, { roles, theme }) {
         '',
         '/* Utilities read the role variables at use time (inline), so a surface can override them. */',
         `@theme inline {\n${inline.join('\n')}\n}`,
+        ...(wordmark ? ['', '/* The brand name inside running text, set like the logo (typography.tokens.json). */', wordmark] : []),
     ];
 }
 
@@ -173,6 +178,10 @@ export function renderTs(tree, { roles, theme } = semanticContext(tree)) {
         'export type Surface = (typeof SURFACES)[number];',
         '',
         ...families,
+        '/** next/font face and CSS variable of each font role (typography.tokens.json); app/layout.tsx is held to these. */',
+        `export const FONT_VARIABLES = ${json(fontVariables(tree))} as const;`,
+        'export type FontRole = keyof typeof FONT_VARIABLES;',
+        '',
         `export const ELEVATION_LEVELS = ${json(elevationLevels(tree))} as const;`,
         'export type ElevationLevel = (typeof ELEVATION_LEVELS)[number];',
         '',

@@ -166,6 +166,23 @@ export const STATUS_TONES = [
 ] as const;
 export type StatusTone = (typeof STATUS_TONES)[number];
 
+/** next/font face and CSS variable of each font role (typography.tokens.json); app/layout.tsx is held to these. */
+export const FONT_VARIABLES = {
+    "sans": {
+        "face": "Lato",
+        "variable": "--font-face-sans"
+    },
+    "serif": {
+        "face": "Playfair Display",
+        "variable": "--font-face-serif"
+    },
+    "brand": {
+        "face": "Red Hat Display",
+        "variable": "--font-face-brand"
+    }
+} as const;
+export type FontRole = keyof typeof FONT_VARIABLES;
+
 export const ELEVATION_LEVELS = [
     1,
     2,

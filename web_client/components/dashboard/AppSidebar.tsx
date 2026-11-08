@@ -147,7 +147,7 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 
             {!collapsed && (
                 <div className="flex-1 min-w-0 relative z-10">
-                    <p className="text-sm font-bold font-trajan text-ink truncate leading-tight">
+                    <p className="text-sm font-bold font-sans text-ink truncate leading-tight">
                         {user.displayName || 'Anonymous User'}
                     </p>
                     <p className="text-xs text-ink-muted truncate leading-tight mt-0.5">

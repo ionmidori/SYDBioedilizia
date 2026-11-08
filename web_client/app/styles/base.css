@@ -1,13 +1,6 @@
-/* Base layer: fonts, element defaults, design-system custom properties. Imported by ../globals.css. */
-
-@theme {
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-  --font-serif: var(--font-serif), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
-}
-
-@utility font-trajan {
-  font-family: var(--font-trajan), serif;
-}
+/* Base layer: element defaults, design-system custom properties. Imported by ../globals.css.
+   Font roles (--font-sans/serif/brand) and the wordmark utility are generated from
+   web_client/brand/tokens/typography.tokens.json into ../brand-tokens.css. */
 
 @layer base {
   /* Mobile Native Hardening */

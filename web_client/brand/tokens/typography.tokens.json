@@ -1,0 +1,28 @@
+{
+  "$description": "Typography roles. Each family names its face (loaded by next/font in app/layout.tsx, whose arguments must be literals) and the CSS variable next/font sets; the build emits --font-<role> in @theme inline as that variable followed by the fallbacks, and the generated FONT_VARIABLES constant is what a test holds layout.tsx to. The wordmark is how the brand name is set inside running text: the logo's own face, weight, case and tracking.",
+  "font": {
+    "$type": "fontFamily",
+    "sans": {
+      "$description": "Body text and UI.",
+      "$value": ["ui-sans-serif", "system-ui", "sans-serif", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"],
+      "$extensions": { "syd.font": { "face": "Lato", "variable": "--font-face-sans" } }
+    },
+    "serif": {
+      "$description": "Display headings.",
+      "$value": ["ui-serif", "Georgia", "Cambria", "Times New Roman", "Times", "serif"],
+      "$extensions": { "syd.font": { "face": "Playfair Display", "variable": "--font-face-serif" } }
+    },
+    "brand": {
+      "$description": "The logo's typeface (web_client/brand/fonts, the wordmark of the master logo): the brand name only.",
+      "$value": ["ui-sans-serif", "system-ui", "sans-serif"],
+      "$extensions": { "syd.font": { "face": "Red Hat Display", "variable": "--font-face-brand" } }
+    }
+  },
+  "wordmark": {
+    "$description": "The brand name inside a sentence or heading (utility `wordmark`). Measured on the master logo by scripts/brand/construct-mark.py: BIOEDILIZIA is Red Hat Display 400 in capitals, tracked 121.68 units per 1000 so its ink spans the symbol's width.",
+    "family": { "$type": "fontFamily", "$value": "{font.brand}" },
+    "weight": { "$type": "fontWeight", "$value": 400 },
+    "tracking": { "$type": "dimension", "$value": "0.1217em" },
+    "case": { "$value": "uppercase" }
+  }
+}

@@ -139,6 +139,17 @@
   --shadow-1: 0px 1px 2px 0px color-mix(in oklab, var(--role-shade) 6%, transparent), 0px 1px 3px 1px color-mix(in oklab, var(--role-shade) 4%, transparent);
   --shadow-2: 0px 4px 12px -2px color-mix(in oklab, var(--role-shade) 8%, transparent), 0px 2px 4px -1px color-mix(in oklab, var(--role-shade) 5%, transparent);
   --shadow-3: 0px 16px 40px -8px color-mix(in oklab, var(--role-shade) 12%, transparent), 0px 4px 12px -2px color-mix(in oklab, var(--role-shade) 6%, transparent);
+  --font-sans: var(--font-face-sans), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-serif: var(--font-face-serif), ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-brand: var(--font-face-brand), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The brand name inside running text, set like the logo (typography.tokens.json). */
+@utility wordmark {
+  font-family: var(--font-brand);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.1217em;
 }
 
 /* Colour utilities (bg-brand-navy-900, bg-third-party-google-blue, ...). */

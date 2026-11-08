@@ -54,7 +54,7 @@ export function About() {
                         {/* Company Intro */}
                         <div className="prose prose-lg text-ink leading-relaxed font-light">
                             <p>
-                                <span className="text-accent-ink font-medium font-trajan tracking-tight">SYD BIOEDILIZIA</span>
+                                <span className="text-accent-ink wordmark">SYD BIOEDILIZIA</span>
                                 &nbsp;è una realtà operativa in tutta la Provincia di Roma, nata per offrire a privati e aziende soluzioni edili complete e personalizzate.
                             </p>
                             <p className="mt-4">
@@ -131,7 +131,7 @@ export function About() {
 
                         {/* Why Choose Us */}
                         <div className="bg-gradient-to-br from-accent/10 to-transparent p-8 rounded-2xl border border-line">
-                            <h3 className="text-2xl font-serif font-bold text-accent-ink mb-4">Perché Scegliere <span className="font-trajan tracking-tight">SYD BIOEDILIZIA</span></h3>
+                            <h3 className="text-2xl font-serif font-bold text-accent-ink mb-4">Perché Scegliere <span className="wordmark">SYD BIOEDILIZIA</span></h3>
                             <p className="text-ink mb-6 leading-relaxed">
                                 Non offriamo solo lavorazioni di alta qualità. Ti supportiamo anche nella burocrazia, guidandoti nell&apos;accesso alle <strong>detrazioni fiscali</strong> e agli <strong>Ecobonus</strong> per interventi come l&apos;insufflaggio termico e la riqualificazione energetica.
                             </p>

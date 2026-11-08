@@ -48,7 +48,7 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                             Casa dei Sogni
                             <span className="absolute -bottom-2 left-0 w-full h-1 bg-primary/30 rounded-full blur-sm"></span>
                         </span>
-                        <br /> con <span className="font-trajan tracking-tight">SYD BIOEDILIZIA</span>
+                        <br /> con <span className="wordmark">SYD BIOEDILIZIA</span>
                     </h1>
 
                     <p className="text-lg md:text-xl text-ink max-w-xl leading-relaxed font-light">

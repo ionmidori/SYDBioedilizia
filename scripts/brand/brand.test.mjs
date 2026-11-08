@@ -393,3 +393,39 @@ describe('generated code', () => {
         for (const [file, content] of renderAll(tokens)) assert.ok(sameText(fs.readFileSync(file, 'utf8'), content), file);
     });
 });
+
+describe('typography', () => {
+    const generated = Object.fromEntries(renderAll(tokens));
+    const css = generated[CSS_FILE];
+    const ts = generated[TS_FILE];
+    const inline = [...css.matchAll(/@theme inline \{([^}]*)\}/g)].map((m) => m[1]).join('\n');
+    const roles = Object.entries(tokens.font).filter(([k]) => !k.startsWith('$'));
+    const quote = (f) => (/[\s]/.test(f) ? `"${f}"` : f);
+
+    it('declares at least the sans, serif and brand font roles', () => {
+        assert.deepEqual(roles.map(([r]) => r).sort(), ['brand', 'sans', 'serif']);
+    });
+
+    for (const [role, def] of roles) {
+        it(`emits --font-${role} in @theme inline as its next/font variable followed by the fallbacks`, () => {
+            const { variable } = def.$extensions['syd.font'];
+            assert.ok(inline.includes(`--font-${role}: var(${variable}), ${def.$value.map(quote).join(', ')};`), role);
+        });
+    }
+
+    it('lists every next/font variable and face in the generated TS, for layout.tsx to be held to', () => {
+        for (const [role, def] of roles) {
+            const { face, variable } = def.$extensions['syd.font'];
+            assert.match(ts, new RegExp(`"${role}": \\{\\s*"face": "${face}",\\s*"variable": "${variable}"`), role);
+        }
+    });
+
+    it('emits the wordmark utility from the tokens: brand family, weight, case and tracking', () => {
+        const body = /@utility wordmark \{([^}]*)\}/.exec(css)?.[1] ?? '';
+        const w = tokens.wordmark;
+        assert.ok(body.includes('font-family: var(--font-brand);'), body);
+        assert.ok(body.includes(`font-weight: ${w.weight.$value};`), body);
+        assert.ok(body.includes(`text-transform: ${w.case.$value};`), body);
+        assert.ok(body.includes(`letter-spacing: ${w.tracking.$value};`), body);
+    });
+});
