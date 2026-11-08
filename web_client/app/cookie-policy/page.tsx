@@ -2,11 +2,13 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, Cookie } from 'lucide-react';
 import { COMPANY_LEGAL_LINE } from '@/lib/company';
+import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 
 export default function CookiePolicyPage() {
+    const reduceMotion = useReducedMotion();
     return (
         <div className="min-h-screen bg-canvas text-ink selection:bg-accent/30 selection:text-accent-ink">
             {/* Background Atmosphere */}
@@ -31,8 +33,9 @@ export default function CookiePolicyPage() {
 
             <main className="max-w-4xl mx-auto px-6 py-20 relative z-10">
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: M3Duration.medium1, ease: M3EasingFM.decelerate }}
                     className="space-y-12"
                 >
                     {/* Header */}
@@ -46,7 +49,7 @@ export default function CookiePolicyPage() {
                     </header>
 
                     {/* Content */}
-                    <div className="prose max-w-none space-y-10 text-ink leading-relaxed font-medium">
+                    <div className="prose max-w-3xl space-y-10 text-ink leading-relaxed font-normal">
                         <p className="text-lg leading-relaxed">
                             Questo Sito utilizza cookie tecnici (necessari), e con il tuo consenso anche cookie analitici e di profilazione, utili rispettivamente per consentire funzionalità fondamentali, misurare le performance o fornirti indicazioni promozionali in linea con i tuoi interessi.
                         </p>
@@ -127,7 +130,7 @@ function CookieCategoryItem({ title, desc, required = false }: { title: string, 
         <div className="p-6 bg-surface border border-line rounded-[2rem] hover:border-line-strong transition-all group">
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-serif italic text-accent-ink">{title}</h3>
-                {required && <span className="text-[10px] uppercase tracking-widest font-bold text-accent-ink border border-line px-3 py-1 rounded-full">Sempre Attivo</span>}
+                {required && <span className="text-xs uppercase tracking-wider font-bold text-accent-ink border border-line px-3 py-1 rounded-full">Sempre Attivo</span>}
             </div>
             <p className="text-sm text-ink-muted leading-relaxed">{desc}</p>
         </div>

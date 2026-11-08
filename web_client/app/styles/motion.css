@@ -48,15 +48,26 @@
   animation: shimmer 2s infinite linear;
 }
 
-/* Accessibility: Respect reduced motion preference */
+/* Accessibility: Respect reduced motion preference — suppress vestibular/spatial
+   animations while keeping essential loading spinners. */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 
-  *,
-  *::before,
-  *::after {
+  .animate-ping,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-shake,
+  .animate-shimmer {
+    animation: none !important;
+  }
+
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }

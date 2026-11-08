@@ -6,12 +6,12 @@
 export function mapAuthError(firebaseErrorCode: string): string {
     const errorMap: Record<string, string> = {
         // Email/Password Errors
-        'auth/wrong-password': 'La password non sembra corretta.',
-        'auth/user-not-found': 'Non troviamo questo account.',
-        'auth/invalid-email': 'Indirizzo email non valido.',
-        'auth/email-already-in-use': 'Questo indirizzo email è già registrato.',
-        'auth/weak-password': 'Password troppo debole. Usa almeno 6 caratteri.',
-        'auth/invalid-credential': 'Credenziali non valide.',
+        'auth/wrong-password': 'Password non corretta. Riprova o usa "Password dimenticata?".',
+        'auth/user-not-found': 'Nessun account trovato con questa email. Controlla l\'indirizzo o registrati.',
+        'auth/invalid-email': 'Inserisci un indirizzo email valido (es. nome@dominio.it).',
+        'auth/email-already-in-use': 'Questa email è già registrata. Accedi o reimposta la password.',
+        'auth/weak-password': 'La password deve contenere almeno 6 caratteri.',
+        'auth/invalid-credential': 'Email o password non corretti. Riprova o reimposta la password.',
 
         // Social Login Errors
         'auth/popup-closed-by-user': 'Login annullato.',

@@ -11,9 +11,10 @@ interface OpenChatButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEleme
 export function OpenChatButton({ children = "Parla con l'AI", className, ...props }: OpenChatButtonProps) {
   return (
     <button
+      type="button"
       onClick={() => openChat()}
       className={cn(
-        "inline-flex items-center justify-center px-6 py-3 rounded-full border border-line-strong text-accent-ink font-medium hover:bg-accent-subtle transition-all duration-200 cursor-pointer",
+        "inline-flex items-center justify-center min-h-[44px] px-6 py-3 rounded-full border border-line-strong text-accent-ink font-medium hover:bg-accent-subtle transition-all duration-200 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
         className
       )}
       {...props}

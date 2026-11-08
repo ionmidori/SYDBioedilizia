@@ -1,10 +1,13 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { CheckCircle, Leaf, Shield, Award, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { M3Spring } from '@/lib/m3-motion';
 
 export function About() {
+    const reduceMotion = useReducedMotion();
+
     return (
         <section id="about" className="py-24 bg-canvas relative overflow-hidden">
             {/* Background elements */}
@@ -17,25 +20,26 @@ export function About() {
                     heading — BrandLogo (Navbar/Footer) is an image, not a heading. */}
                 <div className="text-center mb-16 space-y-4">
                     <motion.h1
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={reduceMotion ? false : { opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
+                        transition={M3Spring.gentle}
                         className="text-3xl md:text-5xl font-serif font-bold text-ink"
                     >
                         Chi Siamo
                     </motion.h1>
                     <motion.div
-                        initial={{ opacity: 0, width: 0 }}
-                        whileInView={{ opacity: 1, width: '100px' }}
+                        initial={reduceMotion ? false : { opacity: 0, scaleX: 0 }}
+                        whileInView={{ opacity: 1, scaleX: 1 }}
                         viewport={{ once: true }}
-                        transition={{ delay: 0.2 }}
-                        className="h-1 bg-primary mx-auto"
+                        transition={{ delay: 0.15, ...M3Spring.standard }}
+                        className="h-1 w-[100px] bg-primary mx-auto origin-center rounded-full"
                     />
                     <motion.p
-                        initial={{ opacity: 0 }}
+                        initial={reduceMotion ? false : { opacity: 0 }}
                         whileInView={{ opacity: 1 }}
                         viewport={{ once: true }}
-                        transition={{ delay: 0.3 }}
+                        transition={{ delay: 0.25 }}
                         className="text-xl md:text-2xl text-ink font-light max-w-3xl mx-auto"
                     >
                         Energia Giovane, Esperienza Solida
@@ -46,9 +50,10 @@ export function About() {
 
                     {/* Left Column: Main Story & Philosophy */}
                     <motion.div
-                        initial={{ opacity: 0, x: -30 }}
+                        initial={reduceMotion ? false : { opacity: 0, x: -30 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
+                        transition={M3Spring.gentle}
                         className="space-y-10"
                     >
                         {/* Company Intro */}
@@ -95,14 +100,15 @@ export function About() {
 
                     {/* Right Column: Services & CTA */}
                     <motion.div
-                        initial={{ opacity: 0, x: 30 }}
+                        initial={reduceMotion ? false : { opacity: 0, x: 30 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
+                        transition={M3Spring.gentle}
                         className="space-y-10"
                     >
                         {/* What We Do */}
                         <div>
-                            <h3 className="text-2xl font-serif font-bold text-ink mb-6 border-l-4 border-accent pl-4">
+                            <h3 className="text-2xl font-serif font-bold text-ink mb-6">
                                 Cosa Facciamo: <br />
                                 <span className="text-accent-ink">Costruzioni e Ristrutturazioni Chiavi in Mano</span>
                             </h3>

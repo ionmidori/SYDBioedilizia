@@ -1,6 +1,6 @@
 'use client';
 
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { M3Spring } from '@/lib/m3-motion';
 import { Button } from '@/components/ui/button';
 import { StatCounter } from '@/components/ui/stat-counter';
@@ -11,6 +11,8 @@ import type { PortfolioItem } from '@/lib/portfolio';
 
 /** `portfolio`: server-rendered real projects from `getPortfolio()` (app/page.tsx). */
 export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
+    const reduceMotion = useReducedMotion();
+
     return (
         // overflow-clip, not overflow-hidden: a hidden box is still programmatically
         // scrollable, so the "Progetti" anchor (#portfolio lives in here) scrolled the
@@ -28,7 +30,7 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
 
                 {/* Intro */}
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: 24 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={M3Spring.gentle}
                 >
@@ -57,9 +59,9 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                 </motion.div>
 
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
+                    initial={reduceMotion ? false : { opacity: 0, scale: 0.98 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.15, ...M3Spring.standard }}
+                    transition={{ delay: 0.12, ...M3Spring.standard }}
                     className="min-w-0"
                 >
                     <Portfolio initial={portfolio} />
@@ -67,9 +69,9 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
 
                 {/* CTAs + stats */}
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
+                    initial={reduceMotion ? false : { opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.1, ...M3Spring.gentle }}
+                    transition={{ delay: 0.18, ...M3Spring.gentle }}
                     // From lg the CTAs and the stats sit side by side under the gallery.
                     className="lg:grid lg:grid-cols-2 lg:gap-12 lg:items-center"
                 >
@@ -78,7 +80,7 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                         <div className="flex flex-col sm:flex-row gap-4">
                             <Button
                                 size="lg"
-                                className="h-14 px-8 text-base min-w-[300px] bg-primary hover:bg-primary-hover text-on-primary rounded-lg shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
+                                className="h-14 px-8 text-base w-full sm:w-auto sm:min-w-[300px] bg-primary hover:bg-primary-hover text-on-primary rounded-lg shadow-lg transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none"
                                 onClick={() => openChat('Vorrei richiedere un preventivo gratuito per la ristrutturazione.')}
                             >
                                 Richiedi Preventivo Gratuito
@@ -91,7 +93,7 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                             <Button
                                 size="lg"
                                 variant="secondary"
-                                className="h-14 px-8 text-base min-w-[300px] bg-surface hover:bg-primary-subtle text-primary-ink border-2 border-primary/30 hover:border-primary rounded-lg shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none font-semibold"
+                                className="h-14 px-8 text-base w-full sm:w-auto sm:min-w-[300px] bg-surface hover:bg-primary-subtle text-primary-ink border-2 border-primary/30 hover:border-primary rounded-lg shadow-sm transition-all duration-200 hover:scale-[1.02] active:scale-95 active:shadow-none font-semibold"
                                 onClick={() => openChat('Vorrei creare un rendering 3D fotorealistico del mio appartamento.')}
                             >
                                 Crea Rendering Gratuito
@@ -101,14 +103,14 @@ export function Hero({ portfolio }: { portfolio?: PortfolioItem[] }) {
                     </div>
 
                     {/* Key figures: label (dt) then value (dd) in reading order, value shown on top */}
-                    <dl className="grid grid-cols-3 gap-6 border-t border-line pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
+                    <dl className="grid grid-cols-3 gap-3 sm:gap-6 border-t border-line pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-12">
                         {[
                             { label: 'Progetti Completati', value: <StatCounter value={100} suffix="+" /> },
                             { label: 'Tempo Preventivo', value: <StatCounter value={24} suffix="h" /> },
                             { label: 'Soddisfazione Clienti', value: <StatCounter value={4.9} decimals={1} suffix="/5" /> },
                         ].map(({ label, value }) => (
-                            <div key={label} className="flex flex-col-reverse gap-1">
-                                <dt className="text-sm text-ink-muted">{label}</dt>
+                            <div key={label} className="flex flex-col-reverse gap-1 min-w-0">
+                                <dt className="text-xs sm:text-sm text-ink-muted leading-snug">{label}</dt>
                                 <dd className="text-2xl font-bold text-ink">{value}</dd>
                             </div>
                         ))}

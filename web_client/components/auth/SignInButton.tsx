@@ -36,7 +36,7 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
     };
 
     if (loading) {
-        return <Button variant="ghost" size="sm" className={className} disabled>Loading...</Button>;
+        return <Button variant="ghost" size="sm" className={className} disabled>Caricamento...</Button>;
     }
 
     // Don't show anything for anonymous users (they're already "logged in" technically)
@@ -75,7 +75,7 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
                         <div className="relative w-8 h-8 rounded-full overflow-hidden border border-line group-hover:border-line transition-colors shadow-sm shrink-0">
                             <Image
                                 src={user.photoURL}
-                                alt={user.displayName || "User"}
+                                alt={user.displayName || "Profilo utente"}
                                 fill
                                 sizes="32px"
                                 className="object-cover"
@@ -86,11 +86,11 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
                             <UserIcon className="w-4 h-4 text-accent-ink" />
                         </div>
                     )}
-                    <div className="flex flex-col items-start leading-none min-w-0">
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-ink group-hover:text-accent-ink transition-colors truncate w-full text-left">
+                    <div className="flex flex-col items-start leading-tight min-w-0">
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink group-hover:text-accent-ink transition-colors truncate w-full text-left">
                             {user.displayName?.split(' ')[0] || "Profilo"}
                         </span>
-                        <span className="text-[8px] font-medium uppercase tracking-[0.1em] text-ink-subtle group-hover:text-accent-ink transition-colors mt-0.5">
+                        <span className="text-[11px] font-normal uppercase tracking-wider text-ink-subtle group-hover:text-accent-ink transition-colors">
                             Account
                         </span>
                     </div>
@@ -100,10 +100,11 @@ export function SignInButton({ className, onLoginClick }: SignInButtonProps) {
                         variant="ghost"
                         size="icon"
                         onClick={handleLogout}
-                        title="Logout"
+                        title="Esci dall'account"
+                        aria-label="Esci dall'account"
                         className="text-danger-ink hover:text-danger-ink hover:bg-danger-subtle rounded-full w-8 h-8"
                     >
-                        <LogOut className="w-3.5 h-3.5" />
+                        <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
                     </Button>
                 </div>
             </div>

@@ -57,7 +57,7 @@ export function CookieConsent() {
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: 100, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="fixed bottom-6 inset-x-6 z-[200] flex justify-center pointer-events-none"
+                    className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] inset-x-4 sm:inset-x-6 z-[200] flex justify-center pointer-events-none"
                 >
                     <div className="w-full max-w-4xl glass !bg-canvas/95 p-6 md:p-8 rounded-[2rem] border-line shadow-2xl pointer-events-auto relative overflow-hidden group">
                         {/* Atmospheric Background Element */}
@@ -83,14 +83,14 @@ export function CookieConsent() {
                                     <Button
                                         variant="ghost"
                                         onClick={() => setShowSettings(true)}
-                                        className="text-accent-ink hover:bg-accent-subtle font-bold uppercase tracking-widest text-[10px] h-12 px-6 rounded-xl transition-all"
+                                        className="text-accent-ink hover:bg-accent-subtle font-bold uppercase tracking-wider text-xs h-12 px-6 rounded-xl transition-all"
                                     >
                                         <Settings className="w-4 h-4 mr-2" />
                                         Personalizza
                                     </Button>
                                     <Button
                                         onClick={acceptAll}
-                                        className="bg-primary hover:bg-primary-hover text-on-primary font-bold uppercase tracking-widest text-[10px] h-12 px-8 rounded-xl shadow-lg transition-all hover:scale-[1.02] active:scale-95 border border-line"
+                                        className="bg-primary hover:bg-primary-hover text-on-primary font-bold uppercase tracking-wider text-xs h-12 px-8 rounded-xl shadow-lg transition-all hover:scale-[1.02] active:scale-95 border border-line"
                                     >
                                         Accetta Tutti
                                     </Button>
@@ -106,7 +106,7 @@ export function CookieConsent() {
                                     <h3 className="text-xl font-bold text-ink font-serif">
                                         Impostazioni <span className="text-accent-ink italic">Avanzate</span>
                                     </h3>
-                                    <button type="button" onClick={() => setShowSettings(false)} aria-label="Chiudi le impostazioni" className="text-ink-muted hover:text-accent-ink transition-colors rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+                                    <button type="button" onClick={() => setShowSettings(false)} aria-label="Chiudi le impostazioni" className="min-w-11 min-h-11 flex items-center justify-center text-ink-muted hover:text-accent-ink transition-colors rounded-full focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
                                         <X className="w-6 h-6" aria-hidden="true" />
                                     </button>
                                 </div>
@@ -114,20 +114,20 @@ export function CookieConsent() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <CategoryToggle
                                         title="Essenziali"
-                                        desc="Necessari per il corretto funzionamento."
+                                        desc="Indispensabili per sicurezza, accesso e preferenze di navigazione."
                                         active={tempConsent.essential}
                                         locked={true}
                                         onClick={() => { }}
                                     />
                                     <CategoryToggle
                                         title="Analitici"
-                                        desc="Utilizzati per monitorare il traffico."
+                                        desc="Ci aiutano a capire in forma aggregata come viene usato il sito."
                                         active={tempConsent.analytics}
                                         onClick={() => toggleCategory('analytics')}
                                     />
                                     <CategoryToggle
                                         title="Marketing"
-                                        desc="Utilizzati per annunci personalizzati."
+                                        desc="Usati per mostrarti contenuti e comunicazioni pertinenti."
                                         active={tempConsent.marketing}
                                         onClick={() => toggleCategory('marketing')}
                                     />
@@ -137,13 +137,13 @@ export function CookieConsent() {
                                     <Button
                                         variant="ghost"
                                         onClick={declineAll}
-                                        className="text-ink-muted hover:text-danger-ink hover:bg-danger-subtle font-bold uppercase tracking-widest text-[10px] h-12 px-6 rounded-xl"
+                                        className="text-ink-muted hover:text-danger-ink hover:bg-danger-subtle font-bold uppercase tracking-wider text-xs h-12 px-6 rounded-xl"
                                     >
                                         Rifiuta Opzionali
                                     </Button>
                                     <Button
                                         onClick={handleSaveSettings}
-                                        className="bg-accent hover:bg-accent/90 text-on-accent font-bold uppercase tracking-widest text-[10px] h-12 px-10 rounded-xl shadow-lg transition-all border border-line"
+                                        className="bg-accent hover:bg-accent/90 text-on-accent font-bold uppercase tracking-wider text-xs h-12 px-10 rounded-xl shadow-lg transition-all border border-line"
                                     >
                                         Salva Preferenze
                                     </Button>
@@ -181,7 +181,7 @@ function CategoryToggle({ title, desc, active, onClick, locked = false }: { titl
                     {active && <Check className="w-3 h-3 stroke-[4]" />}
                 </span>
             </span>
-            <span className="block text-[10px] text-ink-muted leading-snug">{desc}</span>
+            <span className="block text-xs text-ink-muted leading-snug">{desc}</span>
         </button>
     );
 }

@@ -218,7 +218,7 @@ export function Testimonials() {
 
                 <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-16 relative">
                     <motion.div
-                        initial={{ opacity: 0, scale: 0.9 }}
+                        initial={reduceMotion ? false : { opacity: 0, scale: 0.9 }}
                         whileInView={{ opacity: 1, scale: 1 }}
                         viewport={{ once: true }}
                         className="inline-flex items-center justify-center p-3 mb-6 bg-canvas/50 rounded-full border border-line"
@@ -226,11 +226,11 @@ export function Testimonials() {
                         <div className="flex gap-1 text-accent-ink">
                             {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 fill-current" />)}
                         </div>
-                        <span className="ml-3 text-sm text-ink font-medium">Trusted by 500+ Homeowners</span>
+                        <span className="ml-3 text-sm text-ink font-medium">Scelto da oltre 500 proprietari</span>
                     </motion.div>
 
                     <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
+                        initial={reduceMotion ? false : { opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
                         viewport={{ once: true }}
                         className="text-3xl md:text-5xl font-serif font-bold text-ink mb-6"
@@ -329,20 +329,22 @@ export function Testimonials() {
                                                                 <FormItem className="space-y-4 flex flex-col items-center">
                                                                     <FormLabel className="text-ink-muted font-light">La tua valutazione</FormLabel>
                                                                     <FormControl>
-                                                                        <div className="flex gap-2">
+                                                                        <div className="flex gap-2" role="group" aria-label="La tua valutazione">
                                                                             {[1, 2, 3, 4, 5].map((star) => (
                                                                                 <button
                                                                                     key={star}
                                                                                     type="button"
+                                                                                    aria-label={`${star} ${star === 1 ? 'stella' : 'stelle'}`}
+                                                                                    aria-pressed={star === field.value}
                                                                                     onClick={() => field.onChange(star)}
                                                                                     className={cn(
-                                                                                        "p-2 transition-all duration-300 hover:scale-110",
+                                                                                        "p-2 rounded-full transition-all duration-300 hover:scale-110 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                                                                                         star <= field.value 
                                                                                             ? "text-accent-ink drop-shadow-[0_0_12px_color-mix(in_oklab,var(--color-accent)_40%,transparent)]" 
                                                                                             : "text-ink-subtle hover:text-ink-muted"
                                                                                     )}
                                                                                 >
-                                                                                    <Star className={cn("w-10 h-10", star <= field.value && "fill-current")} strokeWidth={1} />
+                                                                                    <Star className={cn("w-10 h-10", star <= field.value && "fill-current")} strokeWidth={1} aria-hidden="true" />
                                                                                 </button>
                                                                             ))}
                                                                         </div>

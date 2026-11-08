@@ -119,13 +119,14 @@ export function AttachmentMenu({
                     aria-label="Allega file"
                 >
                     {/* Header */}
-                    <div className="px-4 py-2 text-[10px] font-semibold text-accent-ink uppercase tracking-widest border-b border-line mb-1">
+                    <div className="px-4 py-2 text-[11px] font-semibold text-accent-ink uppercase tracking-widest border-b border-line mb-1">
                         Allega
                     </div>
 
                     {options.map((opt, i) => (
                         <motion.button
                             key={opt.label}
+                            type="button"
                             initial={{ opacity: 0, x: -8 }}
                             animate={{
                                 opacity: 1,
@@ -133,7 +134,7 @@ export function AttachmentMenu({
                                 transition: { delay: 0.04 * i, duration: 0.18 },
                             }}
                             onClick={opt.onClick}
-                            className="flex items-center gap-3 px-4 py-3 text-left hover:bg-accent-subtle active:bg-accent-subtle transition-colors group w-full"
+                            className="flex items-center gap-3 px-4 py-3 text-left hover:bg-accent-subtle active:bg-accent-subtle focus-visible:outline-hidden focus-visible:bg-accent-subtle focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring transition-colors group w-full"
                             role="menuitem"
                         >
                             <div className="p-2 bg-accent-subtle rounded-full text-accent-ink group-hover:bg-accent group-hover:text-on-accent transition-colors shrink-0">
@@ -143,7 +144,7 @@ export function AttachmentMenu({
                                 <span className="text-sm font-medium text-ink leading-tight">
                                     {opt.label}
                                 </span>
-                                <span className="text-[10px] text-ink-subtle leading-tight mt-0.5 truncate">
+                                <span className="text-xs text-ink-subtle leading-tight mt-0.5 truncate">
                                     {opt.description}
                                 </span>
                             </div>

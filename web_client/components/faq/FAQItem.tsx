@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { FAQItem } from "@/lib/faq-data";
 import { FAQAnswer } from "@/components/faq/FAQAnswer";
@@ -19,13 +19,15 @@ export function FAQItemCard({ item }: FAQItemProps) {
     <div
       id={item.slug}
       className={cn(
-        "group border backdrop-blur-sm rounded-2xl overflow-hidden transition-all duration-300",
+        "group border backdrop-blur-sm rounded-2xl overflow-hidden transition-colors duration-300",
         isOpen
           ? "bg-surface-muted border-line shadow-lg"
           : "bg-surface border-line hover:bg-surface-muted hover:border-line"
       )}
     >
       <button
+        id={`faq-trigger-${item.slug}`}
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-6 text-left focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
         aria-expanded={isOpen}
@@ -57,27 +59,25 @@ export function FAQItemCard({ item }: FAQItemProps) {
         </div>
       </button>
 
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            id={`faq-content-${item.slug}`}
-            key="content"
-            initial="collapsed"
-            animate="open"
-            exit="collapsed"
-            variants={{
-              open: { opacity: 1, height: "auto", marginBottom: 24 },
-              collapsed: { opacity: 0, height: 0, marginBottom: 0 },
-            }}
-            transition={M3Transition.containerTransform}
-          >
-            <div className="px-6 prose max-w-none text-ink leading-relaxed prose-strong:text-ink prose-li:text-ink">
-              {/* SECURITY: rendered as structured React elements, no HTML injection */}
-              <FAQAnswer blocks={item.answer} />
-            </div>
-          </motion.div>
+      {/* CSS grid-template-rows 0fr <-> 1fr animates expansion smoothly without layout thrashing */}
+      <div
+        id={`faq-content-${item.slug}`}
+        role="region"
+        aria-labelledby={`faq-trigger-${item.slug}`}
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.2,0,0,1)]",
+          isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0 invisible pointer-events-none"
         )}
-      </AnimatePresence>
+      >
+        <div className="overflow-hidden">
+          <div className="px-6 pb-6 prose max-w-none text-ink leading-relaxed prose-strong:text-ink prose-li:text-ink">
+            {/* SECURITY: rendered as structured React elements, no HTML injection */}
+            <FAQAnswer blocks={item.answer} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

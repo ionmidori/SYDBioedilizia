@@ -185,17 +185,24 @@ export function Services() {
                     className="hidden md:grid md:grid-cols-3 gap-6"
                 >
                     {services.map((service, index) => (
-                        <motion.div
+                        <motion.article
                             key={service.id}
-                            role="article"
+                            role="button"
+                            tabIndex={0}
                             variants={GRID_REVEAL.item}
                             whileHover={{ y: -4, transition: M3Transition.containerTransform }}
                             whileTap={{ scale: 0.98, transition: M3Transition.buttonPress }}
                             onClick={() => handleCardClick(service.action)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleCardClick(service.action);
+                                }
+                            }}
                             onMouseEnter={() => setHoveredService(index)}
                             onMouseLeave={() => setHoveredService(null)}
                             className={cn(
-                                "group relative p-6 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer",
+                                "group relative p-6 m3-shape-xl touch-pan-y cinematic-focus cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
                                 // Gold gradient border, specular highlight and resting/hover elevation
                                 // ride on the utility's own rules, so no Tailwind `border` or `shadow-*` here.
                                 "glass-services-card",
@@ -226,7 +233,7 @@ export function Services() {
                             <p className="text-ink-muted text-base leading-relaxed font-light">
                                 {service.description}
                             </p>
-                        </motion.div>
+                        </motion.article>
                     ))}
                 </motion.div>
             </div>

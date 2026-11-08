@@ -37,7 +37,7 @@ export function ChatHeader({ onMinimize, onPointerDown }: ChatHeaderProps) {
                             <h3 className="font-serif font-bold text-ink text-lg leading-none">
                                 SYD
                             </h3>
-                            <span className="text-[10px] font-sans font-medium text-accent-ink mt-0.5">
+                            <span className="text-xs font-sans font-medium text-accent-ink mt-0.5">
                                 Architetto personale
                             </span>
                         </div>

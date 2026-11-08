@@ -4,7 +4,6 @@ import { motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Mail, MapPin, Phone } from 'lucide-react';
-import { FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter } from 'react-icons/fa6';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { M3EasingFM } from '@/lib/m3-motion';
 import { COMPANY } from '@/lib/company';
@@ -22,7 +21,7 @@ export function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: '0px 0px -10% 0px' }}
             transition={{ duration: 0.6, ease: M3EasingFM.decelerate }}
-            className="surface-inverse border-t border-line pt-20 pb-10 relative overflow-hidden"
+            className="surface-inverse border-t border-line pt-20 pb-[max(2.5rem,env(safe-area-inset-bottom))] relative overflow-hidden"
         >
 
             {/* Decorative Glow */}
@@ -38,30 +37,15 @@ export function Footer() {
                         <Link href="/" className="group block w-fit">
                             <BrandLogo variant="full" className="h-20 md:h-24 group-hover:opacity-90 transition-opacity" />
                         </Link>
-                        <p className="text-ink-muted text-sm leading-relaxed max-w-xs font-light">
+                        <p className="text-ink-muted text-sm leading-relaxed max-w-xs tracking-[0.01em]">
                             Rivoluzioniamo il modo di progettare e ristrutturare casa. Tecnologia AI all&apos;avanguardia per risultati garantiti e senza sorprese.
                         </p>
-                        <div className="flex gap-4">
-                            {[FaFacebookF, FaInstagram, FaLinkedinIn, FaXTwitter].map((Icon, i) => (
-                                <a
-                                    key={i}
-                                    href="#"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="w-10 h-10 rounded-full bg-shade/20 border border-line flex items-center justify-center text-primary-ink hover:text-ink hover:border-primary hover:bg-primary hover:scale-110 transition-all duration-300"
-                                    aria-label={`Social Media Link ${i}`}
-                                >
-                                    <Icon className="w-4 h-4" />
-                                </a>
-                            ))}
-                        </div>
-
                     </div>
 
                     {/* Quick Links */}
                     <div className="min-w-0">
                         <h2 className="text-ink font-serif font-bold mb-6 text-lg">Esplora</h2>
-                        <ul className="space-y-3 text-sm leading-6">
+                        <ul className="space-y-3 text-sm leading-relaxed tracking-[0.01em]">
                             {[
                                 { label: 'Home', href: '/' },
                                 { label: 'Servizi', href: pathname === '/' ? '#services' : '/#services' },
@@ -71,7 +55,7 @@ export function Footer() {
                                 { label: 'FAQ', href: '/faq' },
                             ].map((item) => (
                                 <li key={item.label}>
-                                    <Link href={item.href} className="text-ink-muted hover:text-accent-ink transition-colors font-light">
+                                    <Link href={item.href} className="text-ink-muted hover:text-accent-ink transition-colors">
                                         {item.label}
                                     </Link>
                                 </li>
@@ -82,36 +66,38 @@ export function Footer() {
                     {/* Contact Info — icons sit on the first text line (mt-1 on a 24px line) */}
                     <div className="min-w-0">
                         <h2 className="text-ink font-serif font-bold mb-6 text-lg">Contatti</h2>
-                        <ul className="space-y-3 text-sm leading-6 text-ink-muted font-light">
+                        <ul className="space-y-3 text-sm leading-relaxed tracking-[0.01em] text-ink-muted">
                             <li className="flex items-start gap-2 md:gap-3">
                                 <MapPin className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
                                 <address className="not-italic min-w-0">
                                     {COMPANY.address.street},<br />{COMPANY.address.postalCode} {COMPANY.address.city}
-                                    <span className="text-accent-ink text-xs block">P.IVA: {COMPANY.vatId}</span>
+                                    <span className="text-accent-ink text-xs block mt-0.5 tabular-nums">P.IVA: {COMPANY.vatId}</span>
                                 </address>
                             </li>
                             <li className="flex items-start gap-2 md:gap-3">
                                 <Phone className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
-                                <span className="min-w-0">{COMPANY.phone}</span>
+                                <a href={`tel:${COMPANY.phone.replace(/\s+/g, '')}`} className="min-w-0 tabular-nums hover:text-accent-ink transition-colors">
+                                    {COMPANY.phone}
+                                </a>
                             </li>
                             <li className="flex items-start gap-2 md:gap-3">
                                 <Mail className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
                                 {/* <wbr> after "@": on a narrow column it wraps as "name@ / domain",
                                     not mid-word ("gmail.co / m"). */}
-                                <span className="min-w-0 [overflow-wrap:anywhere]">
+                                <a href={`mailto:${COMPANY.email}`} className="min-w-0 [overflow-wrap:anywhere] hover:text-accent-ink transition-colors">
                                     {COMPANY.email.split('@')[0]}@<wbr />{COMPANY.email.split('@')[1]}
-                                </span>
+                                </a>
                             </li>
                         </ul>
                     </div>
                 </div>
 
                 <div className="border-t border-line pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-                    <p className="text-ink-subtle text-sm font-light">
+                    <p className="text-ink-subtle text-sm tracking-[0.01em]">
                         © {currentYear} SYD BIOEDILIZIA. Tutti i diritti riservati.
                     </p>
                     <div className="flex gap-6 text-sm text-ink-subtle">
-                        <Link href="/privacy" className="hover:text-accent-ink transition-colors">Privacy Policy</Link>
+                        <Link href="/privacy" className="hover:text-accent-ink transition-colors">Informativa sulla Privacy</Link>
                         <Link href="/terms" className="hover:text-accent-ink transition-colors">Termini di Servizio</Link>
                         <Link href="/cookie-policy" className="hover:text-accent-ink transition-colors">Cookie Policy</Link>
                     </div>

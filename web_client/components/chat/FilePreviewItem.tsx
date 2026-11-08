@@ -180,8 +180,8 @@ export function FilePreviewItem({
 
                     {/* Compressing label */}
                     {item.status === 'compressing' && (
-                        <span className="text-[10px] text-primary-ink font-medium">
-                            Compressing...
+                        <span className="text-[11px] text-primary-ink font-medium">
+                            Compressione...
                         </span>
                     )}
 
@@ -189,7 +189,7 @@ export function FilePreviewItem({
                         which has room for it) and retry, only when it can help */}
                     {item.status === 'error' && (
                         <>
-                            <span title={item.error} className="text-[10px] text-on-scrim font-bold">
+                            <span title={item.error} className="text-[11px] text-on-scrim font-bold">
                                 Non riuscito
                             </span>
                             {onRetry && item.retryable !== false && (
@@ -217,8 +217,8 @@ export function FilePreviewItem({
                     onClick={handleRemove}
                     aria-label={
                         item.status === 'uploading'
-                            ? `Cancel upload: ${item.file.name}`
-                            : `Remove file: ${item.file.name}`
+                            ? `Annulla caricamento: ${item.file.name}`
+                            : `Rimuovi file: ${item.file.name}`
                     }
                 >
                     <X className="w-3 h-3" />

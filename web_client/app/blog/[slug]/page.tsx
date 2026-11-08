@@ -48,17 +48,17 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
         <div className="max-w-4xl mx-auto">
           <BlogBackButton />
 
-          <article className="prose lg:prose-lg max-w-none">
+          <article className="prose lg:prose-lg max-w-3xl mx-auto">
             <header className="mb-10 not-prose">
               {post.badge && (
-                <div className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4">
+                <div className="inline-block px-3 py-1 rounded-full bg-primary-subtle border border-primary/20 text-primary-ink text-xs font-bold uppercase tracking-wider mb-4">
                   {post.badge}
                 </div>
               )}
-              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight mb-4 leading-tight">
+              <h1 className="text-3xl md:text-5xl font-serif font-bold tracking-tight mb-4 leading-tight text-ink">
                 {post.title}
               </h1>
-              <p className="text-xl text-ink-muted font-medium max-w-2xl">
+              <p className="text-xl text-ink-muted font-light max-w-2xl">
                 {post.subtitle}
               </p>
             </header>
@@ -66,7 +66,7 @@ export default async function BlogArticlePage({ params }: { params: Params }) {
             <ArticleBody blocks={post.body} />
 
             <section className="mt-16 not-prose border-t border-line pt-12">
-              <h2 className="text-2xl font-bold mb-8 text-ink">
+              <h2 className="text-2xl font-serif font-bold mb-8 text-ink">
                 {post.faqHeading}
               </h2>
               <div className="space-y-4">
