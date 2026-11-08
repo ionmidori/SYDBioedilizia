@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-// It replaces the root layout, so it must load the global styles (roles, fonts) itself.
+// It replaces the root layout, so it must load the global styles (the colour roles) itself.
+// The next/font variables are set by the root layout only: here text uses the fallback stack.
 import './globals.css';
 
 /**

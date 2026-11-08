@@ -33,7 +33,7 @@ export function MobileProjectCard({
             onClick={handleToggle}
             aria-expanded={!isHidden}
             className={cn(
-                "relative block w-full aspect-[3/4] rounded-2xl overflow-hidden text-left bg-shade border transition-colors duration-300 cinematic-focus",
+                "relative block w-full aspect-[3/4] rounded-2xl overflow-hidden text-left bg-shade border cinematic-focus",
                 isActive ? "border-accent" : "border-line"
             )}
         >

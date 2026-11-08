@@ -127,7 +127,7 @@ export function PasskeyButton({ mode, userId, onSuccess, className }: PasskeyBut
                     )}
                 >
                     {/* Shimmer effect overlay */}
-                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-on-scrim/20 to-transparent group-hover:animate-shimmer" />
+                    <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-on-scrim/20 to-transparent" />
 
                     {isLoading ? (
                         <>

@@ -74,7 +74,7 @@ export function compileRules(spec, vocab) {
     // A whole class token: variants (hover:, md:, data-[state=open]:), optional !, utility-colour[-shade][/opacity].
     const g = (capture) => (capture ? '(' : '(?:');
     const classPattern = (c) =>
-        `(?<![\\w/-])${g(c)}(?:[\\w-]+(?:\\[[^\\]\\s]*\\])?:)*)${g(c)}!?)${g(c)}${utilAlt})-${g(c)}${colorAlt})(?:-${g(c)}\\d{2,3}))?(?:/${g(c)}\\d{1,3}|\\[[\\d.]+%?\\]))?(?![\\w/-])`;
+        `(?<![\\w/-])${g(c)}(?:[\\w-]+(?:\\[[^\\]\\s]*\\])?:)*)${g(c)}!?)${g(c)}${utilAlt})-${g(c)}${colorAlt})(?:-${g(c)}\\d{2,3}))?(?:/${g(c)}\\d{1,3}|\\[\\d*\\.?\\d+%?\\]))?(?![\\w/-])`;
     const token = new RegExp(classPattern(true), 'g');
     const exact = new RegExp(`^${classPattern(true)}$`);
     // The bare class with the spaces around it: a dropped class takes one of them along.
@@ -101,11 +101,13 @@ function parse(cls, compiled) {
     return { variants: m[1], important: m[2], utility: m[3], color: m[4], shade: m[5] ? Number(m[5]) : undefined, opacity: m[6] ? opacityPercent(m[6]) : undefined };
 }
 
-/** 40, [40%] and [0.4] are the same opacity: always returned as a percentage. */
+/** 40, [40], [40%] and [0.4] are the same opacity: always returned as a percentage. */
 function opacityPercent(raw) {
     if (!raw.startsWith('[')) return Number(raw);
     const v = raw.slice(1, -1);
-    return v.endsWith('%') ? Number(v.slice(0, -1)) : Math.round(Number(v) * 100);
+    if (v.endsWith('%')) return Number(v.slice(0, -1));
+    const n = Number(v);
+    return n <= 1 ? Math.round(n * 100) : n;
 }
 
 function matches(match, p, compiled) {

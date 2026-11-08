@@ -44,6 +44,9 @@ describe('engine', () => {
         // Arbitrary opacity (/[0.03], /[3%]) is the same class family: it must not slip past --check.
         assert.equal(migrateClass('bg-red-500/[0.03]', rules).parsed.opacity, 3);
         assert.equal(migrateClass('hover:bg-red-500/[40%]', rules).parsed.opacity, 40);
+        // A bare number above 1 is already a percentage; a value with no digit is no opacity at all.
+        assert.equal(migrateClass('bg-red-500/[40]', rules).parsed.opacity, 40);
+        assert.equal(migrateClass('bg-red-500/[.]', rules).status, 'none');
         assert.equal(migrateClass('text-sm', rules).status, 'none');
         assert.equal(migrateClass('text-ink', rules).status, 'none');
     });

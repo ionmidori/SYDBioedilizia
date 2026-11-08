@@ -144,12 +144,6 @@
   min-height: 48px;
 }
 
-/* M3 Surface Container Levels */
-.surface-container-high {
-  background: color-mix(in oklab, var(--color-canvas) 85%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-accent) 25%, transparent);
-}
-
 /* M3 Extra Large Shape */
 @utility m3-shape-xl {
   border-radius: 24px;

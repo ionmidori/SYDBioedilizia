@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import path from "node:path";
 import betterTailwindcss from "eslint-plugin-better-tailwindcss";
 
 const eslintConfig = defineConfig([
@@ -46,7 +47,8 @@ const eslintConfig = defineConfig([
     ignores: ["**/__tests__/**"], // fixtures pass arbitrary strings through cn()
     plugins: { "better-tailwindcss": betterTailwindcss },
     settings: {
-      "better-tailwindcss": { entryPoint: "app/globals.css" },
+      // Absolute: the rule must find the design system whatever directory ESLint runs from.
+      "better-tailwindcss": { entryPoint: path.join(import.meta.dirname, "app/globals.css") },
     },
     rules: {
       "better-tailwindcss/no-unknown-classes": [

@@ -73,7 +73,7 @@ export function QuoteCard({ quote }: { quote: QuoteListItem }) {
             data-project-id={quote.project_id}
             // Lets E2E select approved vs pending without asserting on Italian copy.
             data-quote-status={quote.status}
-            className="p-5 rounded-2xl glass-premium border border-line hover:border-line transition-colors space-y-4"
+            className="p-5 rounded-2xl glass-premium border border-line transition-colors space-y-4"
         >
             <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">

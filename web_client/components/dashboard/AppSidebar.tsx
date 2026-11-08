@@ -122,7 +122,7 @@ const UserBadge = React.memo<UserBadgeProps>(function UserBadge({ user, collapse
 
     return (
         <div className={cn(
-            "flex items-center gap-3 p-3 rounded-[1.25rem] glass-premium border-line mb-1 transition-all hover:border-line hover:bg-surface group select-none relative overflow-hidden shadow-xl",
+            "flex items-center gap-3 p-3 rounded-[1.25rem] glass-premium border-line mb-1 transition-all group select-none relative overflow-hidden shadow-xl",
             collapsed && "justify-center p-2 rounded-xl"
         )}>
             <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />

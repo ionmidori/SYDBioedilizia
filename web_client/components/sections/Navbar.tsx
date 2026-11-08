@@ -342,7 +342,7 @@ export function Navbar() {
                                     <motion.div variants={mobileMenuItem} className="w-full">
                                         <button
                                             onClick={handlePersonalAreaClick}
-                                            className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-line transition-all duration-300 hover:border-line hover:bg-surface active:scale-95 group shadow-xl"
+                                            className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-line transition-all duration-300 active:scale-95 group shadow-xl"
                                         >
                                             <span className="font-bold uppercase tracking-[0.15em] text-[10px] text-ink group-hover:text-accent-ink transition-colors">Area Personale</span>
                                         </button>
@@ -356,7 +356,7 @@ export function Navbar() {
                                         >
                                             <Link
                                                 href={link.href}
-                                                className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-line transition-all duration-300 hover:border-line hover:bg-surface active:scale-95 group shadow-xl"
+                                                className="flex items-center justify-center w-full p-3 rounded-[1.25rem] glass-premium border-line transition-all duration-300 active:scale-95 group shadow-xl"
                                                 onClick={() => {
                                                     triggerHaptic();
                                                     setMobileMenuOpen(false);
