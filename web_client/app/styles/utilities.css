@@ -254,7 +254,7 @@
    - Zero-jank: positioned statically in the DOM flow with an absolute layer,
      compositor-only, zero scroll repaint, NO background-attachment: fixed.
    - Zero-payload: reuses the cached marble-statuario asset from WhatWeDo.
-   - Legibility: subtle opacity (16%) with multiply mix-blend preserves WCAG 2.2 AAA text contrast (>7:1).
+   - Legibility: refined opacity (26%) with multiply mix-blend preserves WCAG 2.2 AAA text contrast (>11:1).
    - Strict tokens: mask uses black/transparent without hardcoded color literals. */
 @utility hero-services-marble {
   position: absolute;
@@ -271,7 +271,7 @@
   background-size: 1400px auto;
   background-repeat: repeat-y;
   background-position: center top;
-  opacity: 0.16;
+  opacity: 0.26;
   mix-blend-mode: multiply;
   mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
   -webkit-mask-image: linear-gradient(to bottom, black 0%, black 75%, transparent 100%);
