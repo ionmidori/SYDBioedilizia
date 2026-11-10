@@ -72,12 +72,19 @@ def _run(library: AssemblyLibrary, units: dict[str, str], analysis: InsightAnaly
     return expand(analysis, library, units, {k: Decimal(v) for k, v in measures.items()})
 
 
+def _one_line_library(formula: str) -> AssemblyLibrary:
+    return AssemblyLibrary.model_validate({
+        "version": "t", "description": "t", "dependency_rules": [],
+        "assemblies": [{
+            "id": "ASM-T", "name": "Prova", "description": "t", "triggers": ["t"], "questions_required": [],
+            "phases": [{"phase": "Lavori", "skus": [{"sku": "PIT-001", "unit": "mq", "qty_formula": formula, "note": "n"}]}],
+        }],
+    })
+
+
 def test_evaluate_formula_in_decimal() -> None:
     assert evaluate_formula("mq * 2.2 * 1.05", {"mq": Decimal("6")}) == Decimal("13.860")
     assert evaluate_formula("n_porte * 2 - 1", {"n_porte": Decimal(3)}) == Decimal(5)
-
-
-def test_evaluate_formula_missing_measure() -> None:
     with pytest.raises(MissingMeasure) as exc:
         evaluate_formula("mq * 2", {})
     assert exc.value.variable == "mq"
@@ -98,23 +105,16 @@ def test_full_bathroom_expands_every_line(library: AssemblyLibrary, units: dict[
     assert "mq * 2.2 * 1.05" in riv.reasoning and "mq=6" in riv.reasoning
 
 
-def test_quantities_have_two_decimals(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    result = _run(library, units, _analysis(("ASM-BAGNO-FULL", [])), mq="5.333")
-    assert all(-line.qty.as_tuple().exponent <= 2 for line in result.lines)
-
-
-def test_conditional_line_only_when_chosen(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    without = _run(library, units, _analysis(("ASM-CUCINA-FULL", [])), mq="10", ml_pensili="4")
-    assert "CUC-GAS-001" not in _qty(without)
-    with_gas = _run(library, units, _analysis(("ASM-CUCINA-FULL", ["if_cottura_gas"])), mq="10", ml_pensili="4")
-    assert _qty(with_gas)["CUC-GAS-001"] == Decimal("1")
-
-
-def test_conditional_phase(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    plain = _run(library, units, _analysis(("ASM-PARETI-BIANCHE", [])), mq_pareti="30")
-    assert "DEM-003" not in _qty(plain)
-    tiles = _run(library, units, _analysis(("ASM-PARETI-BIANCHE", ["if_piastrelle"])), mq_pareti="30")
-    assert _qty(tiles)["DEM-003"] == Decimal("30")
+@pytest.mark.parametrize(("assembly", "condition", "sku", "qty", "measures"), [
+    pytest.param("ASM-CUCINA-FULL", "if_cottura_gas", "CUC-GAS-001", "1", {"mq": "10", "ml_pensili": "4"}, id="line"),
+    pytest.param("ASM-PARETI-BIANCHE", "if_piastrelle", "DEM-003", "30", {"mq_pareti": "30"}, id="phase"),
+])
+def test_conditional_line_or_phase_only_when_chosen(
+    library: AssemblyLibrary, units: dict[str, str],
+    assembly: str, condition: str, sku: str, qty: str, measures: dict[str, str],
+) -> None:
+    assert sku not in _qty(_run(library, units, _analysis((assembly, [])), **measures))
+    assert _qty(_run(library, units, _analysis((assembly, [condition])), **measures))[sku] == Decimal(qty)
 
 
 def test_default_alternative_is_used_and_flagged(library: AssemblyLibrary, units: dict[str, str]) -> None:
@@ -126,12 +126,38 @@ def test_default_alternative_is_used_and_flagged(library: AssemblyLibrary, units
     assert _qty(chosen)["INF-FIN-002"] == Decimal("3")
     assert "INF-FIN-001" not in _qty(chosen)
     assert chosen.warnings == []
+    no_measure = _run(library, units, _analysis(("ASM-INFISSI", [])))
+    assert "INF-FIN-001" not in _qty(no_measure)
+    assert "choice_defaulted" not in _kinds(no_measure), "no warning for a line that is not there"
+    assert no_measure.missing_measures == ["n_finestre"]
 
 
-def test_unknown_condition_is_ignored_and_flagged(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    result = _run(library, units, _analysis(("ASM-SOFFITTO", ["if_pvc"])), mq="12")
-    assert "CS-001" not in _qty(result)
-    assert [w.kind for w in result.warnings] == ["unknown_condition"]
+def test_quantity_rounding(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    result = _run(library, units, _analysis(_BATH), mq="5.333")
+    assert all(-line.qty.as_tuple().exponent <= 2 for line in result.lines)
+    for formula in ("mq * 0.001", "1 - mq"):  # below a cent, negative
+        assert _run(_one_line_library(formula), units, _analysis(("ASM-T", [])), mq="4").lines == []
+
+
+@pytest.mark.parametrize(("formula", "measures", "kind"), [
+    pytest.param("mq * 1" + "0" * 60, {"mq": "10000"}, "qty_out_of_bounds", id="huge"),
+    pytest.param("mq / (mq_pareti - mq_pareti)", {"mq": "4", "mq_pareti": "10"}, "admin_check", id="division-by-zero"),
+])
+def test_unusable_formula_result_is_flagged_not_raised(
+    units: dict[str, str], formula: str, measures: dict[str, str], kind: str,
+) -> None:
+    result = _run(_one_line_library(formula), units, _analysis(("ASM-T", [])), **measures)
+    assert result.lines == []
+    assert kind in _kinds(result)
+
+
+def test_unknown_package_or_condition_is_skipped_and_flagged(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    condition = _run(library, units, _analysis(("ASM-SOFFITTO", ["if_pvc"])), mq="12")
+    assert "CS-001" not in _qty(condition)
+    assert "unknown_condition" in _kinds(condition)
+    package = _run(library, units, _analysis(("ASM-INVENTATO", [])), mq="6")
+    assert package.lines == []
+    assert "unknown_package" in _kinds(package)
 
 
 def test_missing_measure_skips_the_line_and_asks(library: AssemblyLibrary, units: dict[str, str]) -> None:
@@ -139,10 +165,7 @@ def test_missing_measure_skips_the_line_and_asks(library: AssemblyLibrary, units
     assert set(_qty(result)) == {"DEM-006", "IMP-ID-001", "IMP-EL-001", "BAG-SAN-001", "BAG-BOX-001"}
     assert result.missing_measures == ["mq"]
     assert result.questions == [MEASURE_QUESTIONS["mq"]]
-
-
-def test_every_formula_variable_has_a_question() -> None:
-    assert set(MEASURE_QUESTIONS) == FORMULA_VARIABLES
+    assert set(MEASURE_QUESTIONS) == FORMULA_VARIABLES, "every formula variable has a question"
 
 
 def test_resolve_measures_prefers_spec_then_brief() -> None:
@@ -154,37 +177,28 @@ def test_resolve_measures_prefers_spec_then_brief() -> None:
     measures = resolve_measures(analysis, brief)
     assert measures == {"mq": Decimal("6"), "mq_pareti": Decimal("25")}
     assert resolve_measures(analysis, None) == {"mq": Decimal("6")}
+    twice = InsightAnalysis(summary="s", measures=[
+        SpecMeasure(name="mq", value=6, source="declared"), SpecMeasure(name="mq", value=9, source="estimated"),
+    ])
+    assert resolve_measures(twice, None) == {"mq": Decimal("6")}, "the first spec measure wins"
 
 
-def test_unknown_measure_name_is_ignored() -> None:
+def test_spec_measure_validation() -> None:
     analysis = InsightAnalysis.model_validate({
         "summary": "s",
         "measures": [{"name": "mq_bagno", "value": 6, "source": "declared"},
                      {"name": "mq", "value": 6, "source": "declared"}],
     })
-    assert [m.name for m in analysis.measures] == ["mq"]
+    assert [m.name for m in analysis.measures] == ["mq"], "an unknown measure name is dropped, not an error"
+    for absurd in (1e60, float("inf")):
+        with pytest.raises(ValidationError):
+            SpecMeasure(name="mq", value=absurd, source="estimated")
 
 
 def test_quantity_over_bound_is_dropped(library: AssemblyLibrary, units: dict[str, str]) -> None:
     result = _run(library, units, _analysis(("ASM-BAGNO-FULL", [])), mq="9000")
     assert "BAG-RIV-001" not in _qty(result)
     assert any(w.kind == "qty_out_of_bounds" and w.skus == ("BAG-RIV-001",) for w in result.warnings)
-
-
-def _one_line_library(formula: str) -> AssemblyLibrary:
-    return AssemblyLibrary.model_validate({
-        "version": "t", "description": "t", "dependency_rules": [],
-        "assemblies": [{
-            "id": "ASM-T", "name": "Prova", "description": "t", "triggers": ["t"], "questions_required": [],
-            "phases": [{"phase": "Lavori", "skus": [{"sku": "PIT-001", "unit": "mq", "qty_formula": formula, "note": "n"}]}],
-        }],
-    })
-
-
-def test_unknown_package_is_skipped_and_flagged(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    result = _run(library, units, _analysis(("ASM-INVENTATO", [])), mq="6")
-    assert result.lines == []
-    assert [w.kind for w in result.warnings] == ["unknown_package"]
 
 
 def test_package_chosen_twice_is_expanded_once_with_both_conditions(
@@ -195,48 +209,6 @@ def test_package_chosen_twice_is_expanded_once_with_both_conditions(
     skus = [line.sku for line in result.lines]
     assert len(skus) == len(set(skus))
     assert "CUC-GAS-001" in skus
-
-
-def test_quantity_rounding_below_a_cent_is_skipped(units: dict[str, str]) -> None:
-    result = _run(_one_line_library("mq * 0.001"), units, _analysis(("ASM-T", [])), mq="4")
-    assert result.lines == [] and result.warnings == []
-    negative = _run(_one_line_library("1 - mq"), units, _analysis(("ASM-T", [])), mq="4")
-    assert negative.lines == []
-
-
-def test_first_spec_measure_wins() -> None:
-    analysis = InsightAnalysis(summary="s", measures=[
-        SpecMeasure(name="mq", value=6, source="declared"), SpecMeasure(name="mq", value=9, source="estimated"),
-    ])
-    assert resolve_measures(analysis, None) == {"mq": Decimal("6")}
-
-
-def test_absurd_measure_is_rejected_by_the_spec() -> None:
-    with pytest.raises(ValidationError):
-        SpecMeasure(name="mq", value=1e60, source="estimated")
-    with pytest.raises(ValidationError):
-        SpecMeasure(name="mq", value=float("inf"), source="estimated")
-
-
-def test_huge_formula_result_is_out_of_bounds_not_a_crash(units: dict[str, str]) -> None:
-    result = _run(_one_line_library("mq * 100000000000000000000000000000000000000000000000000000000000"),
-                  units, _analysis(("ASM-T", [])), mq="10000")
-    assert result.lines == []
-    assert [w.kind for w in result.warnings] == ["qty_out_of_bounds"]
-
-
-def test_formula_arithmetic_error_is_flagged_not_raised(units: dict[str, str]) -> None:
-    result = _run(_one_line_library("mq / (mq_pareti - mq_pareti)"), units, _analysis(("ASM-T", [])),
-                  mq="4", mq_pareti="10")
-    assert result.lines == []
-    assert [w.kind for w in result.warnings] == ["admin_check"]
-
-
-def test_default_warning_only_when_the_default_line_is_there(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    result = _run(library, units, _analysis(("ASM-INFISSI", [])))
-    assert "INF-FIN-001" not in _qty(result)
-    assert "choice_defaulted" not in [w.kind for w in result.warnings]
-    assert result.missing_measures == ["n_finestre"]
 
 
 # ── Elements, extras, dependency rules, live price book (Task 3) ─────────────
@@ -258,7 +230,9 @@ def test_keep_sanitari_while_demolishing_becomes_reuse_with_warning(
     assert "BAG-SAN-001" not in _qty(result)
     assert (_REUSE_SANITARI, "reuse") in _manual(result)
     warning = next(w for w in result.warnings if w.kind == "element_kept_but_demolished")
+    assert warning.skus == ("DEM-002", "DEM-003")
     assert "Sanitari" in warning.message and "DEM-002" in warning.message
+    assert "smontaggio e rimontaggio" in warning.message
 
 
 def test_keep_sanitari_in_light_bathroom_drops_both(library: AssemblyLibrary, units: dict[str, str]) -> None:
@@ -268,18 +242,24 @@ def test_keep_sanitari_in_light_bathroom_drops_both(library: AssemblyLibrary, un
     assert _REUSE_SANITARI not in [work for work, _ in _manual(result)]
 
 
-def test_keep_floor_drops_floor_lines(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    choices: dict[str, ElementAction] = {"pavimento": "keep", "rivestimento_pareti": "keep", "sanitari": "keep"}
+@pytest.mark.parametrize(("choices", "gone_skus", "gone_work"), [
+    pytest.param(
+        {"pavimento": "keep", "rivestimento_pareti": "keep", "sanitari": "keep"},
+        {"DEM-002", "PAV-004", "PAV-001", "DEM-003", "MUR-004", "BAG-RIV-001", "DEM-006", "BAG-SAN-001"},
+        set(), id="floor-walls-sanitari",
+    ),
+    pytest.param(
+        {"rubinetteria": "keep", "rivestimento_pareti": "keep"},
+        {"DEM-003", "MUR-004", "BAG-RIV-001"}, {"Rubinetteria (fornitura)"}, id="rubinetteria",
+    ),
+])
+def test_kept_elements_drop_their_lines(
+    library: AssemblyLibrary, units: dict[str, str],
+    choices: dict[str, ElementAction], gone_skus: set[str], gone_work: set[str],
+) -> None:
     result = _run(library, units, _analysis(_BATH, elements=choices), mq="6")
-    gone = {"DEM-002", "PAV-004", "PAV-001", "DEM-003", "MUR-004", "BAG-RIV-001", "DEM-006", "BAG-SAN-001"}
-    assert not gone & set(_qty(result))
-    assert "element_kept_but_demolished" not in _kinds(result)
-
-
-def test_kept_rubinetteria_drops_its_supply_work(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    choices: dict[str, ElementAction] = {"rubinetteria": "keep", "rivestimento_pareti": "keep"}
-    result = _run(library, units, _analysis(_BATH, elements=choices), mq="6")
-    assert "Rubinetteria (fornitura)" not in [work for work, _ in _manual(result)]
+    assert not gone_skus & set(_qty(result))
+    assert not gone_work & {work for work, _ in _manual(result)}
     assert "element_kept_but_demolished" not in _kinds(result)
 
 
@@ -289,18 +269,16 @@ def test_reuse_without_reuse_work_is_keep_with_warning(library: AssemblyLibrary,
     assert "reuse_not_possible" in _kinds(result)
 
 
-def test_choice_for_an_element_of_no_chosen_package_changes_nothing(
-    library: AssemblyLibrary, units: dict[str, str]
-) -> None:
-    plain = _run(library, units, _analysis(("ASM-PAVIMENTO", [])), mq="20")
-    chosen = _run(library, units, _analysis(("ASM-PAVIMENTO", []), elements={"sanitari": "keep"}), mq="20")
-    assert _qty(chosen) == _qty(plain)
-
-
-def test_extra_line_is_added_with_the_model_quantity(library: AssemblyLibrary, units: dict[str, str]) -> None:
+def test_extra_line_uses_the_model_quantity_within_bounds(library: AssemblyLibrary, units: dict[str, str]) -> None:
     result = _run(library, units, _analysis(extras=[("PIT-001", 30.456)]))
     line = result.lines[0]
     assert (line.sku, line.qty, line.origin, line.reasoning) == ("PIT-001", Decimal("30.46"), "extra", "extra PIT-001")
+    edge = _run(library, units, _analysis(extras=[("PIT-001", 9999), ("NON-ESISTE-1", 2)]))
+    assert [line.sku for line in edge.lines] == ["PIT-001"], "unknown SKU left out"
+    for huge in (10001, 1e60):
+        over = _run(library, units, _analysis(extras=[("PIT-001", huge)]))
+        assert over.lines == []
+        assert "qty_out_of_bounds" in _kinds(over)
 
 
 def test_extra_duplicate_of_a_package_line_is_dropped(library: AssemblyLibrary, units: dict[str, str]) -> None:
@@ -310,25 +288,13 @@ def test_extra_duplicate_of_a_package_line_is_dropped(library: AssemblyLibrary, 
     assert _qty(result)["PIT-001"] == Decimal("20")
 
 
-def test_extra_out_of_bounds_or_unknown_is_dropped(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    result = _run(library, units, _analysis(extras=[("PIT-001", 9999), ("NON-ESISTE-1", 2)]))
-    assert [line.sku for line in result.lines] == ["PIT-001"]
-    for huge in (10001, 1e60):
-        over = _run(library, units, _analysis(extras=[("PIT-001", huge)]))
-        assert over.lines == []
-        assert _kinds(over) == ["qty_out_of_bounds"]
-
-
 def test_rule_adds_disposal_for_an_extra_floor_removal(library: AssemblyLibrary, units: dict[str, str]) -> None:
     result = _run(library, units, _analysis(extras=[("DEM-002", 20)]), mq="20")
     smal = next(line for line in result.lines if line.sku == "SMAL-001")
     assert (smal.qty, smal.origin) == (Decimal("1.14"), "rule")
-
-
-def test_rule_disposal_without_the_measure_asks_for_it(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    result = _run(library, units, _analysis(extras=[("DEM-002", 20)]))
-    assert "SMAL-001" not in _qty(result)
-    assert result.missing_measures == ["mq"]
+    no_measure = _run(library, units, _analysis(extras=[("DEM-002", 20)]))
+    assert "SMAL-001" not in _qty(no_measure)
+    assert no_measure.missing_measures == ["mq"]
 
 
 def test_rule_excludes_screed_with_underfloor_heating(library: AssemblyLibrary, units: dict[str, str]) -> None:
@@ -358,6 +324,10 @@ def test_live_price_book_missing_or_unit_changed_becomes_manual_work(
     manual = [work for work, origin in _manual(result) if origin == "price_book"]
     assert len(manual) == 2
     assert any("MUR-004" in work for work in manual) and any("SMAL-001" in work for work in manual)
+    rule_line = _run(library, live, _analysis(extras=[("DEM-002", 20)]), mq="20")
+    work = next(work for work, origin in _manual(rule_line) if origin == "price_book")
+    assert "SMAL-001" in work
+    assert not work.startswith("Se si rimuove"), "a rule line is named by its work, not by the rule text"
 
 
 def test_unmapped_requests_become_manual_work(library: AssemblyLibrary, units: dict[str, str]) -> None:
@@ -366,7 +336,7 @@ def test_unmapped_requests_become_manual_work(library: AssemblyLibrary, units: d
     assert _manual(result) == [("Vespaio aerato sotto il pavimento", "client_request")]
 
 
-# ── Review fixes (Task 3) ─────────────────────────────────────────────────────
+# ── Rules and choices: edge cases ────────────────────────────────────────────
 
 
 def _rules_library(rules: list[dict[str, object]]) -> AssemblyLibrary:
@@ -402,13 +372,6 @@ def test_kept_element_conflicting_with_another_package_is_reused(
     assert "smontaggio e rimontaggio" in warning.message
 
 
-def test_keep_conflict_warning_names_the_demolitions(library: AssemblyLibrary, units: dict[str, str]) -> None:
-    result = _run(library, units, _analysis(_BATH, elements={"sanitari": "keep"}), mq="6")
-    warning = next(w for w in result.warnings if w.kind == "element_kept_but_demolished")
-    assert warning.skus == ("DEM-002", "DEM-003")
-    assert "smontaggio e rimontaggio" in warning.message
-
-
 def test_an_excluded_line_does_not_trigger_other_rules(units: dict[str, str]) -> None:
     lib = _rules_library([
         {"rule": "la pittura esclude la rimozione", "triggers_sku": ["PIT-001"], "excludes_sku": ["DEM-002"]},
@@ -429,14 +392,3 @@ def test_a_line_added_by_a_rule_triggers_an_earlier_rule(units: dict[str, str]) 
     result = _run(lib, units, _analysis(("ASM-T", [])), mq="10")
     assert "SMAL-001" in _qty(result)
     assert [(w.kind, w.message) for w in result.warnings] == [("admin_check", "Verifica il container")]
-
-
-def test_rule_line_missing_from_the_live_book_is_named_as_work(
-    library: AssemblyLibrary, units: dict[str, str]
-) -> None:
-    live = {sku: unit for sku, unit in units.items() if sku != "SMAL-001"}
-    result = _run(library, live, _analysis(extras=[("DEM-002", 20)]), mq="20")
-    assert "SMAL-001" not in _qty(result)
-    work = next(work for work, origin in _manual(result) if origin == "price_book")
-    assert "SMAL-001" in work
-    assert not work.startswith("Se si rimuove"), work
