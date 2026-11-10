@@ -168,6 +168,15 @@ class TestAssemblyPrompt:
         rule = prompt.split("2. **Niente voci contate due volte", 1)[1].split("3. **", 1)[0]
         assert "`ASM-PAVIMENTO`" in rule and "Voci comprese" in rule
 
+    def test_furniture_rule_bathroom_cabinet_and_case_by_case(self, engine: InsightEngine) -> None:
+        """User decision (10 Nov 2026): the bathroom cabinet is quoted; furniture elsewhere,
+        when the client asks for it, goes to the technician as "da valutare"."""
+        prompt = engine._build_system_prompt("", "")
+        exceptions = prompt.split("ECCEZIONI SULL'ARREDO:", 1)[1].split("REGOLA CRITICA", 1)[0]
+        assert "`BAG-MOB-001`" in exceptions and "`suggestions`" in exceptions
+        assert "`unmapped_work_requests`" in exceptions and "(da valutare)" in exceptions
+        assert "rimuovi senza eccezioni" not in prompt
+
     def test_measure_labels_cover_every_formula_variable(self) -> None:
         assert set(MEASURE_LABELS) == FORMULA_VARIABLES
 

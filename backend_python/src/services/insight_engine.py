@@ -424,6 +424,13 @@ ESCLUSO TASSATIVAMENTE — MAI includere nel preventivo:
 - Tende, tessuti, tappeti, complementi d'arredo
 - Progettazione di interni / consulenze esterne
 
+ECCEZIONI SULL'ARREDO:
+- Bagno: il mobile lavabo (`BAG-MOB-001`, fornitura e posa) fa parte dei lavori del bagno:
+  puoi proporlo in `suggestions` quando il cliente lo vuole o il bagno nuovo lo prevede.
+- Altre stanze: l'arredo di norma non si fa. Se il cliente chiede ESPLICITAMENTE un arredo,
+  non metterlo in `suggestions`: scrivilo in `unmapped_work_requests` con "(da valutare)"
+  (es. "Armadio a muro in camera (da valutare)"): decide la società caso per caso.
+
 REGOLA CRITICA sul render: Il render mostra lo stato VISIVO FINALE del progetto.
 I mobili e gli arredi nel render sono la VISION estetica dell'utente, NON voci di cantiere.
 Il preventivo calcola solo i LAVORI EDILI necessari per creare quello spazio.
@@ -515,8 +522,10 @@ Assegna `completeness_score` (0.0-1.0):
    es. tinteggiatura delle pareti → `PIT-001` in `suggestions`, soffitto → `ASM-SOFFITTO`.
 3. **Fase WBS obbligatoria**: ogni voce in `suggestions` ha il campo `phase` compilato.
 4. **Quantità plausibili** nelle `suggestions`: es. 10-14 punti luce per 70mq; non 100 prese per 10mq.
-5. **ZERO arredamento**: niente mobili, cucine componibili, elettrodomestici, tende, lampade,
-   né in `suggestions` né in `unmapped_work_requests`. Qualsiasi voce che non sia lavoro edile va omessa.
+5. **Arredamento**: niente mobili, cucine componibili, elettrodomestici, tende, lampade, salvo le
+   ECCEZIONI SULL'ARREDO (mobile lavabo del bagno in `suggestions`; arredo chiesto esplicitamente dal
+   cliente in un'altra stanza in `unmapped_work_requests` con "(da valutare)"). Un arredo visto solo
+   nel render non va da nessuna parte.
 6. **IVA**: non applicarla — gestita dal backend automaticamente.
 7. **Parete portante**: se il cliente la conferma, scegli `if_portante` (il backend avvisa il tecnico);
    se è solo sospettata, chiedilo in `missing_info` e abbassa lo score.
@@ -541,7 +550,8 @@ rifare tutto, moderno con doccia walk-in. La finestra va bene così."
 - element_choices: nessuno (si sostituisce tutto; la finestra non è in un pacchetto scelto)
 - suggestions: nessuna (le voci del bagno le calcola il backend)
 - unmapped_work_requests: nessuna
-**NON incluso**: mobili, specchio, lampade, accessori ← arredamento.
+**NON incluso**: specchio, lampade, accessori ← arredamento. Il mobile lavabo (`BAG-MOB-001`) solo
+se il cliente lo vuole.
 
 **Esempio 2.** Il cliente: "Rifacciamo il bagno, circa 6 mq, ma i sanitari li teniamo perché sono
 nuovi. Vorrei spostare la colonna di scarico e fare un vespaio aerato sotto il pavimento."
@@ -557,9 +567,10 @@ nuovi. Vorrei spostare la colonna di scarico e fare un vespaio aerato sotto il p
 PRIMA di restituire il risultato, esegui questo controllo su ogni voce di `suggestions`
 e ogni richiesta di `unmapped_work_requests`:
 → "Questa voce è un lavoro edile/impiantistico che richiede un operaio specializzato in cantiere?"
-→ Se SÌ: includi. Se NO (è un mobile, un elettrodomestico, una lampada): rimuovi senza eccezioni.
+→ Se SÌ: includi. Se NO (è un mobile, un elettrodomestico, una lampada): rimuovi, salvo le
+  ECCEZIONI SULL'ARREDO (mobile lavabo del bagno; arredo chiesto dal cliente, "da valutare").
 
-RICORDA: SYD Bioedilizia fa SOLO ristrutturazione edile strutturale.
+RICORDA: SYD Bioedilizia fa SOLO ristrutturazione edile strutturale (con le eccezioni sull'arredo).
 Il preventivo copre ESCLUSIVAMENTE i lavori per trasformare fisicamente lo spazio.
 Pacchetti in `packages` con le loro misure in `measures`: le quantità le calcola il backend.
 Analizza la conversazione e produci la risposta strutturata.
