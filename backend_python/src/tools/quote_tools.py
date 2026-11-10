@@ -104,7 +104,11 @@ def _validate_qty_bounds(suggestions: list[Any]) -> tuple[list[Any], list[str]]:
     warnings = []
     for s in suggestions:
         qty = getattr(s, "qty", None)
-        if qty is None or not MIN_QTY <= to_decimal(qty) <= MAX_QTY:
+        try:
+            within = qty is not None and MIN_QTY <= to_decimal(qty) <= MAX_QTY
+        except ValueError:  # not a finite number: JSON `Infinity` passes the model's ge=0.01
+            within = False
+        if not within:
             msg = f"SKU {s.sku}: qty={qty} rejected (must be {MIN_QTY} ≤ qty ≤ {MAX_QTY})"
             logger.warning(f"[QuoteTool] Qty out of bounds — {msg}")
             warnings.append(msg)

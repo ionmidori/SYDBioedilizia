@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from google.api_core.exceptions import GoogleAPICallError, NotFound
+from pydantic import ValidationError
 from src.core.money import sum_amounts
 from src.schemas.intervention_spec import StoredMeasure, StoredPackage
 from src.schemas.quote import ManualWorkItem
@@ -430,8 +431,9 @@ async def test_package_choice_is_expanded_by_code():
     # mq * 2.2 * 1.05 and mq * 2.2, computed by code from the declared 6 mq.
     assert bagno["BAG-RIV-001"].qty == 13.86 and bagno["MUR-004"].qty == 13.2
     assert "mq=6" in (bagno["BAG-RIV-001"].ai_reasoning or "")
-    # The package's disposal is a container share: merged into "Generale".
-    assert {i.room_id for i in quote.items if i.sku == "SMAL-001"} == {DEFAULT_ROOM_ID}
+    # The package's disposal is a container share (6 * 0.4 / 7 = 0.34 + 0.35 of the walls),
+    # merged into "Generale" with the kitchen's 0.5: 1.19 → 2 containers (1 without the package).
+    assert {i.room_id: i.qty for i in quote.items if i.sku == "SMAL-001"} == {DEFAULT_ROOM_ID: 2.0}
 
 
 async def test_missing_measure_gates_the_room_with_a_measure_question():
@@ -573,3 +575,26 @@ async def test_the_disposal_share_is_asked_only_outside_the_chosen_packages():
     calls = _calls_by_room(mocks["analyze"])
     for label in ("Bagno", "Generale"):
         assert "solo se nessun pacchetto scelto lo comprende" in calls[label][0]
+
+
+async def test_a_spec_that_cannot_be_built_does_not_block_the_quote(caplog):
+    invalid = ValidationError.from_exception_data("RoomInterventionSpec", [])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks, \
+         patch.object(quote_tools, "spec_from_analysis", side_effect=invalid):
+        await _quote()
+
+    mocks["saved"].assert_awaited_once()
+    mocks["repo"].save_intervention_spec.assert_not_awaited()
+    assert "Intervention spec not saved" in caplog.text
+
+
+async def test_an_infinite_quantity_is_rejected_not_fatal():
+    """JSON `Infinity` passes the model's ge=0.01: the bounds check drops the line."""
+    analysis = InsightAnalysis(
+        summary="Bagno", completeness_score=0.9, suggestions=[_s("BAG-SAN-001", 1), _s("PIT-001", float("inf"))],
+    )
+    with _project(analyses={**ANALYSES, "Bagno": analysis}) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    assert [i.sku for i in quote.items if i.room_id == "bagno1"] == ["BAG-SAN-001"]
