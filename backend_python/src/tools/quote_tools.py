@@ -789,9 +789,14 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
     )
 
 
+def _section_label(result: _UnitResult) -> str | None:
+    """The room name the admin reads next to a manual work or a warning (None: a quote without rooms)."""
+    return _room_label(result) if result.unit.section_id else None
+
+
 def _manual_work(results: list[_UnitResult]) -> list[ManualWorkItem]:
     return [
-        ManualWorkItem(work=work.work, room_id=r.unit.section_id, origin=work.origin)
+        ManualWorkItem(work=work.work, room_id=r.unit.section_id, room_label=_section_label(r), origin=work.origin)
         for r in results
         for work in r.expansion.manual_work
     ]
@@ -799,7 +804,13 @@ def _manual_work(results: list[_UnitResult]) -> list[ManualWorkItem]:
 
 def _ai_warnings(results: list[_UnitResult]) -> list[QuoteAiWarning]:
     return [
-        QuoteAiWarning(kind=warning.kind, message=warning.message, room_id=r.unit.section_id, skus=list(warning.skus))
+        QuoteAiWarning(
+            kind=warning.kind,
+            message=warning.message,
+            room_id=r.unit.section_id,
+            room_label=_section_label(r),
+            skus=list(warning.skus),
+        )
         for r in results
         for warning in r.expansion.warnings
     ]

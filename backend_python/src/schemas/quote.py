@@ -71,6 +71,8 @@ class ManualWorkItem(BaseModel):
     model_config = {"extra": "forbid"}
     work: str = Field(..., description="The work, in Italian")
     room_id: str | None = Field(default=None, description="Quote section of the work; None on a quote without rooms")
+    # Stored with the item: a room with only manual work has no quote section to name it.
+    room_label: str | None = Field(default=None, description="Room name shown to the admin")
     origin: ManualWorkOriginType
 
 
@@ -81,6 +83,7 @@ class QuoteAiWarning(BaseModel):
     kind: str = Field(..., description="Warning kind (src/services/intervention_expansion.py, WarningKind)")
     message: str = Field(..., description="What to check, in Italian")
     room_id: str | None = Field(default=None, description="Quote section the warning is about")
+    room_label: str | None = Field(default=None, description="Room name shown to the admin")
     skus: list[str] = Field(default_factory=list, description="Price-book lines involved")
 
 

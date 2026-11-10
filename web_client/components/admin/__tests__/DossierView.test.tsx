@@ -100,6 +100,46 @@ describe('DossierView', () => {
     expect(screen.getByTestId('gallery-empty')).toBeInTheDocument();
   });
 
+  it('shows the work to quote by hand and the AI warnings, each with its room', () => {
+    setup(
+      dossier({}, {
+        request: {
+          summary: 'Rifare il bagno',
+          manual_work: [
+            { work: 'Rubinetteria (fornitura)', room_id: 'bagno1', room_label: 'Bagno', origin: 'package' },
+            { work: 'Vespaio aerato', room_id: 'cantina1', room_label: 'Cantina', origin: 'client_request' },
+          ],
+          ai_warnings: [
+            {
+              kind: 'element_kept_but_demolished',
+              message: 'Il cliente vuole tenere Sanitari, ma si demoliscono DEM-002',
+              room_id: 'bagno1',
+              room_label: 'Bagno',
+              skus: ['DEM-002'],
+            },
+            { kind: 'a_kind_added_later', message: 'Controlla le misure', room_id: null, skus: [] },
+          ],
+        },
+      }),
+    );
+    const manual = screen.getByTestId('request-manual-work');
+    expect(manual).toHaveTextContent('Da quotare a mano');
+    expect(manual).toHaveTextContent('Bagno: Rubinetteria (fornitura)');
+    // A room with only manual work has no quote section: the stored label names it, never the raw id.
+    expect(manual).toHaveTextContent('Cantina: Vespaio aerato');
+    expect(manual).not.toHaveTextContent('cantina1');
+    const warnings = screen.getByTestId('request-ai-warnings');
+    expect(warnings).toHaveTextContent('Da verificare');
+    expect(warnings).toHaveTextContent('Bagno: Il cliente vuole tenere Sanitari');
+    expect(within(warnings).getByText('Controlla le misure')).toBeInTheDocument();
+  });
+
+  it('shows neither block when the draft has nothing to quote by hand or to check', () => {
+    setup(dossier({}, { request: { summary: 'Ridipingere', manual_work: [], ai_warnings: [] } }));
+    expect(screen.queryByTestId('request-manual-work')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('request-ai-warnings')).not.toBeInTheDocument();
+  });
+
   it('keeps Approve off while edits are unsaved, then saves only what changed with the ETag', () => {
     setup(dossier());
     expect(screen.getByTestId('btn-approve')).toBeEnabled();

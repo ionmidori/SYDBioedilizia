@@ -484,15 +484,18 @@ async def test_manual_work_and_warnings_reach_the_request():
         await _quote()
 
     request = mocks["saved"].await_args.args[3]
-    assert ManualWorkItem(work="Rubinetteria (fornitura)", room_id="bagno1", origin="package") in request.manual_work
+    bagno = {"room_id": "bagno1", "room_label": "Bagno"}
+    assert ManualWorkItem(work="Rubinetteria (fornitura)", origin="package", **bagno) in request.manual_work
     assert ManualWorkItem(
-        work="Smontaggio con cura e rimontaggio dei sanitari esistenti", room_id="bagno1", origin="reuse"
+        work="Smontaggio con cura e rimontaggio dei sanitari esistenti", origin="reuse", **bagno
     ) in request.manual_work
     assert ManualWorkItem(
-        work="Vespaio aerato sotto il pavimento", room_id="bagno1", origin="client_request"
+        work="Vespaio aerato sotto il pavimento", origin="client_request", **bagno
     ) in request.manual_work
     kept = [w for w in request.ai_warnings if w.kind == "element_kept_but_demolished"]
-    assert len(kept) == 1 and kept[0].room_id == "bagno1" and "DEM-002" in kept[0].skus
+    assert len(kept) == 1 and "DEM-002" in kept[0].skus
+    # The label is stored with the item: a room with only manual work has no quote section to name it.
+    assert (kept[0].room_id, kept[0].room_label) == ("bagno1", "Bagno")
 
 
 async def test_client_reply_lists_the_work_quoted_by_hand():
