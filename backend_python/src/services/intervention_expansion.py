@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import ast
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Context, Decimal, DivisionByZero, InvalidOperation, Overflow
 from typing import Literal
@@ -20,6 +20,7 @@ from typing import Literal
 from src.core.logger import get_logger
 from src.core.money import round_half_up, to_decimal
 from src.schemas.assembly_library import (
+    MEASURE_LABELS,
     Assembly,
     AssemblyElement,
     AssemblyLibrary,
@@ -109,17 +110,33 @@ class ExpansionWarning:
     skus: tuple[str, ...] = ()
 
 
+def _values_text(values: Sequence[Decimal]) -> str:
+    texts = [f"{value.normalize():f}" for value in values]
+    return ", ".join(texts[:-1]) + " e " + texts[-1] if len(texts) > 1 else "".join(texts)
+
+
 @dataclass(frozen=True)
 class Expansion:
     lines: list[ExpandedLine] = field(default_factory=list)
     manual_work: list[ManualWork] = field(default_factory=list)
     warnings: list[ExpansionWarning] = field(default_factory=list)
     missing_measures: list[str] = field(default_factory=list)
+    # Measure → the different values the model gave (several rooms in one unit?).
+    conflicts: dict[str, tuple[Decimal, ...]] = field(default_factory=dict)
 
     @property
     def questions(self) -> list[str]:
-        """One question per missing measure, in the order they were found missing."""
-        return [MEASURE_QUESTIONS[m] for m in self.missing_measures if m in MEASURE_QUESTIONS]
+        """One question per missing measure, in the order they were found missing. A
+        measure with several values asks which room each one belongs to."""
+        return [self._question(m) for m in self.missing_measures if m in MEASURE_QUESTIONS]
+
+    def _question(self, measure: str) -> str:
+        if measure not in self.conflicts:
+            return MEASURE_QUESTIONS[measure]
+        return (
+            f"Ho più valori per {MEASURE_LABELS[measure]} ({_values_text(self.conflicts[measure])}): "
+            "a quale stanza si riferisce ciascuno? Così quoto ogni stanza con le sue misure."
+        )
 
 
 # ── Formulas ──────────────────────────────────────────────────────────────────
@@ -154,15 +171,33 @@ def evaluate_formula(formula: str, measures: Mapping[str, Decimal]) -> Decimal:
     return _evaluate(tree.body, measures)
 
 
-def _spec_measures(analysis: InsightAnalysis) -> dict[str, SpecMeasure]:
-    """The model's measures by name: the first positive one of each name wins.
-
-    A measure of 0 or less is no measure (the model's "unknown")."""
-    measures: dict[str, SpecMeasure] = {}
+def _measure_values(analysis: InsightAnalysis) -> dict[str, list[SpecMeasure]]:
+    """The model's positive measures by name (0 or less is no measure: the model's "unknown")."""
+    by_name: dict[str, list[SpecMeasure]] = {}
     for measure in analysis.measures:
         if measure.value > 0:
-            measures.setdefault(measure.name, measure)
-    return measures
+            by_name.setdefault(measure.name, []).append(measure)
+    return by_name
+
+
+def conflicting_measures(analysis: InsightAnalysis) -> dict[str, tuple[Decimal, ...]]:
+    """Measures the model gave with different values, each with its values in order.
+
+    One unit has one value per measure: two values are two rooms folded into one
+    unit (a chat with no room), and neither is that unit's measure."""
+    conflicts: dict[str, tuple[Decimal, ...]] = {}
+    for name, measures in _measure_values(analysis).items():
+        values = tuple(dict.fromkeys(to_decimal(m.value) for m in measures))
+        if len(values) > 1:
+            conflicts[name] = values
+    return conflicts
+
+
+def _spec_measures(analysis: InsightAnalysis) -> dict[str, SpecMeasure]:
+    """The model's measures by name, the first of each name. A measure given with
+    different values is left out: the room brief or the client decides it."""
+    conflicts = conflicting_measures(analysis)
+    return {name: measures[0] for name, measures in _measure_values(analysis).items() if name not in conflicts}
 
 
 def resolve_measures(analysis: InsightAnalysis, brief: RoomBrief | None) -> dict[str, Decimal]:
@@ -228,7 +263,7 @@ def _line_quantity(
         return None
     qty = round_half_up(value, _QTY_PLACES)
     if qty < MIN_QTY:
-        return None  # e.g. n_finestre = 0: nothing to quote
+        return None  # a result below one cent: nothing to quote
     return qty
 
 
@@ -327,6 +362,25 @@ def _requested_actions(analysis: InsightAnalysis) -> dict[str, ElementAction]:
     for choice in analysis.element_choices:
         actions.setdefault(choice.element, choice.action)
     return actions
+
+
+_ACTION_LABELS: Mapping[ElementAction, str] = {"replace": "sostituisci", "reuse": "riutilizza", "keep": "lascia in posa"}
+
+
+def _flag_shared_choices(assemblies: Sequence[Assembly], actions: Mapping[str, ElementAction], draft: _Draft) -> None:
+    """A keep or reuse names an element, not a room: with several chosen packages that
+    have it (a bathroom and a kitchen in one unit) it applies to all of them."""
+    for element, action in actions.items():
+        if action == "replace":
+            continue
+        owners = [a for a in assemblies if any(e.element == element for e in a.elements)]
+        if len(owners) > 1:
+            label = next(e.label for e in owners[0].elements if e.element == element)
+            draft.warnings.append(ExpansionWarning(
+                "admin_check",
+                f"\"{_ACTION_LABELS[action]}\" su {label} applicato a {', '.join(a.name for a in owners)}: "
+                "verificare a quale stanza si riferisce",
+            ))
 
 
 def _decide_elements(
@@ -492,24 +546,36 @@ def expand(
     Fixed order: packages → element choices → extra lines → dependency rules →
     live price-book check → requests outside the price book."""
     draft = _Draft()
+    conflicts = conflicting_measures(analysis)
+    for name, values in conflicts.items():
+        draft.warnings.append(ExpansionWarning(
+            "admin_check", f"Valori diversi per {name} ({_values_text(values)}): forse stanze diverse, misura non usata",
+        ))
     by_id = {assembly.id: assembly for assembly in library.assemblies}
     chosen: list[Assembly] = []
+    times = [choice.assembly_id for choice in analysis.packages]
     for assembly_id, conditions in _merged_choices(analysis.packages).items():
         assembly = by_id.get(assembly_id)
         if assembly is None:
             draft.warnings.append(ExpansionWarning("unknown_package", f"Pacchetto sconosciuto ignorato: {assembly_id}"))
             continue
+        if times.count(assembly_id) > 1:
+            draft.warnings.append(ExpansionWarning(
+                "admin_check", f"{assembly.name} scelto più volte: calcolato una volta sola, verificare se le stanze sono più di una",
+            ))
         chosen.append(assembly)
         _expand_package(assembly, conditions, measures, draft)
     covered = {line.sku for line in draft.lines}
-    _apply_elements(_decide_elements(chosen, _requested_actions(analysis), draft), draft)
+    actions = _requested_actions(analysis)
+    _flag_shared_choices(chosen, actions, draft)
+    _apply_elements(_decide_elements(chosen, actions, draft), draft)
     _add_extras(analysis.suggestions, covered, price_book_units, draft)
     _apply_rules(library, measures, draft)
     _check_price_book(library, price_book_units, draft)
     for request in analysis.unmapped_work_requests:
         if request.strip():
             draft.add_manual(request.strip(), "client_request")
-    return draft.freeze()
+    return replace(draft.freeze(), conflicts=conflicts)
 
 
 # ── Stored spec ───────────────────────────────────────────────────────────────

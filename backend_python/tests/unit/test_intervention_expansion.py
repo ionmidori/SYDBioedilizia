@@ -177,10 +177,15 @@ def test_resolve_measures_prefers_spec_then_brief() -> None:
     measures = resolve_measures(analysis, brief)
     assert measures == {"mq": Decimal("6"), "mq_pareti": Decimal("25")}
     assert resolve_measures(analysis, None) == {"mq": Decimal("6")}
+    same = InsightAnalysis(summary="s", measures=[
+        SpecMeasure(name="mq", value=6, source="declared"), SpecMeasure(name="mq", value=6, source="estimated"),
+    ])
+    assert resolve_measures(same, None) == {"mq": Decimal("6")}, "the same value twice is one measure"
     twice = InsightAnalysis(summary="s", measures=[
         SpecMeasure(name="mq", value=6, source="declared"), SpecMeasure(name="mq", value=9, source="estimated"),
     ])
-    assert resolve_measures(twice, None) == {"mq": Decimal("6")}, "the first spec measure wins"
+    assert resolve_measures(twice, None) == {}, "two values of a measure (two rooms?) are not used"
+    assert resolve_measures(twice, RoomBrief(floor_mq=9)) == {"mq": Decimal("9")}, "the room brief decides"
 
 
 def test_spec_measure_validation() -> None:
@@ -190,6 +195,12 @@ def test_spec_measure_validation() -> None:
                      {"name": "mq", "value": 6, "source": "declared"}],
     })
     assert [m.name for m in analysis.measures] == ["mq"], "an unknown measure name is dropped, not an error"
+    out_of_bounds = InsightAnalysis.model_validate_json(
+        '{"summary": "s", "measures": [{"name": "mq_pareti", "value": 12000, "source": "declared"},'
+        ' {"name": "mq", "value": -1, "source": "declared"}, {"name": "mq", "value": "tanti", "source": "declared"},'
+        ' {"name": "mq", "value": 6, "source": "declared"}]}'
+    )
+    assert [(m.name, m.value) for m in out_of_bounds.measures] == [("mq", 6)], "dropped, the analysis is kept"
     for absurd in (1e60, float("inf")):
         with pytest.raises(ValidationError):
             SpecMeasure(name="mq", value=absurd, source="estimated")
@@ -209,6 +220,8 @@ def test_package_chosen_twice_is_expanded_once_with_both_conditions(
     skus = [line.sku for line in result.lines]
     assert len(skus) == len(set(skus))
     assert "CUC-GAS-001" in skus
+    # Two kitchens in one unit would be quoted as one: the technician checks.
+    assert any(w.kind == "admin_check" and "più volte" in w.message for w in result.warnings)
 
 
 # ── Elements, extras, dependency rules, live price book (Task 3) ─────────────
@@ -392,3 +405,30 @@ def test_a_line_added_by_a_rule_triggers_an_earlier_rule(units: dict[str, str]) 
     result = _run(lib, units, _analysis(("ASM-T", [])), mq="10")
     assert "SMAL-001" in _qty(result)
     assert [(w.kind, w.message) for w in result.warnings] == [("admin_check", "Verifica il container")]
+
+
+# ── Several rooms in one unit (a chat with no room): never folded silently ────
+
+
+def test_two_values_of_a_measure_are_asked_not_guessed(library: AssemblyLibrary, units: dict[str, str]) -> None:
+    analysis = _analysis(_BATH, ("ASM-CUCINA-FULL", []), measures=[
+        SpecMeasure(name="mq", value=5, source="declared"), SpecMeasure(name="mq", value=12, source="declared"),
+        SpecMeasure(name="ml_pensili", value=4, source="declared"),
+    ])
+    result = expand(analysis, library, units, resolve_measures(analysis, None))
+    assert "PAV-001" not in _qty(result), "no quantity from either value"
+    assert result.missing_measures == ["mq"]
+    assert result.questions[0] != MEASURE_QUESTIONS["mq"]
+    assert "5" in result.questions[0] and "12" in result.questions[0] and "stanza" in result.questions[0]
+    assert any(w.kind == "admin_check" and "mq" in w.message for w in result.warnings)
+
+
+def test_a_choice_on_an_element_of_several_packages_is_flagged(
+    library: AssemblyLibrary, units: dict[str, str]
+) -> None:
+    analysis = _analysis(_BATH, ("ASM-CUCINA-FULL", []), elements={"pavimento": "keep"})
+    result = _run(library, units, analysis, mq="6", ml_pensili="4")
+    warning = next(w for w in result.warnings if w.kind == "admin_check" and "Pavimento" in w.message)
+    assert "Ristrutturazione Bagno Completa" in warning.message and "Ristrutturazione Cucina Completa" in warning.message
+    single = _run(library, units, _analysis(_BATH, elements={"pavimento": "keep"}), mq="6")
+    assert "admin_check" not in _kinds(single), "one package: the choice is unambiguous"

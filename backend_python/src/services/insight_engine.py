@@ -16,7 +16,7 @@ from types import GenericAlias
 from typing import Annotated, Any, Literal, cast
 
 from google.genai import types as genai_types
-from pydantic import BaseModel, Field, JsonValue, create_model, field_validator
+from pydantic import BaseModel, Field, JsonValue, ValidationError, create_model, field_validator
 
 from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
 from src.schemas.assembly_library import (
@@ -140,6 +140,21 @@ class InsightAnalysis(BaseModel):
     room_id: str | None = Field(None, description="UUID of the room being analyzed (multi-room flow)")
     room_type: str | None = Field(None, description="bagno | cucina | soggiorno | camera | altro")
     room_label: str | None = Field(None, description="Human-readable room label")
+
+    @field_validator("measures", mode="before")
+    @classmethod
+    def _valid_measures(cls, value: object) -> object:
+        """A measure out of bounds or not a number is dropped, not an error: Gemini does
+        not always keep to the schema bounds, and one bad value must not lose the analysis."""
+        if not isinstance(value, list):
+            return value
+        kept: list[SpecMeasure] = []
+        for entry in value:
+            try:
+                kept.append(SpecMeasure.model_validate(entry))
+            except ValidationError:
+                logger.info("[InsightEngine] Invalid measure dropped.")
+        return kept
 
     @field_validator("measures")
     @classmethod
@@ -476,7 +491,10 @@ in `conditions` (es. `if_cottura_gas` se la cucina è a gas, `if_piastrelle` se 
 dipingere sono piastrellate). Le voci del pacchetto NON vanno ricopiate in `suggestions`.
 
 **FASE 2 — DAI LE MISURE**
-In `measures` dai ogni misura richiesta dai pacchetti scelti (un solo valore), con la sua fonte:
+In `measures` dai ogni misura richiesta dai pacchetti scelti, un valore per misura, con la sua fonte.
+Se la conversazione descrive più stanze con valori diversi della stessa misura (es. bagno 5 mq e
+cucina 12 mq), dalli tutti: il backend chiede al cliente di separare le stanze.
+Le fonti:
 - `declared`: l'ha detta il cliente o è nella scheda stanza;
 - `photo`: viene dal blocco misure o dall'analisi della foto;
 - `estimated`: stima su medie italiane, SOLO per `mq` (pavimento) e `mq_pareti` (pareti da trattare)
@@ -496,7 +514,8 @@ Un elemento non indicato si sostituisce.
 
 **FASE 4 — VOCI SINGOLE E RICHIESTE FUORI LISTINO**
 - `suggestions`: solo lavori del listino che i pacchetti scelti non comprendono, con quantità
-  stimata (+5% solo su posa e rivestimenti, per scarti e tagli) e fase WBS.
+  stimata (+5% solo su posa e rivestimenti, per scarti e tagli) e fase WBS. Con la rimozione di un
+  pavimento (`DEM-002`) dai anche `mq` in `measures`: il backend ne calcola lo smaltimento.
 - `unmapped_work_requests`: lavori edili chiesti dal cliente che non sono né in un pacchetto
   né nel listino, una frase breve in italiano ciascuno (es. "Vespaio aerato sotto il pavimento").
 
