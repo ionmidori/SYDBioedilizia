@@ -36,18 +36,6 @@ logger = logging.getLogger(__name__)
 # Media are sent inline in one request: a larger file (a long video) is skipped.
 _INLINE_MEDIA_MAX_BYTES = 15 * 1024 * 1024
 
-# SYD never quotes furniture (the render shows it, the works do not include it).
-# The price book may still hold such a line for the technician: the model never sees it.
-_FURNITURE_SUBCATEGORY = "arredamento"
-
-
-def ai_price_book() -> list[dict[str, Any]]:
-    """The price-book items the model may choose: every item but furniture."""
-    return [
-        item for item in PricingService.load_price_book()
-        if str(item.get("subcategory") or "").strip().casefold() != _FURNITURE_SUBCATEGORY
-    ]
-
 
 # ── Domain Models ─────────────────────────────────────────────────────────────
 
@@ -343,7 +331,7 @@ class InsightEngine:
         Categorization significantly improves Gemini SKU selection accuracy
         over a flat list (grouping reduces hallucination of unknown SKUs).
         """
-        price_book = ai_price_book()
+        price_book = PricingService.load_price_book()
 
         if not price_book:
             logger.error("[InsightEngine] Master price book is empty.")
@@ -606,7 +594,9 @@ Analizza la conversazione e produci la risposta strutturata.
             InsightEngineError: On Gemini failure or empty response.
         """
         await PricingService.ensure_fresh()  # prices edited in the admin console
-        response_schema = response_schema_for(load_library(), [str(item["sku"]) for item in ai_price_book()])
+        response_schema = response_schema_for(
+            load_library(), [str(item["sku"]) for item in PricingService.load_price_book()]
+        )
         price_book_section = self._build_price_book_prompt()
         assembly_section = self._build_assembly_prompt()
         system_prompt = self._build_system_prompt(price_book_section, assembly_section)
