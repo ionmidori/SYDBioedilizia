@@ -12,6 +12,7 @@ from src.services.pdf_service import (
     quote_pdf_blob_path,
     resolve_client,
     resolve_validity,
+    status_box,
 )
 from src.utils.format_it import format_eur, format_number, format_qty
 
@@ -210,3 +211,39 @@ def test_a_line_of_an_unknown_room_is_printed_under_generale():
     text = _flat(PdfService().generate_pdf_bytes(_quote(rooms=rooms, items=items)))
     assert "Voce senza stanza" in text
     assert "Subtotale Generale € 80,00" in text
+
+
+# ── Layout v3: brand logo, watermark, one page for a typical quote ───────────
+
+def _pages(pdf: bytes):
+    return PdfReader(BytesIO(pdf)).pages
+
+
+def test_the_first_page_carries_the_brand_logo():
+    pages = _pages(PdfService().generate_pdf_bytes(_quote()))
+    assert len(pages[0].images) == 1
+
+
+def test_every_page_is_watermarked_as_a_draft():
+    pages = _pages(PdfService().generate_pdf_bytes(_quote(items=[_item(f"Voce {i}") for i in range(60)])))
+    assert len(pages) >= 2
+    for page in pages:
+        stream = page.get_contents().get_data()
+        assert b"(BOZZA) Tj" in stream
+        # Multiplied over the content: the text under it stays as dark as it was.
+        assert b"/BM /Multiply" in stream or b"/Multiply" in page["/Resources"]["/ExtGState"].__repr__().encode()
+
+
+def test_a_typical_quote_fits_one_page_with_the_acknowledgement():
+    pdf = PdfService().generate_pdf_bytes(_quote(items=[_item(f"Lavorazione {i}") for i in range(6)]))
+    pages = _pages(pdf)
+    assert len(pages) == 1
+    text = re.sub(r"\s+", " ", pages[0].extract_text())
+    assert QUOTE_TERMS.signature_label in text and "Data e firma" in text
+
+
+def test_the_draft_status_is_a_compact_label_not_a_full_width_band():
+    box = status_box("Bozza di preventivo")
+    width, _ = box.wrap(240, 500)
+    assert width < 160
+    assert box.hAlign == "RIGHT"

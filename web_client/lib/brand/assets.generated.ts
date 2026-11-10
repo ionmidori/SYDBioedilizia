@@ -51,5 +51,11 @@ export const BRAND_ASSETS = {
         "type": "image/png",
         "width": 1200,
         "height": 630
+    },
+    "emailLogo": {
+        "url": "/brand/email-logo.png",
+        "type": "image/png",
+        "width": 666,
+        "height": 120
     }
 } as const;

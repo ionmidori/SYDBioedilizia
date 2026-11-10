@@ -2,6 +2,7 @@
 import datetime
 import re
 
+from src.core.brand import BRAND
 from src.core.company import COMPANY
 from src.services.email_templates import (
     RequestDigest,
@@ -17,6 +18,11 @@ from src.services.email_templates import (
 UID = "LRYkEAr1fPe9xuhV7XKvoDM5JYN2"
 PROJECT_ID = "9de20502-0eb6-4075-99f1-14ad188150af"
 VALID = datetime.date(2026, 11, 10)
+
+
+def _web_links(html: str) -> list[str]:
+    """Distinct http(s) links of an email (the footer's tel:/mailto: are not web pages)."""
+    return sorted(set(re.findall(r'href="(https?://[^"]+)"', html)))
 
 
 def _client(**overrides):
@@ -36,7 +42,7 @@ def test_client_email_content():
     assert "bozza generata automaticamente" in mail.text
     assert "sopralluogo" in mail.text and "contatto telefonico" in mail.text
     assert f"Area riservata: {dashboard_quotes_url()}" in mail.text
-    assert re.findall(r'href="([^"]+)"', mail.html) == [dashboard_quotes_url()]
+    assert _web_links(mail.html) == [dashboard_quotes_url()]
     assert dashboard_quotes_url() == f"{COMPANY.url}/dashboard/quotes"
     assert COMPANY.phone in mail.text and COMPANY.legal_line in mail.html
 
@@ -61,7 +67,7 @@ def test_client_email_carries_no_ids_and_no_signed_links():
 
 def test_dynamic_values_are_html_escaped_and_headers_single_line():
     mail = _client(client_name='Mario <img src=x onerror=alert(1)> "Rossi"\r\nBcc: evil@x.it')
-    assert "<img" not in mail.html and "&lt;img" in mail.html
+    assert "<img src=x" not in mail.html and "&lt;img src=x" in mail.html
     assert "\r" not in mail.subject and "\n" not in mail.subject
     assert "Bcc:" not in mail.subject
     assert "\r" not in mail.text.splitlines()[0]  # greeting is one line
@@ -87,7 +93,7 @@ def test_admin_email_for_one_request():
     assert "PRV-2026-0042 · Mario Rossi <mario@example.it> · € 816,91 — Pittura cucina" in mail.text
     # The console link is the whole last line of the text and the only href of the HTML.
     assert mail.text.splitlines()[-1] == "https://admin.example/"
-    assert re.findall(r'href="([^"]+)"', mail.html) == ["https://admin.example/"]
+    assert _web_links(mail.html) == ["https://admin.example/"]
 
 
 def test_admin_email_for_a_batch():
@@ -152,8 +158,93 @@ def test_admin_email_for_a_change_asked_in_the_chat():
     assert "Mario Rossi ha chiesto in chat altre modifiche al preventivo PRV-2026-0042" in mail.text
     assert "Stato attuale: in revisione dal team." in mail.text
     assert mail.text.splitlines()[-1] == "https://a/"
-    assert re.findall(r'href="([^"]+)"', mail.html) == ["https://a/"]
+    assert _web_links(mail.html) == ["https://a/"]
     hostile = admin_client_followup_email(
         digest=_digest(client_name="<i>x</i>\nBcc: e@x.it"), status_label="approvato", admin_url="https://a/"
     )
     assert "\n" not in hostile.subject and "<i>x</i>" not in hostile.html
+
+
+# ── Layout v3: brand roles, email-client-safe markup ─────────────────────────
+
+def _all_emails():
+    return [
+        _client(),
+        admin_new_requests_email(requests=[_digest(), _digest(quote_number="PRV-2026-0043")], admin_url="https://a/"),
+        admin_client_followup_email(digest=_digest(), status_label="in revisione", admin_url="https://a/"),
+    ]
+
+
+def test_every_email_is_a_light_italian_document_with_the_logo():
+    for mail in _all_emails():
+        html = mail.html
+        assert html.startswith("<!DOCTYPE html>") and '<html lang="it"' in html
+        assert '<meta name="color-scheme" content="light">' in html
+        assert '<meta name="supported-color-schemes" content="light">' in html
+        logo = BRAND.email_logo
+        assert f'<img src="{logo.url}" width="{logo.width}" height="{logo.height}" alt="{COMPANY.name}"' in html
+        # Gmail drops <body> styles: the canvas is painted by the outer table too.
+        assert f'bgcolor="{BRAND.color("canvas")}"' in html and f'bgcolor="{BRAND.color("surface")}"' in html
+        # Preheader: hidden from every client, Outlook included.
+        assert "mso-hide:all" in html
+        # Layout tables are announced as presentation only.
+        assert "<table" in html and '<table role="presentation"' in html
+        assert html.count("<table") == html.count('<table role="presentation"')
+
+
+def test_footer_links_call_and_write_to_the_company():
+    phone = "".join(c for c in COMPANY.phone if c.isdigit() or c == "+")
+    for mail in _all_emails():
+        assert f'href="tel:{phone}"' in mail.html
+        assert f'href="mailto:{COMPANY.email}"' in mail.html
+        assert f"color:{BRAND.color('ink-muted')}" in mail.html
+
+
+def test_the_button_is_brand_primary_with_its_contrast_pair():
+    for mail in _all_emails():
+        assert f'bgcolor="{BRAND.color("primary")}"' in mail.html
+        assert f"color:{BRAND.color('on-primary')}" in mail.html
+
+
+def test_client_email_says_draft_right_above_the_amount():
+    html = _client().html
+    label = html.index("Bozza · da confermare con il tecnico")
+    amount = html.index("€ 1.234,56")
+    assert label < amount
+    assert f"background-color:{BRAND.color('warning-subtle')}" in html
+    assert f"color:{BRAND.color('warning-ink')}" in html
+    assert "IVA inclusa · valida fino al 10/11/2026" in html
+    assert html.index("Apri la bozza nell'area riservata") > amount
+
+
+def test_client_email_says_what_happens_next_in_three_steps():
+    mail = _client()
+    for part in (mail.html, mail.text):
+        assert "Cosa succede ora" in part
+        assert "sopralluogo" in part and "conferma" in part and "firmi" in part
+    assert [line[:2] for line in mail.text.splitlines() if re.match(r"^\d\. ", line)] == ["1.", "2.", "3."]
+
+
+def test_team_message_keeps_its_line_breaks_and_comes_before_the_notice():
+    html = _client(admin_message="Riga uno\nRiga <due>").html
+    assert "Riga uno<br>Riga &lt;due&gt;" in html
+    assert html.index("Riga uno") < html.index("bozza generata automaticamente")
+
+
+def test_admin_digest_has_one_row_per_request_with_the_amount_apart():
+    mail = admin_new_requests_email(
+        requests=[_digest(), _digest(quote_number="PRV-2026-0043", grand_total=12480.5, client_email=None)],
+        admin_url="https://a/",
+    )
+    html = mail.html
+    assert html.count('data-request="') == 2
+    # The amount is a cell of its own that never wraps ("€" and "12.480,50" stay together).
+    assert re.search(r'<td[^>]*white-space:nowrap[^>]*>€ 12\.480,50</td>', html)
+    assert 'href="mailto:mario@example.it"' in html
+
+
+def test_a_client_email_is_linked_only_when_it_is_a_plain_address():
+    hostile = "x@y.it?bcc=attacker@evil.it&body=ciao"
+    mail = admin_new_requests_email(requests=[_digest(client_email=hostile)], admin_url="https://a/")
+    assert "mailto:x@y.it" not in mail.html and "attacker@evil.it" in mail.html  # shown as text, not linked
+    assert "&amp;body=ciao" in mail.html

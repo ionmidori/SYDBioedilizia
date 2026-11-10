@@ -1,10 +1,11 @@
 """
-PdfService: branded A4 "bozza di preventivo" (Phase 128 — PDF v2) + upload.
+PdfService: branded A4 "bozza di preventivo" (Phase 128 — PDF v2, layout v3) + upload.
 
 Uses ReportLab Platypus (pure Python, zero system deps). The document is an
 AUTOMATIC DRAFT quote that a SYD technician approves after a site visit or a
-phone contact: the title, the legal box and the signature label say so
-(texts in `src/core/company.py::QUOTE_TERMS`).
+phone contact: the title, the status box, the "BOZZA" watermark, the legal
+box and the acknowledgement label say so (texts in
+`src/core/company.py::QUOTE_TERMS`).
 
 Rules this module guarantees (tests: tests/unit/test_pdf_service_v2.py):
 - the client is identified by NAME from the quote's `client_snapshot`
@@ -13,7 +14,10 @@ Rules this module guarantees (tests: tests/unit/test_pdf_service_v2.py):
   (an "&" or "<b>" in a description must not break or style the layout);
 - amounts and quantities use Italian formatting ("1.234,56");
 - the issue date is the approval date (`review.approved_at`) when present, so
-  re-rendering the same revision yields the same document.
+  re-rendering the same revision yields the same document;
+- colours are semantic roles of the site's light theme (`BRAND.color`,
+  generated from web_client/brand), never literals; the logo is the brand's
+  generated PNG.
 
 Pattern: generating-pdf-documents skill (CPU-bound work → asyncio.to_thread).
 """
@@ -25,14 +29,15 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from firebase_admin import storage
-from reportlab.lib import colors
+from reportlab.lib.colors import Color, HexColor
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
     Flowable,
-    HRFlowable,
+    Image,
     KeepTogether,
     Paragraph,
     SimpleDocTemplate,
@@ -41,6 +46,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from src.core.brand import BRAND
 from src.core.company import COMPANY, QUOTE_TERMS
 from src.core.money import sum_amounts
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL
@@ -48,15 +54,31 @@ from src.utils.format_it import format_date, format_eur, format_number, format_q
 
 logger = logging.getLogger(__name__)
 
+
+def _role(role: str, surface: str = "default") -> Color:
+    return HexColor(BRAND.color(role, surface))
+
+
 # ─── Layout constants ──────────────────────────────────────────────────────────
 _PAGE_W, _PAGE_H = A4
 _MARGIN = 20 * mm
 _USABLE_W = _PAGE_W - 2 * _MARGIN
-_GOLD = colors.HexColor("#C9A84C")
-_DARK = colors.HexColor("#2C3E50")
-_LIGHT_GRAY = colors.HexColor("#F8F9FA")
-_BORDER = colors.HexColor("#DEE2E6")
-_AMBER_BG = colors.HexColor("#FFF8E1")
+_LOGO_W = 52 * mm
+
+_SURFACE = _role("surface")
+_CANVAS = _role("canvas")
+_SURFACE_MUTED = _role("surface-muted")
+_INK = _role("ink")
+_INK_MUTED = _role("ink-muted")
+_LINE = _role("line")
+_LINE_STRONG = _role("line-strong")
+_ACCENT = _role("accent")  # decorative rules only (no contrast requirement)
+_ACCENT_INK = _role("accent-ink")
+_STATUS_BG = _role("warning-subtle")
+_STATUS_INK = _role("warning-ink")
+# The items table header sits on the brand's night-blue band (the site's footer).
+_BAND = _role("canvas", "inverse")
+_ON_BAND = _role("ink", "inverse")
 
 # Signed URL expiration: 7 days — the URL is embedded in the client delivery
 # email and must outlive the inbox turnaround (the on-demand /quote/{id}/pdf
@@ -64,6 +86,7 @@ _AMBER_BG = colors.HexColor("#FFF8E1")
 _SIGNED_URL_EXPIRY = datetime.timedelta(days=7)
 
 _DOC_TITLE = "Bozza di preventivo"
+_WATERMARK = "BOZZA"
 
 
 # ─── Formatting helpers ────────────────────────────────────────────────────────
@@ -125,7 +148,27 @@ def quote_pdf_blob_path(project_id: str, quote_number: str | None, version: int 
     return f"projects/{project_id}/quotes/quote_{ts}.pdf"
 
 
-# ─── Page decoration: footer on every page, "Pagina x di y" ────────────────────
+def status_box(text: str) -> Table:
+    """The document's status as a compact right-aligned label, sized to its text
+    (a Table cell without a width would stretch to the whole column)."""
+    label = text.upper()
+    font, size, pad = "Helvetica-Bold", 10, 8
+    box = Table(
+        [[label]],
+        colWidths=[stringWidth(label, font, size) + 2 * pad],
+        hAlign="RIGHT",
+    )
+    box.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), font), ("FONTSIZE", (0, 0), (-1, -1), size),
+        ("TEXTCOLOR", (0, 0), (-1, -1), _STATUS_INK), ("BACKGROUND", (0, 0), (-1, -1), _STATUS_BG),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), pad), ("RIGHTPADDING", (0, 0), (-1, -1), pad),
+        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    return box
+
+
+# ─── Page decoration: watermark and footer on every page, "Pagina x di y" ──────
 
 class _NumberedCanvas(canvas.Canvas):
     """Two-pass canvas so each page can print the total page count."""
@@ -143,18 +186,33 @@ class _NumberedCanvas(canvas.Canvas):
         total = len(self._saved_pages)
         for state in self._saved_pages:
             self.__dict__.update(state)
+            self._draw_watermark()
             self._draw_footer(total)
             super().showPage()
         super().save()
 
+    def _draw_watermark(self) -> None:
+        """"BOZZA" across the page, drawn over the content in Multiply mode:
+        the light role darkens white paper and leaves the text as dark as it was
+        (table cells have opaque backgrounds, so a watermark under them would vanish)."""
+        self.saveState()
+        self.setBlendMode("Multiply")
+        self.setFillColor(_LINE)
+        self.setFillAlpha(0.6)
+        self.setFont("Helvetica-Bold", 120)
+        self.translate(_PAGE_W / 2, _PAGE_H / 2)
+        self.rotate(35)
+        self.drawCentredString(0, -42, _WATERMARK)
+        self.restoreState()
+
     def _draw_footer(self, total: int) -> None:
-        self.setStrokeColor(colors.lightgrey)
+        self.setStrokeColor(_LINE)
         self.setLineWidth(0.5)
         self.line(_MARGIN, 14 * mm, _PAGE_W - _MARGIN, 14 * mm)
-        self.setFont("Helvetica", 7.5)
-        self.setFillColor(colors.grey)
-        self.drawString(_MARGIN, 10 * mm, self._footer_left)
-        self.drawRightString(_PAGE_W - _MARGIN, 10 * mm, f"Pagina {self.getPageNumber()} di {total}")
+        self.setFont("Helvetica", 8.5)
+        self.setFillColor(_INK_MUTED)
+        self.drawString(_MARGIN, 9.5 * mm, self._footer_left)
+        self.drawRightString(_PAGE_W - _MARGIN, 9.5 * mm, f"Pagina {self.getPageNumber()} di {total}")
 
 
 class PdfService:
@@ -183,7 +241,7 @@ class PdfService:
             pagesize=A4,
             leftMargin=_MARGIN,
             rightMargin=_MARGIN,
-            topMargin=_MARGIN,
+            topMargin=14 * mm,
             bottomMargin=20 * mm,
             title=f"{_DOC_TITLE} {quote_number}".strip(),
             author=COMPANY.legal_name,
@@ -191,23 +249,23 @@ class PdfService:
         )
 
         styles = getSampleStyleSheet()
-        normal = ParagraphStyle("N", parent=styles["Normal"], fontSize=9.5, leading=13, textColor=_DARK)
-        small = ParagraphStyle("S", parent=normal, fontSize=8.5, leading=11.5, textColor=colors.HexColor("#555555"))
-        label = ParagraphStyle("L", parent=small, fontName="Helvetica-Bold", textColor=_GOLD, spaceAfter=1.5 * mm)
+        normal = ParagraphStyle("N", parent=styles["Normal"], fontSize=9.5, leading=13, textColor=_INK)
+        small = ParagraphStyle("S", parent=normal, fontSize=8.5, leading=11.5, textColor=_INK_MUTED)
+        label = ParagraphStyle(
+            "L", parent=small, fontName="Helvetica-Bold", textColor=_ACCENT_INK, spaceAfter=1.5 * mm
+        )
         h2 = ParagraphStyle(
-            "H2", parent=styles["Heading2"], fontSize=12, textColor=_DARK, spaceBefore=3.5 * mm, spaceAfter=2 * mm
+            "H2", parent=styles["Heading2"], fontSize=12, leading=15, textColor=_INK,
+            spaceBefore=3 * mm, spaceAfter=1.5 * mm,
         )
         story: list = []
 
-        # ── Header: company (left) + document identity (right) ───────────────
-        title_style = ParagraphStyle(
-            "Title", parent=styles["Heading1"], fontSize=20, leading=24, textColor=_DARK, spaceAfter=0
-        )
-        meta_style = ParagraphStyle(
-            "Meta", parent=normal, alignment=2, fontSize=9, leading=12.5  # right-aligned
-        )
+        # ── Header: logo + company (left), document status and identity (right) ─
+        meta_style = ParagraphStyle("Meta", parent=normal, alignment=2, fontSize=9, leading=12.5)  # right-aligned
+        logo = BRAND.pdf_logo
         header_left = [
-            Paragraph(_txt(COMPANY.name), title_style),
+            Image(str(logo.path), width=_LOGO_W, height=_LOGO_W / logo.aspect, hAlign="LEFT"),
+            Spacer(1, 3 * mm),
             Paragraph(
                 f"{_txt(COMPANY.legal_name)}<br/>{_txt(COMPANY.full_address)}<br/>P.IVA {_txt(COMPANY.vat_id)}",
                 small,
@@ -215,7 +273,8 @@ class PdfService:
         ]
         revision = f" · Rev. {version}" if version > 1 else ""
         header_right = [
-            Paragraph(f"<b>{_DOC_TITLE.upper()}</b>", ParagraphStyle("DT", parent=meta_style, fontSize=11, textColor=_GOLD)),
+            status_box(_DOC_TITLE),
+            Spacer(1, 2.5 * mm),
             Paragraph(
                 (f"<b>N° {_txt(quote_number)}</b>{revision}<br/>" if quote_number else "")
                 + f"Data: {format_date(issue_date)}<br/>Valida fino al: {format_date(valid_until)}",
@@ -223,11 +282,17 @@ class PdfService:
             ),
         ]
         header = Table([[header_left, header_right]], colWidths=[_USABLE_W * 0.58, _USABLE_W * 0.42])
-        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        # ALIGN, not the flowables' hAlign, places them inside a cell: the status box goes right.
+        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
                                     ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
         story.append(header)
         story.append(Spacer(1, 3 * mm))
-        story.append(HRFlowable(width="100%", thickness=2, color=_GOLD))
+        # Sand rule across the full content width, like the tables (the frame insets
+        # plain flowables by 6 pt, so an HRFlowable would stop short of their edges).
+        rule = Table([[""]], colWidths=[_USABLE_W], rowHeights=[0])
+        rule.setStyle(TableStyle([("LINEABOVE", (0, 0), (-1, -1), 1.2, _ACCENT)]))
+        story.append(rule)
         story.append(Spacer(1, 2 * mm))
         story.append(Paragraph(f"<i>{_txt(QUOTE_TERMS.short_notice)}</i>", small))
         story.append(Spacer(1, 4 * mm))
@@ -257,11 +322,11 @@ class PdfService:
         )
         parties.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
-            ("LINEAFTER", (0, 0), (0, 0), 0.5, _BORDER),
-            ("BACKGROUND", (0, 0), (-1, -1), _LIGHT_GRAY),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ("BOX", (0, 0), (-1, -1), 0.5, _LINE),
+            ("LINEAFTER", (0, 0), (0, 0), 0.5, _LINE),
+            ("BACKGROUND", (0, 0), (-1, -1), _CANVAS),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]))
         story.append(parties)
 
@@ -277,7 +342,7 @@ class PdfService:
         # ── Multi-room: per-room breakdown (if present) ──────────────────────
         sections = room_sections(quote_data)
         if sections:
-            room_heading = ParagraphStyle("RH", parent=styles["Heading3"], fontSize=11, textColor=_DARK,
+            room_heading = ParagraphStyle("RH", parent=styles["Heading3"], fontSize=11, textColor=_INK,
                                           spaceBefore=3 * mm, spaceAfter=1.5 * mm)
             story.append(Paragraph("Dettaglio per ambiente", h2))
             for room, lines in sections:
@@ -295,7 +360,7 @@ class PdfService:
 
         # ── Items table ──────────────────────────────────────────────────────
         story.append(Paragraph("Lavorazioni", h2))
-        header_style = ParagraphStyle("TH", parent=normal, fontSize=8.5, textColor=colors.white, fontName="Helvetica-Bold")
+        header_style = ParagraphStyle("TH", parent=normal, fontSize=8.5, textColor=_ON_BAND, fontName="Helvetica-Bold")
         header_right_style = ParagraphStyle("THR", parent=header_style, alignment=2)
         cell = ParagraphStyle("TD", parent=normal, fontSize=8.8, leading=11.5)
         cell_right = ParagraphStyle("TDR", parent=cell, alignment=2)
@@ -306,7 +371,7 @@ class PdfService:
             Paragraph("Prezzo unit.", header_right_style),
             Paragraph("Totale", header_right_style),
         ]]
-        section_style = ParagraphStyle("TSEC", parent=cell, fontName="Helvetica-Bold", textColor=_DARK)
+        section_style = ParagraphStyle("TSEC", parent=cell, fontName="Helvetica-Bold", textColor=_INK)
         section_rows: list[int] = []
         subtotal_rows: list[int] = []
 
@@ -337,21 +402,22 @@ class PdfService:
         col_widths = [_USABLE_W * w for w in (0.43, 0.08, 0.13, 0.18, 0.18)]
         items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
         items_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), _DARK),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, _LIGHT_GRAY]),
-            ("GRID", (0, 0), (-1, -1), 0.5, _BORDER),
+            ("BACKGROUND", (0, 0), (-1, 0), _BAND),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [_SURFACE, _CANVAS]),
+            ("LINEBELOW", (0, 1), (-1, -1), 0.5, _LINE),
+            ("BOX", (0, 0), (-1, -1), 0.5, _LINE),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
             *(cmd for row in section_rows for cmd in (
-                ("SPAN", (0, row), (-1, row)), ("BACKGROUND", (0, row), (-1, row), _BORDER),
+                ("SPAN", (0, row), (-1, row)), ("BACKGROUND", (0, row), (-1, row), _SURFACE_MUTED),
             )),
             *(cmd for row in subtotal_rows for cmd in (
-                ("SPAN", (0, row), (3, row)), ("BACKGROUND", (0, row), (-1, row), colors.white),
+                ("SPAN", (0, row), (3, row)), ("BACKGROUND", (0, row), (-1, row), _SURFACE),
             )),
         ]))
         story.append(items_table)
-        story.append(Spacer(1, 4 * mm))
+        story.append(Spacer(1, 3 * mm))
 
         # ── Financials ───────────────────────────────────────────────────────
         financials = quote_data.get("financials", {})
@@ -365,14 +431,17 @@ class PdfService:
         fin_table.setStyle(TableStyle([
             ("FONTNAME", (1, 0), (-1, 1), "Helvetica"),
             ("FONTNAME", (1, 2), (2, 2), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 10),
+            ("FONTSIZE", (0, 0), (-1, 1), 9.5),
+            ("FONTSIZE", (0, 2), (-1, 2), 11),
             ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-            ("TEXTCOLOR", (1, 0), (-1, 1), colors.grey),
-            ("TEXTCOLOR", (1, 2), (2, 2), _DARK),
-            ("BACKGROUND", (0, 2), (-1, 2), _LIGHT_GRAY),
-            ("LINEABOVE", (0, 2), (-1, 2), 1, _GOLD),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            ("TEXTCOLOR", (1, 0), (-1, 1), _INK_MUTED),
+            ("TEXTCOLOR", (1, 2), (2, 2), _INK),
+            ("BACKGROUND", (1, 2), (-1, 2), _SURFACE_MUTED),
+            ("LINEABOVE", (1, 2), (-1, 2), 1, _ACCENT),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("TOPPADDING", (0, 2), (-1, 2), 6),
+            ("BOTTOMPADDING", (0, 2), (-1, 2), 6),
         ]))
         story.append(KeepTogether([fin_table]))
 
@@ -381,46 +450,46 @@ class PdfService:
             story.append(Paragraph("Note", h2))
             story.append(Paragraph(_txt(quote_data["admin_notes"]), normal))
 
-        # ── Conditions ───────────────────────────────────────────────────────
+        # ── Conditions (left) and the nature of the document (right) ─────────
         conditions: list[Flowable] = [
-            Paragraph("Condizioni", h2),
+            Paragraph("Condizioni", ParagraphStyle("H2C", parent=h2, spaceBefore=0)),
             Paragraph(f"<b>Validità:</b> {validity_days} giorni, fino al {format_date(valid_until)}.", normal),
             Paragraph("<b>Pagamento:</b>", normal),
             *[Paragraph(f"• {_txt(term)}", normal) for term in QUOTE_TERMS.payment_terms],
         ]
-        story.append(KeepTogether(conditions))
-
-        # ── Legal box: the document is an automatic DRAFT ────────────────────
-        legal = Table(
-            [[[Paragraph(_txt(QUOTE_TERMS.disclaimer_title.upper()), label),
-               Paragraph(_txt(QUOTE_TERMS.disclaimer), small)]]],
-            colWidths=[_USABLE_W],
-        )
-        legal.setStyle(TableStyle([
-            ("BOX", (0, 0), (-1, -1), 0.8, _GOLD),
-            ("BACKGROUND", (0, 0), (-1, -1), _AMBER_BG),
-            ("LEFTPADDING", (0, 0), (-1, -1), 9), ("RIGHTPADDING", (0, 0), (-1, -1), 9),
-            ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+        legal = [
+            Paragraph(_txt(QUOTE_TERMS.disclaimer_title.upper()), ParagraphStyle("LT", parent=label, textColor=_STATUS_INK)),
+            Paragraph(_txt(QUOTE_TERMS.disclaimer), small),
+        ]
+        terms = Table([[conditions, legal]], colWidths=[_USABLE_W * 0.46, _USABLE_W * 0.54])
+        terms.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (0, 0), 6), ("RIGHTPADDING", (0, 0), (0, 0), 12),
+            ("BACKGROUND", (1, 0), (1, 0), _STATUS_BG),
+            ("LEFTPADDING", (1, 0), (1, 0), 9), ("RIGHTPADDING", (1, 0), (1, 0), 9),
+            ("TOPPADDING", (1, 0), (1, 0), 7), ("BOTTOMPADDING", (1, 0), (1, 0), 9),
         ]))
         story.append(Spacer(1, 4 * mm))
-        story.append(KeepTogether([legal]))
+        story.append(KeepTogether([terms]))
 
-        # ── Signatures ───────────────────────────────────────────────────────
+        # ── Acknowledgement: the client signs that they saw the draft ────────
         sig_style = ParagraphStyle("Sig", parent=small, fontSize=8.5)
         signatures = Table(
             [
-                [Paragraph("Per SYD Bioedilizia (tecnico incaricato)", sig_style),
+                [Paragraph("Per SYD Bioedilizia (tecnico incaricato)", sig_style), "",
                  Paragraph(_txt(f"{QUOTE_TERMS.signature_label} — {client['name']}"), sig_style)],
-                ["", ""],
-                [Paragraph("Data e firma", sig_style), Paragraph("Data e firma", sig_style)],
+                ["", "", ""],
+                [Paragraph("Data e firma", sig_style), "", Paragraph("Data e firma", sig_style)],
             ],
-            colWidths=[_USABLE_W * 0.5, _USABLE_W * 0.5],
-            rowHeights=[None, 11 * mm, None],
+            # The middle column keeps the two signature lines apart.
+            colWidths=[_USABLE_W * 0.46, _USABLE_W * 0.08, _USABLE_W * 0.46],
+            rowHeights=[None, 9 * mm, None],
         )
         signatures.setStyle(TableStyle([
-            ("LINEABOVE", (0, 2), (0, 2), 0.6, colors.grey),
-            ("LINEABOVE", (1, 2), (1, 2), 0.6, colors.grey),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4), ("RIGHTPADDING", (0, 0), (-1, -1), 14),
+            ("LINEABOVE", (0, 2), (0, 2), 0.6, _LINE_STRONG),
+            ("LINEABOVE", (2, 2), (2, 2), 0.6, _LINE_STRONG),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ]))
         story.append(Spacer(1, 4 * mm))

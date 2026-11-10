@@ -1,6 +1,6 @@
 # Brand sources: SYD Bioedilizia
 
-Everything the site shows of the brand (logo, icons, favicons, link previews, colours, fonts, shadows) is **generated** from this folder. Nothing in `app/`, `components/` or `public/` writes a colour, a font, a logo path or an icon size by hand: `__tests__/no-hardcoded-colors.test.ts` and the `better-tailwindcss/no-unknown-classes` lint rule enforce it.
+Everything the site shows of the brand (logo, icons, favicons, link previews, colours, fonts, shadows) is **generated** from this folder, and so are the colours and logos of the backend's quote emails and PDF. Nothing in `app/`, `components/` or `public/` writes a colour, a font, a logo path or an icon size by hand: `__tests__/no-hardcoded-colors.test.ts` and the `better-tailwindcss/no-unknown-classes` lint rule enforce it.
 
 | Folder | What it holds | Edited by |
 |---|---|---|
@@ -17,7 +17,8 @@ source JPG ──measure──▶ fits ──construct──▶ master SVG ─�
                                                         ├─ build ─▶ app/brand-tokens.css      (roles, surfaces, fonts, shadows, wordmark, --logo-* roles, tones)
 tokens/*.tokens.json ───────────────────────────────────┘          lib/brand/*.generated.ts   (roles, fonts, colours, logo artwork, asset URLs/sizes)
                                                                    scripts/brand/generated/roles.json  (role vocabulary for the codemod and guards)
-                                                                   public/favicon.ico, public/brand/*  (icons, logo SVG/PNG, OG image)
+                                                                   public/favicon.ico, public/brand/*  (icons, logo SVG/PNG, OG image, email logo)
+                                                                   backend_python/src/brand/*  (resolved roles, logo manifest, PDF logo PNG)
 ```
 
 | Command (repo root) | Does |
@@ -41,6 +42,10 @@ Components colour themselves only with **roles**: `bg-canvas`, `bg-surface`, `te
 ## Typography
 
 `tokens/typography.tokens.json` declares the font roles (`font-sans` Lato, `font-serif` Playfair Display, `font-brand` Red Hat Display) and the **wordmark**. `next/font` only takes literal arguments, so `app/layout.tsx` writes the faces out; `__tests__/fonts.test.ts` holds them to the tokens. The brand name inside running text uses the `wordmark` utility (the logo's face, weight, case and tracking, measured on the master): `<span className="wordmark">SYD BIOEDILIZIA</span>`. As a standalone identity, use `<BrandLogo>`.
+
+## Backend: quote emails and PDF
+
+The backend cannot import TS, and its image copies only `backend_python/`, so the build also writes `backend_python/src/brand/`: `tokens.generated.json` (every role of the active theme on each surface, as `#rrggbb`), `assets.generated.json` (the email logo's URL on the site and the PDF logo's file, with their pixel sizes) and `logo-horizontal.png`. `src/core/brand.py` loads them once (`BRAND.color("primary")`, `BRAND.email_logo`, `BRAND.pdf_logo`), and `tests/unit/test_brand.py` fails if `email_templates.py` or `pdf_service.py` writes a colour by hand. The email logo (`public/brand/email-logo.png`) is fetched by mail clients from the live site, so a change to it reaches inboxes once the site is deployed.
 
 ## Changing the brand
 

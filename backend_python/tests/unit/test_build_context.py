@@ -13,7 +13,8 @@ The tests evaluate both files with real gitignore matching (a throw-away git
 repo whose ``.gitignore`` is the file under test; ``.dockerignore`` patterns are
 root-anchored first to reproduce Docker's semantics) instead of comparing
 strings, so equivalent spellings pass and broad patterns that would drop runtime
-files fail. They also check that every file in ``src/data`` is versioned: the
+files fail. They also check that every file in ``src/data`` and ``src/brand``
+(the generated brand colours and logos of the quote emails and PDF) is versioned: the
 repo-wide ``*.json`` ignore can hide a data file that exists on a developer
 machine but not in a clean checkout (it already did once), and the code that
 reads it may silently fall back.
@@ -28,6 +29,7 @@ import pytest
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 SRC_DATA = BACKEND_ROOT / "src" / "data"
+SRC_BRAND = BACKEND_ROOT / "src" / "brand"
 
 pytestmark = pytest.mark.skipif(shutil.which("git") is None, reason="git is required to evaluate ignore files")
 
@@ -61,6 +63,9 @@ MUST_SHIP = (
     "src/core/config.py",
     "src/data/master_price_book.json",
     "src/data/renovation_assemblies.json",
+    "src/brand/tokens.generated.json",
+    "src/brand/assets.generated.json",
+    "src/brand/logo-horizontal.png",
     "src/prompts/components/modes.py",
     # Nested names that only a root-anchored pattern may exclude.
     "src/api/routes/test_router.py",
@@ -131,6 +136,11 @@ def test_runtime_data_is_versioned() -> None:
     if probe.returncode != 0:
         pytest.skip("not a git checkout")
 
-    untracked = [p.name for p in sorted(SRC_DATA.iterdir()) if p.is_file() and not _tracked(p)]
-    assert untracked == [], f"src/data files not tracked by git (hidden by .gitignore?): {untracked}"
+    untracked = [
+        f"{p.parent.name}/{p.name}"
+        for folder in (SRC_DATA, SRC_BRAND)
+        for p in sorted(folder.iterdir())
+        if p.is_file() and not _tracked(p)
+    ]
+    assert untracked == [], f"runtime files not tracked by git (hidden by .gitignore?): {untracked}"
 
