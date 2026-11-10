@@ -10,9 +10,9 @@ import { ramp } from './lib/ramp.mjs';
 import { decodeIco, encodeIco } from './lib/ico.mjs';
 import { MASTER_FILE, VARIANTS, composeSvg, readMaster, scalePath, variantBox, variantPaths } from './lib/logo.mjs';
 import { ROOT, loadTokenFiles, loadTokens, logoPalette, resolveValue, themeSurfaceTokens } from './lib/tokens.mjs';
-import { ASSETS } from './build-assets.mjs';
-import { CSS_FILE, ROLES_FILE, TS_FILE, renderAll, sameText } from './build-tokens.mjs';
-import { activeThemeName, loadRoles, loadTheme, resolveTheme, themeNames, validateTheme } from './lib/semantic.mjs';
+import { ASSETS, BACKEND_ASSETS_FILE } from './build-assets.mjs';
+import { BACKEND_TOKENS_FILE, CSS_FILE, ROLES_FILE, TS_FILE, renderAll, sameText, semanticContext } from './build-tokens.mjs';
+import { activeThemeName, cssColor, loadRoles, loadTheme, resolveTheme, themeNames, validateTheme } from './lib/semantic.mjs';
 
 const tokens = loadTokens();
 const master = readMaster();
@@ -403,6 +403,43 @@ describe('ICO encoder', () => {
 describe('generated code', () => {
     it('is up to date with the tokens', () => {
         for (const [file, content] of renderAll(tokens)) assert.ok(sameText(fs.readFileSync(file, 'utf8'), content), file);
+    });
+});
+
+describe('backend brand files (quote emails and PDF)', () => {
+    const generated = Object.fromEntries(renderAll(tokens));
+    const { roles, theme } = semanticContext(tokens);
+
+    it('the backend tokens JSON holds the active theme roles of every surface, resolved like the TS', () => {
+        const json = JSON.parse(generated[BACKEND_TOKENS_FILE]);
+        assert.equal(json.theme, theme.name);
+        assert.deepEqual(Object.keys(json.surfaces), Object.keys(theme.surfaces));
+        for (const [s, values] of Object.entries(theme.surfaces)) {
+            assert.deepEqual(Object.keys(json.surfaces[s]), roles.names, s);
+            for (const r of roles.names) assert.equal(json.surfaces[s][r], cssColor(values[r]), `${s}.${r}`);
+        }
+    });
+
+    it('lives inside backend_python, the only folder the backend image copies', () => {
+        for (const file of [BACKEND_TOKENS_FILE, BACKEND_ASSETS_FILE]) {
+            assert.ok(path.relative(path.join(ROOT, 'backend_python'), file).split(path.sep)[0] !== '..', file);
+        }
+    });
+
+    it('declares every backend logo with its pixel size, and the shipped PNG has that size', () => {
+        const json = JSON.parse(fs.readFileSync(BACKEND_ASSETS_FILE, 'utf8'));
+        assert.deepEqual(Object.keys(json.logos).sort(), ['email', 'pdf']);
+        const email = json.logos.email;
+        assert.match(email.url, /^\/brand\/[\w-]+\.png$/, 'the email logo is served by the site');
+        const pdf = json.logos.pdf;
+        assert.match(pdf.file, /^[\w-]+\.png$/, 'the PDF logo is a file next to the JSON');
+        for (const [file, spec] of [
+            [path.join(ROOT, 'web_client', 'public', ...email.url.split('/').filter(Boolean)), email],
+            [path.join(path.dirname(BACKEND_ASSETS_FILE), pdf.file), pdf],
+        ]) {
+            const png = fs.readFileSync(file);
+            assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [spec.width, spec.height], file);
+        }
     });
 });
 
