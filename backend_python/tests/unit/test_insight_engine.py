@@ -29,6 +29,7 @@ from src.services.insight_engine import (
     InsightEngine,
     InsightEngineError,
     SKUItemSuggestion,
+    ai_price_book,
     get_insight_engine,
     response_schema_for,
 )
@@ -56,11 +57,22 @@ class TestBuildPriceBookPrompt:
         assert "###" in prompt, "Expected category headers (###) in price book prompt"
 
     def test_all_skus_present_in_prompt(self, engine: InsightEngine) -> None:
-        """Every SKU in the master price book must appear in the generated prompt."""
-        price_book = PricingService.load_price_book()
+        """Every SKU the model may choose must appear in the generated prompt."""
         prompt = engine._build_price_book_prompt()
-        missing = [item["sku"] for item in price_book if item["sku"] not in prompt]
+        missing = [item["sku"] for item in ai_price_book() if item["sku"] not in prompt]
         assert not missing, f"SKUs missing from prompt: {missing}"
+
+    def test_furniture_is_never_offered_to_the_model(self, engine: InsightEngine) -> None:
+        """SYD quotes building work only: a furniture line of the price book (BAG-MOB-001,
+        subcategory Arredamento) is in neither the prompt nor the SKU enum."""
+        furniture = {"sku": "MOB-TEST-001", "description": "Mobile", "unit": "cad", "unit_price": 1.0,
+                     "category": "Bagno", "subcategory": " ARREDAMENTO "}
+        with patch.object(PricingService, "load_price_book", return_value=[*price_book.seed_items(), furniture]):
+            offered = {item["sku"] for item in ai_price_book()}
+            prompt = engine._build_price_book_prompt()
+        assert "BAG-MOB-001" not in offered and "MOB-TEST-001" not in offered
+        assert "BAG-MOB-001" not in prompt and "MOB-TEST-001" not in prompt
+        assert "BAG-SAN-001" in offered, "sanitari are installed: they stay"
 
     def test_prompt_contains_absolute_rule(self, engine: InsightEngine) -> None:
         """The critical hallucination-prevention warning must be in the prompt."""
@@ -342,7 +354,7 @@ class TestAnalyzeProjectForQuote:
         with patch.object(engine.client.aio.models, "generate_content", new_callable=AsyncMock) as mock_generate:
             mock_generate.return_value = self._make_mock_response(expected)
             await engine.analyze_project_for_quote(chat_history=[{"role": "user", "content": "bagno"}])
-        skus = [str(item["sku"]) for item in PricingService.load_price_book()]
+        skus = [str(item["sku"]) for item in ai_price_book()]
         sent = mock_generate.await_args.kwargs["config"].response_schema
         assert sent is response_schema_for(assembly_library.load_library(), skus)
 
