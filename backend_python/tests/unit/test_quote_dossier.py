@@ -120,6 +120,8 @@ async def test_created_draft_carries_the_whole_dossier_and_revision_1():
         "session_id": PID,
         "address": "Via Roma 1, 00184 Roma",
         "footage_sqm": 7.5,
+        "manual_work": [],
+        "ai_warnings": [],
     }
     assert [m["label"] for m in doc["media"]] == ["Foto 1"]
     assert "mario" in doc["search_keys"] and "prv-2026-0001" in doc["search_keys"]

@@ -34,9 +34,11 @@ from google.adk.models.llm_response import LlmResponse
 from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.tools.base_tool import BaseTool
 from google.adk.tools.tool_context import ToolContext
+from google.api_core.exceptions import NotFound
 from google.genai import types
 from src.core.exceptions import ProjectFileNotFoundError, RoomNotFoundError
 from src.core.money import sum_amounts
+from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import QuoteRequest, QuoteSchema
 from src.schemas.room import DEFAULT_ROOM_ID, RoomCreate, RoomSchema
 from src.services.pricing_service import PricingService
@@ -77,8 +79,16 @@ class FakeRoomRepository:
         {"id": KITCHEN_PHOTOS[1], "type": "image", "url": photo_url(KITCHEN_PHOTOS[1]), "roomId": KITCHEN_ROOM_ID},
     ])
 
+    # Intervention specs saved by the quote tool, by room.
+    specs: dict[str, RoomInterventionSpec] = field(default_factory=dict)
+
     async def list_rooms(self, project_id: str) -> list[RoomSchema]:
         return list(self.rooms.values())
+
+    async def save_intervention_spec(self, project_id: str, room_id: str, spec: RoomInterventionSpec) -> None:
+        if room_id not in self.rooms:
+            raise NotFound(f"room {room_id}")
+        self.specs[room_id] = spec
 
     async def get_room(self, project_id: str, room_id: str) -> RoomSchema | None:
         return self.rooms.get(room_id)

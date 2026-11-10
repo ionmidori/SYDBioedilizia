@@ -60,6 +60,30 @@ class QuoteFinancials(BaseModel):
 
 
 
+# Why a work is quoted by hand (src/services/intervention_expansion.py, ManualWork):
+# a package's work without a price-book line, an element taken off and put back,
+# a client request outside the price book, a library line the live price book lacks.
+ManualWorkOriginType = Literal["package", "reuse", "client_request", "price_book"]
+
+
+class ManualWorkItem(BaseModel):
+    """A work the technician quotes by hand (no price-book line computed it)."""
+    model_config = {"extra": "forbid"}
+    work: str = Field(..., description="The work, in Italian")
+    room_id: str | None = Field(default=None, description="Quote section of the work; None on a quote without rooms")
+    origin: ManualWorkOriginType
+
+
+class QuoteAiWarning(BaseModel):
+    """Something in the AI draft the technician should check."""
+    model_config = {"extra": "forbid"}
+    # Open string (not a Literal): a stored draft must stay readable when the expansion adds a kind.
+    kind: str = Field(..., description="Warning kind (src/services/intervention_expansion.py, WarningKind)")
+    message: str = Field(..., description="What to check, in Italian")
+    room_id: str | None = Field(default=None, description="Quote section the warning is about")
+    skus: list[str] = Field(default_factory=list, description="Price-book lines involved")
+
+
 class QuoteRequest(BaseModel):
     """What the client asked for — shown to the admin in the quote dossier."""
     model_config = {"extra": "forbid"}
@@ -70,6 +94,9 @@ class QuoteRequest(BaseModel):
     budget_cap: float | None = Field(default=None, ge=0, description="Client budget cap in EUR")
     channel: QuoteChannelType | None = Field(default=None, description="Where the request started")
     session_id: str | None = Field(default=None, description="Chat session the draft was generated from")
+    # Replaced by every AI draft (an empty list clears the previous draft's).
+    manual_work: list[ManualWorkItem] = Field(default_factory=list, description="Works to quote by hand")
+    ai_warnings: list[QuoteAiWarning] = Field(default_factory=list, description="AI draft points to check")
 
 
 class ClientSnapshot(BaseModel):

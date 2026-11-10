@@ -35,6 +35,7 @@ from src.schemas.intervention_spec import (
     StoredMeasure,
     StoredPackage,
 )
+from src.schemas.quote import ManualWorkOriginType
 from src.schemas.room import RoomBrief
 from src.services.assembly_library import referenced_skus
 from src.services.insight_engine import InsightAnalysis, PackageChoice, SKUItemSuggestion, SpecMeasure
@@ -62,7 +63,7 @@ MEASURE_QUESTIONS: Mapping[str, str] = {
 }
 
 LineOrigin = Literal["package", "extra", "rule"]
-ManualOrigin = Literal["package", "reuse", "client_request", "price_book"]
+ManualOrigin = ManualWorkOriginType  # stored as is in QuoteRequest.manual_work
 WarningKind = Literal[
     "element_kept_but_demolished",
     "reuse_not_possible",

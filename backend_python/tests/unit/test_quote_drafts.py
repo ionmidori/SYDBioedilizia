@@ -6,7 +6,14 @@ replaced admin-edited items and even reset approved quotes to `draft`.
 from datetime import UTC, datetime
 
 import pytest
-from src.schemas.quote import QuoteFinancials, QuoteItem, QuoteRequest, QuoteSchema
+from src.schemas.quote import (
+    ManualWorkItem,
+    QuoteAiWarning,
+    QuoteFinancials,
+    QuoteItem,
+    QuoteRequest,
+    QuoteSchema,
+)
 from src.services.quote_drafts import DraftSaveOutcome, QuoteStatusView, apply_ai_draft, read_quote_status
 from tests.unit.firestore_fakes import FakeDb, FakeTransaction
 
@@ -44,7 +51,10 @@ async def test_first_draft_is_created_with_number_and_request():
     assert doc["doc_type"] == "quote"
     assert doc["version"] == 1
     assert (doc["quote_number"], doc["quote_year"], doc["quote_seq"]) == ("PRV-2026-0001", 2026, 1)
-    assert doc["request"] == {"summary": "Rifacimento pavimento soggiorno", "channel": "chat", "session_id": PID}
+    assert doc["request"] == {
+        "summary": "Rifacimento pavimento soggiorno", "channel": "chat", "session_id": PID,
+        "manual_work": [], "ai_warnings": [],
+    }
     assert doc["created_at"] == NOW
     # The stored document is readable by the API schema (extra="forbid").
     QuoteSchema(**doc)
@@ -239,3 +249,24 @@ async def test_read_quote_status_is_a_plain_read():
                                       version=3, sent_before=True)
     db.docs[QUOTE_PATH]["status"] = "deleted"
     assert await read_quote_status(db, PID) is None
+
+
+async def test_a_later_draft_replaces_the_work_quoted_by_hand_and_the_warnings():
+    """Phase 140: what the AI could not price reaches the admin, and only the latest draft's."""
+    db = FakeDb()
+    first = QuoteRequest(
+        summary="Bagno", channel="chat", session_id=PID,
+        manual_work=[ManualWorkItem(work="Rubinetteria (fornitura)", room_id="bagno1", origin="package")],
+        ai_warnings=[QuoteAiWarning(kind="admin_check", message="Parete portante", room_id="bagno1", skus=["MUR-003"])],
+    )
+    await _save(db, request=first)
+    doc = db.get_data(*QUOTE_PATH)
+    assert doc["request"]["manual_work"] == [{"work": "Rubinetteria (fornitura)", "room_id": "bagno1", "origin": "package"}]
+    assert doc["request"]["ai_warnings"] == [
+        {"kind": "admin_check", "message": "Parete portante", "room_id": "bagno1", "skus": ["MUR-003"]}
+    ]
+    QuoteSchema(**doc)
+
+    await _save(db, request=_request("Solo pavimento"))
+    doc = db.get_data(*QUOTE_PATH)
+    assert doc["request"]["manual_work"] == [] and doc["request"]["ai_warnings"] == []
