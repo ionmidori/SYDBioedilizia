@@ -1,22 +1,32 @@
 """
 InsightEngine: AI-powered project analysis for quote generation.
 
-Uses Gemini structured output (response_schema) to extract SKU suggestions
-from conversation history and media. Pattern: fastapi-enterprise-patterns (Service Layer).
+Uses Gemini structured output (response_schema) to compile an intervention
+spec from conversation history and media: packages of the assembly library with
+their conditions, measures with their source, element choices, single extra
+price-book items and requests outside the price book. The code expands it into
+quote lines (src/services/intervention_expansion.py, Phase 140 step 1).
+Pattern: fastapi-enterprise-patterns (Service Layer).
 
-Features:
-  - WBS Assembly Intelligence: expands user intents into structured BOQ phases
-  - Guided Questions: returns completeness_score + missing_info for C-option logic
-  - Chain-of-Thought reasoning: Phase → Sub-work → SKU mapping
+Also returns completeness_score + missing_info for the guided questions.
 """
 import logging
-from typing import Any, Literal
+from collections.abc import Sequence
+from types import GenericAlias
+from typing import Annotated, Any, Literal, cast
 
 from google.genai import types as genai_types
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, JsonValue, create_model, field_validator
 
 from src.core.models import ModelRole, build_thinking_config, get_genai_client, get_model_id
-from src.schemas.assembly_library import FORMULA_VARIABLES, ElementAction
+from src.schemas.assembly_library import (
+    FORMULA_VARIABLES,
+    MEASURE_LABELS,
+    Assembly,
+    AssemblyLibrary,
+    ElementAction,
+    formula_variables,
+)
 from src.services.assembly_library import load_library
 from src.services.pricing_service import PricingService
 from src.utils.download import download_session_media
@@ -138,6 +148,156 @@ class InsightAnalysis(BaseModel):
         return [m for m in value if m.name in FORMULA_VARIABLES]
 
 
+# ── Response schema with the allowed values (Phase 140, step 1) ───────────────
+# Gemini decodes enum fields only to the listed values. The enums live in the
+# JSON schema alone: the fields stay `str`, so the answer is parsed with
+# InsightAnalysis and one value outside a list (a price book edited between two
+# calls) never loses the whole analysis — expand() and validate_sku_suggestions
+# report it instead.
+
+_SchemaKey = tuple[str | None, tuple[str, ...]]
+_SCHEMA_CACHE: dict[_SchemaKey, type[InsightAnalysis]] = {}
+_SCHEMA_CACHE_MAX = 8  # one entry per price-book/library version: a few at most
+
+
+def _one_of(values: Sequence[str]) -> dict[str, JsonValue] | None:
+    """`enum` for the JSON schema; none for an empty list (Gemini rejects `enum: []`)."""
+    if not values:
+        return None
+    allowed: list[JsonValue] = list(values)
+    return {"enum": allowed}
+
+
+def _list_of(item: type[BaseModel]) -> type[list[BaseModel]]:
+    """`list[item]` for a model built at runtime (create_model field type)."""
+    return cast("type[list[BaseModel]]", GenericAlias(list, (item,)))
+
+
+def _description(model: type[BaseModel], field: str) -> str | None:
+    return model.model_fields[field].description
+
+
+def _build_response_schema(library: AssemblyLibrary | None, skus: tuple[str, ...]) -> type[InsightAnalysis]:
+    package_ids = [assembly.id for assembly in library.assemblies] if library else []
+    conditions = library.conditions() if library else []
+    elements = library.element_names() if library else []
+
+    suggestion = create_model(
+        "SKUItemSuggestionSchema",
+        __base__=SKUItemSuggestion,
+        sku=(str, Field(..., description=_description(SKUItemSuggestion, "sku"), json_schema_extra=_one_of(skus))),
+    )
+    measure = create_model(
+        "SpecMeasureSchema",
+        __base__=SpecMeasure,
+        name=(str, Field(
+            ..., description=_description(SpecMeasure, "name"), json_schema_extra=_one_of(sorted(FORMULA_VARIABLES))
+        )),
+    )
+    package = create_model(
+        "PackageChoiceSchema",
+        __base__=PackageChoice,
+        assembly_id=(str, Field(
+            ..., description=_description(PackageChoice, "assembly_id"), json_schema_extra=_one_of(package_ids)
+        )),
+        conditions=(
+            list[Annotated[str, Field(json_schema_extra=_one_of(conditions))]],
+            Field(default_factory=list, description=_description(PackageChoice, "conditions")),
+        ),
+    )
+    element = create_model(
+        "ElementChoiceSchema",
+        __base__=ElementChoice,
+        element=(str, Field(
+            ..., description=_description(ElementChoice, "element"), json_schema_extra=_one_of(elements)
+        )),
+    )
+    return create_model(
+        "InsightAnalysisSchema",
+        __base__=InsightAnalysis,
+        suggestions=(_list_of(suggestion), Field(
+            default_factory=list, description=_description(InsightAnalysis, "suggestions")
+        )),
+        packages=(_list_of(package), Field(
+            default_factory=list, description=_description(InsightAnalysis, "packages")
+        )),
+        measures=(_list_of(measure), Field(
+            default_factory=list, description=_description(InsightAnalysis, "measures")
+        )),
+        element_choices=(_list_of(element), Field(
+            default_factory=list, description=_description(InsightAnalysis, "element_choices")
+        )),
+    )
+
+
+def response_schema_for(library: AssemblyLibrary | None, skus: Sequence[str]) -> type[InsightAnalysis]:
+    """InsightAnalysis for Gemini's response_schema, with the library's packages,
+    conditions and elements, the price-book SKUs and the formula measures as enums.
+
+    Cached by library version and SKU set (the schema is rebuilt only when the
+    price book or the library changes)."""
+    key: _SchemaKey = (library.version if library else None, tuple(sorted(set(skus))))
+    schema = _SCHEMA_CACHE.get(key)
+    if schema is None:
+        if len(_SCHEMA_CACHE) >= _SCHEMA_CACHE_MAX:
+            _SCHEMA_CACHE.clear()
+        schema = _SCHEMA_CACHE[key] = _build_response_schema(library, key[1])
+    return schema
+
+
+# ── Prompt helpers ─────────────────────────────────────────────────────────────
+
+def _package_measures(assembly: Assembly) -> list[str]:
+    """The measures the package formulas use, sorted."""
+    return sorted({
+        name for phase in assembly.phases for item in phase.skus for name in formula_variables(item.qty_formula)
+    })
+
+
+def _package_conditions(assembly: Assembly) -> list[str]:
+    """The package conditions as the model reads them; an alternative with a
+    default says what the backend uses when the client does not choose."""
+    parts: list[str] = []
+    for phase in assembly.phases:
+        if phase.conditional:
+            parts.append(f"`{phase.conditional}` ({phase.phase})")
+        conditional = [item for item in phase.skus if item.conditional]
+        default = next((item for item in conditional if item.default_choice), None)
+        if default is not None:
+            names = " oppure ".join(f"`{item.conditional}`" for item in conditional)
+            parts.append(
+                f"{names} — se il cliente non lo dice, nessuna: il backend usa `{default.conditional}` e lo segnala al tecnico"
+            )
+        else:
+            parts.extend(f"`{item.conditional}` ({phase.phase})" for item in conditional)
+    return list(dict.fromkeys(parts))
+
+
+def _package_lines(assembly: Assembly) -> list[str]:
+    skus = dict.fromkeys(item.sku for phase in assembly.phases for item in phase.skus)
+    lines = [
+        f"### {assembly.name} (`{assembly.id}`)",
+        f"- {assembly.description}",
+        f"- Quando: {', '.join(assembly.triggers)}",
+        f"- Voci comprese (le calcola il backend): {', '.join(f'`{sku}`' for sku in skus)}",
+    ]
+    measures = _package_measures(assembly)
+    if measures:
+        lines.append("- Misure da dare in `measures`: " + "; ".join(f"`{m}` = {MEASURE_LABELS[m]}" for m in measures))
+    conditions = _package_conditions(assembly)
+    if conditions:
+        lines.append("- Condizioni (in `conditions`, solo queste e solo se vere): " + "; ".join(conditions))
+    if assembly.elements:
+        lines.append(
+            "- Elementi (per `element_choices`): " + ", ".join(f"`{e.element}` ({e.label})" for e in assembly.elements)
+        )
+    if assembly.manual_items:
+        lines.append(
+            "- Il backend aggiunge da quotare a mano: " + "; ".join(m.work for m in assembly.manual_items)
+        )
+    return lines
+
+
 # ── Domain Exception ───────────────────────────────────────────────────────────
 
 class InsightEngineError(Exception):
@@ -186,7 +346,7 @@ class InsightEngine:
             "## Master Price Book — SKU Disponibili",
             "",
             "⚠️ REGOLA ASSOLUTA: Usa ESCLUSIVAMENTE i codici SKU presenti in questo elenco.",
-            "Non inventare mai codici SKU. Un lavoro senza codice non va nei suggestions (vedi regola 1).",
+            "Non inventare mai codici SKU. Un lavoro senza codice va in unmapped_work_requests (regola 1).",
             "",
         ]
         for category, items in sorted(by_category.items()):
@@ -206,12 +366,10 @@ class InsightEngine:
 
     def _build_assembly_prompt(self) -> str:
         """
-        Builds a WBS Assembly context section for the LLM.
-
-        Teaches the AI how to expand user desires (e.g. 'bagno nuovo') into
-        complete BOQ phases following the industry 'Assembly Intelligence' pattern.
-        Each assembly shows the required WBS phases (SKU, unit, quantity formula),
-        the work quoted by hand (no price-book line) and the dependency rules.
+        The packages of the assembly library, as the model chooses them: when to
+        use each, the lines it covers (codes only), the measures, conditions and
+        elements to give, the work the backend adds for hand quoting.
+        No formulas or quantities: the backend computes them (intervention_expansion).
         Empty when the library cannot be loaded (load_library logs why).
         """
         library = load_library()
@@ -219,36 +377,23 @@ class InsightEngine:
             return ""
 
         lines: list[str] = [
-            "## Libreria Assembly (WBS — Work Breakdown Structure)",
+            "## Pacchetti di lavorazioni (libreria)",
             "",
-            "Quando l'utente esprime un desiderio macro (es. 'bagno nuovo', 'pareti bianche'),",
-            "DEVI espanderlo nelle sotto-lavorazioni tecniche complete seguendo questa libreria.",
-            "Non limitarti alla voce superficiale — includi SEMPRE le voci prerequisito.",
+            "Quando il cliente esprime un desiderio macro (es. 'bagno nuovo', 'pareti bianche'),",
+            "scegli il pacchetto in `packages`. Le voci e le quantità le calcola il backend dalle misure:",
+            "tu indichi il pacchetto, le condizioni vere, le misure richieste e gli elementi da tenere.",
             "",
         ]
-        for asm in library.assemblies:
-            lines.append(f"### 🔧 {asm.name} (`{asm.id}`)")
-            lines.append(f"*Trigger*: {', '.join(asm.triggers[:4])}...")
-            lines.append(f"*Domande richieste*: {', '.join(asm.questions_required)}")
-            lines.append("*Fasi WBS* (codice, unità, quantità):")
-            for ph in asm.phases:
-                cond = f" *(condizionale: {ph.conditional})*" if ph.conditional else ""
-                items = ", ".join(
-                    f"`{s.sku}` ({s.unit}, {s.qty_formula})" + (f" (se: {s.conditional})" if s.conditional else "")
-                    for s in ph.skus
-                )
-                lines.append(f"  - **{ph.phase}**{cond}: {items}")
-            if asm.manual_items:
-                manual = "; ".join(m.work for m in asm.manual_items)
-                lines.append(f"*Da quotare a mano dal tecnico (nessuna voce di listino)*: {manual}")
+        for assembly in library.assemblies:
+            lines.extend(_package_lines(assembly))
             lines.append("")
 
-        if library.dependency_rules:
-            lines.append("## Regole di Dipendenza")
-            for rule in library.dependency_rules:
-                lines.append(f"- {rule.rule}")
-            lines.append("")
-
+        lines.append("Il backend applica da solo le regole di dipendenza (smaltimento, massetto, verifiche strutturali).")
+        questions = [rule.question_before_exclude for rule in library.dependency_rules if rule.question_before_exclude]
+        if questions:
+            lines.append("Se non sai rispondere da conversazione e foto, metti in `missing_info` queste domande:")
+            lines.extend(f"- «{question}»" for question in questions)
+        lines.append("")
         return "\n".join(lines)
 
     def _build_system_prompt(self, price_book_section: str, assembly_section: str) -> str:
@@ -292,13 +437,14 @@ Cerca nella cronologia conversazione:
    - Materiali attuali (pavimento esistente, rivestimento pareti, stato intonaci)
    - Impianti visibili (tubature a vista, quadro elettrico, tipo riscaldamento)
    - Condizioni strutturali (crepe, umidità, danni, vetustà)
-   - Elementi da preservare (keepElements menzionati dall'utente)
+   - Elementi che il cliente vuole tenere
 
 Usa queste informazioni per:
-- Identificare le demolizioni necessarie (es. piastrelle vecchie → DEM-003)
-- Stimare le preparazioni (es. intonaco deteriorato → MUR-004)
-- Rilevare impianti da rifare (es. tubature anni '70 → IMP-ID-001)
-- Escludere lavori sugli elementi dichiarati da mantenere
+- Scegliere le condizioni dei pacchetti (es. pareti piastrellate → `if_piastrelle`,
+  intonaco deteriorato → `if_intonaco_ammalorato`)
+- Dare le misure con fonte `photo` quando le hai dalla foto o dal blocco misure
+- Rilevare lavori fuori dai pacchetti (es. colonna di scarico da spostare → `IMP-ID-003`)
+- Indicare in `element_choices` gli elementi che il cliente vuole tenere
 
 {assembly_section}
 {price_book_section}
@@ -312,23 +458,38 @@ Cerca l'analisi visiva della stanza originale nella cronologia.
 Identifica: materiali esistenti, impianti visibili, condizione generale.
 Se un'immagine è allegata, analizzala direttamente.
 
-**FASE 1 — IDENTIFICA LE MACRO-CATEGORIE**
-Cosa vuole l'utente? (es. bagno nuovo, pareti bianche, pavimento diverso)
-Mappa subito a un Assembly ID dalla libreria sopra.
+**FASE 1 — SCEGLI I PACCHETTI**
+Cosa vuole il cliente? (es. bagno nuovo, pareti bianche, pavimento diverso)
+Per ogni desiderio macro scegli un pacchetto della libreria in `packages`, con le condizioni vere
+in `conditions` (es. `if_cottura_gas` se la cucina è a gas, `if_piastrelle` se le pareti da
+dipingere sono piastrellate). Le voci del pacchetto NON vanno ricopiate in `suggestions`.
 
-**FASE 2 — ESPANDI LE SOTTO-LAVORAZIONI**
-Per ogni assembly individuato, includi TUTTE le fasi WBS:
-- Verifica: ci sono demolizioni prerequisito? (es. pareti bianche → rivestimento esistente?)
-- Verifica: ci sono impianti da rifare? (elettrico, idraulico, gas)
-- Includi sempre smaltimento macerie se ci sono demolizioni.
+**FASE 2 — DAI LE MISURE**
+In `measures` dai ogni misura richiesta dai pacchetti scelti (un solo valore), con la sua fonte:
+- `declared`: l'ha detta il cliente o è nella scheda stanza;
+- `photo`: viene dal blocco misure o dall'analisi della foto;
+- `estimated`: stima su medie italiane, SOLO per `mq` (pavimento) e `mq_pareti` (pareti da trattare)
+  quando conosci il tipo di stanza. Usa il centro della forbice: Bagno 6 mq | Cucina 12 mq |
+  Camera 14 mq | Soggiorno 25 mq; pareti ≈ 4 × √mq × 2.7 (altezza media) − aperture.
+  Con una superficie stimata il preventivo è indicativo: `completeness_score` al massimo 0.8.
+Tutte le altre misure (`mq_parete` = la parete da abbattere, `ml_*`, `n_*`) non si stimano: se il
+cliente non le ha dette e la foto non le mostra, omettile (il backend le chiede al cliente).
 
-**FASE 3 — STIMA LE QUANTITÀ**
-Se le dimensioni non sono fornite, usa medie italiane:
-- Bagno: 5-8 mq | Cucina: 10-15 mq | Camera: 12-16 mq | Soggiorno: 20-30 mq
-- Pareti: mq_piano × 2.7 (altezza media) − aperture
-- Sempre +5% sulle superfici per scarti e tagli.
+**FASE 3 — ELEMENTI DA TENERE**
+In `element_choices` metti solo gli elementi che il cliente NON vuole sostituire:
+- `keep`: il cliente vuole tenere l'elemento (es. "i sanitari li teniamo", "il pavimento resta").
+  Se intorno si demolisce, il backend prevede smontaggio e rimontaggio e lo segnala al tecnico.
+- `reuse`: solo quando il cliente dice esplicitamente di smontarlo e rimontarlo (es. "smontate
+  i sanitari e rimontateli dopo").
+Un elemento non indicato si sostituisce.
 
-**FASE 4 — VALUTA COMPLETEZZA**
+**FASE 4 — VOCI SINGOLE E RICHIESTE FUORI LISTINO**
+- `suggestions`: solo lavori del listino che i pacchetti scelti non comprendono, con quantità
+  stimata (+5% solo su posa e rivestimenti, per scarti e tagli) e fase WBS.
+- `unmapped_work_requests`: lavori edili chiesti dal cliente che non sono né in un pacchetto
+  né nel listino, una frase breve in italiano ciascuno (es. "Vespaio aerato sotto il pavimento").
+
+**FASE 5 — VALUTA COMPLETEZZA**
 Assegna `completeness_score` (0.0-1.0):
 - 1.0 = tutte le informazioni tecniche sono note (dimensioni, materiali, impianti)
 - 0.7 = informazioni sufficienti per un preventivo indicativo
@@ -336,56 +497,67 @@ Assegna `completeness_score` (0.0-1.0):
 
 **Esempi di completeness_score basso (< 0.7):**
 - Non si sa se le pareti sono intonacate o rivestite a piastrelle → chiedi
-- Non si sa se la parete da abbattere è portante → OBBLIGATORIO chiedere e segnalare admin
-- Non si conosce la metratura del locale → chiedi dimensioni approssimative
+- Non si sa se la parete da abbattere è portante → OBBLIGATORIO chiederlo in `missing_info`
+- Non si conosce la metratura e non si sa che stanza è → chiedi dimensioni approssimative
 
 ## Regole Operative
 
-1. **Solo SKU del listino**: MAI inventare codici. Un lavoro senza codice non va nei `suggestions`:
-   se è tra quelli "Da quotare a mano dal tecnico" della libreria, citalo nel `summary` (regola 8).
-2. **Fase WBS obbligatoria**: Ogni SKU deve avere il campo `phase` compilato.
-3. **Quantità plausibili**: es. 10-14 punti luce per 70mq; non 100 prese per 10mq.
-4. **ZERO arredamento**: Niente mobili, cucine componibili, elettrodomestici, tende, lampade.
-   Qualsiasi voce che non sia lavoro edile va omessa senza eccezioni.
-5. **IVA**: Non applicarla — gestita dal backend automaticamente.
-6. **Parete portante**: Se sospettata, segnalarlo in `ai_reasoning` e abbassare score.
-7. **Vision-driven**: Se la foto originale mostra materiali specifici, usa quella info per
-   scegliere le voci di demolizione/preparazione corrette invece di usare defaults generici.
-8. **Lavorazioni da quotare a mano**: quelle indicate nella libreria come "Da quotare a mano
-   dal tecnico" non hanno una voce di listino: NON metterle nei `suggestions`, citale nel `summary`.
-   Sono lavori edili, non arredamento.
-9. **Formule della libreria**: `mq` = pavimento della stanza, `mq_pareti` = pareti da trattare,
-   `mq_parete` = parete da abbattere, `ml_pensili` = metri lineari di pensili, `n_*` = numero di pezzi.
-   `SMAL-001` si indica come quota di container da 7 m³ (es. 0.6): il backend li somma in container interi.
+1. **Solo codici del listino e della libreria**: MAI inventare codici. Un lavoro edile senza
+   pacchetto né codice va in `unmapped_work_requests`: lo quota a mano il tecnico.
+2. **Niente voci contate due volte**: `ASM-BAGNO-FULL` e `ASM-CUCINA-FULL` comprendono già le
+   demolizioni, il pavimento e i rivestimenti della stanza (vedi "Voci comprese"). Per la stessa
+   stanza non aggiungere `ASM-PAVIMENTO`, `ASM-PARETI-BIANCHE` o `ASM-BAGNO-LIGHT`, né in `suggestions`
+   una voce già compresa in un pacchetto scelto. Ciò che il pacchetto non comprende va a parte:
+   es. tinteggiatura delle pareti → `PIT-001` in `suggestions`, soffitto → `ASM-SOFFITTO`.
+3. **Fase WBS obbligatoria**: ogni voce in `suggestions` ha il campo `phase` compilato.
+4. **Quantità plausibili** nelle `suggestions`: es. 10-14 punti luce per 70mq; non 100 prese per 10mq.
+5. **ZERO arredamento**: niente mobili, cucine componibili, elettrodomestici, tende, lampade,
+   né in `suggestions` né in `unmapped_work_requests`. Qualsiasi voce che non sia lavoro edile va omessa.
+6. **IVA**: non applicarla — gestita dal backend automaticamente.
+7. **Parete portante**: se il cliente la conferma, scegli `if_portante` (il backend avvisa il tecnico);
+   se è solo sospettata, chiedilo in `missing_info` e abbassa lo score.
+8. **Lavori da quotare a mano dei pacchetti**: li aggiunge il backend. Non metterli né in
+   `suggestions` né in `unmapped_work_requests`.
+9. **Smaltimento**: `SMAL-001` dei pacchetti e delle regole lo calcola il backend. In `suggestions`
+   aggiungilo solo se nessun pacchetto scelto lo comprende e ci sono demolizioni (es. infissi, porte,
+   demolizioni singole), come quota di container da 7 m³ (es. 0.4).
+10. **Vision-driven**: se la foto originale mostra materiali specifici, usa quella informazione per
+   le condizioni (es. `if_piastrelle`) e per le misure con fonte `photo`.
+11. **Italiano**: tutti i testi (`summary`, `reasoning`, `ai_reasoning`, `missing_info`,
+   `unmapped_work_requests`) sono in italiano; nel `summary` indica la superficie in mq.
 
-## Esempio Few-Shot (Vision → Preventivo)
+## Esempi Few-Shot (Vision → Specifica)
 
-**Foto originale descritta**: bagno anni '80, piastrelle fino a h=150cm, sanitari in ceramica bianca, pavimento in granito, finestra in alluminio, impianto idraulico visibile.
-**Render obiettivo**: bagno moderno minimal, pareti intonaco bianco liscio, gres grigio 60x60, box doccia walk-in, sanitari sospesi.
-**keepElements**: ["finestra", "impianto idraulico se funzionante"]
+**Esempio 1.** Foto originale: bagno anni '80, piastrelle fino a h=150cm, sanitari in ceramica,
+pavimento in granito, finestra in alluminio. Il cliente: "il bagno è di 5 metri quadri, lo voglio
+rifare tutto, moderno con doccia walk-in. La finestra va bene così."
+**Specifica corretta**:
+- packages: `ASM-BAGNO-FULL` (conditions: nessuna)
+- measures: `mq` = 5, source `declared`
+- element_choices: nessuno (si sostituisce tutto; la finestra non è in un pacchetto scelto)
+- suggestions: nessuna (le voci del bagno le calcola il backend)
+- unmapped_work_requests: nessuna
+**NON incluso**: mobili, specchio, lampade, accessori ← arredamento.
 
-**Output corretto** (solo lavori edili):
-- DEM-006: demolizione sanitari esistenti (qty: 1)
-- DEM-003: rimozione piastrelle pareti (qty: ~13mq = 5mq × 2.6h)
-- DEM-002: rimozione pavimento granito (qty: ~5mq)
-- IMP-ID-001: punti acqua WC, bidet, lavabo, doccia (qty: 4) ← condizionale se impianto da rifare
-- MUR-004: intonaco civile pareti (qty: ~13mq)
-- PAV-001: posa gres porcellanato pavimento (qty: ~5.25mq con +5%)
-- BAG-RIV-001: rivestimento ceramico pareti (qty: ~13.65mq con +5%)
-- BAG-SAN-001: fornitura e posa set sanitari sospesi (qty: 1)
-- BAG-BOX-001: box doccia walk-in (qty: 1)
-- SMAL-001: smaltimento macerie (qty: ~0.6 = quota di un container da 7 m³ per ~4 m³ di macerie)
-
-**NON incluso**: mobili, specchio, lampade, asciugamani, accessori. ← ESCLUSO perché arredamento.
+**Esempio 2.** Il cliente: "Rifacciamo il bagno, circa 6 mq, ma i sanitari li teniamo perché sono
+nuovi. Vorrei spostare la colonna di scarico e fare un vespaio aerato sotto il pavimento."
+**Specifica corretta**:
+- packages: `ASM-BAGNO-FULL`
+- measures: `mq` = 6, source `declared`
+- element_choices: `sanitari` → `keep` (il backend prevede smontaggio e rimontaggio e avvisa il tecnico)
+- suggestions: `IMP-ID-003` qty 1, fase Impianti (spostamento colonna di scarico, fuori dal pacchetto)
+- unmapped_work_requests: "Vespaio aerato sotto il pavimento" (nessuna voce di listino)
 
 ## Auto-Verifica Obbligatoria (Self-Correction)
 
-PRIMA di restituire il risultato, esegui questo controllo su ogni SKU suggerito:
+PRIMA di restituire il risultato, esegui questo controllo su ogni voce di `suggestions`
+e ogni richiesta di `unmapped_work_requests`:
 → "Questa voce è un lavoro edile/impiantistico che richiede un operaio specializzato in cantiere?"
 → Se SÌ: includi. Se NO (è un mobile, un elettrodomestico, una lampada): rimuovi senza eccezioni.
 
 RICORDA: SYD Bioedilizia fa SOLO ristrutturazione edile strutturale.
 Il preventivo copre ESCLUSIVAMENTE i lavori per trasformare fisicamente lo spazio.
+Pacchetti in `packages` con le loro misure in `measures`: le quantità le calcola il backend.
 Analizza la conversazione e produci la risposta strutturata.
 """
 
@@ -397,11 +569,11 @@ Analizza la conversazione e produci la risposta strutturata.
         session_id: str | None = None,
     ) -> InsightAnalysis:
         """
-        Analyzes chat history and optional media to suggest renovation SKUs.
+        Analyzes chat history and optional media and compiles the intervention spec.
 
-        Uses Gemini native structured output (response_schema=InsightAnalysis)
-        instead of fragile JSON string parsing. This guarantees type-safe output
-        that matches the Pydantic schema without any manual text manipulation.
+        Uses Gemini native structured output with response_schema_for(): the
+        packages, conditions, elements, SKUs and measures are enums, so the
+        model picks only values that exist.
 
         Args:
             chat_history: List of {role, content} dicts from conversation.
@@ -411,12 +583,16 @@ Analizza la conversazione e produci la risposta strutturata.
                 media is attached.
 
         Returns:
-            InsightAnalysis with validated suggestions and summary.
+            InsightAnalysis: the spec (packages, measures, element choices, extra
+            items, requests outside the price book) and the summary.
 
         Raises:
             InsightEngineError: On Gemini failure or empty response.
         """
         await PricingService.ensure_fresh()  # prices edited in the admin console
+        response_schema = response_schema_for(
+            load_library(), [str(item["sku"]) for item in PricingService.load_price_book()]
+        )
         price_book_section = self._build_price_book_prompt()
         assembly_section = self._build_assembly_prompt()
         system_prompt = self._build_system_prompt(price_book_section, assembly_section)
@@ -458,7 +634,7 @@ Analizza la conversazione e produci la risposta strutturata.
                 config=genai_types.GenerateContentConfig(
                     temperature=0.1,
                     response_mime_type="application/json",
-                    response_schema=InsightAnalysis,  # Pydantic-native, no manual parsing
+                    response_schema=response_schema,  # enums for packages, SKUs, measures
                     # THINKING_LEVEL_INSIGHT from the registry when set, else a fixed budget.
                     thinking_config=build_thinking_config(ModelRole.INSIGHT)
                     or genai_types.ThinkingConfig(thinking_budget=2048),
@@ -480,10 +656,11 @@ Analizza la conversazione e produci la risposta strutturata.
                     lines = lines[:-1]
                 raw_text = "\n".join(lines).strip()
 
+            # Parsed with the base model: the enums constrain decoding only (see response_schema_for).
             result = InsightAnalysis.model_validate_json(raw_text)
             logger.info(
                 "[InsightEngine] Analysis complete.",
-                extra={"suggestions": len(result.suggestions)},
+                extra={"packages": len(result.packages), "suggestions": len(result.suggestions)},
             )
             return result
 

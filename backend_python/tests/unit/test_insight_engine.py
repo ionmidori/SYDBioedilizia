@@ -7,7 +7,7 @@ Rule #20: When creating a Service, create tests/unit/test_{service}.py
 Verifies:
   - _build_price_book_prompt() generates a categorized, non-empty string
     with all known SKU codes present.
-  - _build_assembly_prompt() generates non-empty WBS context from renovation_assemblies.json
+  - _build_assembly_prompt() lists the packages (measures, conditions, elements) without formulas
   - _build_system_prompt() is non-empty and contains key constraints
     (only SKUs from listino, chain-of-thought instructions, etc.)
   - analyze_project_for_quote() handles Gemini response_schema output correctly
@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import src.services.insight_engine as insight_engine_module
 from src.core.models import ModelRole
+from src.schemas.assembly_library import FORMULA_VARIABLES, MEASURE_LABELS
 from src.services import assembly_library, price_book
 from src.services.insight_engine import (
     InsightAnalysis,
@@ -29,6 +30,7 @@ from src.services.insight_engine import (
     InsightEngineError,
     SKUItemSuggestion,
     get_insight_engine,
+    response_schema_for,
 )
 from src.services.pricing_service import PricingService
 
@@ -121,7 +123,31 @@ class TestAssemblyPrompt:
         for assembly in library.assemblies:
             assert assembly.id in prompt
         assert "Rubinetteria (fornitura)" in prompt
-        assert "`MUR-004` (mq, mq * 2.2)" in prompt
+
+    def test_assembly_prompt_has_measures_conditions_elements_and_no_formulas(self, engine: InsightEngine) -> None:
+        """The backend computes the quantities: the model gets what to give, never a formula."""
+        library = assembly_library.load_library()
+        assert library is not None
+        prompt = engine._build_assembly_prompt()
+        formulas = {item.qty_formula for a in library.assemblies for ph in a.phases for item in ph.skus}
+        formulas |= {r.requires_qty_formula for r in library.dependency_rules if r.requires_qty_formula}
+        assert sorted(f for f in formulas if any(op in f for op in "*/+-") and f in prompt) == []
+        bath = prompt.split("(`ASM-BAGNO-FULL`)", 1)[1].split("###", 1)[0]
+        assert f"`mq` = {MEASURE_LABELS['mq']}" in bath
+        assert "`sanitari` (Sanitari)" in bath
+        assert "`if_cottura_gas`" in prompt
+        windows = prompt.split("(`ASM-INFISSI`)", 1)[1].split("###", 1)[0]
+        assert "il backend usa `if_pvc`" in windows, "the default alternative is explained"
+
+    def test_every_package_and_element_named_in_the_system_prompt_exists(self, engine: InsightEngine) -> None:
+        """Rules and few-shot name packages and elements: a stale name would teach a value the schema rejects."""
+        library = assembly_library.load_library()
+        assert library is not None
+        prompt = engine._build_system_prompt("", "")
+        named = set(re.findall(r"`(ASM-[A-Z-]+)`", prompt))
+        assert named and named <= {a.id for a in library.assemblies}
+        assert "`sanitari` → `keep`" in prompt
+        assert set(re.findall(r"`(if_[a-z_]+)`", prompt)) <= set(library.conditions())
 
     def test_plaster_is_never_mapped_to_the_structural_opening(self, engine: InsightEngine) -> None:
         """MUR-003 is the load-bearing opening (850 EUR cad), MUR-004 the plaster."""
@@ -129,16 +155,21 @@ class TestAssemblyPrompt:
         wrong = [line for line in prompt.splitlines() if "MUR-003" in line and "intonaco" in line.lower()]
         assert wrong == []
 
-    def test_unmappable_work_rule_points_to_the_summary(self, engine: InsightEngine) -> None:
+    def test_unmappable_work_goes_to_unmapped_work_requests(self, engine: InsightEngine) -> None:
+        """Phase 140: a client request with no code is kept for the technician, never dropped."""
         prompt = engine._build_system_prompt("", "")
-        rule = prompt.split("1. **Solo SKU del listino**", 1)[1].split("2. **", 1)[0]
-        assert "summary" in rule
+        rule = prompt.split("1. **Solo codici del listino", 1)[1].split("2. **", 1)[0]
+        assert "unmapped_work_requests" in rule
         assert "ometti" not in rule
 
-    def test_few_shot_water_points_match_the_bathroom_package(self, engine: InsightEngine) -> None:
+    def test_prompt_says_a_full_package_already_covers_the_room(self, engine: InsightEngine) -> None:
+        """Two packages with the same line double it after room aggregation."""
         prompt = engine._build_system_prompt("", "")
-        line = next(line for line in prompt.splitlines() if line.startswith("- IMP-ID-001"))
-        assert "qty: 4" in line
+        rule = prompt.split("2. **Niente voci contate due volte", 1)[1].split("3. **", 1)[0]
+        assert "`ASM-PAVIMENTO`" in rule and "Voci comprese" in rule
+
+    def test_measure_labels_cover_every_formula_variable(self) -> None:
+        assert set(MEASURE_LABELS) == FORMULA_VARIABLES
 
     def test_assembly_prompt_is_empty_when_library_is_unreadable(
         self, engine: InsightEngine, monkeypatch: pytest.MonkeyPatch
@@ -304,6 +335,32 @@ class TestAnalyzeProjectForQuote:
 
         assert isinstance(result, InsightAnalysis)
         assert result.suggestions == []
+
+    @pytest.mark.asyncio
+    async def test_gemini_gets_the_schema_with_the_allowed_values(self, engine: InsightEngine) -> None:
+        expected = InsightAnalysis(summary="ok")
+        with patch.object(engine.client.aio.models, "generate_content", new_callable=AsyncMock) as mock_generate:
+            mock_generate.return_value = self._make_mock_response(expected)
+            await engine.analyze_project_for_quote(chat_history=[{"role": "user", "content": "bagno"}])
+        skus = [str(item["sku"]) for item in PricingService.load_price_book()]
+        sent = mock_generate.await_args.kwargs["config"].response_schema
+        assert sent is response_schema_for(assembly_library.load_library(), skus)
+
+    @pytest.mark.asyncio
+    async def test_value_outside_the_lists_is_parsed_not_rejected(self, engine: InsightEngine) -> None:
+        """One unknown package or SKU must not lose the whole analysis: expand() and
+        validate_sku_suggestions report it downstream."""
+        body = (
+            '{"summary": "ok", "packages": [{"assembly_id": "ASM-INVENTATO", "conditions": ["if_boh"]}],'
+            ' "element_choices": [{"element": "lavandino", "action": "keep"}],'
+            ' "suggestions": [{"sku": "NON-ESISTE-1", "qty": 1, "ai_reasoning": "x"}]}'
+        )
+        with patch.object(engine.client.aio.models, "generate_content", new_callable=AsyncMock) as mock_generate:
+            mock_generate.return_value = MagicMock(text=body)
+            result = await engine.analyze_project_for_quote(chat_history=[{"role": "user", "content": "x"}])
+        assert type(result) is InsightAnalysis
+        assert result.packages[0].assembly_id == "ASM-INVENTATO"
+        assert result.suggestions[0].sku == "NON-ESISTE-1"
 
     @pytest.mark.asyncio
     async def test_markdown_fenced_json_is_unwrapped(self, engine: InsightEngine) -> None:

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import ast
 import math
+from collections.abc import Mapping
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -22,6 +23,19 @@ FORMULA_VARIABLES: frozenset[str] = frozenset({
     "mq", "mq_pareti", "mq_parete", "ml_parete", "ml_perimetro", "ml_pensili",
     "n_finestre", "n_porte", "n_radiatori",
 })
+
+# What each measure is, for the model (InsightEngine prompt).
+MEASURE_LABELS: Mapping[str, str] = {
+    "mq": "pavimento della stanza (m²)",
+    "mq_pareti": "superficie delle pareti da trattare (m²)",
+    "mq_parete": "superficie della parete da abbattere (m²)",
+    "ml_parete": "lunghezza della parete interessata (m)",
+    "ml_perimetro": "perimetro della stanza (m)",
+    "ml_pensili": "metri lineari di pensili della cucina (m)",
+    "n_finestre": "numero di finestre da sostituire",
+    "n_porte": "numero di porte interne da sostituire",
+    "n_radiatori": "numero di radiatori",
+}
 
 _OPERATORS = (ast.Add, ast.Sub, ast.Mult, ast.Div)
 
