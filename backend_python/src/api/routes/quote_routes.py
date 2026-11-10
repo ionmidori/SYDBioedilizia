@@ -124,13 +124,19 @@ _CLIENT_HIDDEN_FIELDS = (
     "client_followup",  # changes relayed to the team (admin dossier)
     "client_revision",  # who opened the revision in progress (the history reads it)
 )
+# Notes of the AI draft for the technician: works to quote by hand, points to
+# check (price-book codes, internal checks). Admin dossier only, at any status.
+_CLIENT_HIDDEN_REQUEST_FIELDS = ("manual_work", "ai_warnings")
 
 
 def _strip_internal_fields(data: dict) -> dict:
-    """🛡️ Client view of a quote: drop review metadata; admin notes only once
-    approved (they are printed on the PDF, but drafts may hold internal notes)."""
+    """🛡️ Client view of a quote: drop review metadata and the AI draft's notes for
+    the technician; admin notes only once approved (they are printed on the PDF,
+    but drafts may hold internal notes)."""
     for field in _CLIENT_HIDDEN_FIELDS:
         data.pop(field, None)
+    if isinstance(request := data.get("request"), dict):
+        data["request"] = {k: v for k, v in request.items() if k not in _CLIENT_HIDDEN_REQUEST_FIELDS}
     if data.get("status") not in ("approved", "sent"):
         data.pop("admin_notes", None)
     return data

@@ -80,16 +80,16 @@ export type QuoteFinancials = z.infer<typeof quoteFinancialsSchema>;
 
 // ── QuoteRequest (what the client asked for) ─────────────────────────────────
 
-// Why a work is quoted by hand (ManualWorkOriginType in src/schemas/quote.py).
-export const manualWorkOriginSchema = z.enum(['package', 'reuse', 'client_request', 'price_book']);
-export type ManualWorkOrigin = z.infer<typeof manualWorkOriginSchema>;
-
 // A work the technician quotes by hand (no price-book line computed it).
+// `origin` mirrors ManualWorkOriginType in src/schemas/quote.py ('package' |
+// 'reuse' | 'client_request' | 'price_book') but is read as an open string: the
+// UI does not use it, and a value added by a newer backend must not make the
+// whole quote unreadable in a frontend deployed earlier.
 export const manualWorkItemSchema = z.object({
   work: z.string(),
   room_id: z.string().nullable().optional(),
   room_label: z.string().nullable().optional(),
-  origin: manualWorkOriginSchema,
+  origin: z.string(),
 });
 export type ManualWorkItem = z.infer<typeof manualWorkItemSchema>;
 

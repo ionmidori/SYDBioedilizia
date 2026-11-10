@@ -4,6 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { DossierView } from '../DossierView';
 import * as hooks from '@/hooks/admin/use-admin';
 import type { QuoteDossier } from '@/types/admin-quote';
+import { quoteRequestSchema } from '@/types/quote';
 
 jest.mock('@/hooks/admin/use-admin');
 jest.mock('next/link', () => ({
@@ -122,6 +123,9 @@ describe('DossierView', () => {
         },
       }),
     );
+    // Headings, so a screen-reader user can jump to them.
+    expect(screen.getByRole('heading', { name: 'Da quotare a mano' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Da verificare' })).toBeInTheDocument();
     const manual = screen.getByTestId('request-manual-work');
     expect(manual).toHaveTextContent('Da quotare a mano');
     expect(manual).toHaveTextContent('Bagno: Rubinetteria (fornitura)');
@@ -496,5 +500,17 @@ describe('DossierView', () => {
       expect(screen.getByTestId('dossier-total')).toHaveTextContent('152,50');
       expect(screen.queryByTestId('btn-discard')).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('quoteRequestSchema', () => {
+  it('reads a draft whose works or warnings come from a newer backend', () => {
+    // An unknown origin or kind must not make the whole quote unreadable.
+    const parsed = quoteRequestSchema.parse({
+      manual_work: [{ work: 'Lavoro', origin: 'an_origin_added_later' }],
+      ai_warnings: [{ kind: 'a_kind_added_later', message: 'Controlla' }],
+    });
+    expect(parsed.manual_work[0].origin).toBe('an_origin_added_later');
+    expect(parsed.ai_warnings[0].skus).toEqual([]);
   });
 });

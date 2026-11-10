@@ -601,3 +601,17 @@ async def test_an_infinite_quantity_is_rejected_not_fatal():
 
     quote = mocks["saved"].await_args.args[2]
     assert [i.sku for i in quote.items if i.room_id == "bagno1"] == ["BAG-SAN-001"]
+
+
+async def test_a_quote_without_rooms_names_no_room_on_the_manual_work():
+    files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
+    history = [{"role": "user", "content": "Rifaccio il bagno"}]
+    analysis = InsightAnalysis(
+        summary="Bagno", completeness_score=0.9, suggestions=[_s("BAG-SAN-001", 1)],
+        unmapped_work_requests=["Vespaio aerato"],
+    )
+    with _project(rooms=ROOMS[:1], files=files, history=history, engine=AsyncMock(return_value=analysis)) as mocks:
+        await _quote()
+
+    request = mocks["saved"].await_args.args[3]
+    assert request.manual_work == [ManualWorkItem(work="Vespaio aerato", origin="client_request")]
