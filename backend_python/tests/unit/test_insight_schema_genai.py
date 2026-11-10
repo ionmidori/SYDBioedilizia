@@ -14,7 +14,7 @@ response_schema, so any future unsupported-keyword regression fails here.
 """
 import pytest
 from google.genai import _transformers as genai_transformers
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 from src.schemas.assembly_library import FORMULA_VARIABLES, AssemblyLibrary
 from src.services import assembly_library, price_book
 from src.services.insight_engine import InsightAnalysis, SKUItemSuggestion, response_schema_for
@@ -68,8 +68,6 @@ def test_schema_has_no_additional_properties_keyword():
 
 def test_qty_still_rejects_zero_and_negative():
     """The gt→ge fix must not weaken validation: qty <= 0 stays invalid."""
-    import pytest
-    from pydantic import ValidationError
 
     for bad_qty in (0, -1, 0.001):
         with pytest.raises(ValidationError):
@@ -99,7 +97,7 @@ def test_dynamic_schema_enumerates_packages_skus_and_measures(
     assert props["measures"]["items"]["properties"]["name"]["enum"] == sorted(FORMULA_VARIABLES)
 
 
-def test_dynamic_schema_without_library_has_no_empty_enum(seed_skus: list[str]) -> None:
+def test_dynamic_schema_without_library_has_no_empty_enum() -> None:
     """Gemini rejects `enum: []`: with no library the package fields stay free text."""
     props = _genai_properties(response_schema_for(None, []))
     assert "enum" not in props["packages"]["items"]["properties"]["assembly_id"]

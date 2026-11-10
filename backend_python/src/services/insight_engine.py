@@ -152,8 +152,9 @@ class InsightAnalysis(BaseModel):
 # Gemini decodes enum fields only to the listed values. The enums live in the
 # JSON schema alone: the fields stay `str`, so the answer is parsed with
 # InsightAnalysis and one value outside a list (a price book edited between two
-# calls) never loses the whole analysis — expand() and validate_sku_suggestions
-# report it instead.
+# calls) never loses the whole analysis: expand() warns on an unknown package or
+# condition, validate_sku_suggestions reports an unknown SKU, an unknown measure
+# is dropped by InsightAnalysis and an unknown element changes no package.
 
 _SchemaKey = tuple[str | None, tuple[str, ...]]
 _SCHEMA_CACHE: dict[_SchemaKey, type[InsightAnalysis]] = {}
@@ -391,7 +392,10 @@ class InsightEngine:
         lines.append("Il backend applica da solo le regole di dipendenza (smaltimento, massetto, verifiche strutturali).")
         questions = [rule.question_before_exclude for rule in library.dependency_rules if rule.question_before_exclude]
         if questions:
-            lines.append("Se non sai rispondere da conversazione e foto, metti in `missing_info` queste domande:")
+            lines.append(
+                "Solo se serve a scegliere le condizioni dei pacchetti scelti e non lo sai da conversazione"
+                " e foto, metti in `missing_info`:"
+            )
             lines.extend(f"- «{question}»" for question in questions)
         lines.append("")
         return "\n".join(lines)
