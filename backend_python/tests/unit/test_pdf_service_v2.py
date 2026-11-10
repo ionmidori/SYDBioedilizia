@@ -12,6 +12,7 @@ from src.services.pdf_service import (
     quote_pdf_blob_path,
     resolve_client,
     resolve_validity,
+    status_box,
 )
 from src.utils.format_it import format_eur, format_number, format_qty
 
@@ -239,3 +240,10 @@ def test_a_typical_quote_fits_one_page_with_the_acknowledgement():
     assert len(pages) == 1
     text = re.sub(r"\s+", " ", pages[0].extract_text())
     assert QUOTE_TERMS.signature_label in text and "Data e firma" in text
+
+
+def test_the_draft_status_is_a_compact_label_not_a_full_width_band():
+    box = status_box("Bozza di preventivo")
+    width, _ = box.wrap(240, 500)
+    assert width < 160
+    assert box.hAlign == "RIGHT"

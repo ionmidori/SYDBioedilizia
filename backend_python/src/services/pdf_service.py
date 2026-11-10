@@ -29,10 +29,11 @@ from typing import Any
 from xml.sax.saxutils import escape
 
 from firebase_admin import storage
-from reportlab.lib import colors
+from reportlab.lib.colors import Color, HexColor
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas
 from reportlab.platypus import (
     Flowable,
@@ -54,8 +55,8 @@ from src.utils.format_it import format_date, format_eur, format_number, format_q
 logger = logging.getLogger(__name__)
 
 
-def _role(role: str, surface: str = "default") -> colors.Color:
-    return colors.HexColor(BRAND.color(role, surface))
+def _role(role: str, surface: str = "default") -> Color:
+    return HexColor(BRAND.color(role, surface))
 
 
 # ─── Layout constants ──────────────────────────────────────────────────────────
@@ -145,6 +146,26 @@ def quote_pdf_blob_path(project_id: str, quote_number: str | None, version: int 
         return f"projects/{project_id}/quotes/{quote_number}_r{int(version or 1)}.pdf"
     ts = int(datetime.datetime.now(datetime.UTC).timestamp())
     return f"projects/{project_id}/quotes/quote_{ts}.pdf"
+
+
+def status_box(text: str) -> Table:
+    """The document's status as a compact right-aligned label, sized to its text
+    (a Table cell without a width would stretch to the whole column)."""
+    label = text.upper()
+    font, size, pad = "Helvetica-Bold", 10, 8
+    box = Table(
+        [[label]],
+        colWidths=[stringWidth(label, font, size) + 2 * pad],
+        hAlign="RIGHT",
+    )
+    box.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), font), ("FONTSIZE", (0, 0), (-1, -1), size),
+        ("TEXTCOLOR", (0, 0), (-1, -1), _STATUS_INK), ("BACKGROUND", (0, 0), (-1, -1), _STATUS_BG),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING", (0, 0), (-1, -1), pad), ("RIGHTPADDING", (0, 0), (-1, -1), pad),
+        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    return box
 
 
 # ─── Page decoration: watermark and footer on every page, "Pagina x di y" ──────
@@ -250,21 +271,9 @@ class PdfService:
                 small,
             ),
         ]
-        status = Table(
-            [[Paragraph(
-                f"<b>{_DOC_TITLE.upper()}</b>",
-                ParagraphStyle("DT", parent=normal, fontSize=10, leading=12, alignment=1, textColor=_STATUS_INK),
-            )]],
-            hAlign="RIGHT",
-        )
-        status.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), _STATUS_BG),
-            ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-            ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-        ]))
         revision = f" · Rev. {version}" if version > 1 else ""
         header_right = [
-            status,
+            status_box(_DOC_TITLE),
             Spacer(1, 2.5 * mm),
             Paragraph(
                 (f"<b>N° {_txt(quote_number)}</b>{revision}<br/>" if quote_number else "")
@@ -273,7 +282,9 @@ class PdfService:
             ),
         ]
         header = Table([[header_left, header_right]], colWidths=[_USABLE_W * 0.58, _USABLE_W * 0.42])
-        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        # ALIGN, not the flowables' hAlign, places them inside a cell: the status box goes right.
+        header.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("ALIGN", (1, 0), (1, 0), "RIGHT"),
+                                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
                                     ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
         story.append(header)
         story.append(Spacer(1, 3 * mm))

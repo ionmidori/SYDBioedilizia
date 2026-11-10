@@ -241,3 +241,10 @@ def test_admin_digest_has_one_row_per_request_with_the_amount_apart():
     # The amount is a cell of its own that never wraps ("€" and "12.480,50" stay together).
     assert re.search(r'<td[^>]*white-space:nowrap[^>]*>€ 12\.480,50</td>', html)
     assert 'href="mailto:mario@example.it"' in html
+
+
+def test_a_client_email_is_linked_only_when_it_is_a_plain_address():
+    hostile = "x@y.it?bcc=attacker@evil.it&body=ciao"
+    mail = admin_new_requests_email(requests=[_digest(client_email=hostile)], admin_url="https://a/")
+    assert "mailto:x@y.it" not in mail.html and "attacker@evil.it" in mail.html  # shown as text, not linked
+    assert "&amp;body=ciao" in mail.html

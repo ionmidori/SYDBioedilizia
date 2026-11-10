@@ -37,6 +37,8 @@ from src.utils.format_it import format_date, format_eur
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
 _FILENAME_UNSAFE = re.compile(r"[^A-Za-z0-9-]+")
+# An address safe in a mailto: link (no ?, & or spaces that would add headers or a body).
+_PLAIN_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 
 # Web fonts are unreliable in mail clients: Georgia stands in for the site's
 # serif (Playfair Display) on headings and the amount, Arial for Lato.
@@ -340,10 +342,8 @@ def client_quote_email(
         + _steps(NEXT_STEPS)
         + (_note_box("Messaggio dal nostro team", note) if note else "")
         + _p(f"<strong>Importante:</strong> {_t(notice)}", f"font-size:14px;line-height:1.6;color:{muted};")
-        + _p(
-            "Per qualsiasi domanda rispondi a questa email o chiamaci al "
-            f"{_link(_phone_href(), COMPANY.phone, _c('primary-ink'))}."
-        )
+        # The text version's sentence, with the phone number as a link.
+        + _p(_t(closing).replace(_t(COMPANY.phone), _link(_phone_href(), COMPANY.phone, _c("primary-ink"))))
         + _p(f"Cordiali saluti,<br>{_t(COMPANY.name)}"),
         title=subject,
         preheader=f"{DRAFT_LABEL}: importo indicativo {total}",
@@ -373,7 +373,12 @@ def _request_row(digest: RequestDigest) -> str:
         f' <span style="color:{_c("accent-ink")};">· nuova revisione</span>' if digest.is_revision else ""
     )
     email = one_line(digest.client_email)
-    contact = f" · {_link(f'mailto:{email}', email, _c('primary-ink'))}" if email else ""
+    if not email:
+        contact = ""
+    elif _PLAIN_EMAIL.fullmatch(email):
+        contact = f" · {_link(f'mailto:{email}', email, _c('primary-ink'))}"
+    else:
+        contact = f" · {_t(email)}"
     summary = _summary(digest)
     cell = f"padding:14px 0;border-top:1px solid {line};font-family:{_SANS};vertical-align:top;"
     return (

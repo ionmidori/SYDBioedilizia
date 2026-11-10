@@ -5,7 +5,8 @@ Read from the files `npm run brand:build` generates in `src/brand` from the
 design tokens in `web_client/brand` (the site's single source of truth), so
 an email or a PDF never writes a colour by hand: it asks for a semantic role
 (`BRAND.color("primary")`), whose contrast the token build already checked.
-`npm run brand:check` fails when the generated files are stale.
+`npm run brand:check` (run in CI by web_client/__tests__/brand-pipeline.test.ts)
+fails when the generated files are stale.
 
 Loaded once at import: a missing or malformed file fails the start-up, not a
 quote email.
@@ -51,33 +52,46 @@ class Brand:
     pdf_logo: PdfLogo
 
     def color(self, role: str, surface: str = "default") -> str:
-        """`#rrggbb` of a semantic role (roles.tokens.json) on a surface (`default`, `inverse`)."""
+        """`#rrggbb` of a semantic role (roles.tokens.json) on a surface (`default`, `inverse`).
+
+        Translucent roles (`#rrggbbaa`, e.g. the scrim) are refused: mail clients
+        drop 8-digit hex and ReportLab's HexColor misreads it as an opaque colour."""
         if surface not in self.surfaces:
             raise KeyError(f"unknown brand surface {surface!r}")
         roles = self.surfaces[surface]
         if role not in roles:
             raise KeyError(f"unknown brand role {role!r}")
-        return roles[role]
+        value = roles[role]
+        if len(value) != 7:
+            raise ValueError(f"brand role {role!r} is translucent ({value}): emails and PDFs need an opaque role")
+        return value
 
 
-def _read(name: str) -> dict[str, object]:
-    return cast(dict[str, object], json.loads((BRAND_DIR / name).read_text(encoding="utf-8")))
+def _read(directory: Path, name: str) -> dict[str, object]:
+    return cast(dict[str, object], json.loads((directory / name).read_text(encoding="utf-8")))
 
 
-def load_brand() -> Brand:
-    tokens = _read("tokens.generated.json")
-    logos = cast(dict[str, dict[str, object]], _read("assets.generated.json")["logos"])
+def load_brand(directory: Path = BRAND_DIR) -> Brand:
+    tokens = _read(directory, "tokens.generated.json")
+    logos = cast(dict[str, dict[str, object]], _read(directory, "assets.generated.json")["logos"])
     email, pdf = logos["email"], logos["pdf"]
+    email_w, email_h = int(cast(int, email["width"])), int(cast(int, email["height"]))
+    # A size that does not divide would round the <img> box and squash the logo.
+    if email_w % _EMAIL_LOGO_DENSITY or email_h % _EMAIL_LOGO_DENSITY:
+        raise ValueError(
+            f"email logo {email_w}x{email_h} px is not a multiple of {_EMAIL_LOGO_DENSITY} "
+            "(emailLogo canvas in scripts/brand/build-assets.mjs)"
+        )
     return Brand(
         theme=str(tokens["theme"]),
         surfaces=cast(dict[str, dict[str, str]], tokens["surfaces"]),
         email_logo=EmailLogo(
             url=f"{COMPANY.url}{email['url']}",
-            width=int(cast(int, email["width"])) // _EMAIL_LOGO_DENSITY,
-            height=int(cast(int, email["height"])) // _EMAIL_LOGO_DENSITY,
+            width=email_w // _EMAIL_LOGO_DENSITY,
+            height=email_h // _EMAIL_LOGO_DENSITY,
         ),
         pdf_logo=PdfLogo(
-            path=BRAND_DIR / str(pdf["file"]),
+            path=directory / str(pdf["file"]),
             width_px=int(cast(int, pdf["width"])),
             height_px=int(cast(int, pdf["height"])),
         ),

@@ -1,16 +1,23 @@
 """Brand colours and logos of the quote emails and PDF come from the generated
-files in src/brand (scripts/brand/build-*.mjs, held fresh by `npm run brand:check`)."""
+files in src/brand (scripts/brand/build-*.mjs, held fresh in CI by
+web_client/__tests__/brand-pipeline.test.ts)."""
+import json
 import re
 from pathlib import Path
 
 import pytest
-from src.core.brand import BRAND
+from src.core.brand import BRAND, load_brand
 from src.core.company import COMPANY
 
 SERVICES = Path(__file__).resolve().parents[2] / "src" / "services"
-HEX = re.compile(r"#[0-9a-fA-F]{3,8}\b")
-# ReportLab's named colours (colors.white, colors.grey, ...) are colours written by hand too.
-NAMED = re.compile(r"\bcolors\.(?!HexColor\b)[a-z]+\b")
+# Hex, CSS rgb()/rgba(), ReportLab's named and constructed colours (colors.white,
+# colors.Color(...), toColor('red')): all colours written by hand.
+GUARDS = (
+    re.compile(r"#[0-9a-fA-F]{3,8}\b"),
+    re.compile(r"\brgba?\("),
+    re.compile(r"\bcolors\.(?!HexColor\b)[A-Za-z]+\b"),
+    re.compile(r"\btoColor\("),
+)
 
 
 def test_roles_resolve_to_hex_on_every_surface():
@@ -43,5 +50,33 @@ def test_pdf_logo_is_a_png_inside_the_backend():
 @pytest.mark.parametrize("module", ["email_templates.py", "pdf_service.py"])
 def test_quote_documents_write_no_colour_by_hand(module):
     source = (SERVICES / module).read_text(encoding="utf-8")
-    assert HEX.findall(source) == [], f"{module}: use BRAND.color(<role>)"
-    assert NAMED.findall(source) == [], f"{module}: use BRAND.color(<role>)"
+    found = [m for p in GUARDS for m in p.findall(source)]
+    assert found == [], f"{module}: use BRAND.color(<role>), found {found}"
+
+
+def test_a_translucent_role_is_refused_and_every_other_role_is_opaque_hex():
+    # Mail clients and colors.HexColor both misread #rrggbbaa: only opaque roles are usable here.
+    with pytest.raises(ValueError, match="scrim"):
+        BRAND.color("scrim")
+    for surface, roles in BRAND.surfaces.items():
+        for role, value in roles.items():
+            if len(value) == 7:
+                assert re.fullmatch(r"#[0-9a-f]{6}", BRAND.color(role, surface)), (surface, role)
+
+
+def test_the_email_logo_must_divide_by_its_density(tmp_path):
+    (tmp_path / "tokens.generated.json").write_text(
+        json.dumps({"theme": "light", "surfaces": {"default": {"ink": "#000000"}}}), encoding="utf-8")
+    logos = {"email": {"url": "/brand/e.png", "width": 700, "height": 128},
+             "pdf": {"file": "p.png", "width": 10, "height": 2}}
+    (tmp_path / "assets.generated.json").write_text(json.dumps({"logos": logos}), encoding="utf-8")
+    with pytest.raises(ValueError, match="700x128"):
+        load_brand(tmp_path)
+
+
+@pytest.mark.parametrize("sample", [
+    "color:#2C3E50", "colors.white", "colors.Color(0.2, 0.2, 0.2)", "colors.CMYKColor(0, 0, 0, 1)",
+    "toColor('red')", "color:rgb(44,62,80)", "background:rgba(0,0,0,.5)",
+])
+def test_the_guard_catches_every_way_of_writing_a_colour(sample):
+    assert any(p.search(sample) for p in GUARDS), sample
