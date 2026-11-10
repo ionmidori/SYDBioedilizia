@@ -13,6 +13,7 @@ from __future__ import annotations
 import ast
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 from decimal import ROUND_HALF_UP, Context, Decimal, DivisionByZero, InvalidOperation, Overflow
 from typing import Literal
 
@@ -27,9 +28,16 @@ from src.schemas.assembly_library import (
     formula_variables,
     validate_formula,
 )
+from src.schemas.intervention_spec import (
+    RoomInterventionSpec,
+    StoredElementChoice,
+    StoredExtraItem,
+    StoredMeasure,
+    StoredPackage,
+)
 from src.schemas.room import RoomBrief
 from src.services.assembly_library import referenced_skus
-from src.services.insight_engine import InsightAnalysis, PackageChoice, SKUItemSuggestion
+from src.services.insight_engine import InsightAnalysis, PackageChoice, SKUItemSuggestion, SpecMeasure
 
 logger = get_logger(__name__)
 
@@ -145,15 +153,20 @@ def evaluate_formula(formula: str, measures: Mapping[str, Decimal]) -> Decimal:
     return _evaluate(tree.body, measures)
 
 
-def resolve_measures(analysis: InsightAnalysis, brief: RoomBrief | None) -> dict[str, Decimal]:
-    """The measures of the room: the spec first, then the room brief (floor, walls).
+def _spec_measures(analysis: InsightAnalysis) -> dict[str, SpecMeasure]:
+    """The model's measures by name: the first positive one of each name wins.
 
     A measure of 0 or less is no measure (the model's "unknown")."""
-    measures: dict[str, Decimal] = {}
+    measures: dict[str, SpecMeasure] = {}
     for measure in analysis.measures:
-        value = to_decimal(measure.value)
-        if value > 0 and measure.name not in measures:
-            measures[measure.name] = value
+        if measure.value > 0:
+            measures.setdefault(measure.name, measure)
+    return measures
+
+
+def resolve_measures(analysis: InsightAnalysis, brief: RoomBrief | None) -> dict[str, Decimal]:
+    """The measures of the room: the spec first, then the room brief (floor, walls)."""
+    measures = {name: to_decimal(m.value) for name, m in _spec_measures(analysis).items()}
     if brief is not None:
         for name, value in (("mq", brief.floor_mq), ("mq_pareti", brief.walls_mq)):
             if name not in measures and value is not None and value > 0:
@@ -496,3 +509,40 @@ def expand(
         if request.strip():
             draft.add_manual(request.strip(), "client_request")
     return draft.freeze()
+
+
+# ── Stored spec ───────────────────────────────────────────────────────────────
+
+
+def spec_from_analysis(
+    analysis: InsightAnalysis, measures: Mapping[str, Decimal], *, library_version: str, now: datetime
+) -> RoomInterventionSpec:
+    """The spec to store on the room: what `expand` read from the analysis.
+
+    `measures` are the ones the expansion used (`resolve_measures`): each keeps the
+    model's source, or "brief" when it came from the room brief. Packages are merged
+    like `expand` merges them, and only kept or reused elements are stored."""
+    from_model = _spec_measures(analysis)
+    return RoomInterventionSpec(
+        measures=[
+            StoredMeasure(
+                name=name,
+                value=float(value),
+                source=from_model[name].source if name in from_model else "brief",
+            )
+            for name, value in measures.items()
+        ],
+        packages=[
+            StoredPackage(assembly_id=assembly_id, conditions=sorted(conditions))
+            for assembly_id, conditions in _merged_choices(analysis.packages).items()
+        ],
+        element_choices=[
+            StoredElementChoice(element=element, action=action)
+            for element, action in _requested_actions(analysis).items()
+            if action != "replace"
+        ],
+        extra_items=[StoredExtraItem(sku=item.sku, qty=item.qty) for item in analysis.suggestions],
+        unmapped_work_requests=[r.strip() for r in analysis.unmapped_work_requests if r.strip()],
+        library_version=library_version,
+        generated_at=now,
+    )

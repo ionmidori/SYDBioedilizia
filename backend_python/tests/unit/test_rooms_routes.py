@@ -13,6 +13,8 @@ from src.repositories import room_repository
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.room_repository import RoomRepository
 from src.schemas.internal import UserSession
+from src.schemas.intervention_spec import RoomInterventionSpec, StoredPackage
+from src.schemas.room import RoomSchema
 from src.services.orchestrator_factory import get_orchestrator
 from src.services.quote_dossier import _render_sources
 from src.tools import generate_render
@@ -67,6 +69,23 @@ async def test_create_rename_and_list(db):
 
     listed = await _call("GET", f"/api/projects/{PID}/rooms")
     assert [r["label"] for r in listed.json()] == ["Bagno ospiti"]  # no default room once one exists
+
+
+async def test_rooms_api_does_not_return_the_spec(db):
+    """`intervention_spec` is backend-only until step 3: the client's zod `roomSchema`
+    is strict and would reject the whole list."""
+    spec = RoomInterventionSpec(packages=[StoredPackage(assembly_id="ASM-BAGNO-FULL")],
+                                library_version="2.1.0", generated_at=T0)
+    room = RoomSchema(room_id="bagno1", label="Bagno", room_type="bagno", created_at=T0, updated_at=T0)
+    db.put("projects", PID, "rooms", "bagno1", {**room.model_dump(), "intervention_spec": spec.model_dump()})
+
+    listed = await _call("GET", f"/api/projects/{PID}/rooms")
+    renamed = await _call("PATCH", f"/api/projects/{PID}/rooms/bagno1", json={"label": "Bagno ospiti"})
+
+    assert listed.status_code == 200 and renamed.status_code == 200
+    assert [set(r) for r in listed.json()] == [set(RoomSchema.model_fields) - {"intervention_spec"}]
+    assert "intervention_spec" not in renamed.json()
+    assert db.get_data("projects", PID, "rooms", "bagno1")["intervention_spec"] == spec.model_dump()
 
 
 @pytest.mark.parametrize(
