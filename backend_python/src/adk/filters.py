@@ -10,6 +10,7 @@ Security boundaries:
 import logging
 import re
 
+from src.services.company_info_service import CompanyInfoService
 from src.utils.data_sanitizer import sanitize_input
 
 logger = logging.getLogger(__name__)
@@ -35,12 +36,43 @@ _LEAK_PATTERNS: list[re.Pattern] = [re.compile(p, re.IGNORECASE | re.DOTALL) for
     r"google\.adk\.",
     r"google\.cloud\.aiplatform",
     # PII patterns (defense-in-depth; auth data should never appear in agent output)
-    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z]{2,}\b",  # email
     r"\b[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]\b",       # Italian codice fiscale
     r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14})\b",   # Visa/MC credit card
 ]]
+# Email addresses are PII too, except the company's own one (see _leaks).
+_EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE | re.DOTALL)
 
 _MASKED_REPLY = "Mi dispiace, ho incontrato un problema interno. Come posso aiutarti ulteriormente?"
+
+
+def _company_emails() -> frozenset[str]:
+    """The company's own contact email, as the company info serves it now.
+
+    Production, 9 Nov 2026: asked "Come posso contattare la società?", the agent
+    answered with the company email and the PII pattern retracted the whole
+    reply ("ho incontrato un problema interno"). The company email is public
+    and is what the agent must give. It is read from the company info (edited
+    in the admin console), never a constant.
+    """
+    return frozenset({CompanyInfoService.snapshot().identity.email.lower()})
+
+
+def _leaks(text: str, allowed_emails: frozenset[str], *, final: bool) -> bool:
+    """True if `text` holds a leak pattern or an email other than the allowed ones.
+
+    While streaming (`final=False`), an email at the very end of the text that
+    is the beginning of an allowed one is still being written: not a leak yet.
+    """
+    if any(pattern.search(text) for pattern in _LEAK_PATTERNS):
+        return True
+    for match in _EMAIL_PATTERN.finditer(text):
+        email = match.group(0).lower()
+        if email in allowed_emails:
+            continue
+        if not final and match.end() == len(text) and any(a.startswith(email) for a in allowed_emails):
+            continue
+        return True
+    return False
 
 
 async def sanitize_before_agent(raw_input: str) -> str:
@@ -68,7 +100,8 @@ async def filter_agent_output(raw_output: str) -> str:
     - Python tracebacks and internal file paths (OWASP LLM02)
     - GCP/Firebase resource identifiers
     - System prompt boundary markers
-    - PII (email, fiscal codes, credit card numbers)
+    - PII (email, fiscal codes, credit card numbers); the company's own
+      contact email is allowed (see _company_emails)
 
     Args:
         raw_output: The raw text from the ADK agent.
@@ -76,13 +109,9 @@ async def filter_agent_output(raw_output: str) -> str:
     Returns:
         Safe output text, or a generic error message if a leak is detected.
     """
-    for pattern in _LEAK_PATTERNS:
-        if pattern.search(raw_output):
-            logger.warning(
-                "Detected potential sensitive data leak in ADK output. Masking.",
-                extra={"pattern": pattern.pattern[:60]},
-            )
-            return _MASKED_REPLY
+    if _leaks(raw_output, _company_emails(), final=True):
+        logger.warning("Detected potential sensitive data leak in ADK output. Masking.")
+        return _MASKED_REPLY
     return raw_output
 
 
@@ -110,26 +139,30 @@ class StreamingOutputGuard:
       `File "...", line N`) are held back until they are complete;
     - once a pattern matches, emits nothing more and reports `tripped`, so the
       caller can retract what was already shown (see `stream_redact`).
+
+    The company's own email is not a leak (read once per model call); while it
+    is still being written its beginning is held back, not retracted.
     """
 
     def __init__(self) -> None:
         self.raw = ""        # everything received for this model call
         self.emitted = ""    # what has been released to the client
         self.tripped = False
+        self._allowed_emails = _company_emails()
 
     @property
     def started(self) -> bool:
         return bool(self.raw)
 
-    def _leaks(self) -> bool:
-        return any(pattern.search(self.raw) for pattern in _LEAK_PATTERNS)
+    def _leaks(self, *, final: bool) -> bool:
+        return _leaks(self.raw, self._allowed_emails, final=final)
 
     def feed(self, chunk: str) -> str:
         """Add a chunk; return the newly releasable text ("" if none)."""
         if self.tripped or not chunk:
             return ""
         self.raw += chunk
-        if self._leaks():
+        if self._leaks(final=False):
             self.tripped = True
             logger.warning("Detected potential sensitive data leak in streamed ADK output. Retracting.")
             return ""
@@ -153,7 +186,7 @@ class StreamingOutputGuard:
         """End of the model call: release the held-back tail if still clean."""
         if self.tripped:
             return ""
-        if self._leaks():
+        if self._leaks(final=True):
             self.tripped = True
             return ""
         tail = self.raw[len(self.emitted):]

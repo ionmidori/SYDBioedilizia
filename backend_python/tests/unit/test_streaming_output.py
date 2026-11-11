@@ -66,6 +66,21 @@ async def test_guard_never_emits_an_email_split_across_chunks():
     assert guard.finish() == ""
 
 
+async def test_guard_releases_the_company_email_split_across_chunks():
+    guard = StreamingOutputGuard()
+    text = "Per informazioni scrivi a sydbioedilizia@gmail.com oppure chiamaci in orario d'ufficio, grazie."
+    out = guard.feed(text[:49]) + guard.feed(text[49:]) + guard.finish()  # first chunk ends in "gmail.co"
+    assert not guard.tripped and out == text
+
+
+async def test_guard_trips_on_an_email_that_extends_the_company_one():
+    guard = StreamingOutputGuard()
+    guard.feed("scrivi a sydbioedilizia@gmail.co")
+    guard.feed("m.evil.io e poi altro testo")
+    guard.finish()
+    assert guard.tripped
+
+
 async def test_guard_caps_the_holdback_on_long_tokens():
     guard = StreamingOutputGuard()
     released = guard.feed("x" * 500)

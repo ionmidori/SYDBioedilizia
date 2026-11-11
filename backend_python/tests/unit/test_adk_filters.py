@@ -10,6 +10,8 @@ Test Categories:
 """
 import pytest
 from src.adk.filters import _MASKED_REPLY, filter_agent_output, sanitize_before_agent
+from src.services import company_info
+from src.services.company_info_service import CompanyInfoService
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # sanitize_before_agent
@@ -157,6 +159,35 @@ class TestFilterAgentOutput:
         reply = "The admin email is admin@sydbioedilizia.com"
         result = await filter_agent_output(reply)
         assert result == _MASKED_REPLY
+
+    # Production, 9 Nov 2026: "Come posso contattare la società?" got the
+    # company's own email back, and the PII pattern retracted the whole reply.
+    @pytest.mark.asyncio
+    async def test_the_company_email_is_not_a_leak(self):
+        msg = "Puoi scriverci a sydbioedilizia@gmail.com o chiamare il +39 375 5463599."
+        assert await filter_agent_output(msg) == msg
+
+    @pytest.mark.asyncio
+    async def test_the_company_email_is_matched_whatever_the_case(self):
+        msg = "Scrivi a SYDBioedilizia@Gmail.com"
+        assert await filter_agent_output(msg) == msg
+
+    @pytest.mark.asyncio
+    async def test_another_email_next_to_the_company_one_is_still_masked(self):
+        msg = "sydbioedilizia@gmail.com oppure mario.rossi@example.com"
+        assert await filter_agent_output(msg) == _MASKED_REPLY
+
+    @pytest.mark.asyncio
+    async def test_an_email_that_only_starts_like_the_company_one_is_masked(self):
+        assert await filter_agent_output("scrivi a sydbioedilizia@gmail.com.evil.io") == _MASKED_REPLY
+
+    @pytest.mark.asyncio
+    async def test_the_email_follows_the_company_info_being_served(self):
+        info = company_info.seed_info()
+        info.identity.email = "info@syd.example"
+        CompanyInfoService.apply(info, 2)
+        assert await filter_agent_output("Scrivi a info@syd.example") == "Scrivi a info@syd.example"
+        assert await filter_agent_output("Scrivi a sydbioedilizia@gmail.com") == _MASKED_REPLY
 
     @pytest.mark.asyncio
     async def test_credit_card_masked(self):
