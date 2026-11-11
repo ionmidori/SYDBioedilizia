@@ -106,6 +106,7 @@ def warmup_steps(monkeypatch):
     monkeypatch.setattr(main, "get_model_armor_service", lambda: None)
     monkeypatch.setattr(main, "get_async_firestore_client", lambda: None)
     monkeypatch.setattr(main.PricingService, "ensure_fresh", noop_async)
+    monkeypatch.setattr(main.CompanyInfoService, "ensure_fresh", noop_async)
     return monkeypatch
 
 
@@ -129,6 +130,7 @@ async def test_hung_model_validation_does_not_block_startup(warmup_steps):
 
     assert state.warmup_report["models"] == "timed_out"
     assert state.warmup_report["price_book"] == "done"
+    assert state.warmup_report["company_info"] == "done"
     assert startup_check(SimpleNamespace(app=SimpleNamespace(state=state))) == {"status": "started"}
 
 
@@ -152,6 +154,10 @@ async def test_completed_warmup_reports_every_step(warmup_steps):
     await main.background_warmup(state)
 
     assert state.warmup_report == dict.fromkeys(
-        ("models", "adk_orchestrator", "firebase_admin", "model_armor", "firestore_async", "price_book"), "done"
+        (
+            "models", "adk_orchestrator", "firebase_admin", "model_armor",
+            "firestore_async", "price_book", "company_info",
+        ),
+        "done",
     )
     assert state.model_problems == []

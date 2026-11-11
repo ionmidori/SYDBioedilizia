@@ -31,6 +31,7 @@ from src.repositories.room_repository import get_room_repository
 from src.schemas.internal import UserSession
 from src.schemas.room import ROOM_ID_PATTERN
 from src.services.base_orchestrator import BaseOrchestrator
+from src.services.company_info_service import CompanyInfoService
 from src.services.model_armor.model_armor_client import get_model_armor_service
 from src.services.orchestrator_factory import get_orchestrator, warm_up_orchestrator
 from src.services.pricing_service import PricingService
@@ -77,6 +78,8 @@ async def background_warmup(state: State) -> None:
             WarmupStep("firestore_async", get_async_firestore_client, in_thread=False, requires="firebase_admin"),
             # Prices edited in the admin console: load them before the first quote.
             WarmupStep("price_book", PricingService.ensure_fresh, in_thread=False),
+            # Company facts edited in the admin console (Phase 141): contacts, areas, FAQ...
+            WarmupStep("company_info", CompanyInfoService.ensure_fresh, in_thread=False),
         ],
         step_timeout_s=settings.WARMUP_STEP_TIMEOUT_SECONDS,
     )
