@@ -80,6 +80,30 @@ export type QuoteFinancials = z.infer<typeof quoteFinancialsSchema>;
 
 // ── QuoteRequest (what the client asked for) ─────────────────────────────────
 
+// A work the technician quotes by hand (no price-book line computed it).
+// `origin` mirrors ManualWorkOriginType in src/schemas/quote.py ('package' |
+// 'reuse' | 'client_request' | 'price_book') but is read as an open string: the
+// UI does not use it, and a value added by a newer backend must not make the
+// whole quote unreadable in a frontend deployed earlier.
+export const manualWorkItemSchema = z.object({
+  work: z.string(),
+  room_id: z.string().nullable().optional(),
+  room_label: z.string().nullable().optional(),
+  origin: z.string(),
+});
+export type ManualWorkItem = z.infer<typeof manualWorkItemSchema>;
+
+// Something in the AI draft the technician should check. `kind` is an open
+// string, as in the backend: a stored draft stays readable when a kind is added.
+export const quoteAiWarningSchema = z.object({
+  kind: z.string(),
+  message: z.string(),
+  room_id: z.string().nullable().optional(),
+  room_label: z.string().nullable().optional(),
+  skus: z.array(z.string()).default([]),
+});
+export type QuoteAiWarning = z.infer<typeof quoteAiWarningSchema>;
+
 export const quoteRequestSchema = z.object({
   summary: z.string().nullable().optional(),
   technical_notes: z.string().nullable().optional(),
@@ -88,6 +112,9 @@ export const quoteRequestSchema = z.object({
   budget_cap: z.number().min(0).nullable().optional(),
   channel: quoteChannelSchema.nullable().optional(),
   session_id: z.string().nullable().optional(),
+  // Replaced by every AI draft (an empty list clears the previous draft's).
+  manual_work: z.array(manualWorkItemSchema).default([]),
+  ai_warnings: z.array(quoteAiWarningSchema).default([]),
 });
 export type QuoteRequest = z.infer<typeof quoteRequestSchema>;
 

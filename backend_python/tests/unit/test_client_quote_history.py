@@ -120,6 +120,13 @@ def test_the_revision_the_client_asked_for_is_shown_without_prices(db):
     ]
 
 
+def test_the_revision_in_progress_has_no_line_reasoning(db):
+    # The reasoning names library formulas and coefficients: the team's, not the client's.
+    _seed(db, "draft", items=[ITEM | {"ai_reasoning": "Pareti: pittura (mq_pareti * 1 con mq_pareti=10)"}])
+    progress = _client().get(f"/api/quote/{PID}/history").json()["in_progress"]
+    assert [i["ai_reasoning"] for i in progress["items"]] == [None]
+
+
 @pytest.mark.parametrize(
     ("status", "state"),
     [("pending_review", "with_team"), ("in_review", "with_team"), ("approved", "with_team"), ("rejected", "rejected")],

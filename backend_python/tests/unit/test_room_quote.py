@@ -6,10 +6,23 @@ from decimal import Decimal
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from google.api_core.exceptions import GoogleAPICallError
+from google.api_core.exceptions import GoogleAPICallError, NotFound
+from pydantic import ValidationError
 from src.core.money import sum_amounts
-from src.schemas.room import DEFAULT_ROOM_ID, RoomSchema
-from src.services.insight_engine import InsightAnalysis, InsightEngineError, SKUItemSuggestion
+from src.schemas.intervention_spec import StoredMeasure, StoredPackage
+from src.schemas.quote import ManualWorkItem
+from src.schemas.room import DEFAULT_ROOM_ID, RoomBrief, RoomSchema
+from src.services.assembly_library import load_library
+from src.services.insight_engine import (
+    ElementChoice,
+    InsightAnalysis,
+    InsightEngineError,
+    PackageChoice,
+    SKUItemSuggestion,
+    SpecMeasure,
+)
+from src.services.intervention_expansion import MEASURE_QUESTIONS
+from src.services.pricing_service import PricingService
 from src.services.quote_drafts import DraftSaveOutcome, DraftSaveResult
 from src.tools import quote_tools
 from src.tools.quote_tools import _ROOM_ANALYSIS_CONCURRENCY, suggest_quote_items_wrapper
@@ -102,6 +115,7 @@ def _project(rooms=ROOMS, files=FILES, history=HISTORY, analyses=None, engine=No
     repo.list_rooms = AsyncMock(return_value=rooms)
     repo.list_files = AsyncMock(return_value=files)
     repo.files_for_room = AsyncMock(side_effect=_files_for_room(files))
+    repo.save_intervention_spec = AsyncMock()
     saved = AsyncMock(return_value=DraftSaveResult(DraftSaveOutcome.CREATED, "draft", "PRV-2026-0042", 1))
     analyze = engine or _engine(analyses or ANALYSES)
     with patch.object(quote_tools, "get_room_repository", return_value=repo), \
@@ -114,7 +128,7 @@ def _project(rooms=ROOMS, files=FILES, history=HISTORY, analyses=None, engine=No
          patch.object(quote_tools, "get_async_firestore_client"):
         conversations.return_value.get_context = AsyncMock(side_effect=_history(history))
         get_engine.return_value.analyze_project_for_quote = analyze
-        yield {"analyze": analyze, "measure": measure, "delta": delta, "saved": saved}
+        yield {"analyze": analyze, "measure": measure, "delta": delta, "saved": saved, "repo": repo}
 
 
 async def _quote() -> str:
@@ -386,3 +400,218 @@ async def test_generale_with_only_home_wide_lines_does_not_stop_the_quote():
     assert general["SC-002"] == 1.0 and general["SMAL-001"] == 2.0  # 0.4 + 0.5 + 0.2 → 2 containers
     context, _ = _calls_by_room(mocks["analyze"])["Generale"]
     assert "non fare domande" in context
+
+
+# ── Phase 140 step 1: the code expands the model's spec ──────────────────────
+
+
+def _bathroom(**fields: Any) -> InsightAnalysis:
+    """A full bathroom of 6 mq, as the model compiles it (package + declared measure)."""
+    spec: dict[str, Any] = {
+        "summary": "Bagno da rifare, 6 mq",
+        "completeness_score": 0.9,
+        "packages": [PackageChoice(assembly_id="ASM-BAGNO-FULL")],
+        "measures": [SpecMeasure(name="mq", value=6, source="declared")],
+    }
+    return InsightAnalysis(**{**spec, **fields})
+
+
+def _saved_specs(repo: MagicMock) -> dict[str, Any]:
+    calls = repo.save_intervention_spec.await_args_list
+    assert all(call.args[0] == PID for call in calls)
+    return {call.args[1]: call.args[2] for call in calls}
+
+
+async def test_package_choice_is_expanded_by_code():
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    bagno = {i.sku: i for i in quote.items if i.room_id == "bagno1"}
+    # mq * 2.2 * 1.05 and mq * 2.2, computed by code from the declared 6 mq.
+    assert bagno["BAG-RIV-001"].qty == 13.86 and bagno["MUR-004"].qty == 13.2
+    assert "mq=6" in (bagno["BAG-RIV-001"].ai_reasoning or "")
+    # The package's disposal is a container share (6 * 0.4 / 7 = 0.34 + 0.35 of the walls),
+    # merged into "Generale" with the kitchen's 0.5: 1.19 → 2 containers (1 without the package).
+    assert {i.room_id: i.qty for i in quote.items if i.sku == "SMAL-001"} == {DEFAULT_ROOM_ID: 2.0}
+
+
+async def test_missing_measure_gates_the_room_with_a_measure_question():
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom(measures=[])}) as mocks:
+        reply = await _quote()
+
+    assert f"**Bagno**: {MEASURE_QUESTIONS['mq']}" in reply
+    mocks["saved"].assert_not_awaited()
+
+
+async def test_the_measure_question_comes_before_the_model_questions():
+    """At most two questions per room: the measure that blocks a line is never crowded out."""
+    analysis = _bathroom(measures=[], completeness_score=0.5, missing_info=["Doccia o vasca?", "Che piastrelle?"])
+    with _project(analyses={**ANALYSES, "Bagno": analysis}):
+        reply = await _quote()
+
+    assert f"**Bagno**: {MEASURE_QUESTIONS['mq']} Doccia o vasca?" in reply
+    assert "Che piastrelle?" not in reply
+
+
+async def test_a_missing_measure_is_taken_from_the_room_brief():
+    bagno = ROOMS[1].model_copy(update={"brief": RoomBrief(floor_mq=6)})
+    rooms = [ROOMS[0], bagno, ROOMS[2]]
+    with _project(rooms=rooms, analyses={**ANALYSES, "Bagno": _bathroom(measures=[])}) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    assert {i.sku: i.qty for i in quote.items if i.room_id == "bagno1"}["BAG-RIV-001"] == 13.86
+    assert _saved_specs(mocks["repo"])["bagno1"].measures == [StoredMeasure(name="mq", value=6.0, source="brief")]
+
+
+async def test_a_room_with_only_packages_is_not_stopped_by_minor_questions():
+    """The gate reads the expanded lines: a room quoted by packages alone has lines."""
+    analysis = _bathroom(missing_info=["Che piastrelle preferisci?"])
+    with _project(analyses={**ANALYSES, "Bagno": analysis}) as mocks:
+        reply = await _quote()
+
+    assert "Che piastrelle" not in reply
+    mocks["saved"].assert_awaited_once()
+
+
+async def test_manual_work_and_warnings_reach_the_request():
+    analysis = _bathroom(
+        element_choices=[ElementChoice(element="sanitari", action="keep")],
+        unmapped_work_requests=["Vespaio aerato sotto il pavimento"],
+    )
+    with _project(analyses={**ANALYSES, "Bagno": analysis}) as mocks:
+        await _quote()
+
+    request = mocks["saved"].await_args.args[3]
+    bagno = {"room_id": "bagno1", "room_label": "Bagno"}
+    assert ManualWorkItem(work="Rubinetteria (fornitura)", origin="package", **bagno) in request.manual_work
+    assert ManualWorkItem(
+        work="Smontaggio con cura e rimontaggio dei sanitari esistenti", origin="reuse", **bagno
+    ) in request.manual_work
+    assert ManualWorkItem(
+        work="Vespaio aerato sotto il pavimento", origin="client_request", **bagno
+    ) in request.manual_work
+    kept = [w for w in request.ai_warnings if w.kind == "element_kept_but_demolished"]
+    assert len(kept) == 1 and "DEM-002" in kept[0].skus
+    # The label is stored with the item: a room with only manual work has no quote section to name it.
+    assert (kept[0].room_id, kept[0].room_label) == ("bagno1", "Bagno")
+
+
+async def test_client_reply_lists_the_work_quoted_by_hand():
+    requests = [f"Lavoro speciale {n}" for n in range(1, 7)]
+    analysis = InsightAnalysis(
+        summary="Bagno", completeness_score=0.9, suggestions=[_s("BAG-SAN-001", 1)], unmapped_work_requests=requests,
+    )
+    with _project(analyses={**ANALYSES, "Bagno": analysis}):
+        reply = await _quote()
+
+    assert (
+        "Alcune lavorazioni le quoterà a mano il nostro tecnico: Lavoro speciale 1, Lavoro speciale 2, "
+        "Lavoro speciale 3, Lavoro speciale 4, Lavoro speciale 5 e altre."
+    ) in reply
+
+
+async def test_a_price_book_gap_reaches_the_admin_not_the_client():
+    book = [item for item in PricingService.load_price_book() if item["sku"] != "MUR-004"]
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks, \
+         patch.object(PricingService, "load_price_book", return_value=book):
+        reply = await _quote()
+
+    request = mocks["saved"].await_args.args[3]
+    gaps = [m for m in request.manual_work if m.origin == "price_book"]
+    assert len(gaps) == 1 and "MUR-004" in gaps[0].work and gaps[0].room_id == "bagno1"
+    assert any(w.kind == "price_book_mismatch" for w in request.ai_warnings)
+    assert "MUR-004" not in reply and "Rubinetteria (fornitura)" in reply
+
+
+async def test_the_spec_is_saved_on_each_room_with_the_extras_kept():
+    analysis = _bathroom(suggestions=[_s("IMP-ID-003", 1), _s("NON-ESISTE-1", 2)])
+    with _project(analyses={**ANALYSES, "Bagno": analysis}) as mocks:
+        await _quote()
+
+    specs = _saved_specs(mocks["repo"])
+    assert set(specs) == {"bagno1", "cucina1", DEFAULT_ROOM_ID}  # "Generale" too: its document exists
+    spec = specs["bagno1"]
+    assert spec.packages == [StoredPackage(assembly_id="ASM-BAGNO-FULL")]
+    assert spec.measures == [StoredMeasure(name="mq", value=6.0, source="declared")]
+    assert [x.sku for x in spec.extra_items] == ["IMP-ID-003"]  # the unknown SKU is not stored
+    library = load_library()
+    assert library is not None and spec.library_version == library.version
+
+
+async def test_a_spec_save_failure_does_not_block_the_quote(caplog):
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks:
+        mocks["repo"].save_intervention_spec.side_effect = NotFound("room deleted")
+        reply = await _quote()
+
+    mocks["saved"].assert_awaited_once()
+    assert "PRV-2026-0042" in reply
+    assert "Intervention spec not saved" in caplog.text
+
+
+async def test_without_the_library_the_single_lines_still_make_the_quote():
+    with _project() as mocks, patch.object(quote_tools, "load_library", return_value=None):
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    assert [i.sku for i in quote.items if i.room_id == "bagno1"] == ["BAG-SAN-001"]
+    mocks["repo"].save_intervention_spec.assert_not_awaited()
+
+
+async def test_a_chat_without_rooms_asks_for_the_missing_measure():
+    files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
+    history = [{"role": "user", "content": "Rifaccio il bagno"}]
+    engine = AsyncMock(return_value=_bathroom(measures=[]))
+    with _project(rooms=ROOMS[:1], files=files, history=history, engine=engine) as mocks:
+        reply = await _quote()
+
+    assert MEASURE_QUESTIONS["mq"] in reply
+    mocks["saved"].assert_not_awaited()
+    mocks["repo"].save_intervention_spec.assert_not_awaited()  # no room holds a whole-chat spec
+
+
+async def test_the_disposal_share_is_asked_only_outside_the_chosen_packages():
+    with _project() as mocks:
+        await _quote()
+
+    calls = _calls_by_room(mocks["analyze"])
+    for label in ("Bagno", "Generale"):
+        assert "solo se nessun pacchetto scelto lo comprende" in calls[label][0]
+
+
+async def test_a_spec_that_cannot_be_built_does_not_block_the_quote(caplog):
+    invalid = ValidationError.from_exception_data("RoomInterventionSpec", [])
+    with _project(analyses={**ANALYSES, "Bagno": _bathroom()}) as mocks, \
+         patch.object(quote_tools, "spec_from_analysis", side_effect=invalid):
+        await _quote()
+
+    mocks["saved"].assert_awaited_once()
+    mocks["repo"].save_intervention_spec.assert_not_awaited()
+    assert "Intervention spec not saved" in caplog.text
+
+
+async def test_an_infinite_quantity_is_rejected_not_fatal():
+    """JSON `Infinity` passes the model's ge=0.01: the bounds check drops the line."""
+    analysis = InsightAnalysis(
+        summary="Bagno", completeness_score=0.9, suggestions=[_s("BAG-SAN-001", 1), _s("PIT-001", float("inf"))],
+    )
+    with _project(analyses={**ANALYSES, "Bagno": analysis}) as mocks:
+        await _quote()
+
+    quote = mocks["saved"].await_args.args[2]
+    assert [i.sku for i in quote.items if i.room_id == "bagno1"] == ["BAG-SAN-001"]
+
+
+async def test_a_quote_without_rooms_names_no_room_on_the_manual_work():
+    files = [_file("f_vecchia", DEFAULT_ROOM_ID)]
+    history = [{"role": "user", "content": "Rifaccio il bagno"}]
+    analysis = InsightAnalysis(
+        summary="Bagno", completeness_score=0.9, suggestions=[_s("BAG-SAN-001", 1)],
+        unmapped_work_requests=["Vespaio aerato"],
+    )
+    with _project(rooms=ROOMS[:1], files=files, history=history, engine=AsyncMock(return_value=analysis)) as mocks:
+        await _quote()
+
+    request = mocks["saved"].await_args.args[3]
+    assert request.manual_work == [ManualWorkItem(work="Vespaio aerato", origin="client_request")]

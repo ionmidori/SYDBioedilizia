@@ -320,6 +320,33 @@ class TestGetQuoteClientView:
         assert body["admin_notes"] is None
         assert body["financials"]["grand_total"] == 0.0
 
+    def test_owner_never_sees_the_ai_notes_for_the_technician(self):
+        # Works to quote by hand and AI warnings carry price-book codes and internal checks.
+        request = {
+            "summary": "Rifare il bagno",
+            "manual_work": [{"work": "Vespaio aerato", "room_id": "bagno1", "origin": "client_request"}],
+            "ai_warnings": [{"kind": "price_book_mismatch", "message": "MUR-004 non nel listino"}],
+        }
+        for status_ in ("pending_review", "approved"):
+            body = self._get(self._approved() | {"status": status_, "request": request}).json()
+            assert body["request"]["summary"] == "Rifare il bagno", status_
+            assert body["request"]["manual_work"] == [] and body["request"]["ai_warnings"] == [], status_
+
+        admin = self._get(self._approved() | {"request": request}, role="admin").json()
+        assert admin["request"]["manual_work"][0]["work"] == "Vespaio aerato"
+        assert admin["request"]["ai_warnings"][0]["kind"] == "price_book_mismatch"
+
+    def test_owner_never_sees_the_reasoning_of_the_lines(self):
+        # The reasoning names library formulas and coefficients (e.g. "mq * 2.2 * 1.05 con mq=6").
+        item = {"sku": "BAG-RIV-001", "description": "Rivestimento", "unit": "mq", "qty": 13.86,
+                "unit_price": 40.0, "total": 554.4, "ai_reasoning": "Bagno: rivestimento (mq * 2.2 * 1.05 con mq=6)"}
+        for status_ in ("draft", "approved"):
+            body = self._get(self._approved() | {"status": status_, "items": [item]}).json()
+            assert body["items"][0]["sku"] == "BAG-RIV-001", status_
+            assert body["items"][0]["ai_reasoning"] is None, status_
+        admin = self._get(self._approved() | {"items": [item]}, role="admin").json()
+        assert admin["items"][0]["ai_reasoning"].startswith("Bagno: rivestimento")
+
     def test_admin_sees_everything(self):
         body = self._get(self._approved(), role="admin").json()
         assert body["reviewed_by"] == "admin-username"

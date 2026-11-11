@@ -3,6 +3,7 @@ import hashlib
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 
 from google.api_core.exceptions import GoogleAPIError
@@ -10,12 +11,24 @@ from google.genai import types as genai_types
 from pydantic import BaseModel, Field, ValidationError
 from src.core.config import settings
 from src.core.models import ModelRole, get_genai_client, get_model_id
+from src.core.money import to_decimal
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.room_repository import get_room_repository
-from src.schemas.quote import QuoteRequest
+from src.schemas.assembly_library import AssemblyLibrary
+from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
-from src.services.insight_engine import InsightAnalysis, InsightEngineError, SKUItemSuggestion, get_insight_engine
+from src.services.assembly_library import load_library
+from src.services.insight_engine import InsightAnalysis, InsightEngineError, get_insight_engine
+from src.services.intervention_expansion import (
+    MAX_QTY,
+    MIN_QTY,
+    ExpandedLine,
+    Expansion,
+    expand,
+    resolve_measures,
+    spec_from_analysis,
+)
 from src.services.pricing_service import PricingService
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, read_quote_status, save_ai_draft
@@ -32,10 +45,6 @@ from src.vision.measure_room import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Quantity bounds: reject AI-suggested quantities outside this range to prevent pricing injection
-_MIN_QTY = 0.01   # Allow fractional units (e.g. 0.5 m²)
-_MAX_QTY = 10_000  # Hard cap — anything above is almost certainly an AI hallucination
 
 # Messages read to build the quote: enough for a long, multi-room conversation.
 # Each one is cut to 500 chars in the summary (build_chat_summary), so the text
@@ -86,7 +95,8 @@ def validate_sku_suggestions(suggestions: list[Any]) -> list[str]:
 
 def _validate_qty_bounds(suggestions: list[Any]) -> tuple[list[Any], list[str]]:
     """
-    Filters out suggestions with quantities outside safe bounds (_MIN_QTY .. _MAX_QTY).
+    Filters out suggestions with quantities outside safe bounds (MIN_QTY .. MAX_QTY, the
+    bounds of every quote line, from the expansion module).
     Returns (valid_suggestions, list_of_warning_messages).
     Prevents pricing injection via AI-hallucinated extreme quantities.
     """
@@ -94,8 +104,12 @@ def _validate_qty_bounds(suggestions: list[Any]) -> tuple[list[Any], list[str]]:
     warnings = []
     for s in suggestions:
         qty = getattr(s, "qty", None)
-        if qty is None or qty < _MIN_QTY or qty > _MAX_QTY:
-            msg = f"SKU {s.sku}: qty={qty} rejected (must be {_MIN_QTY} ≤ qty ≤ {_MAX_QTY})"
+        try:
+            within = qty is not None and MIN_QTY <= to_decimal(qty) <= MAX_QTY
+        except ValueError:  # not a finite number: JSON `Infinity` passes the model's ge=0.01
+            within = False
+        if not within:
+            msg = f"SKU {s.sku}: qty={qty} rejected (must be {MIN_QTY} ≤ qty ≤ {MAX_QTY})"
             logger.warning(f"[QuoteTool] Qty out of bounds — {msg}")
             warnings.append(msg)
         else:
@@ -389,6 +403,15 @@ _GENERAL_CONTEXT_MESSAGES = 40
 # Files that make a room worth quoting (renders count: they are the target).
 _ROOM_MEDIA_TYPES = frozenset({"image", "video", "render"})
 COMPLETENESS_THRESHOLD = 0.70
+# Questions asked per room in one turn.
+_MAX_QUESTIONS = 2
+# Works quoted by hand named to the client (then "e altre").
+_CLIENT_MANUAL_WORK_SHOWN = 5
+# Without the assembly library the model has no package to choose: its single
+# lines are quoted as they are (the expansion keeps the price-book checks).
+_NO_LIBRARY = AssemblyLibrary(
+    version="", description="Nessuna libreria dei pacchetti", assemblies=[], dependency_rules=[]
+)
 
 
 @dataclass(frozen=True)
@@ -399,6 +422,9 @@ class _QuoteUnit:
     context: str
     media: list[str]
     general: bool = False
+    # Room document that stores the unit's intervention spec (None: none does,
+    # e.g. the whole chat of a project without rooms).
+    spec_room_id: str | None = None
 
     @property
     def section_id(self) -> str | None:
@@ -411,20 +437,42 @@ class _QuoteUnit:
 @dataclass(frozen=True)
 class _UnitResult:
     unit: _QuoteUnit
-    analysis: InsightAnalysis
-    suggestions: list[SKUItemSuggestion]
+    analysis: InsightAnalysis  # as the model returned it
+    expansion: Expansion  # the lines computed by code from it
     unknown_skus: list[str]
+
+    @property
+    def lines(self) -> list[ExpandedLine]:
+        """The unit's quote lines."""
+        return self.expansion.lines
+
+    @property
+    def proposed_lines(self) -> bool:
+        """The model chose packages or single lines, whether or not any survived."""
+        return bool(self.analysis.packages or self.analysis.suggestions)
 
     @property
     def needs_info(self) -> bool:
         """Completeness gate: not enough data for this unit (questions instead of a quote)."""
+        # A formula without its measure left a line out: the quote would be short of it.
+        if self.expansion.missing_measures:
+            return True
         if not self.analysis.missing_info:
             return False
         # "Generale" stops the quote only for lines of its own: home-wide ones
         # (protection, disposal, scaffolding) need no measure of the rest of the home.
-        if self.unit.general and all(s.sku in load_rules().project_wide_skus for s in self.analysis.suggestions):
+        if self.unit.general and all(line.sku in load_rules().project_wide_skus for line in self.lines):
             return False
-        return not self.analysis.suggestions or self.analysis.completeness_score < COMPLETENESS_THRESHOLD
+        return not self.lines or self.analysis.completeness_score < COMPLETENESS_THRESHOLD
+
+    @property
+    def questions(self) -> list[str]:
+        """What to ask: the missing measures first (they unblock lines), then the model's questions."""
+        questions: list[str] = []
+        for question in (*self.expansion.questions, *self.analysis.missing_info):
+            if question not in questions:
+                questions.append(question)
+        return questions[:_MAX_QUESTIONS]
 
 
 def _file_ref(file_doc: dict[str, Any]) -> str:
@@ -486,8 +534,10 @@ def _room_scope(room: RoomSchema, others: list[str]) -> str:
         "(es. corridoio, ingresso) li quota la sezione Generale: non includerli qui.\n"
         "Lavori comuni a tutta la casa (quadro elettrico, caldaia, protezioni, ponteggio): proponili se "
         "servono anche a questa stanza, vengono contati una sola volta nella sezione Generale.\n"
-        f"Smaltimento macerie {rules.container_sku}: come quantità indica la frazione di un container da "
-        f"{rules.container_capacity_mc:f} m³ riempita dalle macerie di QUESTA stanza (es. 0.4)."
+        f"Smaltimento macerie {rules.container_sku}: per i pacchetti scelti lo calcola il backend. Tra le voci "
+        "singole proponilo solo se nessun pacchetto scelto lo comprende e ci sono demolizioni: come quantità "
+        f"indica la frazione di un container da {rules.container_capacity_mc:f} m³ riempita dalle macerie di "
+        "QUESTA stanza (es. 0.4)."
     )
 
 
@@ -503,8 +553,10 @@ def _general_scope(quoted: list[str]) -> str:
         "quota solo la parte fuori da quelle stanze.\n"
         "Se non resta nulla da quotare non proporre voci: è normale. Se il resto della casa non ha lavori "
         "propri, non fare domande su di esso (nessuna informazione mancante).\n"
-        f"Smaltimento macerie {rules.container_sku}: come quantità indica la frazione di un container da "
-        f"{rules.container_capacity_mc:f} m³ riempita dalle macerie del resto della casa (es. 0.2)."
+        f"Smaltimento macerie {rules.container_sku}: per i pacchetti scelti lo calcola il backend. Tra le voci "
+        "singole proponilo solo se nessun pacchetto scelto lo comprende e ci sono demolizioni: come quantità "
+        f"indica la frazione di un container da {rules.container_capacity_mc:f} m³ riempita dalle macerie del "
+        "resto della casa (es. 0.2)."
     )
 
 
@@ -528,7 +580,10 @@ async def _general_unit(
         + build_chat_summary(messages)
     )
     logger.info("[QuoteTool] General context ready.", extra={"messages": len(messages), "media": len(media)})
-    return _QuoteUnit(room=None, context=context, media=[_file_ref(f) for f in reversed(media)], general=True)
+    return _QuoteUnit(
+        room=None, context=context, media=[_file_ref(f) for f in reversed(media)], general=True,
+        spec_room_id=DEFAULT_ROOM_ID if generale_room else None,
+    )
 
 
 async def _room_unit(
@@ -580,7 +635,9 @@ async def _room_unit(
         extra={"room_id": room.room_id, "messages": len(room_messages), "media": len(media),
                "measured": bool(measurement_context), "render_delta": bool(structural_delta)},
     )
-    return _QuoteUnit(room=room, context=context, media=[_file_ref(f) for f in reversed(media)])
+    return _QuoteUnit(
+        room=room, context=context, media=[_file_ref(f) for f in reversed(media)], spec_room_id=room.room_id
+    )
 
 
 async def _rooms_to_quote(
@@ -604,8 +661,26 @@ async def _rooms_to_quote(
     return to_quote, rooms, {f["id"]: f for f in files}
 
 
-async def _analyse(unit: _QuoteUnit, session_id: str) -> _UnitResult:
-    """InsightEngine on one unit, then SKU and quantity validation."""
+async def _save_spec(
+    project_id: str, room_id: str, analysis: InsightAnalysis, measures: dict[str, Decimal], library: AssemblyLibrary
+) -> None:
+    """Store the spec the room's lines were expanded from. Best-effort: the quote
+    never depends on it (a deleted room, a Firestore error only log a warning)."""
+    try:
+        spec = spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
+        await get_room_repository().save_intervention_spec(project_id, room_id, spec)
+    except (GoogleAPIError, ValidationError) as exc:
+        # No project id: it may be the chat session id, an access token for guests
+        # (CodeQL py/clear-text-logging).
+        logger.warning(
+            "[QuoteTool] Intervention spec not saved.",
+            extra={"room_id": room_id, "error_type": type(exc).__name__},
+        )
+
+
+async def _analyse(unit: _QuoteUnit, session_id: str, project_id: str) -> _UnitResult:
+    """InsightEngine on one unit, then SKU and quantity validation, then the
+    expansion of the spec into lines by code (and the spec stored on the room)."""
     # 7. Analyze with Insight Engine (uses Gemini response_schema structured output)
     analysis = await get_insight_engine().analyze_project_for_quote(
         [{"role": "user", "content": unit.context}], unit.media, session_id=session_id
@@ -619,15 +694,24 @@ async def _analyse(unit: _QuoteUnit, session_id: str) -> _UnitResult:
     valid, qty_warnings = _validate_qty_bounds(known)
     if qty_warnings:
         logger.warning(f"[QuoteTool] Filtered {len(qty_warnings)} suggestion(s) with out-of-bounds qty")
-    return _UnitResult(unit=unit, analysis=analysis, suggestions=valid, unknown_skus=unknown_skus)
+    # The spec as the code reads it: only the single lines that passed validation.
+    validated = analysis.model_copy(update={"suggestions": valid})
+    library = load_library()
+    # "Generale" has no brief of its own measures: its floor is not the rest of the home's.
+    measures = resolve_measures(validated, unit.room.brief if unit.room else None)
+    units = {str(item["sku"]): str(item["unit"]) for item in PricingService.load_price_book()}
+    expansion = expand(validated, library or _NO_LIBRARY, units, measures)
+    if library is not None and unit.spec_room_id is not None:
+        await _save_spec(project_id, unit.spec_room_id, validated, measures, library)
+    return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus)
 
 
 def _single_unit_reply(result: _UnitResult) -> str | None:
     """Why the whole-chat analysis cannot become a quote (None: it can)."""
     analysis = result.analysis
-    if not analysis.suggestions:
+    if not result.proposed_lines:
         if analysis.missing_info:
-            questions = " ".join(analysis.missing_info[:2])
+            questions = " ".join(result.questions)
             return (
                 f"Ho capito il progetto: {analysis.summary}\n\n"
                 f"Prima di prepararti un preventivo accurato, ho bisogno di qualche informazione. "
@@ -638,28 +722,31 @@ def _single_unit_reply(result: _UnitResult) -> str | None:
             f"Puoi dirmi le dimensioni approssimative dell'ambiente "
             f"e quali lavori hai in mente? ({analysis.summary})"
         )
-    if len(result.unknown_skus) == len(analysis.suggestions):
+    if not analysis.packages and len(result.unknown_skus) == len(analysis.suggestions):
         logger.warning("[QuoteTool] All AI suggestions had unknown SKUs.", extra={"unknown_skus": result.unknown_skus})
         return (
             f"Ho identificato alcune lavorazioni potenziali ({', '.join(result.unknown_skus)}) "
             "ma non corrispondono al listino prezzi attuale. "
             "Un nostro consulente ti contatterà per un preventivo personalizzato."
         )
-    if not result.suggestions:
-        return "La generazione del preventivo non è riuscita: le quantità suggerite erano fuori dai limiti accettabili. Descrivi il progetto in modo più dettagliato."
     # ── Completeness Gate (Opzione C) ─────────────────────────────────────────
-    # If the InsightEngine signals that data is insufficient (score < 0.7),
-    # return the missing questions instead of an incomplete quote.
+    # A measure missing for a formula, or the InsightEngine signalling that data
+    # is insufficient (score < 0.7): the questions instead of an incomplete quote.
     if result.needs_info:
         logger.info(
             "[QuoteTool] Completeness gate triggered.",
-            extra={"score": analysis.completeness_score, "missing": analysis.missing_info},
+            extra={"score": analysis.completeness_score, "missing": analysis.missing_info,
+                   "missing_measures": result.expansion.missing_measures},
         )
-        formatted_questions = " ".join(analysis.missing_info[:2])  # max 2 questions per turn
         return (
             f"Ho identificato le lavorazioni principali ({analysis.summary}), "
             f"ma ho bisogno di qualche dettaglio in più per un preventivo preciso.\n\n"
-            f"{formatted_questions}"
+            f"{' '.join(result.questions)}"
+        )
+    if not result.lines:
+        return (
+            "La generazione del preventivo non è riuscita: non riesco a ricavare voci affidabili dal listino. "
+            "Descrivi il progetto in modo più dettagliato."
         )
     return None
 
@@ -674,13 +761,13 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
     gated = [r for r in results if r.needs_info]
     if gated:
         logger.info("[QuoteTool] Completeness gate triggered.", extra={"rooms": [_room_label(r) for r in gated]})
-        questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.analysis.missing_info[:2])}" for r in gated)
+        questions = "\n".join(f"**{_room_label(r)}**: {' '.join(r.questions)}" for r in gated)
         return (
             "Prima di prepararti un preventivo accurato per tutta la casa ho bisogno di qualche "
             f"dettaglio in più.\n\n{questions}"
         )
-    discarded = [r for r in results if r.analysis.suggestions and not r.suggestions]
-    if discarded and any(r.suggestions for r in results):
+    discarded = [r for r in results if r.proposed_lines and not r.lines]
+    if discarded and any(r.lines for r in results):
         logger.warning("[QuoteTool] Every line of a room was discarded.", extra={"rooms": [_room_label(r) for r in discarded]})
         rooms = ", ".join(_room_label(r) for r in discarded)
         return (
@@ -688,7 +775,7 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
             "un preventivo incompleto della casa. Descrivimi meglio i lavori previsti in quella stanza "
             "(misure e materiali) oppure un nostro consulente ti contatterà per un preventivo personalizzato."
         )
-    if any(r.suggestions for r in results):
+    if any(r.lines for r in results):
         return None
     unknown = [sku for r in results for sku in r.unknown_skus]
     if unknown:
@@ -702,6 +789,47 @@ def _rooms_reply(results: list[_UnitResult]) -> str | None:
         "Ho difficoltà a identificare le lavorazioni specifiche da quotare. "
         "Puoi dirmi, stanza per stanza, le dimensioni approssimative e quali lavori hai in mente?"
     )
+
+
+def _section_label(result: _UnitResult) -> str | None:
+    """The room name the admin reads next to a manual work or a warning (None: a quote without rooms)."""
+    return _room_label(result) if result.unit.section_id else None
+
+
+def _manual_work(results: list[_UnitResult]) -> list[ManualWorkItem]:
+    return [
+        ManualWorkItem(work=work.work, room_id=r.unit.section_id, room_label=_section_label(r), origin=work.origin)
+        for r in results
+        for work in r.expansion.manual_work
+    ]
+
+
+def _ai_warnings(results: list[_UnitResult]) -> list[QuoteAiWarning]:
+    return [
+        QuoteAiWarning(
+            kind=warning.kind,
+            message=warning.message,
+            room_id=r.unit.section_id,
+            room_label=_section_label(r),
+            skus=list(warning.skus),
+        )
+        for r in results
+        for warning in r.expansion.warnings
+    ]
+
+
+def _manual_work_note(manual_work: list[ManualWorkItem]) -> str:
+    """The works the technician quotes by hand, told to the client. A line the live
+    price book lacks is left out: it is the team's catalogue, not the client's request."""
+    works: list[str] = []
+    for item in manual_work:
+        if item.origin != "price_book" and item.work not in works:
+            works.append(item.work)
+    if not works:
+        return ""
+    more = " e altre" if len(works) > _CLIENT_MANUAL_WORK_SHOWN else ""
+    shown = ", ".join(works[:_CLIENT_MANUAL_WORK_SHOWN])
+    return f"\n\nAlcune lavorazioni le quoterà a mano il nostro tecnico: {shown}{more}."
 
 
 def _relayed_reply(relayed: FollowupResult) -> str:
@@ -763,13 +891,13 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                     others = [r.label for r in to_quote if r.room_id != room.room_id]
                     async with semaphore:
                         unit = await _room_unit(room, others, general, project_files, session_id, target_project_id)
-                        return await _analyse(unit, session_id)
+                        return await _analyse(unit, session_id, target_project_id)
 
                 async def analyse_rest_of_home() -> _UnitResult | None:
                     generale = next((r for r in all_rooms if r.room_id == DEFAULT_ROOM_ID), None)
                     async with semaphore:
                         unit = await _general_unit(general, generale, [r.label for r in to_quote], target_project_id)
-                        return await _analyse(unit, session_id) if unit else None
+                        return await _analyse(unit, session_id, target_project_id) if unit else None
 
                 async with asyncio.TaskGroup() as group:
                     tasks = [group.create_task(analyse_room(room)) for room in to_quote]
@@ -777,10 +905,10 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 results = [task.result() for task in tasks]
                 # "Generale" with nothing to quote adds no section and stops nothing.
                 rest = rest_of_home.result()
-                if rest is not None and rest.analysis.suggestions:
+                if rest is not None and (rest.proposed_lines or rest.expansion.manual_work):
                     results.append(rest)
             else:
-                results = [await _analyse(await _single_unit(history, session_id), session_id)]
+                results = [await _analyse(await _single_unit(history, session_id), session_id, target_project_id)]
         except* (InsightEngineError, GoogleAPIError, ValidationError) as errors:
             failure = errors
         if failure is not None:
@@ -798,15 +926,9 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
 
         # 8. Generate Pricing
         sku_list = [
-            {
-                "sku": s.sku,
-                "qty": s.qty,
-                "ai_reasoning": s.ai_reasoning,
-                "phase": getattr(s, "phase", "Lavori"),
-                "room_id": r.unit.section_id,
-            }
+            {"sku": line.sku, "qty": float(line.qty), "ai_reasoning": line.reasoning, "room_id": r.unit.section_id}
             for r in results
-            for s in r.suggestions
+            for line in r.lines
         ]
         # We need a user_id. If not provided, we try to get it from context or use session_id
         final_user_id = user_id or "guest_" + session_id
@@ -820,8 +942,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
                 "rooms": room_sections(all_rooms, items),
                 "financials": PricingService.calculate_financials(items),
             })
-            summary = "\n".join(f"{_room_label(r)}: {r.analysis.summary}" for r in results if r.suggestions)
-            headline = "\n".join(f"**{_room_label(r)}** — {r.analysis.summary}" for r in results if r.suggestions)
+            summary = "\n".join(f"{_room_label(r)}: {r.analysis.summary}" for r in results if r.lines)
+            headline = "\n".join(f"**{_room_label(r)}** — {r.analysis.summary}" for r in results if r.lines)
         else:
             summary = results[0].analysis.summary
             headline = f"**{summary}**"
@@ -841,14 +963,12 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # gathered outside the transaction, best-effort, never blocks the draft.
         now = utc_now()
         dossier = await gather_dossier_inputs(db, target_project_id, final_user_id, now)
-        saved = await save_ai_draft(
-            db,
-            target_project_id,
-            quote,
-            QuoteRequest(summary=summary, channel="chat", session_id=session_id),
-            now=now,
-            dossier=dossier,
+        manual_work = _manual_work(results)
+        request = QuoteRequest(
+            summary=summary, channel="chat", session_id=session_id,
+            manual_work=manual_work, ai_warnings=_ai_warnings(results),
         )
+        saved = await save_ai_draft(db, target_project_id, quote, request, now=now, dossier=dossier)
         reference = f" (riferimento **{saved.quote_number}**)" if saved.quote_number else ""
 
         if saved.outcome is DraftSaveOutcome.WITH_THE_TEAM:
@@ -866,6 +986,7 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
         # deliberately NOT shown to the client: the admin reviews and adjusts
         # it first in the dashboard, then the client receives the final quote
         # by email after approval. Only the works summary is disclosed.
+        headline += _manual_work_note(manual_work)
         room_labels = ", ".join(room.room_label for room in quote.rooms)
         sections = f" in {len(quote.rooms)} sezioni ({room_labels})" if len(quote.rooms) > 1 else ""
         if saved.outcome is DraftSaveOutcome.REVISED:

@@ -1,5 +1,5 @@
 {
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Renovation Assembly Library for SYD Bioedilizia. Maps user desires (natural language intents) to structured Work Breakdown Structure (WBS) phases, each composed of required SKUs from the master_price_book. Used by InsightEngine to expand implicit user requests into complete technical BOQ.",
     "assemblies": [
         {
@@ -130,6 +130,79 @@
                     "work": "Rubinetteria (fornitura)",
                     "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
                 }
+            ],
+            "elements": [
+                {
+                    "element": "sanitari",
+                    "label": "Sanitari",
+                    "remove_skus": [
+                        "DEM-006"
+                    ],
+                    "supply_skus": [
+                        "BAG-SAN-001"
+                    ],
+                    "supply_manual": [],
+                    "reuse_work": "Smontaggio con cura e rimontaggio dei sanitari esistenti",
+                    "keep_conflicts_with": [
+                        "DEM-002",
+                        "DEM-003"
+                    ]
+                },
+                {
+                    "element": "box_doccia",
+                    "label": "Box doccia",
+                    "remove_skus": [],
+                    "supply_skus": [
+                        "BAG-BOX-001"
+                    ],
+                    "supply_manual": [],
+                    "reuse_work": "Smontaggio e rimontaggio del box doccia esistente",
+                    "keep_conflicts_with": [
+                        "DEM-002",
+                        "DEM-003"
+                    ]
+                },
+                {
+                    "element": "rubinetteria",
+                    "label": "Rubinetteria",
+                    "remove_skus": [],
+                    "supply_skus": [],
+                    "supply_manual": [
+                        "Rubinetteria (fornitura)"
+                    ],
+                    "reuse_work": "Rimontaggio della rubinetteria esistente",
+                    "keep_conflicts_with": [
+                        "DEM-003"
+                    ]
+                },
+                {
+                    "element": "pavimento",
+                    "label": "Pavimento",
+                    "remove_skus": [
+                        "DEM-002"
+                    ],
+                    "supply_skus": [
+                        "PAV-004",
+                        "PAV-001"
+                    ],
+                    "supply_manual": [],
+                    "reuse_work": null,
+                    "keep_conflicts_with": []
+                },
+                {
+                    "element": "rivestimento_pareti",
+                    "label": "Rivestimento pareti",
+                    "remove_skus": [
+                        "DEM-003"
+                    ],
+                    "supply_skus": [
+                        "MUR-004",
+                        "BAG-RIV-001"
+                    ],
+                    "supply_manual": [],
+                    "reuse_work": null,
+                    "keep_conflicts_with": []
+                }
             ]
         },
         {
@@ -185,6 +258,32 @@
                 {
                     "work": "Rubinetteria (fornitura)",
                     "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
+                }
+            ],
+            "elements": [
+                {
+                    "element": "sanitari",
+                    "label": "Sanitari",
+                    "remove_skus": [
+                        "DEM-006"
+                    ],
+                    "supply_skus": [
+                        "BAG-SAN-001"
+                    ],
+                    "supply_manual": [],
+                    "reuse_work": "Smontaggio con cura e rimontaggio dei sanitari esistenti",
+                    "keep_conflicts_with": []
+                },
+                {
+                    "element": "rubinetteria",
+                    "label": "Rubinetteria",
+                    "remove_skus": [],
+                    "supply_skus": [],
+                    "supply_manual": [
+                        "Rubinetteria (fornitura)"
+                    ],
+                    "reuse_work": "Rimontaggio della rubinetteria esistente",
+                    "keep_conflicts_with": []
                 }
             ]
         },
@@ -291,6 +390,22 @@
                 {
                     "work": "Posa rivestimento cucina (backsplash)",
                     "note": "Nessuna voce di listino: da quotare a mano dal tecnico."
+                }
+            ],
+            "elements": [
+                {
+                    "element": "pavimento",
+                    "label": "Pavimento",
+                    "remove_skus": [
+                        "DEM-002"
+                    ],
+                    "supply_skus": [
+                        "PAV-004",
+                        "PAV-001"
+                    ],
+                    "supply_manual": [],
+                    "reuse_work": null,
+                    "keep_conflicts_with": []
                 }
             ]
         },
@@ -528,7 +643,8 @@
                             "unit": "cad",
                             "qty_formula": "n_finestre",
                             "note": "Fornitura e posa infissi in PVC",
-                            "conditional": "if_pvc"
+                            "conditional": "if_pvc",
+                            "default_choice": true
                         },
                         {
                             "sku": "INF-FIN-002",
@@ -587,7 +703,8 @@
                             "unit": "cad",
                             "qty_formula": "n_porte",
                             "note": "Fornitura e posa porte battenti",
-                            "conditional": "if_battente"
+                            "conditional": "if_battente",
+                            "default_choice": true
                         },
                         {
                             "sku": "INF-POR-002",
@@ -838,7 +955,8 @@
             ],
             "requires_sku": [
                 "SMAL-001"
-            ]
+            ],
+            "requires_qty_formula": "mq * 0.4 / 7"
         },
         {
             "rule": "Il riscaldamento a pavimento include già il massetto: non aggiungere un massetto separato",

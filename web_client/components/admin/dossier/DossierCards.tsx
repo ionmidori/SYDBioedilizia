@@ -1,4 +1,4 @@
-import { AlertCircle, Mail, MapPin, Phone } from 'lucide-react';
+import { AlertCircle, ClipboardList, Mail, MapPin, Phone } from 'lucide-react';
 
 import { formatDateTime, formatEuro } from '@/components/admin/quote-status';
 import type { ClientLive } from '@/types/admin-quote';
@@ -72,6 +72,48 @@ export function ClientCard({
   );
 }
 
+/** "Bagno: text" — the room is named only when the item belongs to one. */
+function withRoom(item: { room_label?: string | null }, text: string): string {
+  return item.room_label ? `${item.room_label}: ${text}` : text;
+}
+
+/** What the AI draft could not price or wants checked: read before approving. */
+function DraftChecks({ request }: { request: QuoteRequest | null | undefined }) {
+  const manualWork = request?.manual_work ?? [];
+  const warnings = request?.ai_warnings ?? [];
+  return (
+    <>
+      {manualWork.length > 0 && (
+        <div data-testid="request-manual-work" className="mt-3 rounded-xl border border-line bg-surface-muted p-3 text-sm">
+          <h3 className="inline-flex items-center gap-1.5 font-medium text-accent-ink">
+            <ClipboardList className="w-3.5 h-3.5" aria-hidden /> Da quotare a mano
+          </h3>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5 text-ink-muted">
+            {manualWork.map((item, index) => (
+              <li key={index}>{withRoom(item, item.work)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <div
+          data-testid="request-ai-warnings"
+          className="mt-3 rounded-xl border border-warning/30 bg-warning-subtle p-3 text-sm text-warning-ink"
+        >
+          <h3 className="inline-flex items-center gap-1.5 font-medium">
+            <AlertCircle className="w-3.5 h-3.5" aria-hidden /> Da verificare
+          </h3>
+          <ul className="mt-1.5 list-disc space-y-1 pl-5">
+            {warnings.map((warning, index) => (
+              <li key={index}>{withRoom(warning, warning.message)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** What the client wants: the description is the first thing a reviewer needs. */
 export function RequestCard({
   request,
@@ -92,6 +134,7 @@ export function RequestCard({
       {request?.technical_notes && (
         <p className="mt-2 text-sm text-ink-muted whitespace-pre-line">{request.technical_notes}</p>
       )}
+      <DraftChecks request={request} />
       <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-ink-muted">
         {request?.address && (
           <div className="flex items-center gap-1.5">

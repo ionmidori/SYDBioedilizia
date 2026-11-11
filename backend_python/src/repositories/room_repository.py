@@ -17,6 +17,7 @@ from src.core.logger import get_logger
 from src.db.batching import BatchWriter
 from src.db.firebase_client import get_async_firestore_client
 from src.db.projects.constants import FILE_ROOM_FIELD
+from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomBrief, RoomCreate, RoomSchema, RoomUpdate
 from src.utils.datetime_utils import utc_now
 
@@ -73,6 +74,22 @@ class RoomRepository:
             option=self._db().write_option(last_update_time=expected_update_time),
         )
         logger.info("[Rooms] Brief updated", extra={"project_id": project_id, "room_id": room_id})
+
+    async def save_intervention_spec(self, project_id: str, room_id: str, spec: RoomInterventionSpec) -> None:
+        """Replace the room's intervention spec, leaving brief and summary alone.
+
+        No precondition: the quote tool is the only writer of the field, and the
+        brief refresh that meets the newer document ends in `conflict` and retries
+        on the next turn. NotFound (a GoogleAPIError) if the room does not exist."""
+        await self._project(project_id).collection(ROOMS).document(room_id).update(
+            {"intervention_spec": spec.model_dump(), "updated_at": utc_now()}
+        )
+        # No project id in the log: from the quote tool it is the chat session id,
+        # an access token for guests (CodeQL py/clear-text-logging).
+        logger.info(
+            "[Rooms] Intervention spec saved",
+            extra={"room_id": room_id, "packages": len(spec.packages)},
+        )
 
     async def require_room(self, project_id: str, room_id: str) -> RoomSchema:
         """The room, or RoomNotFoundError (404)."""
