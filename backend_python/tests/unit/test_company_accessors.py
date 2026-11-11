@@ -33,11 +33,7 @@ def test_company_reads_the_snapshot():
 
 
 def test_quote_terms_read_the_snapshot():
-    assert quote_terms().payment_terms == (
-        "30% alla firma dell'accettazione",
-        "40% a metà lavori (stato di avanzamento)",
-        "30% a fine lavori",
-    )
+    assert quote_terms().payment_terms == ("30% a inizio lavori", "50% a metà lavori", "20% a fine lavori")
     info = company_info.seed_info()
     info.quote_terms.validity_days = 45
     info.quote_terms.payment_terms = ["50% alla firma", "50% a fine lavori"]

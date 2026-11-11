@@ -251,9 +251,9 @@
     "quote_terms": {
       "validity_days": 30,
       "payment_terms": [
-        "30% alla firma dell'accettazione",
-        "40% a metà lavori (stato di avanzamento)",
-        "30% a fine lavori"
+        "30% a inizio lavori",
+        "50% a metà lavori",
+        "20% a fine lavori"
       ],
       "short_notice": "Bozza generata automaticamente: non è un preventivo definitivo finché non la conferma un nostro tecnico (vedi «Natura del documento»).",
       "disclaimer_title": "Natura del documento",
@@ -293,31 +293,72 @@
       {
         "slug": "pagamenti",
         "title": "Pagamenti",
-        "blocks": [],
+        "blocks": [
+          {
+            "type": "p",
+            "text": "I pagamenti seguono lo **stato di avanzamento dei lavori**:"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**30%** a inizio lavori.",
+              "**50%** a metà lavori.",
+              "**20%** a fine lavori."
+            ]
+          }
+        ],
         "builtin": true
       },
       {
         "slug": "pratiche-permessi",
         "title": "Pratiche e permessi",
-        "blocks": [],
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Se non hai un geometra di riferimento, le pratiche edilizie (CILA, SCIA) le seguiamo noi con le nostre figure tecniche."
+          }
+        ],
         "builtin": true
       },
       {
         "slug": "bonus-fiscali",
         "title": "Bonus fiscali",
-        "blocks": [],
+        "blocks": [
+          {
+            "type": "p",
+            "text": "SYD Bioedilizia non gestisce le pratiche dei bonus fiscali (detrazioni, Ecobonus) e non applica lo sconto in fattura."
+          }
+        ],
         "builtin": true
       },
       {
         "slug": "tempi-lavori",
         "title": "Tempi medi dei lavori",
-        "blocks": [],
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Tempi medi in **giorni lavorativi**:"
+          },
+          {
+            "type": "ul",
+            "items": [
+              "**Bagno:** circa 10 giorni.",
+              "**Cucina:** 5-7 giorni.",
+              "**Appartamento di 80 mq:** circa 70 giorni."
+            ]
+          }
+        ],
         "builtin": true
       },
       {
         "slug": "chi-lavora",
         "title": "Chi lavora",
-        "blocks": [],
+        "blocks": [
+          {
+            "type": "p",
+            "text": "Lavoriamo con la nostra **squadra interna** e, all'occorrenza, con collaboratori esterni."
+          }
+        ],
         "builtin": true
       },
       {
@@ -327,7 +368,7 @@
           {
             "type": "ul",
             "items": [
-              "**Sistemi a cappotto certificati:** Siamo installatori qualificati secondo la norma UNI 11716.",
+              "**Impianti certificati:** rilasciamo le certificazioni degli impianti idraulico, elettrico e di climatizzazione.",
               "**Sicurezza totale:** Utilizziamo isolanti termoregolatori in Classe A1 (incombustibili).",
               "**Salubrità dell'aria:** Impieghiamo solo vernici naturali, inodori e lavabili."
             ]
@@ -338,7 +379,16 @@
       {
         "slug": "social",
         "title": "Social",
-        "blocks": [],
+        "blocks": [
+          {
+            "type": "ul",
+            "items": [
+              "**Instagram:** @syd_bioedilizia",
+              "**TikTok:** @syd.bioedilizia",
+              "**Recensioni:** le trovi su Google."
+            ]
+          }
+        ],
         "builtin": true
       }
     ],
@@ -386,30 +436,25 @@
         ]
       },
       {
-        "slug": "tempi-ristrutturazione-100mq",
-        "question": "Quanto tempo ci vuole per ristrutturare un appartamento di 100mq?",
+        "slug": "tempi-ristrutturazione",
+        "question": "Quanto tempo ci vuole per una ristrutturazione?",
         "category": "Costi & Tempi",
         "answer": [
           {
             "type": "lead",
-            "text": "Una ristrutturazione completa di 100mq richiede mediamente **3-4 mesi di lavoro** effettivo."
-          },
-          {
-            "type": "p",
-            "text": "Questa stima include:"
+            "text": "I tempi medi dei lavori, in **giorni lavorativi**:"
           },
           {
             "type": "ul",
             "items": [
-              "**Settimana 1-2:** Allestimento cantiere e demolizioni.",
-              "**Settimana 3-6:** Rifacimento impianti e sottofondi.",
-              "**Settimana 7-10:** Posa pavimenti, rivestimenti e intonaci.",
-              "**Settimana 11-14:** Tinteggiatura, montaggio infissi e finiture."
+              "**Bagno:** circa 10 giorni.",
+              "**Cucina:** 5-7 giorni.",
+              "**Appartamento di 80 mq:** circa 70 giorni."
             ]
           },
           {
             "type": "note",
-            "text": "Nota: I tempi burocratici per CILA/SCIA (2-4 settimane) vanno calcolati prima dell'inizio lavori."
+            "text": "Nota: i tempi per le pratiche CILA/SCIA vanno calcolati prima dell'inizio lavori."
           }
         ],
         "section_slug": "tempi-lavori"
@@ -421,24 +466,15 @@
         "answer": [
           {
             "type": "lead",
-            "text": "I pagamenti seguono un piano a **SAL (Stato Avanzamento Lavori)**, suddiviso in milestones concordate."
-          },
-          {
-            "type": "p",
-            "text": "Una struttura tipica prevede:"
+            "text": "I pagamenti seguono lo **stato di avanzamento dei lavori**:"
           },
           {
             "type": "ul",
             "items": [
-              "**20% alla firma del contratto:** Avvio pratica e acquisto materiali.",
-              "**30% a fine demolizioni e impianti:** Completamento fase strutturale.",
-              "**30% a fine finiture:** Pavimenti, rivestimenti, tinteggiatura.",
-              "**20% a collaudo finale:** Saldo alla consegna con verbale di fine lavori."
+              "**30%** a inizio lavori.",
+              "**50%** a metà lavori.",
+              "**20%** a fine lavori."
             ]
-          },
-          {
-            "type": "p",
-            "text": "Tutti i pagamenti devono avvenire tramite **bonifico parlante** per accedere alle detrazioni fiscali."
           }
         ],
         "section_slug": "pagamenti"
@@ -467,34 +503,6 @@
           }
         ],
         "section_slug": "pratiche-permessi"
-      },
-      {
-        "slug": "bonus-ristrutturazione-2026",
-        "question": "Quali Bonus Ristrutturazione sono attivi nel 2026?",
-        "category": "Permessi & Normative",
-        "answer": [
-          {
-            "type": "lead",
-            "text": "Nel 2026 è confermato il **Bonus Ristrutturazione al 50%** (o 36% a seconda delle ultime leggi di bilancio) con detrazione in 10 anni."
-          },
-          {
-            "type": "p",
-            "text": "Altri incentivi rilevanti:"
-          },
-          {
-            "type": "ul",
-            "items": [
-              "**Ecobonus (50-65%):** Per sostituzione infissi, caldaie e cappotto termico.",
-              "**Bonus Mobili:** Detrazione del 50% su arredi ed elettrodomestici in classe A+ (tetto spesa variabile).",
-              "**Sismabonus:** Per interventi di messa in sicurezza statica."
-            ]
-          },
-          {
-            "type": "callout",
-            "text": "Attenzione: Lo sconto in fattura e la cessione del credito non sono più disponibili per la maggior parte dei nuovi interventi."
-          }
-        ],
-        "section_slug": "bonus-fiscali"
       },
       {
         "slug": "funzionamento-render-ai",
@@ -674,8 +682,8 @@
       "excellences_title": "Le nostre eccellenze tecniche:",
       "excellences": [
         {
-          "title": "Sistemi a cappotto certificati",
-          "text": "Siamo installatori qualificati secondo la norma UNI 11716.",
+          "title": "Impianti certificati",
+          "text": "Rilasciamo le certificazioni degli impianti idraulico, elettrico e di climatizzazione.",
           "icon": "Award"
         },
         {
@@ -701,7 +709,7 @@
       "why_choose": [
         {
           "type": "p",
-          "text": "Non offriamo solo lavorazioni di alta qualità. Ti supportiamo anche nella burocrazia, guidandoti nell'accesso alle **detrazioni fiscali** e agli **Ecobonus** per interventi come l'insufflaggio termico e la riqualificazione energetica."
+          "text": "Non offriamo solo lavorazioni di alta qualità: con la nostra **squadra interna** seguiamo ogni fase del cantiere e, se non hai un geometra di riferimento, ci occupiamo anche delle **pratiche edilizie**."
         }
       ],
       "cta_label": "Richiedi un preventivo",
