@@ -20,6 +20,14 @@ orchestrator writes the project's room index and, when the client sent one, the
 active room; the room tools (`select_room`) update both mid-turn. Room labels
 are typed by the user: they reach the block on one line, cut, as data.
 
+The company facts ("SCHEDA SYD", Phase 141) ride along in the same dynamic
+instruction, after the session block and also without a session: contacts,
+hours, served area, services, site visit and the index of the company
+sections, built from the company info edited in the admin console
+(src/adk/company_context.py). The provider reads the cached copy on every
+model call; reading it also renews it in the background once the TTL has
+expired (CompanyInfoService.snapshot), so no turn waits for Firestore.
+
 The prompt is not the control: premium tools re-check login server side
 (`tools._is_guest`) and ignore the model's session id (`tools._trusted_session_id`).
 """
@@ -29,6 +37,8 @@ from typing import Any
 
 from google.adk.agents.readonly_context import ReadonlyContext
 
+from src.adk.company_context import company_facts_block
+from src.services.company_info_service import CompanyInfoService
 from src.services.quote_drafts import QuoteStatusView
 from src.services.quote_state import status_label_it
 
@@ -51,7 +61,8 @@ _GUEST_RULE = (
     "Tool premium (riservati agli utenti registrati): generate_render, suggest_quote_items, "
     "submit_quote_request.\n"
     "Liberi per tutti, ospiti compresi, senza login: search_listino, search_prezzario, "
-    "retrieve_price_by_code, pricing_engine, market_prices (una domanda di prezzo non richiede l'accesso).\n"
+    "retrieve_price_by_code, pricing_engine, market_prices, get_company_info, check_service_area "
+    "(domande su prezzi o sulla società non richiedono l'accesso).\n"
     "SEQUENZA OBBLIGATORIA per rendering e preventivo:\n"
     "1) Raccogli i dati e ottieni la CONFERMA esplicita dell'utente (ok al riepilogo del rendering, "
     "richiesta di preparare il preventivo o sì alla tua domanda). La scelta del percorso, una domanda "
@@ -143,13 +154,16 @@ def session_context_block(
 
 
 def session_context_instruction(context: ReadonlyContext) -> str:
-    """Instruction provider of every agent: the session block, empty before the
-    orchestrator has written the session facts. A callable instruction is not
-    state-injected by ADK: room labels typed by the user stay plain data."""
+    """Instruction provider of every agent: the session block (once the
+    orchestrator has written the session facts), then the SCHEDA SYD block,
+    always. A callable instruction is not state-injected by ADK: room labels
+    typed by the user and texts saved in the console stay plain data."""
+    company = company_facts_block(CompanyInfoService.snapshot())
     state = context.state
     session = state.get(SESSION_CONTEXT_STATE_KEY)
     if not session:
-        return ""
-    return session_context_block(
+        return company
+    block = session_context_block(
         session, state.get(ROOMS_STATE_KEY), state.get(ACTIVE_ROOM_STATE_KEY), state.get(HOUSE_QUOTE_STATE_KEY)
     )
+    return f"{block}\n\n{company}"
