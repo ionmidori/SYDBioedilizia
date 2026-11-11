@@ -41,11 +41,6 @@ export function cardBadge(card: PortfolioCard): string {
     return card.isExample ? `${EXAMPLE_LABEL} · ${card.category}` : card.category;
 }
 
-/** Line under the title: the place of a real project; the badge for an example. */
-export function cardSubtitle(card: PortfolioCard): string {
-    return card.isExample ? cardBadge(card) : card.location;
-}
-
 /** What a screen reader hears for a card: what it is, and where for a real project. */
 export function cardAccessibleName(card: PortfolioCard): string {
     if (card.isExample) return `${EXAMPLE_LABEL}: ${card.title}`;
