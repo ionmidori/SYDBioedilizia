@@ -245,6 +245,18 @@ class PriceBookSkuInUseError(AppException):
         )
 
 
+class CompanyInfoConflictError(AppException):
+    """The company info changed since the editor read it (optimistic concurrency)."""
+    status_code = 409
+    error_code = "VERSION_CONFLICT"
+
+    def __init__(self, expected_version: int, current_version: int) -> None:
+        super().__init__(
+            message="The company info was modified by someone else. Reload and retry.",
+            detail={"expected_version": expected_version, "current_version": current_version},
+        )
+
+
 class QuoteLockedError(AppException):
     """Another admin holds the review lock on this quote."""
     status_code = 409
@@ -275,7 +287,7 @@ class PreconditionRequiredError(AppException):
     error_code = "PRECONDITION_REQUIRED"
 
     def __init__(self) -> None:
-        super().__init__(message='Send the quote version in the If-Match header (e.g. "v3").')
+        super().__init__(message='Send the version you read in the If-Match header (e.g. "v3").')
 
 
 class MediaNotFoundError(ResourceNotFound):

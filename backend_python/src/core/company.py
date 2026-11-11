@@ -1,14 +1,18 @@
 """
 Company identity and quote terms printed on quote PDFs and emails.
 
-Identity mirrors `web_client/lib/company.ts` (single source of truth for the
-site); `tests/unit/test_company_parity.py` fails if the two drift apart.
-The commercial terms below are the ones the owner chose for the AUTOMATIC
-DRAFT quotes (Phase 128): change them here only.
+Both come from the company info edited in the admin console (Phase 141,
+`app_config/company_info`, see src/services/company_info_service.py): never
+hardcode a contact or a term here. Only the site URL is a constant: it is
+where the site is deployed (links, email logo), not a company fact.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from src.services.company_info_service import CompanyInfoService
+
+SITE_URL = "https://sydbioedilizia.vercel.app"
 
 
 @dataclass(frozen=True)
@@ -42,23 +46,6 @@ class Company:
         return f"{a.street} - {a.postal_code} {a.city} ({a.region})"
 
 
-COMPANY = Company(
-    name="SYD Bioedilizia",
-    legal_name="SYD Bioedilizia S.r.l.",
-    vat_id="15714991005",
-    address=CompanyAddress(
-        street="Via Quero, 132",
-        postal_code="00123",
-        city="Roma",
-        region="RM",
-        country="IT",
-    ),
-    phone="+39 375 5463599",
-    email="sydbioedilizia@gmail.com",
-    url="https://sydbioedilizia.vercel.app",
-)
-
-
 @dataclass(frozen=True)
 class QuoteTerms:
     validity_days: int
@@ -69,25 +56,31 @@ class QuoteTerms:
     signature_label: str
 
 
-QUOTE_TERMS = QuoteTerms(
-    validity_days=30,
-    payment_terms=(
-        "30% alla firma dell'accettazione",
-        "40% a metà lavori (stato di avanzamento)",
-        "30% a fine lavori",
-    ),
-    short_notice=(
-        "Bozza generata automaticamente: non è un preventivo definitivo finché non la "
-        "conferma un nostro tecnico (vedi «Natura del documento»)."
-    ),
-    disclaimer_title="Natura del documento",
-    disclaimer=(
-        "Il presente documento è una BOZZA DI PREVENTIVO generata automaticamente "
-        "sulla base delle informazioni fornite dal cliente. Non costituisce un preventivo "
-        "definitivo né un'offerta vincolante. Diventa preventivo solo dopo la verifica e "
-        "l'approvazione di un nostro tecnico, sulla base di un sopralluogo o di un contatto "
-        "telefonico con il cliente. Quantità, lavorazioni e importi sono indicativi e possono "
-        "variare in base a quanto verificato in cantiere."
-    ),
-    signature_label="Per presa visione della bozza",
-)
+def company() -> Company:
+    """The company identity being served now (the seed until Firestore is read)."""
+    identity = CompanyInfoService.snapshot().identity
+    a = identity.address
+    return Company(
+        name=identity.name,
+        legal_name=identity.legal_name,
+        vat_id=identity.vat_id,
+        address=CompanyAddress(
+            street=a.street, postal_code=a.postal_code, city=a.city, region=a.region, country=a.country
+        ),
+        phone=identity.phone,
+        email=identity.email,
+        url=SITE_URL,
+    )
+
+
+def quote_terms() -> QuoteTerms:
+    """The terms of the AUTOMATIC DRAFT quotes, as the owner set them in the console."""
+    terms = CompanyInfoService.snapshot().quote_terms
+    return QuoteTerms(
+        validity_days=terms.validity_days,
+        payment_terms=tuple(terms.payment_terms),
+        short_notice=terms.short_notice,
+        disclaimer_title=terms.disclaimer_title,
+        disclaimer=terms.disclaimer,
+        signature_label=terms.signature_label,
+    )

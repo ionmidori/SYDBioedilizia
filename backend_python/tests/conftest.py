@@ -51,6 +51,19 @@ def _price_book_without_firestore():
 
 
 @pytest.fixture(autouse=True)
+def _company_info_without_firestore():
+    """Tests serve the bundled company info: CompanyInfoService must not reach
+    Firestore, not even through the background refresh a read starts after the
+    TTL (tests/unit/test_company_info_service.py drives the refresh explicitly)."""
+    from src.services.company_info_service import CompanyInfoService
+
+    CompanyInfoService.reset_cache()
+    CompanyInfoService._refresh_after = float("inf")
+    yield
+    CompanyInfoService.reset_cache()
+
+
+@pytest.fixture(autouse=True)
 def _reset_genai_client_cache():
     """get_genai_client() is a process singleton: a client (or mock) created by
     one test must not leak into the next."""

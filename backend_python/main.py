@@ -31,6 +31,7 @@ from src.repositories.room_repository import get_room_repository
 from src.schemas.internal import UserSession
 from src.schemas.room import ROOM_ID_PATTERN
 from src.services.base_orchestrator import BaseOrchestrator
+from src.services.company_info_service import CompanyInfoService
 from src.services.model_armor.model_armor_client import get_model_armor_service
 from src.services.orchestrator_factory import get_orchestrator, warm_up_orchestrator
 from src.services.pricing_service import PricingService
@@ -77,6 +78,8 @@ async def background_warmup(state: State) -> None:
             WarmupStep("firestore_async", get_async_firestore_client, in_thread=False, requires="firebase_admin"),
             # Prices edited in the admin console: load them before the first quote.
             WarmupStep("price_book", PricingService.ensure_fresh, in_thread=False),
+            # Company facts edited in the admin console (Phase 141): contacts, areas, FAQ...
+            WarmupStep("company_info", CompanyInfoService.ensure_fresh, in_thread=False),
         ],
         step_timeout_s=settings.WARMUP_STEP_TIMEOUT_SECONDS,
     )
@@ -357,7 +360,10 @@ class AppCheckMiddleware:
     # App Check token (loading reCAPTCHA first would delay the hero gallery), so
     # it was answered 403 and the page always fell back to stock content. Only
     # GET: POST /api/content/testimonials still needs App Check + a user token.
-    _PUBLIC_GET_PATHS = frozenset({"/api/content/testimonials", "/api/content/portfolio"})
+    # The company info (Phase 141) is read server-side by the site: no token there either.
+    _PUBLIC_GET_PATHS = frozenset(
+        {"/api/content/testimonials", "/api/content/portfolio", "/api/content/company-info"}
+    )
 
     def __init__(self, app: ASGIApp):
         self.app = app
@@ -518,6 +524,11 @@ app.include_router(admin_quotes_router)
 from src.api.routes.admin_price_book import router as admin_price_book_router
 
 app.include_router(admin_price_book_router)
+
+# Company info editable from the admin console (Phase 141 — "scheda società")
+from src.api.routes.admin_company_info import router as admin_company_info_router
+
+app.include_router(admin_company_info_router)
 
 # Admin content: portfolio, testimonials, KPIs/GDPR (Phase 128 — Fase 6.1b)
 from src.api.routes.admin_dashboard import router as admin_dashboard_router

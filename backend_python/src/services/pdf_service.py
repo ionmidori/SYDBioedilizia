@@ -5,7 +5,7 @@ Uses ReportLab Platypus (pure Python, zero system deps). The document is an
 AUTOMATIC DRAFT quote that a SYD technician approves after a site visit or a
 phone contact: the title, the status box, the "BOZZA" watermark, the legal
 box and the acknowledgement label say so (texts in
-`src/core/company.py::QUOTE_TERMS`).
+`src/core/company.py::quote_terms()`, from the company info).
 
 Rules this module guarantees (tests: tests/unit/test_pdf_service_v2.py):
 - the client is identified by NAME from the quote's `client_snapshot`
@@ -47,7 +47,7 @@ from reportlab.platypus import (
 )
 
 from src.core.brand import BRAND
-from src.core.company import COMPANY, QUOTE_TERMS
+from src.core.company import company, quote_terms
 from src.core.money import sum_amounts
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL
 from src.utils.format_it import format_date, format_eur, format_number, format_qty
@@ -126,7 +126,7 @@ def resolve_issue_date(quote_data: dict) -> datetime.datetime:
 def resolve_validity(quote_data: dict) -> tuple[datetime.datetime, int, datetime.datetime]:
     """(issue date, validity days, valid-until date) — shared by the PDF and the email."""
     issue_date = resolve_issue_date(quote_data)
-    days = int(quote_data.get("validity_days") or QUOTE_TERMS.validity_days)
+    days = int(quote_data.get("validity_days") or quote_terms().validity_days)
     return issue_date, days, issue_date + datetime.timedelta(days=days)
 
 
@@ -230,6 +230,8 @@ class PdfService:
         Returns:
             Raw PDF bytes.
         """
+        # Read once: the company info could be refreshed while the PDF is built.
+        firm, qt = company(), quote_terms()
         issue_date, validity_days, valid_until = resolve_validity(quote_data)
         quote_number = quote_data.get("quote_number") or ""
         version = int(quote_data.get("version") or 1)
@@ -244,7 +246,7 @@ class PdfService:
             topMargin=14 * mm,
             bottomMargin=20 * mm,
             title=f"{_DOC_TITLE} {quote_number}".strip(),
-            author=COMPANY.legal_name,
+            author=firm.legal_name,
             subject="Bozza di preventivo generata automaticamente",
         )
 
@@ -267,7 +269,7 @@ class PdfService:
             Image(str(logo.path), width=_LOGO_W, height=_LOGO_W / logo.aspect, hAlign="LEFT"),
             Spacer(1, 3 * mm),
             Paragraph(
-                f"{_txt(COMPANY.legal_name)}<br/>{_txt(COMPANY.full_address)}<br/>P.IVA {_txt(COMPANY.vat_id)}",
+                f"{_txt(firm.legal_name)}<br/>{_txt(firm.full_address)}<br/>P.IVA {_txt(firm.vat_id)}",
                 small,
             ),
         ]
@@ -294,7 +296,7 @@ class PdfService:
         rule.setStyle(TableStyle([("LINEABOVE", (0, 0), (-1, -1), 1.2, _ACCENT)]))
         story.append(rule)
         story.append(Spacer(1, 2 * mm))
-        story.append(Paragraph(f"<i>{_txt(QUOTE_TERMS.short_notice)}</i>", small))
+        story.append(Paragraph(f"<i>{_txt(qt.short_notice)}</i>", small))
         story.append(Spacer(1, 4 * mm))
 
         # ── Client + site ────────────────────────────────────────────────────
@@ -455,11 +457,11 @@ class PdfService:
             Paragraph("Condizioni", ParagraphStyle("H2C", parent=h2, spaceBefore=0)),
             Paragraph(f"<b>Validità:</b> {validity_days} giorni, fino al {format_date(valid_until)}.", normal),
             Paragraph("<b>Pagamento:</b>", normal),
-            *[Paragraph(f"• {_txt(term)}", normal) for term in QUOTE_TERMS.payment_terms],
+            *[Paragraph(f"• {_txt(term)}", normal) for term in qt.payment_terms],
         ]
         legal = [
-            Paragraph(_txt(QUOTE_TERMS.disclaimer_title.upper()), ParagraphStyle("LT", parent=label, textColor=_STATUS_INK)),
-            Paragraph(_txt(QUOTE_TERMS.disclaimer), small),
+            Paragraph(_txt(qt.disclaimer_title.upper()), ParagraphStyle("LT", parent=label, textColor=_STATUS_INK)),
+            Paragraph(_txt(qt.disclaimer), small),
         ]
         terms = Table([[conditions, legal]], colWidths=[_USABLE_W * 0.46, _USABLE_W * 0.54])
         terms.setStyle(TableStyle([
@@ -476,8 +478,8 @@ class PdfService:
         sig_style = ParagraphStyle("Sig", parent=small, fontSize=8.5)
         signatures = Table(
             [
-                [Paragraph("Per SYD Bioedilizia (tecnico incaricato)", sig_style), "",
-                 Paragraph(_txt(f"{QUOTE_TERMS.signature_label} — {client['name']}"), sig_style)],
+                [Paragraph(_txt(f"Per {firm.name} (tecnico incaricato)"), sig_style), "",
+                 Paragraph(_txt(f"{qt.signature_label} — {client['name']}"), sig_style)],
                 ["", "", ""],
                 [Paragraph("Data e firma", sig_style), "", Paragraph("Data e firma", sig_style)],
             ],
@@ -495,7 +497,7 @@ class PdfService:
         story.append(Spacer(1, 4 * mm))
         story.append(KeepTogether([signatures]))
 
-        footer = f"{COMPANY.legal_line} · {COMPANY.email} · {COMPANY.phone}"
+        footer = f"{firm.legal_line} · {firm.email} · {firm.phone}"
         doc.build(story, canvasmaker=lambda *a, **k: _NumberedCanvas(*a, footer_left=footer, **k))
         buffer.seek(0)
         return buffer.getvalue()

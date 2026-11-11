@@ -1,5 +1,5 @@
 """
-Public Content API — Testimonials & Portfolio.
+Public Content API — Testimonials, Portfolio & Company info.
 
 These endpoints replace direct Firestore reads from the frontend,
 enforcing the 3-Tier architecture boundary.
@@ -12,7 +12,9 @@ from src.core.logger import get_logger
 from src.core.rate_limit import limiter
 from src.db.firebase_client import get_firestore_client
 from src.schemas.admin_content import portfolio_blob_path
+from src.schemas.company_info_api import PublicCompanyInfo
 from src.schemas.internal import UserSession
+from src.services.company_info_service import CompanyInfoService
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
@@ -183,3 +185,19 @@ async def get_portfolio_projects(
         # collection at the HTTP layer — both return [].
         logger.warning(f"[portfolio] Firestore query failed [{type(e).__name__}]: {e}")
         return []
+
+
+# ── Company info (Phase 141) ─────────────────────────────────────────────────
+
+@router.get("/company-info", response_model=PublicCompanyInfo)
+@limiter.limit("60/minute")  # no App Check on this public GET (see AppCheckMiddleware)
+async def get_company_info(
+    request: Request,  # pyright: ignore[reportUnusedParameter]  # required by slowapi
+) -> PublicCompanyInfo:
+    """The company info the site shows: served from the cache, never a Firestore read per request."""
+    await CompanyInfoService.ensure_fresh()
+    return PublicCompanyInfo(
+        version=CompanyInfoService.version(),
+        updated_at=CompanyInfoService.updated_at(),
+        info=CompanyInfoService.snapshot(),
+    )

@@ -28,6 +28,9 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'email_outbox/o1'), { kind: 'quote_delivery', status: 'pending' });
   await setDoc(doc(db, 'app_config/price_book'), { version: 1, items: [] });
   await setDoc(doc(db, 'app_config/price_book/history/1'), { version: 1 });
+  // Phase 141: company info ("scheda società") is backend-only too: the site reads it through the API.
+  await setDoc(doc(db, 'app_config/company_info'), { version: 1, info: {} });
+  await setDoc(doc(db, 'app_config/company_info/history/1'), { version: 1 });
   await setDoc(doc(db, 'email_messages/m1'), { project_id: 'p1', delivery_id: 'd1' });
   await setDoc(doc(db, 'projects/p1/rooms/bagno'), { room_id: 'bagno', label: 'Bagno', room_type: 'bagno' });
   await setDoc(doc(db, 'guest_claim_tickets/h1'), { anonUid: 'anon-1', expiresAt: new Date(Date.now() + 600_000) });
@@ -70,6 +73,10 @@ const cases = [
   ['user reads the price book', false, () => getDoc(doc(owner, 'app_config/price_book'))],
   ['user edits the price book', false, () => setDoc(doc(owner, 'app_config/price_book'), { version: 2, items: [] })],
   ['user reads the price book history', false, () => getDoc(doc(owner, 'app_config/price_book/history/1'))],
+  ['user reads the company info', false, () => getDoc(doc(owner, 'app_config/company_info'))],
+  ['guest reads the company info', false, () => getDoc(doc(anon, 'app_config/company_info'))],
+  ['user edits the company info', false, () => setDoc(doc(owner, 'app_config/company_info'), { version: 2, info: {} })],
+  ['user reads the company info history', false, () => getDoc(doc(owner, 'app_config/company_info/history/1'))],
   ['user enqueues an email', false, () => setDoc(doc(owner, 'email_outbox/o2'), { kind: 'admin_notification' })],
   ['user reads message index', false, () => getDoc(doc(owner, 'email_messages/m1'))],
   // rooms (Phase 138): the owner reads them (room chips), only the backend writes
