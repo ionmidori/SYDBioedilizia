@@ -30,8 +30,9 @@ BUILTIN_SECTION_SLUGS: tuple[str, ...] = (
 # A Firestore document holds 1 MiB; the JSON size over-estimates the stored size.
 MAX_BYTES = 800 * 1024
 
+# [0-9], not \d: pydantic-core's regex \d also matches non-ASCII digits, JS \d does not (Golden Sync).
 SLUG_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
-TIME_PATTERN = r"^([01]\d|2[0-3]):[0-5]\d$"
+TIME_PATTERN = r"^([01][0-9]|2[0-3]):[0-5][0-9]$"
 # Same rule as the mailto: links of the quote emails (src/services/email_templates.py).
 EMAIL_PATTERN = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
 
@@ -93,7 +94,7 @@ class Address(_Model):
 class Identity(_Model):
     name: Title
     legal_name: Title
-    vat_id: Annotated[str, Field(pattern=r"^\d{11}$")]
+    vat_id: Annotated[str, Field(pattern=r"^[0-9]{11}$")]
     address: Address
     phone: Annotated[str, Field(min_length=1, max_length=30)]
     whatsapp: Annotated[str, Field(min_length=1, max_length=30)] | None = None
@@ -199,7 +200,7 @@ def _duplicates(values: list[str]) -> list[str]:
     seen: set[str] = set()
     repeated: list[str] = []
     for value in values:
-        key = value.casefold()
+        key = value.lower()  # same as toLowerCase() in the zod schema
         if key in seen:
             repeated.append(value)
         seen.add(key)
@@ -244,8 +245,8 @@ class CompanyInfo(_Model):
         ):
             if repeated := _duplicates(values):
                 problems.append(f"Duplicate {label}: {', '.join(repeated[:10])}.")
-        places = {p.casefold() for p in self.service_area.places}
-        if foreign := [loc.comune for loc in self.service_area.localities if loc.comune.casefold() not in places]:
+        places = {p.lower() for p in self.service_area.places}
+        if foreign := [loc.comune for loc in self.service_area.localities if loc.comune.lower() not in places]:
             problems.append(f"Localities must belong to a listed comune: {', '.join(foreign[:10])}.")
         categories = {c.name for c in self.faq_categories}
         if unknown := [f.category for f in self.faq if f.category not in categories]:

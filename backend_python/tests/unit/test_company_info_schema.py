@@ -175,6 +175,17 @@ def test_invalid_vat_and_email_are_rejected():
     _invalid(data)
 
 
+def test_only_ascii_digits_are_accepted_like_the_site():
+    """Golden Sync: JS \\d is ASCII-only, Python's regex engine would accept other scripts' digits."""
+    data = _valid()
+    data["identity"]["vat_id"] = "١٥٧١٤٩٩١٠٠٥"  # Arabic-Indic digits
+    _invalid(data)
+
+    data = _valid()
+    data["hours"] = [{"days": "Lun-Ven", "opens": "٠٩:00", "closes": "18:00"}]
+    _invalid(data)
+
+
 def test_text_is_stripped():
     data = _valid()
     data["identity"]["phone"] = "  +39 375 5463599  "
