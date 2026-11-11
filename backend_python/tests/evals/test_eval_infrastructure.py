@@ -431,3 +431,63 @@ def _eval_request():
     from src.schemas.quote import QuoteRequest
 
     return QuoteRequest(summary="Porta e termoarredo", channel="chat", session_id="eval")
+
+
+class TestCompanyInfoEval:
+    """Phase 141, PR-2: company questions answered from the company info, never a login."""
+
+    COMPANY = EVALS_DIR / "multi_room" / "company_info.test.json"
+    GOOD_REPLIES = [
+        "Puoi chiamarci al +39 375 5463599 o scrivere a sydbioedilizia@gmail.com.",
+        "SYD opera a Roma e provincia: in base alle informazioni che ho, Viterbo non rientra nella zona servita.",
+        "Sì, Velletri rientra nella zona servita.",
+        "Questa lavorazione non è indicata come attività svolta da SYD.",
+        "Il sopralluogo è gratuito e si richiede dopo il preventivo.",
+        "Su questo non ho informazioni nella scheda di SYD.",
+        "Questa lavorazione non è indicata come attività svolta da SYD.",
+    ]
+    GOOD_TOOLS: list[list[str]] = [[], ["check_service_area"], ["check_service_area"], [], [], ["get_company_info"], []]
+
+    @staticmethod
+    def _run(replies: list[str], tools: list[list[str]]):
+        from types import SimpleNamespace
+
+        from tests.evals.multi_room.fakes import ResponseRecorder, ToolCallRecorder
+
+        responses, calls = ResponseRecorder(), ToolCallRecorder()
+        responses.texts = {f"inv{i}": [text] for i, text in enumerate(replies)}
+        calls.calls = {f"inv{i}": [("syd_orchestrator", t) for t in names] for i, names in enumerate(tools)}
+        return SimpleNamespace(responses=responses, tool_calls=calls)
+
+    def test_the_set_is_a_guest_set_with_seven_turns(self) -> None:
+        from tests.evals.multi_room.fakes import GUEST_SETS
+
+        assert self.COMPANY.name in GUEST_SETS
+        case = EvalSet.model_validate_json(self.COMPANY.read_text(encoding="utf-8")).eval_cases[0]
+        assert len(case.conversation) == 7
+        assert case.session_input is not None and case.session_input.state["syd_session_context"]["is_guest"]
+
+    def test_check_passes_on_replies_from_the_company_info(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        assert BACKEND_CHECKS[self.COMPANY.name](self._run(self.GOOD_REPLIES, self.GOOD_TOOLS)) == []
+
+    def test_check_names_the_turns_that_guessed(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        replies = list(self.GOOD_REPLIES)
+        replies[3] = "Sì, facciamo anche piscine!"
+        tools = [list(t) for t in self.GOOD_TOOLS]
+        tools[1] = []
+        problems = BACKEND_CHECKS[self.COMPANY.name](self._run(replies, tools))
+        assert len(problems) == 2
+        assert "turn 2" in problems[0] and "check_service_area" in problems[0]
+        assert "turn 4" in problems[1]
+
+    def test_check_reports_a_login_request(self) -> None:
+        from tests.evals.multi_room.fakes import BACKEND_CHECKS
+
+        tools = [list(t) for t in self.GOOD_TOOLS]
+        tools[6] = ["request_login"]
+        problems = BACKEND_CHECKS[self.COMPANY.name](self._run(self.GOOD_REPLIES, tools))
+        assert problems == ["turn 7: 1 login requests, expected 0"]
