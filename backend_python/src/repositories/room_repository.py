@@ -84,9 +84,11 @@ class RoomRepository:
         await self._project(project_id).collection(ROOMS).document(room_id).update(
             {"intervention_spec": spec.model_dump(), "updated_at": utc_now()}
         )
+        # No project id in the log: from the quote tool it is the chat session id,
+        # an access token for guests (CodeQL py/clear-text-logging).
         logger.info(
             "[Rooms] Intervention spec saved",
-            extra={"project_id": project_id, "room_id": room_id, "packages": len(spec.packages)},
+            extra={"room_id": room_id, "packages": len(spec.packages)},
         )
 
     async def require_room(self, project_id: str, room_id: str) -> RoomSchema:

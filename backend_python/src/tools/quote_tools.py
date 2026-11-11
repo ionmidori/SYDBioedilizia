@@ -670,9 +670,11 @@ async def _save_spec(
         spec = spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
         await get_room_repository().save_intervention_spec(project_id, room_id, spec)
     except (GoogleAPIError, ValidationError) as exc:
+        # No project id: it may be the chat session id, an access token for guests
+        # (CodeQL py/clear-text-logging).
         logger.warning(
             "[QuoteTool] Intervention spec not saved.",
-            extra={"project_id": project_id, "room_id": room_id, "error_type": type(exc).__name__},
+            extra={"room_id": room_id, "error_type": type(exc).__name__},
         )
 
 
