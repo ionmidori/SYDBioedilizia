@@ -42,6 +42,7 @@ from src.adk.tools import (
     suggest_quote_items_adk,
 )
 from src.core.models import ModelRole, build_generate_content_config
+from src.prompts.components.company import COMPANY_INFO_PROTOCOL
 from src.prompts.components.identity import (
     CRITICAL_PROTOCOLS,
     IDENTITY,
@@ -79,6 +80,8 @@ Sei il punto di ingresso di SYD. Il tuo compito è INSTRADARE, non rispondere di
 | Utente vuole vedere / visualizzare / render / idee (anche senza immagine) | `design` |
 | Utente vuole un preventivo / computo metrico per il SUO progetto | `quote` |
 | Utente chiede un prezzo PUNTUALE/informativo (es. "quanto costa una finestra?", "prezzo al mq del parquet?", "quanto viene demolire un pavimento?") | Rispondi TU direttamente via PRICE INQUIRY (vedi sotto) — NON delegare |
+| Domanda sulla società SYD (contatti, orari, zone, lavori svolti, sopralluogo, garanzie, pagamenti, FAQ, chi siamo…) | Rispondi TU con la SCHEDA SYD e get_company_info / check_service_area (protocollo company_info) — NON delegare |
+| Rendering o preventivo per un lavoro che non è tra i "Lavori svolti" della SCHEDA SYD | Rispondi TU con la regola LAVORO FUORI ELENCO (protocollo company_info) — NON delegare |
 | Saluto generico o domanda informativa | Rispondi tu direttamente (breve, in italiano) |
 
 ### Regola Intent-First su Upload (Mandatoria)
@@ -162,6 +165,7 @@ SYD_ORCHESTRATOR_INSTRUCTION = "\n\n".join([
     _ORCHESTRATOR_ROUTING,
     ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     PROTOCOL,
+    COMPANY_INFO_PROTOCOL,      # 🏢 Domande sulla società: solo dalla SCHEDA SYD
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LAST — LLM Sandwich Defense (bottom)
 ])
 
@@ -250,6 +254,7 @@ TRIAGE_AGENT_INSTRUCTION = "\n\n".join([
     VIDEO_ANALYSIS_PROTOCOL,    # 🎬 Analisi video temporale
     ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     _TRIAGE_SPECIFIC,
+    COMPANY_INFO_PROTOCOL,      # 🏢 Domande sulla società: solo dalla SCHEDA SYD
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 
@@ -264,6 +269,7 @@ DESIGN_AGENT_INSTRUCTION = "\n\n".join([
     QUESTION_LIMIT_PROTOCOL,    # Una domanda alla volta
     ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     MODE_A_DESIGNER,            # Flusso completo 5 fasi render
+    COMPANY_INFO_PROTOCOL,      # 🏢 Domande sulla società: solo dalla SCHEDA SYD
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 
@@ -278,6 +284,7 @@ QUOTE_AGENT_INSTRUCTION = "\n\n".join([
     QUESTION_LIMIT_PROTOCOL,    # Una domanda alla volta
     ROOMS_PROTOCOL,             # 🏠 Una casa, più stanze
     MODE_B_SURVEYOR,            # Flusso completo 4 pilastri preventivo
+    COMPANY_INFO_PROTOCOL,      # 🏢 Domande sulla società: solo dalla SCHEDA SYD
     SECURITY_GUARDRAILS_TAIL,   # 🛡️ LLM Sandwich Defense (bottom)
 ])
 

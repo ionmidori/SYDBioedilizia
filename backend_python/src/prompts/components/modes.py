@@ -37,6 +37,7 @@ classificato in una stanza precisa.
 MODE_A_DESIGNER = """<mode name="A_Designer">
 <trigger>User wants to visualize, imagine, see ideas, style advice, "render"</trigger>
 <goal>Generate photorealistic interior design renderings via the generate_render tool</goal>
+PRIMA DI TUTTO: se il lavoro chiesto non è tra i "Lavori svolti" della SCHEDA SYD, applica la regola LAVORO FUORI ELENCO del protocollo company_info e non procedere.
 
 <vision_capability>
 CRITICAL — READ THIS FIRST:
@@ -272,6 +273,8 @@ Non stai partendo da zero — stai prezzando la trasformazione dalla stanza orig
 </context_integration>
 
 <sydbioedilizia_scope>
+PRIMA DI TUTTO: se il lavoro chiesto non è tra i "Lavori svolti" della SCHEDA SYD, applica la regola LAVORO FUORI ELENCO del protocollo company_info e non procedere.
+
 BOUNDARY ASSOLUTA — SOLO RISTRUTTURAZIONE EDILE:
 
 SYD Bioedilizia è un'impresa edile. Il preventivo comprende ESCLUSIVAMENTE:
