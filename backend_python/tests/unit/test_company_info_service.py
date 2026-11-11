@@ -139,3 +139,34 @@ async def test_with_no_firestore_document_the_seed_keeps_serving(db):
 def test_the_snapshot_is_not_shared_with_callers(db):
     CompanyInfoService.snapshot().identity.phone = "000"
     assert CompanyInfoService.snapshot().identity.phone == SEED_PHONE
+
+
+async def test_reading_after_the_ttl_starts_a_background_refresh(live):
+    """Emails and PDFs only read the snapshot: reading must keep it fresh on every instance."""
+    await CompanyInfoService.ensure_fresh()
+    live.put(*PATH, _stored("06 333", 5, NOW + timedelta(minutes=10)))
+    CompanyInfoService._refresh_after = time.monotonic() - 1  # TTL elapsed
+
+    assert CompanyInfoService.snapshot().identity.phone == "06 111"  # served at once, never blocks
+    assert CompanyInfoService._refresh_task is not None
+    await CompanyInfoService._refresh_task
+    assert CompanyInfoService.snapshot().identity.phone == "06 333"
+
+
+async def test_reading_within_the_ttl_starts_no_refresh(live):
+    await CompanyInfoService.ensure_fresh()
+    spy = AsyncMock(wraps=company_info.read_state)
+    with patch.object(company_info, "read_state", spy):
+        CompanyInfoService.snapshot()
+        CompanyInfoService.snapshot()
+    assert spy.await_count == 0
+
+
+async def test_reading_from_a_worker_thread_after_the_ttl_does_not_fail(live):
+    """The PDF is built in a thread pool, where no event loop runs."""
+    await CompanyInfoService.ensure_fresh()
+    CompanyInfoService._refresh_after = time.monotonic() - 1
+    CompanyInfoService._refresh_task = None
+    phone = await asyncio.to_thread(lambda: CompanyInfoService.snapshot().identity.phone)
+    assert phone == "06 111"
+    assert CompanyInfoService._refresh_task is None

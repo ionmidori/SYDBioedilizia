@@ -52,6 +52,8 @@ def test_next_steps_say_the_visit_is_asked_after_the_quote():
     mail = _client()
     assert "sopralluogo gratuito" in mail.text
     assert "Un nostro tecnico ti contatta per un sopralluogo" not in mail.text
+    # every step keeps its subject: who checks the measurements is the technician
+    assert "Un nostro tecnico verifica con te misure e lavorazioni" in mail.text
 
 
 def test_client_email_without_a_name_or_attachment_or_number():

@@ -50,7 +50,7 @@ _GUTTER = 32
 DRAFT_LABEL = "Bozza · da confermare con il tecnico"
 NEXT_STEPS = (
     "Se vuoi un sopralluogo gratuito, chiedilo rispondendo a questa email o chiamandoci.",
-    "Verifica con te misure e lavorazioni e conferma il preventivo con gli importi definitivi.",
+    "Un nostro tecnico verifica con te misure e lavorazioni e conferma il preventivo con gli importi definitivi.",
     "Se ti convince, firmi l'accettazione e concordiamo l'inizio dei lavori.",
 )
 

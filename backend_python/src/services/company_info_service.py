@@ -4,7 +4,8 @@ The company info every instance serves (Phase 141): a cached copy of
 
 Same design as PricingService (src/services/pricing_service.py), copied rather
 than shared so the price book's cache stays untouched: reads are synchronous
-and never block on I/O, async entry points call `ensure_fresh()` first, and if
+and never block on I/O (a read after the TTL starts a background refresh; the
+first load is awaited by the startup warm-up), and if
 Firestore cannot be read the previous copy (or the seed) keeps serving. The
 company info changes rarely, so the TTL is five minutes (owner's choice); the
 instance that saves an edit applies it at once.
@@ -41,9 +42,27 @@ class CompanyInfoService:
 
     @classmethod
     def snapshot(cls) -> CompanyInfo:
-        """The company info being served (a copy: callers may mutate it)."""
+        """The company info being served (a copy: callers may mutate it).
+
+        Reading also keeps it fresh: once the TTL has expired, a read made on the
+        event loop starts ONE background refresh and returns the current copy at
+        once. Emails and PDFs only read the snapshot, so every instance renews it
+        without each caller having to remember `ensure_fresh()`.
+        """
+        cls._refresh_in_background_if_due()
         current = cls._live if cls._live is not None else company_info.seed_info()
         return current.model_copy(deep=True)
+
+    @classmethod
+    def _refresh_in_background_if_due(cls) -> None:
+        if time.monotonic() < cls._refresh_after:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # a worker thread (e.g. the PDF build): the next read on the loop refreshes
+        if cls._refresh_task is None or cls._refresh_task.done():
+            cls._refresh_task = loop.create_task(cls.refresh_now())
 
     @classmethod
     def version(cls) -> int:

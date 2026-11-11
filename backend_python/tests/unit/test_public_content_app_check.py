@@ -42,7 +42,6 @@ async def test_public_content_get_needs_no_app_check(path):
 async def test_company_info_get_needs_no_app_check(monkeypatch):
     """The site reads the company info (Phase 141) server-side, without an App Check token."""
     monkeypatch.setattr(CompanyInfoService, "ensure_fresh", AsyncMock())
-    CompanyInfoService.reset_cache()
     resp = await _request("GET", "/api/content/company-info")
     assert resp.status_code == 200
     body = resp.json()

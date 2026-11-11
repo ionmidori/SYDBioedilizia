@@ -7,6 +7,8 @@ from io import BytesIO
 import pytest
 from pypdf import PdfReader
 from src.core.company import company, quote_terms
+from src.services import company_info
+from src.services.company_info_service import CompanyInfoService
 from src.services.pdf_service import (
     PdfService,
     quote_pdf_blob_path,
@@ -247,3 +249,15 @@ def test_the_draft_status_is_a_compact_label_not_a_full_width_band():
     width, _ = box.wrap(240, 500)
     assert width < 160
     assert box.hAlign == "RIGHT"
+
+
+def test_the_signature_names_the_company_from_the_company_info():
+    """Phase 141: no company fact is hardcoded in the PDF, the signature included."""
+    info = company_info.seed_info()
+    info.identity.name = "Ditta Prova"
+    CompanyInfoService.apply(info, 1, datetime(2026, 11, 11, tzinfo=UTC))
+    try:
+        text = _flat(PdfService().generate_pdf_bytes(_quote()))
+    finally:
+        CompanyInfoService.reset_cache()
+    assert "Per Ditta Prova (tecnico incaricato)" in text

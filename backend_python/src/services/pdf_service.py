@@ -478,7 +478,7 @@ class PdfService:
         sig_style = ParagraphStyle("Sig", parent=small, fontSize=8.5)
         signatures = Table(
             [
-                [Paragraph("Per SYD Bioedilizia (tecnico incaricato)", sig_style), "",
+                [Paragraph(_txt(f"Per {firm.name} (tecnico incaricato)"), sig_style), "",
                  Paragraph(_txt(f"{qt.signature_label} — {client['name']}"), sig_style)],
                 ["", "", ""],
                 [Paragraph("Data e firma", sig_style), "", Paragraph("Data e firma", sig_style)],
