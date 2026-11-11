@@ -360,7 +360,10 @@ class AppCheckMiddleware:
     # App Check token (loading reCAPTCHA first would delay the hero gallery), so
     # it was answered 403 and the page always fell back to stock content. Only
     # GET: POST /api/content/testimonials still needs App Check + a user token.
-    _PUBLIC_GET_PATHS = frozenset({"/api/content/testimonials", "/api/content/portfolio"})
+    # The company info (Phase 141) is read server-side by the site: no token there either.
+    _PUBLIC_GET_PATHS = frozenset(
+        {"/api/content/testimonials", "/api/content/portfolio", "/api/content/company-info"}
+    )
 
     def __init__(self, app: ASGIApp):
         self.app = app

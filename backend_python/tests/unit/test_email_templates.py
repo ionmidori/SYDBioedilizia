@@ -3,7 +3,7 @@ import datetime
 import re
 
 from src.core.brand import BRAND
-from src.core.company import COMPANY
+from src.core.company import SITE_URL, company
 from src.services.email_templates import (
     RequestDigest,
     admin_client_followup_email,
@@ -43,8 +43,15 @@ def test_client_email_content():
     assert "sopralluogo" in mail.text and "contatto telefonico" in mail.text
     assert f"Area riservata: {dashboard_quotes_url()}" in mail.text
     assert _web_links(mail.html) == [dashboard_quotes_url()]
-    assert dashboard_quotes_url() == f"{COMPANY.url}/dashboard/quotes"
-    assert COMPANY.phone in mail.text and COMPANY.legal_line in mail.html
+    assert dashboard_quotes_url() == f"{SITE_URL}/dashboard/quotes"
+    assert company().phone in mail.text and company().legal_line in mail.html
+
+
+def test_next_steps_say_the_visit_is_asked_after_the_quote():
+    """Phase 141: the free site visit is asked by the customer after the quote, by email or phone."""
+    mail = _client()
+    assert "sopralluogo gratuito" in mail.text
+    assert "Un nostro tecnico ti contatta per un sopralluogo" not in mail.text
 
 
 def test_client_email_without_a_name_or_attachment_or_number():
@@ -182,7 +189,7 @@ def test_every_email_is_a_light_italian_document_with_the_logo():
         assert '<meta name="color-scheme" content="light">' in html
         assert '<meta name="supported-color-schemes" content="light">' in html
         logo = BRAND.email_logo
-        assert f'<img src="{logo.url}" width="{logo.width}" height="{logo.height}" alt="{COMPANY.name}"' in html
+        assert f'<img src="{logo.url}" width="{logo.width}" height="{logo.height}" alt="{company().name}"' in html
         # Gmail drops <body> styles: the canvas is painted by the outer table too.
         assert f'bgcolor="{BRAND.color("canvas")}"' in html and f'bgcolor="{BRAND.color("surface")}"' in html
         # Preheader: hidden from every client, Outlook included.
@@ -193,10 +200,10 @@ def test_every_email_is_a_light_italian_document_with_the_logo():
 
 
 def test_footer_links_call_and_write_to_the_company():
-    phone = "".join(c for c in COMPANY.phone if c.isdigit() or c == "+")
+    phone = "".join(c for c in company().phone if c.isdigit() or c == "+")
     for mail in _all_emails():
         assert f'href="tel:{phone}"' in mail.html
-        assert f'href="mailto:{COMPANY.email}"' in mail.html
+        assert f'href="mailto:{company().email}"' in mail.html
         assert f"color:{BRAND.color('ink-muted')}" in mail.html
 
 

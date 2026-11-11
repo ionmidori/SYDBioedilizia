@@ -6,7 +6,7 @@ from io import BytesIO
 
 import pytest
 from pypdf import PdfReader
-from src.core.company import COMPANY, QUOTE_TERMS
+from src.core.company import company, quote_terms
 from src.services.pdf_service import (
     PdfService,
     quote_pdf_blob_path,
@@ -63,7 +63,7 @@ def test_pdf_has_the_identity_the_admin_and_client_need():
     assert "Cucina via Roma" in text and "Via Roma 1, 00184 Roma" in text
     assert "Rifacimento cucina" in text and "Secondo piano senza ascensore" in text
     assert "Sopralluogo concordato martedì." in text
-    assert COMPANY.legal_name in text and f"P.IVA {COMPANY.vat_id}" in text and COMPANY.full_address in text
+    assert company().legal_name in text and f"P.IVA {company().vat_id}" in text and company().full_address in text
     assert "Pagina 1 di 1" in text
 
 
@@ -76,13 +76,13 @@ def test_pdf_never_shows_the_uid_or_the_project_id():
 
 def test_pdf_states_it_is_an_automatic_draft_and_the_terms():
     text = _flat(PdfService().generate_pdf_bytes(_quote()))
-    assert _flat_text(QUOTE_TERMS.short_notice) in text
-    assert _flat_text(QUOTE_TERMS.disclaimer) in text
+    assert _flat_text(quote_terms().short_notice) in text
+    assert _flat_text(quote_terms().disclaimer) in text
     assert "sopralluogo" in text and "contatto telefonico" in text
     assert "Validità: 30 giorni, fino al 10/11/2026" in text
-    for term in QUOTE_TERMS.payment_terms:
+    for term in quote_terms().payment_terms:
         assert _flat_text(term) in text
-    assert QUOTE_TERMS.signature_label in text
+    assert quote_terms().signature_label in text
 
 
 def _flat_text(value: str) -> str:
@@ -239,7 +239,7 @@ def test_a_typical_quote_fits_one_page_with_the_acknowledgement():
     pages = _pages(pdf)
     assert len(pages) == 1
     text = re.sub(r"\s+", " ", pages[0].extract_text())
-    assert QUOTE_TERMS.signature_label in text and "Data e firma" in text
+    assert quote_terms().signature_label in text and "Data e firma" in text
 
 
 def test_the_draft_status_is_a_compact_label_not_a_full_width_band():

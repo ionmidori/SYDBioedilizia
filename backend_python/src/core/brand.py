@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from src.core.company import COMPANY
+from src.core.company import SITE_URL
 
 BRAND_DIR = Path(__file__).resolve().parent.parent / "brand"
 # The email logo is drawn at a third of its pixels, so it stays sharp on 3x screens.
@@ -86,7 +86,7 @@ def load_brand(directory: Path = BRAND_DIR) -> Brand:
         theme=str(tokens["theme"]),
         surfaces=cast(dict[str, dict[str, str]], tokens["surfaces"]),
         email_logo=EmailLogo(
-            url=f"{COMPANY.url}{email['url']}",
+            url=f"{SITE_URL}{email['url']}",
             width=email_w // _EMAIL_LOGO_DENSITY,
             height=email_h // _EMAIL_LOGO_DENSITY,
         ),

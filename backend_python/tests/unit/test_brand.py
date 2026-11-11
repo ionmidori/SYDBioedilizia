@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from src.core.brand import BRAND, load_brand
-from src.core.company import COMPANY
+from src.core.company import SITE_URL
 
 SERVICES = Path(__file__).resolve().parents[2] / "src" / "services"
 # Hex, CSS rgb()/rgba(), ReportLab's named and constructed colours (colors.white,
@@ -37,7 +37,7 @@ def test_an_unknown_role_or_surface_fails_loudly():
 
 def test_email_logo_is_served_by_the_site_at_a_third_of_its_pixels():
     logo = BRAND.email_logo
-    assert logo.url.startswith(f"{COMPANY.url}/brand/") and logo.url.endswith(".png")
+    assert logo.url.startswith(f"{SITE_URL}/brand/") and logo.url.endswith(".png")
     assert (logo.width, logo.height) == (222, 40)
 
 

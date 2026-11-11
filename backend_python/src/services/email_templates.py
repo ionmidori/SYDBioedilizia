@@ -13,7 +13,7 @@ provider. Rules (tests: tests/unit/test_email_templates.py):
 - every dynamic value is HTML-escaped and subjects/headers are single-line
   (a client name with a newline cannot inject headers);
 - the wording says what the document is: an AUTOMATIC DRAFT confirmed by a
-  technician after a site visit or phone contact (`QUOTE_TERMS`).
+  technician after a site visit or phone contact (`quote_terms()`).
 
 Layout v3 follows the site's brand: colours are semantic roles of the light
 theme (`BRAND.color`, generated from web_client/brand), never literals. The
@@ -31,7 +31,7 @@ from html import escape
 from typing import Any
 
 from src.core.brand import BRAND
-from src.core.company import COMPANY
+from src.core.company import SITE_URL, company
 from src.core.money import Amount, to_cents
 from src.utils.format_it import format_date, format_eur
 
@@ -49,7 +49,7 @@ _GUTTER = 32
 
 DRAFT_LABEL = "Bozza · da confermare con il tecnico"
 NEXT_STEPS = (
-    "Un nostro tecnico ti contatta per un sopralluogo o una telefonata.",
+    "Se vuoi un sopralluogo gratuito, chiedilo rispondendo a questa email o chiamandoci.",
     "Verifica con te misure e lavorazioni e conferma il preventivo con gli importi definitivi.",
     "Se ti convince, firmi l'accettazione e concordiamo l'inizio dei lavori.",
 )
@@ -87,7 +87,7 @@ def attachment_filename(quote_number: str | None) -> str:
 
 
 def dashboard_quotes_url() -> str:
-    return f"{COMPANY.url}/dashboard/quotes"
+    return f"{SITE_URL}/dashboard/quotes"
 
 
 def digest_from_quote(quote: dict[str, Any]) -> RequestDigest:
@@ -160,12 +160,13 @@ def _button(url: str, label: str) -> str:
 
 
 def _phone_href() -> str:
-    return "tel:" + "".join(ch for ch in COMPANY.phone if ch.isdigit() or ch == "+")
+    return "tel:" + "".join(ch for ch in company().phone if ch.isdigit() or ch == "+")
 
 
 def _document(inner: str, *, title: str, preheader: str) -> str:
     canvas, surface, line, ink, muted = _c("canvas"), _c("surface"), _c("line"), _c("ink"), _c("ink-muted")
     logo = BRAND.email_logo
+    firm = company()
     # Fills the inbox preview after the preheader, so the body text does not leak into it.
     spacer = "&#x34F;&zwnj;&nbsp;" * 40
     head = (
@@ -183,7 +184,7 @@ def _document(inner: str, *, title: str, preheader: str) -> str:
     )
     header = (
         f'<tr><td class="syd-gutter" style="padding:28px {_GUTTER}px 20px;">'
-        f'<img src="{_attr(logo.url)}" width="{logo.width}" height="{logo.height}" alt="{_attr(COMPANY.name)}" '
+        f'<img src="{_attr(logo.url)}" width="{logo.width}" height="{logo.height}" alt="{_attr(firm.name)}" '
         f'style="display:block;width:{logo.width}px;height:{logo.height}px;border:0;outline:0;text-decoration:none;'
         f'font-family:{_SERIF};font-size:20px;line-height:{logo.height}px;color:{ink};"></td></tr>'
         # Decorative sand rule, the brand's accent (not information: no contrast requirement).
@@ -201,8 +202,8 @@ def _document(inner: str, *, title: str, preheader: str) -> str:
     footer = (
         f'<tr><td class="syd-gutter" style="padding:20px {_GUTTER}px 28px;border-top:1px solid {line};'
         f'font-family:{_SANS};font-size:13px;line-height:1.6;color:{muted};">'
-        f"{_t(COMPANY.legal_line)} · {_t(COMPANY.full_address)}<br>"
-        f"{_link(_phone_href(), COMPANY.phone, muted)} · {_link(f'mailto:{COMPANY.email}', COMPANY.email, muted)}"
+        f"{_t(firm.legal_line)} · {_t(firm.full_address)}<br>"
+        f"{_link(_phone_href(), firm.phone, muted)} · {_link(f'mailto:{firm.email}', firm.email, muted)}"
         "</td></tr>"
     )
     card = (
@@ -281,10 +282,11 @@ def client_quote_email(
     admin_message: str | None = None,
 ) -> EmailContent:
     name = one_line(client_name)
+    firm = company()
     greeting = f"Gentile {name}," if name else "Gentile Cliente,"
     number = one_line(quote_number)
     ref = f"{number} (rev. {revision})" if number and revision > 1 else number
-    subject = f"Bozza di preventivo {number} – {COMPANY.name}" if number else f"Bozza di preventivo – {COMPANY.name}"
+    subject = f"Bozza di preventivo {number} – {firm.name}" if number else f"Bozza di preventivo – {firm.name}"
     where = (
         "la trovi in allegato (PDF) e nella tua area riservata"
         if has_attachment
@@ -302,7 +304,7 @@ def client_quote_email(
     # Optional note typed by the admin in the Send dialog (plain text, escaped).
     note = (admin_message or "").strip()
     intro = f"abbiamo preparato la bozza di preventivo{f' {ref}' if ref else ''} per il tuo progetto: {where}."
-    closing = f"Per qualsiasi domanda rispondi a questa email o chiamaci al {COMPANY.phone}."
+    closing = f"Per qualsiasi domanda rispondi a questa email o chiamaci al {firm.phone}."
 
     text = "\n".join(
         [
@@ -325,7 +327,7 @@ def client_quote_email(
             closing,
             "",
             "Cordiali saluti,",
-            COMPANY.name,
+            firm.name,
         ]
     )
     muted = _c("ink-muted")
@@ -343,8 +345,8 @@ def client_quote_email(
         + (_note_box("Messaggio dal nostro team", note) if note else "")
         + _p(f"<strong>Importante:</strong> {_t(notice)}", f"font-size:14px;line-height:1.6;color:{muted};")
         # The text version's sentence, with the phone number as a link.
-        + _p(_t(closing).replace(_t(COMPANY.phone), _link(_phone_href(), COMPANY.phone, _c("primary-ink"))))
-        + _p(f"Cordiali saluti,<br>{_t(COMPANY.name)}"),
+        + _p(_t(closing).replace(_t(firm.phone), _link(_phone_href(), firm.phone, _c("primary-ink"))))
+        + _p(f"Cordiali saluti,<br>{_t(firm.name)}"),
         title=subject,
         preheader=f"{DRAFT_LABEL}: importo indicativo {total}",
     )
