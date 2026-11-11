@@ -49,7 +49,7 @@ export function Footer() {
                             {[
                                 { label: 'Home', href: '/' },
                                 { label: 'Servizi', href: pathname === '/' ? '#services' : '/#services' },
-                                { label: 'Portfolio', href: pathname === '/' ? '#portfolio' : '/#portfolio' },
+                                { label: 'Progetti', href: '/progetti' },
                                 { label: 'Chi Siamo', href: '/chi-siamo' },
                                 { label: 'Blog', href: '/blog' },
                                 { label: 'FAQ', href: '/faq' },

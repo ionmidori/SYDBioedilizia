@@ -37,7 +37,7 @@ describe('Portfolio', () => {
 
         render(<Portfolio />);
 
-        await screen.findAllByText('Area');
+        await screen.findAllByText('Descrizione del progetto');
         expect(screen.queryByRole('group', { name: 'Filtra per categoria' })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Tutti' })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Cucina' })).not.toBeInTheDocument();
@@ -76,33 +76,95 @@ describe('Portfolio', () => {
         });
     });
 
-    it('shows only Area, not Tempo or Budget, on the project stats', async () => {
-        mockPortfolioResponse([makeProject({ id: 'a' })]);
+    it('shows no project info on the cards, only the description', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a', title: 'Bagno vero', category: 'Cucina', location: 'Roma' })]);
 
         render(<Portfolio />);
 
-        await waitFor(() => {
-            expect(screen.getAllByText('Area').length).toBeGreaterThan(0);
-        });
+        await screen.findAllByText('Descrizione del progetto');
+        // No title, category, place or stats rendered as visible text on the cards.
+        expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+        expect(screen.queryByText('Cucina')).not.toBeInTheDocument();
+        expect(screen.queryByText('Roma')).not.toBeInTheDocument();
+        expect(screen.queryByText('Area')).not.toBeInTheDocument();
         expect(screen.queryByText('Tempo')).not.toBeInTheDocument();
         expect(screen.queryByText('Budget')).not.toBeInTheDocument();
     });
 
-    it('shows the description by default and lets the user hide it', async () => {
+    it('keeps the description collapsed by default and opens it with a click', async () => {
         mockPortfolioResponse([makeProject({ id: 'a', description: 'Descrizione del progetto' })]);
 
         render(<Portfolio />);
 
         // The real project's card (the examples after it are cards too).
-        const card = (await screen.findByText('Descrizione del progetto', { selector: 'span' })).closest('button')!;
+        const card = (await screen.findAllByText('Descrizione del progetto', { selector: 'span' }))[0]!.closest('button')!;
+        expect(card).toHaveAttribute('aria-expanded', 'false');
+        expect(within(card).getByText('Descrizione')).toBeInTheDocument();
+
+        fireEvent.click(card);
+
         expect(card).toHaveAttribute('aria-expanded', 'true');
-        expect(within(card).getByText('Descrizione del progetto')).toBeVisible();
-        expect(within(card).getByText('Nascondi descrizione')).toBeInTheDocument();
+        expect(within(card).getByText('Chiudi')).toBeInTheDocument();
 
         fireEvent.click(card);
 
         expect(card).toHaveAttribute('aria-expanded', 'false');
-        expect(within(card).getByText('Mostra descrizione')).toBeInTheDocument();
+    });
+
+    it('closes the open description when pressing the Escape key', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a', description: 'Descrizione del progetto' })]);
+
+        render(<Portfolio />);
+
+        const card = (await screen.findAllByText('Descrizione del progetto', { selector: 'span' }))[0]!.closest('button')!;
+        fireEvent.click(card);
+        expect(card).toHaveAttribute('aria-expanded', 'true');
+
+        fireEvent.keyDown(card, { key: 'Escape' });
+        expect(card).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('never dims a card or its photo with an opacity or a scrim', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a' })]);
+
+        const { container } = render(<Portfolio />);
+        await screen.findAllByText('Descrizione del progetto');
+
+        const cards = container.querySelectorAll('button[aria-expanded]');
+        expect(cards.length).toBeGreaterThan(0);
+        cards.forEach((card) => {
+            // Class tokens only (not the markup): an opacity utility or a gradient layer.
+            [card, ...Array.from(card.querySelectorAll('*'))].forEach((node) => {
+                const tokens = (node.getAttribute('class') ?? '').split(/\s+/);
+                expect(tokens.filter((t) => /(^|:)(opacity-|bg-gradient-|bg-linear-)/.test(t))).toEqual([]);
+            });
+        });
+    });
+
+    it('gives each card an explicit name and describes it only while open', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a', title: 'Bagno vero', location: 'Roma' })]);
+
+        render(<Portfolio />);
+
+        const card = (await screen.findAllByRole('button', { name: 'Bagno vero, Roma. Mostra la descrizione.' }))[0]!;
+        expect(card).not.toHaveAttribute('aria-describedby');
+
+        fireEvent.click(card);
+
+        expect(card).toHaveAccessibleName('Bagno vero, Roma. Nascondi la descrizione.');
+        const descriptionId = card.getAttribute('aria-describedby')!;
+        expect(document.getElementById(descriptionId)).toHaveTextContent('Descrizione del progetto');
+    });
+
+    it('does not use cinematic-focus on cards: its focus scale is cropped by the desktop row', async () => {
+        mockPortfolioResponse([makeProject({ id: 'a' })]);
+
+        const { container } = render(<Portfolio />);
+        await screen.findAllByText('Descrizione del progetto');
+
+        container.querySelectorAll('button[aria-expanded]').forEach((card) => {
+            expect(card).not.toHaveClass('cinematic-focus');
+        });
     });
 
     it('uses the server-rendered projects without fetching again', async () => {
@@ -111,7 +173,7 @@ describe('Portfolio', () => {
 
         render(<Portfolio initial={projects} />);
 
-        expect(screen.getAllByText('Bagno vero').length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Bagno vero/).length).toBeGreaterThan(0);
         expect(global.fetch).not.toHaveBeenCalled();
     });
 
@@ -120,7 +182,7 @@ describe('Portfolio', () => {
 
         render(<Portfolio initial={[]} />);
 
-        expect((await screen.findAllByText('Arrivato dopo')).length).toBeGreaterThan(0);
+        expect((await screen.findAllByText(/Arrivato dopo/)).length).toBeGreaterThan(0);
         expect(global.fetch).toHaveBeenCalledTimes(1);
     });
 
@@ -138,12 +200,12 @@ describe('Portfolio', () => {
         render(<Portfolio />);
 
         // Before the response the rail already shows 6 examples: wait for the real one.
-        await screen.findAllByText('Bagno vero');
+        await screen.findAllByText(/Bagno vero/);
         // 1 real + 5 examples = PORTFOLIO_MIN_CARDS cards in the mobile rail.
         expect(screen.getAllByRole('button', { name: /Vai all'elemento/ })).toHaveLength(6);
         expect(screen.getAllByText(/^Esempio/).length).toBeGreaterThan(0);
         // The real project carries no "Esempio" label.
-        const realCard = screen.getByText(/^Bagno vero, Roma./).closest('button')!;
+        const realCard = screen.getAllByRole('button', { name: /^Bagno vero, Roma\./ })[0]!;
         expect(within(realCard).queryByText(/^Esempio/)).not.toBeInTheDocument();
     });
 

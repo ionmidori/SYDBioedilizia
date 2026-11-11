@@ -20,8 +20,12 @@ const commit = (file: string, msg: string) => {
     return git('rev-parse', 'HEAD');
 };
 
+const BASH = process.platform === 'win32' && fs.existsSync('C:\\Program Files\\Git\\bin\\bash.exe')
+    ? 'C:\\Program Files\\Git\\bin\\bash.exe'
+    : 'bash';
+
 const run = (env: Record<string, string>) =>
-    spawnSync('bash', [SCRIPT], {
+    spawnSync(BASH, [SCRIPT], {
         cwd: path.join(repo, 'web_client'),
         env: { ...process.env, VERCEL_GIT_COMMIT_REF: 'feat/x', VERCEL_GIT_PREVIOUS_SHA: '', ...env },
         encoding: 'utf8',

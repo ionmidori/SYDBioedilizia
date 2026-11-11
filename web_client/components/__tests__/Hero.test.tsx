@@ -59,10 +59,13 @@ describe('Hero', () => {
         }
     });
 
-    it('titles the project cards one level under the h1, so the outline skips no level', async () => {
+    it('keeps the outline flat: the project cards show no title, so no heading sits under the h1', async () => {
         render(<Hero />);
 
-        expect(await screen.findAllByRole('heading', { level: 2 })).not.toHaveLength(0);
+        // Wait for the gallery (its CTA) so the cards are rendered before asserting.
+        await screen.findByRole('link', { name: 'Visualizza tutti i progetti' });
+        expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+        expect(screen.queryAllByRole('heading', { level: 2 })).toHaveLength(0);
         expect(screen.queryAllByRole('heading', { level: 3 })).toHaveLength(0);
     });
 });

@@ -4,7 +4,6 @@ import {
     cardAccessibleName,
     cardBadge,
     cardShowsStats,
-    cardSubtitle,
     exampleProjects,
     parsePortfolio,
     projectImageAlt,
@@ -169,7 +168,6 @@ describe('card helpers', () => {
 
     it('labels examples everywhere a card describes itself', () => {
         expect(cardBadge(example)).toBe(`${EXAMPLE_LABEL} · ${example.category}`);
-        expect(cardSubtitle(example)).toBe(cardBadge(example));
         expect(cardAccessibleName(example)).toBe(`${EXAMPLE_LABEL}: ${example.title}`);
         expect(projectImageAlt(example)).toMatch(/^Esempio: /);
         expect(cardShowsStats(example)).toBe(false);
@@ -177,7 +175,6 @@ describe('card helpers', () => {
 
     it('shows a real project as it is', () => {
         expect(cardBadge(real)).toBe('Bagno');
-        expect(cardSubtitle(real)).toBe('Roma');
         expect(cardAccessibleName(real)).toBe('Bagno in terracotta, Roma');
         expect(cardShowsStats(real)).toBe(true);
     });

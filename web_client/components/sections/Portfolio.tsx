@@ -1,18 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SnapRail } from '@/components/ui/snap-rail';
-import { DesktopProjectCard } from '@/components/portfolio/DesktopProjectCard';
-import { MobileProjectCard } from '@/components/portfolio/MobileProjectCard';
+import { ProjectCard } from '@/components/portfolio/ProjectCard';
 import { RowArrow } from '@/components/portfolio/RowArrow';
 import { cn } from '@/lib/utils';
-import { M3Duration, M3EasingFM } from '@/lib/m3-motion';
 import { prefersReducedMotion } from '@/lib/reduced-motion';
-import { PORTFOLIO_RAIL_LIMIT, cardSubtitle, withExamples, type PortfolioItem } from '@/lib/portfolio';
+import { PORTFOLIO_RAIL_LIMIT, withExamples, type PortfolioItem } from '@/lib/portfolio';
 import { usePortfolioProjects } from '@/lib/portfolio/use-portfolio-projects';
 
 export function Portfolio({
@@ -28,10 +25,11 @@ export function Portfolio({
     const realProjects = usePortfolioProjects(initial);
     const projects = useMemo(() => withExamples(realProjects), [realProjects]);
     const [activeRailIndex, setActiveRailIndex] = useState(0);
-    // Descriptions are visible by default; this tracks which one (if any) the user has
-    // chosen to hide. null means "none hidden" — i.e. everything showing.
-    const [hiddenId, setHiddenId] = useState<string | null>(null);
-
+    // Descriptions are collapsed by default; these track which one (if any) the user
+    // has opened. One per layout: the mobile rail and the tablet/desktop grid are
+    // both mounted (CSS picks one), and opening a card in one must not touch the other.
+    const [openRailId, setOpenRailId] = useState<string | null>(null);
+    const [openGridId, setOpenGridId] = useState<string | null>(null);
 
     // No category filters here — they live on the archive page (`/progetti`), which
     // the CTA below links to. Never empty while examples are on (PORTFOLIO_MIN_CARDS).
@@ -68,11 +66,11 @@ export function Portfolio({
         });
     };
 
-    // Swiping to another card resets to the default (description visible) — no effect
-    // needed, the rail tells us when the active card changes.
+    // Swiping to another card closes the open description (back to the default) — no
+    // effect needed, the rail tells us when the active card changes.
     const handleActiveChange = (index: number) => {
         setActiveRailIndex(index);
-        setHiddenId(null);
+        setOpenRailId(null);
     };
 
     return (
@@ -92,34 +90,13 @@ export function Portfolio({
                 <RowArrow direction="next" disabled={!canScrollNext} onClick={() => scrollRow(1)} />
             </div>
 
-            {/* ── Mobile: horizontal snap rail with a sticky title reveal ── */}
+            {/* ── Mobile: horizontal snap rail ── */}
             <div className="md:hidden">
-                {/* Screen-reader-only progress announcement — the visible sticky
-                    title below is aria-hidden, so this is the only spoken signal
-                    that the swipe moved to a different card. */}
+                {/* Screen-reader-only progress announcement: the cards show no title,
+                    so this is the spoken signal that the swipe moved to a different one. */}
                 <p className="sr-only" aria-live="polite">
                     Progetto {activeRailIndex + 1} di {railProjects.length}: {activeProject?.title}
                 </p>
-
-                {/* Decorative: each card carries its own accessible name. */}
-                <div className="mb-5 h-[4.5rem] overflow-hidden" aria-hidden="true">
-                    <AnimatePresence mode="popLayout" initial={false}>
-                        <motion.div
-                            key={activeProject?.id ?? 'none'}
-                            initial={{ y: '100%', opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            exit={{ y: '-100%', opacity: 0 }}
-                            transition={{ duration: M3Duration.medium1, ease: M3EasingFM.standard }}
-                        >
-                            <h3 className="text-2xl font-serif font-bold text-ink truncate">
-                                {activeProject?.title}
-                            </h3>
-                            <p className="text-sm text-accent-ink font-light truncate">
-                                {activeProject && cardSubtitle(activeProject)}
-                            </p>
-                        </motion.div>
-                    </AnimatePresence>
-                </div>
 
                 <SnapRail
                     ariaLabel="Progetti in evidenza"
@@ -134,16 +111,15 @@ export function Portfolio({
                     className="-mx-4"
                 >
                     {railProjects.map((project, index) => (
-                        <MobileProjectCard
+                        <ProjectCard
                             key={project.id}
                             project={project}
+                            sizes="85vw"
                             eager={index === 0}
-                            isActive={index === activeRailIndex}
-                            isHidden={hiddenId === project.id}
+                            className="aspect-[3/4] w-full"
+                            isOpen={openRailId === project.id}
                             onToggle={() =>
-                                setHiddenId((prev) =>
-                                    prev === project.id ? null : project.id,
-                                )
+                                setOpenRailId((prev) => (prev === project.id ? null : project.id))
                             }
                         />
                     ))}
@@ -164,7 +140,19 @@ export function Portfolio({
                 className="hidden md:grid md:grid-cols-2 gap-6 lg:flex lg:overflow-x-auto lg:snap-x lg:snap-mandatory lg:overscroll-x-contain scrollbar-hide rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
             >
                 {projects.map((project, idx) => (
-                    <DesktopProjectCard key={project.id} project={project} index={idx} />
+                    <ProjectCard
+                        key={project.id}
+                        project={project}
+                        sizes="(max-width: 1024px) 50vw, 25vw"
+                        // The row sits in the hero, partly above the fold: its first
+                        // cards must load right away.
+                        eager={idx < 4}
+                        className="aspect-[4/5] lg:w-[calc((100%-4.5rem)/4)] lg:shrink-0 lg:snap-start"
+                        isOpen={openGridId === project.id}
+                        onToggle={() =>
+                            setOpenGridId((prev) => (prev === project.id ? null : project.id))
+                        }
+                    />
                 ))}
             </div>
 
