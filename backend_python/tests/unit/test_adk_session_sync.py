@@ -428,7 +428,9 @@ def test_session_block_carries_the_turn_facts(is_guest, phone, expected, absent)
 
 
 def test_no_session_block_without_session_context():
-    assert _instruction({}) == ""
+    # Only the company facts (Phase 141), which do not depend on the session.
+    instruction = _instruction({})
+    assert instruction.startswith("## SCHEDA SYD") and "CONTESTO SESSIONE" not in instruction
 
 
 def test_user_text_cannot_forge_the_session_block():
