@@ -522,6 +522,11 @@ from src.api.routes.admin_price_book import router as admin_price_book_router
 
 app.include_router(admin_price_book_router)
 
+# Company info editable from the admin console (Phase 141 — "scheda società")
+from src.api.routes.admin_company_info import router as admin_company_info_router
+
+app.include_router(admin_company_info_router)
+
 # Admin content: portfolio, testimonials, KPIs/GDPR (Phase 128 — Fase 6.1b)
 from src.api.routes.admin_dashboard import router as admin_dashboard_router
 from src.api.routes.admin_portfolio import router as admin_portfolio_router

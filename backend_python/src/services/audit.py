@@ -38,6 +38,7 @@ class AuditAction(StrEnum):
     QUOTE_SUBMIT = "quote.submit"
     USER_CHAT_ASSIGN = "user_chat.assign"
     PRICE_BOOK_UPDATE = "price_book.update"
+    COMPANY_INFO_UPDATE = "company_info.update"
     PORTFOLIO_CREATE = "portfolio.create"
     PORTFOLIO_UPDATE = "portfolio.update"
     PORTFOLIO_UPLOAD = "portfolio.upload"
