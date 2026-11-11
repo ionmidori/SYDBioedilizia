@@ -27,6 +27,12 @@ updates:
       backend-python:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # google-adk 2.13.x pins google-genai>=2.30,<3, so a google-genai 3.x bump
+      # is unresolvable ("dependency_file_not_resolvable") and fails the whole
+      # weekly uv update job. Remove once google-adk allows google-genai 3.
+      - dependency-name: "google-genai"
+        update-types: ["version-update:semver-major"]
     labels: ["dependencies", "backend"]
 
   # ── npm (root + web_client workspace) ────────────────────────────────────
