@@ -96,4 +96,24 @@ describe('getCompanyInfo (server)', () => {
         global.fetch = jest.fn().mockRejectedValue(new Error('timeout'));
         await expect(getCompanyInfo()).resolves.toEqual(info);
     });
+
+    // Found by the build check (Task 8): pages built after the first failure did not ask again,
+    // so they carried no `revalidate` and stayed on the seed until the next deploy.
+    it('keeps every page revalidating during the build, even after a failed read', async () => {
+        const phase = process.env.NEXT_PHASE;
+        process.env.NEXT_PHASE = 'phase-production-build';
+        try {
+            global.fetch = jest.fn().mockRejectedValue(new Error('backend not up yet'));
+            await getCompanyInfo();
+            await getCompanyInfo();
+
+            expect(global.fetch).toHaveBeenCalledTimes(2);
+            for (const [, init] of (global.fetch as jest.Mock).mock.calls) {
+                expect(init).toEqual(expect.objectContaining({ next: { revalidate: COMPANY_INFO_REVALIDATE_SECONDS } }));
+            }
+        } finally {
+            if (phase === undefined) delete process.env.NEXT_PHASE;
+            else process.env.NEXT_PHASE = phase;
+        }
+    });
 });
