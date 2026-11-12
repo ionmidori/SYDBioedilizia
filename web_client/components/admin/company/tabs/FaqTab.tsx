@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import { BlocksEditor } from '@/components/admin/company/BlocksEditor';
-import { AddButton, fieldId, GroupTitle, IconSelect, issueOf, RowControls, SelectField, TextField } from '@/components/admin/company/fields';
+import { AddButton, fieldId, GroupTitle, IconSelect, issueOf, issuesOf, RowControls, SelectField, TextField } from '@/components/admin/company/fields';
 import type { TabProps } from '@/components/admin/company/types';
 import { followSlug, moveItem } from '@/lib/admin/company-info-logic';
 import type { CompanyInfo } from '@/types/company-info';
@@ -28,7 +28,8 @@ function CategoryName({ id, label, value, error, onCommit }: { id: string; label
             error={error}
             onChange={setDraft}
             onBlur={() => {
-                if (draft !== null && draft !== value) onCommit(draft);
+                // An empty name is not applied: the field goes back to the name it had.
+                if (draft !== null && draft.trim() !== '' && draft !== value) onCommit(draft);
                 setDraft(null);
             }}
         />
@@ -46,12 +47,18 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
     const renameCategory = (index: number, name: string) => {
         const old = categories[index].name;
         // The questions name their category: they follow the rename, unless two categories share the old name.
-        const follows = old !== '' && categories.filter((c) => c.name === old).length === 1;
+        // Nor when the new name is another category's: that would merge their questions.
+        const taken = categories.some((c, i) => i !== index && c.name.trim().toLowerCase() === name.trim().toLowerCase());
+        const follows = old !== '' && !taken && categories.filter((c) => c.name === old).length === 1;
+        // The filter follows the category it shows.
+        if (filter === old) setFilter(follows ? name : '');
         onChange({
             faq_categories: categories.map((c, i) => (i === index ? { ...c, name } : c)),
             ...(follows && { faq: faq.map((item) => (item.category === old ? { ...item, category: name } : item)) }),
         });
     };
+    const categoryProblems = issuesOf(issues, fieldId('faq_categories'));
+    const questionProblems = issuesOf(issues, fieldId('faq'));
     const setFaq = (index: number, patch: Partial<Faq>) => onChange({ faq: faq.map((item, i) => (i === index ? { ...item, ...patch } : item)) });
 
     const shown = faq.map((item, index) => ({ item, index })).filter(({ item }) => filter === '' || item.category === filter);
@@ -70,6 +77,13 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
         <div className="space-y-10">
             <section aria-labelledby="company-faq-categories" className="space-y-4">
                 <GroupTitle id="company-faq-categories">Categorie</GroupTitle>
+                {categoryProblems.length > 0 && (
+                    <div id={fieldId('faq_categories')} tabIndex={-1} role="alert" className="text-sm text-danger-ink focus:outline-hidden">
+                        {categoryProblems.map((problem) => (
+                            <p key={problem}>{problem}</p>
+                        ))}
+                    </div>
+                )}
                 <ol className="space-y-3">
                     {categories.map((category, index) => {
                         const n = index + 1;
@@ -117,6 +131,13 @@ export function FaqTab({ info, saved, onChange, issues }: TabProps) {
 
             <section aria-labelledby="company-faq-questions" className="space-y-4">
                 <GroupTitle id="company-faq-questions">Domande</GroupTitle>
+                {questionProblems.length > 0 && (
+                    <div id={fieldId('faq')} tabIndex={-1} role="alert" className="text-sm text-danger-ink focus:outline-hidden">
+                        {questionProblems.map((problem) => (
+                            <p key={problem}>{problem}</p>
+                        ))}
+                    </div>
+                )}
                 <div className="max-w-xs">
                     <SelectField
                         id="company-faq-filter"

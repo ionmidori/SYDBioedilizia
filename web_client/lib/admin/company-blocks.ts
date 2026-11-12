@@ -46,7 +46,7 @@ function linesOf(block: Block): string[] {
         case 'ol':
             return block.items;
         case 'definitions':
-            return block.items.map((def) => (def.description ? `${def.term}: ${def.description}` : def.term));
+            return block.items.map((def) => (def.description ? `${def.term}: ${def.description}` : def.term).trim());
         default:
             return parseLines(block.text);
     }

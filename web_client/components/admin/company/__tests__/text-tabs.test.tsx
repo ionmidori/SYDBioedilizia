@@ -15,10 +15,16 @@ const copy = (): CompanyInfo => JSON.parse(JSON.stringify(SEED_COMPANY_INFO));
  * The tab inside a parent that keeps the draft, like the editor does. `prepare` shapes the starting
  * company info, which is also the saved one; `seen.current` is the latest draft.
  */
-function mount(Tab: ComponentType<TabProps>, prepare: (info: CompanyInfo) => void = () => undefined) {
+function mount(
+    Tab: ComponentType<TabProps>,
+    prepare: (info: CompanyInfo) => void = () => undefined,
+    /** Applied to the draft only: what the admin has added since the last save. */
+    unsaved: (info: CompanyInfo) => void = () => undefined,
+) {
     const start = copy();
     prepare(start);
     const saved = JSON.parse(JSON.stringify(start)) as CompanyInfo;
+    unsaved(start);
     const seen: { current: CompanyInfo } = { current: start };
     function Harness() {
         const [info, setInfo] = useState(start);
@@ -105,6 +111,22 @@ describe('SectionsTab', () => {
         expect(seen.current.sections[0].blocks).toEqual([{ type: 'p', text: 'Dieci anni.' }]);
     });
 
+    // Final review I2: emptying the title of a new section must not turn the links of its FAQs into ''.
+    it('keeps the FAQ links of a new section when its title is cleared', () => {
+        const seen = mount(
+            SectionsTab,
+            () => undefined,
+            (info) => {
+                info.sections.push({ slug: 'prova', title: 'Prova', blocks: [], builtin: false });
+                info.faq[0] = { ...info.faq[0], section_slug: 'prova' };
+            },
+        );
+        const n = indexOfSection(seen.current, 'prova') + 1;
+        fireEvent.change(screen.getByLabelText(`Titolo della sezione ${n}`), { target: { value: '' } });
+        expect(seen.current.sections[n - 1].slug).toBe('');
+        expect(seen.current.faq[0].section_slug).toBe('prova');
+    });
+
     it('flags two sections with the same slug', () => {
         mount(SectionsTab, (info) => {
             info.sections.push({ ...info.sections[0], builtin: false });
@@ -188,6 +210,56 @@ describe('FaqTab', () => {
         expect(seen.current.faq_categories[0].name).toBe('Nuovo nome');
         expect(seen.current.faq.filter((f) => f.category === 'Nuovo nome')).toHaveLength(usedBefore);
         expect(validateCompanyInfo(seen.current)).toEqual([]);
+    });
+
+    // Final review I1: a rename that collides with another category, or empties the name, must not move questions.
+    it('does not move questions when a category is renamed to the name of another one', () => {
+        const seen = mount(FaqTab);
+        const [first, second] = seen.current.faq_categories.map((c) => c.name);
+        const before = seen.current.faq.map((f) => f.category);
+        const field = screen.getByLabelText('Nome della categoria 1');
+        fireEvent.change(field, { target: { value: second } });
+        fireEvent.blur(field);
+        expect(seen.current.faq.map((f) => f.category)).toEqual(before);
+        // renaming it back puts everything as it was
+        fireEvent.change(field, { target: { value: first } });
+        fireEvent.blur(field);
+        expect(seen.current.faq.map((f) => f.category)).toEqual(before);
+        expect(validateCompanyInfo(seen.current)).toEqual([]);
+    });
+
+    it('does not apply an empty category name', () => {
+        const seen = mount(FaqTab);
+        const name = seen.current.faq_categories[0].name;
+        const before = seen.current.faq.map((f) => f.category);
+        const field = screen.getByLabelText('Nome della categoria 1');
+        fireEvent.change(field, { target: { value: '   ' } });
+        fireEvent.blur(field);
+        expect(seen.current.faq_categories[0].name).toBe(name);
+        expect(field).toHaveValue(name);
+        expect(seen.current.faq.map((f) => f.category)).toEqual(before);
+    });
+
+    // Final review I3: problems that belong to the whole list must be shown in the tab.
+    it('shows the problems of the whole list: a repeated category name', () => {
+        mount(FaqTab, (info) => {
+            info.faq_categories = [...info.faq_categories, { ...info.faq_categories[0] }];
+        });
+        expect(screen.getAllByText(/Categoria duplicata/).length).toBeGreaterThan(0);
+    });
+
+    // Final review I4: the filter follows the category it shows when that category is renamed.
+    it('keeps the questions of the filtered category on screen when it is renamed', () => {
+        const seen = mount(FaqTab);
+        const name = seen.current.faq_categories[0].name;
+        const count = seen.current.faq.filter((f) => f.category === name).length;
+        fireEvent.change(screen.getByLabelText('Mostra le domande di'), { target: { value: name } });
+        expect(screen.getAllByLabelText(/^Domanda \d+$/)).toHaveLength(count);
+        const field = screen.getByLabelText('Nome della categoria 1');
+        fireEvent.change(field, { target: { value: 'Costi' } });
+        fireEvent.blur(field);
+        expect(screen.getByLabelText('Mostra le domande di')).toHaveValue('Costi');
+        expect(screen.getAllByLabelText(/^Domanda \d+$/)).toHaveLength(count);
     });
 
     it('adds a category with an icon', () => {

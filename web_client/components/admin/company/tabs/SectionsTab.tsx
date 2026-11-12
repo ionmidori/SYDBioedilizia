@@ -24,7 +24,7 @@ export function SectionsTab({ info, saved, onChange, issues }: TabProps) {
         const next = patch.slug ?? old;
         // The questions linked to the section follow its slug, unless that would be ambiguous.
         const follows =
-            next !== old && old !== '' && sections.filter((s) => s.slug === old).length === 1 && !sections.some((s, i) => i !== index && s.slug === next);
+            next !== old && old !== '' && next !== '' && sections.filter((s) => s.slug === old).length === 1 && !sections.some((s, i) => i !== index && s.slug === next);
         onChange({
             sections: sections.map((section, i) => (i === index ? { ...section, ...patch } : section)),
             ...(follows && { faq: faq.map((item) => (item.section_slug === old ? { ...item, section_slug: next } : item)) }),

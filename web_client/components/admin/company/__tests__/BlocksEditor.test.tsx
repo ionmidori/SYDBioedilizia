@@ -129,6 +129,19 @@ describe('BlocksEditor', () => {
         ]);
     });
 
+    // Final review C1: a list entry the typed text cannot reproduce (trailing space, a line break) made the
+    // field reset its text on every render: "Too many re-renders", and every unsaved edit was lost.
+    it('converts definitions whose term ends in a space to a list without crashing', () => {
+        render(<Harness initial={[{ type: 'definitions', items: [{ term: 'Bonus ', description: '' }] }]} />);
+        fireEvent.change(screen.getByLabelText('Tipo del blocco 1'), { target: { value: 'ul' } });
+        expect(screen.getByLabelText('Voci del blocco 1 (una per riga)')).toHaveValue('Bonus');
+    });
+
+    it('opens a list whose entry holds a line break without crashing', () => {
+        render(<Harness initial={[{ type: 'ul', items: ['a\nb'] }]} />);
+        expect(screen.getByLabelText('Voci del blocco 1 (una per riga)')).toHaveValue('a\nb');
+    });
+
     it('does not remove the last block when a minimum is required', () => {
         render(<Harness initial={[{ type: 'p', text: 'uno' }]} minBlocks={1} />);
         expect(screen.getByRole('button', { name: 'Elimina il blocco 1' })).toBeDisabled();

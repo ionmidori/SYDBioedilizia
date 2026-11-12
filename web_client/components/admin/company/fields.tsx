@@ -197,7 +197,8 @@ export function LinesField({
     const [text, setText] = useState(items.join('\n'));
     // The entries changed from outside (two blocks swapped, a type conversion): show them, not the old text.
     const typed = parseLines(text);
-    const given = items.filter((item) => item.trim() !== '');
+    // Both sides normalized the same way: an entry the typed text cannot reproduce (a trailing space, a line break) must not reset it forever.
+    const given = parseLines(items.join('\n'));
     if (typed.length !== given.length || typed.some((item, i) => item !== given[i])) setText(items.join('\n'));
     return (
         <TextAreaField
