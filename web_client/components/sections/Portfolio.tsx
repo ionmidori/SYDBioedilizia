@@ -84,10 +84,16 @@ export function Portfolio({
             // the fixed navbar; the two added up to a 176px offset.
             className={cn('relative', className)}
         >
-            {/* Row controls — desktop only, where the gallery is a horizontal row. */}
-            <div className="hidden lg:flex justify-end gap-2 mb-4">
-                <RowArrow direction="prev" disabled={!canScrollPrev} onClick={() => scrollRow(-1)} />
-                <RowArrow direction="next" disabled={!canScrollNext} onClick={() => scrollRow(1)} />
+            {/* Header bar: contextual label + desktop row controls */}
+            <div className="flex items-center justify-between gap-4 mb-4">
+                <p className="text-sm text-ink-muted">
+                    <span className="font-semibold text-ink">Progetti in evidenza</span>
+                    <span className="hidden sm:inline"> · Clicca su una foto per i dettagli</span>
+                </p>
+                <div className="hidden lg:flex items-center gap-2 shrink-0">
+                    <RowArrow direction="prev" disabled={!canScrollPrev} onClick={() => scrollRow(-1)} />
+                    <RowArrow direction="next" disabled={!canScrollNext} onClick={() => scrollRow(1)} />
+                </div>
             </div>
 
             {/* ── Mobile: horizontal snap rail ── */}
@@ -103,6 +109,7 @@ export function Portfolio({
                     itemWidth="85vw"
                     align="center"
                     showDots
+                    activeDotClassName="bg-primary"
                     autoPlay
                     onActiveChange={handleActiveChange}
                     // Cancels the section container's px-4 so the rail's own
@@ -156,15 +163,15 @@ export function Portfolio({
                 ))}
             </div>
 
-            <div className="mt-8 text-center">
+            <div className="mt-6 text-center">
                 <Button
                     asChild
                     variant="secondary"
-                    size="lg"
-                    className="h-14 px-8 text-base w-full sm:w-auto sm:min-w-[300px] border-line-strong/40 bg-surface text-ink hover:bg-surface-muted hover:border-primary/50 hover:text-primary-ink rounded-lg transition-all duration-200 active:scale-95 shadow-xs font-semibold"
+                    size="default"
+                    className="h-11 px-6 text-sm rounded-full border border-line bg-surface text-ink hover:bg-primary-subtle hover:border-primary/50 hover:text-primary-ink transition-colors duration-200 active:scale-95 shadow-xs font-medium"
                 >
                     <Link href="/progetti">
-                        <LayoutGrid className="mr-2 w-5 h-5" />
+                        <LayoutGrid className="mr-2 w-4 h-4" />
                         Visualizza tutti i progetti
                     </Link>
                 </Button>

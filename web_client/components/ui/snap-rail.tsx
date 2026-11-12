@@ -24,6 +24,8 @@ interface SnapRailProps {
     onActiveChange?: (index: number) => void;
     className?: string;
     dotsClassName?: string;
+    /** Background utility for the active dot indicator (defaults to `bg-accent`). */
+    activeDotClassName?: string;
     /**
      * Advances the rail on its own, one card at a time, pausing on any user interaction
      * and resuming automatically after `autoPlayResumeDelayMs` of no further interaction.
@@ -69,6 +71,7 @@ export function SnapRail({
     onActiveChange,
     className,
     dotsClassName,
+    activeDotClassName = 'bg-accent',
     autoPlay = false,
     autoPlayDelayMs = 4000,
     autoPlayResumeDelayMs = 4500,
@@ -318,7 +321,7 @@ export function SnapRail({
                                     className={cn(
                                         'block rounded-full transition-all duration-300',
                                         isActive
-                                            ? 'h-2 w-6 bg-accent'
+                                            ? cn('h-2 w-6', activeDotClassName)
                                             : 'h-2 w-2 bg-ink-subtle',
                                     )}
                                 />
