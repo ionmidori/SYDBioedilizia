@@ -123,6 +123,7 @@ _CLIENT_HIDDEN_FIELDS = (
     "last_delivery_id",  # outbox/delivery internals
     "client_followup",  # changes relayed to the team (admin dossier)
     "client_revision",  # who opened the revision in progress (the history reads it)
+    "estimate",  # price range of the AI draft: amounts for the team (Phase 140 step 3)
 )
 # Notes of the AI draft for the technician: works to quote by hand, points to
 # check (price-book codes, internal checks). Admin dossier only, at any status.

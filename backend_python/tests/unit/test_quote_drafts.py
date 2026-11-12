@@ -334,6 +334,8 @@ async def test_editable_only_creates_and_updates_a_draft():
         FakeTransaction(db), db, PID, _ai_quote(qty=30.0), _request(), NOW, editable_only=True
     )
     assert (created.outcome, updated.outcome) == (DraftSaveOutcome.CREATED, DraftSaveOutcome.UPDATED)
+    # The learning ledger reads the last "ai" revision: a recomputed draft is one.
+    assert db.get_data(*QUOTE_PATH, "revisions", "2")["actor_kind"] == "ai"
 
 
 def _estimated(quote: QuoteSchema, precision: int) -> QuoteSchema:

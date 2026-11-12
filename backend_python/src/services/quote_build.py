@@ -7,11 +7,11 @@ the project-wide lines), computes the totals and the price range, and names the
 room of each manual work and warning for the team. No I/O but the cached price
 book; never logs the project id (for guests it is an access token).
 """
-import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
+from src.core.logger import get_logger
 from src.core.money import line_total, sum_amounts
 from src.schemas.intervention_spec import RoomInterventionSpec, StoredMeasureSource
 from src.schemas.price_range import PriceEstimate
@@ -22,7 +22,7 @@ from src.services.price_range import PricedLine, estimate, load_price_range_poli
 from src.services.pricing_service import PricingService
 from src.services.room_aggregation import aggregate_rooms, room_sections
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Below this grand total a draft of several lines usually means malformed AI output.
 _SUSPICIOUS_GRAND_TOTAL = Decimal(100)

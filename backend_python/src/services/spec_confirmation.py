@@ -50,11 +50,21 @@ def _merged_measure(fresh: StoredMeasure | None, confirmed: StoredMeasure, notes
         return confirmed
     if fresh.value == confirmed.value:
         return confirmed.model_copy(update={"proposed": None})
-    notes.append(
-        f"{MEASURE_LABELS.get(confirmed.name, confirmed.name)}: il cliente ha confermato {_number(confirmed.value)}, "
-        f"la nuova analisi indica {_number(fresh.value)}. Usato il valore confermato, proposta mostrata al cliente"
-    )
+    notes.append(_proposal_note(confirmed.name, confirmed.value, fresh.value))
     return confirmed.model_copy(update={"proposed": fresh.value})
+
+
+def _proposal_note(name: str, confirmed: float, proposed: float) -> str:
+    return (
+        f"{MEASURE_LABELS.get(name, name)}: il cliente ha confermato {_number(confirmed)}, "
+        f"la nuova analisi indica {_number(proposed)}. Usato il valore confermato, proposta mostrata al cliente"
+    )
+
+
+def proposal_checks(spec: RoomInterventionSpec) -> list[str]:
+    """The team's checks for the proposals the client has not answered yet: a draft
+    recomputed without the model keeps them (the analysis that made them is gone)."""
+    return [_proposal_note(m.name, m.value, m.proposed) for m in spec.measures if m.proposed is not None]
 
 
 def apply_confirmations(

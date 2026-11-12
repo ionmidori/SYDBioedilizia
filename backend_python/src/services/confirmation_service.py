@@ -2,7 +2,8 @@
 
 A confirmed section is stored in its spec (`SpecStore.update`, transactional).
 When no section misses a measure any more, the draft is recomputed by code from
-the stored specs: no model call, the same pipeline as the quote tool
+the stored specs, read again after the write (the quote tool may have saved
+another section meanwhile): no model call, the same pipeline as the quote tool
 (`quote_build`), saved as an AI revision. Only a quote the client can still
 change (none yet, or a draft): any other is the team's (409, nothing written).
 
@@ -10,10 +11,11 @@ Ownership is the route's job. Never logs the project id: for guests it is an
 access token (section key and quote number instead).
 """
 import asyncio
-import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from typing import Any, get_args
+from typing import get_args
+
+from google.api_core.exceptions import NotFound
 
 from src.core.exceptions import (
     ConfirmationInvalidError,
@@ -21,6 +23,7 @@ from src.core.exceptions import (
     QuoteNotEditableError,
     ServiceError,
 )
+from src.core.logger import get_logger
 from src.db.firebase_client import get_async_firestore_client
 from src.repositories.room_repository import get_room_repository
 from src.repositories.spec_store import CHAT_SPEC_KEY, get_spec_store
@@ -37,16 +40,16 @@ from src.schemas.intervention_spec import RoomInterventionSpec
 from src.schemas.quote import QuoteRequest
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services.assembly_library import load_library
-from src.services.intervention_expansion import Expansion, expand
+from src.services.intervention_expansion import Expansion, ExpansionWarning, expand
 from src.services.pricing_service import PricingService
 from src.services.quote_build import BuiltDraft, UnitBuild, build_draft, price_book_units
 from src.services.quote_dossier import gather_dossier_inputs
 from src.services.quote_drafts import DraftSaveOutcome, QuoteStatusView, read_quote_status, save_ai_draft
 from src.services.quote_state import ai_draft_action
-from src.services.spec_confirmation import analysis_from_spec, confirm, spec_measures
+from src.services.spec_confirmation import analysis_from_spec, confirm, proposal_checks, spec_measures
 from src.utils.datetime_utils import utc_now
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # What happens to an element nobody chose for: the package replaces it.
 _DEFAULT_ACTION: ElementAction = "replace"
@@ -94,8 +97,17 @@ def _editable(status: QuoteStatusView | None) -> bool:
 
 
 def _expansion(spec: RoomInterventionSpec, library: AssemblyLibrary, units: dict[str, str]) -> Expansion:
-    """The section's lines, computed by code from its stored spec."""
-    return expand(analysis_from_spec(spec, ""), library, units, spec_measures(spec))
+    """The section's lines, computed by code from its stored spec, with the team's
+    checks on the proposals still open."""
+    expansion = expand(analysis_from_spec(spec, ""), library, units, spec_measures(spec))
+    checks = [ExpansionWarning("admin_check", note) for note in proposal_checks(spec)]
+    return replace(expansion, warnings=[*expansion.warnings, *checks])
+
+
+def _computed(
+    sections: Sequence[_Section], library: AssemblyLibrary, units: dict[str, str]
+) -> list[tuple[_Section, Expansion]]:
+    return [(s, _expansion(s.spec, library, units)) for s in sections]
 
 
 def _elements(spec: RoomInterventionSpec, library: AssemblyLibrary) -> dict[str, AssemblyElement]:
@@ -122,7 +134,9 @@ def _check_choices(section: _Section, update: ConfirmationUpdate, library: Assem
             raise ConfirmationInvalidError(section.key)
 
 
-def _measure_states(spec: RoomInterventionSpec) -> list[MeasureState]:
+def _measure_states(spec: RoomInterventionSpec, missing: Sequence[str]) -> list[MeasureState]:
+    """The stored measures, then the ones the lines need and nobody gave (`missing`,
+    from the code: the stored list may be older than the last choices)."""
     given = {m.name for m in spec.measures}
     return [
         MeasureState(
@@ -135,7 +149,7 @@ def _measure_states(spec: RoomInterventionSpec) -> list[MeasureState]:
             name=name, label=MEASURE_LABELS.get(name, name), value=None, source=None,
             candidates=list(spec.conflicts.get(name, [])),
         )
-        for name in spec.missing_measures
+        for name in missing
         if name not in given
     ]
 
@@ -154,8 +168,8 @@ def _choice_states(spec: RoomInterventionSpec, library: AssemblyLibrary) -> list
     ]
 
 
-def _section_state(section: _Section, library: AssemblyLibrary) -> SectionState:
-    measures = _measure_states(section.spec)
+def _section_state(section: _Section, expansion: Expansion, library: AssemblyLibrary) -> SectionState:
+    measures = _measure_states(section.spec, expansion.missing_measures)
     choices = _choice_states(section.spec, library)
     pending = any(m.source != "confirmed" or m.proposed is not None for m in measures) or any(
         not c.confirmed for c in choices
@@ -166,10 +180,12 @@ def _section_state(section: _Section, library: AssemblyLibrary) -> SectionState:
 
 
 def _state(
-    sections: Sequence[_Section], library: AssemblyLibrary, *, editable: bool, precision: int | None
+    computed: Sequence[tuple[_Section, Expansion]], library: AssemblyLibrary, *, editable: bool, precision: int | None
 ) -> ConfirmationState:
     return ConfirmationState(
-        sections=[_section_state(s, library) for s in sections], editable=editable, precision=precision
+        sections=[_section_state(s, expansion, library) for s, expansion in computed],
+        editable=editable,
+        precision=precision,
     )
 
 
@@ -178,16 +194,21 @@ async def confirmation_state(project_id: str) -> ConfirmationState:
     (sections, _), status = await asyncio.gather(
         _sections(project_id), read_quote_status(get_async_firestore_client(), project_id)
     )
+    library = _library()
     return _state(
-        sections, _library(), editable=_editable(status), precision=status.precision if status else None
+        _computed(sections, library, price_book_units()), library,
+        editable=_editable(status), precision=status.precision if status else None,
     )
 
 
 def _request(built: BuiltDraft, status: QuoteStatusView | None, project_id: str) -> QuoteRequest:
     """An update keeps the summary, channel and session of the draft (dotted paths);
     a first draft is the chat's (the chat session id is the project id)."""
-    first: dict[str, Any] = {"channel": "chat", "session_id": project_id} if status is None else {}
-    return QuoteRequest(manual_work=built.manual_work, ai_warnings=built.ai_warnings, **first)
+    if status is None:
+        return QuoteRequest(
+            channel="chat", session_id=project_id, manual_work=built.manual_work, ai_warnings=built.ai_warnings
+        )
+    return QuoteRequest(manual_work=built.manual_work, ai_warnings=built.ai_warnings)
 
 
 async def _recalculate(
@@ -228,7 +249,7 @@ async def confirm_section(
 ) -> ConfirmationResult:
     """Store what the client confirmed for one section; recompute the draft when
     no section misses a measure any more (`blocked_sections` otherwise)."""
-    (sections, rooms), status = await asyncio.gather(
+    (sections, _), status = await asyncio.gather(
         _sections(project_id), read_quote_status(get_async_firestore_client(), project_id)
     )
     target = next((s for s in sections if s.key == section_key), None)
@@ -242,17 +263,21 @@ async def confirm_section(
     units = price_book_units()
 
     def change(current: RoomInterventionSpec | None) -> RoomInterventionSpec:
-        if current is None:  # the room was deleted meanwhile
+        if current is None:  # "Generale" or the chat lost its spec meanwhile
             raise ConfirmationSectionNotFoundError(section_key)
         confirmed = confirm(current, update)
         # A choice may bring lines whose measure nobody gave: the card asks for it.
         return confirmed.model_copy(update={"missing_measures": _expansion(confirmed, library, units).missing_measures})
 
-    written = await get_spec_store().update(project_id, section_key, change)
+    try:
+        written = await get_spec_store().update(project_id, section_key, change)
+    except NotFound as exc:  # the room was deleted meanwhile
+        raise ConfirmationSectionNotFoundError(section_key) from exc
     if written is None:  # the stored spec stopped reading (a newer format): never overwritten
         raise ConfirmationSectionNotFoundError(section_key)
-    sections = [replace(s, spec=written) if s.key == section_key else s for s in sections]
-    computed = [(s, _expansion(s.spec, library, units)) for s in sections]
+    # Read again: the quote tool may have saved another section since the first read.
+    sections, rooms = await _sections(project_id)
+    computed = _computed(sections, library, units)
     blocked = [s.key for s, expansion in computed if expansion.missing_measures]
     precision = status.precision if status is not None else None
     recalculated = not blocked and any(expansion.lines for _, expansion in computed)
@@ -265,5 +290,5 @@ async def confirm_section(
     return ConfirmationResult(
         recalculated=recalculated,
         blocked_sections=blocked,
-        state=_state(sections, library, editable=True, precision=precision),
+        state=_state(computed, library, editable=True, precision=precision),
     )

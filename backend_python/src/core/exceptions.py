@@ -352,7 +352,7 @@ class ConfirmationSectionNotFoundError(ResourceNotFound):
     error_code = "CONFIRMATION_SECTION_NOT_FOUND"
 
     def __init__(self, section_key: str) -> None:
-        super().__init__(message="This section has nothing to confirm.", detail={"section_key": section_key})
+        super().__init__(message="Questa sezione non ha nulla da confermare.", detail={"section_key": section_key})
 
 
 class ConfirmationInvalidError(AppException):
@@ -362,7 +362,7 @@ class ConfirmationInvalidError(AppException):
 
     def __init__(self, section_key: str) -> None:
         super().__init__(
-            message="This choice is not available for the section.", detail={"section_key": section_key}
+            message="Questa scelta non è disponibile per la sezione.", detail={"section_key": section_key}
         )
 
 
@@ -370,4 +370,4 @@ class QuoteNotEditableError(AppException):
     """The quote is with the team (or was sent): the card cannot change it."""
     status_code = 409
     error_code = "QUOTE_NOT_EDITABLE"
-    message = "The quote is with the team: write in the chat to change it."
+    message = "Il preventivo è in mano al nostro team: per cambiare qualcosa scrivi in chat."

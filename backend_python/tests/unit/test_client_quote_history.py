@@ -96,6 +96,15 @@ def test_the_team_followup_is_not_shown_to_the_client(db):
     assert admin["client_followup"]["count"] == 2
 
 
+
+@pytest.mark.parametrize("status", ["draft", "sent"])
+def test_the_price_range_is_not_shown_to_the_client(db, status):
+    """Phase 140 step 3: the range is the team's (amounts before approval); the admin reads it."""
+    _seed(db, status, estimate={"low": 1100.0, "high": 1400.0, "precision": 90, "policy_version": "1.0.0"})
+    assert _client().get(f"/api/quote/{PID}").json()["estimate"] is None
+    admin = _client(uid="admin-1", role="admin").get(f"/api/quote/{PID}").json()
+    assert admin["estimate"]["low"] == 1100.0
+
 # ── GET /{id}/history ─────────────────────────────────────────────────────────
 
 

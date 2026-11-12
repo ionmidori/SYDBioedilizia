@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from google.api_core.exceptions import NotFound
 from src.core.exceptions import AppException
 from src.repositories.spec_store import CHAT_SPEC_KEY
 from src.schemas.assembly_library import MEASURE_LABELS
@@ -227,3 +228,57 @@ async def test_generale_is_the_last_section() -> None:
         state = await confirmation_state(PID)
     assert [(s.section_key, s.label) for s in state.sections] == [("cucina1", "Cucina"),
                                                                     (DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL)]
+
+
+# ── Review fixes: what the other writer (the quote tool) did meanwhile ───────
+
+
+async def test_other_sections_are_read_again_after_the_write() -> None:
+    """The tool saved the kitchen with its measure while the card confirmed the bathroom."""
+    kitchen_done = _spec(PENSILI, StoredMeasure(name="mq", value=12, source="declared"), package="ASM-CUCINA-FULL")
+    with _project({"bagno1": BAGNO, "cucina1": CUCINA_MISSING}, _draft()) as mocks:
+        write = mocks["store"].update.side_effect
+
+        async def tool_wrote_meanwhile(project_id, section_key, change):
+            mocks["stored"]["cucina1"] = kitchen_done
+            return await write(project_id, section_key, change)
+
+        mocks["store"].update.side_effect = tool_wrote_meanwhile
+        result = await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    assert result.recalculated and result.blocked_sections == []
+    assert RevisionRoomSpec(room_id="cucina1", spec=kitchen_done) in mocks["saved"].await_args.kwargs["specs"]
+
+
+async def test_the_team_keeps_its_checks_on_the_open_proposals() -> None:
+    kitchen = _spec(PENSILI, StoredMeasure(name="mq", value=12, source="confirmed", proposed=10),
+                    package="ASM-CUCINA-FULL")
+    with _project({"bagno1": BAGNO, "cucina1": kitchen}, _draft()) as mocks:
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+
+    request = mocks["saved"].await_args.args[3]
+    checks = [w for w in request.ai_warnings if w.kind == "admin_check" and "confermato 12" in w.message]
+    assert len(checks) == 1 and checks[0].room_id == "cucina1"
+
+
+async def test_a_room_deleted_meanwhile_is_404() -> None:
+    with _project({"bagno1": BAGNO}, _draft()) as mocks, pytest.raises(AppException) as error:
+        mocks["store"].update.side_effect = NotFound("room bagno1")
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+    assert error.value.error_code == "CONFIRMATION_SECTION_NOT_FOUND"
+
+
+async def test_the_state_asks_for_every_measure_the_lines_need() -> None:
+    """The stored list may be stale (a choice made during an analysis): the card reads the code's."""
+    kitchen = _spec(PENSILI, package="ASM-CUCINA-FULL")  # no mq, and no missing measure stored
+    with _project({"cucina1": kitchen}, _draft()):
+        state = await confirmation_state(PID)
+    assert [(m.name, m.value) for m in state.sections[0].measures] == [("ml_pensili", 4), ("mq", None)]
+
+
+async def test_an_update_keeps_the_draft_request() -> None:
+    """Summary, channel and session of the draft stay (dotted paths): the request carries none."""
+    with _project({"bagno1": BAGNO}, _draft()) as mocks:
+        await confirm_section(PID, UID, "bagno1", _measure("mq", 8))
+    request = mocks["saved"].await_args.args[3]
+    assert (request.summary, request.channel, request.session_id) == (None, None, None)
