@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { FileText, Images, LayoutDashboard, LogOut, MessageSquareQuote, ShieldAlert, ShieldCheck, Tag } from 'lucide-react';
+import { Building2, FileText, Images, LayoutDashboard, LogOut, MessageSquareQuote, ShieldAlert, ShieldCheck, Tag } from 'lucide-react';
 
 import { ScallopedPageTransition } from '@/components/ui/ScallopedPageTransition';
 import { useAdminMe } from '@/hooks/admin/use-admin';
@@ -16,6 +16,7 @@ const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/admin/quotes', label: 'Preventivi', icon: FileText, exact: false },
   { href: '/admin/price-book', label: 'Listino', icon: Tag, exact: false },
+  { href: '/admin/company', label: 'Società', icon: Building2, exact: false },
   { href: '/admin/portfolio', label: 'Portfolio', icon: Images, exact: false },
   { href: '/admin/testimonials', label: 'Recensioni', icon: MessageSquareQuote, exact: false },
   { href: '/admin/gdpr', label: 'GDPR', icon: ShieldCheck, exact: false },

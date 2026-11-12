@@ -2,13 +2,13 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 
-import { ADMIN_KEYS, useApproveQuote, useModerateTestimonial, useSavePriceBook } from '../use-admin';
+import { ADMIN_KEYS, useApproveQuote, useModerateTestimonial, useSaveCompanyInfo, useSavePriceBook } from '../use-admin';
 import { adminApi } from '@/lib/admin/admin-api';
 
 jest.mock('@/hooks/useAuth', () => ({ useAuth: () => ({ user: null, isAnonymous: true }) }));
 jest.mock('@/lib/admin/admin-api', () => ({
   ...jest.requireActual('@/lib/admin/admin-api'),
-  adminApi: { approve: jest.fn(), moderateTestimonial: jest.fn(), savePriceBook: jest.fn() },
+  adminApi: { approve: jest.fn(), moderateTestimonial: jest.fn(), savePriceBook: jest.fn(), saveCompanyInfo: jest.fn() },
 }));
 
 function setup() {
@@ -72,5 +72,16 @@ describe('cache refresh after writes', () => {
       await result.current.mutateAsync({ etag: '"v1"', body: { items: [] } as never });
     });
     expect(invalidatedKeys(invalidate)).toContain(JSON.stringify(ADMIN_KEYS.priceBook));
+  });
+
+  it('saving the company info refreshes it and its history', async () => {
+    (adminApi.saveCompanyInfo as jest.Mock).mockResolvedValue({});
+    const { wrapper, invalidate } = setup();
+    const { result } = renderHook(() => useSaveCompanyInfo(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({ etag: '"v1"', body: { info: {} } as never });
+    });
+    expect(adminApi.saveCompanyInfo).toHaveBeenCalledWith('"v1"', { info: {} });
+    expect(invalidatedKeys(invalidate)).toContain(JSON.stringify(ADMIN_KEYS.companyInfo));
   });
 });

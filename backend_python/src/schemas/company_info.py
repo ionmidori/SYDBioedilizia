@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # The sections every company info has (they can be emptied, never removed):
 # the AI tool and the site address them by these slugs.
@@ -35,6 +35,10 @@ SLUG_PATTERN = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 TIME_PATTERN = r"^([01][0-9]|2[0-3]):[0-5][0-9]$"
 # Same rule as the mailto: links of the quote emails (src/services/email_templates.py).
 EMAIL_PATTERN = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+# A phone the chat can turn into a link (web_client/lib/chat/company-links.ts counts the same digits).
+PHONE_PATTERN = r"^[+0-9 .()/-]+$"
+PHONE_MIN_DIGITS = 6
+PHONE_MAX_DIGITS = 15
 
 IconName = Literal[
     "Coins", "FileText", "Sparkles", "Wrench", "Award", "Shield", "Leaf", "LayoutDashboard",
@@ -45,6 +49,24 @@ Text = Annotated[str, Field(min_length=1, max_length=2000)]
 Line = Annotated[str, Field(min_length=1, max_length=1000)]
 Title = Annotated[str, Field(min_length=1, max_length=120)]
 Slug = Annotated[str, Field(pattern=SLUG_PATTERN, max_length=60)]
+
+
+def national_phone_digits(value: str) -> str:
+    """The digits of a number without Italy's country code, when it has one (Golden Sync: nationalPhoneDigits)."""
+    digits = "".join(ch for ch in value if "0" <= ch <= "9")
+    if value.strip().startswith("+") and digits.startswith("39"):
+        return digits[2:]
+    return digits[4:] if digits.startswith("0039") else digits
+
+
+def _enough_digits(value: str) -> str:
+    count = len(national_phone_digits(value))
+    if not PHONE_MIN_DIGITS <= count <= PHONE_MAX_DIGITS:
+        raise ValueError(f"A phone number has {PHONE_MIN_DIGITS} to {PHONE_MAX_DIGITS} digits, without the country code")
+    return value
+
+
+Phone = Annotated[str, Field(min_length=1, max_length=30, pattern=PHONE_PATTERN), AfterValidator(_enough_digits)]
 
 
 class _Model(BaseModel):
@@ -96,8 +118,8 @@ class Identity(_Model):
     legal_name: Title
     vat_id: Annotated[str, Field(pattern=r"^[0-9]{11}$")]
     address: Address
-    phone: Annotated[str, Field(min_length=1, max_length=30)]
-    whatsapp: Annotated[str, Field(min_length=1, max_length=30)] | None = None
+    phone: Phone
+    whatsapp: Phone | None = None
     email: Annotated[str, Field(pattern=EMAIL_PATTERN, max_length=120)]
 
 

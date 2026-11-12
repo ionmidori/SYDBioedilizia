@@ -8,6 +8,7 @@ import { AdminApiError, adminApi, type QuoteListFilters } from '@/lib/admin/admi
 import type { EditQuoteBody, QuoteWriteResponse, SendQuoteBody } from '@/types/admin-quote';
 import type { ModerateBody, PortfolioPatch, PortfolioWrite, TestimonialStatus } from '@/types/admin-content';
 import type { PutPriceBookBody } from '@/types/admin-price-book';
+import type { PutCompanyInfoBody } from '@/types/company-info';
 
 export const ADMIN_KEYS = {
   me: ['admin', 'me'] as const,
@@ -21,6 +22,8 @@ export const ADMIN_KEYS = {
   gdpr: ['admin', 'gdpr'] as const,
   priceBook: ['admin', 'price-book'] as const,
   priceBookHistory: ['admin', 'price-book', 'history'] as const,
+  companyInfo: ['admin', 'company-info'] as const,
+  companyInfoHistory: ['admin', 'company-info', 'history'] as const,
 };
 
 /** Never retry an access denial: the answer will not change. */
@@ -189,6 +192,38 @@ export function useSavePriceBook() {
     mutationFn: (v: { etag: string; body: PutPriceBookBody }) => adminApi.savePriceBook(v.etag, v.body),
     onSettled: () => {
       void client.invalidateQueries({ queryKey: ADMIN_KEYS.priceBook });
+    },
+  });
+}
+
+/** The whole company info plus the ETag a save must send back. */
+export function useCompanyInfo(enabled = true) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.companyInfo,
+    queryFn: adminApi.getCompanyInfo,
+    enabled,
+    staleTime: 15 * 1000,
+    retry: retryUnlessDenied,
+  });
+}
+
+export function useCompanyInfoHistory(enabled: boolean) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.companyInfoHistory,
+    queryFn: adminApi.getCompanyInfoHistory,
+    enabled,
+    staleTime: 15 * 1000,
+    retry: retryUnlessDenied,
+  });
+}
+
+/** Saving refreshes the company info (new ETag) and its history; not awaited, like the price book. */
+export function useSaveCompanyInfo() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { etag: string; body: PutCompanyInfoBody }) => adminApi.saveCompanyInfo(v.etag, v.body),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: ADMIN_KEYS.companyInfo });
     },
   });
 }

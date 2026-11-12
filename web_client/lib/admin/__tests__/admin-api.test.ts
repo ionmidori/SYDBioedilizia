@@ -1,5 +1,7 @@
 import { fetchWithAuth } from '@/lib/api-client';
 
+import { SEED_COMPANY_INFO } from '@/lib/company-info/seed';
+
 import { AdminApiError, adminApi } from '../admin-api';
 
 jest.mock('@/lib/api-client', () => ({ fetchWithAuth: jest.fn() }));
@@ -144,6 +146,42 @@ describe('adminApi', () => {
       const error = (await adminApi.savePriceBook('"v1"', { items: [] } as never).catch((e: unknown) => e)) as AdminApiError;
       expect(error.errorCode).toBe('PRICE_BOOK_SKU_IN_USE');
       expect(error.detail).toEqual({ skus: ['DEM-001'] });
+    });
+  });
+
+  describe('company info', () => {
+    it('reads the company info and validates it', async () => {
+      mockFetch.mockResolvedValue(json(200, { etag: '"v0"', version: 0, source: 'seed', info: SEED_COMPANY_INFO }));
+      const response = await adminApi.getCompanyInfo();
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/company-info');
+      expect(response).toMatchObject({ etag: '"v0"', source: 'seed' });
+    });
+
+    it('saves with the ETag it read as If-Match and the reason in the body', async () => {
+      mockFetch.mockResolvedValue(json(200, { etag: '"v4"', version: 4, changed_parts: ['identity'] }));
+      const result = await adminApi.saveCompanyInfo('"v3"', { info: SEED_COMPANY_INFO, reason: 'Orari estivi' });
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toBe('/api/py/admin/company-info');
+      expect(init).toMatchObject({ method: 'PUT' });
+      expect((init as RequestInit).headers).toMatchObject({ 'If-Match': '"v3"' });
+      expect(JSON.parse(String((init as RequestInit).body))).toMatchObject({ reason: 'Orari estivi' });
+      expect(result.changed_parts).toEqual(['identity']);
+    });
+
+    it('turns a 409 into a version conflict', async () => {
+      mockFetch.mockResolvedValue(json(409, { error_code: 'VERSION_CONFLICT', message: 'changed' }));
+      const error = (await adminApi.saveCompanyInfo('"v1"', { info: SEED_COMPANY_INFO }).catch((e: unknown) => e)) as AdminApiError;
+      expect(error.status).toBe(409);
+      expect(error.errorCode).toBe('VERSION_CONFLICT');
+    });
+
+    it('reads the history', async () => {
+      mockFetch.mockResolvedValue(
+        json(200, { items: [{ version: 2, actor_uid: 'a', reason: null, changed_parts: ['faq'], created_at: '2026-11-12T10:00:00Z' }] }),
+      );
+      const history = await adminApi.getCompanyInfoHistory();
+      expect(mockFetch.mock.calls[0][0]).toBe('/api/py/admin/company-info/history');
+      expect(history.items[0].changed_parts).toEqual(['faq']);
     });
   });
 

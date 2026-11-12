@@ -3,7 +3,7 @@ import copy
 
 import pytest
 from pydantic import ValidationError
-from src.schemas.company_info import BUILTIN_SECTION_SLUGS, MAX_BYTES, CompanyInfo
+from src.schemas.company_info import BUILTIN_SECTION_SLUGS, MAX_BYTES, CompanyInfo, national_phone_digits
 
 
 def _valid() -> dict:
@@ -184,6 +184,37 @@ def test_only_ascii_digits_are_accepted_like_the_site():
     data = _valid()
     data["hours"] = [{"days": "Lun-Ven", "opens": "٠٩:00", "closes": "18:00"}]
     _invalid(data)
+
+
+@pytest.mark.parametrize("phone", ["Chiamaci", "+39", "06", "+39 12345", "375-546-3599x", "0039 12345", "1234567890123456", "٠٦١٢٣٤٥٦٧"])
+@pytest.mark.parametrize("field", ["phone", "whatsapp"])
+def test_a_phone_without_six_to_fifteen_national_digits_is_rejected(field, phone):
+    """Phase 141 PR-4: the chat links every saved number, so one that cannot be dialled is refused."""
+    data = _valid()
+    data["identity"][field] = phone
+    with pytest.raises(ValidationError) as error:
+        CompanyInfo.model_validate(data)
+    assert field in str(error.value)
+
+
+@pytest.mark.parametrize("phone", ["06 123456", "+39 375 5463599", "0039 375 5463599", "(06) 123.456", "06/1234-567"])
+@pytest.mark.parametrize("field", ["phone", "whatsapp"])
+def test_a_dialable_phone_is_accepted(field, phone):
+    data = _valid()
+    data["identity"][field] = phone
+    assert getattr(CompanyInfo.model_validate(data).identity, field) == phone
+
+
+def test_whatsapp_may_be_missing():
+    data = _valid()
+    data["identity"]["whatsapp"] = None
+    assert CompanyInfo.model_validate(data).identity.whatsapp is None
+
+
+def test_national_digits_drop_italys_country_code_like_the_chat_does():
+    assert national_phone_digits("+39 375 5463599") == "3755463599"
+    assert national_phone_digits("0039 06 12") == "0612"
+    assert national_phone_digits("39 375 5463599") == "393755463599"  # no "+": the 39 is part of the number
 
 
 def test_text_is_stripped():

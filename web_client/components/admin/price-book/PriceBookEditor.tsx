@@ -3,9 +3,9 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Download, History, Loader2, Plus, Save, Search } from 'lucide-react';
 
+import { SaveDialog } from '@/components/admin/SaveDialog';
 import { HistoryPanel } from '@/components/admin/price-book/HistoryPanel';
 import { PriceBookRow } from '@/components/admin/price-book/PriceBookRow';
-import { SaveDialog } from '@/components/admin/price-book/SaveDialog';
 import { usePriceBook, useSavePriceBook } from '@/hooks/admin/use-admin';
 import { useUnsavedGuard } from '@/hooks/admin/use-unsaved-guard';
 import {
@@ -411,7 +411,17 @@ export function PriceBookEditor() {
           setSaveOpen(open);
           if (!open) save.reset();
         }}
-        counts={counts}
+        title="Salvare il listino?"
+        description="L'assistente userà i nuovi prezzi dai prossimi preventivi (entro un minuto su tutti i server). Ogni versione resta nello storico."
+        summary={
+          <dl className="grid grid-cols-3 gap-3 text-center" data-testid="save-counts">
+            <Count label="Aggiunte" value={counts.added} tone="text-success-ink" />
+            <Count label="Modificate" value={counts.changed} tone="text-warning-ink" />
+            <Count label="Rimosse" value={counts.removed} tone="text-danger-ink" />
+          </dl>
+        }
+        confirmLabel="Salva listino"
+        reasonPlaceholder="Es. Aggiornamento prezzi 2026"
         pending={save.isPending}
         error={save.error}
         onConfirm={confirmSave}
@@ -421,5 +431,14 @@ export function PriceBookEditor() {
         }}
       />
     </section>
+  );
+}
+
+function Count({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="rounded-xl border border-line py-2 flex flex-col-reverse">
+      <dt className="text-xs text-ink-muted">{label}</dt>
+      <dd className={`text-2xl font-semibold tabular-nums ${tone}`}>{value}</dd>
+    </div>
   );
 }

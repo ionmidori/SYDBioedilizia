@@ -8,6 +8,12 @@ describe('describeAdminError', () => {
     expect(info.message).not.toMatch(/preventivo|listino/i);
   });
 
+  it('a missing If-Match does not talk about quotes (it is also the company info and the price book)', () => {
+    const info = describeAdminError(new AdminApiError(428, 'PRECONDITION_REQUIRED', 'missing'));
+    expect(info).toMatchObject({ kind: 'conflict', stale: true });
+    expect(info.message).not.toMatch(/preventivo|listino/i);
+  });
+
   it('lists the SKUs the AI recipes still use', () => {
     const info = describeAdminError(new AdminApiError(422, 'PRICE_BOOK_SKU_IN_USE', 'x', { skus: ['DEM-001', 'BAG-001'] }));
     expect(info.message).toContain('DEM-001, BAG-001');

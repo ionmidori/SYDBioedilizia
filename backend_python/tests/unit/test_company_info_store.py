@@ -90,6 +90,15 @@ async def test_an_untrusted_document_is_ignored_not_served(db, document, problem
     assert state.info == company_info.seed_info()
 
 
+async def test_a_document_saved_with_a_phone_too_short_is_ignored_not_served(db):
+    """A phone saved before the 6-digit rule: the seed is served and the console is told why."""
+    stored = company_info.seed_info().model_dump(mode="json")
+    stored["identity"]["phone"] = "06"
+    db.put(*PATH, {"info": stored, "version": 3})
+    state = await company_info.read_state(db)
+    assert (state.source, state.version, state.problem) == ("seed", 0, "invalid_info")
+
+
 async def test_saving_over_an_ignored_document_replaces_it_and_never_overwrites_history(db):
     db.put(*PATH, {"info": {}})
     await company_info.save(db, company_info.seed_info(), 0, "admin-a", NOW)

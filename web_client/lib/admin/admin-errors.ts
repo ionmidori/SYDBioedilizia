@@ -45,7 +45,7 @@ export function describeAdminError(error: unknown): AdminErrorInfo {
         stale: true,
       };
     case 'PRECONDITION_REQUIRED':
-      return { kind: 'conflict', message: 'Versione del preventivo mancante: ricarica la pagina.', stale: true };
+      return { kind: 'conflict', message: 'Versione dei dati mancante: ricarica la pagina.', stale: true };
     case 'PRICE_BOOK_SKU_IN_USE': {
       const skus = Array.isArray(error.detail.skus) ? (error.detail.skus as unknown[]).map(String) : [];
       return {

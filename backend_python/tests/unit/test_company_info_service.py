@@ -40,7 +40,7 @@ def db(monkeypatch):
 @pytest.fixture
 def live(db):
     """A company info in Firestore and a service that is allowed to refresh."""
-    db.put(*PATH, _stored("06 111", 3))
+    db.put(*PATH, _stored("06 111111111", 3))
     return db
 
 
@@ -51,7 +51,7 @@ def test_the_ttl_is_five_minutes():
 async def test_a_saved_info_reaches_the_snapshot(live):
     assert CompanyInfoService.snapshot().identity.phone == SEED_PHONE  # the seed, before refreshing
     await CompanyInfoService.ensure_fresh()  # the first load is awaited
-    assert CompanyInfoService.snapshot().identity.phone == "06 111"
+    assert CompanyInfoService.snapshot().identity.phone == "06 111111111"
     assert CompanyInfoService.version() == 3
     assert CompanyInfoService.updated_at() == NOW
 
@@ -66,7 +66,7 @@ async def test_the_refresh_is_not_repeated_within_the_ttl(live):
 
 async def test_after_the_ttl_the_refresh_runs_in_the_background(live):
     await CompanyInfoService.ensure_fresh()
-    live.put(*PATH, _stored("06 222", 4, NOW + timedelta(minutes=5)))
+    live.put(*PATH, _stored("06 222222222", 4, NOW + timedelta(minutes=5)))
     CompanyInfoService._refresh_after = time.monotonic() - 1  # TTL elapsed
 
     gate = asyncio.Event()
@@ -78,10 +78,10 @@ async def test_after_the_ttl_the_refresh_runs_in_the_background(live):
 
     with patch.object(company_info, "read_state", slow):
         await CompanyInfoService.ensure_fresh()  # returns at once: the request is not delayed
-        assert CompanyInfoService.snapshot().identity.phone == "06 111"
+        assert CompanyInfoService.snapshot().identity.phone == "06 111111111"
         gate.set()
         await CompanyInfoService._refresh_task
-    assert CompanyInfoService.snapshot().identity.phone == "06 222"
+    assert CompanyInfoService.snapshot().identity.phone == "06 222222222"
 
 
 async def test_concurrent_expiries_start_a_single_background_refresh(live):
@@ -100,7 +100,7 @@ async def test_when_firestore_is_down_the_previous_info_keeps_serving(live):
     with patch.object(company_info, "read_state", AsyncMock(side_effect=ServiceUnavailable("down"))):
         await CompanyInfoService.ensure_fresh()  # must not raise
         await CompanyInfoService._refresh_task
-    assert CompanyInfoService.snapshot().identity.phone == "06 111"
+    assert CompanyInfoService.snapshot().identity.phone == "06 111111111"
     assert CompanyInfoService._refresh_after > time.monotonic()  # retried later, not at once
 
 
@@ -121,13 +121,13 @@ async def test_an_untrusted_document_keeps_the_info_being_served(live):
     CompanyInfoService._refresh_after = time.monotonic() - 1
     await CompanyInfoService.ensure_fresh()
     await CompanyInfoService._refresh_task
-    assert CompanyInfoService.snapshot().identity.phone == "06 111"
+    assert CompanyInfoService.snapshot().identity.phone == "06 111111111"
 
 
 def test_a_slow_older_read_never_replaces_a_newer_save(db):
-    CompanyInfoService.apply(_info("06 222"), 2, NOW + timedelta(minutes=1))
-    CompanyInfoService.apply(_info("06 111"), 1, NOW)  # read started before the save
-    assert CompanyInfoService.snapshot().identity.phone == "06 222"
+    CompanyInfoService.apply(_info("06 222222222"), 2, NOW + timedelta(minutes=1))
+    CompanyInfoService.apply(_info("06 111111111"), 1, NOW)  # read started before the save
+    assert CompanyInfoService.snapshot().identity.phone == "06 222222222"
 
 
 async def test_with_no_firestore_document_the_seed_keeps_serving(db):
@@ -144,13 +144,13 @@ def test_the_snapshot_is_not_shared_with_callers(db):
 async def test_reading_after_the_ttl_starts_a_background_refresh(live):
     """Emails and PDFs only read the snapshot: reading must keep it fresh on every instance."""
     await CompanyInfoService.ensure_fresh()
-    live.put(*PATH, _stored("06 333", 5, NOW + timedelta(minutes=10)))
+    live.put(*PATH, _stored("06 333333333", 5, NOW + timedelta(minutes=10)))
     CompanyInfoService._refresh_after = time.monotonic() - 1  # TTL elapsed
 
-    assert CompanyInfoService.snapshot().identity.phone == "06 111"  # served at once, never blocks
+    assert CompanyInfoService.snapshot().identity.phone == "06 111111111"  # served at once, never blocks
     assert CompanyInfoService._refresh_task is not None
     await CompanyInfoService._refresh_task
-    assert CompanyInfoService.snapshot().identity.phone == "06 333"
+    assert CompanyInfoService.snapshot().identity.phone == "06 333333333"
 
 
 async def test_reading_within_the_ttl_starts_no_refresh(live):
@@ -168,5 +168,5 @@ async def test_reading_from_a_worker_thread_after_the_ttl_does_not_fail(live):
     CompanyInfoService._refresh_after = time.monotonic() - 1
     CompanyInfoService._refresh_task = None
     phone = await asyncio.to_thread(lambda: CompanyInfoService.snapshot().identity.phone)
-    assert phone == "06 111"
+    assert phone == "06 111111111"
     assert CompanyInfoService._refresh_task is None
