@@ -23,6 +23,7 @@ transaction (client snapshot, site details, media) is stored with the draft.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
@@ -38,6 +39,7 @@ from src.schemas.quote import (
     QuoteRoom,
     QuoteSchema,
     RevisionActorType,
+    RevisionRoomSpec,
 )
 from src.services.client_profile import build_client_snapshot, build_search_keys, get_client_profile
 from src.services.quote_diff import diff_items
@@ -99,8 +101,9 @@ def build_revision(
     when: datetime,
     reason: str | None = None,
     rooms: list[QuoteRoom] | None = None,
+    specs: Sequence[RevisionRoomSpec] = (),
 ) -> dict[str, Any]:
-    return QuoteRevision(
+    revision = QuoteRevision(
         version=version,
         items=items,
         rooms=rooms or [],
@@ -110,7 +113,10 @@ def build_revision(
         actor_uid=actor_uid,
         reason=reason,
         created_at=when,
-    ).model_dump(exclude_none=True)
+        specs=list(specs),
+    )
+    # `specs` is excluded from every dump (API): stored by hand, room_id None included.
+    return revision.model_dump(exclude_none=True) | {"specs": [spec.model_dump() for spec in revision.specs]}
 
 
 def _merged_request(request: QuoteRequest, dossier: DossierInputs) -> dict[str, Any]:
@@ -127,9 +133,12 @@ async def apply_ai_draft(
     request: QuoteRequest,
     when: datetime,
     dossier: DossierInputs | None = None,
+    specs: Sequence[RevisionRoomSpec] = (),
 ) -> DraftSaveResult:
     """Transaction body (reads first, then writes). Separate from the
-    `@async_transactional` wrapper so the decision logic is unit-testable."""
+    `@async_transactional` wrapper so the decision logic is unit-testable.
+
+    `specs`: what the AI lines were expanded from, kept on the AI revision."""
     dossier = dossier or DossierInputs()
     ref = quote_doc_ref(db, project_id)
     snap = await ref.get(transaction=transaction)
@@ -170,7 +179,7 @@ async def apply_ai_draft(
         transaction.set(ref, payload)
         transaction.set(
             revision_ref(ref, 1),
-            build_revision(1, quote.items, quote.financials, None, "ai", None, when, rooms=quote.rooms),
+            build_revision(1, quote.items, quote.financials, None, "ai", None, when, rooms=quote.rooms, specs=specs),
         )
         return DraftSaveResult(DraftSaveOutcome.CREATED, "draft", number.formatted, 1)
 
@@ -203,7 +212,8 @@ async def apply_ai_draft(
     updates["search_keys"] = build_search_keys(quote_number, snapshot)
 
     revision = build_revision(
-        version, quote.items, quote.financials, current.get("admin_notes"), "ai", None, when, rooms=quote.rooms
+        version, quote.items, quote.financials, current.get("admin_notes"), "ai", None, when,
+        rooms=quote.rooms, specs=specs,
     )
     if action == "revise":
         updates.update(_revision_updates(str(current_status)))
@@ -256,13 +266,14 @@ async def save_ai_draft(
     request: QuoteRequest,
     now: datetime | None = None,
     dossier: DossierInputs | None = None,
+    specs: Sequence[RevisionRoomSpec] = (),
 ) -> DraftSaveResult:
     """Create or refresh the AI draft for `project_id` atomically."""
     when = now or utc_now()
 
     @async_transactional
     async def _txn(transaction: Any) -> DraftSaveResult:
-        return await apply_ai_draft(transaction, db, project_id, quote, request, when, dossier)
+        return await apply_ai_draft(transaction, db, project_id, quote, request, when, dossier, specs)
 
     result = await _txn(db.transaction())
     logger.info(

@@ -126,6 +126,7 @@ async def test_edit_recomputes_totals_server_side_and_writes_revision_with_diff(
     revision = db.get_data(*QUOTE, "revisions", "3")
     assert revision["actor_kind"] == "admin" and revision["actor_uid"] == ADMIN
     assert revision["reason"] == "sopralluogo"
+    assert revision["specs"] == [], "the technician's revision has no spec of its own"
     changes = {(c["change"], c["sku"]) for c in revision["diff"]}
     assert changes == {("changed", "PIT-001"), ("added", "DEM-001")}
 

@@ -16,7 +16,8 @@ from src.db.firebase_client import get_async_firestore_client
 from src.repositories.conversation_repository import ConversationRepository
 from src.repositories.room_repository import get_room_repository
 from src.schemas.assembly_library import AssemblyLibrary
-from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest
+from src.schemas.intervention_spec import RoomInterventionSpec
+from src.schemas.quote import ManualWorkItem, QuoteAiWarning, QuoteRequest, RevisionRoomSpec
 from src.schemas.room import DEFAULT_ROOM_ID, DEFAULT_ROOM_LABEL, RoomSchema
 from src.services.assembly_library import load_library
 from src.services.insight_engine import InsightAnalysis, InsightEngineError, get_insight_engine
@@ -440,6 +441,7 @@ class _UnitResult:
     analysis: InsightAnalysis  # as the model returned it
     expansion: Expansion  # the lines computed by code from it
     unknown_skus: list[str]
+    spec: RoomInterventionSpec | None = None  # what the lines were expanded from (None: no library)
 
     @property
     def lines(self) -> list[ExpandedLine]:
@@ -661,21 +663,36 @@ async def _rooms_to_quote(
     return to_quote, rooms, {f["id"]: f for f in files}
 
 
-async def _save_spec(
-    project_id: str, room_id: str, analysis: InsightAnalysis, measures: dict[str, Decimal], library: AssemblyLibrary
-) -> None:
-    """Store the spec the room's lines were expanded from. Best-effort: the quote
-    never depends on it (a deleted room, a Firestore error only log a warning)."""
+def _spec_warning(room_id: str | None, exc: Exception) -> None:
+    # No project id: it may be the chat session id, an access token for guests
+    # (CodeQL py/clear-text-logging).
+    logger.warning(
+        "[QuoteTool] Intervention spec not saved.",
+        extra={"room_id": room_id, "error_type": type(exc).__name__},
+    )
+
+
+def _build_spec(
+    unit: _QuoteUnit, analysis: InsightAnalysis, measures: dict[str, Decimal], library: AssemblyLibrary | None
+) -> RoomInterventionSpec | None:
+    """The spec the unit's lines were expanded from (None: no library, or it cannot
+    be built). Best-effort: the quote never depends on it."""
+    if library is None:
+        return None
     try:
-        spec = spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
+        return spec_from_analysis(analysis, measures, library_version=library.version, now=utc_now())
+    except ValidationError as exc:
+        _spec_warning(unit.spec_room_id, exc)
+        return None
+
+
+async def _save_spec(project_id: str, room_id: str, spec: RoomInterventionSpec) -> None:
+    """Store the spec on the room. Best-effort: a deleted room, a Firestore error
+    only log a warning."""
+    try:
         await get_room_repository().save_intervention_spec(project_id, room_id, spec)
-    except (GoogleAPIError, ValidationError) as exc:
-        # No project id: it may be the chat session id, an access token for guests
-        # (CodeQL py/clear-text-logging).
-        logger.warning(
-            "[QuoteTool] Intervention spec not saved.",
-            extra={"room_id": room_id, "error_type": type(exc).__name__},
-        )
+    except GoogleAPIError as exc:
+        _spec_warning(room_id, exc)
 
 
 async def _analyse(unit: _QuoteUnit, session_id: str, project_id: str) -> _UnitResult:
@@ -701,9 +718,10 @@ async def _analyse(unit: _QuoteUnit, session_id: str, project_id: str) -> _UnitR
     measures = resolve_measures(validated, unit.room.brief if unit.room else None)
     units = {str(item["sku"]): str(item["unit"]) for item in PricingService.load_price_book()}
     expansion = expand(validated, library or _NO_LIBRARY, units, measures)
-    if library is not None and unit.spec_room_id is not None:
-        await _save_spec(project_id, unit.spec_room_id, validated, measures, library)
-    return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus)
+    spec = _build_spec(unit, validated, measures, library)
+    if spec is not None and unit.spec_room_id is not None:
+        await _save_spec(project_id, unit.spec_room_id, spec)
+    return _UnitResult(unit=unit, analysis=analysis, expansion=expansion, unknown_skus=unknown_skus, spec=spec)
 
 
 def _single_unit_reply(result: _UnitResult) -> str | None:
@@ -968,7 +986,8 @@ async def suggest_quote_items_wrapper(session_id: str, project_id: str | None = 
             summary=summary, channel="chat", session_id=session_id,
             manual_work=manual_work, ai_warnings=_ai_warnings(results),
         )
-        saved = await save_ai_draft(db, target_project_id, quote, request, now=now, dossier=dossier)
+        specs = [RevisionRoomSpec(room_id=r.unit.section_id, spec=r.spec) for r in results if r.spec is not None]
+        saved = await save_ai_draft(db, target_project_id, quote, request, now=now, dossier=dossier, specs=specs)
         reference = f" (riferimento **{saved.quote_number}**)" if saved.quote_number else ""
 
         if saved.outcome is DraftSaveOutcome.WITH_THE_TEAM:
