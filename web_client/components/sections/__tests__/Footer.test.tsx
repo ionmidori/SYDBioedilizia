@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { Footer } from '@/components/sections/Footer';
+import { VCARD_PATH } from '@/lib/company-info/vcard';
 import { renderWithCompany, TEST_IDENTITY } from '@/test-utils/company';
 
 jest.mock('next/navigation', () => ({ usePathname: () => '/' }));
@@ -36,5 +37,12 @@ describe('Footer', () => {
         expect(screen.queryByRole('link', { name: /@/ })).not.toBeInTheDocument();
         expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual(['Esplora']);
         expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+    });
+
+    it('offers the contact file of the company info for download', () => {
+        renderWithCompany(<Footer />);
+        const save = screen.getByRole('link', { name: 'Salva il contatto di SYD' });
+        expect(save).toHaveAttribute('href', VCARD_PATH);
+        expect(save).toHaveAttribute('download');
     });
 });

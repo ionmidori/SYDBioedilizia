@@ -3,11 +3,12 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Download, Mail, MapPin, Phone } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { M3EasingFM } from '@/lib/m3-motion';
 import { useCompanyIdentity } from '@/components/providers/CompanyIdentityProvider';
 import { mailtoHref, telHref } from '@/lib/company-info/format';
+import { VCARD_PATH } from '@/lib/company-info/vcard';
 
 export function Footer() {
     const currentYear = new Date().getFullYear();
@@ -89,6 +90,12 @@ export function Footer() {
                                     not mid-word ("gmail.co / m"). */}
                                 <a href={mailtoHref(identity.email)} className="min-w-0 [overflow-wrap:anywhere] hover:text-accent-ink transition-colors">
                                     {identity.email.split('@')[0]}@<wbr />{identity.email.split('@')[1]}
+                                </a>
+                            </li>
+                            <li className="flex items-start gap-2 md:gap-3">
+                                <Download className="w-4 h-4 mt-1 text-primary-ink shrink-0" aria-hidden="true" />
+                                <a href={VCARD_PATH} download className="min-w-0 hover:text-accent-ink transition-colors">
+                                    Salva il contatto di SYD
                                 </a>
                             </li>
                         </ul>
