@@ -1,6 +1,7 @@
 'use client';
 
 import type { HTMLInputTypeAttribute } from 'react';
+import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
 
 import type { CompanyIssue } from '@/lib/admin/company-info-logic';
 
@@ -80,6 +81,47 @@ export function TextField({
                 className={`${CONTROL} ${error ? 'border-danger' : 'border-line focus:border-accent'}`}
             />
             <Notes id={id} error={error} hint={hint} />
+        </div>
+    );
+}
+
+/** Move up / move down / delete for a row of a list; `subject` completes the accessible names ("il blocco 2"). */
+export function RowControls({
+    subject,
+    index,
+    count,
+    onMove,
+    onRemove,
+    removeDisabledReason,
+}: {
+    subject: string;
+    index: number;
+    count: number;
+    onMove: (from: number, to: number) => void;
+    onRemove: () => void;
+    /** Set when the row cannot be deleted: the button is disabled and says why. */
+    removeDisabledReason?: string;
+}) {
+    const button =
+        'inline-flex size-11 items-center justify-center rounded-xl border border-line text-ink hover:bg-surface disabled:opacity-40 cursor-pointer focus:outline-hidden focus-visible:ring-2 ring-ring';
+    return (
+        <div className="flex shrink-0 items-center gap-1">
+            <button type="button" className={button} disabled={index === 0} onClick={() => onMove(index, index - 1)} aria-label={`Sposta su ${subject}`}>
+                <ArrowUp className="size-4" aria-hidden />
+            </button>
+            <button type="button" className={button} disabled={index >= count - 1} onClick={() => onMove(index, index + 1)} aria-label={`Sposta giù ${subject}`}>
+                <ArrowDown className="size-4" aria-hidden />
+            </button>
+            <button
+                type="button"
+                className={button}
+                disabled={!!removeDisabledReason}
+                title={removeDisabledReason}
+                onClick={onRemove}
+                aria-label={`Elimina ${subject}`}
+            >
+                <Trash2 className="size-4" aria-hidden />
+            </button>
         </div>
     );
 }
