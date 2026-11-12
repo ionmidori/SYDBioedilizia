@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import { motion, Variants } from 'framer-motion';
-import { User, Calculator, ImagePlus, Layers, ArrowRight } from 'lucide-react';
+import { User, Calculator, ImagePlus, Layers, Building2, ArrowRight, type LucideIcon } from 'lucide-react';
 import { type Components } from 'react-markdown';
 import ArchitectAvatar from '@/components/ArchitectAvatar';
 import { ImagePreview } from '@/components/chat/ImagePreview';
@@ -42,18 +42,23 @@ interface MessageItemProps {
     animate?: boolean;
 }
 
-const WELCOME_QUICK_ACTIONS = [
+interface WelcomeQuickAction {
+    icon: LucideIcon;
+    title: string;
+    subtitle?: string;
+    prompt: string;
+}
+
+const WELCOME_QUICK_ACTIONS: readonly WelcomeQuickAction[] = [
     {
         icon: Calculator,
-        title: 'Preventivo veloce',
-        subtitle: 'Ottieni subito una stima dei costi',
-        prompt: 'Vorrei un preventivo veloce per ristrutturare',
+        title: 'Voglio fare un preventivo',
+        prompt: 'Voglio fare un preventivo',
     },
     {
         icon: ImagePlus,
-        title: 'Rendering gratuito',
-        subtitle: 'Visualizza in anteprima le tue idee',
-        prompt: 'Vorrei creare un rendering gratuito di una stanza',
+        title: 'Voglio fare un rendering',
+        prompt: 'Voglio fare un rendering',
     },
     {
         icon: Layers,
@@ -61,7 +66,13 @@ const WELCOME_QUICK_ACTIONS = [
         subtitle: 'Chiedi consigli su finiture e soluzioni',
         prompt: 'Vorrei consigli su materiali e design per la ristrutturazione',
     },
-] as const;
+    {
+        icon: Building2,
+        title: 'Informazioni generali sulla società',
+        subtitle: 'Chi siamo, lavorazioni, zone e contatti',
+        prompt: 'Vorrei informazioni generali sulla società (chi siete, cosa fate, zone servite e come contattarvi)',
+    },
+];
 
 /**
  * Single message item component
@@ -367,9 +378,11 @@ export const MessageItem = React.memo<MessageItemProps>(({ message, sessionId, o
                                                 <span className="block text-xs font-semibold text-ink leading-tight">
                                                     {title}
                                                 </span>
-                                                <span className="block text-[11px] text-ink-muted leading-tight mt-0.5 truncate">
-                                                    {subtitle}
-                                                </span>
+                                                {subtitle && (
+                                                    <span className="block text-[11px] text-ink-muted leading-tight mt-0.5 truncate">
+                                                        {subtitle}
+                                                    </span>
+                                                )}
                                             </span>
                                             <ArrowRight className="w-3.5 h-3.5 text-ink-subtle group-hover/chip:text-primary-ink group-hover/chip:translate-x-0.5 transition-all shrink-0" aria-hidden="true" />
                                         </button>
