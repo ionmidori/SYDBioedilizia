@@ -128,14 +128,6 @@ class InsightAnalysis(BaseModel):
             "Empty if completeness_score >= 0.7."
         ),
     )
-    price_range_low: float | None = Field(
-        None,
-        description="Lower bound of estimated total (EUR, excl. VAT). Set when completeness_score < 0.85.",
-    )
-    price_range_high: float | None = Field(
-        None,
-        description="Upper bound of estimated total (EUR, excl. VAT). Set when completeness_score < 0.85.",
-    )
     # Multi-room metadata (Optional — backward-compatible with single-room flow)
     room_id: str | None = Field(None, description="UUID of the room being analyzed (multi-room flow)")
     room_type: str | None = Field(None, description="bagno | cucina | soggiorno | camera | altro")

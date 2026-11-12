@@ -45,3 +45,10 @@ class PriceEstimate(BaseModel):
     high: Money
     precision: int | None = Field(default=None, ge=0, le=100)
     policy_version: str
+
+
+class PricePrecision(BaseModel):
+    """What the client reads of the range before approval: its precision, no amount."""
+    model_config = ConfigDict(extra="forbid")
+
+    precision: int | None = Field(default=None, ge=0, le=100)

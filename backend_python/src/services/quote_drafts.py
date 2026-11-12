@@ -199,7 +199,7 @@ async def apply_ai_draft(
             revision_ref(ref, 1),
             build_revision(
                 1, quote.items, quote.financials, None, "ai", None, when,
-                rooms=quote.rooms, specs=specs, estimate=quote.estimate,
+                rooms=quote.rooms, specs=specs, estimate=_team_estimate(quote),
             ),
         )
         return DraftSaveResult(DraftSaveOutcome.CREATED, "draft", number.formatted, 1)
@@ -213,7 +213,7 @@ async def apply_ai_draft(
         "rooms": [room.model_dump(exclude_none=True) for room in quote.rooms],
         "financials": quote.financials.model_dump(),
         # Replaced too: a draft without a range (no library) keeps no stale one.
-        "estimate": quote.estimate.model_dump() if quote.estimate is not None else DELETE_FIELD,
+        "estimate": estimate.model_dump() if (estimate := _team_estimate(quote)) is not None else DELETE_FIELD,
         "user_id": quote.user_id,
         "doc_type": "quote",
         "updated_at": when,
@@ -236,7 +236,7 @@ async def apply_ai_draft(
 
     revision = build_revision(
         version, quote.items, quote.financials, current.get("admin_notes"), "ai", None, when,
-        rooms=quote.rooms, specs=specs, estimate=quote.estimate,
+        rooms=quote.rooms, specs=specs, estimate=_team_estimate(quote),
     )
     if action == "revise":
         updates.update(_revision_updates(str(current_status)))
@@ -281,6 +281,12 @@ async def read_quote_status(db: Any, project_id: str) -> QuoteStatusView | None:
         sent_before=bool(data.get("sent_at")),
         precision=(data.get("estimate") or {}).get("precision"),
     )
+
+
+def _team_estimate(quote: QuoteSchema) -> PriceEstimate | None:
+    """The draft's range with its amounts: what a writer stores. The client's view
+    (precision only) never comes back as a draft."""
+    return quote.estimate if isinstance(quote.estimate, PriceEstimate) else None
 
 
 async def save_ai_draft(

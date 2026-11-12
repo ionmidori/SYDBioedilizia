@@ -97,13 +97,19 @@ def test_the_team_followup_is_not_shown_to_the_client(db):
 
 
 
-@pytest.mark.parametrize("status", ["draft", "sent"])
-def test_the_price_range_is_not_shown_to_the_client(db, status):
-    """Phase 140 step 3: the range is the team's (amounts before approval); the admin reads it."""
+@pytest.mark.parametrize("status", ["draft", "approved", "sent"])
+def test_the_client_sees_the_precision_not_the_range(db, status):
+    """Phase 140 step 3: the range is the team's (amounts before approval); the
+    client reads its precision only, the admin reads it all."""
     _seed(db, status, estimate={"low": 1100.0, "high": 1400.0, "precision": 90, "policy_version": "1.0.0"})
-    assert _client().get(f"/api/quote/{PID}").json()["estimate"] is None
+    assert _client().get(f"/api/quote/{PID}").json()["estimate"] == {"precision": 90}
     admin = _client(uid="admin-1", role="admin").get(f"/api/quote/{PID}").json()
     assert admin["estimate"]["low"] == 1100.0
+
+
+def test_a_draft_without_a_range_has_no_estimate(db):
+    _seed(db, "draft")
+    assert _client().get(f"/api/quote/{PID}").json()["estimate"] is None
 
 # ── GET /{id}/history ─────────────────────────────────────────────────────────
 

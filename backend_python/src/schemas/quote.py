@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.money import Money
 from src.schemas.intervention_spec import RoomInterventionSpec
-from src.schemas.price_range import PriceEstimate
+from src.schemas.price_range import PriceEstimate, PricePrecision
 from src.schemas.room import RoomType
 from src.utils.datetime_utils import utc_now
 
@@ -255,7 +255,7 @@ class QuoteSchema(BaseModel):
     rooms: list[QuoteRoom] = Field(default_factory=list)
     financials: QuoteFinancials = Field(default_factory=QuoteFinancials)  # type: ignore[arg-type]
     # Price range of the AI draft, for the team; the client reads its precision only.
-    estimate: PriceEstimate | None = None
+    estimate: PriceEstimate | PricePrecision | None = None
     admin_notes: str | None = None
     request: QuoteRequest | None = None
     client_snapshot: ClientSnapshot | None = None

@@ -417,3 +417,11 @@ class TestConstruction:
 
         assert first is second
         assert isinstance(first, InsightEngine)
+
+
+def test_the_model_writes_no_price_range():
+    """Phase 140 step 3: the range is computed by code from the measure sources
+    (`price_range.estimate`); the model's guess was never read."""
+    fields = InsightAnalysis.model_fields
+    assert "price_range_low" not in fields
+    assert "price_range_high" not in fields
