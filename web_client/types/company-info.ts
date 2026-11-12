@@ -60,14 +60,36 @@ export const addressSchema = z
   })
   .strict();
 
+/** A phone the chat can turn into a link: 6 to 15 digits without Italy's country code. */
+export const PHONE_MIN_DIGITS = 6;
+export const PHONE_MAX_DIGITS = 15;
+
+/** The digits of a number without Italy's country code, when it has one (Golden Sync: national_phone_digits). */
+export function nationalPhoneDigits(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (value.trim().startsWith('+') && digits.startsWith('39')) return digits.slice(2);
+  return digits.startsWith('0039') ? digits.slice(4) : digits;
+}
+
+const phoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(30)
+  .regex(/^[+0-9 .()/-]+$/)
+  .refine((value) => {
+    const count = nationalPhoneDigits(value).length;
+    return count >= PHONE_MIN_DIGITS && count <= PHONE_MAX_DIGITS;
+  }, `Un numero di telefono ha da ${PHONE_MIN_DIGITS} a ${PHONE_MAX_DIGITS} cifre, senza il prefisso internazionale`);
+
 export const identitySchema = z
   .object({
     name: title,
     legal_name: title,
     vat_id: z.string().trim().regex(/^\d{11}$/),
     address: addressSchema,
-    phone: z.string().trim().min(1).max(30),
-    whatsapp: z.string().trim().min(1).max(30).nullable().optional(),
+    phone: phoneSchema,
+    whatsapp: phoneSchema.nullable().optional(),
     email: z.string().trim().max(120).regex(EMAIL_PATTERN),
   })
   .strict();

@@ -5,6 +5,8 @@ import {
   companyInfoHistorySchema,
   companyInfoResponseSchema,
   companyInfoSchema,
+  nationalPhoneDigits,
+  PHONE_MIN_DIGITS,
   publicCompanyInfoSchema,
   putCompanyInfoBodySchema,
 } from '../company-info';
@@ -84,5 +86,36 @@ describe('company info schemas (Golden Sync with company_info.py)', () => {
         items: [{ version: 2, actor_uid: 'a', reason: null, changed_parts: ['hours'], created_at: '2026-11-11T10:00:00Z' }],
       }).items[0].changed_parts,
     ).toEqual(['hours']);
+  });
+});
+
+describe('phone and WhatsApp (Golden Sync with Phone in company_info.py)', () => {
+  const withPhone = (field: 'phone' | 'whatsapp', value: string | null) => {
+    const info = seed();
+    info.identity[field] = value;
+    return companyInfoSchema.safeParse(info);
+  };
+
+  it.each(['phone', 'whatsapp'] as const)('rejects a %s that cannot be dialled', (field) => {
+    for (const bad of ['Chiamaci', '+39', '06', '+39 12345', '375-546-3599x', '0039 12345', '1234567890123456']) {
+      expect(withPhone(field, bad).success).toBe(false);
+    }
+  });
+
+  it.each(['phone', 'whatsapp'] as const)('accepts a dialable %s', (field) => {
+    for (const ok of ['06 123456', '+39 375 5463599', '0039 375 5463599', '(06) 123.456', '06/1234-567']) {
+      expect(withPhone(field, ok).success).toBe(true);
+    }
+  });
+
+  it('lets WhatsApp be null or missing', () => {
+    expect(withPhone('whatsapp', null).success).toBe(true);
+  });
+
+  it('counts the national digits like the chat does', () => {
+    expect(PHONE_MIN_DIGITS).toBe(6);
+    expect(nationalPhoneDigits('+39 375 5463599')).toBe('3755463599');
+    expect(nationalPhoneDigits('0039 06 12')).toBe('0612');
+    expect(nationalPhoneDigits('39 375 5463599')).toBe('393755463599');
   });
 });
