@@ -59,6 +59,15 @@ import {
   priceBookResponseSchema,
   priceBookSaveResponseSchema,
 } from '@/types/admin-price-book';
+import {
+  type CompanyInfoHistory,
+  type CompanyInfoResponse,
+  type CompanyInfoSaveResponse,
+  type PutCompanyInfoBody,
+  companyInfoHistorySchema,
+  companyInfoResponseSchema,
+  companyInfoSaveResponseSchema,
+} from '@/types/company-info';
 import { type QuoteRevision, quoteRevisionSchema } from '@/types/quote';
 
 const API_ROOT = process.env.NEXT_PUBLIC_API_URL || '/api/py';
@@ -213,6 +222,15 @@ export const adminApi = {
 
   getPriceBookHistory: (): Promise<PriceBookHistory> =>
     request('/price-book/history', priceBookHistorySchema),
+
+  getCompanyInfo: (): Promise<CompanyInfoResponse> => request('/company-info', companyInfoResponseSchema),
+
+  /** `etag` is the version the editor read: a save over a newer one answers 409. */
+  saveCompanyInfo: (etag: string, body: PutCompanyInfoBody): Promise<CompanyInfoSaveResponse> =>
+    request('/company-info', companyInfoSaveResponseSchema, jsonInit('PUT', body, ifMatch(etag))),
+
+  getCompanyInfoHistory: (): Promise<CompanyInfoHistory> =>
+    request('/company-info/history', companyInfoHistorySchema),
 
   listTestimonials: (status: TestimonialStatus): Promise<TestimonialList> =>
     request(`/testimonials?status=${status}`, testimonialListSchema),
