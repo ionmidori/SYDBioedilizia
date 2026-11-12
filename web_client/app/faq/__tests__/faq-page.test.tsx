@@ -62,4 +62,20 @@ describe('/faq page', () => {
         const container = await renderPage();
         expect(container.textContent).not.toMatch(/sopralluogo/i);
     });
+
+    it('keeps a question written with </script> inert in the JSON-LD (the console edits this text)', async () => {
+        const hostile = 'Domanda </script><script>alert(1)</script> <!-- fine';
+        (getCompanyInfo as jest.Mock).mockResolvedValue({
+            ...info,
+            faq: [{ ...info.faq[0], question: hostile, answer: [{ type: 'p', text: hostile }] }],
+        });
+        const { container } = render(await FAQPage());
+
+        expect(container.querySelectorAll('script')).toHaveLength(1);
+        const script = container.querySelector('script[type="application/ld+json"]')!;
+        expect(script.textContent).not.toMatch(/<\/script|<!--/i);
+        const faq = JSON.parse(script.textContent!)['@graph'][0];
+        expect(faq.mainEntity[0].name).toBe(hostile);
+        expect(faq.mainEntity[0].acceptedAnswer.text).toBe(hostile);
+    });
 });

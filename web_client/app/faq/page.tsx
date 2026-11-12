@@ -6,6 +6,7 @@ import { Footer } from '@/components/sections/Footer';
 import { Phone } from 'lucide-react';
 import { OpenChatButton } from '@/components/ui/open-chat-button';
 import ChatWidget from '@/components/chat/ChatWidget';
+import { serializeJsonLd } from '@/lib/blog/seo';
 import { blocksToPlainText } from '@/lib/company-info/blocks';
 import { telHref } from '@/lib/company-info/format';
 import { COMPANY_ICONS } from '@/lib/company-info/icons';
@@ -84,7 +85,8 @@ export default async function FAQPage() {
         {/* JSON-LD */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          // Questions are edited in the admin console: `<` is escaped so no text can close the script.
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }}
         />
 
         <div className="container mx-auto px-4 max-w-4xl relative z-10 pt-32 pb-20">
